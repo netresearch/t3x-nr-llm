@@ -796,6 +796,354 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         self::assertEquals('abc', $result->sourceLanguage);
         self::assertEquals('xyz', $result->targetLanguage);
     }
+
+    // ==================== request-shape tests (messages + options) ====================
+
+    /**
+     * Stub the manager interface so every chat() call's messages AND options
+     * are captured; answers are served from a queue of fixed responses (one
+     * per expected chat() call).
+     *
+     * @param array<int, string> $responseContents
+     *
+     * @return array{0: LlmServiceManagerInterface&Stub, 1: object{messages: list<mixed>, options: array<int, ChatOptions>}}
+     */
+    private function createMessageCapturingManager(array $responseContents): array
+    {
+        $captured = new class {
+            /** @var list<mixed> */
+            public array $messages = [];
+            /** @var array<int, ChatOptions> */
+            public array $options = [];
+        };
+
+        $responses = [];
+        foreach ($responseContents as $content) {
+            $responses[] = new CompletionResponse(
+                content: $content,
+                model: 'gpt-5.2',
+                usage: new UsageStatistics(100, 50, 150),
+                finishReason: 'stop',
+                provider: 'openai',
+            );
+        }
+
+        $index = 0;
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+        $llmManager
+            ->method('chat')
+            ->willReturnCallback(
+                static function (array $messages, ?ChatOptions $options = null) use ($captured, $responses, &$index): CompletionResponse {
+                    self::assertInstanceOf(ChatOptions::class, $options);
+                    $captured->messages[] = $messages;
+                    $captured->options[]  = $options;
+                    $response = $responses[$index] ?? $responses[count($responses) - 1];
+                    ++$index;
+
+                    return $response;
+                },
+            );
+
+        return [$llmManager, $captured];
+    }
+
+    /**
+     * @param array<mixed> $messages
+     */
+    private function assertMessageRole(array $messages, int $index, string $expectedRole): void
+    {
+        $message = $messages[$index];
+        self::assertIsArray($message);
+        self::assertSame($expectedRole, $message['role'] ?? null);
+    }
+
+    /**
+     * @param array<mixed> $messages
+     */
+    private function messageContentAt(array $messages, int $index): string
+    {
+        $message = $messages[$index];
+        self::assertIsArray($message);
+        $content = $message['content'] ?? null;
+        self::assertIsString($content);
+
+        return $content;
+    }
+
+    #[Test]
+    public function translateSendsSystemAndUserMessages(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Hallo Welt']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello World', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertCount(1, $captured->messages);
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        self::assertCount(2, $messages);
+        $this->assertMessageRole($messages, 0, 'system');
+        $this->assertMessageRole($messages, 1, 'user');
+        self::assertSame(
+            "Translate this text:\n\n" . 'Hello World',
+            $this->messageContentAt($messages, 1),
+        );
+    }
+
+    #[Test]
+    public function translateBuildsDefaultSystemPrompt(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Hallo']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello World', 'de', 'en', ['provider' => 'openai']);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        // Language names resolved from the code map, domain default 'general'.
+        self::assertStringContainsString(
+            'You are a professional general translator. Translate the following text from English to German.',
+            $system,
+        );
+        // preserve_formatting defaults to true → the preserve line is present.
+        self::assertStringContainsString(
+            'Preserve all formatting, HTML tags, markdown, and special characters.',
+            $system,
+        );
+        // The trailing instruction is appended, not overwriting the prompt.
+        self::assertStringContainsString(
+            'Provide ONLY the translation, no explanations or notes.',
+            $system,
+        );
+        // formality defaults to 'default' → NO "Maintain … tone" line.
+        self::assertStringNotContainsString('Maintain', $system);
+    }
+
+    #[Test]
+    public function translateOmitsPreserveLineWhenPreserveFormattingFalse(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Plain']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('<p>Text</p>', 'de', 'en', ['provider' => 'openai', 'preserve_formatting' => false]);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringNotContainsString('Preserve all formatting', $system);
+    }
+
+    #[Test]
+    public function translateIncludesPreserveLineWhenPreserveFormattingExplicitlyTrue(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Kept']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'preserve_formatting' => true]);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringContainsString('You are a professional general translator', $system);
+        self::assertStringContainsString('Preserve all formatting, HTML tags, markdown, and special characters.', $system);
+    }
+
+    #[Test]
+    public function translateAddsFormalityLineToSystemPrompt(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Formell']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'formality' => 'formal']);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringContainsString('Maintain formal tone.', $system);
+        // The line is appended (.=), not overwriting the professional intro.
+        self::assertStringContainsString('You are a professional', $system);
+    }
+
+    #[Test]
+    public function translateUsesDomainInSystemPrompt(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Medizin']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'domain' => 'medical']);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringContainsString('You are a professional medical translator', $system);
+    }
+
+    #[Test]
+    public function translateRendersGlossaryTermsInSystemPrompt(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Glossar']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate(
+            'Hello',
+            'de',
+            'en',
+            ['provider' => 'openai', 'glossary' => ['term1' => 'Begriff1', 'term2' => 'Begriff2']],
+        );
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringContainsString('Use these exact term translations:', $system);
+        self::assertStringContainsString('- term1 → Begriff1', $system);
+        self::assertStringContainsString('- term2 → Begriff2', $system);
+        // Header + terms are appended (.=), not overwriting the professional intro.
+        self::assertStringContainsString('You are a professional', $system);
+    }
+
+    #[Test]
+    public function translateRendersContextInSystemPrompt(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Kontext']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'context' => 'Informal chat message']);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        $system = $this->messageContentAt($messages, 0);
+
+        self::assertStringContainsString('Context (for reference only):', $system);
+        self::assertStringContainsString('Informal chat message', $system);
+        self::assertStringContainsString('You are a professional', $system);
+    }
+
+    #[Test]
+    public function translateForwardsResolvedOptionsToChat(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Hallo']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'model' => 'gpt-5.2']);
+
+        self::assertCount(1, $captured->options);
+        $options = $captured->options[0];
+        self::assertSame(2000, $options->getMaxTokens());
+        self::assertSame(0.3, $options->getTemperature());
+        self::assertSame('openai', $options->getProvider());
+        self::assertSame('gpt-5.2', $options->getModel());
+    }
+
+    #[Test]
+    public function translateKeepsZeroBeUserUidOnChatOptions(): void
+    {
+        // uid 0 is the "anonymous / skip budget" sentinel and must survive
+        // (>= 0), not be coerced to null (> 0).
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['Hallo']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->translate('Hello', 'de', 'en', ['provider' => 'openai', 'beUserUid' => 0]);
+
+        self::assertSame(0, $captured->options[0]->getBeUserUid());
+    }
+
+    #[Test]
+    public function translateResultTranslatorPinsResolvedProvider(): void
+    {
+        $this->setResponse('Hallo Welt');
+
+        $result = $this->subject->translate('Hello World', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertSame('llm:openai', $result->translator);
+    }
+
+    #[Test]
+    public function translateTracksUsageWithExactServiceAndMultibyteCharacterCount(): void
+    {
+        // 'Café!' is 5 characters but 6 bytes — mb_strlen (not strlen) must be
+        // recorded; the service string must carry the resolved provider.
+        $this->setResponse('Übersetzt');
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock
+            ->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                'translation',
+                'llm:openai',
+                ['characters' => 5],
+                null,
+                0,
+                'gpt-5.2',
+                0,
+                null,
+            );
+
+        $subject = new LlmTranslator($this->llmManager, $usageTrackerMock);
+        $subject->translate('Café!', 'de', 'en', ['provider' => 'openai']);
+    }
+
+    #[Test]
+    public function detectLanguageSendsExactDetectionMessages(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['de']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->detectLanguage('Hallo Welt');
+
+        self::assertCount(1, $captured->messages);
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        self::assertCount(2, $messages);
+        $this->assertMessageRole($messages, 0, 'system');
+        $this->assertMessageRole($messages, 1, 'user');
+        self::assertSame(
+            'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
+            $this->messageContentAt($messages, 0),
+        );
+        self::assertSame(
+            "Detect the language of this text:\n\n" . 'Hallo Welt',
+            $this->messageContentAt($messages, 1),
+        );
+    }
+
+    #[Test]
+    public function detectLanguageTruncatesTextToFiveHundredCharacters(): void
+    {
+        $longText = str_repeat('A', 600);
+
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['de']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->detectLanguage($longText);
+
+        $messages = $captured->messages[0];
+        self::assertIsArray($messages);
+        self::assertSame(
+            "Detect the language of this text:\n\n" . substr($longText, 0, 500),
+            $this->messageContentAt($messages, 1),
+        );
+    }
+
+    #[Test]
+    public function detectLanguageUsesTenTokenBudget(): void
+    {
+        [$llmManager, $captured] = $this->createMessageCapturingManager(['de']);
+
+        $subject = new LlmTranslator($llmManager, $this->usageTrackerStub);
+        $subject->detectLanguage('Hallo Welt');
+
+        $options = $captured->options[0];
+        self::assertSame(10, $options->getMaxTokens());
+        self::assertSame(0.1, $options->getTemperature());
+    }
 }
 
 /**

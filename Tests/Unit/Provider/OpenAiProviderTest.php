@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
@@ -26,6 +27,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
@@ -1455,5 +1458,565 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         // OpenAI provider passes messages verbatim — no conversion needed.
         // Payload assertion deferred: the stub-based test pattern does not support
         // request capture. The test verifies multimodal input is accepted without errors.
+    }
+
+    // ===== Request payload shaping (chatCompletion) =====
+
+    #[Test]
+    public function chatCompletionSendsModelMessagesTokensAndTemperature(): void
+    {
+        $payload = $this->captureChatCompletionPayload([]);
+
+        // Configured defaultModel is `gpt-4o`; captureChatCompletionPayload() sends a
+        // single user message with the literal content below.
+        self::assertSame('gpt-4o', $payload['model']);
+        self::assertSame([['role' => 'user', 'content' => 'reply in json']], $payload['messages']);
+
+        // Default max token budget is 4096.
+        self::assertArrayHasKey('max_completion_tokens', $payload);
+        self::assertSame(4096, $payload['max_completion_tokens']);
+
+        // `gpt-4o` is not a reasoning model, so sampling params are spread in with the
+        // default temperature of 0.7.
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertSame(0.7, $payload['temperature']);
+    }
+
+    #[Test]
+    public function chatCompletionMergesAllSamplingParamsFlatIntoPayload(): void
+    {
+        // buildSamplingParams() returns temperature plus top_p; the spread must merge
+        // BOTH flat into the payload (not just the first entry, not nested).
+        $payload = $this->captureChatCompletionPayload(['top_p' => 0.9]);
+
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertSame(0.7, $payload['temperature']);
+        self::assertArrayHasKey('top_p', $payload);
+        self::assertSame(0.9, $payload['top_p']);
+    }
+
+    #[Test]
+    public function chatCompletionStripsSamplingParamsForReasoningModel(): void
+    {
+        // `gpt-5.2` is a reasoning model: buildSamplingParams() returns [] so no
+        // temperature key is emitted, while the model itself is still sent.
+        $payload = $this->captureChatCompletionPayload(['model' => 'gpt-5.2']);
+
+        self::assertSame('gpt-5.2', $payload['model']);
+        self::assertArrayNotHasKey('temperature', $payload);
+    }
+
+    // ===== Request payload shaping (chatCompletionWithTools) =====
+
+    #[Test]
+    public function chatCompletionWithToolsSendsModelToolsTokensAndTemperature(): void
+    {
+        $payload = $this->captureToolsPayload(
+            [['role' => 'user', 'content' => 'hi']],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_time', 'parameters' => []]])],
+            [],
+        );
+
+        self::assertSame('gpt-4o', $payload['model']);
+        self::assertSame([['role' => 'user', 'content' => 'hi']], $payload['messages']);
+
+        // ToolSpec::toArray() shape with defaulted description ('') and parameters ([]).
+        self::assertSame([
+            ['type' => 'function', 'function' => ['name' => 'get_time', 'description' => '', 'parameters' => []]],
+        ], $payload['tools']);
+
+        self::assertArrayHasKey('max_completion_tokens', $payload);
+        self::assertSame(4096, $payload['max_completion_tokens']);
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertSame(0.7, $payload['temperature']);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsMapsJsonResponseFormat(): void
+    {
+        $payload = $this->captureToolsPayload(
+            [['role' => 'user', 'content' => 'hi']],
+            [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'get_time', 'parameters' => []]])],
+            ['response_format' => 'json'],
+        );
+
+        self::assertArrayHasKey('response_format', $payload);
+        self::assertSame(['type' => 'json_object'], $payload['response_format']);
+    }
+
+    // ===== Request payload shaping (embeddings) =====
+
+    #[Test]
+    public function embeddingsSendsDefaultModelAndWrapsStringInputAsList(): void
+    {
+        $payload = $this->captureEmbeddingsPayload('hello', []);
+
+        // embeddings() falls back to DEFAULT_EMBEDDING_MODEL (not the configured chat model).
+        self::assertSame('text-embedding-3-small', $payload['model']);
+        // A scalar string input is wrapped into a single-element list.
+        self::assertSame(['hello'], $payload['input']);
+    }
+
+    #[Test]
+    public function embeddingsSendsArrayInputVerbatim(): void
+    {
+        $payload = $this->captureEmbeddingsPayload(['a', 'b'], []);
+
+        self::assertSame(['a', 'b'], $payload['input']);
+    }
+
+    #[Test]
+    public function embeddingsCastsEmbeddingValuesToFloatAndZeroesCompletionTokens(): void
+    {
+        $apiResponse = [
+            'object' => 'list',
+            'data' => [
+                ['embedding' => [0, 1, 0.5], 'index' => 0],
+            ],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 7, 'total_tokens' => 7],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->embeddings('test');
+
+        // Integer JSON values (0, 1) must be coerced to float, not left as int.
+        self::assertSame([0.0, 1.0, 0.5], $result->embeddings[0]);
+        // completionTokens is hard-wired to 0 for embeddings; totalTokens == promptTokens.
+        self::assertSame(0, $result->usage->completionTokens);
+        self::assertSame(7, $result->usage->totalTokens);
+    }
+
+    // ===== Request payload shaping (analyzeImage) =====
+
+    #[Test]
+    public function analyzeImageSendsSingleUserMessageWithModelAndTokens(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.jpg']]),
+        ];
+
+        $payload = $this->captureVisionPayload($content, []);
+
+        $messages = $payload['messages'];
+        self::assertIsArray($messages);
+        self::assertCount(1, $messages);
+        $userMessage = $messages[0];
+        self::assertIsArray($userMessage);
+        self::assertSame('user', $userMessage['role']);
+
+        // analyzeImage() defaults the model to the literal 'gpt-5.2'.
+        self::assertSame('gpt-5.2', $payload['model']);
+        self::assertArrayHasKey('max_completion_tokens', $payload);
+        self::assertSame(4096, $payload['max_completion_tokens']);
+    }
+
+    #[Test]
+    public function analyzeImagePrependsSystemPromptMessage(): void
+    {
+        $content = [
+            VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.jpg']]),
+        ];
+
+        $payload = $this->captureVisionPayload($content, ['system_prompt' => 'be brief']);
+
+        $messages = $payload['messages'];
+        self::assertIsArray($messages);
+        self::assertCount(2, $messages);
+        // System prompt is unshifted ahead of the user turn as a full role/content pair.
+        self::assertSame(['role' => 'system', 'content' => 'be brief'], $messages[0]);
+        $userMessage = $messages[1];
+        self::assertIsArray($userMessage);
+        self::assertSame('user', $userMessage['role']);
+    }
+
+    // ===== Request shaping (streamChatCompletion) =====
+
+    #[Test]
+    public function streamChatCompletionSendsExpectedUrlAndPayload(): void
+    {
+        $capturedUrl  = null;
+        $capturedBody = null;
+
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            },
+        );
+
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')->willReturnCallback(
+            function (string $method, string $uri) use (&$capturedUrl): RequestInterface {
+                $capturedUrl = $uri;
+                $request = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(fn(): RequestInterface => $request);
+                $request->method('withBody')->willReturnCallback(fn(): RequestInterface => $request);
+
+                return $request;
+            },
+        );
+
+        $subject = new OpenAiProvider(
+            $requestFactory,
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        // Trailing slash on the base URL makes the rtrim() + '/' concatenation observable.
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => 'https://api.example.test/v1/',
+            'timeout' => 30,
+        ]);
+
+        $responseStream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $responseStream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
+            return ++$eofCallCount > 1;
+        });
+        $responseStream->method('read')->willReturn("data: [DONE]\n\n");
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($responseStream);
+
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']]) as $ignored) {
+            // Drain the generator so the request is built and dispatched.
+            unset($ignored);
+        }
+
+        self::assertSame('https://api.example.test/v1/chat/completions', $capturedUrl);
+
+        self::assertIsString($capturedBody);
+        $payload = json_decode($capturedBody, true);
+        self::assertIsArray($payload);
+
+        self::assertSame('gpt-4o', $payload['model']);
+        self::assertSame([['role' => 'user', 'content' => 'hi']], $payload['messages']);
+        self::assertArrayHasKey('max_completion_tokens', $payload);
+        self::assertSame(4096, $payload['max_completion_tokens']);
+        self::assertArrayHasKey('stream', $payload);
+        self::assertTrue($payload['stream']);
+        self::assertArrayHasKey('temperature', $payload);
+        self::assertSame(0.7, $payload['temperature']);
+    }
+
+    #[Test]
+    public function streamChatCompletionValidatesConfigurationBeforeStreaming(): void
+    {
+        // No configure() call: the API key identifier stays empty, so
+        // validateConfiguration() must throw before any streaming begins.
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+
+        // A benign response so that, if the validation guard were removed, the
+        // generator would complete silently and this test would fail instead.
+        $responseStream = self::createStub(StreamInterface::class);
+        $responseStream->method('eof')->willReturn(true);
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($responseStream);
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        $this->expectException(ProviderConfigurationException::class);
+
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']]) as $ignored) {
+            unset($ignored);
+        }
+    }
+
+    #[Test]
+    public function streamChatCompletionThrowsOnErrorStatus(): void
+    {
+        $errorBody = json_encode(['error' => ['message' => 'bad stream request']], JSON_THROW_ON_ERROR);
+
+        $responseStream = self::createStub(StreamInterface::class);
+        $responseStream->method('__toString')->willReturn($errorBody);
+        $responseStream->method('eof')->willReturn(true);
+        $responseStream->method('read')->willReturn('');
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(400);
+        $response->method('getBody')->willReturn($responseStream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $this->expectException(ProviderResponseException::class);
+        $this->expectExceptionMessage('bad stream request');
+
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']]) as $ignored) {
+            unset($ignored);
+        }
+    }
+
+    #[Test]
+    public function streamChatCompletionStopsAtDoneMarker(): void
+    {
+        // Content deliberately follows the [DONE] marker: it must NOT be yielded,
+        // proving the marker is detected (substr offset) and the loop returns.
+        $streamData = "data: {\"choices\":[{\"delta\":{\"content\":\"A\"}}]}\n\n"
+            . "data: [DONE]\n\n"
+            . "data: {\"choices\":[{\"delta\":{\"content\":\"B\"}}]}\n\n";
+
+        $stream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
+            return ++$eofCallCount > 1;
+        });
+        $stream->method('read')->willReturn($streamData);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $chunks = [];
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['A'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionReassemblesLinesSplitAcrossReads(): void
+    {
+        // A single SSE line arrives split across two reads; the buffer must
+        // accumulate (concatenate) across iterations to reassemble it.
+        $reads = [
+            'data: {"choices":[{"delta":{"content":"Hel',
+            "lo\"}}]}\n\ndata: [DONE]\n\n",
+        ];
+        $readIndex = 0;
+
+        $stream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
+            return ++$eofCallCount > 2;
+        });
+        $stream->method('read')->willReturnCallback(function () use (&$readIndex, $reads): string {
+            return $reads[$readIndex++] ?? '';
+        });
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $chunks = [];
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['Hello'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionSubstitutesInvalidUtf8InPayload(): void
+    {
+        // A message carrying an invalid UTF-8 byte must be JSON-encoded with the
+        // substitute flag rather than aborting the stream setup.
+        $capturedBody = null;
+
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            },
+        );
+
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        $responseStream = self::createStub(StreamInterface::class);
+        $responseStream->method('eof')->willReturn(true);
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($responseStream);
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturn($response);
+        $subject->setHttpClient($httpClient);
+
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => "bad \xB1 byte"]]) as $ignored) {
+            unset($ignored);
+        }
+
+        // Encoding succeeded (substitute flag), so a JSON body reached the factory.
+        self::assertIsString($capturedBody);
+        $payload = json_decode($capturedBody, true);
+        self::assertIsArray($payload);
+        self::assertArrayHasKey('messages', $payload);
+    }
+
+    /**
+     * Build a provider whose JSON request body is captured into $captured (by
+     * reference), with the HTTP client stubbed to return $apiResponse.
+     *
+     * @param array<string, mixed> $apiResponse
+     */
+    private function createCapturingSubject(?string &$captured, array $apiResponse): OpenAiProvider
+    {
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(
+            function (string $content) use (&$captured): StreamInterface {
+                $captured = $content;
+                $stream = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            },
+        );
+
+        $subject = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $streamFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+
+        $httpClientStub = $this->createHttpClientMock();
+        $httpClientStub->method('sendRequest')->willReturn($this->createJsonResponseMock($apiResponse));
+        $subject->setHttpClient($httpClientStub);
+
+        return $subject;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodeCaptured(?string $captured): array
+    {
+        self::assertIsString($captured);
+        $decoded = json_decode($captured, true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
+
+    /**
+     * Run chatCompletionWithTools and return the decoded JSON request body.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<ToolSpec>                         $tools
+     * @param array<string, mixed>                   $options
+     *
+     * @return array<string, mixed>
+     */
+    private function captureToolsPayload(array $messages, array $tools, array $options): array
+    {
+        $captured = null;
+        $subject  = $this->createCapturingSubject($captured, [
+            'id' => 'chatcmpl-test',
+            'choices' => [['message' => ['content' => '{}'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-4o',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]);
+
+        $subject->chatCompletionWithTools($messages, $tools, $options);
+
+        return $this->decodeCaptured($captured);
+    }
+
+    /**
+     * Run embeddings and return the decoded JSON request body.
+     *
+     * @param string|array<int, string> $input
+     * @param array<string, mixed>      $options
+     *
+     * @return array<string, mixed>
+     */
+    private function captureEmbeddingsPayload(string|array $input, array $options): array
+    {
+        $captured = null;
+        $subject  = $this->createCapturingSubject($captured, [
+            'object' => 'list',
+            'data' => [['embedding' => [0.1], 'index' => 0]],
+            'model' => 'text-embedding-3-small',
+            'usage' => ['prompt_tokens' => 1, 'total_tokens' => 1],
+        ]);
+
+        $subject->embeddings($input, $options);
+
+        return $this->decodeCaptured($captured);
+    }
+
+    /**
+     * Run analyzeImage and return the decoded JSON request body.
+     *
+     * @param list<VisionContent>  $content
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function captureVisionPayload(array $content, array $options): array
+    {
+        $captured = null;
+        $subject  = $this->createCapturingSubject($captured, [
+            'id' => 'chatcmpl-test',
+            'model' => 'gpt-5.2',
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ]);
+
+        $subject->analyzeImage($content, $options);
+
+        return $this->decodeCaptured($captured);
     }
 }

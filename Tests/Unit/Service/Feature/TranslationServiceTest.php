@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
@@ -1301,5 +1303,363 @@ class TranslationServiceTest extends AbstractUnitTestCase
             'en',
             (new TranslationOptions())->withBeUserUid(42),
         );
+    }
+
+    // ==================== request-transformation pinning tests ====================
+    // These strengthen the suite against mutations in the messages / ChatOptions
+    // that the service constructs and hands to LlmServiceManager::chat(), and in
+    // the prompt built by buildTranslationPrompt(). They capture the exact
+    // arguments rather than only asserting the happy-path return value.
+
+    /**
+     * Capture the messages + ChatOptions handed to LlmServiceManager::chat()
+     * for a single-turn feature call.
+     *
+     * @param Closure(TranslationService): mixed $call
+     *
+     * @return array{messages: array<array-key, mixed>, options: ChatOptions}
+     */
+    private function captureSingleChat(string $responseContent, Closure $call): array
+    {
+        $capturedMessages = [];
+        $capturedOptions = null;
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ChatOptions $chatOptions) use (
+                    &$capturedMessages,
+                    &$capturedOptions,
+                    $responseContent,
+                ): CompletionResponse {
+                    $capturedMessages = $messages;
+                    $capturedOptions = $chatOptions;
+
+                    return $this->createChatResponse($responseContent);
+                },
+            );
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+        );
+
+        $call($subject);
+
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions);
+
+        return ['messages' => $capturedMessages, 'options' => $capturedOptions];
+    }
+
+    /**
+     * Invoke the private buildTranslationPrompt() with a fully-controlled raw
+     * options array and return the ['system', 'user'] strings.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array{system: string, user: string}
+     */
+    private function invokeBuildPrompt(string $text, string $source, string $target, array $options): array
+    {
+        $reflection = new ReflectionClass($this->subject);
+        $method = $reflection->getMethod('buildTranslationPrompt');
+        $prompt = $method->invoke($this->subject, $text, $source, $target, $options);
+
+        self::assertIsArray($prompt);
+        $system = $prompt['system'] ?? null;
+        $user = $prompt['user'] ?? null;
+        self::assertIsString($system);
+        self::assertIsString($user);
+
+        return ['system' => $system, 'user' => $user];
+    }
+
+    #[Test]
+    public function translateBuildsSystemAndUserMessagesWithDefaultChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            'Hallo Welt',
+            static fn(TranslationService $subject): object => $subject->translate('Hello World', 'de', 'en'),
+        );
+
+        $messages = $captured['messages'];
+        self::assertCount(2, $messages);
+
+        $system = $messages[0];
+        $user = $messages[1];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        self::assertInstanceOf(ChatMessage::class, $user);
+        self::assertTrue($system->isSystem());
+        self::assertTrue($user->isUser());
+        self::assertStringContainsString('You are a professional', $system->content);
+        self::assertSame("Translate this text:\n\nHello World", $user->content);
+
+        // Default ChatOptions coalesce targets: temperature 0.3, maxTokens 2000,
+        // no provider (TranslationOptions defaults are all null there).
+        $options = $captured['options'];
+        self::assertSame(0.3, $options->getTemperature());
+        self::assertSame(2000, $options->getMaxTokens());
+        self::assertNull($options->getProvider());
+    }
+
+    #[Test]
+    public function translateForwardsCustomTemperatureAndMaxTokensOntoChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            'Translated',
+            static fn(TranslationService $subject): object => $subject->translate(
+                'Hello',
+                'de',
+                'en',
+                new TranslationOptions(temperature: 0.5, maxTokens: 1000),
+            ),
+        );
+
+        $options = $captured['options'];
+        self::assertSame(0.5, $options->getTemperature());
+        self::assertSame(1000, $options->getMaxTokens());
+    }
+
+    #[Test]
+    public function translateBatchPassesOptionsThroughToPerTextTranslateCall(): void
+    {
+        $captured = $this->captureSingleChat(
+            'Eins',
+            static fn(TranslationService $subject): array => $subject->translateBatch(
+                ['One'],
+                'de',
+                'en',
+                new TranslationOptions(formality: 'formal'),
+            ),
+        );
+
+        $system = $captured['messages'][0];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        // If the batch discarded the passed options, formality would fall back to
+        // 'default' and the tone line would disappear.
+        self::assertStringContainsString('Maintain formal tone.', $system->content);
+    }
+
+    #[Test]
+    public function detectLanguagePinsMessagesAndChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            'fr',
+            static fn(TranslationService $subject): string => $subject->detectLanguage(
+                'Bonjour',
+                new TranslationOptions(provider: 'claude'),
+            ),
+        );
+
+        $messages = $captured['messages'];
+        self::assertCount(2, $messages);
+
+        $system = $messages[0];
+        $user = $messages[1];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        self::assertInstanceOf(ChatMessage::class, $user);
+        self::assertSame(
+            'You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.',
+            $system->content,
+        );
+        self::assertSame("Detect the language of this text:\n\nBonjour", $user->content);
+
+        $options = $captured['options'];
+        self::assertSame(10, $options->getMaxTokens());
+        self::assertSame('claude', $options->getProvider());
+    }
+
+    #[Test]
+    public function scoreTranslationQualityPinsMessagesAndChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            '0.85',
+            static fn(TranslationService $subject): float => $subject->scoreTranslationQuality(
+                'Hello',
+                'Hallo',
+                'de',
+                new TranslationOptions(provider: 'claude'),
+            ),
+        );
+
+        $messages = $captured['messages'];
+        self::assertCount(2, $messages);
+
+        $system = $messages[0];
+        $user = $messages[1];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        self::assertInstanceOf(ChatMessage::class, $user);
+        self::assertSame(
+            'You are a translation quality expert. Evaluate the translation quality based on accuracy, fluency, and consistency. Respond with ONLY a number between 0.0 and 1.0 (e.g., "0.85"). No explanation.',
+            $system->content,
+        );
+        self::assertSame(
+            "Source text:\nHello\n\nTranslation to de:\nHallo\n\nQuality score:",
+            $user->content,
+        );
+
+        $options = $captured['options'];
+        self::assertSame(10, $options->getMaxTokens());
+        self::assertSame('claude', $options->getProvider());
+    }
+
+    #[Test]
+    public function translateBatchWithTranslatorSkipsTranslatorResolutionForEmptyInput(): void
+    {
+        // The empty-input early return must short-circuit before any translator
+        // lookup — removing the `return []` would fall through to resolveTranslator().
+        $this->translatorRegistryMock
+            ->expects(self::never())
+            ->method('get');
+
+        $result = $this->subject->translateBatchWithTranslator([], 'de');
+
+        self::assertSame([], $result);
+    }
+
+    #[Test]
+    public function resolveTranslatorSkipsPresetLookupForEmptyPresetString(): void
+    {
+        // preset === '' must NOT trigger a configuration lookup: the guard is
+        // `is_string($preset) && $preset !== ''`. Swapping && for || would enter
+        // the branch and call getConfiguration('').
+        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
+        $configServiceMock
+            ->expects(self::never())
+            ->method('getConfiguration');
+
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+        $translatorStub = self::createStub(TranslatorInterface::class);
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('llm')
+            ->willReturn($translatorStub);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $reflection = new ReflectionClass($subject);
+        $method = $reflection->getMethod('resolveTranslator');
+        $result = $method->invoke($subject, ['preset' => '']);
+
+        self::assertSame($translatorStub, $result);
+    }
+
+    #[Test]
+    public function buildTranslationPromptRendersMinimalPrompt(): void
+    {
+        $prompt = $this->invokeBuildPrompt('Hello World', 'en', 'de', [
+            'formality' => 'default',
+            'domain' => 'general',
+            'glossary' => [],
+            'context' => '',
+            'preserve_formatting' => true,
+        ]);
+
+        $system = $prompt['system'];
+        // Domain + language-name resolution (en -> English, de -> German).
+        self::assertStringContainsString(
+            'You are a professional general translator. Translate the following text from English to German.',
+            $system,
+        );
+        // formality 'default' => no tone line.
+        self::assertStringNotContainsString('Maintain', $system);
+        // preserve_formatting true => formatting line present.
+        self::assertStringContainsString(
+            'Preserve all formatting, HTML tags, markdown, and special characters.',
+            $system,
+        );
+        // Empty glossary / context => their sections are absent.
+        self::assertStringNotContainsString('Use these exact term translations:', $system);
+        self::assertStringNotContainsString('Context (for reference only):', $system);
+        // Trailing instruction is appended, not replacing the prompt.
+        self::assertStringContainsString('Provide ONLY the translation, no explanations or notes.', $system);
+
+        self::assertSame("Translate this text:\n\nHello World", $prompt['user']);
+    }
+
+    #[Test]
+    public function buildTranslationPromptDefaultsPreserveFormattingToTrueWhenKeyAbsent(): void
+    {
+        // No 'preserve_formatting' key => the `?? true` default applies.
+        $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
+            'formality' => 'default',
+            'domain' => 'general',
+        ]);
+
+        self::assertStringContainsString(
+            'Preserve all formatting, HTML tags, markdown, and special characters.',
+            $prompt['system'],
+        );
+    }
+
+    #[Test]
+    public function buildTranslationPromptOmitsFormattingLineWhenPreserveFormattingFalse(): void
+    {
+        $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
+            'formality' => 'default',
+            'domain' => 'general',
+            'preserve_formatting' => false,
+        ]);
+
+        self::assertStringNotContainsString('Preserve all formatting', $prompt['system']);
+    }
+
+    #[Test]
+    public function buildTranslationPromptRendersAllSectionsWithFullOptions(): void
+    {
+        $prompt = $this->invokeBuildPrompt('Hello', 'en', 'de', [
+            'formality' => 'formal',
+            'domain' => 'legal',
+            'glossary' => [
+                'Hello' => 'Hallo',   // string value
+                'count' => 5,         // int value
+                'ratio' => 1.5,       // float value
+                'bad' => ['x'],       // non-scalar => filtered out
+            ],
+            'context' => 'Software docs',
+            'preserve_formatting' => false,
+        ]);
+
+        $system = $prompt['system'];
+
+        // Intro must survive every section append (guards against `.=` -> `=`).
+        self::assertStringContainsString(
+            'You are a professional legal translator. Translate the following text from English to German.',
+            $system,
+        );
+        // formality 'formal' => tone line.
+        self::assertStringContainsString('Maintain formal tone.', $system);
+        // preserve false => no formatting line.
+        self::assertStringNotContainsString('Preserve all formatting', $system);
+        // Glossary header + one line per scalar term.
+        self::assertStringContainsString('Use these exact term translations:', $system);
+        self::assertStringContainsString('- Hello → Hallo', $system);
+        self::assertStringContainsString('- count → 5', $system);
+        self::assertStringContainsString('- ratio → 1.5', $system);
+        // Non-scalar glossary value is filtered out entirely.
+        self::assertStringNotContainsString('- bad', $system);
+        // Context section rendered.
+        self::assertStringContainsString("Context (for reference only):\nSoftware docs", $system);
+        // Closing instruction still appended.
+        self::assertStringContainsString('Provide ONLY the translation, no explanations or notes.', $system);
+    }
+
+    #[Test]
+    public function buildTranslationPromptResolvesKnownLanguageNames(): void
+    {
+        // getLanguageName maps known codes; an unknown code falls back to itself.
+        $prompt = $this->invokeBuildPrompt('Hi', 'fr', 'zz', [
+            'formality' => 'default',
+            'domain' => 'general',
+        ]);
+
+        self::assertStringContainsString('from French to zz.', $prompt['system']);
     }
 }
