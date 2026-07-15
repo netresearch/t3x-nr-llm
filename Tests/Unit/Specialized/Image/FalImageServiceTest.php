@@ -1562,7 +1562,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         $result = $subject->generate('A sunset');
 
-        assert(isset($result->metadata['seed']));
+        self::assertIsArray($result->metadata);
         self::assertSame(111, $result->metadata['seed']);
     }
 
@@ -1576,7 +1576,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         $result = $subject->generate('A sunset');
 
-        assert(isset($result->metadata['seed']));
+        self::assertIsArray($result->metadata);
         self::assertSame(222, $result->metadata['seed']);
     }
 
@@ -1645,7 +1645,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         $results = $subject->generateMultiple('A sunset', 1);
 
-        assert(isset($results[0]->metadata['seed']));
+        self::assertIsArray($results[0]->metadata);
         self::assertSame(987, $results[0]->metadata['seed']);
     }
 
