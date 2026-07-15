@@ -32,7 +32,7 @@ final class SolrSearchBackendTest extends TestCase
     ]}}';
 
     #[Test]
-    public function buildsSelectUrlWithAccessAndLanguageFiltersAndMapsDocuments(): void
+    public function buildsSelectUrlWithAccessFilterAndMapsDocuments(): void
     {
         $requestFactory = FakeSolrHttpClient::withJson(self::DOCS_JSON);
         $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), $requestFactory);
@@ -43,7 +43,7 @@ final class SolrSearchBackendTest extends TestCase
         self::assertCount(1, $uris);
         self::assertStringStartsWith('https://solr.example:8983/solr/core_en/select?', $uris[0]);
         self::assertStringContainsString('fq=' . rawurlencode('{!typo3access}0,-1'), $uris[0]);
-        self::assertStringContainsString('fq=' . rawurlencode('language:0'), $uris[0]);
+        self::assertStringNotContainsString('fq=' . rawurlencode('language:0'), $uris[0], 'per-language read core carries no language fq');
         self::assertStringContainsString('defType=edismax', $uris[0]);
 
         self::assertCount(2, $result->sources);
@@ -139,7 +139,7 @@ final class SolrSearchBackendTest extends TestCase
         $uris = $requestFactory->requestedUris();
         self::assertCount(1, $uris);
         self::assertStringStartsWith('https://solr.example:8983/solr/core_de/select?', $uris[0]);
-        self::assertStringContainsString('fq=' . rawurlencode('language:1'), $uris[0]);
+        self::assertStringNotContainsString('fq=' . rawurlencode('language:1'), $uris[0], 'language is selected by the core, not an fq');
     }
 
     #[Test]
@@ -191,7 +191,7 @@ final class SolrSearchBackendTest extends TestCase
         // The public-only access filter must guard the FETCH path exactly
         // like the search path — a guessable uid must never bypass it.
         self::assertStringContainsString('fq=' . rawurlencode('{!typo3access}0,-1'), $uris[0]);
-        self::assertStringContainsString('fq=' . rawurlencode('language:0'), $uris[0]);
+        self::assertStringNotContainsString('fq=' . rawurlencode('language:0'), $uris[0], 'language is encoded by the core, not an fq');
     }
 
     #[Test]
