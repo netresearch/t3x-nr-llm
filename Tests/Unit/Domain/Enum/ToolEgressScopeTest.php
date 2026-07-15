@@ -10,11 +10,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Enum;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEgressScope;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(ToolEgressScope::class)]
+// ToolEgressScope lives in Classes/Domain/Enum, which is excluded from the
+// coverage source set, so a covered run rejects #[CoversClass(ToolEgressScope::class)]
+// as "not a valid target for code coverage" — a warning that fails the run under
+// failOnWarning (and aborts Infection's initial run). Declare CoversNothing, per
+// the repo convention for enum tests.
+#[CoversNothing]
 final class ToolEgressScopeTest extends TestCase
 {
     #[Test]
