@@ -168,9 +168,12 @@ final class SearchCodeToolTest extends TestCase
     #[Test]
     public function regexScanDoesNotSkipFilesContainingThePatternLiterally(): void
     {
-        // In regex mode the literal str_contains() pre-filter must NOT run;
-        // a file whose bytes contain the raw pattern still has to be scanned.
-        $output = $this->tool->execute(['pattern' => 'findMeHere', 'regex' => true]);
+        // In regex mode the literal str_contains() pre-filter must NOT run.
+        // The pattern matches `findMeHere` only AS A REGEX — the raw bytes
+        // `find.{2}Here` appear nowhere in the fixture, so if the pre-filter
+        // were (wrongly) applied in regex mode it would skip the file and this
+        // assertion would fail.
+        $output = $this->tool->execute(['pattern' => 'find.{2}Here', 'regex' => true]);
 
         self::assertStringContainsString('Classes/Alpha.php:2:', $output);
     }
