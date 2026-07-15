@@ -49,4 +49,13 @@ interface EvaluationResultRepositoryInterface
      * comparable and must not be averaged together.
      */
     public function meanQualityScoreForModel(string $model, string $grader): ?float;
+
+    /**
+     * Delete result rows whose run date is strictly before the given UNIX
+     * timestamp. The central retention path (ADR-064), driven by
+     * `nrllm:privacy:purge`.
+     *
+     * @return int number of rows deleted
+     */
+    public function purgeOlderThan(int $timestamp): int;
 }

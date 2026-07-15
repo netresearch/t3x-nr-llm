@@ -208,6 +208,13 @@ services:
     alias: Netresearch\NrLlm\Service\Evaluation\EvaluationQualityScoreProvider
     public: false
 
+  # Central privacy model (ADR-064) — the single policy read at every content
+  # sink and by the nrllm:privacy:purge command. Private: it is a constructor
+  # collaborator, never resolved by class name from the container.
+  Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface:
+    alias: Netresearch\NrLlm\Service\Privacy\PrivacyPolicy
+    public: false
+
   # ========================================
   # Repositories (private)
   # ========================================
@@ -223,6 +230,13 @@ services:
 
   Netresearch\NrLlm\Service\Skill\GitHubClientInterface:
     alias: Netresearch\NrLlm\Service\Skill\GitHubClient
+
+  # Skill audit trail (ADR-061); the nrllm:privacy:purge command (ADR-064) wires
+  # against the interface for its retention purge. Private — functional tests
+  # instantiate the concrete directly with the real ConnectionPool.
+  Netresearch\NrLlm\Service\Skill\SkillAuditRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Skill\SkillAuditRepository
+    public: false
 
   # Built via a factory so the instance-configured minimum skill trust level
   # (skills.minTrustLevel, ADR-061) is applied. Stays private — the composer is

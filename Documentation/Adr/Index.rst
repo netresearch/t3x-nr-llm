@@ -362,4 +362,5 @@ Tools
    Adr061SkillTrustEgressAndAudit
    Adr062StreamingLifecycle
    Adr063ProviderResilience
+   Adr064CentralPrivacyModel
    Adr065ReducePublicServiceSurface

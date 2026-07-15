@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Evaluation;
 
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -29,6 +30,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private PrivacyPolicyInterface $privacyPolicy,
     ) {}
 
     public function save(SetEvaluationResult $result): void
@@ -43,11 +45,25 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             'passed_count' => $result->passedCount(),
             'pass_rate' => $result->passRate(),
             'mean_score' => $result->meanScore(),
-            'details' => $this->encodeDetails($result),
+            // The details snapshot is the per-prompt content payload; gate it
+            // through the central privacy policy before persisting (ADR-064).
+            // Metadata columns above are always kept.
+            'details' => $this->privacyPolicy->filterContent($this->encodeDetails($result)) ?? '',
             'run_date' => $result->runTimestamp,
             'tstamp' => $now,
             'crdate' => $now,
         ]);
+    }
+
+    public function purgeOlderThan(int $timestamp): int
+    {
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $queryBuilder = $connection->createQueryBuilder();
+
+        return (int)$queryBuilder
+            ->delete(self::TABLE)
+            ->where($queryBuilder->expr()->lt('run_date', $queryBuilder->createNamedParameter($timestamp)))
+            ->executeStatement();
     }
 
     public function findLatest(string $setIdentifier, string $model, string $grader): ?EvaluationResultSummary
