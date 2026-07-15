@@ -221,6 +221,11 @@ Deferred / follow-ups
   The services expose the data; only a view is missing.
 * Per-operation idempotency TTL override via call metadata (the middleware uses
   a single window today).
+* Concurrent-double-submit dedup. The current get-then-run-then-set has no atomic
+  reserve-on-miss — a portable one is not available through the cache
+  :php:`FrontendInterface` — so two genuinely simultaneous same-key requests are
+  not deduplicated; only sequential retries are (see *Consequences*). A future
+  revision could gate run+store with :php:`\TYPO3\CMS\Core\Locking\LockFactory`.
 
 .. _adr-063-references:
 
