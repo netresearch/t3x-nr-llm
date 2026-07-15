@@ -51,6 +51,22 @@ final class ModelDiscovery implements ModelDiscoveryInterface
     private const AUTH_BEARER_PREFIX = 'Bearer ';
 
     /**
+     * Cap on Ollama `/api/show` enrichment calls per discovery run. Each is a
+     * blocking round-trip; a host with dozens of pulled models would otherwise
+     * fire that many sequentially inside the wizard request and risk exceeding
+     * its timeout. Models past the cap are still listed, with default metadata.
+     */
+    private const MAX_OLLAMA_DETAIL_LOOKUPS = 20;
+
+    /** @var array{description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int} */
+    private const OLLAMA_DEFAULT_DETAILS = [
+        'description' => 'Local Ollama model',
+        'capabilities' => ['chat'],
+        'contextLength' => 0,
+        'maxOutputTokens' => 0,
+    ];
+
+    /**
      * Whether the most recent discover() call substituted a static fallback
      * catalog for live API data (failed request, unexpected status, or
      * malformed/empty response).
@@ -992,6 +1008,8 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 ? $data['models']
                 : [];
 
+            $detailLookups = 0;
+            $detailsTruncated = false;
             foreach ($modelList as $model) {
                 if (!is_array($model)) {
                     continue;
@@ -1001,8 +1019,18 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                     continue;
                 }
 
-                // Get model details via /api/show to retrieve context length
-                $modelDetails = $this->getOllamaModelDetails($endpoint, $modelId);
+                // Enrich context length / capabilities via one /api/show call
+                // per model — but cap the number of these blocking round-trips
+                // so a host with many models cannot stall the wizard past its
+                // timeout. Models beyond the cap are still listed, with default
+                // metadata.
+                if ($detailLookups < self::MAX_OLLAMA_DETAIL_LOOKUPS) {
+                    $modelDetails = $this->getOllamaModelDetails($endpoint, $modelId);
+                    ++$detailLookups;
+                } else {
+                    $modelDetails = self::OLLAMA_DEFAULT_DETAILS;
+                    $detailsTruncated = true;
+                }
 
                 $models[] = new DiscoveredModel(
                     modelId: $modelId,
@@ -1014,6 +1042,13 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                     costInput: 0,
                     costOutput: 0,
                     recommended: true,
+                );
+            }
+
+            if ($detailsTruncated) {
+                $this->logger->info(
+                    'Ollama discovery exceeded the per-run /api/show detail-lookup cap; remaining models are listed with default metadata.',
+                    ['cap' => self::MAX_OLLAMA_DETAIL_LOOKUPS, 'discovered' => count($models)],
                 );
             }
 
@@ -1032,12 +1067,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      */
     private function getOllamaModelDetails(string $endpoint, string $modelId): array
     {
-        $defaults = [
-            'description' => 'Local Ollama model',
-            'capabilities' => ['chat'],
-            'contextLength' => 0,
-            'maxOutputTokens' => 0,
-        ];
+        $defaults = self::OLLAMA_DEFAULT_DETAILS;
 
         try {
             // Create body with model name
