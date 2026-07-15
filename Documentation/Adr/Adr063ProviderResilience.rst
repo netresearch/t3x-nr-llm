@@ -92,7 +92,11 @@ schema, no purge command, and no write on every call. A DB table would add write
 load on the hot path and a maintenance surface for data that is meant to be
 ephemeral. The half-open single-probe gate is pragmatic (refresh the open window
 before probing) rather than an atomic compare-and-set, which the cache backend
-cannot portably offer — a few extra probes after a cooldown is acceptable.
+cannot portably offer — a few extra probes after a cooldown is acceptable. The
+failure counter shares this posture: it is a non-atomic get-modify-set, so under
+heavy concurrent failure some increments are lost and the breaker trips a little
+late (the count still climbs about one per cooldown window) rather than never —
+acceptable for the same reasons.
 
 Provider health scoring
 -----------------------
@@ -226,6 +230,11 @@ Deferred / follow-ups
   :php:`FrontendInterface` — so two genuinely simultaneous same-key requests are
   not deduplicated; only sequential retries are (see *Consequences*). A future
   revision could gate run+store with :php:`\TYPO3\CMS\Core\Locking\LockFactory`.
+* Strict circuit-breaker failure counting under concurrency. The failure counter
+  is a non-atomic get-modify-set (best-effort, the same posture as the half-open
+  gate), so concurrent failures can lose increments and trip the breaker slightly
+  late. A future revision could make it exact with the same
+  :php:`\TYPO3\CMS\Core\Locking\LockFactory`.
 
 .. _adr-063-references:
 
