@@ -33,38 +33,39 @@ use PHPUnit\Framework\TestCase;
 final class PublicServicesPolicyTest extends TestCase
 {
     /**
-     * Audited count of `public: true` overrides (REC #9c, ADR-028).
-     * Categories per ADR-028:
+     * Audited count of `public: true` overrides (REC #9c, ADR-028,
+     * reduced by ADR-065). ADR-065 privatised every service that was
+     * public *only* so functional tests could resolve it via
+     * `FunctionalTestCase::get()` — the testing framework's
+     * private-container pass (`PrivateContainerWeakRefPass`) already
+     * makes every private service resolvable through `get()`, so those
+     * overrides were never load-bearing. Categories per ADR-065:
      *
-     * - Category 1 (Public LLM API surface): 14 concrete services
-     *   + 13 interface aliases = 27. Every Category-1 service has a
-     *   public interface alias except the concrete-only
-     *   PromptSnippetComposer (ADR-031), the snippet composition
-     *   surface for consuming extensions. Includes the
-     *   ToolCallingService feature pair (ADR-051).
-     * - Category 2 (Specialized services): 4
-     * - Category 3 (Repositories — required public for
-     *   FunctionalTestCase::get(); PromptSnippetRepository is also
-     *   the documented query surface for consuming extensions,
-     *   ADR-031): 8. Includes SkillRepository and
-     *   SkillSourceRepository, public so the skills-ingest
-     *   functional tests resolve them via FunctionalTestCase::get().
-     * - Category 4 (SetupWizard collaborators): 3 concrete +
-     *   1 interface alias = 4
-     * - Class-name-resolution tail: 2 — UsageAnalyticsService
-     *   (public solely so the Analytics functional test resolves it
-     *   via FunctionalTestCase::get()) and ToolRegistry (public so
-     *   functional tests fetch registered tools by spec name,
-     *   ADR-042).
+     * - Category A (Documented downstream LLM-API contract): 7 concrete
+     *   services + 7 interface aliases = 14 — LlmServiceManager,
+     *   ProviderAdapterRegistry, and the Completion/Vision/Embedding/
+     *   Translation/ToolCalling (ADR-051) feature pairs.
+     * - Category B (Supporting-service interface aliases; the concrete
+     *   classes are now private): 6 — CacheManagerInterface,
+     *   UsageTrackerServiceInterface, TranslatorRegistryInterface,
+     *   PromptTemplateServiceInterface, LlmConfigurationServiceInterface,
+     *   BudgetServiceInterface.
+     * - Category C (Concrete-only documented surface): 1 —
+     *   PromptSnippetComposer (ADR-031, no interface).
+     * - Category D (Specialized standalone consumer API): 4 —
+     *   Whisper, TextToSpeech, DallE, Fal.
+     * - Category E (resolved outside DI via makeInstance()): 2 —
+     *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
+     *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 27 + 4 + 8 + 4 + 2 = **45**.
+     * Total: 14 + 6 + 1 + 4 + 2 = **27**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr028PublicServicesPolicy.rst` in the
+     * `Documentation/Adr/Adr065ReducePublicServiceSurface.rst` in the
      * same PR — the diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 45;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 27;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 
@@ -102,5 +103,17 @@ final class PublicServicesPolicyTest extends TestCase
         self::assertNotFalse($contents);
         self::assertStringContainsString('REC #9c', $contents, 'ADR-028 must reference the audit recommendation it answers.');
         self::assertStringContainsString('public: true', $contents, 'ADR-028 must document the policy it locks.');
+    }
+
+    #[Test]
+    public function adr065IsPresent(): void
+    {
+        $adrPath = __DIR__ . '/../../../Documentation/Adr/Adr065ReducePublicServiceSurface.rst';
+        self::assertFileExists($adrPath, 'ADR-065 (public service surface reduction) must exist alongside this test.');
+
+        $contents = file_get_contents($adrPath);
+        self::assertNotFalse($contents);
+        self::assertStringContainsString('PrivateContainerWeakRefPass', $contents, 'ADR-065 must document the test-container mechanism it relies on.');
+        self::assertStringContainsString('27', $contents, 'ADR-065 must record the reduced public-service count.');
     }
 }

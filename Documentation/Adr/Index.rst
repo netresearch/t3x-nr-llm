@@ -360,3 +360,4 @@ Tools
    Adr059DecomposeLlmServiceManager
    Adr060QualityEvaluation
    Adr061SkillTrustEgressAndAudit
+   Adr065ReducePublicServiceSurface
