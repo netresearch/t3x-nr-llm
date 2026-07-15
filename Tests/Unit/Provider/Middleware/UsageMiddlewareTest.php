@@ -26,17 +26,22 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
 use ReflectionProperty;
+use RuntimeException;
 
 #[CoversClass(UsageMiddleware::class)]
 final class UsageMiddlewareTest extends AbstractUnitTestCase
 {
     private UsageTrackerServiceInterface&MockObject $tracker;
 
+    private LoggerInterface&MockObject $logger;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->tracker = $this->createMock(UsageTrackerServiceInterface::class);
+        $this->logger  = $this->createMock(LoggerInterface::class);
     }
 
     #[Test]
@@ -486,9 +491,36 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     // Test helpers
     // -----------------------------------------------------------------------
 
+    #[Test]
+    public function usageTrackerFailureIsSwallowedAndDoesNotBreakTheCall(): void
+    {
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o-mini',
+            usage: new UsageStatistics(100, 50, 150, 0.0012),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        // A post-success bookkeeping failure (e.g. a DB deadlock while writing
+        // tx_nrllm_service_usage) must be logged and swallowed, never re-thrown:
+        // the already-served provider result has to reach the caller unchanged.
+        $this->tracker->method('trackUsage')
+            ->willThrowException(new RuntimeException('DB deadlock'));
+        $this->logger->expects(self::once())->method('warning');
+
+        $result = $this->pipeline()->run(
+            context: ProviderCallContext::for(ProviderOperation::Chat),
+            configuration: $this->configuration(uid: 7),
+            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+        );
+
+        self::assertSame($response, $result);
+    }
+
     private function pipeline(): MiddlewarePipeline
     {
-        return new MiddlewarePipeline([new UsageMiddleware($this->tracker)]);
+        return new MiddlewarePipeline([new UsageMiddleware($this->tracker, $this->logger)]);
     }
 
     private function configuration(?int $uid = null): LlmConfiguration

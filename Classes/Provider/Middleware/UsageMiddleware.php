@@ -15,7 +15,9 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Throwable;
 
 /**
  * Records usage to tx_nrllm_service_usage after a successful provider call.
@@ -59,6 +61,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * TelemetryMiddleware (ADR-058), which wraps the whole pipeline and records
  * one row regardless of outcome.
  *
+ * Recording is fail-soft: a failure while writing to tx_nrllm_service_usage is
+ * logged and swallowed, never re-thrown, so this post-flight bookkeeping cannot
+ * turn an already-successful provider call into an error — nor be mis-recorded
+ * by TelemetryMiddleware as a provider failure.
+ *
  * The default pipeline order is pinned via tag priority (Telemetry outermost
  * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
  * Usage at 25, CircuitBreaker innermost at 20).
@@ -70,6 +77,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 
     public function __construct(
         private UsageTrackerServiceInterface $usageTracker,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -82,7 +90,19 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
     ): mixed {
         $result = $next($configuration);
 
-        $this->track($context, $configuration, $result);
+        // Usage recording is post-flight bookkeeping. A tracker/DB failure here
+        // must not fail an already-successful provider call, nor propagate out to
+        // TelemetryMiddleware — which would otherwise record the served call as a
+        // provider failure (success=false, the DB exception FQCN) and re-throw to
+        // the caller. Fail soft, like every other accounting sink in the pipeline.
+        try {
+            $this->track($context, $configuration, $result);
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Usage tracking failed after a successful provider call; the call result is unaffected.',
+                ['exception' => $e, 'operation' => $context->operation->value],
+            );
+        }
 
         return $result;
     }
