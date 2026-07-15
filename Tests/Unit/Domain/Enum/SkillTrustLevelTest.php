@@ -10,11 +10,16 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\Enum;
 
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(SkillTrustLevel::class)]
+// SkillTrustLevel lives in Classes/Domain/Enum, which is excluded from the
+// coverage source set, so a covered run rejects #[CoversClass(SkillTrustLevel::class)]
+// as "not a valid target for code coverage" — a warning that fails the run under
+// failOnWarning (and aborts Infection's initial run). Declare CoversNothing, per
+// the repo convention for enum tests.
+#[CoversNothing]
 final class SkillTrustLevelTest extends TestCase
 {
     #[Test]
