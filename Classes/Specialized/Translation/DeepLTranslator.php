@@ -637,7 +637,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         if ($method === 'POST' && $payload !== []) {
             $request = $request->withBody(
-                $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR)),
+                $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)),
             );
         }
 

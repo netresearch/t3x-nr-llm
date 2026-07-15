@@ -45,7 +45,10 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
     public function generateCacheKey(string $provider, string $operation, array $params): string
     {
         $normalized = $this->normalizeParams($params);
-        $hash = hash('xxh128', json_encode($normalized, JSON_THROW_ON_ERROR));
+        // Internal hop: the key material includes user prompt/message text, so an
+        // invalid byte must substitute into a stable hash input rather than throw
+        // and abort the (otherwise cacheable) call.
+        $hash = hash('xxh128', json_encode($normalized, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         return sprintf('%s_%s_%s', $this->sanitizeTagValue($provider), $operation, $hash);
     }
 

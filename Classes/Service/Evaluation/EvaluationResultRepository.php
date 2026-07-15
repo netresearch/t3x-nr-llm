@@ -170,7 +170,9 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             $result->evaluations,
         );
 
-        return json_encode($details, JSON_THROW_ON_ERROR);
+        // Graded output is provider content and may carry invalid bytes; substitute
+        // rather than throw, so persisting an eval run cannot crash on one response.
+        return json_encode($details, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     private function toString(mixed $value): string

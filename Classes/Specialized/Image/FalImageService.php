@@ -583,7 +583,7 @@ final class FalImageService extends AbstractSpecializedService
         foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
-        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR));
+        $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
         $submitResponse = $this->executeRequest($request);

@@ -105,6 +105,33 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function sendJsonRequestSubstitutesInvalidUtf8InPayloadInsteadOfThrowing(): void
+    {
+        // A non-UTF-8 byte in the request payload (e.g. a prompt pasted from a
+        // Latin-1 source) must degrade to a replacement character, not throw a
+        // \JsonException from json_encode and abort the call (PR #315/#316 class).
+        $captured = null;
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$captured) {
+                $captured = $request;
+
+                return $this->createJsonResponseMock(['result' => 'ok'], 200);
+            });
+
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test/v1', httpClient: $httpClient);
+
+        $result = $subject->callSendJsonRequest('endpoint', ['prompt' => "caf\xE9 scene"]);
+
+        self::assertSame(['result' => 'ok'], $result);
+        // The invalid 0xE9 byte is substituted with U+FFFD in the outgoing body
+        // (JSON-escaped as �), not left to throw \JsonException.
+        self::assertNotNull($captured);
+        self::assertStringContainsString('caf\ufffd scene', (string)$captured->getBody());
+    }
+
+    #[Test]
     public function sendJsonRequestReturnsDecodedSuccessResponse(): void
     {
         $httpClient = $this->createMock(ClientInterface::class);
