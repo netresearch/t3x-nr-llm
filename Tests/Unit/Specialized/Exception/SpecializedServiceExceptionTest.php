@@ -55,7 +55,12 @@ class SpecializedServiceExceptionTest extends AbstractUnitTestCase
             ['echo' => "caf\xE9"],
         );
 
-        self::assertStringContainsString('[translation] Translation failed', $exception->getDetailedMessage());
+        $detailed = $exception->getDetailedMessage();
+
+        self::assertStringContainsString('[translation] Translation failed', $detailed);
+        // The invalid 0xE9 byte must be substituted with U+FFFD, which the
+        // JSON-encoded context escapes as � — not dropped or left to throw.
+        self::assertStringContainsString('caf\ufffd', $detailed);
     }
 
     #[Test]

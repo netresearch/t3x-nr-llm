@@ -79,6 +79,12 @@ class CacheManagerTest extends AbstractUnitTestCase
         $key = $this->subject->generateCacheKey('openai', 'completion', $params);
 
         self::assertStringStartsWith('openai_completion_', $key);
+
+        // The raw invalid byte is substituted with U+FFFD before hashing, so it
+        // yields the SAME key as the already-substituted input — proving the
+        // substitution is deterministic and the resulting key is stable.
+        $substituted = ['messages' => [['role' => 'user', 'content' => "caf\u{FFFD}"]]];
+        self::assertSame($key, $this->subject->generateCacheKey('openai', 'completion', $substituted));
     }
 
     #[Test]
