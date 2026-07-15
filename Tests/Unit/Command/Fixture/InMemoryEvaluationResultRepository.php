@@ -26,6 +26,12 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
     /** @var array<string, EvaluationResultSummary> */
     public array $seeded = [];
 
+    /** The cutoff timestamp the last purgeOlderThan() was asked to delete below. */
+    public ?int $purgeCutoff = null;
+
+    /** The row count purgeOlderThan() reports as deleted. */
+    public int $purgeReturns = 0;
+
     public function seed(EvaluationResultSummary $summary): void
     {
         $this->seeded[$summary->setIdentifier . '|' . $summary->model . '|' . $summary->grader] = $summary;
@@ -51,5 +57,12 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
     public function meanQualityScoreForModel(string $model, string $grader): ?float
     {
         return null;
+    }
+
+    public function purgeOlderThan(int $timestamp): int
+    {
+        $this->purgeCutoff = $timestamp;
+
+        return $this->purgeReturns;
     }
 }

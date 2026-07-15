@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -21,7 +22,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * skill that can reach a prompt; a purge, if ever needed, is a separate,
  * explicitly documented retention operation — never the regular write path.
  */
-final readonly class SkillAuditRepository
+final readonly class SkillAuditRepository implements SkillAuditRepositoryInterface
 {
     use SafeCastTrait;
 
@@ -29,6 +30,7 @@ final readonly class SkillAuditRepository
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private PrivacyPolicyInterface $privacyPolicy,
     ) {}
 
     /**
@@ -54,9 +56,12 @@ final readonly class SkillAuditRepository
             'source_sha'       => $sourceSha,
             'body_checksum'    => $bodyChecksum,
             'trust_level'      => $trustLevel,
-            'scan_result'      => $scanResult,
+            // scan_result and detail are free-form content; gate them through
+            // the central privacy policy before persisting (ADR-064). All other
+            // columns are metadata and are always kept.
+            'scan_result'      => $this->privacyPolicy->filterContent($scanResult) ?? '',
             'actor_uid'        => $actorUid,
-            'detail'           => $detail,
+            'detail'           => $this->privacyPolicy->filterContent($detail) ?? '',
         ]);
     }
 
@@ -96,5 +101,21 @@ final readonly class SkillAuditRepository
             ->from(self::TABLE)
             ->executeQuery()
             ->fetchOne());
+    }
+
+    /**
+     * The one retention exception to the append-only rule (ADR-064): delete
+     * rows created strictly before the given UNIX timestamp. Driven by
+     * `nrllm:privacy:purge`, never the regular write path.
+     */
+    public function purgeOlderThan(int $timestamp): int
+    {
+        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $queryBuilder = $connection->createQueryBuilder();
+
+        return (int)$queryBuilder
+            ->delete(self::TABLE)
+            ->where($queryBuilder->expr()->lt('crdate', $queryBuilder->createNamedParameter($timestamp)))
+            ->executeStatement();
     }
 }

@@ -15,9 +15,12 @@ use Netresearch\NrLlm\Service\Evaluation\PromptEvaluation;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RegressionThresholds;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
+use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -43,7 +46,10 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
 
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
-        $this->repository = new EvaluationResultRepository($connectionPool);
+        // Run the persistence tests at the "full" privacy level so the details
+        // snapshot is stored verbatim; the metadata-emptying case below uses a
+        // "metadata" policy of its own (ADR-064).
+        $this->repository = new EvaluationResultRepository($connectionPool, $this->policy('full'));
     }
 
     /**
@@ -180,5 +186,36 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(1_700_000_100, $judge->runTimestamp);
         self::assertEqualsWithDelta(1.0, $deterministic->passRate, 0.0001);
         self::assertEqualsWithDelta(0.25, $judge->passRate, 0.0001);
+    }
+
+    #[Test]
+    public function saveAtMetadataLevelEmptiesDetailsButKeepsMetadata(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $repository = new EvaluationResultRepository($connectionPool, $this->policy('metadata'));
+
+        $repository->save($this->buildResult(4, 3, 1_700_000_500));
+
+        $row = $connectionPool->getConnectionForTable(self::TABLE)->select(
+            ['prompt_count', 'passed_count', 'details'],
+            self::TABLE,
+            ['run_date' => 1_700_000_500],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        // Metadata columns are preserved...
+        self::assertSame(4, (int)$row['prompt_count']);
+        self::assertSame(3, (int)$row['passed_count']);
+        // ...but the content payload is dropped (ADR-064).
+        self::assertSame('', $row['details']);
+    }
+
+    private function policy(string $level): PrivacyPolicy
+    {
+        $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['privacy' => ['level' => $level]]);
+
+        return new PrivacyPolicy($extensionConfiguration, new ContentRedactor());
     }
 }

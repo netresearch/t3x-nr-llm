@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\SkillSource;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillSourceRepository;
+use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Service\Skill\GitHubClientInterface;
 use Netresearch\NrLlm\Service\Skill\MarketplaceParser;
 use Netresearch\NrLlm\Service\Skill\PromptInjectionScanner;
@@ -31,6 +33,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Skill\Fixtures\FakeGitHubClient;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -132,7 +135,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
     #[Test]
     public function auditTrailIsAppendOnlyAcrossReSyncAndToggle(): void
     {
-        $audit  = new SkillAuditRepository($this->connectionPool());
+        $audit  = $this->auditRepository();
         $source = $this->persistSource(SkillTrustLevel::COMMUNITY);
 
         $this->service($this->github('First body.'))->sync($source);
@@ -176,7 +179,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
             30,
             new PromptInjectionScanner(),
             new SkillManifestVerifier(),
-            new SkillAuditService(new SkillAuditRepository($this->connectionPool())),
+            new SkillAuditService($this->auditRepository()),
         );
     }
 
@@ -215,7 +218,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
      */
     private function auditEvents(SkillSource $source): array
     {
-        $rows = (new SkillAuditRepository($this->connectionPool()))->findBySourceUid((int)$source->getUid());
+        $rows = $this->auditRepository()->findBySourceUid((int)$source->getUid());
 
         return array_map(
             static function (array $row): string {
@@ -232,7 +235,7 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
      */
     private function auditRow(SkillSource $source, string $event): array
     {
-        foreach ((new SkillAuditRepository($this->connectionPool()))->findBySourceUid((int)$source->getUid()) as $row) {
+        foreach ($this->auditRepository()->findBySourceUid((int)$source->getUid()) as $row) {
             if (($row['event'] ?? '') === $event) {
                 return $row;
             }
@@ -247,6 +250,19 @@ final class SkillIngestIsolationTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
         return $connectionPool;
+    }
+
+    /**
+     * The audit repository with a "full" privacy policy (ADR-064) so the
+     * scan-result / detail payloads are stored verbatim — these tests assert on
+     * the append-only trail, not on content filtering.
+     */
+    private function auditRepository(): SkillAuditRepository
+    {
+        $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['privacy' => ['level' => 'full']]);
+
+        return new SkillAuditRepository($this->connectionPool(), new PrivacyPolicy($extensionConfiguration, new ContentRedactor()));
     }
 
     private function persistenceManager(): PersistenceManagerInterface

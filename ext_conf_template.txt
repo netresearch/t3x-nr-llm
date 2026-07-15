@@ -103,3 +103,13 @@ testing.testPrompt = Say hello and introduce yourself in one sentence. Respond i
 
 # cat=telemetry; type=boolean; label=Enable Telemetry: Record one row per provider pipeline run (operation, provider, latency, success/failure, cache hit, fallback attempts) in tx_nrllm_telemetry. No prompts or responses are stored, only the exception class on failure. Purge old rows with the nrllm:telemetry:purge command. On by default.
 telemetry.enabled = 1
+
+# =============================================================================
+# Privacy & data retention (ADR-064)
+# =============================================================================
+
+# cat=privacy; type=options[None=none,Metadata=metadata,Redacted=redacted,Full=full]; label=Content Privacy Level: How much per-request content the extension stores in its log tables. "None" and "Metadata" drop the content payload and keep only metadata (identifiers, counts, timestamps); "Redacted" stores a length-capped copy with obvious credentials and email addresses masked; "Full" stores it verbatim. Metadata-only is the default and matches the extension's historical behaviour. Governs tx_nrllm_eval_result.details and tx_nrllm_skill_audit.scan_result/detail.
+privacy.level = metadata
+
+# cat=privacy; type=int+; label=Retention (days): How many days per-request log rows are kept before the nrllm:privacy:purge command deletes them (evaluation results, skill audit, telemetry). Minimum 1 day; an empty or zero value falls back to 30 days.
+privacy.retentionDays = 30
