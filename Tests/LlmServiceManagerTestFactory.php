@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -32,9 +33,12 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * construction into dedicated collaborators, changing the manager's
  * constructor. This factory keeps the previous test call shape — extension
  * configuration, logger, adapter registry, pipeline, cache manager, optional
- * configuration repository and optional skill injection, in that order — and
- * wires the new collaborators internally, so the existing constructions did not
- * each have to spell them out. Production wiring is autowired via Services.yaml.
+ * configuration repository, skill injection, model selection and streaming
+ * dispatcher, in that order — and wires the new collaborators internally, so the
+ * existing constructions did not each have to spell them out. A null streaming
+ * dispatcher (the default) keeps the manager on the legacy raw-generator
+ * streaming path, so tests that do not exercise the lifecycle are unaffected.
+ * Production wiring is autowired via Services.yaml.
  */
 trait LlmServiceManagerTestFactory
 {
@@ -47,6 +51,7 @@ trait LlmServiceManagerTestFactory
         ?LlmConfigurationRepository $configurationRepository = null,
         ?SkillInjectionService $skillInjection = null,
         ?ModelSelectionServiceInterface $modelSelectionService = null,
+        ?StreamingDispatcher $streaming = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -57,6 +62,7 @@ trait LlmServiceManagerTestFactory
             new EmbedCacheKeyBuilder($cacheManager),
             $skillInjection,
             $modelSelectionService,
+            $streaming,
         );
     }
 }

@@ -90,15 +90,22 @@ interface LlmServiceManagerInterface
     /**
      * Stream chat completion using a specific LLM configuration.
      *
+     * Routed through the streaming lifecycle (ADR-062): budget pre-flight before
+     * the first chunk and usage + telemetry settlement at stream end. `$metadata`
+     * is the trailing parameter so pre-existing three-argument callers stay
+     * source-compatible; omitting it skips budget enforcement (no attributed
+     * owner), matching {@see self::chatWithConfiguration()}.
+     *
      * Legacy array-shaped message fixtures are accepted for back-compat
      * and normalised via `ChatMessage::fromArray()` before dispatch.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
+     * @param array<string, mixed>                   $metadata        cross-cutting streaming context (budget attribution, task uid)
      *
      * @return Generator<int, string, mixed, void>
      */
-    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = []): Generator;
+    public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator;
 
     /**
      * @param string|array<int, string> $input

@@ -42,6 +42,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             'latency_ms'               => $record->latencyMs,
             'cache_hit'                => $record->cacheHit ? 1 : 0,
             'fallback_attempts'        => $record->fallbackAttempts,
+            'time_to_first_token_ms'   => $record->timeToFirstTokenMs,
             'crdate'                   => time(),
         ]);
     }

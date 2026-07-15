@@ -621,6 +621,11 @@ CREATE TABLE tx_nrllm_telemetry (
     cache_hit smallint(5) unsigned DEFAULT '0' NOT NULL,
     fallback_attempts smallint(5) unsigned DEFAULT '0' NOT NULL,
 
+    -- Time-to-first-token for streamed runs (ADR-062). NULL for every
+    -- non-streaming run — there is no partial-response milestone to measure —
+    -- which is deliberately distinct from a real 0 ms first token.
+    time_to_first_token_ms int(11) unsigned DEFAULT NULL,
+
     -- Standard TYPO3 field (append-only; no tstamp — rows are never updated)
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
