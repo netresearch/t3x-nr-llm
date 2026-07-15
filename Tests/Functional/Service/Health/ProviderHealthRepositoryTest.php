@@ -77,21 +77,23 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function ignoresRunsServedByAFallback(): void
+    public function countsFallbackRescuedRunsAsPrimaryFailures(): void
     {
         $now = time();
-        // openai failed serving the request itself (fallback_attempts = 0) ...
-        $this->insertRow('openai', false, 200, $now, 0);
-        // ... and a run where openai was the requested PRIMARY but a fallback
-        // rescued it (success = 1, fallback_attempts = 2). The success belongs
-        // to the fallback, not to openai — it must not credit openai's health.
+        // openai served one request itself successfully (fallback_attempts = 0) ...
+        $this->insertRow('openai', true, 100, $now, 0);
+        // ... and on another it was the requested PRIMARY but FAILED its first
+        // attempt, so a fallback rescued the whole run (success = 1,
+        // fallback_attempts = 2). The rescued success belongs to the sibling,
+        // not to openai: it counts as a primary FAILURE here, not as a success
+        // and not dropped — otherwise a usually-rescued primary scores ~100%.
         $this->insertRow('openai', true, 150, $now, 2);
 
         $scores = $this->repository->scoresSince($now - 900);
 
         self::assertArrayHasKey('openai', $scores);
-        self::assertSame(1, $scores['openai']->sampleCount, 'Only the self-served run counts');
-        self::assertSame(0.0, $scores['openai']->successRate);
+        self::assertSame(2, $scores['openai']->sampleCount, 'Both the solo run and the rescued-failure run count');
+        self::assertEqualsWithDelta(0.5, $scores['openai']->successRate, 0.0001, 'Only the solo success counts as a success');
     }
 
     #[Test]
