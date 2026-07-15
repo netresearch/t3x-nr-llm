@@ -103,10 +103,134 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
 
         $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
 
-        self::assertStringContainsString('first', $output);
-        self::assertStringContainsString('second', $output);
-        // Two rows -> two lines.
-        self::assertCount(2, explode("\n", $output));
+        // Exact rendering pins the timestamp formatting, the type-label
+        // lookup (1 -> DB, 5 -> ERROR), the error marker threshold
+        // (error 0 -> no marker, error 1 -> [ERROR]) and the line glue.
+        // Timestamps are derived through the same date() call the
+        // production code uses, so the expectation is timezone-agnostic.
+        $line1 = '[' . date('Y-m-d H:i:s', 1714521600) . '] [DB]  first';
+        $line2 = '[' . date('Y-m-d H:i:s', 1714521660) . '] [ERROR] [ERROR] second';
+        self::assertSame($line1 . "\n" . $line2, $output);
+    }
+
+    #[Test]
+    public function syslogFormatsRowWithDefaultsForMissingFields(): void
+    {
+        // A row missing every optional key exercises the defensive
+        // fallbacks: tstamp -> 0, type -> 0 (OTHER), error -> 0 (no
+        // marker), details -> ''. Flipping any `isset() && …` guard to
+        // `||`/negation reads the undefined key (warning) or changes the
+        // rendered value; the `: 0`/`+1` default is pinned via the exact
+        // timestamp and OTHER label.
+        $this->systemLogReader
+            ->expects(self::once())
+            ->method('readRecent')
+            ->willReturn([[]]);
+        $this->logger->expects(self::never())->method(self::anything());
+
+        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+
+        self::assertSame('[' . date('Y-m-d H:i:s', 0) . '] [OTHER]  ', $output);
+    }
+
+    #[Test]
+    public function syslogCastsNumericStringRowFields(): void
+    {
+        // Untrusted sys_log values may arrive as numeric strings; the
+        // resolver casts tstamp/type to int before use. Dropping either
+        // cast passes a string into date() / translateSyslogType(int),
+        // which raises a TypeError under strict_types.
+        $this->systemLogReader
+            ->expects(self::once())
+            ->method('readRecent')
+            ->willReturn([
+                ['tstamp' => '1714521600', 'type' => '2', 'error' => '0', 'details' => 'x'],
+            ]);
+        $this->logger->expects(self::never())->method(self::anything());
+
+        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+
+        self::assertSame('[' . date('Y-m-d H:i:s', 1714521600) . '] [FILE]  x', $output);
+    }
+
+    #[Test]
+    public function syslogTranslatesEverySystemLogType(): void
+    {
+        // One row per known sys_log type value pins each arm of the
+        // type-label lookup (the arm that actually feeds the output — the
+        // English fallback, since LocalizationUtility::translate() returns
+        // null in the unit context). error 0 keeps the [ERROR] marker out,
+        // so each label's only source is the type translation.
+        $this->systemLogReader
+            ->expects(self::once())
+            ->method('readRecent')
+            ->willReturn([
+                ['tstamp' => 0, 'type' => 1, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 2, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 3, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 4, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 5, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 254, 'error' => 0, 'details' => ''],
+                ['tstamp' => 0, 'type' => 255, 'error' => 0, 'details' => ''],
+            ]);
+        $this->logger->expects(self::never())->method(self::anything());
+
+        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+
+        $time  = date('Y-m-d H:i:s', 0);
+        $lines = [
+            '[' . $time . '] [DB]  ',
+            '[' . $time . '] [FILE]  ',
+            '[' . $time . '] [CACHE]  ',
+            '[' . $time . '] [EXTENSION]  ',
+            '[' . $time . '] [ERROR]  ',
+            '[' . $time . '] [SETTING]  ',
+            '[' . $time . '] [LOGIN]  ',
+        ];
+        self::assertSame(implode("\n", $lines), $output);
+    }
+
+    #[Test]
+    public function syslogConfigLimitAndErrorOnlyAreParsedFromIntegers(): void
+    {
+        // A non-default numeric limit proves the parsed value (not the 50
+        // default) reaches the reader: negating the is_numeric() guard
+        // would fall back to 50.
+        $this->systemLogReader
+            ->expects(self::once())
+            ->method('readRecent')
+            ->with(25, false)
+            ->willReturn([]);
+
+        $output = $this->subject->resolve(self::makeTask(
+            Task::INPUT_SYSLOG,
+            '{"limit":25,"error_only":false}',
+        ));
+
+        self::assertSame('', $output);
+    }
+
+    #[Test]
+    public function syslogConfigCoercesNumericStringLimitAndNonBoolErrorOnly(): void
+    {
+        // Untrusted config: limit as a numeric string, error_only as an
+        // int. The resolver casts them to (int)/(bool) before calling the
+        // typed reader (int $limit, bool $errorOnly). Dropping either cast
+        // passes the raw string/int, which TypeErrors under strict_types;
+        // resolveSyslog() catches it and returns the read-error string,
+        // so the '' expectation below fails on the mutant.
+        $this->systemLogReader
+            ->expects(self::once())
+            ->method('readRecent')
+            ->with(25, true)
+            ->willReturn([]);
+
+        $output = $this->subject->resolve(self::makeTask(
+            Task::INPUT_SYSLOG,
+            '{"limit":"25","error_only":1}',
+        ));
+
+        self::assertSame('', $output);
     }
 
     /**
@@ -187,6 +311,57 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
         self::assertCount(2, $decoded);
     }
 
+    #[Test]
+    public function tableConfigCoercesNumericStringLimit(): void
+    {
+        // limit arriving as a numeric string is cast to int before the
+        // typed fetchAll(string, int) call. Dropping the cast passes the
+        // raw string, TypeErrors inside readTableRows() (caught as the
+        // broad Throwable arm), and yields the generic read-error string
+        // instead of the encoded rows.
+        $this->recordTableReader
+            ->expects(self::once())
+            ->method('fetchAll')
+            ->with('be_users', 7)
+            ->willReturn([['uid' => 1, 'username' => 'admin']]);
+        $this->logger->expects(self::never())->method(self::anything());
+
+        $output = $this->subject->resolve(self::makeTask(
+            Task::INPUT_TABLE,
+            '{"table":"be_users","limit":"7"}',
+        ));
+
+        self::assertSame(
+            json_encode([['uid' => 1, 'username' => 'admin']], JSON_PRETTY_PRINT),
+            $output,
+        );
+    }
+
+    #[Test]
+    public function tableConfigCoercesNonStringTableName(): void
+    {
+        // A numeric table value from untrusted config is cast to string
+        // before the typed fetchAll(string, int) call. Dropping the cast
+        // passes the raw int, which TypeErrors inside readTableRows() and
+        // surfaces the generic read-error string.
+        $this->recordTableReader
+            ->expects(self::once())
+            ->method('fetchAll')
+            ->with('123', 5)
+            ->willReturn([['uid' => 1]]);
+        $this->logger->expects(self::never())->method(self::anything());
+
+        $output = $this->subject->resolve(self::makeTask(
+            Task::INPUT_TABLE,
+            '{"table":123,"limit":5}',
+        ));
+
+        self::assertSame(
+            json_encode([['uid' => 1]], JSON_PRETTY_PRINT),
+            $output,
+        );
+    }
+
     /**
      * REC #11b regression guard for the table branch — same contract as
      * the syslog version: warning logged with full context, generic
@@ -209,6 +384,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
                 self::stringContains('table read failed'),
                 self::callback(static function (array $context) use ($sensitive): bool {
                     self::assertArrayHasKey('exception', $context);
+                    self::assertArrayHasKey('taskUid', $context);
                     self::assertSame('be_users', $context['table'] ?? null);
                     self::assertSame(50, $context['limit'] ?? null);
                     $exception = $context['exception'];
@@ -251,6 +427,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->with(
                 self::stringContains('rejected by record-picker policy'),
                 self::callback(static function (array $context): bool {
+                    self::assertArrayHasKey('taskUid', $context);
                     self::assertSame('be_groups', $context['table'] ?? null);
                     self::assertInstanceOf(InvalidArgumentException::class, $context['exception']);
 

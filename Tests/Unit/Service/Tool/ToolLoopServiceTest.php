@@ -14,12 +14,15 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\RunAugmentation;
+use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -258,21 +261,47 @@ final class ToolLoopServiceTest extends TestCase
     public function capHitSynthesisesFinalAnswerAndMarksTruncated(): void
     {
         $mgr = $this->createMock(LlmServiceManagerInterface::class);
-        // The model never stops requesting tools.
+        // The model never stops requesting tools; each tools round reports usage.
         $mgr->method('chatWithToolsForConfiguration')
-            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
-        // Exactly one no-tools synthesis completion closes the loop.
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])], 10, 5));
+        // Exactly one no-tools synthesis completion closes the loop, with its
+        // own distinct usage split.
         $mgr->expects(self::once())
             ->method('chatWithConfiguration')
-            ->willReturn($this->response('SYNTHESISED'));
+            ->willReturn($this->response('SYNTHESISED', null, 3, 2));
 
-        $service = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
-        $result  = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), null, null, 2);
+        $runTrace = new RunTrace();
+        $service  = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
+        $result   = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), null, null, 2, $runTrace);
 
         self::assertSame(2, $result->iterations);
         self::assertTrue($result->truncated);
         self::assertSame('SYNTHESISED', $result->finalContent);
         self::assertCount(2, $result->trace);
+
+        // Usage is summed across both tools rounds (2 × 10/5) AND the synthesis
+        // completion (3/2): 23 prompt, 12 completion. Pins the two += accumulators
+        // on the cap-hit path (a `-=` or `=` mutant would yield 17/8 or 3/2).
+        self::assertSame(23, $result->usage->promptTokens);
+        self::assertSame(12, $result->usage->completionTokens);
+        self::assertSame(35, $result->usage->totalTokens);
+
+        // The synthesis is recorded as its OWN round after the last tool round:
+        // iterations (2) + 1 = round 3. It is the sole request step offering no
+        // tools, and the sole LLM step whose content is the synthesised answer.
+        $synthesisRequests = array_values(array_filter(
+            $runTrace->getSteps(),
+            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_REQUEST && $s->toolSpecs === [],
+        ));
+        self::assertCount(1, $synthesisRequests);
+        self::assertSame(3, $synthesisRequests[0]->round);
+
+        $synthesisLlm = array_values(array_filter(
+            $runTrace->getSteps(),
+            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_LLM && $s->content === 'SYNTHESISED',
+        ));
+        self::assertCount(1, $synthesisLlm);
+        self::assertSame(3, $synthesisLlm[0]->round);
     }
 
     #[Test]
@@ -366,8 +395,9 @@ final class ToolLoopServiceTest extends TestCase
     public function oversizedToolResultIsCappedToMaxBytes(): void
     {
         // A tool returning more than the byte cap must be truncated before it is
-        // fed back to the model, with a visible marker.
-        $big = str_repeat('x', 60000);
+        // fed back to the model, with a visible marker. A distinctive leading
+        // token pins the cut window's start offset.
+        $big = 'START' . str_repeat('x', 60000);
 
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
         $queue = [
@@ -381,8 +411,40 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertCount(1, $result->trace);
         $toolResult = $result->trace[0]->result;
-        self::assertLessThanOrEqual(50000, strlen($toolResult));
+        // Reserving the marker's bytes makes the capped output land on the cap
+        // exactly (content budget + marker = 50000).
+        self::assertSame(50000, strlen($toolResult));
         self::assertStringContainsString('tool result truncated', $toolResult);
+        // The cut keeps the head of the tool output (offset 0, not 1 or -1): the
+        // result still begins with the distinctive leading token.
+        self::assertStringStartsWith('START', $toolResult);
+        // The exact truncation marker (order + both operands of the concat) is
+        // appended verbatim, embedding the byte cap and the trailing " bytes]".
+        self::assertStringEndsWith("\n…[tool result truncated at 50000 bytes]", $toolResult);
+    }
+
+    #[Test]
+    public function resultAtExactlyMaxBytesIsReturnedUntruncated(): void
+    {
+        // Boundary: a tool result whose length equals the cap exactly must pass
+        // through unchanged (the guard is `<=`, not `<`) — no marker appended.
+        $exact = str_repeat('x', 50000);
+
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'edge_tool', [])]),
+            $this->response('done'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('edge_tool', $exact)]));
+        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+
+        self::assertCount(1, $result->trace);
+        $toolResult = $result->trace[0]->result;
+        self::assertSame(50000, strlen($toolResult));
+        self::assertStringNotContainsString('truncated', $toolResult);
+        self::assertSame($exact, $toolResult);
     }
 
     #[Test]
@@ -774,5 +836,122 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame(7, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $meta);
+    }
+
+    #[Test]
+    public function defaultMaxIterationsIsFiveWhenNoCapGiven(): void
+    {
+        // No $maxIterations argument ⇒ the constructor default (5) governs the
+        // cap. The model never stops requesting tools, so the loop runs the full
+        // five rounds before synthesising — pinning the default to 5 (a 4 or 6
+        // default would end at 4 or 6 iterations / trace entries).
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_x', 'loop_tool', [])]));
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->response('SYNTHESISED'));
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
+        $result  = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), null);
+
+        self::assertSame(5, $result->iterations);
+        self::assertTrue($result->truncated);
+        self::assertCount(5, $result->trace);
+        self::assertSame('SYNTHESISED', $result->finalContent);
+    }
+
+    #[Test]
+    public function dryRunReturnsEmptyResultAndCallsNoProvider(): void
+    {
+        // A dry run assembles the prompt and returns immediately: no provider
+        // call, an empty answer, zero iterations, not truncated, zero usage.
+        // Passing NO RunTrace exercises the null-safe recordAssembledMessages
+        // (a non-null-safe mutant would fatal on the null trace).
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+        $mgr->expects(self::never())->method('chatWithConfiguration');
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
+        $result  = $service->runLoop(
+            [$this->userTurn('hi')],
+            new LlmConfiguration(),
+            null,
+            null,
+            null,
+            null,
+            new RunAugmentation([], [], true),
+        );
+
+        self::assertSame('', $result->finalContent);
+        self::assertSame([], $result->trace);
+        self::assertSame(0, $result->iterations);
+        self::assertFalse($result->truncated);
+        self::assertSame(0, $result->usage->promptTokens);
+        self::assertSame(0, $result->usage->completionTokens);
+        self::assertSame(0, $result->usage->totalTokens);
+    }
+
+    #[Test]
+    public function dryRunBakesSystemPromptOverrideAsLeadingSystemMessage(): void
+    {
+        // With an augmentation present and a per-run system-prompt override, the
+        // override (non-empty) wins over the configuration prompt and is baked as
+        // the FIRST assembled message. Recorded on the dry-run trace so it can be
+        // asserted without a provider call.
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+        $mgr->expects(self::never())->method('chatWithConfiguration');
+
+        $runTrace = new RunTrace();
+        $service  = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
+        $service->runLoop(
+            [$this->userTurn('hi')],
+            new LlmConfiguration(),
+            null,
+            new ToolOptions(systemPrompt: 'OVERRIDE_SYS'),
+            null,
+            $runTrace,
+            new RunAugmentation([], [], true),
+        );
+
+        $steps = $runTrace->getSteps();
+        self::assertNotSame([], $steps);
+        $assembled = $steps[0];
+        self::assertSame(RunStep::KIND_ASSEMBLED, $assembled->kind);
+
+        $messages = $assembled->messagesSent;
+        self::assertIsArray($messages);
+        $first = self::arr($messages[0] ?? null);
+        self::assertSame('system', $first['role'] ?? null);
+        self::assertSame('OVERRIDE_SYS', $first['content'] ?? null);
+    }
+
+    #[Test]
+    public function plainCompletionPathRecordsRequestAndLlmAtRoundOne(): void
+    {
+        // Empty allow-list ⇒ no tools offered ⇒ the single plain-completion
+        // branch. It records exactly one request step and one LLM step, both at
+        // round 1, with an empty tool-spec list — and a small, non-negative
+        // elapsed duration (pinning elapsedMs's subtraction and /1e6 scaling).
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->response('plain answer'));
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        $runTrace = new RunTrace();
+        $service  = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
+        $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), [], null, null, $runTrace);
+
+        $steps = $runTrace->getSteps();
+        self::assertCount(2, $steps);
+        self::assertSame(RunStep::KIND_REQUEST, $steps[0]->kind);
+        self::assertSame(1, $steps[0]->round);
+        self::assertSame([], $steps[0]->toolSpecs);
+        self::assertSame(RunStep::KIND_LLM, $steps[1]->kind);
+        self::assertSame(1, $steps[1]->round);
+        self::assertGreaterThanOrEqual(0.0, $steps[1]->durationMs);
+        self::assertLessThan(60000.0, $steps[1]->durationMs);
     }
 }
