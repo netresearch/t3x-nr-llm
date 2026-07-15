@@ -94,6 +94,10 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
         self::assertArrayHasKey('openai', $scores);
         self::assertSame(2, $scores['openai']->sampleCount, 'Both the solo run and the rescued-failure run count');
         self::assertEqualsWithDelta(0.5, $scores['openai']->successRate, 0.0001, 'Only the solo success counts as a success');
+        // Latency averages only the self-served run (100ms), not the rescued
+        // run's whole-pipeline 150ms — otherwise the primary's latency is
+        // distorted by a sibling's serving time.
+        self::assertEqualsWithDelta(100.0, $scores['openai']->avgLatencyMs, 0.0001, 'Latency excludes fallback-rescued whole-pipeline time');
     }
 
     #[Test]

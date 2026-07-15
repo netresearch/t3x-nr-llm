@@ -48,7 +48,11 @@ final readonly class ProviderHealthRepository implements ProviderHealthRepositor
             // would inflate a usually-rescued primary toward 100%).
             ->addSelectLiteral('COUNT(*) AS samples')
             ->addSelectLiteral('SUM(CASE WHEN fallback_attempts = 0 AND success = 1 THEN 1 ELSE 0 END) AS successes')
-            ->addSelectLiteral('AVG(latency_ms) AS avg_latency')
+            // Average latency only over self-served runs. A fallback-rescued run's
+            // latency_ms is the whole-pipeline time (the failed primary attempt
+            // plus the sibling that answered), which would distort the primary's
+            // own latency; AVG ignores the NULLs the ELSE branch yields.
+            ->addSelectLiteral('AVG(CASE WHEN fallback_attempts = 0 THEN latency_ms END) AS avg_latency')
             ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($sinceTimestamp)),
