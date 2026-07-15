@@ -5,11 +5,18 @@ on:
     branches: [main]
   pull_request:
   merge_group:
+  workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1'
 
 permissions:
   contents: read
+
+# Supersede stale PR runs. Never cancel merge_group (a queue entry must finish
+# validating or the queue stalls) or push-to-main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Per-extension test matrix (intentional-drift). Security/quality jobs are in checks.yml.
 jobs:
@@ -20,20 +27,62 @@ jobs:
     with:
       php-versions: '["8.2","8.3","8.4","8.5"]'
       typo3-versions: '["^13.4","^14.3"]'
+      # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
+      # its Xdebug tax is negligible and patch coverage stays useful. The
+      # expensive functional matrix opts out via functional-test-command below.
       upload-coverage: true
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
       # this the whole functional job was skipped and both suites rotted (#272).
       run-functional-tests: true
+      # Functional tests are the entire CI critical path: 8 matrix cells at
+      # 8-11min each while every other job finishes in ~1min, and 95% of a cell
+      # is one serial PHPUnit process.
+      #
+      # Two things are traded here, per event:
+      #
+      #   PR / merge_group -> speed. No coverage, so setup-php's xdebug is
+      #     forced off (XDEBUG_MODE overrides the ini at runtime): Xdebug in
+      #     coverage mode costs ~1.6x even when nothing is collected. The 81
+      #     test classes then run in parallel; typo3/testing-framework keys each
+      #     test instance on substr(sha1(static::class), 0, 7)
+      #     (FunctionalTestCase::getInstanceIdentifier), so one process per test
+      #     FILE cannot collide. Per-class output is buffered and only replayed
+      #     for failures, otherwise 4 interleaved streams make CI unreadable.
+      #
+      #   schedule / workflow_dispatch -> coverage. Serial, with Xdebug, so
+      #     Codecov gets a real functional report (parallel would need per-process
+      #     clover merging for no benefit when nobody is waiting on the run).
+      #     NOTE: this deliberately does not key off `push`, because preflight
+      #     skips push-to-main runs already validated by merge_group -- gating
+      #     coverage on push would mean it never runs.
+      #
+      # Both globs are required: Build/FunctionalTests.xml runs the `functional`
+      # AND `e2e-backend` suites, and dropping the latter is how #272 rotted.
+      functional-test-command: |
+        if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          composer ci:test:php:functional -- --coverage-clover=coverage-functional.xml
+        else
+          mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
+          find Tests/Functional Tests/E2E/Backend -name '*Test.php' -print0 \
+            | xargs -0 -P"$(nproc)" -I{} sh -c '
+                log=".Build/logs/functional/$(printf %s "$1" | tr / _).log"
+                if ! php -d opcache.enable_cli=1 -d xdebug.mode=off \
+                       .Build/bin/phpunit -c Build/FunctionalTests.xml "$1" > "$log" 2>&1; then
+                  echo "::group::FAILED $1"; cat "$log"; echo "::endgroup::"
+                  exit 1
+                fi
+              ' _ {}
+        fi
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # MariaDB functional leg (one cell): keeps the MySQL-only branches —
   # ke_search MATCH...AGAINST retrieval — permanently exercised in CI.
   # mariadb:10.11 LTS: images >= 11 ship only mariadb-admin, which fails
   # the reusable workflow's hardcoded mysqladmin health check.
-  # The full matrix above stays on SQLite; this narrow second call trades
-  # a small duplicate unit/PHPStan run for permanent engine coverage.
+  # The full matrix above stays on SQLite; this narrow second call exists ONLY
+  # for the MariaDB functional leg.
   ci-functional-mariadb:
     uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main # NOSONAR — own-org reusable workflow deliberately tracks main, like the sibling job above
     permissions:
@@ -44,3 +93,12 @@ jobs:
       run-functional-tests: true
       functional-test-db: mariadb
       db-image: 'mariadb:10.11'
+      # This call previously also ran Lint/Code Style/PHPStan/Rector/Unit — all
+      # byte-for-byte repeats of the sibling call above, none of them required
+      # checks, none of them engine-dependent. They cost ~5 job-min per run and
+      # proved nothing the SQLite call had not already proven.
+      run-lint: false
+      run-cgl: false
+      run-phpstan: false
+      run-rector: false
+      run-unit-tests: false

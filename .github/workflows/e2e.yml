@@ -11,6 +11,16 @@ on:
 
 permissions: {}
 
+# Supersede stale PR runs; a push to a PR branch otherwise leaves the previous
+# ~9min E2E run burning a runner to validate a commit nobody will merge.
+# merge_group and push-to-main are never cancelled.
+# (Safe to edit here: e2e.yml is not part of the typo3-extension template, so
+# check-template-drift.yml does not byte-compare it. checks.yml IS templated —
+# its concurrency block has to come from netresearch/.github instead.)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e:
     uses: netresearch/typo3-ci-workflows/.github/workflows/e2e.yml@main
