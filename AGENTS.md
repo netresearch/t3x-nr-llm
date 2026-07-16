@@ -72,7 +72,15 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 2. Use `make` shortcuts (`make test-unit`, `make phpstan`, `make cgl`) — they delegate to `runTests.sh`.
 3. Pre-commit hooks via `Build/captainhook.json` (auto-installed by composer plugin) run cgl + phpstan + commit-msg checks.
 4. Sign commits with `git commit -S --signoff` (DCO required).
-5. Pre-push gate parity with CI is SIX suites: `unit`, `functional -d sqlite`, `phpstan`, `cgl`, `rector -n`, `fuzzy` — CI runs all six, and `rector`/`fuzzy` are the two habitually forgotten ones. Contract changes (setter clamps, validation ranges) have assertion twins in `Tests/Fuzzy/` — grep there before pushing.
+5. Pre-push gate parity with CI is these six suites — CI runs all six, and `rector`/`fuzzy` are the two habitually forgotten ones:
+   - `unit`
+   - `functional -d sqlite`
+   - `phpstan`
+   - `cgl`
+   - `rector -n`
+   - `fuzzy`
+
+   Contract changes (setter clamps, validation ranges) have assertion twins in `Tests/Fuzzy/` — grep there before pushing.
 6. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 13.4 / 14.0; merged via `--merge` strategy (preserves signatures).
 <!-- AGENTS-GENERATED:END development -->
 
