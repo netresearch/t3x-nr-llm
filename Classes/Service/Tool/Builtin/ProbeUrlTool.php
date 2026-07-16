@@ -168,7 +168,9 @@ final readonly class ProbeUrlTool implements ToolInterface
 
     private function bodyExcerpt(string $body): string
     {
-        $text = trim((string)preg_replace('/\s+/', ' ', strip_tags($body)));
+        // Space before each tag so adjacent text nodes ("<td>Price</td><td>100</td>")
+        // stay separated after strip_tags; the collapse removes the extra spaces.
+        $text = trim((string)preg_replace('/\s+/', ' ', strip_tags(str_replace('<', ' <', $body))));
         if ($text === '') {
             return '';
         }

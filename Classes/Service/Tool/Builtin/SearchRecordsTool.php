@@ -280,7 +280,9 @@ final readonly class SearchRecordsTool implements ToolInterface
             if ($value === '') {
                 continue;
             }
-            $plain    = trim((string)preg_replace('/\s+/', ' ', strip_tags($value)));
+            // Space before each tag so adjacent text nodes ("<td>Price</td><td>100</td>")
+            // stay separated after strip_tags; the collapse removes the extra spaces.
+            $plain    = trim((string)preg_replace('/\s+/', ' ', strip_tags(str_replace('<', ' <', $value))));
             $position = mb_stripos($plain, $query);
             if ($position === false) {
                 continue;

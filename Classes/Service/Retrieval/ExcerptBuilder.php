@@ -40,6 +40,8 @@ final readonly class ExcerptBuilder
 
     public static function plain(string $text): string
     {
-        return trim((string)preg_replace('/\s+/', ' ', strip_tags($text)));
+        // Space before each tag so adjacent text nodes ("<td>Price</td><td>100</td>")
+        // stay separated after strip_tags; the collapse removes the extra spaces.
+        return trim((string)preg_replace('/\s+/', ' ', strip_tags(str_replace('<', ' <', $text))));
     }
 }

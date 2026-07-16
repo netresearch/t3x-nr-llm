@@ -227,7 +227,9 @@ final readonly class GetPageContentTool implements ToolInterface
      */
     private function excerpt(string $bodytext): string
     {
-        $plain = trim((string)preg_replace('/\s+/', ' ', strip_tags($bodytext)));
+        // Space before each tag so adjacent text nodes ("<td>Price</td><td>100</td>")
+        // stay separated after strip_tags; the collapse removes the extra spaces.
+        $plain = trim((string)preg_replace('/\s+/', ' ', strip_tags(str_replace('<', ' <', $bodytext))));
         if ($plain === '') {
             return '';
         }
