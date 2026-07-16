@@ -25,6 +25,9 @@ final readonly class BudgetCheckResult
     public const LIMIT_MONTHLY_REQUESTS = 'monthly_requests';
     public const LIMIT_MONTHLY_TOKENS = 'monthly_tokens';
     public const LIMIT_MONTHLY_COST = 'monthly_cost';
+    public const LIMIT_CONFIGURATION_DAILY_REQUESTS = 'configuration_daily_requests';
+    public const LIMIT_CONFIGURATION_DAILY_TOKENS = 'configuration_daily_tokens';
+    public const LIMIT_CONFIGURATION_DAILY_COST = 'configuration_daily_cost';
 
     /**
      * Human-friendly labels, keyed by LIMIT_* value. Kept here as a
@@ -42,6 +45,9 @@ final readonly class BudgetCheckResult
         self::LIMIT_MONTHLY_REQUESTS => 'monthly request count',
         self::LIMIT_MONTHLY_TOKENS => 'monthly token usage',
         self::LIMIT_MONTHLY_COST => 'monthly cost',
+        self::LIMIT_CONFIGURATION_DAILY_REQUESTS => 'configuration daily request count',
+        self::LIMIT_CONFIGURATION_DAILY_TOKENS => 'configuration daily token usage',
+        self::LIMIT_CONFIGURATION_DAILY_COST => 'configuration daily cost',
     ];
 
     public function __construct(

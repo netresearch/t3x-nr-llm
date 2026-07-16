@@ -118,7 +118,7 @@ final readonly class StreamingDispatcher
         LlmConfiguration $configuration,
         callable $open,
     ): Generator {
-        $this->assertWithinBudget($context);
+        $this->assertWithinBudget($context, $configuration);
 
         return $this->drain($context, $configuration, $open);
     }
@@ -285,11 +285,12 @@ final readonly class StreamingDispatcher
     /**
      * @throws BudgetExceededException when the pre-flight check denies the call
      */
-    private function assertWithinBudget(ProviderCallContext $context): void
+    private function assertWithinBudget(ProviderCallContext $context, LlmConfiguration $configuration): void
     {
         $result = $this->budgetService->check(
             $this->readInt($context, BudgetMiddleware::METADATA_BE_USER_UID),
             $this->readFloat($context, BudgetMiddleware::METADATA_PLANNED_COST),
+            $configuration,
         );
 
         if (!$result->allowed) {

@@ -91,14 +91,15 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function passesUidZeroWhenMetadataAbsent(): void
     {
+        $configuration = $this->configuration();
         $this->budgetService->expects(self::once())
             ->method('check')
-            ->with(0, 0.0)
+            ->with(0, 0.0, self::identicalTo($configuration))
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(),
+            configuration: $configuration,
             terminal: static fn(LlmConfiguration $c): string => 'ok',
         );
     }
@@ -106,14 +107,15 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
     #[Test]
     public function coercesIntegerPlannedCostToFloat(): void
     {
+        $configuration = $this->configuration();
         $this->budgetService->expects(self::once())
             ->method('check')
-            ->with(7, 3.0)
+            ->with(7, 3.0, self::identicalTo($configuration))
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
             context: $this->contextFor(beUserUid: 7, plannedCost: 3), // int, not float
-            configuration: $this->configuration(),
+            configuration: $configuration,
             terminal: static fn(LlmConfiguration $c): string => 'ok',
         );
     }
@@ -123,9 +125,10 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
     {
         // Non-int for uid and non-numeric for cost must fall back to
         // 0 / 0.0 rather than cast surprisingly.
+        $configuration = $this->configuration();
         $this->budgetService->expects(self::once())
             ->method('check')
-            ->with(0, 0.0)
+            ->with(0, 0.0, self::identicalTo($configuration))
             ->willReturn(BudgetCheckResult::allowed());
 
         $context = new ProviderCallContext(
@@ -139,7 +142,7 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
 
         $this->pipeline()->run(
             context: $context,
-            configuration: $this->configuration(),
+            configuration: $configuration,
             terminal: static fn(LlmConfiguration $c): string => 'ok',
         );
     }
@@ -151,14 +154,15 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         // "allowed / unauthenticated". The middleware does not pre-filter;
         // it forwards whatever was on the metadata so the service keeps
         // ownership of that policy.
+        $configuration = $this->configuration();
         $this->budgetService->expects(self::once())
             ->method('check')
-            ->with(-1, 0.0)
+            ->with(-1, 0.0, self::identicalTo($configuration))
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
             context: $this->contextFor(beUserUid: -1, plannedCost: 0.0),
-            configuration: $this->configuration(),
+            configuration: $configuration,
             terminal: static fn(LlmConfiguration $c): string => 'ok',
         );
     }

@@ -79,4 +79,38 @@ final readonly class UserBudgetUsageWindows implements BudgetUsageWindowsInterfa
             ],
         ];
     }
+
+    public function aggregateForConfiguration(
+        int $configurationUid,
+        int $fromTimestamp,
+        int $toTimestamp,
+    ): array {
+        // One roundtrip on the config_lookup(configuration_uid, request_date)
+        // index; sums span every backend user because the cap is scoped to
+        // the configuration, not to a user.
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
+
+        $row = $queryBuilder
+            ->addSelectLiteral('SUM(request_count) AS requests')
+            ->addSelectLiteral('SUM(tokens_used) AS tokens')
+            ->addSelectLiteral('SUM(estimated_cost) AS cost')
+            ->from(self::USAGE_TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('configuration_uid', $queryBuilder->createNamedParameter($configurationUid)),
+                $queryBuilder->expr()->gte('request_date', $queryBuilder->createNamedParameter($fromTimestamp)),
+                $queryBuilder->expr()->lte('request_date', $queryBuilder->createNamedParameter($toTimestamp)),
+            )
+            ->executeQuery()
+            ->fetchAssociative();
+
+        if (!is_array($row)) {
+            return ['requests' => 0, 'tokens' => 0, 'cost' => 0.0];
+        }
+
+        return [
+            'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
+            'tokens' => is_numeric($row['tokens'] ?? null) ? (int)$row['tokens'] : 0,
+            'cost' => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
+        ];
+    }
 }

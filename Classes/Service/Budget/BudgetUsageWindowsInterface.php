@@ -39,4 +39,20 @@ interface BudgetUsageWindowsInterface
         ?int $monthlyFromTimestamp,
         int $toTimestamp,
     ): array;
+
+    /**
+     * Aggregate usage attributed to one configuration within a single
+     * window, across ALL backend users.
+     *
+     * Serves the per-configuration daily cap (issue #389): the totals are
+     * compared against the configuration's own maxRequestsPerDay /
+     * maxTokensPerDay / maxCostPerDay ceilings.
+     *
+     * @return array{requests: int, tokens: int, cost: float}
+     */
+    public function aggregateForConfiguration(
+        int $configurationUid,
+        int $fromTimestamp,
+        int $toTimestamp,
+    ): array;
 }

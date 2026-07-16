@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
@@ -286,19 +287,157 @@ class BudgetServiceTest extends AbstractUnitTestCase
         self::assertFalse($service->check(42, plannedCost: 3.0)->allowed);
     }
 
+    #[Test]
+    public function deniesWhenConfigurationDailyCostCapExceeded(): void
+    {
+        $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
+        $service = $this->makeService(configUsage: ['requests' => 1, 'tokens' => 10, 'cost' => 0.9]);
+        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+
+        // 0.9 used + 0.5 planned = 1.4 > 1.0 cap
+        $result = $service->check(42, 0.5, $config);
+
+        self::assertFalse($result->allowed);
+        self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST, $result->exceededLimit);
+        self::assertSame(0.9, $result->currentUsage);
+        self::assertSame(1.0, $result->limit);
+    }
+
+    #[Test]
+    public function deniesOnConfigurationDailyRequestLimit(): void
+    {
+        // Usage already at the limit -> +1 incoming > limit (compare() semantics)
+        $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
+        $service = $this->makeService(configUsage: ['requests' => 10, 'tokens' => 0, 'cost' => 0.0]);
+        $config = $this->makeConfiguration(uid: 7, dailyRequests: 10);
+
+        $result = $service->check(42, 0.0, $config);
+
+        self::assertFalse($result->allowed);
+        self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_REQUESTS, $result->exceededLimit);
+    }
+
+    #[Test]
+    public function deniesOnConfigurationDailyTokenLimit(): void
+    {
+        $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
+        $service = $this->makeService(configUsage: ['requests' => 0, 'tokens' => 1500, 'cost' => 0.0]);
+        $config = $this->makeConfiguration(uid: 7, dailyTokens: 1000);
+
+        $result = $service->check(42, 0.0, $config);
+
+        self::assertFalse($result->allowed);
+        self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_TOKENS, $result->exceededLimit);
+    }
+
+    #[Test]
+    public function configurationCapAppliesEvenForZeroBeUserUid(): void
+    {
+        // CLI/scheduler traffic (beUserUid 0) skips only the per-user
+        // check; the configuration-scoped cap still gates the call.
+        $service = $this->makeService(configUsage: ['requests' => 1, 'tokens' => 10, 'cost' => 0.9]);
+        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+
+        $result = $service->check(0, 0.5, $config);
+
+        self::assertFalse($result->allowed);
+        self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST, $result->exceededLimit);
+    }
+
+    #[Test]
+    public function skipsConfigurationWithoutPersistedUid(): void
+    {
+        // A transient configuration (uid null) cannot carry operator-set
+        // caps; it must be allowed without any aggregation query.
+        $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
+
+        /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
+        $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
+        $usageWindows->expects(self::never())->method('aggregateForConfiguration');
+
+        $service = new BudgetService($this->repositoryStub, $usageWindows);
+        $config = $this->makeConfiguration(uid: null, dailyCost: 1.0);
+
+        self::assertTrue($service->check(42, 5.0, $config)->allowed);
+    }
+
+    #[Test]
+    public function skipsConfigurationWithoutLimits(): void
+    {
+        // Persisted configuration without any limit set: the common case
+        // must not cost an extra DB query.
+        $this->repositoryStub->method('findOneByBeUser')->willReturn(null);
+
+        /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
+        $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
+        $usageWindows->expects(self::never())->method('aggregateForConfiguration');
+
+        $service = new BudgetService($this->repositoryStub, $usageWindows);
+        $config = $this->makeConfiguration(uid: 7);
+
+        self::assertTrue($service->check(42, 5.0, $config)->allowed);
+    }
+
+    #[Test]
+    public function userDenialTakesPrecedenceOverConfiguration(): void
+    {
+        // Both scopes would deny; the user scope is checked first and
+        // short-circuits, so the config aggregate is never queried.
+        $budget = $this->makeBudget(dailyCost: 1.0);
+        $this->repositoryStub->method('findOneByBeUser')->willReturn($budget);
+
+        /** @var BudgetUsageWindowsInterface&MockObject $usageWindows */
+        $usageWindows = $this->createMock(BudgetUsageWindowsInterface::class);
+        $usageWindows->method('aggregate')->willReturn([
+            'daily' => ['requests' => 0, 'tokens' => 0, 'cost' => 0.9],
+            'monthly' => ['requests' => 0, 'tokens' => 0, 'cost' => 0.9],
+        ]);
+        $usageWindows->expects(self::never())->method('aggregateForConfiguration');
+
+        $service = new BudgetService($this->repositoryStub, $usageWindows);
+        $config = $this->makeConfiguration(uid: 7, dailyCost: 1.0);
+
+        $result = $service->check(42, 0.5, $config);
+
+        self::assertFalse($result->allowed);
+        self::assertSame(BudgetCheckResult::LIMIT_DAILY_COST, $result->exceededLimit);
+    }
+
     /**
      * @param array{requests: int, tokens: int, cost: float}|null $daily
      * @param array{requests: int, tokens: int, cost: float}|null $monthly
+     * @param array{requests: int, tokens: int, cost: float}|null $configUsage
      */
-    private function makeService(array $daily = null, array $monthly = null): BudgetService
+    private function makeService(array $daily = null, array $monthly = null, array $configUsage = null): BudgetService
     {
         $usageWindows = self::createStub(BudgetUsageWindowsInterface::class);
         $usageWindows->method('aggregate')->willReturn([
             'daily' => $daily ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
             'monthly' => $monthly ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
         ]);
+        $usageWindows->method('aggregateForConfiguration')->willReturn(
+            $configUsage ?? ['requests' => 0, 'tokens' => 0, 'cost' => 0.0],
+        );
 
         return new BudgetService($this->repositoryStub, $usageWindows);
+    }
+
+    private function makeConfiguration(
+        ?int $uid,
+        int $dailyRequests = 0,
+        int $dailyTokens = 0,
+        float $dailyCost = 0.0,
+    ): LlmConfiguration {
+        $config = new LlmConfiguration();
+        if ($uid !== null) {
+            $config->_setProperty('uid', $uid);
+        }
+        $config->setIdentifier('capped');
+        $config->setMaxRequestsPerDay($dailyRequests);
+        $config->setMaxTokensPerDay($dailyTokens);
+        $config->setMaxCostPerDay($dailyCost);
+
+        return $config;
     }
 
     private function makeBudget(

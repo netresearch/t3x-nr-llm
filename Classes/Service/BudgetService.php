@@ -11,13 +11,25 @@ namespace Netresearch\NrLlm\Service;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 
 /**
- * Enforces per-backend-user daily and monthly AI spending ceilings.
+ * Enforces per-backend-user daily/monthly AI spending ceilings AND the
+ * active configuration's per-day usage caps.
  *
- * The budget record on tx_nrllm_user_budget is a ceiling, not a counter.
+ * Two scopes, checked in order — the most restrictive wins:
+ *  1. Per-user: the budget record on tx_nrllm_user_budget is a ceiling,
+ *     not a counter. Skipped for beUserUid <= 0 (ADR-025 rule 1).
+ *  2. Per-configuration: the dispatched LlmConfiguration's own
+ *     maxRequestsPerDay / maxTokensPerDay / maxCostPerDay caps, compared
+ *     against the configuration's current-day usage across ALL users.
+ *     Applies even when beUserUid is 0 (CLI/scheduler) because the cap
+ *     is configuration-scoped, not user-scoped. Transient configurations
+ *     (no persisted uid) and configurations without limits are skipped —
+ *     the common no-limits case costs zero extra DB queries.
+ *
  * Actual usage is aggregated on demand from tx_nrllm_service_usage — the
  * same table the UsageTracker already writes to — so we never drift from
  * the source of truth and we don't pay a second-write cost per request.
@@ -42,12 +54,23 @@ final readonly class BudgetService implements BudgetServiceInterface
         private BudgetUsageWindowsInterface $usageWindows,
     ) {}
 
-    public function check(int $beUserUid, float $plannedCost = 0.0): BudgetCheckResult
+    public function check(int $beUserUid, float $plannedCost = 0.0, ?LlmConfiguration $configuration = null): BudgetCheckResult
     {
         // Negative planned cost would artificially reduce the projected
         // total and let callers bypass cost limits. Clamp defensively.
         $plannedCost = max(0.0, $plannedCost);
 
+        $result = $this->checkUserBudget($beUserUid, $plannedCost);
+
+        if ($result->allowed && $configuration !== null) {
+            $result = $this->checkConfigurationLimits($configuration, $plannedCost);
+        }
+
+        return $result;
+    }
+
+    private function checkUserBudget(int $beUserUid, float $plannedCost): BudgetCheckResult
+    {
         $budget = $beUserUid > 0 ? $this->repository->findOneByBeUser($beUserUid) : null;
         if ($budget === null || !$budget->isActive() || !$budget->hasAnyLimit()) {
             return BudgetCheckResult::allowed();
@@ -104,6 +127,40 @@ final readonly class BudgetService implements BudgetServiceInterface
         }
 
         return $result;
+    }
+
+    /**
+     * Compare the configuration's current-day usage (all users) against
+     * its own per-day caps. Transient configurations (no persisted uid)
+     * and configurations without limits are allowed without touching the
+     * database.
+     */
+    private function checkConfigurationLimits(LlmConfiguration $configuration, float $plannedCost): BudgetCheckResult
+    {
+        $configurationUid = $configuration->getUid() ?? 0;
+        if ($configurationUid <= 0 || !$configuration->hasUsageLimits()) {
+            return BudgetCheckResult::allowed();
+        }
+
+        $now = new DateTimeImmutable();
+        $usage = $this->usageWindows->aggregateForConfiguration(
+            $configurationUid,
+            $now->setTime(0, 0, 0)->getTimestamp(),
+            $now->getTimestamp(),
+        );
+
+        return $this->compare(
+            usage: $usage,
+            plannedCost: $plannedCost,
+            requestLimit: $configuration->getMaxRequestsPerDay(),
+            tokenLimit: $configuration->getMaxTokensPerDay(),
+            costLimit: $configuration->getMaxCostPerDay(),
+            limitIds: [
+                'request' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_REQUESTS,
+                'token' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_TOKENS,
+                'cost' => BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST,
+            ],
+        );
     }
 
     /**
