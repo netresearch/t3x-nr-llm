@@ -308,8 +308,11 @@ abstract class AbstractProvider implements ProviderInterface
         }
         $attempt = 0;
         $lastException = null;
-        // maxRetries counts retries after the initial attempt; max_retries = 0 still sends one request.
-        $maxAttempts = $this->maxRetries + 1;
+        // maxRetries counts retries after the initial attempt; max_retries = 0
+        // still sends one request. Clamp negatives (reachable via the options
+        // JSON maxRetries override, which configure() does not range-check) so
+        // the loop always runs at least once.
+        $maxAttempts = max(0, $this->maxRetries) + 1;
 
         while ($attempt < $maxAttempts) {
             $attemptStart = microtime(true);
@@ -326,8 +329,11 @@ abstract class AbstractProvider implements ProviderInterface
                 // multiply the caller's wait by maxAttempts. Guzzle raises the
                 // total timeout (cURL error 28) as a ConnectException — the
                 // same class as retryable connection failures — so the only
-                // reliable discriminator is the elapsed wall time.
-                if ($effectiveTimeout > 0 && (microtime(true) - $attemptStart) >= $effectiveTimeout) {
+                // reliable discriminator is the elapsed wall time. cURL can
+                // fire marginally before the integer limit, so allow a 0.5s
+                // tolerance; misclassifying an equally-slow connection failure
+                // as a timeout fails safe (fewer retries).
+                if ($effectiveTimeout > 0 && (microtime(true) - $attemptStart) >= $effectiveTimeout - 0.5) {
                     throw new ProviderConnectionException(
                         sprintf(
                             'Provider request timed out after %d seconds (attempt %d; timeouts are not retried)',

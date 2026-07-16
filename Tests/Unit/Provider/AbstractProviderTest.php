@@ -908,6 +908,42 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     /**
+     * A negative `maxRetries` — reachable through the options JSON override,
+     * which configure() does not range-check — must clamp to "no retries",
+     * not skip the loop entirely and resurrect the "0 attempts" bug.
+     */
+    #[Test]
+    public function negativeMaxRetriesStillSendsExactlyOneRequest(): void
+    {
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'mistral-large-latest',
+            'maxRetries' => -3,
+        ]);
+
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('socket reset'));
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hi');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('after 1 attempts', $e->getMessage());
+            self::assertStringContainsString('socket reset', $e->getMessage());
+        }
+    }
+
+    /**
      * A 3xx (here 300) is neither a 2xx success nor a 4xx client error, so it
      * falls through to the final `throw new ProviderConnectionException(...)`.
      * Pins both the `< 300` success bound (the mutant `<= 300` would treat 300
