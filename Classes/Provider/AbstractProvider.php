@@ -473,7 +473,11 @@ abstract class AbstractProvider implements ProviderInterface
 
         $headers = [];
         foreach ($raw as $name => $value) {
-            if (!is_string($name) || preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name) !== 1) {
+            // PHP casts numeric-string array keys ("123") to int on decode;
+            // cast back so such names reach the token check instead of being
+            // dropped for not being strings.
+            $name = (string)$name;
+            if (preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name) !== 1) {
                 continue;
             }
 
