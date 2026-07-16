@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\EmbeddingModelDimensions;
 use Netresearch\NrLlm\Service\SetupWizard\ConfigurationGenerator;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
@@ -422,6 +423,9 @@ final class SetupWizardController extends ActionController
             $model->setProvider($provider);
             $model->setContextLength($contextLength);
             $model->setMaxOutputTokens($maxOutputTokens);
+            // Seed the vector dimensionality for well-known embedding models
+            // (ADR-055: 0 = unknown, consumers probe live otherwise).
+            $model->setDimensions(EmbeddingModelDimensions::forModelId($modelId));
             $model->setCapabilities(implode(',', array_filter($modelCapabilities, is_string(...))));
             $model->setIsActive(true);
             $model->setIsDefault((bool)($modelData['recommended'] ?? false));
