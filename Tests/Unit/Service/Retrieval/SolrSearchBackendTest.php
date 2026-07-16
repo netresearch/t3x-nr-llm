@@ -395,6 +395,52 @@ final class SolrSearchBackendTest extends TestCase
     }
 
     #[Test]
+    public function absolutizesRelativeUrlAgainstSchemeRelativeSiteBase(): void
+    {
+        // A scheme-relative site base ('base: //host/') has no scheme; the
+        // https default must apply — not the degenerate '://example.org/news'.
+        $site = $this->site(['base' => '//example.org/']);
+        $json = '{"response":{"docs":[
+            {"type":"pages","uid":6,"title":"N","content":"c","url":"/news","language":0}
+        ]}}';
+        $backend = new SolrSearchBackend(new FakeSiteFinder([$site]), FakeSolrHttpClient::withJson($json));
+
+        $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
+        self::assertCount(1, $result->sources);
+        self::assertSame('https://example.org/news', $result->sources[0]->url);
+    }
+
+    #[Test]
+    public function schemeRelativeDocumentUrlGetsSchemeOnlyNotADoubleOrigin(): void
+    {
+        // '//example.org/news' starts with '/', so the plain relative branch
+        // would prepend the full origin a second time
+        // ('https://example.org//example.org/news'); only the scheme may be added.
+        $json = '{"response":{"docs":[
+            {"type":"pages","uid":6,"title":"N","content":"c","url":"//example.org/news","language":0}
+        ]}}';
+        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeSolrHttpClient::withJson($json));
+
+        $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
+        self::assertCount(1, $result->sources);
+        self::assertSame('https://example.org/news', $result->sources[0]->url);
+    }
+
+    #[Test]
+    public function crossHostSchemeRelativeDocumentUrlIsDropped(): void
+    {
+        // The shared-core host guard applies to scheme-relative document
+        // URLs just as it does to absolute ones.
+        $json = '{"response":{"docs":[
+            {"type":"pages","uid":9,"title":"F","content":"c","url":"//other.example/aikido","language":0}
+        ]}}';
+        $backend = new SolrSearchBackend(new FakeSiteFinder([$this->site()]), FakeSolrHttpClient::withJson($json));
+
+        $result = $backend->search(RetrievalQuery::create('aikido'), AccessContext::publicOnly());
+        self::assertTrue($result->isEmpty(), 'foreign-host scheme-relative document leaked');
+    }
+
+    #[Test]
     public function firstMatchingLanguageConfigWins(): void
     {
         // Two entries for language 0: the loop BREAKS on the first match, so

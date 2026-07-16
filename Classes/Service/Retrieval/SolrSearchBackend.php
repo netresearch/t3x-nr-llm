@@ -273,6 +273,21 @@ final class SolrSearchBackend implements SearchBackendInterface
     {
         $base = $site->getBase();
         $baseHost = $base->getHost();
+        // A scheme-relative site base ('base: //host/') carries no scheme;
+        // default to https so emitted URLs stay absolute (not '://host/…').
+        $scheme = $base->getScheme() !== '' ? $base->getScheme() : 'https';
+
+        if (str_starts_with($url, '//')) {
+            // Scheme-relative document URL: host-scope like an absolute one,
+            // then prefix only the scheme — the leading-'/' branch below
+            // would prepend the whole origin a second time.
+            $host = self::toStr(parse_url($url, PHP_URL_HOST));
+            if ($baseHost !== '' && $host !== '' && strcasecmp($host, $baseHost) !== 0) {
+                return null;
+            }
+
+            return $scheme . ':' . $url;
+        }
 
         if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://')) {
             $host = self::toStr(parse_url($url, PHP_URL_HOST));
@@ -287,7 +302,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             if ($baseHost === '') {
                 return $url;
             }
-            $origin = $base->getScheme() . '://' . $baseHost
+            $origin = $scheme . '://' . $baseHost
                 . ($base->getPort() !== null ? ':' . $base->getPort() : '');
 
             return $origin . $url;
