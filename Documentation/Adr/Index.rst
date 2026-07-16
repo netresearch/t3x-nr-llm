@@ -369,4 +369,5 @@ Tools
    Adr069RemovePromptTemplateStack
    Adr070UserlessConfigurationResolutionByIdentifier
    Adr071PublicKeywordSearchFacade
+   Adr072RetrievalQualityEvaluation
    Adr073FirstPartyTestingFixtures

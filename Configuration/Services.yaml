@@ -366,3 +366,10 @@ services:
         description: 'Run a golden prompt set against a model and report grading and regression.'
         schedulable: false
 
+  Netresearch\NrLlm\Command\RetrievalEvalRunCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:eval:retrieval'
+        description: 'Run a golden question set against a retriever and report hit rates and regression.'
+        schedulable: false
+

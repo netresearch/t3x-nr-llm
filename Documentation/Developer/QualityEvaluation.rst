@@ -174,3 +174,82 @@ per set, averaged). Candidates without evaluation data keep their base order
 behind the scored ones; with ``minQuality`` set, candidates below it (or
 without data) are excluded. Making quality a first-class sort key inside
 :php:`ModelSelectionService` is a planned follow-up (see :ref:`ADR-060 <adr-060>`).
+
+.. _developer-quality-evaluation-retrieval:
+
+Retrieval evaluation
+====================
+
+The retrieval counterpart measures the retrieval step of a RAG pipeline —
+which documents surface for a question — with **golden question sets** and
+document-level top-1/top-3 hit rates. See :ref:`ADR-072 <adr-072>` for the
+design and the methodology it adopts.
+
+A golden question carries the question text, its form (``MATCH`` = the
+vocabulary overlaps the target document, ``GAP`` = an everyday rewording —
+the class retrieval problems live in), ALL document ids that answer it
+(any of them counts as a hit), an optional hard class for a per-class
+breakdown, and an optional answer gist documenting the label. A question
+with an empty expected-document list declares that nothing in the index
+answers it and scores as a hit only when the retriever returns nothing.
+nr_llm ships no golden questions — labels only mean something against a
+concrete corpus, so every set lives in the extension owning the content.
+
+Declare a set by implementing :php:`GoldenQuestionSetProviderInterface`
+(tag ``nr_llm.golden_question_set``, applied automatically):
+
+.. code-block:: php
+
+    use Netresearch\NrLlm\Domain\Enum\QuestionForm;
+    use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
+    use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
+    use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetProviderInterface;
+
+    final class BmdvGoldenQuestionSetProvider implements GoldenQuestionSetProviderInterface
+    {
+        public function getGoldenQuestionSets(): array
+        {
+            return [
+                new GoldenQuestionSet(
+                    identifier: 'nr_ai_search.bmdv',
+                    name: 'BMDV retrieval eval',
+                    description: 'Labeled questions over the BMDV corpus.',
+                    questions: [
+                        new GoldenQuestion(
+                            id: 'dialogforum-termin',
+                            question: 'Wann findet das Dialogforum statt?',
+                            form: QuestionForm::MATCH,
+                            expectedDocumentIds: ['234_0', '309_0'],
+                            hardClass: 'near-duplicate',
+                        ),
+                    ],
+                ),
+            ];
+        }
+    }
+
+The retriever under test implements :php:`EvaluatableRetrieverInterface`
+(tag ``nr_llm.evaluatable_retriever``): a question string and a limit in,
+ranked document ids out. The adapter owns the mapping from its native
+results to document ids, which must use the same identity scheme as the
+set's labels. nr_llm ships :php:`LexicalSearchRetriever`
+(``nr_llm.lexical``) over its own search cascade as the pattern to copy;
+a consumer wraps its vector retrieval the same way.
+
+Run with the ``nrllm:eval:retrieval`` command:
+
+.. code-block:: bash
+
+    # Measure the built-in lexical cascade against a labeled set
+    vendor/bin/typo3 nrllm:eval:retrieval nr_ai_search.bmdv nr_llm.lexical
+
+    # Fail (non-zero exit) if hit rates regressed — for CI
+    vendor/bin/typo3 nrllm:eval:retrieval nr_ai_search.bmdv nr_ai_search.vector \
+        --fail-on-regression --max-top1-drop 0.05 --max-top3-drop 0.05
+
+The command prints the per-question hits, the top-1/top-3 hit rates with
+by-form and by-hard-class breakdowns, stores the run in
+``tx_nrllm_eval_result`` (grader ``retrieval_hit_rate``; the stored pass
+rate is the top-1 hit rate and the stored mean score the top-3 hit rate),
+and reports whether the run regressed against the previous one for the
+same set and retriever.
