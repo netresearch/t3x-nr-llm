@@ -275,10 +275,11 @@ class InputSanitizationFuzzyTest extends AbstractFuzzyTestCase
                 $config->setMaxTokens($value);
 
                 $result = $config->getMaxTokens();
-                // setMaxTokens() clamps to a lower bound of 1 (no upper cap).
-                // Assert the exact contract for every boundary rather than a
-                // tautological >= 1 (which max(1, …) can never fail).
-                self::assertSame(max(1, $value), $result);
+                // setMaxTokens() clamps to a lower bound of 0 (0 = no explicit
+                // limit, no upper cap). Assert the exact contract for every
+                // boundary rather than a tautological >= 0 (which max(0, …)
+                // can never fail).
+                self::assertSame(max(0, $value), $result);
             });
     }
 

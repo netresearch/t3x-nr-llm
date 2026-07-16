@@ -92,7 +92,7 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
     }
 
     #[Test]
-    public function maxTokensIsAtLeastOne(): void
+    public function maxTokensIsAtLeastZero(): void
     {
         $this
             ->forAll(Generator\int()) // @phpstan-ignore function.notFound
@@ -102,8 +102,8 @@ class LlmConfigurationFuzzyTest extends AbstractFuzzyTestCase
 
                 $result = $config->getMaxTokens();
 
-                // Max tokens should be at least 1
-                $this->assertGreaterThanOrEqual(1, $result);
+                // Max tokens should be at least 0 (0 = no explicit limit)
+                $this->assertGreaterThanOrEqual(0, $result);
             });
     }
 
