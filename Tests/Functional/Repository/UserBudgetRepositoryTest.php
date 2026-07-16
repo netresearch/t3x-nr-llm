@@ -71,7 +71,11 @@ final class UserBudgetRepositoryTest extends AbstractFunctionalTestCase
     {
         $map = $this->repository->findByBeUsers([1, 2, 2, 0, -7, 42]);
 
-        self::assertSame([1, 2], array_keys($map));
+        // The map is keyed by be_user; row order is not asserted because the
+        // underlying IN() query carries no ORDER BY.
+        $users = array_keys($map);
+        sort($users);
+        self::assertSame([1, 2], $users);
         self::assertSame(1, $map[1]->getBeUser());
         self::assertSame(2, $map[2]->getBeUser());
     }
