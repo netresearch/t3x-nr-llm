@@ -1315,7 +1315,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
                 throw new class ('cURL error 28: Operation timed out', 4859032175) extends RuntimeException implements NetworkExceptionInterface {
                     public function getRequest(): RequestInterface
                     {
-                        throw new RuntimeException('not used');
+                        throw new RuntimeException('not used', 5686042759);
                     }
                 };
             });

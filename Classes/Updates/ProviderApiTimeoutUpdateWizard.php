@@ -28,14 +28,14 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * must re-set it after the upgrade.
  */
 #[UpgradeWizard('nrLlm_providerApiTimeout120')]
-final class ProviderApiTimeoutUpdateWizard implements UpgradeWizardInterface
+final readonly class ProviderApiTimeoutUpdateWizard implements UpgradeWizardInterface
 {
     private const TABLE = 'tx_nrllm_provider';
     private const OLD_DEFAULT = 30;
     private const NEW_DEFAULT = 120;
 
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getTitle(): string
