@@ -323,7 +323,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $payload['transforms'] = $transforms;
         }
 
-        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -388,7 +388,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             }
         }
 
-        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -447,7 +447,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $payload['dimensions'] = $this->getInt($options, 'dimensions');
         }
 
-        $response = $this->sendOpenRouterRequest('embeddings', $payload);
+        $response = $this->sendOpenRouterRequest('embeddings', $payload, $this->resolveRequestTimeout($options));
 
         $data = $this->getList($response, 'data');
         /** @var array<int, array<int, float>> $embeddings */
@@ -507,7 +507,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $payload['route'] = 'fallback';
         }
 
-        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
+        $response = $this->sendOpenRouterRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -573,7 +573,7 @@ final class OpenRouterProvider extends AbstractProvider implements
 
         $request = $this->createStreamingRequest($url, $payload);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 
@@ -875,7 +875,7 @@ final class OpenRouterProvider extends AbstractProvider implements
      *
      * @return array<string, mixed>
      */
-    private function sendOpenRouterRequest(string $endpoint, array $payload): array
+    private function sendOpenRouterRequest(string $endpoint, array $payload, ?int $timeout = null): array
     {
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
@@ -893,7 +893,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($timeout)->sendRequest($request);
         $statusCode = $response->getStatusCode();
         $responseBody = $response->getBody()->getContents();
 

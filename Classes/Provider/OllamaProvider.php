@@ -201,7 +201,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $payload['options'] = $payloadOptions;
         }
 
-        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $message = $this->getArray($response, 'message');
 
@@ -272,7 +272,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $payload['options'] = $payloadOptions;
         }
 
-        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $message = $this->getArray($response, 'message');
 
@@ -422,7 +422,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $response = $this->sendRequest('api/embeddings', [
                 'model' => $model,
                 'prompt' => $text,
-            ]);
+            ], timeout: $this->resolveRequestTimeout($options));
 
             $rawEmbedding = $this->getList($response, 'embedding');
             $embedding = array_values(array_map(fn(mixed $v): float => (float)$v, $rawEmbedding));
@@ -489,7 +489,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT);
 
         yield from $this->streamChatLines($response->getBody());

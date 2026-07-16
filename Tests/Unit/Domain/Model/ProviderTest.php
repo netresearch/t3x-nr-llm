@@ -590,9 +590,9 @@ final class ProviderTest extends AbstractUnitTestCase
     // ========================================
 
     #[Test]
-    public function defaultApiTimeoutIsThirtySeconds(): void
+    public function defaultApiTimeoutIsOneHundredTwentySeconds(): void
     {
-        self::assertSame(30, $this->subject->getApiTimeout());
+        self::assertSame(120, $this->subject->getApiTimeout());
     }
 
     #[Test]
