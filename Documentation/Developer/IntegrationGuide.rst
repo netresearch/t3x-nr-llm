@@ -198,18 +198,22 @@ Step 5: Use database configurations (optional)
 ================================================
 
 For advanced use cases, reference named configurations that admins create in the
-backend module:
+backend module. Resolve them through
+:php:`\Netresearch\NrLlm\Service\ConfigurationResolver::getActiveByIdentifier()`
+— it works in user-less contexts (CLI, Symfony Messenger consumers,
+anonymous frontend requests) and applies the guards a raw repository
+lookup skips (:ref:`ADR-070 <adr-070>`):
 
 .. code-block:: php
    :caption: Using named database configurations
 
-   use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+   use Netresearch\NrLlm\Service\ConfigurationResolver;
    use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 
    final readonly class BlogSummarizer
    {
        public function __construct(
-           private LlmConfigurationRepository $configRepo,
+           private ConfigurationResolver $configurationResolver,
            private LlmServiceManagerInterface $llm,
        ) {}
 
@@ -217,7 +221,7 @@ backend module:
        {
            // Uses the "blog-summarizer" configuration created by the admin
            // (specific model, temperature, system prompt, etc.)
-           $config = $this->configRepo->findByIdentifier('blog-summarizer');
+           $config = $this->configurationResolver->getActiveByIdentifier('blog-summarizer');
 
            $response = $this->llm->chat(
                [['role' => 'user', 'content' => "Summarize:\n\n" . $article]],
@@ -227,6 +231,22 @@ backend module:
            return $response->content;
        }
    }
+
+The method throws typed exceptions (all implementing
+:php:`NrLlmExceptionInterface`): :php:`ConfigurationNotFoundException`
+when no record with the identifier exists,
+:php:`ConfigurationInactiveException` when it exists but is deactivated,
+and :php:`AccessDeniedException` when it is restricted to backend groups
+(user-less callers cannot prove group membership; see
+:ref:`ADR-070 <adr-070>`).
+
+.. warning::
+
+   Do not resolve configurations via
+   ``LlmConfigurationRepository::findOneByIdentifier()`` directly: it
+   ignores the record's **isActive** flag and its backend-group access
+   restrictions, so a deactivated or restricted configuration would keep
+   serving your calls.
 
 .. _integration-guide-step6:
 

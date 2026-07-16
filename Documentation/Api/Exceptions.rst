@@ -74,6 +74,11 @@ Exceptions
 
    Thrown when a named configuration is not found.
 
+.. php:class:: ConfigurationInactiveException
+
+   Thrown when a named configuration exists but is
+   deactivated (:ref:`ADR-070 <adr-070>`).
+
 .. _api-events:
 
 Events

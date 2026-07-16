@@ -11,10 +11,14 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Exception\AccessDeniedException;
+use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 
 /**
  * Resolves the backend-module-managed default configuration for generic
- * (provider-agnostic) completion / chat / stream calls.
+ * (provider-agnostic) completion / chat / stream calls, and named
+ * configurations by identifier for user-less contexts (ADR-070).
  *
  * Extracted from {@see LlmServiceManager} so the "which configuration drives
  * this call" decision — and the guards around an access-restricted or
@@ -76,6 +80,56 @@ final readonly class ConfigurationResolver
             || $configuration->hasAccessRestrictions()
         ) {
             return null;
+        }
+
+        return $configuration;
+    }
+
+    /**
+     * Resolve an active configuration by its identifier for user-less contexts
+     * (CLI, Symfony Messenger consumers, anonymous frontend requests).
+     *
+     * Counterpart of LlmConfigurationServiceInterface::getConfiguration(),
+     * which enforces a backend-user access check that user-less callers cannot
+     * satisfy. Applies the same refusal policy as
+     * {@see self::resolveDefaultConfiguration()}: an access-restricted
+     * configuration is not resolvable without a user to check the BE group
+     * membership against (ADR-070). Unlike the default path this does not
+     * require a directly assigned model — criteria-mode configurations resolve
+     * their model at call time via the *ForConfiguration() entry points
+     * (ADR-066).
+     *
+     * @throws ConfigurationNotFoundException when no configuration with the identifier exists (or no repository is wired)
+     * @throws ConfigurationInactiveException when the configuration exists but is deactivated
+     * @throws AccessDeniedException          when the configuration is restricted to BE groups (ADR-070)
+     */
+    public function getActiveByIdentifier(string $identifier): LlmConfiguration
+    {
+        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
+
+        if ($configuration === null) {
+            throw new ConfigurationNotFoundException(
+                sprintf('LLM configuration "%s" not found', $identifier),
+                1784211001,
+            );
+        }
+
+        if (!$configuration->isActive()) {
+            throw new ConfigurationInactiveException(
+                sprintf('LLM configuration "%s" is not active', $identifier),
+                1784211002,
+            );
+        }
+
+        if ($configuration->hasAccessRestrictions()) {
+            throw new AccessDeniedException(
+                sprintf(
+                    'LLM configuration "%s" is restricted to backend groups'
+                    . ' and cannot be resolved without a user context',
+                    $identifier,
+                ),
+                1784211003,
+            );
         }
 
         return $configuration;
