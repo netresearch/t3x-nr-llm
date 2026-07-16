@@ -34,8 +34,9 @@ final class PublicServicesPolicyTest extends TestCase
 {
     /**
      * Audited count of `public: true` overrides (REC #9c, ADR-028,
-     * reduced by ADR-065). ADR-065 privatised every service that was
-     * public *only* so functional tests could resolve it via
+     * reduced by ADR-065, further reduced by ADR-069 which removed the
+     * unusable PromptTemplate stack). ADR-065 privatised every service
+     * that was public *only* so functional tests could resolve it via
      * `FunctionalTestCase::get()` — the testing framework's
      * private-container pass (`PrivateContainerWeakRefPass`) already
      * makes every private service resolvable through `get()`, so those
@@ -46,10 +47,9 @@ final class PublicServicesPolicyTest extends TestCase
      *   ProviderAdapterRegistry, and the Completion/Vision/Embedding/
      *   Translation/ToolCalling (ADR-051) feature pairs.
      * - Category B (Supporting-service interface aliases; the concrete
-     *   classes are now private): 6 — CacheManagerInterface,
+     *   classes are now private): 5 — CacheManagerInterface,
      *   UsageTrackerServiceInterface, TranslatorRegistryInterface,
-     *   PromptTemplateServiceInterface, LlmConfigurationServiceInterface,
-     *   BudgetServiceInterface.
+     *   LlmConfigurationServiceInterface, BudgetServiceInterface.
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 4 —
@@ -58,14 +58,15 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 14 + 6 + 1 + 4 + 2 = **27**.
+     * Total: 14 + 5 + 1 + 4 + 2 = **26**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr065ReducePublicServiceSurface.rst` in the
-     * same PR — the diff is the audit trail.
+     * `Documentation/Adr/Adr069RemovePromptTemplateStack.rst` (the current
+     * count authority, superseding ADR-065's count) in the same PR — the
+     * diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 27;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 26;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

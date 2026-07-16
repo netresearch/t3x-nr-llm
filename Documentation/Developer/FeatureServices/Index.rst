@@ -42,7 +42,6 @@ Architecture
    │  - VisionService                                         │
    │  - EmbeddingService                                      │
    │  - TranslationService                                    │
-   │  - PromptTemplateService                                 │
    └──────────────────────┬──────────────────────────────────┘
                           │ LLM abstraction
    ┌──────────────────────▼──────────────────────────────────┐
@@ -365,49 +364,6 @@ Methods
 
    // Quality scoring
    $score = $translationService->scoreTranslationQuality($source, $translation, 'de');
-
-.. _feature-services-prompt-template:
-
-PromptTemplateService
-=====================
-
-**Purpose**: Centralized prompt management.
-
-.. _feature-services-prompt-template-features:
-
-Key features
-------------
-
-- Database-driven templates.
-- Variable substitution.
-- Conditional rendering.
-- Version control.
-- A/B testing.
-- Performance tracking.
-
-.. _feature-services-prompt-template-example:
-
-Example
--------
-
-.. code-block:: php
-   :caption: Example: Using PromptTemplateService
-
-   use Netresearch\NrLlm\Service\PromptTemplateService;
-
-   $prompt = $promptService->render(
-       identifier: 'vision.alt_text',
-       variables: ['image_url' => 'https://example.com/img.jpg']
-   );
-
-   // Use with completion service
-   $response = $completionService->complete(
-       prompt: $prompt->getUserPrompt(),
-       options: [
-           'system_prompt' => $prompt->getSystemPrompt(),
-           'temperature' => $prompt->getTemperature(),
-       ]
-   );
 
 .. _feature-services-installation:
 
@@ -741,18 +697,15 @@ File structure
    │   │       ├── TranslationResult.php
    │   │       ├── EmbeddingResponse.php
    │   │       ├── UsageStatistics.php
-   │   │       ├── PromptTemplate.php
    │   │       └── RenderedPrompt.php
    │   ├── Service/
-   │   │   ├── Feature/
-   │   │   │   ├── CompletionService.php
-   │   │   │   ├── VisionService.php
-   │   │   │   ├── EmbeddingService.php
-   │   │   │   └── TranslationService.php
-   │   │   └── PromptTemplateService.php
+   │   │   └── Feature/
+   │   │       ├── CompletionService.php
+   │   │       ├── VisionService.php
+   │   │       ├── EmbeddingService.php
+   │   │       └── TranslationService.php
    │   └── Exception/
-   │       ├── InvalidArgumentException.php
-   │       └── PromptTemplateNotFoundException.php
+   │       └── InvalidArgumentException.php
    ├── Configuration/
    │   └── Services.yaml
    ├── Resources/

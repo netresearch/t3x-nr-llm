@@ -36,10 +36,10 @@ Full test matrix in root `AGENTS.md` Setup section.
 | `DependencyInjection/` | ProviderCompilerPass |
 | `Domain/DTO/` | BudgetCheckResult, FallbackChain, ModelSelectionCriteria |
 | `Domain/Enum/` | ModelCapability, ModelSelectionMode, TaskCategory, TaskInputType, TaskOutputFormat |
-| `Domain/Model/` | Entities: Provider, Model, LlmConfiguration, Task, PromptTemplate, UserBudget |
-| `Domain/Repository/` | LlmConfiguration, Model, Provider, Task, PromptTemplate, UserBudget |
+| `Domain/Model/` | Entities: Provider, Model, LlmConfiguration, Task, UserBudget |
+| `Domain/Repository/` | LlmConfiguration, Model, Provider, Task, UserBudget |
 | `Domain/ValueObject/` | ChatMessage (currently unused — tracked in audit 2026-04-23) |
-| `Exception/` | AccessDenied, ConfigurationNotFound, InvalidArgument, PromptTemplateNotFound |
+| `Exception/` | AccessDenied, ConfigurationNotFound, InvalidArgument |
 | `Form/` | ModelIdElement (TCA), ModelConstraintsWizard (field wizard) |
 | `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
 | `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |

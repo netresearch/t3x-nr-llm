@@ -366,3 +366,4 @@ Tools
    Adr065ReducePublicServiceSurface
    Adr066CriteriaConfigurationResolution
    Adr067SolrPerLanguageCoreFilter
+   Adr069RemovePromptTemplateStack

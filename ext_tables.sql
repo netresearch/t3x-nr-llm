@@ -271,69 +271,6 @@ CREATE TABLE tx_nrllm_task (
 );
 
 #
-# Table structure for table 'tx_nrllm_prompttemplate'
-# Reusable prompt templates with versioning and performance tracking
-#
-CREATE TABLE tx_nrllm_prompttemplate (
-    uid int(11) NOT NULL auto_increment,
-    pid int(11) DEFAULT '0' NOT NULL,
-
-    -- Identity
-    identifier varchar(100) DEFAULT '' NOT NULL,
-    title varchar(255) DEFAULT '' NOT NULL,
-    description text,
-
-    -- Feature binding
-    feature varchar(50) DEFAULT '' NOT NULL,
-
-    -- Prompt content
-    system_prompt mediumtext,
-    user_prompt_template mediumtext,
-
-    -- Versioning
-    version int(11) DEFAULT '1' NOT NULL,
-    parent_uid int(11) DEFAULT '0' NOT NULL,
-
-    -- Status
-    is_active tinyint(1) DEFAULT '1' NOT NULL,
-    is_default tinyint(1) DEFAULT '0' NOT NULL,
-
-    -- Model configuration
-    provider varchar(50) DEFAULT '' NOT NULL,
-    model varchar(100) DEFAULT '' NOT NULL,
-    temperature decimal(3,2) DEFAULT '0.70' NOT NULL,
-    max_tokens int(11) DEFAULT '1000' NOT NULL,
-    top_p decimal(3,2) DEFAULT '1.00' NOT NULL,
-
-    -- Variables definition (JSON)
-    variables text,
-
-    -- Example and metadata
-    example_output text,
-    tags text,
-
-    -- Performance tracking
-    usage_count int(11) DEFAULT '0' NOT NULL,
-    avg_response_time int(11) DEFAULT '0' NOT NULL,
-    avg_tokens_used int(11) DEFAULT '0' NOT NULL,
-    quality_score decimal(3,2) DEFAULT '0.00' NOT NULL,
-
-    -- Standard TYPO3 fields
-    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
-    crdate int(11) unsigned DEFAULT '0' NOT NULL,
-
-    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
-    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
-    sorting int(11) unsigned DEFAULT '0' NOT NULL,
-
-    PRIMARY KEY (uid),
-    KEY parent (pid),
-    KEY identifier (identifier),
-    KEY feature (feature),
-    KEY parent_uid (parent_uid)
-);
-
-#
 # Table structure for table 'tx_nrllm_promptsnippet'
 # Tagged prompt fragments (personas, tones of voice, audiences, styles, layouts)
 #

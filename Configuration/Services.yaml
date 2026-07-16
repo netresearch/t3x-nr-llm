@@ -124,7 +124,7 @@ services:
   # Supporting Services (interface aliases stay public; concretes private)
   # ========================================
   # The concrete supporting services (CacheManager, UsageTrackerService,
-  # UsageAnalyticsService, PromptTemplateService, LlmConfigurationService)
+  # UsageAnalyticsService, LlmConfigurationService)
   # are autoregistered PRIVATE by the namespace block above. Consumers
   # wire against the public interface alias; the interface aliases below
   # (and CacheManager/UsageTrackerService interfaces in the Core section)
@@ -133,10 +133,6 @@ services:
   # container (ADR-062, supersedes ADR-028). PromptSnippetComposer has no
   # interface and is the documented ADR-031 snippet surface, so it stays
   # public as a concrete.
-
-  Netresearch\NrLlm\Service\PromptTemplateServiceInterface:
-    alias: Netresearch\NrLlm\Service\PromptTemplateService
-    public: true
 
   Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer:
     public: true

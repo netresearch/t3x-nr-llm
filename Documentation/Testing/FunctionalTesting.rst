@@ -32,32 +32,32 @@ Functional test example
 
    namespace Netresearch\NrLlm\Tests\Functional\Repository;
 
-   use Netresearch\NrLlm\Domain\Model\PromptTemplate;
-   use Netresearch\NrLlm\Domain\Repository\PromptTemplateRepository;
+   use Netresearch\NrLlm\Domain\Model\Provider;
+   use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
    use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
-   class PromptTemplateRepositoryTest extends FunctionalTestCase
+   class ProviderRepositoryTest extends FunctionalTestCase
    {
        protected array $testExtensionsToLoad = [
            'netresearch/nr-llm',
        ];
 
-       private PromptTemplateRepository $repository;
+       private ProviderRepository $repository;
 
        protected function setUp(): void
        {
            parent::setUp();
-           $this->repository = $this->get(PromptTemplateRepository::class);
+           $this->repository = $this->get(ProviderRepository::class);
        }
 
-       public function testFindByIdentifierReturnsTemplate(): void
+       public function testFindByIdentifierReturnsProvider(): void
        {
-           $this->importCSVDataSet(__DIR__ . '/Fixtures/prompt_templates.csv');
+           $this->importCSVDataSet(__DIR__ . '/Fixtures/providers.csv');
 
-           $template = $this->repository->findByIdentifier('test-template');
+           $provider = $this->repository->findByIdentifier('openai-test');
 
-           $this->assertInstanceOf(PromptTemplate::class, $template);
-           $this->assertEquals('Test Template', $template->getName());
+           $this->assertInstanceOf(Provider::class, $provider);
+           $this->assertEquals('OpenAI Test', $provider->getName());
        }
    }
 
@@ -72,11 +72,11 @@ CSV fixtures
 ------------
 
 .. code-block:: text
-   :caption: Tests/Functional/Fixtures/prompt_templates.csv
+   :caption: Tests/Functional/Fixtures/providers.csv
 
-   "tx_nrllm_prompt_template"
-   "uid","pid","identifier","name","template","variables"
-   1,0,"test-template","Test Template","Hello {name}!","name"
+   "tx_nrllm_provider"
+   "uid","pid","identifier","name","adapter_type","is_active"
+   1,0,"openai-test","OpenAI Test","openai",1
 
 .. _testing-json-fixtures:
 

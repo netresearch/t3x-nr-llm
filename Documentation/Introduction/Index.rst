@@ -151,9 +151,6 @@ High-level services for common AI tasks:
    Language translation with formality control,
    domain-specific terminology, and glossaries.
 
-:php:`PromptTemplateService`
-   Centralized prompt management with variable substitution and versioning.
-
 .. _introduction-streaming-support:
 
 Streaming support
