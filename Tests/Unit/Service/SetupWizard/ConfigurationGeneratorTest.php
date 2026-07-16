@@ -1684,6 +1684,12 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $text = $contents[0]['parts'][0]['text'] ?? null;
         self::assertIsString($text);
         self::assertStringStartsWith('You are an expert at configuring LLM integrations.', $text);
+        // SYSTEM_PROMPT (ending "…code/technical assistance.") and the model
+        // prompt are joined by exactly one blank line ("\n\n").
+        self::assertStringContainsString(
+            "and code/technical assistance.\n\nAvailable models:",
+            $text,
+        );
         self::assertStringContainsString(
             "Available models:\n- Gemini 3 Flash (gemini-3-flash): Fast model",
             $text,
@@ -1916,5 +1922,413 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($result);
         self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+    }
+
+    // ==================== second-pass mutation kills ====================
+
+    /**
+     * Stub the full HTTP round trip: request factory, stream factory and
+     * HTTP client return canned objects so generate() sees $body as the
+     * API response.
+     */
+    private function stubHttpRoundTrip(int $statusCode, string $body): void
+    {
+        $this->requestFactoryStub
+            ->method('createRequest')
+            ->willReturn($this->createRequestMock());
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub
+            ->method('createStream')
+            ->willReturn($streamStub);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseStubForGenerator($statusCode, $body));
+    }
+
+    /**
+     * Wrap an LLM "content" string in the OpenAI chat-completions
+     * response envelope.
+     */
+    private function openAiResponseWithContent(string $content): string
+    {
+        return (string)json_encode(['choices' => [['message' => ['content' => $content]]]]);
+    }
+
+    /**
+     * Build a subject wired to the shared stubs but with a caller-supplied
+     * logger (mock), including the HTTP-client test seam.
+     */
+    private function createSubjectWithLogger(LoggerInterface $logger): ConfigurationGenerator
+    {
+        $subject = new ConfigurationGenerator(
+            $this->vaultStub,
+            $this->createSecureHttpClientFactoryMock(),
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $logger,
+        );
+        $subject->setHttpClient($this->httpClientStub);
+
+        return $subject;
+    }
+
+    #[Test]
+    public function generateWithoutModelsReturnsFallbackWithoutLoggingAWarning(): void
+    {
+        // With no models the guard returns the fallback BEFORE the try
+        // block: no LLM call is attempted, so no warning may be logged.
+        // (Removing the guard's return would TypeError on callLLM(model:
+        // null) inside the try and log a warning.)
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::never())->method('warning');
+
+        $subject = $this->createSubjectWithLogger($loggerMock);
+
+        $result = $subject->generate($this->createOpenAiProvider(), 'test-key', []);
+
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateSubstitutesInvalidUtf8InRequestBodyInsteadOfFailing(): void
+    {
+        // The model description carries a non-UTF-8 byte. With
+        // JSON_INVALID_UTF8_SUBSTITUTE the request body encodes (U+FFFD
+        // substitution) and the call proceeds to the parsed result. With
+        // the flags AND-ed (= 0) json_encode returns false and the run
+        // falls back to the static presets.
+        $provider = $this->createOpenAiProvider();
+        $models   = [
+            new DiscoveredModel(
+                modelId: 'utf8-model',
+                name: 'UTF-8 Model',
+                description: "Latin-1 byte: \xB1 end",
+                capabilities: ['chat'],
+                contextLength: 100000,
+                recommended: true,
+            ),
+        ];
+
+        $content = (string)json_encode([
+            ['identifier' => 'utf8-config', 'name' => 'UTF-8 Config', 'systemPrompt' => 'Help.'],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($provider, 'test-key', $models);
+
+        self::assertCount(1, $result);
+        self::assertSame('utf8-config', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function generateLogsExactApiErrorMessageOnNon200Response(): void
+    {
+        // The thrown ProviderResponseException message surfaces verbatim in
+        // the warning context ('LLM API error: ' . status; the sanitizer
+        // only redacts credential query params). Pins concat order and both
+        // operands.
+        $this->stubHttpRoundTrip(503, '{}');
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::once())
+            ->method('warning')
+            ->with(
+                'LLM setup-wizard configuration generation failed; using fallback presets',
+                self::callback(static function (mixed $context): bool {
+                    self::assertIsArray($context);
+                    self::assertArrayHasKey('exception', $context);
+                    self::assertSame('LLM API error: 503', $context['exception']);
+                    return true;
+                }),
+            );
+
+        $subject = $this->createSubjectWithLogger($loggerMock);
+
+        $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateDoesNotParseBodyOfNon200Response(): void
+    {
+        // A parseable body on an error status must NOT be used: the throw
+        // aborts callLLM and the fallback presets are returned.
+        $content = (string)json_encode([
+            ['identifier' => 'should-not-appear', 'name' => 'Nope', 'systemPrompt' => 'Nope.'],
+        ]);
+        $this->stubHttpRoundTrip(500, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        $identifiers = array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result);
+        self::assertContains('content-assistant', $identifiers);
+        self::assertNotContains('should-not-appear', $identifiers);
+    }
+
+    #[Test]
+    public function generateHandlesNonArrayApiBodyWithoutLoggingAWarning(): void
+    {
+        // Body decodes to a string, not an array: callLLM returns ''
+        // cleanly (no exception, no warning). Removing that return would
+        // TypeError in extractContentFromResponse and log a warning.
+        $this->stubHttpRoundTrip(200, '"just a string"');
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::never())->method('warning');
+
+        $subject = $this->createSubjectWithLogger($loggerMock);
+
+        $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generateHandlesUnparseableContentWithoutLoggingAWarning(): void
+    {
+        // extractJson() yields null → parseResponse returns [] cleanly.
+        // Removing that return would TypeError in array_is_list(null) and
+        // log a warning.
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent('No JSON here at all'));
+
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects(self::never())->method('warning');
+
+        $subject = $this->createSubjectWithLogger($loggerMock);
+
+        $result = $subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertContains('content-assistant', array_map(static fn(SuggestedConfiguration $c): string => $c->identifier, $result));
+    }
+
+    #[Test]
+    public function generatePrefersConfigurationsKeyOverConfigsKey(): void
+    {
+        $content = (string)json_encode([
+            'configurations' => [
+                ['identifier' => 'from-configurations', 'name' => 'A', 'systemPrompt' => 'A.'],
+            ],
+            'configs' => [
+                ['identifier' => 'from-configs', 'name' => 'B', 'systemPrompt' => 'B.'],
+            ],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('from-configurations', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function generateReturnsAllParsedConfigurationsInOrder(): void
+    {
+        $content = (string)json_encode([
+            ['identifier' => 'first-config', 'name' => 'First', 'systemPrompt' => 'One.'],
+            ['identifier' => 'second-config', 'name' => 'Second', 'systemPrompt' => 'Two.'],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(2, $result);
+        self::assertSame('first-config', $result[0]->identifier);
+        self::assertSame('second-config', $result[1]->identifier);
+    }
+
+    #[Test]
+    public function generateReadsSnakeCaseFallbackKeys(): void
+    {
+        // Only snake_case keys present: the ?? chains must reach the
+        // second operand ($item['system_prompt'], $item['max_tokens']).
+        $content = (string)json_encode([
+            [
+                'identifier'    => 'snake-item',
+                'name'          => 'Snake Item',
+                'system_prompt' => 'Snake prompt.',
+                'max_tokens'    => 1234,
+            ],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('snake-item', $result[0]->identifier);
+        self::assertSame('Snake prompt.', $result[0]->systemPrompt);
+        self::assertSame(1234, $result[0]->maxTokens);
+        self::assertSame(0.7, $result[0]->temperature);
+    }
+
+    #[Test]
+    public function generatePrefersCamelCaseKeysOverSnakeCase(): void
+    {
+        $content = (string)json_encode([
+            [
+                'identifier'    => 'camel-item',
+                'name'          => 'Camel Item',
+                'systemPrompt'  => 'Camel wins.',
+                'system_prompt' => 'Snake loses.',
+                'maxTokens'     => 2222,
+                'max_tokens'    => 3333,
+            ],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('Camel wins.', $result[0]->systemPrompt);
+        self::assertSame(2222, $result[0]->maxTokens);
+    }
+
+    #[Test]
+    public function generateAppliesDefaultsForOmittedItemFields(): void
+    {
+        $content = (string)json_encode([
+            ['identifier' => 'defaults-item', 'name' => 'Defaults'],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('', $result[0]->description);
+        self::assertSame('', $result[0]->systemPrompt);
+        self::assertSame(0.7, $result[0]->temperature);
+        self::assertSame(4096, $result[0]->maxTokens);
+    }
+
+    #[Test]
+    public function generateCoercesNumericStringTemperatureAndMaxTokens(): void
+    {
+        // Numeric strings must be cast — without (float)/(int) casts the
+        // strict-typed DTO constructor would TypeError and force fallback.
+        $content = (string)json_encode([
+            [
+                'identifier'  => 'stringy-item',
+                'name'        => 'Stringy',
+                'temperature' => '0.4',
+                'maxTokens'   => '1234',
+            ],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('stringy-item', $result[0]->identifier);
+        self::assertSame(0.4, $result[0]->temperature);
+        self::assertSame(1234, $result[0]->maxTokens);
+    }
+
+    #[Test]
+    public function generateFallsBackToDefaultsForNonNumericValues(): void
+    {
+        $content = (string)json_encode([
+            [
+                'identifier'  => 'nonnumeric-item',
+                'name'        => 'Non Numeric',
+                'temperature' => 'hot',
+                'maxTokens'   => 'lots',
+            ],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame(0.7, $result[0]->temperature);
+        self::assertSame(4096, $result[0]->maxTokens);
+    }
+
+    #[Test]
+    public function generateExtractsJsonOnlyReachableViaMarkdownFence(): void
+    {
+        // A stray "]" after the fence poisons both the raw candidate and
+        // the bracket-regex candidate (greedy match runs to the LAST "]"),
+        // so ONLY the markdown-fence capture ($matches[1]) decodes.
+        $jsonContent = (string)json_encode([
+            ['identifier' => 'md-only-config', 'name' => 'MD Only', 'systemPrompt' => 'Fence.'],
+        ]);
+        $content = "```json\n" . $jsonContent . "\n```\nStray ] bracket.";
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('md-only-config', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function generateTrimsHyphensFromSanitizedIdentifier(): void
+    {
+        // '_trimmed_' → '-trimmed-' after the underscore replacement; the
+        // final trim($identifier, '-') must strip the edge hyphens.
+        $content = (string)json_encode([
+            ['identifier' => '_trimmed_', 'name' => 'Trimmed', 'systemPrompt' => 'Trim.'],
+        ]);
+        $this->stubHttpRoundTrip(200, $this->openAiResponseWithContent($content));
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $this->createTestModels());
+
+        self::assertCount(1, $result);
+        self::assertSame('trimmed', $result[0]->identifier);
+    }
+
+    #[Test]
+    public function fallbackUsesFirstRecommendedModelWhenSeveralAreRecommended(): void
+    {
+        // getFallbackConfigurations breaks on the FIRST recommended model
+        // (list order), not the last.
+        $models = [
+            new DiscoveredModel(
+                modelId: 'rec-a',
+                name: 'Rec A',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 100000,
+                recommended: true,
+            ),
+            new DiscoveredModel(
+                modelId: 'rec-b',
+                name: 'Rec B',
+                description: 'Test',
+                capabilities: ['chat'],
+                contextLength: 200000,
+                recommended: true,
+            ),
+        ];
+        $this->stubHttpRoundTrip(500, '{}');
+
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', $models);
+
+        self::assertNotEmpty($result);
+        self::assertSame('rec-a', $result[0]->recommendedModelId);
+    }
+
+    #[Test]
+    public function fallbackConfigurationsHaveExpectedMaxTokens(): void
+    {
+        $result = $this->subject->generate($this->createOpenAiProvider(), 'test-key', []);
+
+        $maxTokensByIdentifier = [];
+        foreach ($result as $config) {
+            $maxTokensByIdentifier[$config->identifier] = $config->maxTokens;
+        }
+
+        self::assertSame(
+            [
+                'content-assistant'  => 4096,
+                'content-summarizer' => 2048,
+                'translator'         => 8192,
+                'seo-optimizer'      => 4096,
+                'code-assistant'     => 8192,
+            ],
+            $maxTokensByIdentifier,
+        );
     }
 }

@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -1386,17 +1388,13 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     // ---------------------------------------------------------------------
 
     /**
-     * Build a provider whose request factory records every outgoing request
+     * Build a request factory that records every outgoing request
      * (method, URI, headers, JSON body) into $captured.
      *
-     * @param array<string, mixed>                                                                   $config
      * @param list<array{method: string, uri: string, headers: array<string, string>, body: string}> $captured
      */
-    private function createCapturingProvider(
-        array $config,
-        ResponseInterface $response,
-        array &$captured,
-    ): OpenRouterProvider {
+    private function createCapturingRequestFactory(array &$captured): RequestFactoryInterface
+    {
         $requestFactory = self::createStub(RequestFactoryInterface::class);
         $requestFactory->method('createRequest')->willReturnCallback(
             function (string $method, string $uri) use (&$captured): RequestInterface {
@@ -1429,11 +1427,20 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             },
         );
 
-        $httpClient = self::createStub(ClientInterface::class);
-        $httpClient->method('sendRequest')->willReturn($response);
+        return $requestFactory;
+    }
 
+    /**
+     * @param array<string, mixed>                                                                   $config
+     * @param list<array{method: string, uri: string, headers: array<string, string>, body: string}> $captured
+     */
+    private function createCapturingProviderWithClient(
+        array $config,
+        ClientInterface $httpClient,
+        array &$captured,
+    ): OpenRouterProvider {
         $provider = new OpenRouterProvider(
-            $requestFactory,
+            $this->createCapturingRequestFactory($captured),
             $this->createStreamFactoryMock(),
             $this->createLoggerMock(),
             $this->createVaultServiceMock(),
@@ -1450,6 +1457,149 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $provider->setHttpClient($httpClient);
 
         return $provider;
+    }
+
+    /**
+     * Build a provider whose request factory records every outgoing request
+     * (method, URI, headers, JSON body) into $captured.
+     *
+     * @param array<string, mixed>                                                                   $config
+     * @param list<array{method: string, uri: string, headers: array<string, string>, body: string}> $captured
+     */
+    private function createCapturingProvider(
+        array $config,
+        ResponseInterface $response,
+        array &$captured,
+    ): OpenRouterProvider {
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn($response);
+
+        return $this->createCapturingProviderWithClient($config, $httpClient, $captured);
+    }
+
+    /**
+     * Capturing provider whose HTTP client answers the /models endpoint with
+     * $modelsResponse and every other endpoint with $chatResponse.
+     *
+     * @param array<string, mixed>                                                                   $config
+     * @param array<string, mixed>                                                                   $modelsResponse
+     * @param list<array{method: string, uri: string, headers: array<string, string>, body: string}> $captured
+     */
+    private function createCapturingRoutingProvider(
+        array $config,
+        array $modelsResponse,
+        ResponseInterface $chatResponse,
+        array &$captured,
+    ): OpenRouterProvider {
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturnCallback(
+            fn(RequestInterface $request): ResponseInterface => str_contains((string)$request->getUri(), '/models')
+                    ? $this->createJsonResponseMock($modelsResponse)
+                    : $chatResponse,
+        );
+
+        return $this->createCapturingProviderWithClient($config, $httpClient, $captured);
+    }
+
+    /**
+     * Build a streaming (SSE) response stub that serves the given reads in
+     * order and reports EOF once they are exhausted.
+     *
+     * @param list<string> $reads
+     */
+    private function createSseResponse(array $reads, int $statusCode = 200): ResponseInterface
+    {
+        $readCount = 0;
+
+        $stream = self::createStub(StreamInterface::class);
+        $stream->method('eof')->willReturnCallback(
+            static function () use (&$readCount, $reads): bool {
+                return $readCount >= count($reads);
+            },
+        );
+        $stream->method('read')->willReturnCallback(
+            static function () use (&$readCount, $reads): string {
+                return $reads[$readCount++] ?? '';
+            },
+        );
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($statusCode);
+        $response->method('getBody')->willReturn($stream);
+
+        return $response;
+    }
+
+    /**
+     * Live-model-list entry fixture for the /models endpoint.
+     *
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
+    private static function modelEntry(string $id, float $prompt, float $completion, array $overrides = []): array
+    {
+        return $overrides + [
+            'id' => $id,
+            'name' => $id,
+            'context_length' => 8000,
+            'architecture' => ['modality' => 'text'],
+            'pricing' => ['prompt' => $prompt, 'completion' => $completion],
+            'supports_function_calling' => false,
+        ];
+    }
+
+    /**
+     * Run a chat completion through a capturing routing provider and return
+     * the model id the provider actually put into the request payload.
+     *
+     * @param array<string, mixed>       $config
+     * @param list<array<string, mixed>> $modelEntries
+     * @param array<string, mixed>       $chatOptions
+     */
+    private function capturedRoutedModel(array $config, array $modelEntries, array $chatOptions = []): string
+    {
+        $captured = [];
+        $provider = $this->createCapturingRoutingProvider(
+            $config,
+            ['data' => $modelEntries],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion([['role' => 'user', 'content' => 'Hi']], $chatOptions);
+
+        self::assertArrayHasKey(1, $captured);
+        $body = $this->decodeCapturedBody($captured[1]['body']);
+        self::assertIsString($body['model']);
+
+        return $body['model'];
+    }
+
+    /**
+     * Run analyzeImage through a capturing routing provider and return the
+     * model id the provider actually put into the request payload.
+     *
+     * @param array<string, mixed>       $config
+     * @param list<array<string, mixed>> $modelEntries
+     */
+    private function capturedVisionModel(array $config, array $modelEntries): string
+    {
+        $captured = [];
+        $provider = $this->createCapturingRoutingProvider(
+            $config,
+            ['data' => $modelEntries],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->analyzeImage([VisionContent::fromArray(['type' => 'text', 'text' => 'Hi'])]);
+
+        self::assertArrayHasKey(1, $captured);
+        $body = $this->decodeCapturedBody($captured[1]['body']);
+        self::assertIsString($body['model']);
+
+        return $body['model'];
     }
 
     /**
@@ -1938,5 +2088,582 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         self::assertSame(0.0, $result['usage']);
         self::assertTrue($result['is_free_tier']);
         self::assertSame(['requests' => 200, 'interval' => '10s'], $result['rate_limit']);
+    }
+
+    // ---------------------------------------------------------------------
+    // Streaming request/parsing pins
+    // ---------------------------------------------------------------------
+
+    #[Test]
+    public function streamChatCompletionBuildsExactRequestAndPayload(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [
+                'siteUrl' => 'https://example.com',
+                'appName' => 'Test App',
+                'fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus',
+            ],
+            $this->createSseResponse(["data: [DONE]\n"]),
+            $captured,
+        );
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame([], $chunks);
+        self::assertCount(1, $captured);
+
+        self::assertSame('POST', $captured[0]['method']);
+        self::assertSame('https://openrouter.ai/api/v1/chat/completions', $captured[0]['uri']);
+        self::assertSame('application/json', $captured[0]['headers']['Content-Type'] ?? null);
+        self::assertSame('text/event-stream', $captured[0]['headers']['Accept'] ?? null);
+        self::assertSame('https://example.com', $captured[0]['headers']['HTTP-Referer'] ?? null);
+        self::assertSame('Test App', $captured[0]['headers']['X-Title'] ?? null);
+
+        self::assertSame(
+            [
+                'model' => 'primary/model',
+                'messages' => [['role' => 'user', 'content' => 'Hi']],
+                'temperature' => 0.7,
+                'max_tokens' => 4096,
+                'stream' => true,
+                'route' => 'fallback',
+                'models' => ['primary/model', 'openai/gpt-4o', 'anthropic/claude-3-opus'],
+            ],
+            $this->decodeCapturedBody($captured[0]['body']),
+        );
+    }
+
+    #[Test]
+    public function streamChatCompletionTrimsTrailingSlashFromBaseUrl(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            ['baseUrl' => 'https://openrouter.ai/api/v1/'],
+            $this->createSseResponse(["data: [DONE]\n"]),
+            $captured,
+        );
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame([], $chunks);
+        self::assertCount(1, $captured);
+        self::assertSame('https://openrouter.ai/api/v1/chat/completions', $captured[0]['uri']);
+    }
+
+    #[Test]
+    public function chatCompletionTrimsTrailingSlashFromBaseUrl(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            ['baseUrl' => 'https://openrouter.ai/api/v1/'],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        );
+
+        self::assertCount(1, $captured);
+        self::assertSame('https://openrouter.ai/api/v1/chat/completions', $captured[0]['uri']);
+    }
+
+    #[Test]
+    public function streamChatCompletionValidatesConfigurationBeforeStreaming(): void
+    {
+        $provider = $this->createProviderWithConfig(['apiKeyIdentifier' => '']);
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse(["data: [DONE]\n"]));
+
+        $this->expectException(ProviderConfigurationException::class);
+
+        $provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        )->current();
+    }
+
+    #[Test]
+    public function streamChatCompletionThrowsOnHttpErrorStatus(): void
+    {
+        $provider = $this->createProviderWithConfig([]);
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse([], 500));
+
+        $this->expectException(ProviderConnectionException::class);
+        $this->expectExceptionMessage('Server returned status 500');
+
+        $provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        )->current();
+    }
+
+    #[Test]
+    public function streamChatCompletionIgnoresDataAfterDoneMarker(): void
+    {
+        $provider = $this->createProviderWithConfig([]);
+
+        $streamData = "data: {\"choices\":[{\"delta\":{\"content\":\"before\"}}]}\n"
+            . "data: [DONE]\n"
+            . "data: {\"choices\":[{\"delta\":{\"content\":\"after\"}}]}\n";
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse([$streamData]));
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame(['before'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionConcatenatesPartialReads(): void
+    {
+        $provider = $this->createProviderWithConfig([]);
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse([
+                'data: {"choices":[{"delta":{"content":"Hel',
+                "lo\"}}]}\ndata: [DONE]\n",
+            ]));
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame(['Hello'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionParsesSingleNewlineSeparatedEvents(): void
+    {
+        $provider = $this->createProviderWithConfig([]);
+
+        $streamData = "data: {\"choices\":[{\"delta\":{\"content\":\"A\"}}]}\n"
+            . "data: {\"choices\":[{\"delta\":{\"content\":\"B\"}}]}\n"
+            . "data: [DONE]\n";
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse([$streamData]));
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame(['A', 'B'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionSubstitutesInvalidUtf8InPayload(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            [],
+            $this->createSseResponse(["data: [DONE]\n"]),
+            $captured,
+        );
+
+        $chunks = iterator_to_array($provider->streamChatCompletion(
+            [['role' => 'user', 'content' => "Caf\xE9!"]],
+            ['model' => 'primary/model'],
+        ));
+
+        self::assertSame([], $chunks);
+        self::assertCount(1, $captured);
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+        self::assertSame([['role' => 'user', 'content' => "Caf\u{FFFD}!"]], $body['messages']);
+    }
+
+    #[Test]
+    public function chatCompletionSubstitutesInvalidUtf8InPayload(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => "Caf\xE9!"]],
+            ['model' => 'primary/model'],
+        );
+
+        self::assertCount(1, $captured);
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+        self::assertSame([['role' => 'user', 'content' => "Caf\u{FFFD}!"]], $body['messages']);
+    }
+
+    // ---------------------------------------------------------------------
+    // Embeddings / vision transformation pins
+    // ---------------------------------------------------------------------
+
+    #[Test]
+    public function embeddingsCastsValuesToFloatAndReportsZeroCompletionTokens(): void
+    {
+        $apiResponse = [
+            'model' => 'openai/text-embedding-3-small',
+            'data' => [['index' => 0, 'embedding' => [1, '0.5', 0.25]]],
+            'usage' => ['prompt_tokens' => 7, 'total_tokens' => 7],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->embeddings('test');
+
+        self::assertSame([[1.0, 0.5, 0.25]], $result->embeddings);
+        self::assertSame(7, $result->usage->promptTokens);
+        self::assertSame(0, $result->usage->completionTokens);
+        self::assertSame(7, $result->usage->totalTokens);
+    }
+
+    #[Test]
+    public function analyzeImageBuildsExactRequest(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->analyzeImage(
+            [
+                VisionContent::fromArray(['type' => 'text', 'text' => 'Describe']),
+                VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.png']]),
+            ],
+            ['model' => 'vision/model'],
+        );
+
+        // Request 0 is the vision-model discovery (models list), request 1 the completion.
+        self::assertCount(2, $captured);
+        self::assertArrayHasKey(1, $captured);
+        self::assertSame('POST', $captured[1]['method']);
+
+        self::assertSame(
+            [
+                'model' => 'vision/model',
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            ['type' => 'text', 'text' => 'Describe'],
+                            ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/i.png']],
+                        ],
+                    ],
+                ],
+                'max_tokens' => 4096,
+                'route' => 'fallback',
+            ],
+            $this->decodeCapturedBody($captured[1]['body']),
+        );
+    }
+
+    #[Test]
+    public function analyzeImagePrependsSystemPromptMessage(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->analyzeImage(
+            [VisionContent::fromArray(['type' => 'text', 'text' => 'Hi'])],
+            ['model' => 'vision/model', 'system_prompt' => 'Be nice'],
+        );
+
+        self::assertArrayHasKey(1, $captured);
+        $body = $this->decodeCapturedBody($captured[1]['body']);
+
+        self::assertSame(
+            [
+                ['role' => 'system', 'content' => 'Be nice'],
+                ['role' => 'user', 'content' => [['type' => 'text', 'text' => 'Hi']]],
+            ],
+            $body['messages'],
+        );
+    }
+
+    #[Test]
+    public function analyzeImageMetadataIncludesActualProviderAndCost(): void
+    {
+        $apiResponse = [
+            'id' => 'gen-test',
+            'model' => 'vision/model',
+            'provider' => 'anthropic',
+            'total_cost' => 0.5,
+            'choices' => [['message' => ['content' => 'a cat'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->analyzeImage(
+            [VisionContent::fromArray(['type' => 'text', 'text' => 'Hi'])],
+            ['model' => 'vision/model'],
+        );
+
+        self::assertSame(
+            ['actual_provider' => 'anthropic', 'cost' => 0.5],
+            $result->metadata,
+        );
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsIncludesFallbackModelsInPayload(): void
+    {
+        $spec = ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'f']]);
+
+        $captured = [];
+        $provider = $this->createCapturingProvider(
+            ['fallbackModels' => 'openai/gpt-4o, anthropic/claude-3-opus'],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletionWithTools(
+            [['role' => 'user', 'content' => 'Hi']],
+            [$spec],
+            ['model' => 'primary/model'],
+        );
+
+        self::assertCount(1, $captured);
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+
+        self::assertSame('fallback', $body['route']);
+        self::assertSame(
+            ['primary/model', 'openai/gpt-4o', 'anthropic/claude-3-opus'],
+            $body['models'],
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // Routing pins: assert the model id the provider actually REQUESTS,
+    // not the model id the mocked response echoes back.
+    // ---------------------------------------------------------------------
+
+    #[Test]
+    public function costOptimizedRoutingRequestsCheapestModelByAverage(): void
+    {
+        // Averages: 0.0255 / 0.0205 / 0.02 — mid/model is cheapest only when
+        // BOTH pricing components enter the (prompt + completion) / 2 average.
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('prompt-heavy/model', 0.05, 0.001),
+                self::modelEntry('completion-heavy/model', 0.001, 0.04),
+                self::modelEntry('mid/model', 0.02, 0.02),
+            ],
+        );
+
+        self::assertSame('mid/model', $model);
+    }
+
+    #[Test]
+    public function costOptimizedRoutingPrefersFirstModelOnPriceTie(): void
+    {
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('first/model', 0.01, 0.01),
+                self::modelEntry('second/model', 0.01, 0.01),
+            ],
+        );
+
+        self::assertSame('first/model', $model);
+    }
+
+    #[Test]
+    public function performanceRoutingRequestsFastKeywordModel(): void
+    {
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'performance'],
+            [
+                self::modelEntry('slow/opus', 0.01, 0.03),
+                self::modelEntry('quick/flash', 0.001, 0.002),
+            ],
+        );
+
+        self::assertSame('quick/flash', $model);
+    }
+
+    #[Test]
+    public function balancedRoutingRequestsBalancedKeywordModel(): void
+    {
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'balanced'],
+            [
+                self::modelEntry('fast/haiku', 0.0001, 0.0001),
+                self::modelEntry('steady/sonnet', 0.003, 0.015),
+            ],
+        );
+
+        self::assertSame('steady/sonnet', $model);
+    }
+
+    #[Test]
+    public function explicitRoutingSkipsModelDiscovery(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingRoutingProvider(
+            ['routingStrategy' => 'explicit'],
+            ['data' => [self::modelEntry('steady/sonnet', 0.003, 0.015)]],
+            $this->chatResponse(),
+            $captured,
+        );
+
+        $provider->chatCompletion([['role' => 'user', 'content' => 'Hi']]);
+
+        // Explicit routing must not fetch the live model list at all.
+        self::assertCount(1, $captured);
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+        self::assertSame('anthropic/claude-3.5-sonnet', $body['model']);
+    }
+
+    #[Test]
+    public function minContextFilterKeepsBoundaryModel(): void
+    {
+        // A model whose context length EQUALS min_context must survive the
+        // filter (>=), while smaller ones are dropped.
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('tiny/context', 0.00001, 0.00001, ['context_length' => 4000]),
+                self::modelEntry('exact/context', 0.0001, 0.0001, ['context_length' => 100000]),
+                self::modelEntry('huge/context', 0.01, 0.01, ['context_length' => 128000]),
+            ],
+            ['min_context' => 100000],
+        );
+
+        self::assertSame('exact/context', $model);
+    }
+
+    #[Test]
+    public function routingWithoutFilterOptionsKeepsIncapableModels(): void
+    {
+        // Without vision_required / function_calling options the capability
+        // filters must NOT run: the cheap incapable model stays eligible.
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('plain/cheap', 0.0001, 0.0001),
+                self::modelEntry('able/model', 0.01, 0.01, [
+                    'architecture' => ['modality' => 'multimodal'],
+                    'supports_function_calling' => true,
+                ]),
+            ],
+        );
+
+        self::assertSame('plain/cheap', $model);
+    }
+
+    #[Test]
+    public function visionRequiredFilterRoutesToVisionCapableModel(): void
+    {
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('text/cheap', 0.0001, 0.0001),
+                self::modelEntry('vision/pricier', 0.01, 0.01, [
+                    'architecture' => ['modality' => 'multimodal'],
+                ]),
+            ],
+            ['vision_required' => true],
+        );
+
+        self::assertSame('vision/pricier', $model);
+    }
+
+    #[Test]
+    public function functionCallingFilterRoutesToToolCapableModel(): void
+    {
+        $model = $this->capturedRoutedModel(
+            ['routingStrategy' => 'cost_optimized'],
+            [
+                self::modelEntry('plain/cheap', 0.0001, 0.0001),
+                self::modelEntry('tools/pricier', 0.01, 0.01, [
+                    'supports_function_calling' => true,
+                ]),
+            ],
+            ['function_calling' => true],
+        );
+
+        self::assertSame('tools/pricier', $model);
+    }
+
+    // ---------------------------------------------------------------------
+    // Vision-model selection pins
+    // ---------------------------------------------------------------------
+
+    #[Test]
+    public function analyzeImageUsesVisionCapableDefaultModel(): void
+    {
+        $model = $this->capturedVisionModel(
+            [],
+            [self::modelEntry('anthropic/claude-3.5-sonnet', 0.003, 0.015, [
+                'architecture' => ['modality' => 'multimodal'],
+            ])],
+        );
+
+        self::assertSame('anthropic/claude-3.5-sonnet', $model);
+    }
+
+    #[Test]
+    public function analyzeImageFallsBackToFirstListedVisionModel(): void
+    {
+        // The default model is absent from the live list; the FIRST entry of
+        // the curated vision-model list that is available must be selected.
+        $model = $this->capturedVisionModel(
+            [],
+            [self::modelEntry('anthropic/claude-sonnet-4-5', 0.003, 0.015)],
+        );
+
+        self::assertSame('anthropic/claude-sonnet-4-5', $model);
+    }
+
+    #[Test]
+    public function analyzeImageSelectsListedVisionModelFromAvailableModels(): void
+    {
+        // Only a later curated entry is available: it must be picked over the
+        // hardcoded 'openai/gpt-5.2' fallback and over unavailable entries.
+        $model = $this->capturedVisionModel(
+            [],
+            [self::modelEntry('google/gemini-3-flash', 0.001, 0.002)],
+        );
+
+        self::assertSame('google/gemini-3-flash', $model);
+    }
+
+    #[Test]
+    public function handleOpenRouterErrorIncludesApiErrorMessage(): void
+    {
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(
+                ['error' => ['message' => 'upstream exploded']],
+                500,
+            ));
+
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('OpenRouter API error (500): upstream exploded');
+
+        $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Hi']],
+            ['model' => 'primary/model'],
+        );
     }
 }

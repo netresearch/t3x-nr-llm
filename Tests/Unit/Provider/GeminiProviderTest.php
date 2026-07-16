@@ -1574,32 +1574,9 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ?string &$capturedUri,
         ?string &$capturedBody,
     ): GeminiProvider {
-        $requestFactory = self::createStub(RequestFactoryInterface::class);
-        $requestFactory->method('createRequest')
-            ->willReturnCallback(function (string $method, string $uri) use (
-                &$capturedMethod,
-                &$capturedUri,
-            ): RequestInterface {
-                $capturedMethod = $method;
-                $capturedUri    = $uri;
-
-                return $this->createRequestMock($method, $uri);
-            });
-
-        $streamFactory = self::createStub(StreamFactoryInterface::class);
-        $streamFactory->method('createStream')
-            ->willReturnCallback(function (string $content) use (&$capturedBody): StreamInterface {
-                $capturedBody = $content;
-                $stream       = self::createStub(StreamInterface::class);
-                $stream->method('__toString')->willReturn($content);
-                $stream->method('getContents')->willReturn($content);
-
-                return $stream;
-            });
-
         $subject = new GeminiProvider(
-            $requestFactory,
-            $streamFactory,
+            $this->createCapturingRequestFactory($capturedMethod, $capturedUri),
+            $this->createCapturingStreamFactory($capturedBody),
             $this->createLoggerMock(),
             $this->createVaultServiceMock(),
             $this->createSecureHttpClientFactoryMock(),
@@ -1613,6 +1590,122 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $subject->setHttpClient($this->createJsonHttpClient($apiResponse));
 
         return $subject;
+    }
+
+    /**
+     * Request factory stub that records the method and URI of every
+     * created request.
+     */
+    private function createCapturingRequestFactory(
+        ?string &$capturedMethod,
+        ?string &$capturedUri,
+    ): RequestFactoryInterface {
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')
+            ->willReturnCallback(function (string $method, string $uri) use (
+                &$capturedMethod,
+                &$capturedUri,
+            ): RequestInterface {
+                $capturedMethod = $method;
+                $capturedUri    = $uri;
+
+                return $this->createRequestMock($method, $uri);
+            });
+
+        return $requestFactory;
+    }
+
+    /**
+     * Stream factory stub that records the JSON body of every created stream.
+     */
+    private function createCapturingStreamFactory(?string &$capturedBody): StreamFactoryInterface
+    {
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')
+            ->willReturnCallback(function (string $content) use (&$capturedBody): StreamInterface {
+                $capturedBody = $content;
+                $stream       = self::createStub(StreamInterface::class);
+                $stream->method('__toString')->willReturn($content);
+                $stream->method('getContents')->willReturn($content);
+
+                return $stream;
+            });
+
+        return $streamFactory;
+    }
+
+    /**
+     * Build an SSE streaming response stub: read() replays $sseData once,
+     * eof() flips to true afterwards.
+     */
+    private function createSseResponse(string $sseData, int $statusCode = 200): ResponseInterface
+    {
+        $streamStub = self::createStub(StreamInterface::class);
+        $readCount = 0;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
+        });
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+            $readCount++;
+            return $sseData;
+        });
+        $streamStub->method('__toString')->willReturn($sseData);
+        $streamStub->method('getContents')->willReturn($sseData);
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn($statusCode);
+        $responseStub->method('getBody')->willReturn($streamStub);
+
+        return $responseStub;
+    }
+
+    /**
+     * Build a subject for streaming tests whose request-factory /
+     * stream-factory capture the outgoing method, URI and JSON body, and
+     * whose HTTP client replays the given SSE response.
+     */
+    private function createStreamingCapturingSubject(
+        ResponseInterface $sseResponse,
+        ?string &$capturedMethod,
+        ?string &$capturedUri,
+        ?string &$capturedBody,
+        string $baseUrl = '',
+    ): GeminiProvider {
+        $subject = new GeminiProvider(
+            $this->createCapturingRequestFactory($capturedMethod, $capturedUri),
+            $this->createCapturingStreamFactory($capturedBody),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gemini-3-flash-preview',
+            'baseUrl' => $baseUrl,
+            'timeout' => 30,
+        ]);
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn($sseResponse);
+        $subject->setHttpClient($httpClient);
+
+        return $subject;
+    }
+
+    /**
+     * Minimal one-candidate generateContent response for capture tests.
+     *
+     * @return array<string, mixed>
+     */
+    private static function okCandidateResponse(): array
+    {
+        return [
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'ok']], 'role' => 'model'],
+                'finishReason' => 'STOP',
+            ]],
+            'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1],
+        ];
     }
 
     /**
@@ -1998,5 +2091,528 @@ class GeminiProviderTest extends AbstractUnitTestCase
         ];
 
         $this->subject->analyzeImage($content, ['model' => '../../secret']);
+    }
+
+    // ===== Second-pass outgoing-request assertions (mutation coverage) =====
+
+    #[Test]
+    public function analyzeImageSkipsNonImageDataUri(): void
+    {
+        // analyzeImage() is image-only: a `data:application/pdf` URI matches
+        // the base64 regex but fails the `image/` MIME check and must be
+        // dropped from the outgoing parts.
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->analyzeImage([
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'data:application/pdf;base64,JVBERi0=']]),
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Describe']]]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function analyzeImageSkipsImageDataUriWithEmbeddedNewline(): void
+    {
+        // Wrapped base64 (MIME line folding) carries a raw newline; the
+        // `$`-anchored regex must reject it instead of silently truncating
+        // the payload to its first line.
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->analyzeImage([
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBORw0K\nGgo="]]),
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Describe']]]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function analyzeImageSendsFileDataForRemoteImageUrl(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->analyzeImage([
+            VisionContent::fromArray(['type' => 'text', 'text' => 'Describe this']),
+            VisionContent::fromArray(['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/image.jpg']]),
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [[
+                'role' => 'user',
+                'parts' => [
+                    ['text' => 'Describe this'],
+                    ['fileData' => ['mimeType' => 'image/jpeg', 'fileUri' => 'https://example.com/image.jpg']],
+                ],
+            ]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function analyzeImageSendsSystemInstructionFromOption(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->analyzeImage(
+            [VisionContent::fromArray(['type' => 'text', 'text' => 'What is this?'])],
+            ['system_prompt' => 'You are a technical analyst.'],
+        );
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertArrayHasKey('systemInstruction', $body);
+        self::assertSame(
+            ['parts' => [['text' => 'You are a technical analyst.']]],
+            $body['systemInstruction'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionSendsSystemInstructionAndRemainingMessages(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([
+            ['role' => 'system', 'content' => 'You are helpful.'],
+            ['role' => 'user', 'content' => 'Hello'],
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        // The system message maps to systemInstruction; the user turn must
+        // still be converted (`continue`, not `break`).
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Hello']]]],
+            $body['contents'],
+        );
+        self::assertArrayHasKey('systemInstruction', $body);
+        self::assertSame(
+            ['parts' => [['text' => 'You are helpful.']]],
+            $body['systemInstruction'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsSendsExactConversationPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'description' => 'x', 'parameters' => ['type' => 'object']],
+            ]),
+        ];
+
+        $messages = [
+            ['role' => 'user', 'content' => 'Check weather'],
+            [
+                'role' => 'assistant',
+                'content' => 'Checking now.',
+                'tool_calls' => [
+                    [
+                        'id' => 'call_1',
+                        'type' => 'function',
+                        'function' => ['name' => 'get_weather', 'arguments' => '{"city":"Hamburg"}'],
+                    ],
+                    [
+                        'id' => 'call_2',
+                        'type' => 'function',
+                        'function' => ['name' => 'get_time', 'arguments' => '{"zone":"Europe/Berlin"}'],
+                    ],
+                ],
+            ],
+            // NO 'name' keys: both must resolve via the tool_call_id mapping.
+            ['role' => 'tool', 'tool_call_id' => 'call_1', 'content' => '{"temp":12}'],
+            // Non-JSON tool output must be wrapped as {result: ...}.
+            ['role' => 'tool', 'tool_call_id' => 'call_2', 'content' => 'half past nine'],
+        ];
+
+        $subject->chatCompletionWithTools($messages, $tools);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [
+                ['role' => 'user', 'parts' => [['text' => 'Check weather']]],
+                ['role' => 'model', 'parts' => [
+                    ['text' => 'Checking now.'],
+                    ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Hamburg']]],
+                    ['functionCall' => ['name' => 'get_time', 'args' => ['zone' => 'Europe/Berlin']]],
+                ]],
+                ['role' => 'user', 'parts' => [[
+                    'functionResponse' => ['name' => 'get_weather', 'response' => ['temp' => 12]],
+                ]]],
+                ['role' => 'user', 'parts' => [[
+                    'functionResponse' => ['name' => 'get_time', 'response' => ['result' => 'half past nine']],
+                ]]],
+            ],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionSendsExactMultimodalImagePayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe this image'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:image/png;base64,iVBORw0KGgo=']],
+                ],
+            ],
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [[
+                'role' => 'user',
+                'parts' => [
+                    ['text' => 'Describe this image'],
+                    ['inlineData' => ['mimeType' => 'image/png', 'data' => 'iVBORw0KGgo=']],
+                ],
+            ]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionSendsExactDocumentPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Summarize this PDF'],
+                    [
+                        'type' => 'document',
+                        'source' => [
+                            'type' => 'base64',
+                            'media_type' => 'application/pdf',
+                            'data' => 'JVBERi0xLjQ=',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [[
+                'role' => 'user',
+                'parts' => [
+                    ['text' => 'Summarize this PDF'],
+                    ['inlineData' => ['mimeType' => 'application/pdf', 'data' => 'JVBERi0xLjQ=']],
+                ],
+            ]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function chatCompletionSkipsMultimodalDataUriWithEmbeddedNewline(): void
+    {
+        // Same anchored-regex guard as on the vision path: wrapped base64
+        // with a raw newline must not be truncated to its first line.
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            self::okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Describe'],
+                    ['type' => 'image_url', 'image_url' => ['url' => "data:image/png;base64,iVBORw0K\nGgo="]],
+                ],
+            ],
+        ]);
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Describe']]]],
+            $body['contents'],
+        );
+    }
+
+    // ===== Second-pass streaming assertions (mutation coverage) =====
+
+    #[Test]
+    public function streamChatCompletionSendsExactRequestPayload(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createStreamingCapturingSubject(
+            $this->createSseResponse("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hi!\"}]}}]}\n"),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+            'https://gemini.example/v1beta/',
+        );
+
+        $chunks = [];
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'Hi']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['Hi!'], $chunks);
+        self::assertSame('POST', $capturedMethod);
+        // rtrim() must deduplicate the trailing slash of the configured base URL.
+        self::assertSame(
+            'https://gemini.example/v1beta/models/gemini-3-flash-preview:streamGenerateContent?alt=sse',
+            $capturedUri,
+        );
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Hi']]]],
+            $body['contents'],
+        );
+        self::assertIsArray($body['generationConfig']);
+        self::assertArrayHasKey('temperature', $body['generationConfig']);
+        self::assertSame(0.7, $body['generationConfig']['temperature']);
+        self::assertArrayHasKey('maxOutputTokens', $body['generationConfig']);
+        self::assertSame(4096, $body['generationConfig']['maxOutputTokens']);
+    }
+
+    #[Test]
+    public function streamChatCompletionConvertsChatMessageObjectsToArrays(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createStreamingCapturingSubject(
+            $this->createSseResponse("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"ok\"}]}}]}\n"),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $chunks = [];
+        foreach ($subject->streamChatCompletion([new ChatMessage('user', 'Hello from VO')]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['ok'], $chunks);
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(
+            [['role' => 'user', 'parts' => [['text' => 'Hello from VO']]]],
+            $body['contents'],
+        );
+    }
+
+    #[Test]
+    public function streamChatCompletionSubstitutesInvalidUtf8InPayload(): void
+    {
+        // A message carrying a non-UTF-8 byte (e.g. ISO-8859-1 log output
+        // echoed into the conversation) must degrade to U+FFFD via
+        // JSON_INVALID_UTF8_SUBSTITUTE; without the flag json_encode()
+        // returns false and the request cannot be built.
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createStreamingCapturingSubject(
+            $this->createSseResponse("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"ok\"}]}}]}\n"),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $chunks = [];
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => "Caf\xE9"]]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['ok'], $chunks);
+        self::assertIsString($capturedBody);
+        // json_encode() (no JSON_UNESCAPED_UNICODE) escapes the substituted
+        // U+FFFD replacement character as the literal `\ufffd` sequence.
+        self::assertStringContainsString('Caf\ufffd', $capturedBody);
+    }
+
+    #[Test]
+    public function streamChatCompletionValidatesConfigurationBeforeRequest(): void
+    {
+        $subject = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel' => 'gemini-3-flash-preview',
+            'baseUrl' => '',
+            'timeout' => 30,
+        ]);
+        // A pre-wired SSE client that would complete without error: the typed
+        // configuration failure must fire BEFORE any request is attempted.
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient->method('sendRequest')->willReturn(
+            $this->createSseResponse("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"never\"}]}}]}\n"),
+        );
+        $subject->setHttpClient($httpClient);
+
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionCode(1307337100);
+
+        $subject->streamChatCompletion([['role' => 'user', 'content' => 'Hi']])->current();
+    }
+
+    #[Test]
+    public function streamChatCompletionRejectsInvalidModelIdWithTypedException(): void
+    {
+        $this->expectException(ProviderConfigurationException::class);
+        $this->expectExceptionCode(1751280000);
+
+        $this->subject->streamChatCompletion(
+            [['role' => 'user', 'content' => 'hi']],
+            ['model' => '../../secret'],
+        )->current();
+    }
+
+    #[Test]
+    public function streamChatCompletionThrowsProviderResponseExceptionOnHttpError(): void
+    {
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createSseResponse('{"error":{"message":"API key not valid"}}', 401));
+
+        $this->expectException(ProviderResponseException::class);
+
+        $this->subject->streamChatCompletion([['role' => 'user', 'content' => 'Hi']])->current();
+    }
+
+    #[Test]
+    public function streamChatCompletionAccumulatesBufferAcrossChunkReads(): void
+    {
+        // One SSE line split across two read() chunks: the buffer must
+        // ACCUMULATE (`.=`) — a plain assignment would drop the first half
+        // and lose the line.
+        $chunkOne = 'data: {"candidates":[{"content":{"parts":[{"text":"Hel';
+        $chunkTwo = "lo\"}]}}]}\n";
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $readCount = 0;
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+            return $readCount >= 2; // @phpstan-ignore greaterOrEqual.alwaysFalse
+        });
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $chunkOne, $chunkTwo) {
+            $readCount++;
+            return $readCount === 1 ? $chunkOne : $chunkTwo;
+        });
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($streamStub);
+
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($responseStub);
+
+        $chunks = [];
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'Hi']]) as $chunk) {
+            $chunks[] = $chunk;
+        }
+
+        self::assertSame(['Hello'], $chunks);
     }
 }

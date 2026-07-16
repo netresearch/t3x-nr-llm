@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
@@ -36,6 +37,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
+use ReflectionProperty;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -1832,5 +1834,408 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ]);
 
         self::assertSame(1, $this->readProperty($subject, 'pollInterval'));
+    }
+
+    // ==================== second pass: audit context ====================
+
+    /**
+     * Read the private audit context off the abstract base. With the injected
+     * test client, getSecureClient() returns early and never consumes the
+     * context via getAuditReason(), so the value set by the public method
+     * under test is still stored afterwards.
+     */
+    private function readAuditContext(FalImageService $subject): mixed
+    {
+        return (new ReflectionProperty(AbstractSpecializedService::class, 'auditContext'))->getValue($subject);
+    }
+
+    #[Test]
+    public function generateSetsModelAndPurposeAuditContext(): void
+    {
+        // generate() records `<model>, generate` (sprintf('%s, generate', $model))
+        // for the vault audit log before dispatching.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset');
+
+        self::assertSame('flux-schnell, generate', $this->readAuditContext($subject));
+    }
+
+    #[Test]
+    public function generateMultipleSetsModelAndPurposeAuditContext(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generateMultiple('A sunset', 2);
+
+        self::assertSame('flux-schnell, generate', $this->readAuditContext($subject));
+    }
+
+    // ==================== second pass: configuration guard ====================
+
+    #[Test]
+    public function loadConfigurationLeavesBaseUrlUntouchedWhenFalConfigIsNotAnArray(): void
+    {
+        // The abstract initializes $baseUrl = '' and loadServiceConfiguration()
+        // returns at the fal-branch guard, so the FAL default URL must NOT be
+        // adopted when the fal config entry is present but not an array.
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['image' => ['fal' => 'not-an-array']]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+        );
+
+        self::assertFalse($subject->isAvailable());
+        self::assertSame('', $this->readProperty($subject, 'baseUrl'));
+    }
+
+    // ==================== second pass: image_size resolution (payload) ====================
+
+    #[Test]
+    public function generateSendsExplicitImageSizeVerbatimInPayload(): void
+    {
+        // An explicit image_size option is returned as-is by resolveImageSize()
+        // and must not fall through to the 'square_hd' default.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', ['image_size' => 'landscape_16_9']);
+
+        self::assertSame('landscape_16_9', $this->decodedBody()['image_size']);
+    }
+
+    #[Test]
+    public function generateDerivesImageSizeFromNumericStringWidthAndHeight(): void
+    {
+        // Numeric strings are cast to int ((int)'1920' / (int)'1080'), and the
+        // derived array carries BOTH keys in width-then-height order.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', ['width' => '1920', 'height' => '1080']);
+
+        self::assertSame(['width' => 1920, 'height' => 1080], $this->decodedBody()['image_size']);
+    }
+
+    #[Test]
+    public function generateDefaultsNonNumericWidthOrHeightTo1024(): void
+    {
+        // Each non-numeric dimension falls back to exactly 1024 while the
+        // numeric partner is kept (source: `is_numeric(...) ? (int)... : 1024`).
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', ['width' => 'wide', 'height' => 768]);
+        $subject->generate('A sunset', 'flux-schnell', ['width' => 768, 'height' => 'tall']);
+
+        self::assertSame(['width' => 1024, 'height' => 768], $this->decodedBody(0)['image_size']);
+        self::assertSame(['width' => 768, 'height' => 1024], $this->decodedBody(1)['image_size']);
+    }
+
+    #[Test]
+    public function generateUsesDefaultImageSizeWhenOnlyWidthGiven(): void
+    {
+        // The width/height branch requires BOTH keys (isset && isset); a lone
+        // width must yield the 'square_hd' default, not a derived pair.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', ['width' => 800]);
+
+        self::assertSame('square_hd', $this->decodedBody()['image_size']);
+    }
+
+    // ==================== second pass: numeric option casting (payload) ====================
+
+    #[Test]
+    public function generateCastsNumericOptionValuesInPayload(): void
+    {
+        // Numeric strings are cast per applyNumericOptions()/buildGeneratePayload():
+        // guidance_scale (float), num_inference_steps (int), seed (int),
+        // enable_safety_checker (bool), and num_images is clamped to <= 4.
+        // JSON round-trip makes the cast observable: '3.5' would serialize as
+        // a string, 1 would stay an int instead of true.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', [
+            'num_images' => 10,
+            'guidance_scale' => '3.5',
+            'num_inference_steps' => '25',
+            'seed' => '42',
+            'enable_safety_checker' => 1,
+        ]);
+
+        $payload = $this->decodedBody();
+        self::assertSame(4, $payload['num_images']);
+        self::assertSame(3.5, $payload['guidance_scale']);
+        self::assertSame(25, $payload['num_inference_steps']);
+        self::assertSame(42, $payload['seed']);
+        self::assertTrue($payload['enable_safety_checker']);
+    }
+
+    #[Test]
+    public function generateDefaultsNonNumericOptionValuesInPayload(): void
+    {
+        // Non-numeric values hit the ternary fallbacks: num_images 1,
+        // num_inference_steps 20, seed 0 (source defaults in applyNumericOptions()).
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithJson(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-schnell', [
+            'num_images' => 'many',
+            'num_inference_steps' => 'fast',
+            'seed' => 'random',
+        ]);
+
+        $payload = $this->decodedBody();
+        self::assertSame(1, $payload['num_images']);
+        self::assertSame(20, $payload['num_inference_steps']);
+        self::assertSame(0, $payload['seed']);
+    }
+
+    #[Test]
+    public function imageToImageCastsNumericStringStrengthInPayload(): void
+    {
+        // A numeric-string strength must arrive as a JSON float (0.5), not the
+        // raw string ('0.5') — applyImageToImageOptions() casts via (float).
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/transformed.png']]]);
+
+        $subject->imageToImage(
+            'https://example.com/source.png',
+            'Make it darker',
+            'flux-dev',
+            ['strength' => '0.5'],
+        );
+
+        self::assertSame(0.5, $this->decodedBody()['strength']);
+    }
+
+    // ==================== second pass: extractSize guards ====================
+
+    #[Test]
+    public function generateSizeFallsBackWhenWidthIsNotScalar(): void
+    {
+        // is_scalar($width) && is_scalar($height): an array width must fall to
+        // the '1024x1024' default instead of being string-concatenated.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://example.com/image.png', 'width' => [800], 'height' => 600]],
+        ]);
+
+        $result = $subject->generate('A sunset');
+
+        self::assertSame('1024x1024', $result->size);
+    }
+
+    #[Test]
+    public function generateSizeFallsBackWhenHeightMissing(): void
+    {
+        // isset($image['width']) && isset($image['height']): with only width
+        // present the guard must short-circuit to the default size without
+        // touching the missing height key.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://example.com/image.png', 'width' => 800]],
+        ]);
+
+        $result = $subject->generate('A sunset');
+
+        self::assertSame('1024x1024', $result->size);
+    }
+
+    #[Test]
+    public function generateHandlesEmptyImagesList(): void
+    {
+        // images = [] must short-circuit at isset($images[0]) and yield the
+        // empty image (no URL, default size) without touching offset 0.
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest(['images' => []]);
+
+        $result = $subject->generate('A sunset');
+
+        self::assertSame('', $result->url);
+        self::assertSame('1024x1024', $result->size);
+    }
+
+    // ==================== second pass: queue URL construction ====================
+
+    #[Test]
+    public function generateBuildsStatusAndResultUrlsFromEndpointAndRequestId(): void
+    {
+        // Full queue round-trip URL pinning: submit POST to the endpoint,
+        // status GET at <queue>/<endpoint>/requests/<id>/status, result GET at
+        // <queue>/<endpoint>/requests/<id>. Endpoint = MODELS['flux-pro'],
+        // request id = respondWithQueue()'s 'test-request-123'.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate('A sunset', 'flux-pro');
+
+        self::assertSame(
+            [
+                ['method' => 'POST', 'uri' => 'https://queue.fal.run/fal-ai/flux-pro'],
+                ['method' => 'GET', 'uri' => 'https://queue.fal.run/fal-ai/flux-pro/requests/test-request-123/status'],
+                ['method' => 'GET', 'uri' => 'https://queue.fal.run/fal-ai/flux-pro/requests/test-request-123'],
+            ],
+            $this->capturedRequests,
+        );
+    }
+
+    // ==================== second pass: poll attempt budget ====================
+
+    #[Test]
+    public function pollForResultAllowsCeilOfTimeoutOverIntervalAttempts(): void
+    {
+        // timeout 1s, pollInterval 999ms → maxAttempts = ceil(1000/999) = 2.
+        // A first non-terminal poll followed by COMPLETED must succeed; any
+        // shrinking of the budget (floor/round rounding, 1000→999 in the
+        // milliseconds factor) would allow only one attempt and time out.
+        $config = [
+            'image' => [
+                'fal' => [
+                    'apiKeyIdentifier' => 'test-api-key',
+                    'timeout' => 1,
+                    'pollInterval' => 999,
+                ],
+            ],
+        ];
+        $subject = $this->createSubject($config);
+
+        $this->setupQueueResponses(
+            ['IN_PROGRESS', 'COMPLETED'],
+            ['images' => [['url' => 'https://example.com/image.png']]],
+        );
+
+        $result = $subject->generate('A sunset', 'sdxl');
+
+        self::assertSame('sdxl', $result->model);
+    }
+
+    // ==================== second pass: queue payload encoding ====================
+
+    #[Test]
+    public function queueRequestSubstitutesInvalidUtf8InPayload(): void
+    {
+        // json_encode(..., JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE):
+        // a prompt with a lone 0xE9 byte (invalid UTF-8, the real input class
+        // behind PR #315/#316) must be substituted with U+FFFD rather than
+        // making the encode fail.
+        $subject = $this->createSubject();
+        $this->installCapturingFactories();
+        $this->respondWithQueue(['images' => [['url' => 'https://example.com/image.png']]]);
+
+        $subject->generate("A caf\xE9 sunset", 'sdxl');
+
+        self::assertSame("A caf\u{FFFD} sunset", $this->decodedBody()['prompt']);
+    }
+
+    // ==================== second pass: queue error context / messages ====================
+
+    #[Test]
+    public function queueSubmissionWithoutRequestIdCarriesProviderContext(): void
+    {
+        $subject = $this->createSubject();
+        // Submit response lacks request_id (only a status field).
+        $this->setupSuccessfulRequest(['status' => 'queued']);
+
+        try {
+            $subject->generate('A sunset', 'sdxl');
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame('FAL queue submission failed: no request_id', $e->getMessage());
+            self::assertSame(['provider' => 'fal'], $e->context);
+        }
+    }
+
+    #[Test]
+    public function queueFailureSurfacesErrorTextAndRequestContext(): void
+    {
+        // FAILED status: message = 'FAL generation failed: ' . the response's
+        // error string (coalesce + is_string guard keep it verbatim); context
+        // carries provider AND the polled request id.
+        $subject = $this->createSubject();
+
+        $requestStub = self::createStub(RequestInterface::class);
+        $requestStub->method('withHeader')->willReturnSelf();
+        $requestStub->method('withBody')->willReturnSelf();
+        $this->requestFactoryStub->method('createRequest')->willReturn($requestStub);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $this->streamFactoryStub->method('createStream')->willReturn($streamStub);
+
+        $submitBody = self::createStub(StreamInterface::class);
+        $submitBody->method('__toString')->willReturn((string)json_encode(['request_id' => 'req-77']));
+        $submitResponse = self::createStub(ResponseInterface::class);
+        $submitResponse->method('getStatusCode')->willReturn(200);
+        $submitResponse->method('getBody')->willReturn($submitBody);
+
+        $statusBody = self::createStub(StreamInterface::class);
+        $statusBody->method('__toString')->willReturn((string)json_encode([
+            'status' => 'FAILED',
+            'error' => 'Content policy violation',
+        ]));
+        $statusResponse = self::createStub(ResponseInterface::class);
+        $statusResponse->method('getStatusCode')->willReturn(200);
+        $statusResponse->method('getBody')->willReturn($statusBody);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturnOnConsecutiveCalls($submitResponse, $statusResponse);
+
+        try {
+            $subject->generate('A sunset', 'sdxl');
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame('FAL generation failed: Content policy violation', $e->getMessage());
+            self::assertSame(['provider' => 'fal', 'request_id' => 'req-77'], $e->context);
+        }
+    }
+
+    #[Test]
+    public function queueTimeoutCarriesRequestContext(): void
+    {
+        // timeout 1s / pollInterval 1000ms → one exhausted poll; the timeout
+        // exception context carries provider AND the request id
+        // ('test-request-123' from setupQueueResponses()).
+        $config = [
+            'image' => [
+                'fal' => [
+                    'apiKeyIdentifier' => 'test-api-key',
+                    'timeout' => 1,
+                    'pollInterval' => 1000,
+                ],
+            ],
+        ];
+        $subject = $this->createSubject($config);
+
+        $this->setupQueueResponses(['IN_PROGRESS'], null);
+
+        try {
+            $subject->generate('A sunset', 'sdxl');
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertSame('FAL generation timed out', $e->getMessage());
+            self::assertSame(['provider' => 'fal', 'request_id' => 'test-request-123'], $e->context);
+        }
     }
 }
