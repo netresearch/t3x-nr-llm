@@ -50,11 +50,11 @@ Functional test example
            $this->repository = $this->get(ProviderRepository::class);
        }
 
-       public function testFindByIdentifierReturnsProvider(): void
+       public function testFindOneByIdentifierReturnsProvider(): void
        {
            $this->importCSVDataSet(__DIR__ . '/Fixtures/providers.csv');
 
-           $provider = $this->repository->findByIdentifier('openai-test');
+           $provider = $this->repository->findOneByIdentifier('openai-test');
 
            $this->assertInstanceOf(Provider::class, $provider);
            $this->assertEquals('OpenAI Test', $provider->getName());
