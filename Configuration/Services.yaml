@@ -23,6 +23,7 @@ services:
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Specialized/Exception/*'
+      - '../Classes/Testing/*'
       - '../Classes/Widgets/*'
 
   # ========================================
