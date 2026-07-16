@@ -240,4 +240,6 @@ Best practices
    ConfigurationPresets
    QualityEvaluation
    IntegrationGuide
+   EndpointProtection
+   SafeMarkdownRendering
    FeatureServices/Index
