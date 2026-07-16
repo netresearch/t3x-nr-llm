@@ -168,7 +168,7 @@ final class GroqProvider extends AbstractProvider implements
             $payload['seed'] = $this->getInt($options, 'seed');
         }
 
-        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -218,7 +218,7 @@ final class GroqProvider extends AbstractProvider implements
             $payload['parallel_tool_calls'] = $this->getBool($options, 'parallel_tool_calls');
         }
 
-        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload);
+        $response = $this->sendRequest(self::ENDPOINT_CHAT_COMPLETIONS, $payload, timeout: $this->resolveRequestTimeout($options));
 
         $choices = $this->getList($response, 'choices');
         $choice = $this->asArray($choices[0] ?? []);
@@ -288,7 +288,7 @@ final class GroqProvider extends AbstractProvider implements
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
         $this->assertStreamingResponseOk($response, self::ENDPOINT_CHAT_COMPLETIONS);
         $stream = $response->getBody();
 

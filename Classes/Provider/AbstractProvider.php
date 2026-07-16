@@ -58,7 +58,7 @@ abstract class AbstractProvider implements ProviderInterface
     protected string $apiKeyIdentifier = '';
     protected string $baseUrl = '';
     protected string $defaultModel = '';
-    protected int $timeout = 30;
+    protected int $timeout = 120;
     protected int $maxRetries = 3;
 
     /** @var array<string> */
@@ -86,7 +86,7 @@ abstract class AbstractProvider implements ProviderInterface
         $this->apiKeyIdentifier = $this->getString($config, 'apiKeyIdentifier');
         $this->baseUrl = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
         $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
-        $this->timeout = $this->getInt($config, 'timeout', 30);
+        $this->timeout = $this->getInt($config, 'timeout', 120);
         $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
 
         // Reset HTTP client when configuration changes
@@ -150,13 +150,18 @@ abstract class AbstractProvider implements ProviderInterface
      * with audit logging. For providers without API keys (like Ollama),
      * uses the httpClientFactory directly.
      *
+     * @param int|null $timeout per-request total-response timeout in seconds;
+     *                          falls back to the provider's configured timeout
+     *
      * @return ClientInterface HTTP client with authentication configured
      */
-    protected function getHttpClient(): ClientInterface
+    protected function getHttpClient(?int $timeout = null): ClientInterface
     {
         if ($this->configuredHttpClient !== null) {
             return $this->configuredHttpClient;
         }
+
+        $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;
 
         // For providers without API key, use httpClientFactory directly.
         // The authenticated path is gated by VaultHttpClient::sendRequest(),
@@ -168,14 +173,16 @@ abstract class AbstractProvider implements ProviderInterface
         // private/metadata IP literal cannot bypass the private-range filter.
         if ($this->apiKeyIdentifier === '') {
             $this->assertEndpointHostAllowed();
-            return $this->httpClientFactory->create();
+            return $this->httpClientFactory->create($effective > 0 ? $effective : null);
         }
 
-        return $this->vault->http()->withAuthentication(
+        $client = $this->vault->http()->withAuthentication(
             $this->apiKeyIdentifier,
             $this->getSecretPlacement(),
             $this->getSecretPlacementOptions(),
         );
+
+        return $effective > 0 ? $client->withTimeout($effective) : $client;
     }
 
     /**
@@ -266,10 +273,12 @@ abstract class AbstractProvider implements ProviderInterface
      *
      * @return array<string, mixed>
      */
-    protected function sendRequest(string $endpoint, array $payload, string $method = 'POST'): array
+    protected function sendRequest(string $endpoint, array $payload, string $method = 'POST', ?int $timeout = null): array
     {
         // Validate configuration before making API calls
         $this->validateConfiguration();
+
+        $effectiveTimeout = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;
 
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
@@ -289,7 +298,7 @@ abstract class AbstractProvider implements ProviderInterface
             $request = $request->withBody($body);
         }
 
-        $httpClient = $this->getHttpClient();
+        $httpClient = $this->getHttpClient($timeout);
         // Stamp a per-request audit reason (purpose + model) on the vault
         // client so the audit log records what each secret access served.
         // Test doubles injected via setHttpClient() are plain PSR-18
@@ -299,8 +308,15 @@ abstract class AbstractProvider implements ProviderInterface
         }
         $attempt = 0;
         $lastException = null;
+        // maxRetries counts retries after the initial attempt; max_retries = 0
+        // still sends one request. Clamp negatives (reachable via the options
+        // JSON maxRetries override, which configure() does not range-check) so
+        // the loop always runs at least once.
+        $maxAttempts = max(0, $this->maxRetries) + 1;
 
-        while ($attempt < $this->maxRetries) {
+        while ($attempt < $maxAttempts) {
+            $attemptStart = microtime(true);
+
             try {
                 return $this->handleResponse($httpClient->sendRequest($request), $endpoint);
             } catch (ProviderResponseException $e) {
@@ -309,7 +325,27 @@ abstract class AbstractProvider implements ProviderInterface
                 $lastException = $e;
                 $attempt++;
 
-                if ($attempt < $this->maxRetries) {
+                // A client-side timeout must not be retried: retrying would
+                // multiply the caller's wait by maxAttempts. Guzzle raises the
+                // total timeout (cURL error 28) as a ConnectException — the
+                // same class as retryable connection failures — so the only
+                // reliable discriminator is the elapsed wall time. cURL can
+                // fire marginally before the integer limit, so allow a 0.5s
+                // tolerance; misclassifying an equally-slow connection failure
+                // as a timeout fails safe (fewer retries).
+                if ($effectiveTimeout > 0 && (microtime(true) - $attemptStart) >= $effectiveTimeout - 0.5) {
+                    throw new ProviderConnectionException(
+                        sprintf(
+                            'Provider request timed out after %d seconds (attempt %d; timeouts are not retried)',
+                            $effectiveTimeout,
+                            $attempt,
+                        ),
+                        0,
+                        $e,
+                    );
+                }
+
+                if ($attempt < $maxAttempts) {
                     // Exponential backoff capped at 30s. Short-circuit at
                     // attempt >= 9 (100000 * 2**9 = 51.2s already exceeds the
                     // cap) so the 2 ** $attempt term cannot overflow the float→int
@@ -321,11 +357,33 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         throw new ProviderConnectionException(
-            'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
+            'Failed to connect to provider after ' . $attempt . ' attempts: '
             . $this->sanitizeErrorMessage($lastException?->getMessage() ?? self::UNKNOWN_ERROR),
             0,
             $lastException,
         );
+    }
+
+    /**
+     * Resolve the per-request timeout from the call options.
+     *
+     * `options['timeout']` carries the configuration-level effective timeout
+     * (see LlmConfiguration::getEffectiveTimeout()); it overrides the
+     * provider's api_timeout for the single request. Returns null when the
+     * options carry no usable value, so the provider timeout applies.
+     *
+     * @param array<string, mixed> $options
+     */
+    protected function resolveRequestTimeout(array $options): ?int
+    {
+        $raw = $options['timeout'] ?? null;
+        if (!is_numeric($raw)) {
+            return null;
+        }
+
+        $seconds = (int)$raw;
+
+        return $seconds > 0 ? $seconds : null;
     }
 
     /**

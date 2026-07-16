@@ -364,25 +364,18 @@
                 <source>Optional organization ID (OpenAI, Azure)</source>
             </trans-unit>
 
-            <trans-unit id="tx_nrllm_provider.timeout">
-                <source>Response Timeout (seconds)</source>
-            </trans-unit>
-            <trans-unit id="tx_nrllm_provider.timeout.description">
-                <source>Maximum time to wait for the complete API response. Includes connection (max 10s) and model processing time. Large models may need 60-300 seconds.</source>
-            </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.api_timeout">
                 <source>API Timeout (seconds)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.api_timeout.description">
-                <source>Connection and read timeout for API requests</source>
+                <source>Maximum time in seconds to wait for the complete API response, including connection (max 10s) and model processing time. Large or reasoning models may need 120-300 seconds. A configuration- or model-level timeout overrides this value per request.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.max_retries">
                 <source>Max Retries</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.max_retries.description">
-                <source>Number of retry attempts on failure</source>
+                <source>Number of retries after the first failed request (0 = try once, no retries)</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.options">

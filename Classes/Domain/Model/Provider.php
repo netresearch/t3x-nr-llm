@@ -44,7 +44,7 @@ class Provider extends AbstractEntity
     protected string $endpointUrl = '';
     protected string $apiKey = '';
     protected string $organizationId = '';
-    protected int $apiTimeout = 30;
+    protected int $apiTimeout = 120;
     protected int $maxRetries = 3;
     protected string $options = '';
     protected bool $isActive = true;

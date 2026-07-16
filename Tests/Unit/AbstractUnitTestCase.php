@@ -152,6 +152,7 @@ abstract class AbstractUnitTestCase extends TestCase
         $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
         $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
         $vaultHttpClient->method('withReason')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('withTimeout')->willReturn($vaultHttpClient);
         $vaultHttpClient->method('sendRequest')->willReturnCallback(fn() => $this->createHttpResponseMock(200, '{}'));
 
         $stub = self::createStub(VaultServiceInterface::class);

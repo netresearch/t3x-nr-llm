@@ -87,16 +87,18 @@ Optional
 .. confval:: timeout
    :name: confval-provider-timeout
    :type: integer
-   :Default: 30
+   :Default: 120
 
-   Request timeout in seconds.
+   Maximum time in seconds to wait for the complete API response. A
+   configuration- or model-level timeout overrides this value per request.
 
 .. confval:: max_retries
    :name: confval-provider-max-retries
    :type: integer
    :Default: 3
 
-   Number of retry attempts on failure.
+   Number of retries after the first failed request (0 = try once, no
+   retries). Timed-out requests are not retried.
 
 .. confval:: options
    :name: confval-provider-options

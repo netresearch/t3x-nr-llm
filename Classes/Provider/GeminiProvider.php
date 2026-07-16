@@ -169,6 +169,7 @@ final class GeminiProvider extends AbstractProvider implements
         $response = $this->sendRequest(
             "models/{$model}:generateContent",
             $payload,
+            timeout: $this->resolveRequestTimeout($options),
         );
 
         $candidates = $this->getList($response, 'candidates');
@@ -234,6 +235,7 @@ final class GeminiProvider extends AbstractProvider implements
         $response = $this->sendRequest(
             "models/{$model}:generateContent",
             $payload,
+            timeout: $this->resolveRequestTimeout($options),
         );
 
         $candidates = $this->getList($response, 'candidates');
@@ -315,6 +317,7 @@ final class GeminiProvider extends AbstractProvider implements
             $response = $this->sendRequest(
                 "models/{$model}:embedContent",
                 $payload,
+                timeout: $this->resolveRequestTimeout($options),
             );
 
             $embeddingData = $this->getArray($response, 'embedding');
@@ -405,6 +408,7 @@ final class GeminiProvider extends AbstractProvider implements
         $response = $this->sendRequest(
             "models/{$model}:generateContent",
             $payload,
+            timeout: $this->resolveRequestTimeout($options),
         );
 
         $candidates = $this->getList($response, 'candidates');
@@ -503,7 +507,7 @@ final class GeminiProvider extends AbstractProvider implements
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
         $this->assertStreamingResponseOk($response, sprintf('models/%s:streamGenerateContent', $model));
         $stream = $response->getBody();
 

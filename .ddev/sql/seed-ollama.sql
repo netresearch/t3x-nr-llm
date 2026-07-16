@@ -14,7 +14,7 @@ INSERT INTO tx_nrllm_provider (
     'ollama',
     'http://ollama:11434',
     '',
-    30,
+    120,
     3,
     1,
     100,

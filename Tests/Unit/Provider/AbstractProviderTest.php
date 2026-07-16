@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use GuzzleHttp\Client;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
@@ -35,6 +36,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
+use ReflectionProperty;
 use RuntimeException;
 
 /**
@@ -527,7 +529,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'maxRetries' => 0,
         ]);
 
         $client = $this->createHttpClientMock();
@@ -624,6 +626,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
 
         $vaultHttpClient = self::createStub(VaultHttpClientInterface::class);
         $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
+        $vaultHttpClient->method('withTimeout')->willReturn($vaultHttpClient);
         $vaultHttpClient->method('withReason')->willReturnCallback(
             function (string $reason) use (&$capturedReasons, $vaultHttpClient): VaultHttpClientInterface {
                 $capturedReasons[] = $reason;
@@ -864,14 +867,13 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     /**
-     * With `maxRetries = 0` the retry loop never runs, so `$lastException`
-     * stays null and the final exception message falls back to the
-     * `?? self::UNKNOWN_ERROR` placeholder. Exercises the null-safe operator
-     * (the mutant drops `?->` and calls getMessage() on null) and pins the
-     * exception code to 0.
+     * Regression test for #387: `maxRetries = 0` means "no retries", not
+     * "no requests" — exactly one HTTP request is sent, and the surfaced
+     * exhaustion message reports the attempt actually made together with
+     * the real underlying error instead of the "Unknown error" placeholder.
      */
     #[Test]
-    public function connectionExhaustionWithZeroRetriesFallsBackToUnknownErrorAndCodeZero(): void
+    public function maxRetriesZeroSendsExactlyOneRequestAndSurfacesRealError(): void
     {
         $provider = new MistralProvider(
             $this->createRequestFactoryMock(),
@@ -885,15 +887,59 @@ class AbstractProviderTest extends AbstractUnitTestCase
             'defaultModel' => 'mistral-large-latest',
             'maxRetries' => 0,
         ]);
-        $provider->setHttpClient($this->createHttpClientMock());
+
+        $underlying = new RuntimeException('socket reset');
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException($underlying);
+        $provider->setHttpClient($client);
 
         try {
             $provider->complete('hi');
             self::fail('Expected ProviderConnectionException was not thrown');
         } catch (ProviderConnectionException $e) {
             self::assertSame(0, $e->getCode());
-            self::assertStringContainsString('after 0 attempts', $e->getMessage());
-            self::assertStringContainsString('Unknown error', $e->getMessage());
+            self::assertStringContainsString('after 1 attempts', $e->getMessage());
+            self::assertStringContainsString('socket reset', $e->getMessage());
+            self::assertStringNotContainsString('Unknown error', $e->getMessage());
+            self::assertSame($underlying, $e->getPrevious());
+        }
+    }
+
+    /**
+     * A negative `maxRetries` — reachable through the options JSON override,
+     * which configure() does not range-check — must clamp to "no retries",
+     * not skip the loop entirely and resurrect the "0 attempts" bug.
+     */
+    #[Test]
+    public function negativeMaxRetriesStillSendsExactlyOneRequest(): void
+    {
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'mistral-large-latest',
+            'maxRetries' => -3,
+        ]);
+
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('socket reset'));
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hi');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('after 1 attempts', $e->getMessage());
+            self::assertStringContainsString('socket reset', $e->getMessage());
         }
     }
 
@@ -1217,6 +1263,179 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     /**
+     * The provider's configured api_timeout must actually reach the vault
+     * HTTP client (#384): with no per-request timeout, getHttpClient()
+     * applies the configured value via withTimeout(). ProviderConnectionTest
+     * only asserts elapsed-time upper bounds and cannot prove this.
+     */
+    #[Test]
+    public function sendRequestAppliesProviderApiTimeoutToVaultClient(): void
+    {
+        $vaultClient = $this->createVaultHttpClientExpectingTimeout(120);
+        $provider = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 120);
+
+        $response = $provider->complete('hi');
+
+        self::assertSame('ok', $response->content);
+    }
+
+    /**
+     * A per-request `options['timeout']` (the configuration-level effective
+     * timeout delivered via LlmConfiguration::toOptionsArray()) must win over
+     * the provider's api_timeout for the single request.
+     */
+    #[Test]
+    public function perRequestOptionsTimeoutWinsOverProviderApiTimeout(): void
+    {
+        $vaultClient = $this->createVaultHttpClientExpectingTimeout(240);
+        $provider = $this->openAiProviderWithVaultClient($vaultClient, providerTimeout: 30);
+
+        $response = $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'hi']],
+            ['timeout' => 240],
+        );
+
+        self::assertSame('ok', $response->content);
+    }
+
+    /**
+     * The api-key-less path (e.g. Ollama) must be bounded too: the effective
+     * timeout is passed to SecureHttpClientFactory::create(), which sets
+     * Guzzle's `timeout` option. The factory is final, so the produced Guzzle
+     * client's config is inspected directly.
+     */
+    #[Test]
+    public function apiKeylessProviderPassesTimeoutToFactory(): void
+    {
+        $provider = $this->makeGateProbe([
+            'apiKeyIdentifier' => '',
+            'baseUrl' => 'https://ok.test',
+            'timeout' => 77,
+        ]);
+
+        // Provider api_timeout applies when no per-request timeout is given.
+        self::assertSame(77, $this->guzzleTimeoutOf($provider->exposedGetHttpClient()));
+
+        // A per-request timeout overrides the provider api_timeout.
+        self::assertSame(240, $this->guzzleTimeoutOf($provider->exposedGetHttpClient(240)));
+    }
+
+    /**
+     * A request that consumed the effective timeout must NOT be retried —
+     * retrying would multiply the caller's wait by maxAttempts (#384). Guzzle
+     * reports a total timeout (cURL error 28) as a ConnectException, so the
+     * elapsed wall time is the discriminator.
+     */
+    #[Test]
+    public function timedOutRequestIsNotRetried(): void
+    {
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'mistral-large-latest',
+            'timeout' => 1,
+            'maxRetries' => 3,
+        ]);
+
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::once())
+            ->method('sendRequest')
+            ->willReturnCallback(static function (): ResponseInterface {
+                usleep(1_100_000);
+                throw new class ('cURL error 28: Operation timed out', 4859032175) extends RuntimeException implements NetworkExceptionInterface {
+                    public function getRequest(): RequestInterface
+                    {
+                        throw new RuntimeException('not used', 5686042759);
+                    }
+                };
+            });
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hi');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException $e) {
+            self::assertStringContainsString('timed out after 1 seconds', $e->getMessage());
+            self::assertStringContainsString('timeouts are not retried', $e->getMessage());
+        }
+    }
+
+    /**
+     * Vault HTTP client double that expects withTimeout() to be called exactly
+     * once with the given value and answers requests with a minimal OpenAI
+     * chat completion payload.
+     */
+    private function createVaultHttpClientExpectingTimeout(int $expectedSeconds): VaultHttpClientInterface
+    {
+        $apiResponse = [
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'model' => 'gpt-5.2',
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+        ];
+
+        $vaultClient = $this->createMock(VaultHttpClientInterface::class);
+        $vaultClient->method('withAuthentication')->willReturnSelf();
+        $vaultClient->method('withReason')->willReturnSelf();
+        $vaultClient->expects(self::once())
+            ->method('withTimeout')
+            ->with($expectedSeconds)
+            ->willReturnSelf();
+        $vaultClient->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        return $vaultClient;
+    }
+
+    /**
+     * OpenAiProvider wired to a vault service whose http() yields the given
+     * client — the real vault code path, no setHttpClient() test seam.
+     */
+    private function openAiProviderWithVaultClient(
+        VaultHttpClientInterface $vaultClient,
+        int $providerTimeout,
+    ): OpenAiProvider {
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('exists')->willReturn(true);
+        $vault->method('http')->willReturn($vaultClient);
+
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $vault,
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-5.2',
+            'timeout' => $providerTimeout,
+        ]);
+
+        return $provider;
+    }
+
+    /**
+     * Read the `timeout` option out of a Guzzle client produced by
+     * SecureHttpClientFactory::create().
+     */
+    private function guzzleTimeoutOf(ClientInterface $client): int
+    {
+        self::assertInstanceOf(Client::class, $client);
+        $config = (new ReflectionProperty(Client::class, 'config'))->getValue($client);
+        self::assertIsArray($config);
+        assert(isset($config['timeout']));
+        self::assertIsInt($config['timeout']);
+
+        return $config['timeout'];
+    }
+
+    /**
      * Stream factory stub that records the last content it was asked to wrap,
      * so tests can assert on the exact JSON-encoded request body.
      */
@@ -1312,9 +1531,9 @@ final class GateProbeProvider extends AbstractProvider
         );
     }
 
-    public function exposedGetHttpClient(): ClientInterface
+    public function exposedGetHttpClient(?int $timeout = null): ClientInterface
     {
-        return $this->getHttpClient();
+        return $this->getHttpClient($timeout);
     }
 
     /**

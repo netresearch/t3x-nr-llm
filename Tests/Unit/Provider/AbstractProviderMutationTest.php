@@ -373,8 +373,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderConnectionException');
         } catch (ProviderConnectionException $e) {
-            self::assertEquals(2, $attempts);
-            self::assertStringContainsString('Failed to connect to provider after 2 attempts', $e->getMessage());
+            self::assertEquals(3, $attempts);
+            self::assertStringContainsString('Failed to connect to provider after 3 attempts', $e->getMessage());
         }
     }
 
@@ -751,7 +751,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 5,
+            'maxRetries' => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
@@ -759,8 +759,8 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
             self::fail('Expected ProviderConnectionException');
         } catch (ProviderConnectionException $e) {
-            // Must contain the specific retry count
-            self::assertStringContainsString('5 attempts', $e->getMessage());
+            // Must contain the specific attempts-made count (maxRetries + 1)
+            self::assertStringContainsString('3 attempts', $e->getMessage());
             // And the original error message
             self::assertStringContainsString('Network error', $e->getMessage());
         }
@@ -798,12 +798,12 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         } catch (ProviderConnectionException $e) {
             // When we get a 500 status, lastException is set from the status code error
             // The message should contain 'Server returned status 500'
-            self::assertStringContainsString('2 attempts', $e->getMessage());
+            self::assertStringContainsString('3 attempts', $e->getMessage());
         }
     }
 
     #[Test]
-    public function sendRequestRetriesExactlyMaxRetriesTimes(): void
+    public function sendRequestRunsMaxRetriesPlusOneAttempts(): void
     {
         $attempts = 0;
 
@@ -824,15 +824,15 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         );
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
-            'maxRetries' => 4,
+            'maxRetries' => 2,
         ]);
         $provider->setHttpClient($httpClient);
 
         try {
             $this->invokeMethod($provider, 'sendRequest', '/test', []);
         } catch (ProviderConnectionException) {
-            // Should have tried exactly 4 times
-            self::assertEquals(4, $attempts);
+            // maxRetries = 2 means the initial attempt plus two retries
+            self::assertEquals(3, $attempts);
         }
     }
 

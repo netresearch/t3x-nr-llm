@@ -187,7 +187,7 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $payload = array_merge($payload, $this->buildSamplingParams($options));
 
-        $response = $this->sendRequest('messages', $payload);
+        $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
         $content = '';
         $nativeThinkingBlocks = [];
@@ -261,7 +261,7 @@ final class ClaudeProvider extends AbstractProvider implements
             $payload['tool_choice'] = $this->mapToolChoice($options['tool_choice']);
         }
 
-        $response = $this->sendRequest('messages', $payload);
+        $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
         $content = '';
         $nativeThinkingBlocks = [];
@@ -351,7 +351,7 @@ final class ClaudeProvider extends AbstractProvider implements
             $payload['system'] = $systemPrompt;
         }
 
-        $response = $this->sendRequest('messages', $payload);
+        $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
         $description = '';
         $contentBlocks = $this->getList($response, 'content');
@@ -508,7 +508,7 @@ final class ClaudeProvider extends AbstractProvider implements
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient()->sendRequest($request);
+        $response = $this->getHttpClient($this->resolveRequestTimeout($options))->sendRequest($request);
         $this->assertStreamingResponseOk($response, 'messages');
         $stream = $response->getBody();
 

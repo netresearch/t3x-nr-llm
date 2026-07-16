@@ -163,7 +163,7 @@ return [
                     'lower' => 1,
                     'upper' => 600,
                 ],
-                'default' => 30,
+                'default' => 120,
             ],
         ],
         'max_retries' => [

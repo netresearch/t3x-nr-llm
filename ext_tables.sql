@@ -18,7 +18,7 @@ CREATE TABLE tx_nrllm_provider (
     organization_id varchar(100) DEFAULT '' NOT NULL,
 
     -- Request settings (for API operations like list models, test connection)
-    api_timeout int(11) DEFAULT '30' NOT NULL,
+    api_timeout int(11) DEFAULT '120' NOT NULL,
     max_retries int(11) DEFAULT '3' NOT NULL,
 
     -- Additional options (JSON)

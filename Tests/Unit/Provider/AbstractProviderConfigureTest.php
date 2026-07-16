@@ -24,7 +24,7 @@ use ReflectionClass;
 class AbstractProviderConfigureTest extends AbstractUnitTestCase
 {
     #[Test]
-    public function configureUsesDefaultTimeoutOf30WhenNotProvided(): void
+    public function configureUsesDefaultTimeoutOf120WhenNotProvided(): void
     {
         $provider = new GeminiProvider(
             $this->createRequestFactoryMock(),
@@ -43,7 +43,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $reflection = new ReflectionClass($provider);
         $timeout = $reflection->getProperty('timeout');
 
-        self::assertEquals(30, $timeout->getValue($provider));
+        self::assertEquals(120, $timeout->getValue($provider));
     }
 
     #[Test]
@@ -255,10 +255,10 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     {
         return [
             'minimum' => [1],
-            'default minus one' => [29],
-            'default' => [30],
-            'default plus one' => [31],
-            'high' => [120],
+            'default minus one' => [119],
+            'default' => [120],
+            'default plus one' => [121],
+            'low' => [30],
         ];
     }
 
@@ -346,7 +346,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureWithEmptyArrayAppliesAllDefaults(): void
     {
         // An entirely empty config must leave every field at its safe default:
-        // empty api key (⇒ not available), timeout 30, maxRetries 3, the
+        // empty api key (⇒ not available), timeout 120, maxRetries 3, the
         // provider's own default base URL and model. No exception is thrown
         // (validation is lazy, deferred to the first real request).
         $provider = $this->geminiProvider();
@@ -354,7 +354,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $provider->configure([]);
 
         self::assertFalse($provider->isAvailable());
-        self::assertSame(30, $this->intProperty($provider, 'timeout'));
+        self::assertSame(120, $this->intProperty($provider, 'timeout'));
         self::assertSame(3, $this->intProperty($provider, 'maxRetries'));
 
         $baseUrl = $this->stringProperty($provider, 'baseUrl');
@@ -373,7 +373,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         self::assertTrue($provider->isAvailable());
-        self::assertSame(30, $this->intProperty($provider, 'timeout'));
+        self::assertSame(120, $this->intProperty($provider, 'timeout'));
         self::assertSame(3, $this->intProperty($provider, 'maxRetries'));
         self::assertNotEmpty($provider->getDefaultModel());
     }
@@ -399,7 +399,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     public function configureFallsBackToDefaultsForNonNumericStringNumerics(): void
     {
         // A non-numeric string cannot be coerced and must fall back to the
-        // default (30 / 3) rather than casting to 0, which would disable the
+        // default (120 / 3) rather than casting to 0, which would disable the
         // timeout / retry behaviour.
         $provider = $this->geminiProvider();
 
@@ -409,7 +409,7 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
             'maxRetries' => 'lots',
         ]);
 
-        self::assertSame(30, $this->intProperty($provider, 'timeout'));
+        self::assertSame(120, $this->intProperty($provider, 'timeout'));
         self::assertSame(3, $this->intProperty($provider, 'maxRetries'));
     }
 
