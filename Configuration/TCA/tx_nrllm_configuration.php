@@ -233,7 +233,9 @@ return [
                 'type' => 'number',
                 'size' => 10,
                 'range' => [
-                    'lower' => 1,
+                    // 0 = unset: fall back to the model's max output tokens
+                    // (or the provider default) — see #390.
+                    'lower' => 0,
                     'upper' => 128000,
                 ],
                 'default' => 1000,

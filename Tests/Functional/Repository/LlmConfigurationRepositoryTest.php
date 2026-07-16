@@ -341,14 +341,16 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function maxTokensIsAtLeastOne(): void
+    public function maxTokensIsAtLeastZero(): void
     {
         $configuration = new LlmConfiguration();
 
+        // 0 = unset — the model's max_output_tokens (or the provider
+        // default) applies (#390).
         $configuration->setMaxTokens(0);
-        self::assertEquals(1, $configuration->getMaxTokens());
+        self::assertEquals(0, $configuration->getMaxTokens());
 
         $configuration->setMaxTokens(-100);
-        self::assertEquals(1, $configuration->getMaxTokens());
+        self::assertEquals(0, $configuration->getMaxTokens());
     }
 }

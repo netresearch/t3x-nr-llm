@@ -175,7 +175,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens.description">
                 <source>Maximum number of tokens in the response</source>
-                <target>Maximale Anzahl der Token in der Antwort</target>
+                <target>Maximale Anzahl der Token in der Antwort. 0 = die im Modell hinterlegten maximalen Ausgabe-Token (oder der Anbieter-Standard) gelten.</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.top_p">
@@ -614,7 +614,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_model.max_output_tokens.description">
                 <source>Maximum output tokens per request (0 = unknown)</source>
-                <target>Maximale Ausgabe-Token pro Anfrage (0 = unbekannt)</target>
+                <target>Maximale Ausgabe-Token pro Anfrage (0 = unbekannt). Dient als Standard-Obergrenze für Anfragen, die selbst keine maximalen Token setzen.</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.dimensions">
@@ -623,7 +623,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_model.dimensions.description">
                 <source>Embedding vector dimensionality of the model (0 = unknown)</source>
-                <target>Dimensionalität des Embedding-Vektors des Modells (0 = unbekannt)</target>
+                <target>Dimensionalität des Embedding-Vektors des Modells (0 = unbekannt). Dient als Standard-Vektorgröße für Embedding-Anfragen, die selbst keine Dimensionen setzen.</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.capabilities">
