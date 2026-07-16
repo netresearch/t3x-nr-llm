@@ -99,6 +99,14 @@ aliases = 14:
 * ``Service\Feature\TranslationService`` (+ Interface)
 * ``Service\Feature\ToolCallingService`` (+ Interface, ADR-051)
 
+Added to Category A after this ADR (count superseded by
+:ref:`adr-071`):
+
+* ``Service\Retrieval\KeywordSearchInterface`` (alias; the concrete
+  ``KeywordSearchService`` stays private, ADR-071)
+* ``nr_llm.keyword_search.index_backed`` (named index-backed-only
+  variant, ADR-071)
+
 **B. Supporting-service interface aliases** (concrete classes now
 private) — 6:
 

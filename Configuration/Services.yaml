@@ -54,6 +54,20 @@ services:
   Netresearch\NrLlm\Service\Retrieval\SolrHttpClientInterface:
     alias: Netresearch\NrLlm\Service\Retrieval\SolrHttpClient
 
+  # Public keyword-search facade (ADR-071). The interface alias resolves
+  # the full cascade (concrete class stays private); the named variant
+  # excludes the priority-0 database LIKE fallback for consumers that
+  # need "index unavailable -> empty" (e.g. hybrid dense+sparse fusion).
+  Netresearch\NrLlm\Service\Retrieval\KeywordSearchInterface:
+    alias: Netresearch\NrLlm\Service\Retrieval\KeywordSearchService
+    public: true
+
+  nr_llm.keyword_search.index_backed:
+    class: Netresearch\NrLlm\Service\Retrieval\KeywordSearchService
+    arguments:
+      $indexBackedOnly: true
+    public: true
+
   Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface:
     alias: Netresearch\NrLlm\Specialized\Translation\TranslatorRegistry
     public: true

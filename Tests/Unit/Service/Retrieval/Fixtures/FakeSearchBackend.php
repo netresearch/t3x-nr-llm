@@ -25,6 +25,8 @@ final class FakeSearchBackend implements SearchBackendInterface
 {
     public int $searchCalls = 0;
 
+    public ?RetrievalQuery $lastQuery = null;
+
     /**
      * @param list<EvidenceSource> $sources
      */
@@ -35,6 +37,7 @@ final class FakeSearchBackend implements SearchBackendInterface
         private readonly array $sources = [],
         private readonly bool $throwsOnSearch = false,
         private readonly ?string $fetchResult = null,
+        private readonly bool $throwsOnAvailability = false,
     ) {}
 
     public function getIdentifier(): string
@@ -49,12 +52,17 @@ final class FakeSearchBackend implements SearchBackendInterface
 
     public function isAvailable(): bool
     {
+        if ($this->throwsOnAvailability) {
+            throw new RuntimeException('availability boom', 1751000001);
+        }
+
         return $this->available;
     }
 
     public function search(RetrievalQuery $query, AccessContext $context): EvidenceList
     {
         ++$this->searchCalls;
+        $this->lastQuery = $query;
         if ($this->throwsOnSearch) {
             throw new RuntimeException('boom', 1751000000);
         }

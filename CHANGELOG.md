@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Public keyword-search facade** (ADR-070). New public contract
+  `Service\Retrieval\KeywordSearchInterface` — `search(string $query, int $limit,
+  ?int $languageId = null): list<KeywordHit>` plus `isAvailable()` — over the ADR-049
+  site-search cascade, so downstream extensions no longer bind to private retrieval
+  internals. Input is clamped (never throws), results are always public-only, and any
+  backend failure degrades to an empty list. A second registration,
+  `nr_llm.keyword_search.index_backed`, excludes the priority-0 database LIKE fallback
+  for consumers that must treat "index unavailable" as empty (e.g. hybrid dense+sparse
+  fusion). Documented in `Documentation/Api/KeywordSearch.rst`; audited public-service
+  count 26 → 28.
+
 ## [0.20.0] - 2026-07-16
 
 Closes out the operator-config audit: every backend-visible provider/model/configuration
