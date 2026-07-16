@@ -521,9 +521,13 @@ class LlmConfiguration extends AbstractEntity
         $this->temperature = round(max(0.0, min(2.0, $temperature)), 2);
     }
 
+    /**
+     * 0 = no explicit limit — the resolved model's max_output_tokens
+     * (or the provider default) applies (#390).
+     */
     public function setMaxTokens(int $maxTokens): void
     {
-        $this->maxTokens = max(1, $maxTokens);
+        $this->maxTokens = max(0, $maxTokens);
     }
 
     public function setTopP(float $topP): void
@@ -688,7 +692,9 @@ class LlmConfiguration extends AbstractEntity
 
         return new ChatOptions(
             temperature: $this->temperature,
-            maxTokens: $this->maxTokens,
+            // 0 = unset — ChatOptions::validate() rejects non-positive
+            // max_tokens, so the unset state maps to null (#390).
+            maxTokens: $this->maxTokens > 0 ? $this->maxTokens : null,
             topP: $this->topP,
             frequencyPenalty: $this->frequencyPenalty,
             presencePenalty: $this->presencePenalty,
@@ -707,11 +713,16 @@ class LlmConfiguration extends AbstractEntity
     {
         $options = [
             'temperature' => $this->temperature,
-            'max_tokens' => $this->maxTokens,
             'top_p' => $this->topP,
             'frequency_penalty' => $this->frequencyPenalty,
             'presence_penalty' => $this->presencePenalty,
         ];
+
+        // 0 = unset — omit the key so the resolved model's
+        // max_output_tokens (or the provider default) applies (#390).
+        if ($this->maxTokens > 0) {
+            $options['max_tokens'] = $this->maxTokens;
+        }
 
         if ($this->systemPrompt !== '') {
             $options['system_prompt'] = $this->systemPrompt;

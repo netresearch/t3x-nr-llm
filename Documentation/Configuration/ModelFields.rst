@@ -67,9 +67,22 @@ Optional
 .. confval:: max_output_tokens
    :name: confval-model-max-output-tokens
    :type: integer
-   :Default: (model default)
+   :Default: 0 (unknown)
 
-   Maximum output tokens.
+   Maximum output tokens. Acts as the default
+   output cap for requests whose configuration
+   sets :ref:`max_tokens <confval-config-max-tokens>`
+   to ``0`` and whose caller sent no per-call
+   ``max_tokens`` option.
+
+.. confval:: dimensions
+   :name: confval-model-dimensions
+   :type: integer
+   :Default: 0 (unknown)
+
+   Embedding vector dimensionality. Acts as the
+   default vector size for embedding requests
+   whose options left ``dimensions`` unset.
 
 .. confval:: capabilities
    :name: confval-model-capabilities

@@ -65,9 +65,14 @@ Optional
 .. confval:: max_tokens (config)
    :name: confval-config-max-tokens
    :type: integer
-   :Default: (model default)
+   :Default: 1000
 
-   Maximum response length in tokens.
+   Maximum response length in tokens. Set ``0``
+   to inherit the model's
+   :ref:`max_output_tokens <confval-model-max-output-tokens>`.
+   Precedence: per-call option > configuration
+   value (> 0) > model ``max_output_tokens``
+   (> 0) > provider default.
 
 .. confval:: top_p
    :name: confval-config-top-p

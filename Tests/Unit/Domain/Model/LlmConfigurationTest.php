@@ -141,7 +141,7 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     }
 
     // ========================================
-    // MaxTokens clamping (minimum 1)
+    // MaxTokens clamping (minimum 0; 0 = unset, #390)
     // ========================================
 
     #[Test]
@@ -152,17 +152,17 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function setMaxTokensClampsToOneForZero(): void
+    public function setMaxTokensStoresZeroAsUnset(): void
     {
         $this->subject->setMaxTokens(0);
-        self::assertSame(1, $this->subject->getMaxTokens());
+        self::assertSame(0, $this->subject->getMaxTokens());
     }
 
     #[Test]
-    public function setMaxTokensClampsToOneForNegative(): void
+    public function setMaxTokensClampsToZeroForNegative(): void
     {
         $this->subject->setMaxTokens(-100);
-        self::assertSame(1, $this->subject->getMaxTokens());
+        self::assertSame(0, $this->subject->getMaxTokens());
     }
 
     // ========================================
@@ -596,6 +596,15 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
         self::assertNull($options->getModel());
     }
 
+    #[Test]
+    public function toChatOptionsMapsZeroMaxTokensToNull(): void
+    {
+        $this->subject->setMaxTokens(0);
+        $options = $this->subject->toChatOptions();
+
+        self::assertNull($options->getMaxTokens());
+    }
+
     // ========================================
     // toOptionsArray
     // ========================================
@@ -611,6 +620,25 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
         self::assertArrayHasKey('frequency_penalty', $options);
         self::assertArrayHasKey('presence_penalty', $options);
         self::assertArrayHasKey('timeout', $options);
+    }
+
+    #[Test]
+    public function toOptionsArrayOmitsMaxTokensWhenZero(): void
+    {
+        $this->subject->setMaxTokens(0);
+        $options = $this->subject->toOptionsArray();
+
+        self::assertArrayNotHasKey('max_tokens', $options);
+    }
+
+    #[Test]
+    public function toOptionsArrayIncludesMaxTokensWhenPositive(): void
+    {
+        $this->subject->setMaxTokens(2000);
+        $options = $this->subject->toOptionsArray();
+
+        self::assertArrayHasKey('max_tokens', $options);
+        self::assertSame(2000, $options['max_tokens']);
     }
 
     #[Test]

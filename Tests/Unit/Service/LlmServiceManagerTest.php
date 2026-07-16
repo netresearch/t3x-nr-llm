@@ -767,6 +767,230 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * When the configuration emits no max_tokens (stored value 0 = unset),
+     * the resolved model's max_output_tokens fills the gap (#390).
+     */
+    #[Test]
+    public function chatWithConfigurationUsesModelMaxOutputTokensWhenConfigurationUnset(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['temperature' => 0.7]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['temperature' => 0.7, 'max_tokens' => 8192],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config);
+    }
+
+    /**
+     * A configuration's stored max_tokens (> 0) wins over the model's
+     * max_output_tokens (#390 precedence, tier 2 over tier 3).
+     */
+    #[Test]
+    public function chatWithConfigurationConfigurationMaxTokensWinsOverModelDefault(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['max_tokens' => 2000]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 2000],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config);
+    }
+
+    /**
+     * An explicit per-call max_tokens override wins over both the
+     * configuration and the model (#390 precedence, tier 1).
+     */
+    #[Test]
+    public function chatWithConfigurationExplicitOverrideWinsOverConfigurationAndModel(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['max_tokens' => 2000]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 500],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config, [], ['max_tokens' => 500]);
+    }
+
+    /**
+     * An explicit per-call max_tokens of 0 means "unset" like everywhere
+     * else in the #390 contract — it must fall through to the model default
+     * instead of sending a 0 the provider API would reject.
+     */
+    #[Test]
+    public function chatWithConfigurationZeroOverrideFallsBackToModelDefault(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['max_tokens' => 2000]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 8192],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config, [], ['max_tokens' => 0]);
+    }
+
+    /**
+     * Neither configuration nor model define a cap → no max_tokens key is
+     * sent, so the provider's own hardcoded default applies (#390 tier 4).
+     */
+    #[Test]
+    public function chatWithConfigurationSendsNoMaxTokensWhenNothingConfigured(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(0);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['temperature' => 0.7]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['temperature' => 0.7],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config);
+    }
+
+    /**
+     * The tool-calling closure applies the same model default (#390).
+     */
+    #[Test]
+    public function chatWithToolsForConfigurationUsesModelMaxOutputTokensWhenConfigurationUnset(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['temperature' => 0.7]);
+
+        $toolProvider = new TestableToolProvider();
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($toolProvider);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithToolsForConfiguration(
+            [['role' => 'user', 'content' => 'Hello']],
+            [new ToolSpec(name: 'echo', description: 'echoes input', parameters: [])],
+            $config,
+        );
+
+        self::assertSame(8192, $toolProvider->getLastOptions()['max_tokens']);
+    }
+
     #[Test]
     public function completeWithConfigurationUsesAdapter(): void
     {
@@ -885,6 +1109,131 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         // Per-call options win over the configuration's stored model id.
         self::assertSame('override-model', $capturedOptions['model']);
+    }
+
+    /**
+     * When the caller's EmbeddingOptions leave dimensions unset, the resolved
+     * model's dimensions fill the gap (#390).
+     */
+    #[Test]
+    public function embedForConfigurationUsesModelDimensionsWhenOptionsUnset(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getDimensions')->willReturn(1024);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
+
+        $capturedOptions = [];
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturnCallback(
+            function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
+                $capturedOptions = $options;
+                return new EmbeddingResponse(
+                    embeddings: [[0.1]],
+                    model: 'text-embedding-3-small',
+                    usage: new UsageStatistics(1, 0, 1),
+                    provider: 'openai',
+                );
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->embedForConfiguration('text', $config);
+
+        self::assertSame(1024, $capturedOptions['dimensions']);
+    }
+
+    /**
+     * Explicit per-call dimensions win over the model's dimensions (#390).
+     */
+    #[Test]
+    public function embedForConfigurationExplicitDimensionsWinOverModel(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getDimensions')->willReturn(1024);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
+
+        $capturedOptions = [];
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturnCallback(
+            function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
+                $capturedOptions = $options;
+                return new EmbeddingResponse(
+                    embeddings: [[0.1]],
+                    model: 'text-embedding-3-small',
+                    usage: new UsageStatistics(1, 0, 1),
+                    provider: 'openai',
+                );
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->embedForConfiguration('text', $config, new EmbeddingOptions(dimensions: 256));
+
+        self::assertSame(256, $capturedOptions['dimensions']);
+    }
+
+    /**
+     * No per-call dimensions and no model dimensions (0 = unknown) → the key
+     * stays absent so the provider/model native default applies (#390).
+     */
+    #[Test]
+    public function embedForConfigurationOmitsDimensionsWhenModelUnset(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getDimensions')->willReturn(0);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small']);
+
+        $capturedOptions = [];
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturnCallback(
+            function (string|array $input, array $options) use (&$capturedOptions): EmbeddingResponse {
+                $capturedOptions = $options;
+                return new EmbeddingResponse(
+                    embeddings: [[0.1]],
+                    model: 'text-embedding-3-small',
+                    usage: new UsageStatistics(1, 0, 1),
+                    provider: 'openai',
+                );
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->embedForConfiguration('text', $config);
+
+        self::assertArrayNotHasKey('dimensions', $capturedOptions);
     }
 
     #[Test]
@@ -1359,6 +1708,30 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             ],
             $adapter->capturedMessages,
         );
+    }
+
+    /**
+     * The streaming opener applies the same model max_tokens default (#390).
+     */
+    #[Test]
+    public function streamChatWithConfigurationUsesModelMaxOutputTokensWhenConfigurationUnset(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['temperature' => 0.5]);
+
+        $adapter = new StubStreamingProvider();
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($adapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        iterator_to_array($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config));
+
+        self::assertSame(8192, $adapter->capturedOptions['max_tokens']);
     }
 
     #[Test]

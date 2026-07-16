@@ -437,7 +437,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Tools,
             function (LlmConfiguration $config) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
-                $adapter = $this->getAdapterFromConfiguration($config);
+                $llmModel = $this->resolveModelForConfiguration($config);
+                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
                         sprintf('Provider "%s" does not support tool calling', $adapter->getIdentifier()),
@@ -445,8 +446,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     );
                 }
 
-                $callOptions = array_merge($config->toOptionsArray(), $optionOverrides);
-                unset($callOptions['provider']);
+                $callOptions = $this->buildCallOptions($config, $llmModel, $optionOverrides);
 
                 return $adapter->chatCompletionWithTools(
                     $this->messageShaper->applySystemPrompt($normalisedMessages, $callOptions),
@@ -498,9 +498,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // different models never share entries. EmbedCacheKeyBuilder returns an
         // empty array for cache_ttl <= 0 (EmbeddingOptions::noCache()).
         $cacheTtl = is_int($optionOverrides['cache_ttl'] ?? null) ? $optionOverrides['cache_ttl'] : 0;
+        // Criteria-mode configurations have no direct model relation, so their
+        // getModelId() is '' — resolve the concrete model for the key in that
+        // case, or entries keyed under the empty id would be shared across
+        // whatever model the criteria select over time. Fixed-mode configs
+        // keep the relation's id without the extra resolution.
         $effectiveModel = is_string($optionOverrides['model'] ?? null)
             ? $optionOverrides['model']
-            : $configuration->getModelId();
+            : ($configuration->getModelId() !== ''
+                ? $configuration->getModelId()
+                : $this->resolveModelForConfiguration($configuration)->getModelId());
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
         // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
         // and the cache frontend rejects a tag containing a dot with an
@@ -519,7 +526,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderCallContext::for(ProviderOperation::Embedding, $metadata),
             $configuration,
             function (LlmConfiguration $config) use ($input, $optionOverrides): array {
-                $adapter = $this->getAdapterFromConfiguration($config);
+                $llmModel = $this->resolveModelForConfiguration($config);
+                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(
                         sprintf('Provider "%s" does not support embeddings', $adapter->getIdentifier()),
@@ -527,8 +535,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     );
                 }
 
-                $callOptions = array_merge($config->toOptionsArray(), $optionOverrides);
-                unset($callOptions['provider']);
+                $callOptions = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+
+                // Embedding-only default: fill the vector size from the model
+                // when the caller's EmbeddingOptions left it unset (#390).
+                if (!isset($callOptions['dimensions']) && $llmModel->getDimensions() > 0) {
+                    $callOptions['dimensions'] = $llmModel->getDimensions();
+                }
 
                 return $adapter->embeddings($input, $callOptions)->toArray();
             },
@@ -591,6 +604,14 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
     {
+        return $this->adapterRegistry->createAdapterFromModel($this->resolveModelForConfiguration($configuration));
+    }
+
+    /**
+     * Resolve the concrete Model entity an LlmConfiguration call runs against.
+     */
+    private function resolveModelForConfiguration(LlmConfiguration $configuration): Model
+    {
         // Criteria-mode configurations carry no direct model relation (model_uid = 0);
         // their model is selected at call time from the stored criteria. Resolve
         // through ModelSelectionService — which returns the directly configured model
@@ -614,7 +635,38 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // one. Per-model cost analytics for criteria configs (UsageMiddleware
         // reads getLlmModel() directly) remain a separate, non-destructive
         // follow-up.
-        return $this->adapterRegistry->createAdapterFromModel($llmModel);
+        return $llmModel;
+    }
+
+    /**
+     * Merge a configuration's stored option defaults with per-call overrides
+     * and fill `max_tokens` from the resolved model when neither set it (#390).
+     *
+     * Precedence: explicit per-call option > configuration max_tokens (> 0)
+     * > model max_output_tokens (> 0) > provider default (4096 for
+     * OpenAI/Claude-shaped payloads; Ollama omits num_predict so the server
+     * default applies).
+     *
+     * @param array<string, mixed> $optionOverrides
+     *
+     * @return array<string, mixed>
+     */
+    private function buildCallOptions(LlmConfiguration $config, Model $model, array $optionOverrides): array
+    {
+        $options = array_merge($config->toOptionsArray(), $optionOverrides);
+        unset($options['provider']);
+
+        // An explicit non-positive max_tokens override means "unset" too —
+        // passing 0 through would fail provider-side validation.
+        if (!isset($options['max_tokens']) || (is_int($options['max_tokens']) && $options['max_tokens'] <= 0)) {
+            if ($model->getMaxOutputTokens() > 0) {
+                $options['max_tokens'] = $model->getMaxOutputTokens();
+            } else {
+                unset($options['max_tokens']);
+            }
+        }
+
+        return $options;
     }
 
     /**
@@ -639,9 +691,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Chat,
             function (LlmConfiguration $config) use ($normalisedMessages, $optionOverrides): CompletionResponse {
-                $adapter = $this->getAdapterFromConfiguration($config);
-                $options = array_merge($config->toOptionsArray(), $optionOverrides);
-                unset($options['provider']);
+                $llmModel = $this->resolveModelForConfiguration($config);
+                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
+                $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
                 return $adapter->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $options), $options);
             },
             $metadata,
@@ -662,9 +714,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Completion,
             function (LlmConfiguration $config) use ($prompt, $optionOverrides): CompletionResponse {
-                $adapter = $this->getAdapterFromConfiguration($config);
-                $options = array_merge($config->toOptionsArray(), $optionOverrides);
-                unset($options['provider']);
+                $llmModel = $this->resolveModelForConfiguration($config);
+                $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
+                $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
                 return $adapter->complete($prompt, $options);
             },
             $metadata,
@@ -887,11 +939,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator
     {
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
-            $adapter = $this->getAdapterFromConfiguration($config);
-            $options = array_merge($config->toOptionsArray(), $optionOverrides);
-
-            // Remove provider key as we already have the adapter
-            unset($options['provider']);
+            $llmModel = $this->resolveModelForConfiguration($config);
+            $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
+            $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
 
             $this->assertStreamingCapable($adapter, 1735300101);
 

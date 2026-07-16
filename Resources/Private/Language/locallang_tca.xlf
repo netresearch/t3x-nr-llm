@@ -136,7 +136,7 @@
                 <source>Max Tokens</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens.description">
-                <source>Limits how long the response can be. One token is roughly ¾ of a word in English — so 100 tokens ≈ 75 words, 1000 tokens ≈ 750 words, 4000 tokens ≈ a 3-page article. Set this to match your use case: 256 for short answers, 1000–2000 for summaries, 4000–8000 for full articles or translations. Higher values cost more — the model stops generating when it reaches this limit. The upper bound depends on the model (check the model's max output tokens).</source>
+                <source>Limits how long the response can be. One token is roughly ¾ of a word in English — so 100 tokens ≈ 75 words, 1000 tokens ≈ 750 words, 4000 tokens ≈ a 3-page article. Set this to match your use case: 256 for short answers, 1000–2000 for summaries, 4000–8000 for full articles or translations. Higher values cost more — the model stops generating when it reaches this limit. The upper bound depends on the model (check the model's max output tokens). Set 0 to use the model's configured max output tokens (or the provider default).</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.top_p">
@@ -470,14 +470,14 @@
                 <source>Max Output Tokens</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.max_output_tokens.description">
-                <source>Maximum output tokens per request (0 = unknown)</source>
+                <source>Maximum output tokens per request (0 = unknown). Used as the default output cap for requests that do not set max tokens themselves.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.dimensions">
                 <source>Embedding Dimensions</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.dimensions.description">
-                <source>Embedding vector dimensionality of the model (0 = unknown)</source>
+                <source>Embedding vector dimensionality of the model (0 = unknown). Used as the default vector size for embedding requests that do not set dimensions themselves.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_model.capabilities">
