@@ -299,8 +299,10 @@ abstract class AbstractProvider implements ProviderInterface
         }
         $attempt = 0;
         $lastException = null;
+        // maxRetries counts retries after the initial attempt; max_retries = 0 still sends one request.
+        $maxAttempts = $this->maxRetries + 1;
 
-        while ($attempt < $this->maxRetries) {
+        while ($attempt < $maxAttempts) {
             try {
                 return $this->handleResponse($httpClient->sendRequest($request), $endpoint);
             } catch (ProviderResponseException $e) {
@@ -309,7 +311,7 @@ abstract class AbstractProvider implements ProviderInterface
                 $lastException = $e;
                 $attempt++;
 
-                if ($attempt < $this->maxRetries) {
+                if ($attempt < $maxAttempts) {
                     // Exponential backoff capped at 30s. Short-circuit at
                     // attempt >= 9 (100000 * 2**9 = 51.2s already exceeds the
                     // cap) so the 2 ** $attempt term cannot overflow the float→int
@@ -321,7 +323,7 @@ abstract class AbstractProvider implements ProviderInterface
         }
 
         throw new ProviderConnectionException(
-            'Failed to connect to provider after ' . $this->maxRetries . ' attempts: '
+            'Failed to connect to provider after ' . $attempt . ' attempts: '
             . $this->sanitizeErrorMessage($lastException?->getMessage() ?? self::UNKNOWN_ERROR),
             0,
             $lastException,

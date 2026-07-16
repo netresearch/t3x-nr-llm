@@ -527,7 +527,7 @@ class AbstractProviderTest extends AbstractUnitTestCase
         $provider->configure([
             'apiKeyIdentifier' => $this->randomApiKey(),
             'defaultModel' => 'gpt-5.2',
-            'maxRetries' => 1,
+            'maxRetries' => 0,
         ]);
 
         $client = $this->createHttpClientMock();
@@ -864,14 +864,13 @@ class AbstractProviderTest extends AbstractUnitTestCase
     }
 
     /**
-     * With `maxRetries = 0` the retry loop never runs, so `$lastException`
-     * stays null and the final exception message falls back to the
-     * `?? self::UNKNOWN_ERROR` placeholder. Exercises the null-safe operator
-     * (the mutant drops `?->` and calls getMessage() on null) and pins the
-     * exception code to 0.
+     * Regression test for #387: `maxRetries = 0` means "no retries", not
+     * "no requests" — exactly one HTTP request is sent, and the surfaced
+     * exhaustion message reports the attempt actually made together with
+     * the real underlying error instead of the "Unknown error" placeholder.
      */
     #[Test]
-    public function connectionExhaustionWithZeroRetriesFallsBackToUnknownErrorAndCodeZero(): void
+    public function maxRetriesZeroSendsExactlyOneRequestAndSurfacesRealError(): void
     {
         $provider = new MistralProvider(
             $this->createRequestFactoryMock(),
@@ -885,15 +884,23 @@ class AbstractProviderTest extends AbstractUnitTestCase
             'defaultModel' => 'mistral-large-latest',
             'maxRetries' => 0,
         ]);
-        $provider->setHttpClient($this->createHttpClientMock());
+
+        $underlying = new RuntimeException('socket reset');
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException($underlying);
+        $provider->setHttpClient($client);
 
         try {
             $provider->complete('hi');
             self::fail('Expected ProviderConnectionException was not thrown');
         } catch (ProviderConnectionException $e) {
             self::assertSame(0, $e->getCode());
-            self::assertStringContainsString('after 0 attempts', $e->getMessage());
-            self::assertStringContainsString('Unknown error', $e->getMessage());
+            self::assertStringContainsString('after 1 attempts', $e->getMessage());
+            self::assertStringContainsString('socket reset', $e->getMessage());
+            self::assertStringNotContainsString('Unknown error', $e->getMessage());
+            self::assertSame($underlying, $e->getPrevious());
         }
     }
 

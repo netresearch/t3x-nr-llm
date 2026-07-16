@@ -492,8 +492,8 @@
                 <target>Max. Wiederholungsversuche</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.max_retries.description">
-                <source>Number of retry attempts on failure</source>
-                <target>Anzahl der Wiederholungsversuche bei Fehlern</target>
+                <source>Number of retries after the first failed request (0 = try once, no retries)</source>
+                <target>Anzahl der Wiederholungsversuche nach der ersten fehlgeschlagenen Anfrage (0 = ein Versuch, keine Wiederholung)</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.options">

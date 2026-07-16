@@ -382,7 +382,7 @@
                 <source>Max Retries</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.max_retries.description">
-                <source>Number of retry attempts on failure</source>
+                <source>Number of retries after the first failed request (0 = try once, no retries)</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.options">
