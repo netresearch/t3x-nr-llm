@@ -103,7 +103,7 @@ Test structure
    │   ├── Controller/
    │   │   └── BackendControllerTest.php
    │   └── Repository/
-   │       └── PromptTemplateRepositoryTest.php
+   │       └── ProviderRepositoryTest.php
    └── E2E/
        └── WorkflowTest.php
 

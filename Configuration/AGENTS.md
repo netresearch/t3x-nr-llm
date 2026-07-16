@@ -45,7 +45,6 @@ Configuration/
 | `tx_nrllm_configuration` | Use-case configurations |
 | `tx_nrllm_configuration_begroups_mm` | MM join — configurations ↔ backend user groups |
 | `tx_nrllm_task` | Predefined task templates |
-| `tx_nrllm_prompttemplate` | Reusable prompt templates |
 | `tx_nrllm_user_budget` | Per-user AI spending ceilings |
 | `tx_nrllm_service_usage` | Usage/cost tracking rows |
 
