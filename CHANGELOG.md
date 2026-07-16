@@ -6,6 +6,71 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-07-16
+
+Closes out the operator-config audit: every backend-visible provider/model/configuration
+setting now either works or is gone. Three breaking changes — see below.
+
+> Note: version 0.19.1 was prepared but never tagged; its two fixes first ship in this
+> release.
+
+### Added
+
+- **Per-configuration daily limits are now enforced** (#389). The Configuration record's
+  *Max requests / tokens / cost per day* fields were stored but never consulted;
+  `BudgetService` now aggregates the dispatched configuration's current-day usage from
+  `tx_nrllm_service_usage` and denies requests once a cap is exhausted, in addition to
+  the existing per-user budget — most restrictive wins. Callers without a backend user
+  (CLI, scheduler, frontend) are gated by configuration caps too, where they previously
+  bypassed budgeting entirely.
+- **Model limits act as call defaults** (#390). A model's *Max output tokens* becomes the
+  effective `max_tokens` when neither the call options nor the configuration set one
+  (precedence: per-call option > configuration > model > provider default), and an
+  embedding model's *Dimensions* fills `EmbeddingOptions` when the caller left it unset.
+- **Organization ID and custom headers are now sent** (#388). The provider's
+  *Organization ID* is emitted as the `OpenAI-Organization` header (OpenAI-compatible
+  adapter types included), and `options.customHeaders` is applied on every request path
+  — streaming builders included — with header names/values sanitized (CR/LF-injection
+  guarded). The `options.proxy` key is documented as not implemented; the global TYPO3
+  HTTP proxy applies.
+- **Upgrade wizard `nrLlm_providerApiTimeout120`** migrates provider rows persisted at
+  the old `api_timeout` default of 30 to the new default 120 (part of #384).
+
+### Changed
+
+- **BREAKING: `api_timeout` is applied as a total-response timeout** (#384). The field
+  was write-only, so every provider request ran unbounded (TYPO3's default HTTP timeout
+  of 0) and a silent provider could pin a PHP-FPM worker indefinitely. Requests are now
+  bounded by the per-request `timeout` option (from the configuration's effective
+  timeout, ≥ 120s by default) with the provider's `api_timeout` as fallback; the default
+  moves 30 → 120; timed-out requests are not retried; streaming aborts at the same total
+  timeout. Calls that legitimately run longer need a raised configuration/model timeout.
+- **BREAKING: `max_retries` counts retries after the initial attempt** (#387). `0` now
+  sends exactly one request (previously: zero requests failing with *"after 0 attempts:
+  Unknown error"*); the default of 3 now sends up to 4 requests on persistently failing
+  providers. Negative values clamp to "no retries".
+- **BREAKING: `BudgetServiceInterface::check()` gained an optional `?LlmConfiguration`
+  parameter** (#389) — third-party implementations of the interface must update their
+  signature.
+- `LlmConfiguration::setMaxTokens()` accepts 0 as "no explicit limit" (clamp floor moved
+  from 1); existing records are unaffected since the old floor made 0 unstorable (#390).
+
+### Removed
+
+- **BREAKING: the PromptTemplate stack** — entity, repository, service + interface,
+  exception, DI alias and the `tx_nrllm_prompttemplate` table declaration (#399,
+  ADR-069). It was never usable at runtime (the table had no TCA) and had no consumers;
+  prompt snippets (ADR-031) and tasks superseded the concept. The orphaned table can be
+  dropped via the database analyzer; the audited public-service count moves 27 → 26.
+
+### Fixed
+
+- Criteria-mode configurations no longer share embedding cache entries under an empty
+  model id — the cache key resolves the concrete model when the configuration has no
+  direct model relation (#390 follow-up).
+- `max_retries = 0` no longer disables a provider with a misleading connection error
+  (#387, see Changed).
+
 ## [0.19.1] - 2026-07-15
 
 ### Fixed

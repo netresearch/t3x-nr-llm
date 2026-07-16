@@ -11,6 +11,75 @@ All notable changes to the TYPO3 LLM Extension are documented here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_ and
 the project adheres to `Semantic Versioning <https://semver.org/>`_.
 
+.. _version-0-20-0:
+
+Version 0.20.0 (2026-07-16)
+===========================
+
+Closes out the operator-config audit: every backend-visible provider, model
+and configuration setting now either works or is gone. Three breaking
+changes; full details in the repository ``CHANGELOG.md``.
+
+*  **Breaking:** the provider *API timeout* is now applied as a
+   total-response timeout (previously write-only — requests ran unbounded).
+   Default moves 30 → 120 seconds; the ``nrLlm_providerApiTimeout120``
+   upgrade wizard migrates rows persisted at the old default; timed-out
+   requests are not retried (#384).
+*  **Breaking:** *Max retries* counts retries after the initial attempt —
+   ``0`` sends exactly one request instead of none (#387).
+*  **Breaking:** the never-functional PromptTemplate stack is removed
+   (ADR-069); drop the orphaned ``tx_nrllm_prompttemplate`` table via the
+   database analyzer (#399). ``BudgetServiceInterface::check()`` gained an
+   optional ``?LlmConfiguration`` parameter (#389).
+*  Per-configuration daily limits (requests / tokens / cost) are enforced
+   alongside per-user budgets — most restrictive wins (#389).
+*  Model *Max output tokens* and *Dimensions* act as call defaults when the
+   caller and configuration leave them unset (#390).
+*  Provider *Organization ID* is sent as ``OpenAI-Organization``;
+   ``options.customHeaders`` is applied on all request paths (#388).
+
+.. _version-0-19-1:
+
+Version 0.19.1 (2026-07-15, first shipped with 0.20.0)
+======================================================
+
+Prepared but never tagged; its fixes first ship in 0.20.0.
+
+*  Criteria-mode configurations work with every ``*ForConfiguration()``
+   call — the model is resolved through ``ModelSelectionService`` instead of
+   the (null) direct relation (#372).
+*  Embedding cache tags built from dotted preset identifiers are sanitized
+   (#372).
+
+.. _version-0-19-0:
+
+Version 0.19.0 (2026-07-14)
+===========================
+
+*  Per-user usage attribution for the specialized speech and image services
+   (ADR-057): transcription, synthesis and image generation record the
+   calling backend user instead of the ambient bucket (#362).
+*  Configuration identifiers with dots no longer crash cached calls — cache
+   keys and tags are sanitized (#365); ``LlmTranslator`` chat rows carry the
+   per-user attribution (#361); backend model-test button fixed (#363).
+
+.. _version-0-18-0:
+
+Version 0.18.0 (2026-07-14)
+===========================
+
+*  Configuration presets module UI (ADR-056 follow-up): the Configurations
+   backend module surfaces pending presets with one-click apply/update.
+
+.. _version-0-17-0:
+
+Version 0.17.0 (2026-07-13)
+===========================
+
+*  Configuration presets: consuming extensions declare the
+   ``LlmConfiguration`` records they need via the
+   ``nr_llm.configuration_preset`` registration (ADR-056).
+
 .. _version-0-16-1:
 
 Version 0.16.1 (2026-07-10)
