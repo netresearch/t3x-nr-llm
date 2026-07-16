@@ -651,6 +651,10 @@ final class OpenRouterProvider extends AbstractProvider implements
             $request = $request->withHeader('X-Title', $this->appName);
         }
 
+        // Streaming bypasses sendRequest(), so operator-configured custom
+        // headers must be applied here.
+        $request = $this->applyCustomHeaders($request);
+
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
 
         return $request->withBody($body);
@@ -889,6 +893,10 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($this->appName !== '') {
             $request = $request->withHeader('X-Title', $this->appName);
         }
+
+        // This non-streaming path bypasses AbstractProvider::sendRequest(),
+        // so operator-configured custom headers must be applied here.
+        $request = $this->applyCustomHeaders($request);
 
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);

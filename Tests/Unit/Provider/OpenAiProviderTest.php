@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -1716,6 +1717,133 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         self::assertTrue($payload['stream']);
         self::assertArrayHasKey('temperature', $payload);
         self::assertSame(0.7, $payload['temperature']);
+    }
+
+    // ===== Organization ID and custom headers =====
+
+    /**
+     * Build a provider with real PSR-7 factories and a client stub that
+     * captures the outgoing request, so headers are inspectable.
+     *
+     * @param array<string, mixed> $config Extra configure() keys
+     */
+    private function createHeaderCapturingProvider(array $config, ?RequestInterface &$capturedRequest): OpenAiProvider
+    {
+        $httpFactory = new HttpFactory();
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest): ResponseInterface {
+                $capturedRequest = $request;
+
+                return $this->createJsonResponseMock([
+                    'id' => 'chatcmpl-test',
+                    'object' => 'chat.completion',
+                    'created' => time(),
+                    'model' => 'gpt-4o',
+                    'choices' => [
+                        [
+                            'index' => 0,
+                            'message' => ['role' => 'assistant', 'content' => 'ok'],
+                            'finish_reason' => 'stop',
+                        ],
+                    ],
+                    'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                ]);
+            });
+
+        $subject = new OpenAiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure(array_merge([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+        ], $config));
+        $subject->setHttpClient($httpClient);
+
+        return $subject;
+    }
+
+    #[Test]
+    public function chatCompletionSendsOpenAiOrganizationHeaderWhenConfigured(): void
+    {
+        $capturedRequest = null;
+        $subject = $this->createHeaderCapturingProvider(['organizationId' => 'org-abc123'], $capturedRequest);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertSame('org-abc123', $capturedRequest->getHeaderLine('OpenAI-Organization'));
+    }
+
+    #[Test]
+    public function chatCompletionOmitsOrganizationHeaderWhenUnset(): void
+    {
+        $capturedRequest = null;
+        $subject = $this->createHeaderCapturingProvider([], $capturedRequest);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertFalse($capturedRequest->hasHeader('OpenAI-Organization'));
+    }
+
+    #[Test]
+    public function streamChatCompletionSendsOrganizationAndCustomHeaders(): void
+    {
+        $capturedRequest = null;
+        $httpFactory = new HttpFactory();
+
+        $subject = new OpenAiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'gpt-4o',
+            'organizationId' => 'org-abc123',
+            'customHeaders' => ['X-Custom-Header' => 'v1'],
+        ]);
+
+        $responseStream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $responseStream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
+            return ++$eofCallCount > 1;
+        });
+        $responseStream->method('read')->willReturn("data: [DONE]\n\n");
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($responseStream);
+
+        $httpClient = $this->createHttpClientMock();
+        $httpClient->method('sendRequest')->willReturnCallback(
+            function (RequestInterface $request) use (&$capturedRequest, $response): ResponseInterface {
+                $capturedRequest = $request;
+
+                return $response;
+            },
+        );
+        $subject->setHttpClient($httpClient);
+
+        foreach ($subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']]) as $ignored) {
+            // Drain the generator so the request is built and dispatched.
+            unset($ignored);
+        }
+
+        // The streaming path bypasses sendRequest(), so this proves the
+        // streaming request builder applies both header sources itself.
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertSame('org-abc123', $capturedRequest->getHeaderLine('OpenAI-Organization'));
+        self::assertSame('v1', $capturedRequest->getHeaderLine('X-Custom-Header'));
     }
 
     #[Test]

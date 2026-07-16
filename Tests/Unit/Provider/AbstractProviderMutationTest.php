@@ -735,6 +735,42 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function sendRequestAppliesConfiguredCustomHeaders(): void
+    {
+        $capturedRequest = null;
+        $httpFactory = new HttpFactory();
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest) {
+                $capturedRequest = $request;
+
+                return $this->createJsonResponseMock(['ok' => true]);
+            });
+
+        $provider = new GeminiProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+        ]);
+        $provider->setHttpClient($httpClient);
+
+        $reflection = new ReflectionClass($provider);
+        $method = $reflection->getMethod('sendRequest');
+        $method->invoke($provider, '/test', ['key' => 'value']);
+
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertSame('custom-value', $capturedRequest->getHeaderLine('X-Custom-Header'));
+    }
+
+    #[Test]
     public function sendRequestErrorMessageContainsRetryCount(): void
     {
         $httpClient = self::createStub(ClientInterface::class);

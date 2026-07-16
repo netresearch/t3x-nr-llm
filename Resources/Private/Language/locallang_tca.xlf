@@ -382,7 +382,7 @@
                 <source>Additional Options</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.options.description">
-                <source>Additional provider-specific options as JSON</source>
+                <source>Additional provider-specific options as JSON. Supported: {"customHeaders": {"X-Custom-Header": "value"}} to send extra HTTP headers.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.is_active">

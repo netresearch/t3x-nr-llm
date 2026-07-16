@@ -505,6 +505,10 @@ final class ClaudeProvider extends AbstractProvider implements
             ->withHeader('anthropic-version', self::API_VERSION)
             ->withHeader('Accept', 'text/event-stream');
 
+        // Streaming bypasses sendRequest(), so operator-configured custom
+        // headers must be applied here.
+        $request = $this->applyCustomHeaders($request);
+
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 

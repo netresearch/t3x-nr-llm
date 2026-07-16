@@ -492,8 +492,8 @@
                 <target>Zusätzliche Optionen</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.options.description">
-                <source>Additional provider-specific options as JSON</source>
-                <target>Zusätzliche anbieterspezifische Optionen als JSON</target>
+                <source>Additional provider-specific options as JSON. Supported: {"customHeaders": {"X-Custom-Header": "value"}} to send extra HTTP headers.</source>
+                <target>Zusätzliche anbieterspezifische Optionen als JSON. Unterstützt: {"customHeaders": {"X-Custom-Header": "value"}} für zusätzliche HTTP-Header.</target>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_provider.is_active">

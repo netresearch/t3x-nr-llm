@@ -486,6 +486,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json');
 
+        // Streaming bypasses sendRequest(), so operator-configured custom
+        // headers must be applied here.
+        $request = $this->applyCustomHeaders($request);
+
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 

@@ -20,8 +20,9 @@ use JsonSerializable;
  * adapter-extras that go BEYOND the typed entity columns
  * (`api_key`, `endpoint_url`, `api_timeout`, `max_retries`,
  * `organization_id`). The placeholder shipped in TCA is
- * `{"custom_header": "value"}` and real test fixtures use `proxy`,
- * `custom_param`, etc., so the field is genuinely open-ended.
+ * `{"customHeaders": {"X-Custom-Header": "value"}}` and real test
+ * fixtures use `proxy`, `custom_param`, etc., so the field is genuinely
+ * open-ended.
  *
  * That open-endedness is why slices 16e/16f initially stopped at the
  * `array<string, mixed>` surface. This slice walks the rest of the way:
@@ -29,6 +30,14 @@ use JsonSerializable;
  * `customHeaders`) and everything else flows through `$extra` as
  * `array<string, mixed>` — same permissive shape callers already see
  * via `Provider::getOptionsArray()`, just behind a typed accessor.
+ *
+ * Wiring status: `customHeaders` is consumed by
+ * `AbstractProvider::configure()` and sent on every outgoing API request
+ * (including streaming). `proxy` is NOT applied per provider — proxy
+ * routing is controlled globally via
+ * `$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']` or the HTTP(S)_PROXY
+ * environment variables (nr-vault's SecureHttpClientFactory); the key is
+ * preserved here for round-trip only.
  *
  * The DTO is the typed application-level surface; the entity still
  * persists JSON to keep Extbase property mapping working unchanged
@@ -47,8 +56,10 @@ final readonly class ProviderOptions implements JsonSerializable
 {
     /**
      * @param string|null           $proxy         HTTP proxy URL (e.g. `http://proxy.example.com:3128`).
-     *                                             Null means "no proxy override" — the adapter uses its
-     *                                             process-default routing.
+     *                                             Currently not applied to outgoing provider requests
+     *                                             (per-provider proxy is not supported by the vault HTTP
+     *                                             client); configure a proxy globally via TYPO3's HTTP
+     *                                             settings. Preserved for round-trip only.
      * @param array<string, string> $customHeaders Extra HTTP headers to send on every API call.
      *                                             Keys are header names, values are header values.
      *                                             Both must be strings; non-string values are dropped
