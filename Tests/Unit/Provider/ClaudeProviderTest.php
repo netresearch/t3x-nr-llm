@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -148,6 +149,51 @@ class ClaudeProviderTest extends AbstractUnitTestCase
         self::assertEquals('Claude response content', $result->content);
         self::assertEquals('claude-sonnet-4-20250514', $result->model);
         self::assertEquals('stop', $result->finishReason);
+    }
+
+    #[Test]
+    public function sendRequestKeepsProviderHeadersAlongsideCustomHeaders(): void
+    {
+        $capturedRequest = null;
+        $httpFactory = new HttpFactory();
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest): ResponseInterface {
+                $capturedRequest = $request;
+
+                return $this->createJsonResponseMock([
+                    'id' => 'msg_test',
+                    'type' => 'message',
+                    'role' => 'assistant',
+                    'content' => [['type' => 'text', 'text' => 'ok']],
+                    'model' => 'claude-sonnet-4-20250514',
+                    'stop_reason' => 'end_turn',
+                    'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+                ]);
+            });
+
+        $subject = new ClaudeProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+        ]);
+        $subject->setHttpClient($httpClient);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+
+        // Custom headers must not clobber provider-specific headers with
+        // different names: both must be present on the outgoing request.
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertNotSame('', $capturedRequest->getHeaderLine('anthropic-version'));
+        self::assertSame('custom-value', $capturedRequest->getHeaderLine('X-Custom-Header'));
     }
 
     #[Test]

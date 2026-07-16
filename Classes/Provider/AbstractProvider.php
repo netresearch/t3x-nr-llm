@@ -60,6 +60,10 @@ abstract class AbstractProvider implements ProviderInterface
     protected string $defaultModel = '';
     protected int $timeout = 120;
     protected int $maxRetries = 3;
+    protected string $organizationId = '';
+
+    /** @var array<string, string> */
+    protected array $customHeaders = [];
 
     /** @var array<string> */
     protected array $supportedFeatures = [];
@@ -88,6 +92,8 @@ abstract class AbstractProvider implements ProviderInterface
         $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
         $this->timeout = $this->getInt($config, 'timeout', 120);
         $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
+        $this->organizationId = $this->getString($config, 'organizationId');
+        $this->customHeaders = $this->extractCustomHeaders($config);
 
         // Reset HTTP client when configuration changes
         $this->configuredHttpClient = null;
@@ -286,6 +292,7 @@ abstract class AbstractProvider implements ProviderInterface
             ->withHeader('Content-Type', 'application/json');
 
         $request = $this->addProviderSpecificHeaders($request);
+        $request = $this->applyCustomHeaders($request);
 
         if ($method === 'POST' && $payload !== []) {
             // JSON_INVALID_UTF8_SUBSTITUTE: a request payload carrying an invalid
@@ -426,6 +433,58 @@ abstract class AbstractProvider implements ProviderInterface
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         return $request;
+    }
+
+    /**
+     * Apply operator-configured custom headers (options JSON `customHeaders`)
+     * to an outgoing request. Applied after addProviderSpecificHeaders(), so
+     * on a name collision the operator's value wins (withHeader replaces).
+     * Authentication cannot be overridden on authenticated providers: the
+     * vault HTTP client injects the Authorization/api-key header at send
+     * time, after these headers are set.
+     */
+    protected function applyCustomHeaders(RequestInterface $request): RequestInterface
+    {
+        foreach ($this->customHeaders as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Extract and sanitize the `customHeaders` map from the provider config.
+     * Entries with a non-string value, a name that is not a valid RFC 7230
+     * token, or a value containing CR/LF are dropped: a malformed entry from
+     * a hand-edited options row must not throw from PSR-7 withHeader() and
+     * break every request, and the CR/LF guard blocks header injection from
+     * the DB field.
+     *
+     * @param array<string, mixed> $config
+     *
+     * @return array<string, string>
+     */
+    private function extractCustomHeaders(array $config): array
+    {
+        $raw = $config['customHeaders'] ?? null;
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $headers = [];
+        foreach ($raw as $name => $value) {
+            if (!is_string($name) || preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name) !== 1) {
+                continue;
+            }
+
+            if (!is_string($value) || str_contains($value, "\r") || str_contains($value, "\n")) {
+                continue;
+            }
+
+            $headers[$name] = $value;
+        }
+
+        return $headers;
     }
 
     /**

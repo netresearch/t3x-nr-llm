@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Psr\Http\Message\RequestInterface;
 
 #[AsLlmProvider(priority: 100)]
 final class OpenAiProvider extends AbstractProvider implements
@@ -63,6 +64,22 @@ final class OpenAiProvider extends AbstractProvider implements
     public function getDefaultModel(): string
     {
         return $this->defaultModel !== '' ? $this->defaultModel : self::DEFAULT_CHAT_MODEL;
+    }
+
+    /**
+     * Send the configured organization ID as the `OpenAI-Organization`
+     * request header. This also serves the azure_openai, together,
+     * fireworks, perplexity and custom adapter types, which all map to
+     * this provider class — OpenAI-compatible APIs ignore the header
+     * when it does not apply.
+     */
+    protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
+    {
+        if ($this->organizationId !== '') {
+            $request = $request->withHeader('OpenAI-Organization', $this->organizationId);
+        }
+
+        return $request;
     }
 
     /**
@@ -360,6 +377,10 @@ final class OpenAiProvider extends AbstractProvider implements
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Accept', 'text/event-stream');
+
+        // Streaming bypasses sendRequest(), so both the organization header
+        // and operator-configured custom headers must be applied here.
+        $request = $this->applyCustomHeaders($this->addProviderSpecificHeaders($request));
 
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);

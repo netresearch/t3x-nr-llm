@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
@@ -218,6 +219,59 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertEquals('OpenRouter response', $result->content);
         self::assertEquals('anthropic/claude-3.5-sonnet', $result->model);
+    }
+
+    #[Test]
+    public function chatCompletionSendsCustomHeaders(): void
+    {
+        $capturedRequest = null;
+        $httpFactory = new HttpFactory();
+
+        $httpClient = self::createStub(ClientInterface::class);
+        $httpClient
+            ->method('sendRequest')
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest): ResponseInterface {
+                $capturedRequest = $request;
+
+                return $this->createJsonResponseMock([
+                    'id' => 'gen-test',
+                    'model' => 'anthropic/claude-3.5-sonnet',
+                    'choices' => [
+                        [
+                            'index' => 0,
+                            'message' => ['role' => 'assistant', 'content' => 'ok'],
+                            'finish_reason' => 'stop',
+                        ],
+                    ],
+                    'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+                ]);
+            });
+
+        $subject = new OpenRouterProvider(
+            $httpFactory,
+            $httpFactory,
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel' => 'anthropic/claude-3.5-sonnet',
+            'siteUrl' => 'https://example.com',
+            'appName' => 'Test App',
+            'customHeaders' => ['X-Custom-Header' => 'custom-value'],
+        ]);
+        $subject->setHttpClient($httpClient);
+
+        $subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+
+        // OpenRouter chat goes through the private sendOpenRouterRequest(),
+        // which bypasses AbstractProvider::sendRequest() — the custom header
+        // must be applied there, and the attribution headers must survive.
+        self::assertInstanceOf(RequestInterface::class, $capturedRequest);
+        self::assertSame('custom-value', $capturedRequest->getHeaderLine('X-Custom-Header'));
+        self::assertSame('https://example.com', $capturedRequest->getHeaderLine('HTTP-Referer'));
+        self::assertSame('Test App', $capturedRequest->getHeaderLine('X-Title'));
     }
 
     #[Test]

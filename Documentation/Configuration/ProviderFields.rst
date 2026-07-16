@@ -82,7 +82,9 @@ Optional
    :type: string
    :Default: (empty)
 
-   Organization ID (OpenAI, Azure).
+   Organization ID (OpenAI, Azure). Sent as the `OpenAI-Organization`
+   request header by the OpenAI-compatible adapters (`openai`,
+   `azure_openai`, `together`, `fireworks`, `perplexity`, `custom`).
 
 .. confval:: timeout
    :name: confval-provider-timeout
@@ -105,4 +107,22 @@ Optional
    :type: JSON
    :Default: {}
 
-   Additional adapter-specific options.
+   Additional adapter-specific options. Supported key:
+
+   `customHeaders`
+      Object mapping header names to values, sent on every API request
+      (including streaming), for example:
+
+      .. code-block:: json
+
+         {"customHeaders": {"X-Custom-Header": "value"}}
+
+      Custom headers are applied after the adapter's own headers, so a
+      colliding name overrides the adapter value — a mistyped
+      `Content-Type` breaks that provider's calls.
+
+   .. note::
+
+      A per-provider `proxy` is not supported; TYPO3's global HTTP proxy
+      configuration (`$GLOBALS['TYPO3_CONF_VARS']['HTTP']['proxy']`)
+      applies to all outgoing provider requests.

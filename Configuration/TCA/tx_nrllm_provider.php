@@ -187,7 +187,7 @@ return [
                 'cols' => 60,
                 'rows' => 5,
                 'trim' => true,
-                'placeholder' => '{"custom_header": "value"}',
+                'placeholder' => '{"customHeaders": {"X-Custom-Header": "value"}}',
             ],
         ],
         'is_active' => [

@@ -134,6 +134,152 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function configureReadsOrganizationId(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'organizationId' => 'org-abc123',
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $organizationId = $reflection->getProperty('organizationId');
+
+        self::assertEquals('org-abc123', $organizationId->getValue($provider));
+    }
+
+    #[Test]
+    public function configureDefaultsOrganizationIdToEmptyString(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $organizationId = $reflection->getProperty('organizationId');
+
+        self::assertEquals('', $organizationId->getValue($provider));
+    }
+
+    #[Test]
+    public function configureReadsCustomHeadersMap(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'customHeaders' => ['X-A' => '1', 'X-B' => '2'],
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $customHeaders = $reflection->getProperty('customHeaders');
+
+        self::assertEquals(['X-A' => '1', 'X-B' => '2'], $customHeaders->getValue($provider));
+    }
+
+    #[Test]
+    public function configureDefaultsCustomHeadersToEmptyArray(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $customHeaders = $reflection->getProperty('customHeaders');
+
+        self::assertSame([], $customHeaders->getValue($provider));
+    }
+
+    #[Test]
+    public function configureDropsInvalidCustomHeaderEntries(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'customHeaders' => [
+                'X-Valid'           => 'ok',
+                'X-Int-Value'       => 42,
+                'X Space Name'      => 'dropped',
+                'X-Invalid-(Name)'  => 'dropped',
+                'X-Crlf-Value'      => "evil\r\nInjected: yes",
+                'X-Also-Valid'      => 'kept',
+            ],
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $customHeaders = $reflection->getProperty('customHeaders');
+
+        self::assertSame(
+            ['X-Valid' => 'ok', 'X-Also-Valid' => 'kept'],
+            $customHeaders->getValue($provider),
+        );
+    }
+
+    #[Test]
+    public function configureIgnoresNonArrayCustomHeaders(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'customHeaders' => 'not-an-array',
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        $customHeaders = $reflection->getProperty('customHeaders');
+
+        self::assertSame([], $customHeaders->getValue($provider));
+    }
+
+    #[Test]
     public function configureUsesProvidedBaseUrl(): void
     {
         $provider = new GeminiProvider(
