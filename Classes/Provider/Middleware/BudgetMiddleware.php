@@ -26,7 +26,10 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * Metadata keys consumed (callers put them on the context):
  *  - `BudgetMiddleware::METADATA_BE_USER_UID` : int, the backend user
  *    whose budget is checked. 0 / absent / non-int means "skip the
- *    check" (CLI, scheduler, unauthenticated callers; see ADR-025 rule 1).
+ *    PER-USER check" (CLI, scheduler, unauthenticated callers; see
+ *    ADR-025 rule 1). The dispatched configuration's own per-day caps
+ *    are still evaluated whenever the configuration is persisted and
+ *    has limits — they are configuration-scoped, not user-scoped.
  *  - `BudgetMiddleware::METADATA_PLANNED_COST` : float, the expected
  *    cost of the call in the configured currency. 0.0 / absent means
  *    "I do not know the cost yet — evaluate only the non-cost limits
@@ -47,6 +50,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * that want to charge each retry separately should register a custom
  * pipeline order; the default ordering is defined by ADR-026 (the
  * middleware pipeline itself), with the rule set documented there.
+ * Because of that ordering, the per-configuration caps checked here are
+ * the PRIMARY configuration's — a fallback swap is not re-checked
+ * pre-flight (same single-pre-flight semantics as the per-user scope);
+ * usage IS recorded against the served configuration, so its cap
+ * catches up on the next request.
  *
  * No side effects. The budget record is not incremented here — that is
  * the job of UsageMiddleware after the call succeeds.
@@ -78,7 +86,7 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
         $beUserUid   = $this->readInt($context, self::METADATA_BE_USER_UID);
         $plannedCost = $this->readFloat($context, self::METADATA_PLANNED_COST);
 
-        $result = $this->budgetService->check($beUserUid, $plannedCost);
+        $result = $this->budgetService->check($beUserUid, $plannedCost, $configuration);
 
         if (!$result->allowed) {
             throw new BudgetExceededException($result);

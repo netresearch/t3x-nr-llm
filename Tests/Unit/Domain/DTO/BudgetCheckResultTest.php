@@ -101,6 +101,21 @@ class BudgetCheckResultTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function deniedReasonUsesConfigurationScopeLabel(): void
+    {
+        // Pins the LIMIT_LABELS entries for the configuration scope
+        // (issue #389): the reason must carry the human label, not the key.
+        $result = BudgetCheckResult::denied(
+            BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST,
+            currentUsage: 1.5,
+            limit: 1.0,
+        );
+
+        self::assertStringContainsString('configuration daily cost', $result->reason);
+        self::assertStringNotContainsString('configuration_daily_cost', $result->reason);
+    }
+
+    #[Test]
     public function allLimitConstantsAreDistinctAndNonEmpty(): void
     {
         $limits = [
@@ -110,9 +125,12 @@ class BudgetCheckResultTest extends AbstractUnitTestCase
             BudgetCheckResult::LIMIT_MONTHLY_REQUESTS,
             BudgetCheckResult::LIMIT_MONTHLY_TOKENS,
             BudgetCheckResult::LIMIT_MONTHLY_COST,
+            BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_REQUESTS,
+            BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_TOKENS,
+            BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST,
         ];
 
-        self::assertCount(6, array_unique($limits));
+        self::assertCount(9, array_unique($limits));
         foreach ($limits as $limit) {
             self::assertNotSame('', $limit);
         }

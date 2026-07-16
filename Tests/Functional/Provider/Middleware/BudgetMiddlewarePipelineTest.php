@@ -131,6 +131,77 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
         self::assertTrue($terminalRan, 'A user with no budget record is unconstrained and proceeds.');
     }
 
+    #[Test]
+    public function overConfigurationCostCapRequestIsBlocked(): void
+    {
+        // Reproduces the reported gap (issue #389) exactly: NO user budget
+        // row at all — only the configuration's own daily cost cap protects.
+        // 2.0 already spent today on configuration 5, whose cap is 1.0.
+        $this->insertUsageRow(estimatedCost: 2.0, configurationUid: 5);
+
+        $terminalRan = false;
+
+        try {
+            $this->pipeline()->run(
+                context: $this->contextFor(plannedCost: 0.5),
+                configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+                terminal: static function () use (&$terminalRan): string {
+                    $terminalRan = true;
+
+                    return 'should-never-run';
+                },
+            );
+            self::fail('Expected BudgetExceededException for an over-cap configuration.');
+        } catch (BudgetExceededException $e) {
+            self::assertFalse($terminalRan, 'An over-cap request must NOT reach the terminal call.');
+            self::assertFalse($e->result->allowed);
+            self::assertSame(BudgetCheckResult::LIMIT_CONFIGURATION_DAILY_COST, $e->result->exceededLimit);
+            self::assertEqualsWithDelta(2.0, $e->result->currentUsage, 0.0001);
+            self::assertEqualsWithDelta(1.0, $e->result->limit, 0.0001);
+        }
+    }
+
+    #[Test]
+    public function withinConfigurationCostCapRequestProceeds(): void
+    {
+        // 0.4 spent today + 0.5 planned = 0.9 <= 1.0 cap -> allowed.
+        $this->insertUsageRow(estimatedCost: 0.4, configurationUid: 5);
+
+        $terminalRan = false;
+        $this->pipeline()->run(
+            context: $this->contextFor(plannedCost: 0.5),
+            configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+            terminal: static function () use (&$terminalRan): string {
+                $terminalRan = true;
+
+                return 'ok';
+            },
+        );
+
+        self::assertTrue($terminalRan, 'A within-cap request must reach the terminal provider call.');
+    }
+
+    #[Test]
+    public function configurationCapIgnoresOtherConfigurationsUsage(): void
+    {
+        // Heavy spend on a DIFFERENT configuration must not count against
+        // configuration 5's cap: the aggregate is scoped by configuration_uid.
+        $this->insertUsageRow(estimatedCost: 50.0, configurationUid: 99);
+
+        $terminalRan = false;
+        $this->pipeline()->run(
+            context: $this->contextFor(plannedCost: 0.5),
+            configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+            terminal: static function () use (&$terminalRan): string {
+                $terminalRan = true;
+
+                return 'ok';
+            },
+        );
+
+        self::assertTrue($terminalRan, 'Another configuration\'s usage must not trip this configuration\'s cap.');
+    }
+
     /**
      * Build a real pipeline containing ONLY the container-resolved
      * BudgetMiddleware (which itself wraps the real BudgetService + DB-backed
@@ -161,10 +232,14 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
         );
     }
 
-    private function configuration(): LlmConfiguration
+    private function configuration(?int $uid = null, float $maxCostPerDay = 0.0): LlmConfiguration
     {
         $config = new LlmConfiguration();
         $config->setIdentifier('primary');
+        if ($uid !== null) {
+            $config->_setProperty('uid', $uid);
+        }
+        $config->setMaxCostPerDay($maxCostPerDay);
 
         return $config;
     }
@@ -193,14 +268,14 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
      * Insert a usage row dated to "now" so it falls inside the current monthly
      * window the BudgetService aggregates over.
      */
-    private function insertUsageRow(float $estimatedCost): void
+    private function insertUsageRow(float $estimatedCost, int $configurationUid = 0): void
     {
         $now = (new DateTimeImmutable('now'))->getTimestamp();
         $this->connectionPool->getConnectionForTable(self::TABLE_USAGE)->insert(self::TABLE_USAGE, [
             'pid'                => 0,
             'service_type'       => 'chat',
             'service_provider'   => 'openai',
-            'configuration_uid'  => 0,
+            'configuration_uid'  => $configurationUid,
             'model_uid'          => 1,
             'model_id'           => 'gpt-4o',
             'be_user'            => self::BE_USER_UID,
