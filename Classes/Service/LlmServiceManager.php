@@ -498,9 +498,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // different models never share entries. EmbedCacheKeyBuilder returns an
         // empty array for cache_ttl <= 0 (EmbeddingOptions::noCache()).
         $cacheTtl = is_int($optionOverrides['cache_ttl'] ?? null) ? $optionOverrides['cache_ttl'] : 0;
+        // Criteria-mode configurations have no direct model relation, so their
+        // getModelId() is '' — resolve the concrete model for the key in that
+        // case, or entries keyed under the empty id would be shared across
+        // whatever model the criteria select over time. Fixed-mode configs
+        // keep the relation's id without the extra resolution.
         $effectiveModel = is_string($optionOverrides['model'] ?? null)
             ? $optionOverrides['model']
-            : $configuration->getModelId();
+            : ($configuration->getModelId() !== ''
+                ? $configuration->getModelId()
+                : $this->resolveModelForConfiguration($configuration)->getModelId());
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
         // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
         // and the cache frontend rejects a tag containing a dot with an
@@ -649,8 +656,14 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $options = array_merge($config->toOptionsArray(), $optionOverrides);
         unset($options['provider']);
 
-        if (!isset($options['max_tokens']) && $model->getMaxOutputTokens() > 0) {
-            $options['max_tokens'] = $model->getMaxOutputTokens();
+        // An explicit non-positive max_tokens override means "unset" too —
+        // passing 0 through would fail provider-side validation.
+        if (!isset($options['max_tokens']) || (is_int($options['max_tokens']) && $options['max_tokens'] <= 0)) {
+            if ($model->getMaxOutputTokens() > 0) {
+                $options['max_tokens'] = $model->getMaxOutputTokens();
+            } else {
+                unset($options['max_tokens']);
+            }
         }
 
         return $options;

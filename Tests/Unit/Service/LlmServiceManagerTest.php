@@ -885,6 +885,46 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     /**
+     * An explicit per-call max_tokens of 0 means "unset" like everywhere
+     * else in the #390 contract — it must fall through to the model default
+     * instead of sending a 0 the provider API would reject.
+     */
+    #[Test]
+    public function chatWithConfigurationZeroOverrideFallsBackToModelDefault(): void
+    {
+        $model = self::createStub(Model::class);
+        $model->method('getMaxOutputTokens')->willReturn(8192);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn(['max_tokens' => 2000]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'ok',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                [ChatMessage::fromArray(['role' => 'user', 'content' => 'Hello'])],
+                ['max_tokens' => 8192],
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $manager->chatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config, [], ['max_tokens' => 0]);
+    }
+
+    /**
      * Neither configuration nor model define a cap → no max_tokens key is
      * sent, so the provider's own hardcoded default applies (#390 tier 4).
      */
