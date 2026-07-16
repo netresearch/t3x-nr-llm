@@ -1,0 +1,6 @@
+"tx_nrllm_user_budget"
+,"uid","pid","be_user","max_requests_per_day","max_tokens_per_day","max_cost_per_day","max_requests_per_month","max_tokens_per_month","max_cost_per_month","is_active","tstamp","crdate","deleted","hidden"
+,1,0,1,100,50000,5.0000,2000,1000000,50.0000,1,1703347200,1703347200,0,0
+,2,0,2,10,1000,0.5000,100,20000,2.0000,1,1703347200,1703347200,0,0
+,3,0,1,999,999999,99.0000,9999,9999999,999.0000,1,1703347200,1703347200,0,0
+,4,0,3,1,1,0.0100,1,1,0.0100,1,1703347200,1703347200,0,1
