@@ -281,8 +281,10 @@ final class SolrSearchBackend implements SearchBackendInterface
             // Scheme-relative document URL: host-scope like an absolute one,
             // then prefix only the scheme — the leading-'/' branch below
             // would prepend the whole origin a second time.
+            // An empty/unparseable host ('///evil.example/x') is dropped
+            // too: browsers resolve such URLs to a foreign host.
             $host = self::toStr(parse_url($url, PHP_URL_HOST));
-            if ($baseHost !== '' && $host !== '' && strcasecmp($host, $baseHost) !== 0) {
+            if ($baseHost !== '' && ($host === '' || strcasecmp($host, $baseHost) !== 0)) {
                 return null;
             }
 
@@ -291,7 +293,7 @@ final class SolrSearchBackend implements SearchBackendInterface
 
         if (str_starts_with($url, 'https://') || str_starts_with($url, 'http://')) {
             $host = self::toStr(parse_url($url, PHP_URL_HOST));
-            if ($baseHost !== '' && $host !== '' && strcasecmp($host, $baseHost) !== 0) {
+            if ($baseHost !== '' && ($host === '' || strcasecmp($host, $baseHost) !== 0)) {
                 return null;
             }
 
