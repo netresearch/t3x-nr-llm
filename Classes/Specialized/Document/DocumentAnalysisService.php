@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Document;
 
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\VisionServiceInterface;
@@ -56,6 +57,10 @@ final readonly class DocumentAnalysisService
      *                       the native path and to each page on the fallback
      *
      * @throws UnsupportedFormatException  when the bytes are not a PDF
+     * @throws ProviderException           when no provider is resolvable (the
+     *                                     caller pinned none and no active
+     *                                     default configuration exists) — the
+     *                                     same error a plain chat() call raises
      * @throws ServiceUnavailableException when neither the native path nor the
      *                                     rasterization fallback is possible
      *                                     (provider lacks document support and
@@ -77,7 +82,7 @@ final readonly class DocumentAnalysisService
             && $provider->supportsDocuments()
             && in_array('pdf', $provider->getSupportedDocumentFormats(), true)
         ) {
-            return $this->analyzeNatively($pdf, $prompt, $options->withProvider($provider->getIdentifier()));
+            return $this->analyzeNatively($pdf, $prompt, $options);
         }
 
         return $this->analyzeViaRasterization($pdf, $prompt, $options, $provider->getIdentifier());
@@ -87,8 +92,10 @@ final readonly class DocumentAnalysisService
      * Provider key to probe for document capability. An explicit per-call
      * provider wins; otherwise the backend-managed default configuration's
      * provider type — the same record `LlmServiceManager::chat()` would
-     * route to — so the capability probe and the dispatch cannot diverge.
-     * Null falls through to the registry default provider.
+     * route to. The key is used for the probe ONLY; dispatch passes the
+     * caller's options through unchanged so `chat()` resolves the same
+     * default record itself. Null makes `getProvider()` throw the "no
+     * default provider configured" {@see ProviderException}.
      */
     private function resolveProviderKey(ChatOptions $options): ?string
     {

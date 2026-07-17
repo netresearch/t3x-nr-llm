@@ -146,7 +146,7 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
             $capturedMessages,
         );
         self::assertInstanceOf(ChatOptions::class, $capturedOptions);
-        self::assertSame('gemini', $capturedOptions->getProvider());
+        self::assertNull($capturedOptions->getProvider());
     }
 
     #[Test]
@@ -201,6 +201,36 @@ class DocumentAnalysisServiceTest extends AbstractUnitTestCase
         $result = $this->subject->analyzeDocument(self::PDF, self::PROMPT);
 
         self::assertTrue($result->usedNativeDocumentPath);
+    }
+
+    #[Test]
+    public function analyzeDocumentDoesNotPinConfigurationResolvedProviderOnDispatch(): void
+    {
+        // The configuration-derived key is for the capability probe only. Pinning
+        // it on dispatch would make chat() skip the default DB configuration
+        // (ConfigurationResolver returns null for any pinned provider) and fall
+        // to the ad-hoc registry without the record's credentials/model.
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('getProviderType')->willReturn('gemini');
+
+        $this->llmManager->method('resolveEffectiveConfiguration')->willReturn($configuration);
+        $this->llmManager->expects(self::once())->method('getProvider')->with('gemini')->willReturn($this->createDocumentCapableProvider());
+
+        $capturedOptions = null;
+        $this->llmManager
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturnCallback(function (array $messages, ChatOptions $options) use (&$capturedOptions): CompletionResponse {
+                $capturedOptions = $options;
+
+                return $this->completionResponse('ok');
+            });
+
+        $this->subject->analyzeDocument(self::PDF, self::PROMPT, new ChatOptions(maxTokens: 1024));
+
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions);
+        self::assertNull($capturedOptions->getProvider());
+        self::assertSame(1024, $capturedOptions->getMaxTokens());
     }
 
     #[Test]

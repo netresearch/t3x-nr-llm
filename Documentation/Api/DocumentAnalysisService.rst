@@ -39,6 +39,10 @@ DocumentAnalysisService
          document path was used, and the rasterized page count
       :throws: :php:`UnsupportedFormatException` when the bytes are
          not a PDF
+      :throws: :php:`ProviderException` when no provider is
+         resolvable (no explicit provider and no active default
+         configuration) — the same error a plain :php:`chat()` call
+         raises
       :throws: :php:`ServiceUnavailableException` when the provider
          lacks native PDF support and poppler is not installed
       :throws: :php:`PdfRasterizationException` when rasterization

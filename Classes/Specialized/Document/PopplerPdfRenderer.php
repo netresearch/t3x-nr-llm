@@ -59,7 +59,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
 
         $png = reset($rendered);
         if ($png === false) {
-            throw new PdfRasterizationException(sprintf('pdftoppm produced no output for page %d.', $page), 1784211005);
+            throw new PdfRasterizationException(sprintf('pdftoppm produced no output for page %d.', $page), 1784211013);
         }
 
         return $png;
@@ -132,7 +132,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
             }
 
             if ($pages === []) {
-                throw new PdfRasterizationException($emptyOutputMessage, 1784211005);
+                throw new PdfRasterizationException($emptyOutputMessage, 1784211014);
             }
 
             ksort($pages);
@@ -164,7 +164,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
         }
 
         if (!is_resource($process)) {
-            throw new PdfRasterizationException(sprintf('Could not start "%s" - is poppler installed?', $command[0]), 1784211007);
+            throw new PdfRasterizationException(sprintf('Could not start "%s" - is poppler installed?', $command[0]), 1784211015);
         }
 
         $stdout = (string)stream_get_contents($pipes[1]);
