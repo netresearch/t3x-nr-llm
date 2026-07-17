@@ -20,6 +20,7 @@ Complete API reference for the TYPO3 LLM extension.
    ToolCallingService
    KeywordSearch
    ReciprocalRankFusion
+   Reranker
    ResponseObjects
    OptionClasses
    ProviderInterface

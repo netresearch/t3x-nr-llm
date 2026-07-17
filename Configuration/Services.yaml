@@ -22,6 +22,9 @@ services:
       - '../Classes/Provider/Exception/*'
       # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
       - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
+      - '../Classes/Service/Rerank/Exception/*'
+      # Scalar-argument constructor; built exclusively by RerankerFactory.
+      - '../Classes/Service/Rerank/HttpReranker.php'
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Specialized/Exception/*'
@@ -68,6 +71,15 @@ services:
     class: Netresearch\NrLlm\Service\Retrieval\KeywordSearchService
     arguments:
       $indexBackedOnly: true
+    public: true
+
+  # Cross-encoder reranker protocol (ADR-075). Built via a factory so the
+  # instance-configured sidecar endpoint selects the implementation: an
+  # empty rerankerEndpoint keeps candidates in input order (NullReranker),
+  # a configured endpoint enables the sidecar client (HttpReranker).
+  # Public: documented downstream retrieval contract (e.g. nr_ai_search).
+  Netresearch\NrLlm\Service\Rerank\RerankerInterface:
+    factory: ['@Netresearch\NrLlm\Service\Rerank\RerankerFactory', 'create']
     public: true
 
   Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface:
