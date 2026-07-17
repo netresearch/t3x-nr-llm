@@ -51,6 +51,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  */
 final readonly class TranslationService implements TranslationServiceInterface
 {
+    private const EMPTY_TEXT_ERROR = 'Text cannot be empty';
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
@@ -78,7 +79,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty', 1478981390);
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 1478981390);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -169,7 +170,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $options->toArray();
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty', 1719410501);
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 1719410501);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -198,12 +199,31 @@ final readonly class TranslationService implements TranslationServiceInterface
             ChatMessage::user($prompt['system'] . "\n\n" . $prompt['user']),
         ];
 
-        $response = $this->llmManager->chatWithConfiguration(
-            $messages,
-            $configuration,
-            $this->buildBudgetMetadata($options),
-            $this->buildOptionOverrides($options),
-        );
+        // Budget metadata for chatWithConfiguration's pipeline (ADR-052):
+        // absent keys mean "skip the check", matching the middleware contract.
+        $metadata = [];
+        $beUserUid = $this->resolveBeUserUid($options);
+        if ($beUserUid !== null) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
+        if ($options->getPlannedCost() !== null) {
+            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
+        }
+
+        // Only forward set generation knobs; unset ones let the configuration's
+        // stored defaults apply. Provider is omitted — the configuration owns it.
+        $overrides = [];
+        if ($options->getTemperature() !== null) {
+            $overrides['temperature'] = $options->getTemperature();
+        }
+        if ($options->getMaxTokens() !== null) {
+            $overrides['max_tokens'] = $options->getMaxTokens();
+        }
+        if ($options->getModel() !== null) {
+            $overrides['model'] = $options->getModel();
+        }
+
+        $response = $this->llmManager->chatWithConfiguration($messages, $configuration, $metadata, $overrides);
 
         return new TranslationResult(
             translation: $response->content,
@@ -349,7 +369,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty', 3459949413);
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 3459949413);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -646,62 +666,5 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function resolveBeUserUid(TranslationOptions $options): ?int
     {
         return $options->getBeUserUid() ?? $this->beUserContextResolver?->resolveBeUserUid();
-    }
-
-    /**
-     * Budget pre-flight metadata for the per-configuration path.
-     *
-     * `chatWithConfiguration()` takes budget context as pipeline metadata
-     * (not on an options object), so the resolved uid and planned cost are
-     * mapped onto the keys BudgetMiddleware reads. Absent keys mean "skip
-     * the check", matching the middleware's contract.
-     *
-     * @return array<string, mixed>
-     */
-    private function buildBudgetMetadata(TranslationOptions $options): array
-    {
-        $metadata = [];
-
-        $beUserUid = $this->resolveBeUserUid($options);
-        if ($beUserUid !== null) {
-            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
-        }
-
-        $plannedCost = $options->getPlannedCost();
-        if ($plannedCost !== null) {
-            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
-        }
-
-        return $metadata;
-    }
-
-    /**
-     * Per-call option overrides for the per-configuration path.
-     *
-     * Only the generation knobs are forwarded; each takes precedence over
-     * the configuration's stored default when set, and an absent key leaves
-     * the configuration's value untouched. `provider` is intentionally not
-     * forwarded — the configuration selects the provider (mirrors
-     * `chatWithToolsForConfiguration()`).
-     *
-     * @return array<string, mixed>
-     */
-    private function buildOptionOverrides(TranslationOptions $options): array
-    {
-        $overrides = [];
-
-        if ($options->getTemperature() !== null) {
-            $overrides['temperature'] = $options->getTemperature();
-        }
-
-        if ($options->getMaxTokens() !== null) {
-            $overrides['max_tokens'] = $options->getMaxTokens();
-        }
-
-        if ($options->getModel() !== null) {
-            $overrides['model'] = $options->getModel();
-        }
-
-        return $overrides;
     }
 }
