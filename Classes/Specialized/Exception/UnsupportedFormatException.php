@@ -12,7 +12,8 @@ namespace Netresearch\NrLlm\Specialized\Exception;
 /**
  * Exception thrown when a file format is not supported.
  *
- * Used for audio formats (speech services) and image formats (generation).
+ * Used for audio formats (speech services), image formats (generation)
+ * and document formats (analysis).
  */
 final class UnsupportedFormatException extends SpecializedServiceException
 {
@@ -58,6 +59,22 @@ final class UnsupportedFormatException extends SpecializedServiceException
                 'format' => $format,
                 'type' => 'audio',
             ],
+        );
+    }
+
+    /**
+     * Create exception for document bytes that are not a supported format.
+     */
+    public static function documentFormat(): self
+    {
+        return new self(
+            'Document is not a PDF (missing %PDF- header). Supported: pdf',
+            'document',
+            [
+                'format' => 'unknown',
+                'type' => 'document',
+            ],
+            1784211010,
         );
     }
 

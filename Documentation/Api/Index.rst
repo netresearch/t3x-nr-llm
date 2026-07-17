@@ -15,6 +15,7 @@ Complete API reference for the TYPO3 LLM extension.
    CompletionService
    EmbeddingService
    VisionService
+   DocumentAnalysisService
    TranslationService
    ToolCallingService
    KeywordSearch

@@ -336,6 +336,19 @@ services:
     public: true
 
   # ========================================
+  # Document Analysis Services
+  # ========================================
+  # DocumentAnalysisService is Category D consumer API (ADR-076). The
+  # rasterizer alias stays private: consumers autowire the interface, and
+  # a substitute rasterizer is wired by aliasing it to another class.
+
+  Netresearch\NrLlm\Specialized\Document\DocumentAnalysisService:
+    public: true
+
+  Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface:
+    alias: Netresearch\NrLlm\Specialized\Document\PopplerPdfRenderer
+
+  # ========================================
   # Setup Wizard Services
   # ========================================
   # ProviderDetector stays PUBLIC: it is resolved via

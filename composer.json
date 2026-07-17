@@ -51,6 +51,7 @@
     },
     "suggest": {
         "apache-solr-for-typo3/solr": "Site-search RAG tools retrieve evidence from the Solr index when installed",
+        "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages — enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",
         "typo3/cms-indexed-search": "Site-search RAG tools retrieve evidence from the indexed_search index when installed"

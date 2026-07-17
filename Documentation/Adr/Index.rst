@@ -372,3 +372,4 @@ Tools
    Adr072RetrievalQualityEvaluation
    Adr073FirstPartyTestingFixtures
    Adr074ReciprocalRankFusionUtility
+   Adr076DocumentUnderstanding
