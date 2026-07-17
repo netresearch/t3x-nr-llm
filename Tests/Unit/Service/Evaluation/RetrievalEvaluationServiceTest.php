@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\Enum\QuestionForm;
+use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestion;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
 use Netresearch\NrLlm\Service\Evaluation\RetrievalEvaluationService;
@@ -24,6 +25,33 @@ final class RetrievalEvaluationServiceTest extends TestCase
     private function set(GoldenQuestion ...$questions): GoldenQuestionSet
     {
         return new GoldenQuestionSet('a.set', 'Set', 'Description', array_values($questions));
+    }
+
+    /**
+     * A retriever that, unlike StaticRetriever, truncates its ranking to
+     * the requested limit — mirroring a real backend, where only the
+     * overfetch makes raw results beyond the metric depth reachable.
+     *
+     * @param list<string> $ranking
+     */
+    private function limitRespectingRetriever(array $ranking): EvaluatableRetrieverInterface
+    {
+        return new class ($ranking) implements EvaluatableRetrieverInterface {
+            /**
+             * @param list<string> $ranking
+             */
+            public function __construct(private readonly array $ranking) {}
+
+            public function getIdentifier(): string
+            {
+                return 'test.limit_respecting';
+            }
+
+            public function retrieve(string $question, int $limit): array
+            {
+                return array_slice($this->ranking, 0, $limit);
+            }
+        };
     }
 
     #[Test]
@@ -158,7 +186,7 @@ final class RetrievalEvaluationServiceTest extends TestCase
     }
 
     #[Test]
-    public function retrieverIsAskedEachQuestionWithTopKLimit(): void
+    public function retrieverIsAskedEachQuestionWithOverfetchedLimit(): void
     {
         $retriever = new StaticRetriever();
         $service = new RetrievalEvaluationService();
@@ -170,10 +198,40 @@ final class RetrievalEvaluationServiceTest extends TestCase
             $retriever,
         );
 
+        $limit = RetrievalEvaluationService::TOP_K * RetrievalEvaluationService::OVERFETCH_MULTIPLIER;
         self::assertSame([
-            ['question' => 'Question one?', 'limit' => RetrievalEvaluationService::TOP_K],
-            ['question' => 'Question two?', 'limit' => RetrievalEvaluationService::TOP_K],
+            ['question' => 'Question one?', 'limit' => $limit],
+            ['question' => 'Question two?', 'limit' => $limit],
         ], $retriever->receivedCalls);
+    }
+
+    #[Test]
+    public function chunkGrainedRankingStillFillsAllDistinctRanksOnALimitRespectingRetriever(): void
+    {
+        // Two chunks of doc-a rank first: without overfetching, a retriever
+        // that honours the limit would return only [doc-a, doc-a, doc-b] —
+        // two distinct documents — and never surface doc-c.
+        $service = new RetrievalEvaluationService();
+        $result = $service->run(
+            $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-x'])),
+            $this->limitRespectingRetriever(['doc-a', 'doc-a', 'doc-b', 'doc-c', 'doc-d']),
+        );
+
+        self::assertSame(['doc-a', 'doc-b', 'doc-c'], $result->evaluations[0]->retrievedDocumentIds);
+    }
+
+    #[Test]
+    public function targetAtRawRankFourButDistinctRankThreeIsATop3Hit(): void
+    {
+        // doc-c is the fourth raw result but the third distinct document.
+        $service = new RetrievalEvaluationService();
+        $result = $service->run(
+            $this->set(new GoldenQuestion('q1', 'Question one?', QuestionForm::MATCH, ['doc-c'])),
+            $this->limitRespectingRetriever(['doc-a', 'doc-a', 'doc-b', 'doc-c']),
+        );
+
+        self::assertFalse($result->evaluations[0]->top1Hit);
+        self::assertTrue($result->evaluations[0]->top3Hit);
     }
 
     #[Test]

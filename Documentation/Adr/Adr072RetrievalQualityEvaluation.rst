@@ -82,11 +82,14 @@ unchanged.** nr_llm ships the methodology, not the questions.
    both a runnable target and the pattern to copy.
 
 3. **Hit-rate scoring.** ``RetrievalEvaluationService`` asks the retriever
-   for the top three documents per question, collapses duplicate ids to the
-   first occurrence (so top-3 always means the three best DISTINCT
-   documents, even when a retriever hands back one id per chunk), and scores
-   top-1/top-3 hits. ``RetrievalSetEvaluationResult`` aggregates the rates
-   overall, by form, and by hard class. Like ``EvaluationService`` it
+   for an overfetched raw ranking per question
+   (``TOP_K * OVERFETCH_MULTIPLIER`` results), collapses duplicate ids to
+   the first occurrence (so top-3 always means the three best DISTINCT
+   documents, even when a retriever hands back one id per chunk — the
+   overfetch keeps a chunk-grained ranking from collapsing to fewer than
+   three documents), and scores top-1/top-3 hits over the three best
+   distinct documents. ``RetrievalSetEvaluationResult`` aggregates the
+   rates overall, by form, and by hard class. Like ``EvaluationService`` it
    neither persists nor compares.
 
 4. **Persistence and regression via ADR-060, by mapping.**

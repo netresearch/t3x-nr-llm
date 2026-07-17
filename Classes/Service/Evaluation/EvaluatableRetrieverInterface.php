@@ -22,7 +22,10 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * one. The adapter owns the mapping from its native results to document
  * ids; those ids must use the same identity scheme as the golden set's
  * `expectedDocumentIds` (e.g. chunk-id prefixes for chunked vector
- * stores), otherwise no hit can ever match.
+ * stores), otherwise no hit can ever match. The returned ranking MAY be
+ * chunk-grained — the same document id may appear once per chunk — the
+ * evaluator collapses duplicates to the first occurrence, so adapters
+ * need not dedup themselves.
  *
  * Implementations are discovered via the `nr_llm.evaluatable_retriever`
  * DI tag (auto-applied by AutoconfigureTag) and collected by
@@ -43,9 +46,13 @@ interface EvaluatableRetrieverInterface
     /**
      * Retrieve the ranked document ids for a question, best match first.
      *
-     * @param int $limit Maximum number of documents the evaluation will look at
+     * Duplicate ids are allowed (one entry per chunk); the evaluator dedups
+     * them in ranking order. The limit is therefore an overfetched raw
+     * ranking depth, larger than the metric depth the evaluation scores.
      *
-     * @return list<string> Ranked document ids, best first
+     * @param int $limit Maximum number of raw results to return
+     *
+     * @return list<string> Ranked document ids, best first, MAY contain duplicates
      */
     public function retrieve(string $question, int $limit): array;
 }

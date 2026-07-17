@@ -19,7 +19,10 @@ namespace Netresearch\NrLlm\Service\Evaluation;
  * question's expected documents. Duplicate ids in the retriever's ranking
  * (e.g. several chunks of the same document mapped to one document id) are
  * collapsed to the first occurrence before ranks are counted, so top-3
- * always means the three best distinct documents. A question that expects
+ * always means the three best distinct documents. To survive that dedup,
+ * the retriever is asked for an overfetched raw ranking
+ * (TOP_K * OVERFETCH_MULTIPLIER results) — a chunk-grained ranking would
+ * otherwise collapse to fewer than TOP_K documents. A question that expects
  * no result (empty `expectedDocumentIds`) is a hit — on both metrics —
  * only when the retriever returns nothing.
  *
@@ -31,9 +34,20 @@ final readonly class RetrievalEvaluationService
 {
     /**
      * The retrieval depth the evaluation looks at — the deepest metric is
-     * the top-3 hit rate, so retrievers are asked for three documents.
+     * the top-3 hit rate, so hits are scored over the three best distinct
+     * documents.
      */
     public const TOP_K = 3;
+
+    /**
+     * How many times TOP_K raw results are requested from the retriever.
+     * Retrievers may rank chunk-grained ids (several chunks of the same
+     * document mapped to one document id), so asking for exactly TOP_K
+     * results could collapse to fewer than TOP_K distinct documents after
+     * dedup — deflating the hit rates. Overfetching leaves the dedup enough
+     * raw results to fill all TOP_K distinct ranks.
+     */
+    public const OVERFETCH_MULTIPLIER = 4;
 
     /**
      * Execute the set against the retriever and return the scored result.
@@ -44,7 +58,7 @@ final readonly class RetrievalEvaluationService
 
         foreach ($set->questions as $question) {
             $startedAt = microtime(true);
-            $ranked = $retriever->retrieve($question->question, self::TOP_K);
+            $ranked = $retriever->retrieve($question->question, self::TOP_K * self::OVERFETCH_MULTIPLIER);
             $latencyMs = (int)round((microtime(true) - $startedAt) * 1000);
 
             $documents = $this->distinctTopDocuments($ranked);
