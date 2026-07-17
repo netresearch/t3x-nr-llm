@@ -375,3 +375,4 @@ Tools
    Adr075RerankerProtocol
    Adr076DocumentUnderstanding
    Adr077NamedConfigurationCompletion
+   Adr079FirstPartyCompletionVisionBudgetFakes
