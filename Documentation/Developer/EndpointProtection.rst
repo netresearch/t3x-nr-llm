@@ -50,8 +50,14 @@ implementation:
 .. code-block:: yaml
    :caption: Configuration/Services.yaml
 
-   Symfony\Component\RateLimiter\Storage\StorageInterface:
-       alias: TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage
+   services:
+       _defaults:
+           autowire: true
+           autoconfigure: true
+           public: false
+
+       Symfony\Component\RateLimiter\Storage\StorageInterface:
+           alias: TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage
 
 .. note::
 
@@ -62,10 +68,14 @@ implementation:
    limiter service as a named ``$storage`` argument referencing
    ``@TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage``.
 
-The limiter itself keys on the client IP resolved through
-:php:`NormalizedParams`, which honors TYPO3's reverse-proxy configuration
+The limiter itself keys on the client IP resolved through the
+``normalizedParams`` request attribute — a :php:`NormalizedParams`
+instance TYPO3 sets on every frontend and backend request — which honors
+TYPO3's reverse-proxy configuration
 (:php:`$GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyIP']`) instead of
-trusting ``REMOTE_ADDR`` blindly:
+trusting ``REMOTE_ADDR`` blindly. The raw ``REMOTE_ADDR`` fallback only
+covers requests that never passed through TYPO3's request handling, such
+as unit tests:
 
 .. code-block:: php
    :caption: Classes/Infrastructure/RequestRateLimiter.php
@@ -105,12 +115,9 @@ trusting ``REMOTE_ADDR`` blindly:
        {
            $normalizedParams = $request->getAttribute('normalizedParams');
 
-           if (!$normalizedParams instanceof NormalizedParams) {
-               $normalizedParams =
-                   NormalizedParams::createFromRequest($request);
-           }
-
-           $remoteIp = $normalizedParams->getRemoteAddress();
+           $remoteIp = $normalizedParams instanceof NormalizedParams
+               ? $normalizedParams->getRemoteAddress()
+               : (string)($request->getServerParams()['REMOTE_ADDR'] ?? '');
 
            return !$this->rateLimiterFactory
                ->create($remoteIp)
@@ -131,12 +138,25 @@ Design choices worth keeping:
 .. code-block:: yaml
    :caption: Configuration/Services.yaml — one limiter per endpoint
 
-   MyVendor\MyExtension\Infrastructure\RequestRateLimiter: ~
+   services:
+       _defaults:
+           autowire: true
+           autoconfigure: true
+           public: false
 
-   myext.rate_limiter.chat:
-       class: MyVendor\MyExtension\Infrastructure\RequestRateLimiter
-       arguments:
-           $limiterId: 'myext_chat'
+       MyVendor\MyExtension\Infrastructure\RequestRateLimiter: ~
+
+       myext.rate_limiter.chat:
+           class: MyVendor\MyExtension\Infrastructure\RequestRateLimiter
+           arguments:
+               $limiterId: 'myext_chat'
+
+The ``~`` (null) definition inherits everything from ``_defaults``:
+with ``autowire: true`` the :php:`StorageInterface` constructor
+argument resolves through the alias above, and the two scalar
+parameters keep their declared defaults. Without the ``_defaults``
+block (or an explicit ``autowire: true`` on the definition) the
+container would fail to instantiate the service.
 
 *   Where the limit value comes from — extension configuration, a site
     setting, or a constructor default — is your choice. If you read it
@@ -197,6 +217,12 @@ detail in server-side logs only:
 
 .. code-block:: php
    :caption: Controller action combining all three patterns
+
+   use InvalidArgumentException;
+   use Netresearch\NrLlm\Provider\Exception\ProviderException;
+   use Psr\Http\Message\ResponseInterface;
+
+   // … inside the controller class:
 
    public function searchAction(string $query = ''): ResponseInterface
    {

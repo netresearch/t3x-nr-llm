@@ -42,14 +42,20 @@ and ``allow_unsafe_links`` defaults to ``true`` (``javascript:`` and
 .. code-block:: yaml
    :caption: Configuration/Services.yaml
 
-   League\CommonMark\CommonMarkConverter:
-       arguments:
-           $config:
-               html_input: 'strip'
-               allow_unsafe_links: false
+   services:
+       _defaults:
+           autowire: true
+           autoconfigure: true
+           public: false
 
-   League\CommonMark\ConverterInterface:
-       alias: League\CommonMark\CommonMarkConverter
+       League\CommonMark\CommonMarkConverter:
+           arguments:
+               $config:
+                   html_input: 'strip'
+                   allow_unsafe_links: false
+
+       League\CommonMark\ConverterInterface:
+           alias: League\CommonMark\CommonMarkConverter
 
 ``html_input: strip`` removes any raw HTML the model emitted;
 ``allow_unsafe_links: false`` suppresses link and image destinations with
