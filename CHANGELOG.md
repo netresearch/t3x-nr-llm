@@ -6,9 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-07-17
+
 ### Added
 
-- **Public keyword-search facade** (ADR-070). New public contract
+- **Public keyword-search facade** (ADR-071). New public contract
   `Service\Retrieval\KeywordSearchInterface` — `search(string $query, int $limit,
   ?int $languageId = null): list<KeywordHit>` plus `isAvailable()` — over the ADR-049
   site-search cascade, so downstream extensions no longer bind to private retrieval
@@ -18,6 +20,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   for consumers that must treat "index unavailable" as empty (e.g. hybrid dense+sparse
   fusion). Documented in `Documentation/Api/KeywordSearch.rst`; audited public-service
   count 26 → 28.
+- **Retrieval-quality evaluation** (ADR-072). Golden question sets (MATCH/GAP forms,
+  hard-class taxonomy, multi-target relevance labels) scored by top-1/top-3
+  document-level hit rate, mirroring the ADR-060 golden-prompt framework.
+  `EvaluatableRetrieverInterface` makes the retriever pluggable, so the builtin lexical
+  cascade and external retrievers are measured with the same protocol; results persist
+  through the existing regression machinery. `RetrievalEvalRunCommand` runs a set from
+  the CLI. No golden questions ship with the extension.
+- **First-party test doubles** (ADR-073). `Testing\FakeToolCallingService` and
+  `Testing\FakeEmbeddingService` in a runtime-autoloaded namespace, so consumers stop
+  hand-rolling fakes that drift from the interface. Each implements the real interface;
+  excluded from container autoconfiguration.
+- **`ConfigurationResolver::getActiveByIdentifier()`** (ADR-070). Resolves a named
+  configuration by identifier for user-less contexts (CLI, Messenger workers, anonymous
+  frontend), applying the isActive and backend-group access guards a raw repository
+  lookup skips. Throws typed `ConfigurationNotFoundException`,
+  `ConfigurationInactiveException`, or `AccessDeniedException`.
+- **Seeded embedding-model dimensions.** The ADR-055 `dimensions` column is populated for
+  well-known embedding models on setup and back-filled on existing rows by an upgrade
+  wizard (never overwriting a configured value), so consumers take the fast path instead
+  of a paid calibration probe.
+- **Consumer recipes** in the developer documentation: protecting anonymous
+  LLM-cost-bearing endpoints (per-IP rate limiting, `Sec-Fetch-Site` checks) and
+  rendering LLM markdown server-side safely.
+
+### Fixed
+
+- **Solr URL scoping for scheme-relative site bases.** A `base: //host/` site base has an
+  empty scheme, so `SolrSearchBackend::siteScopedUrl()` emitted the degenerate
+  `://host/path` in evidence URLs and citations; the scheme now defaults to `https`.
+  Document URLs with an empty or unparseable host are dropped rather than emitted to a
+  foreign origin.
+- **Adjacent text nodes in tool excerpts.** `strip_tags()` glued adjacent text
+  (`<td>Price</td><td>100</td>` → `Price100`) in the excerpts handed to the model; a
+  space is now inserted before non-inline tags, keeping inline-joined words intact.
 
 ## [0.20.0] - 2026-07-16
 
@@ -1128,7 +1164,12 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.14.1...v0.15.0
