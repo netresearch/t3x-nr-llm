@@ -113,6 +113,24 @@ final class FakeEmbeddingServiceTest extends TestCase
     }
 
     #[Test]
+    public function throwableIsOneShotAndNextCallReturnsTheCannedValueAgain(): void
+    {
+        $subject = new FakeEmbeddingService();
+        $subject->embedResult = [0.5, 0.6];
+        $subject->throwable   = new RuntimeException('embed failed');
+
+        try {
+            $subject->embed('text');
+            self::fail('Expected RuntimeException was not thrown.');
+        } catch (RuntimeException) {
+            // one-shot: cleared before throwing
+        }
+
+        self::assertNull($subject->throwable);
+        self::assertSame([0.5, 0.6], $subject->embed('text'));
+    }
+
+    #[Test]
     public function vectorHelpersReturnTheirCannedValues(): void
     {
         $subject = new FakeEmbeddingService();

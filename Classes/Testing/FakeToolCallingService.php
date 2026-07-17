@@ -52,7 +52,10 @@ final class FakeToolCallingService implements ToolCallingServiceInterface
     /** @var list<array{messages: list<ChatMessage|array<string, mixed>>, tools: list<ToolSpec|array<string, mixed>>, configuration: LlmConfiguration, options: ?ToolOptions}> */
     public array $chatWithToolsForConfigurationCalls = [];
 
-    /** When set, the next call throws this instead of returning a response. */
+    /**
+     * When set, the next call throws this instead of returning a response.
+     * Cleared before throwing, so subsequent calls return queued responses again.
+     */
     public ?Throwable $throwable = null;
 
     public function chatWithTools(array $messages, array $tools, ?ToolOptions $options = null): CompletionResponse
@@ -72,7 +75,10 @@ final class FakeToolCallingService implements ToolCallingServiceInterface
     private function next(string $method): CompletionResponse
     {
         if ($this->throwable instanceof Throwable) {
-            throw $this->throwable;
+            $throwable = $this->throwable;
+            $this->throwable = null;
+
+            throw $throwable;
         }
 
         $response = array_shift($this->responses);

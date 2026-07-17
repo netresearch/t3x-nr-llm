@@ -90,6 +90,26 @@ final class FakeToolCallingServiceTest extends TestCase
     }
 
     #[Test]
+    public function throwableIsOneShotAndNextCallReturnsAQueuedResponseAgain(): void
+    {
+        $queued = self::response('after');
+
+        $subject = new FakeToolCallingService();
+        $subject->responses = [$queued];
+        $subject->throwable = new RuntimeException('boom');
+
+        try {
+            $subject->chatWithTools([], []);
+            self::fail('Expected RuntimeException was not thrown.');
+        } catch (RuntimeException) {
+            // one-shot: cleared before throwing
+        }
+
+        self::assertNull($subject->throwable);
+        self::assertSame($queued, $subject->chatWithTools([], []));
+    }
+
+    #[Test]
     public function throwsWhenCalledWithoutAQueuedResponse(): void
     {
         $subject = new FakeToolCallingService();

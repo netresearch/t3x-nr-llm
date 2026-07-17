@@ -79,7 +79,8 @@ final class FakeEmbeddingService implements EmbeddingServiceInterface
 
     /**
      * When set, the next provider-backed call throws this instead of returning
-     * a canned value.
+     * a canned value. Cleared before throwing, so subsequent calls return
+     * canned values again.
      */
     public ?Throwable $throwable = null;
 
@@ -165,7 +166,10 @@ final class FakeEmbeddingService implements EmbeddingServiceInterface
     private function guardThrow(): void
     {
         if ($this->throwable instanceof Throwable) {
-            throw $this->throwable;
+            $throwable = $this->throwable;
+            $this->throwable = null;
+
+            throw $throwable;
         }
     }
 }
