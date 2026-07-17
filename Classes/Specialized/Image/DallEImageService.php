@@ -98,6 +98,7 @@ final class DallEImageService extends AbstractSpecializedService
         $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         $this->validatePrompt($prompt, $model);
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $this->setAuditContext(sprintf('%s, generate', $model));
@@ -165,6 +166,7 @@ final class DallEImageService extends AbstractSpecializedService
         $count = min($count, 10);
 
         $this->validatePrompt($prompt, $model);
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $payload['n'] = $count;
@@ -221,6 +223,7 @@ final class DallEImageService extends AbstractSpecializedService
         $this->ensureAvailable();
 
         $this->validateImageFile($imagePath);
+        $this->enforceBudget($beUserUid, null, null);
 
         $count = min(max($count, 1), 10);
 
@@ -282,6 +285,7 @@ final class DallEImageService extends AbstractSpecializedService
         if ($maskPath !== null) {
             $this->validateImageFile($maskPath);
         }
+        $this->enforceBudget($beUserUid, null, null);
 
         $this->setAuditContext('dall-e-2, edit');
         $response = $this->sendImageMultipart('edits', $imagePath, $maskPath, [

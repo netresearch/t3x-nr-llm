@@ -81,6 +81,7 @@ return RectorConfig::configure()
         AddErrorCodeToExceptionRector::class => [
             __DIR__ . '/../../Classes/Provider/Middleware/BudgetMiddleware.php',
             __DIR__ . '/../../Classes/Service/Streaming/StreamingDispatcher.php',
+            __DIR__ . '/../../Classes/Specialized/AbstractSpecializedService.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

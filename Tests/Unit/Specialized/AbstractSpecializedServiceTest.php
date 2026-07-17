@@ -10,11 +10,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 
 use LogicException;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -76,6 +79,87 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         // Reaching here = no exception = pass.
         self::assertTrue($subject->isAvailable());
+    }
+
+    #[Test]
+    public function enforceBudgetIsNoOpWhenNoBudgetServiceIsWired(): void
+    {
+        $subject = $this->createSubject();
+
+        // Fail-open: an unconfigured deployment (no budget service) is never gated.
+        $subject->callEnforceBudget(42, 0.5, null);
+
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function enforceBudgetThrowsBudgetExceededWhenTheCheckDenies(): void
+    {
+        $budget = $this->createMock(BudgetServiceInterface::class);
+        $budget->expects(self::once())
+            ->method('check')
+            ->with(42, 0.5, null)
+            ->willReturn(BudgetCheckResult::denied('cost_per_day', 9.0, 9.0, 'exhausted'));
+
+        $subject = $this->createSubject(budgetService: $budget);
+
+        $this->expectException(BudgetExceededException::class);
+
+        $subject->callEnforceBudget(42, 0.5, null);
+    }
+
+    #[Test]
+    public function enforceBudgetPassesWhenTheCheckAllows(): void
+    {
+        $budget = $this->createMock(BudgetServiceInterface::class);
+        $budget->expects(self::once())
+            ->method('check')
+            ->with(7, 0.25, null)
+            ->willReturn(BudgetCheckResult::allowed());
+
+        $subject = $this->createSubject(budgetService: $budget);
+
+        $subject->callEnforceBudget(7, 0.25, null);
+
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function enforceBudgetDefaultsAbsentBeUserUidAndCostToZero(): void
+    {
+        $budget = $this->createMock(BudgetServiceInterface::class);
+        $budget->expects(self::once())
+            ->method('check')
+            ->with(0, 0.0, null)
+            ->willReturn(BudgetCheckResult::allowed());
+
+        $subject = $this->createSubject(budgetService: $budget);
+
+        $subject->callEnforceBudget(null, null, null);
+
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function enforceBudgetResolvesTheConfigurationIdentifierAndPassesItToTheCheck(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('isActive')->willReturn(true);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($configuration);
+
+        $budget = $this->createMock(BudgetServiceInterface::class);
+        $budget->expects(self::once())
+            ->method('check')
+            ->with(5, 0.1, self::identicalTo($configuration))
+            ->willReturn(BudgetCheckResult::allowed());
+
+        $subject = $this->createSubject(configurationRepository: $repository, budgetService: $budget);
+
+        $subject->callEnforceBudget(5, 0.1, 'nr_repurpose_image');
+
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -1027,6 +1111,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         ?ClientInterface $httpClient = null,
         ?ModelRepository $modelRepository = null,
         ?LlmConfigurationRepository $configurationRepository = null,
+        ?BudgetServiceInterface $budgetService = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -1041,6 +1126,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             modelRepository: $modelRepository,
             configurationRepository: $configurationRepository,
+            budgetService: $budgetService,
         );
 
         // Inject the plain test client through the test seam; this bypasses the
@@ -1142,6 +1228,11 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callEnsureAvailable(): void
     {
         $this->ensureAvailable();
+    }
+
+    public function callEnforceBudget(?int $beUserUid, ?float $plannedCost, ?string $configurationIdentifier = null): void
+    {
+        $this->enforceBudget($beUserUid, $plannedCost, $configurationIdentifier);
     }
 
     public function callBuildEndpointUrl(string $endpoint): string

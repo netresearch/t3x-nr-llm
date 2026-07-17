@@ -87,6 +87,7 @@ final class FalImageService extends AbstractSpecializedService
         array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
+        $this->enforceBudget($this->extractBeUserUid($options), $this->extractPlannedCost($options), null);
 
         $modelEndpoint = $this->resolveModelEndpoint($model);
 
@@ -147,6 +148,8 @@ final class FalImageService extends AbstractSpecializedService
 
         $count = min(max($count, 1), 4);
         $options['num_images'] = $count;
+
+        $this->enforceBudget($this->extractBeUserUid($options), $this->extractPlannedCost($options), null);
 
         $modelEndpoint = $this->resolveModelEndpoint($model);
         $payload = $this->buildGeneratePayload($prompt, $options);
@@ -430,6 +433,21 @@ final class FalImageService extends AbstractSpecializedService
         $beUserUid = $options['beUserUid'] ?? null;
 
         return is_int($beUserUid) && $beUserUid >= 0 ? $beUserUid : null;
+    }
+
+    /**
+     * Extract the planned cost from the options payload for the budget
+     * pre-flight (ADR-078). Like `beUserUid`, this is consumer metadata that
+     * must never reach the FAL API — the allowlist payload builder drops it.
+     * Negative values are treated as absent.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractPlannedCost(array $options): ?float
+    {
+        $plannedCost = $options['plannedCost'] ?? null;
+
+        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float)$plannedCost : null;
     }
 
     /**

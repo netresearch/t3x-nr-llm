@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -79,7 +82,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
      * plain HTTP client through the test seam (bypasses the vault secure client
      * so request/response assertions can read the request the service built).
      *
-     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null} $repositories
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null, budget?: BudgetServiceInterface|null} $repositories
      */
     private function buildService(
         ClientInterface $httpClient,
@@ -100,6 +103,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->costCalculator,
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
+            $repositories['budget'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -121,6 +125,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         array $config = [],
         ?ModelRepository $modelRepository = null,
         ?LlmConfigurationRepository $configurationRepository = null,
+        ?BudgetServiceInterface $budgetService = null,
     ): DallEImageService {
         $defaultConfig = [
             'providers' => [
@@ -142,8 +147,23 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->extensionConfigMock,
             $this->usageTrackerStub,
             $this->loggerStub,
-            ['model' => $modelRepository, 'configuration' => $configurationRepository],
+            ['model' => $modelRepository, 'configuration' => $configurationRepository, 'budget' => $budgetService],
         );
+    }
+
+    #[Test]
+    public function generateEnforcesTheBudgetBeforeAnyHttpCall(): void
+    {
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget->method('check')->willReturn(BudgetCheckResult::denied('cost_per_day', 5.0, 5.0, 'exhausted'));
+
+        $subject = $this->createSubject(budgetService: $budget);
+
+        // The gate short-circuits with BudgetExceededException; a removed gate
+        // would instead proceed into the (stubbed) HTTP path and fail otherwise.
+        $this->expectException(BudgetExceededException::class);
+
+        $subject->generate('A cat', new ImageGenerationOptions(beUserUid: 5, plannedCost: 10.0));
     }
 
     private function createSubjectWithoutApiKey(): DallEImageService

@@ -82,6 +82,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             : SpeechSynthesisOptions::fromArray($options);
 
         $this->validateInput($text);
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $optionsArray = $options->toArray();
         $modelValue = $optionsArray['model'] ?? null;
