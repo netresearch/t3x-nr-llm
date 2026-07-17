@@ -78,6 +78,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             : TranscriptionOptions::fromArray($options);
 
         $this->validateAudioFile($audioPath);
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->sendTranscriptionRequest($audioPath, $options);
 
@@ -116,6 +117,8 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             throw UnsupportedFormatException::audioFormat($extension);
         }
 
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
+
         $response = $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options);
 
         return $this->parseTranscriptionResponse($response, $options);
@@ -143,6 +146,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             : TranscriptionOptions::fromArray($options);
 
         $this->validateAudioFile($audioPath);
+        $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->sendTranslationRequest($audioPath, $options);
 

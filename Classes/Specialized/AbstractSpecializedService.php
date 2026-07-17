@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -92,9 +94,45 @@ abstract class AbstractSpecializedService
         protected readonly SpecializedCostCalculatorInterface $costCalculator,
         protected readonly ?ModelRepository $modelRepository = null,
         protected readonly ?LlmConfigurationRepository $configurationRepository = null,
+        protected readonly ?BudgetServiceInterface $budgetService = null,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();
+    }
+
+    /**
+     * Pre-flight budget gate for the specialized (image / speech) send path.
+     *
+     * Unlike the chat-shaped feature services, the specialized services dispatch
+     * HTTP directly and bypass the middleware pipeline, so BudgetMiddleware never
+     * sees them (ADR-057 deferred this enforcement; ADR-078 adds it here). This
+     * mirrors BudgetMiddleware::handle(): resolve the named configuration, run the
+     * per-user and per-configuration check, and throw before any spend when a
+     * limit is exceeded.
+     *
+     * Fail-open by construction: when no BudgetServiceInterface is wired (the
+     * constructor param is optional, so unconfigured deployments and unit tests
+     * that omit it are unaffected) the gate is a no-op. When wired, the shared
+     * BudgetService still short-circuits to "allowed" for calls without a backend
+     * user or without configured limits, so nothing changes until an operator
+     * actually sets a cap.
+     *
+     * @throws BudgetExceededException when the pre-flight check denies the call
+     */
+    protected function enforceBudget(?int $beUserUid, ?float $plannedCost, ?string $configurationIdentifier = null): void
+    {
+        if ($this->budgetService === null) {
+            return;
+        }
+
+        $configuration = $configurationIdentifier !== null
+            ? $this->findActiveConfiguration($configurationIdentifier)
+            : null;
+
+        $result = $this->budgetService->check($beUserUid ?? 0, $plannedCost ?? 0.0, $configuration);
+        if (!$result->allowed) {
+            throw new BudgetExceededException($result);
+        }
     }
 
     /**

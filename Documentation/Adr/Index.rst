@@ -375,4 +375,5 @@ Tools
    Adr075RerankerProtocol
    Adr076DocumentUnderstanding
    Adr077NamedConfigurationCompletion
+   Adr078SpecializedServiceBudgetEnforcement
    Adr079FirstPartyCompletionVisionBudgetFakes
