@@ -100,6 +100,8 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
         }
 
         // pdftoppm writes "<stub>-<page>.png"; the stub itself must not collide.
+        // Path comes from tempnam() above, not user input.
+        // nosemgrep: php.lang.security.unlink-use.unlink-use
         unlink($stub);
 
         try {
@@ -142,6 +144,8 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
             $leftovers = glob($stub . '*.png');
             foreach ($leftovers === false ? [] : $leftovers as $leftover) {
                 if (is_file($leftover)) {
+                    // Path comes from glob() over the tempnam() stub, not user input.
+                    // nosemgrep: php.lang.security.unlink-use.unlink-use
                     unlink($leftover);
                 }
             }

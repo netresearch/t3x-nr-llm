@@ -214,6 +214,8 @@ final readonly class DocumentAnalysisService
             return $this->rasterizer->renderDocument($path);
         } finally {
             if (is_file($path)) {
+                // Path comes from tempnam() above, not user input.
+                // nosemgrep: php.lang.security.unlink-use.unlink-use
                 unlink($path);
             }
         }
