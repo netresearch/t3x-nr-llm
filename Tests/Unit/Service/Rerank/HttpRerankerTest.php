@@ -57,6 +57,7 @@ final class HttpRerankerTest extends TestCase
         );
         self::assertSame(['Accept' => 'application/json'], $request['options']['headers']);
         self::assertSame(12.5, $request['options']['timeout']);
+        self::assertFalse($request['options']['http_errors'], 'non-200 must return a response, not throw');
     }
 
     #[Test]
@@ -123,10 +124,14 @@ final class HttpRerankerTest extends TestCase
     {
         $subject = $this->buildSubject('{"error": "too many documents (max 128)"}', status: 413);
 
-        $this->expectException(RerankerException::class);
-        $this->expectExceptionCode(1784750002);
+        try {
+            $subject->rerank('query', [['id' => 'a', 'text' => 'passage']]);
+            self::fail('Expected RerankerException for HTTP 413');
+        } catch (RerankerException $e) {
+            self::assertSame(1784750002, $e->getCode(), 'status code, not transport code 1784750001');
+        }
 
-        $subject->rerank('query', [['id' => 'a', 'text' => 'passage']]);
+        self::assertFalse($this->requests[0]['options']['http_errors'], 'status branch must see the 413 response');
     }
 
     #[Test]

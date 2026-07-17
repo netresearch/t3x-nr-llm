@@ -74,6 +74,10 @@ final readonly class HttpReranker implements RerankerInterface
                     'json' => $payload,
                     'headers' => ['Accept' => 'application/json'],
                     'timeout' => $this->timeout,
+                    // Return 4xx/5xx responses instead of throwing, regardless
+                    // of the instance's HTTP config: the status branch below
+                    // is authoritative for non-200.
+                    'http_errors' => false,
                 ],
             );
         } catch (ClientExceptionInterface $e) {
