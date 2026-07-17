@@ -87,10 +87,10 @@ the reranker is a stateless capability (candidates in, scores out) — no
 persistent index, no chunking, no reindex pipeline. nr_ai_search amends
 its ADR-028/ADR-029 in its own adoption change.
 
-**Public-service count: 28 → 29.** The ``RerankerInterface``
+**Public-service count: 29 → 30** (after ADR-076's 28 → 29). The ``RerankerInterface``
 factory-built entry joins Category A (documented downstream contract).
-This ADR is the new count authority, superseding ADR-071's count. The
-breakdown is now 17 + 5 + 1 + 4 + 2 = **29**
+This ADR is the new count authority, superseding ADR-076's count. The
+breakdown is now 17 + 5 + 1 + 5 + 2 = **30**
 (``PublicServicesPolicyTest``).
 
 .. _adr-075-consequences:
