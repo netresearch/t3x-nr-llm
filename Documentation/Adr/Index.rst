@@ -367,3 +367,4 @@ Tools
    Adr066CriteriaConfigurationResolution
    Adr067SolrPerLanguageCoreFilter
    Adr069RemovePromptTemplateStack
+   Adr070UserlessConfigurationResolutionByIdentifier

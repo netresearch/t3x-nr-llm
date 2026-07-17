@@ -74,6 +74,16 @@ Exceptions
 
    Thrown when a named configuration is not found.
 
+.. php:class:: ConfigurationInactiveException
+
+   Thrown when a named configuration exists but is
+   deactivated (:ref:`ADR-070 <adr-070>`).
+
+   Only ``ConfigurationResolver::getActiveByIdentifier()`` differentiates
+   inactive from not-found; the user-aware
+   ``LlmConfigurationServiceInterface::getConfiguration()`` signals the
+   inactive case as ``ConfigurationNotFoundException`` (code ``2690936773``).
+
 .. _api-events:
 
 Events
