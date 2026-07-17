@@ -68,6 +68,28 @@ final class ServiceUnavailableException extends SpecializedServiceException
     }
 
     /**
+     * Create exception for a provider without native PDF support on a host
+     * without the poppler binaries: neither analysis path is possible.
+     *
+     * @param string $provider The resolved LLM provider identifier
+     */
+    public static function rasterizerUnavailable(string $provider): self
+    {
+        return new self(
+            sprintf(
+                'Provider "%s" has no native PDF support and the poppler binaries (pdftoppm, pdfimages) are not installed. Install poppler-utils to enable the rasterization fallback, or configure a document-capable provider.',
+                $provider,
+            ),
+            'document',
+            [
+                'reason' => 'rasterizer_unavailable',
+                'provider' => $provider,
+            ],
+            1784211009,
+        );
+    }
+
+    /**
      * Create exception for translator not found in registry.
      *
      * @param string $identifier The translator identifier that was not found

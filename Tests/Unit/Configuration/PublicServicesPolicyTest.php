@@ -55,21 +55,21 @@ final class PublicServicesPolicyTest extends TestCase
      *   LlmConfigurationServiceInterface, BudgetServiceInterface.
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
-     * - Category D (Specialized standalone consumer API): 4 —
-     *   Whisper, TextToSpeech, DallE, Fal.
+     * - Category D (Specialized standalone consumer API): 5 —
+     *   Whisper, TextToSpeech, DallE, Fal, DocumentAnalysis (ADR-076).
      * - Category E (resolved outside DI via makeInstance()): 2 —
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 16 + 5 + 1 + 4 + 2 = **28**.
+     * Total: 16 + 5 + 1 + 5 + 2 = **29**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr071PublicKeywordSearchFacade.rst` (the current
-     * count authority, superseding ADR-069's count) in the same PR — the
+     * `Documentation/Adr/Adr076DocumentUnderstanding.rst` (the current
+     * count authority, superseding ADR-071's count) in the same PR — the
      * diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 28;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 29;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 
