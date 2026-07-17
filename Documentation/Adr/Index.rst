@@ -371,3 +371,4 @@ Tools
    Adr071PublicKeywordSearchFacade
    Adr072RetrievalQualityEvaluation
    Adr073FirstPartyTestingFixtures
+   Adr074ReciprocalRankFusionUtility
