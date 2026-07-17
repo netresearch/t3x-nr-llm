@@ -77,7 +77,7 @@ final class FakeToolCallingService implements ToolCallingServiceInterface
 
         $response = array_shift($this->responses);
         if (!$response instanceof CompletionResponse) {
-            throw new LogicException(sprintf('%s::%s() was called but no response was queued in $responses.', self::class, $method));
+            throw new LogicException(sprintf('%s::%s() was called but no response was queued in $responses.', self::class, $method), 4235799970);
         }
 
         return $response;
