@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -111,11 +113,97 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: $options->getTemperature() ?? 0.3,
             maxTokens: $options->getMaxTokens() ?? 2000,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
+
+        return new TranslationResult(
+            translation: $response->content,
+            sourceLanguage: $sourceLanguage,
+            targetLanguage: $targetLanguage,
+            confidence: $this->calculateConfidence($response->finishReason),
+            usage: $response->usage,
+        );
+    }
+
+    /**
+     * Translate text using the persona/tone of a stored LlmConfiguration.
+     *
+     * Unlike {@see self::translate()} — which supplies its own system
+     * message and therefore short-circuits
+     * {@see \Netresearch\NrLlm\Service\MessageShaper::applySystemPrompt()},
+     * so the configuration's stored `system_prompt` never applies — this
+     * method routes through {@see LlmServiceManagerInterface::chatWithConfiguration()}
+     * so the configuration drives the provider/model/skills AND its
+     * `system_prompt` becomes the system message.
+     *
+     * The translation task itself (target/source language, formality,
+     * glossary, preserve-formatting, "output only the translation") is
+     * carried in the USER message rather than a second system message:
+     * a system message would re-trigger the short-circuit and clobber the
+     * configuration's persona. The configuration's `system_prompt` is the
+     * persona/tone layer; this user-message preamble is the task layer.
+     *
+     * Source-language auto-detection (when `$sourceLanguage` is null) runs
+     * through the options' provider, not the configuration — pass an explicit
+     * `$sourceLanguage` to avoid that extra call and keep the whole operation
+     * on the chosen configuration.
+     *
+     * @param string      $text           Text to translate
+     * @param string      $targetLanguage Target language code (ISO 639-1)
+     * @param string|null $sourceLanguage Source language code (auto-detected if null)
+     *
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
+     */
+    public function translateForConfiguration(
+        string $text,
+        string $targetLanguage,
+        LlmConfiguration $configuration,
+        ?string $sourceLanguage = null,
+        ?TranslationOptions $options = null,
+    ): TranslationResult {
+        $options ??= new TranslationOptions();
+        $optionsArray = $options->toArray();
+
+        if (empty($text)) {
+            throw new InvalidArgumentException('Text cannot be empty', 1719410501);
+        }
+
+        $this->validateLanguageCode($targetLanguage);
+
+        // Auto-detect source language if not provided (mirrors translate()).
+        if ($sourceLanguage === null) {
+            $sourceLanguage = $this->detectLanguage($text, $options);
+        } else {
+            $this->validateLanguageCode($sourceLanguage);
+        }
+
+        $this->validateOptions($optionsArray);
+
+        // Build the same task/constraints prompt as translate(), but fold the
+        // instruction block into the USER message so no system message is sent —
+        // that keeps the configuration's stored system_prompt as the system
+        // message (see applySystemPrompt short-circuit).
+        $prompt = $this->buildTranslationPrompt(
+            $text,
+            $sourceLanguage,
+            $targetLanguage,
+            $optionsArray,
+        );
+
+        $messages = [
+            ChatMessage::user($prompt['system'] . "\n\n" . $prompt['user']),
+        ];
+
+        $response = $this->llmManager->chatWithConfiguration(
+            $messages,
+            $configuration,
+            $this->buildBudgetMetadata($options),
+            $this->buildOptionOverrides($options),
+        );
 
         return new TranslationResult(
             translation: $response->content,
@@ -174,6 +262,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
@@ -223,6 +312,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
@@ -240,7 +330,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      *
      * Supports dual-path translation with priority routing:
      * 1. Explicit translator specified in options
-     * 2. Translator from LlmConfiguration preset
+     * 2. Translator pinned on a selected LlmConfiguration (options configuration key)
      * 3. Default LLM-based translation
      *
      * @param string      $text           Text to translate
@@ -373,11 +463,13 @@ final readonly class TranslationService implements TranslationServiceInterface
             return $this->translatorRegistry->get($translator);
         }
 
-        // Priority 2: Preset specified - check for translator in configuration
-        $preset = $options['preset'] ?? '';
-        if (is_string($preset) && $preset !== '') {
+        // Priority 2: Configuration identifier specified - use the translator
+        // pinned on that LlmConfiguration, if any. Reachable via
+        // TranslationOptions::withConfiguration() (#430).
+        $configurationIdentifier = $options['configuration'] ?? '';
+        if (is_string($configurationIdentifier) && $configurationIdentifier !== '') {
             try {
-                $configuration = $this->configurationService->getConfiguration($preset);
+                $configuration = $this->configurationService->getConfiguration($configurationIdentifier);
                 if ($configuration->getTranslator() !== '') {
                     return $this->translatorRegistry->get($configuration->getTranslator());
                 }
@@ -554,5 +646,62 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function resolveBeUserUid(TranslationOptions $options): ?int
     {
         return $options->getBeUserUid() ?? $this->beUserContextResolver?->resolveBeUserUid();
+    }
+
+    /**
+     * Budget pre-flight metadata for the per-configuration path.
+     *
+     * `chatWithConfiguration()` takes budget context as pipeline metadata
+     * (not on an options object), so the resolved uid and planned cost are
+     * mapped onto the keys BudgetMiddleware reads. Absent keys mean "skip
+     * the check", matching the middleware's contract.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildBudgetMetadata(TranslationOptions $options): array
+    {
+        $metadata = [];
+
+        $beUserUid = $this->resolveBeUserUid($options);
+        if ($beUserUid !== null) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
+
+        $plannedCost = $options->getPlannedCost();
+        if ($plannedCost !== null) {
+            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Per-call option overrides for the per-configuration path.
+     *
+     * Only the generation knobs are forwarded; each takes precedence over
+     * the configuration's stored default when set, and an absent key leaves
+     * the configuration's value untouched. `provider` is intentionally not
+     * forwarded — the configuration selects the provider (mirrors
+     * `chatWithToolsForConfiguration()`).
+     *
+     * @return array<string, mixed>
+     */
+    private function buildOptionOverrides(TranslationOptions $options): array
+    {
+        $overrides = [];
+
+        if ($options->getTemperature() !== null) {
+            $overrides['temperature'] = $options->getTemperature();
+        }
+
+        if ($options->getMaxTokens() !== null) {
+            $overrides['max_tokens'] = $options->getMaxTokens();
+        }
+
+        if ($options->getModel() !== null) {
+            $overrides['model'] = $options->getModel();
+        }
+
+        return $overrides;
     }
 }

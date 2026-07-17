@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\Feature\TranslationService;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
@@ -853,7 +854,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function resolveTranslatorUsesPresetTranslatorWhenConfigurationFound(): void
+    public function resolveTranslatorUsesConfigurationTranslatorWhenConfigurationFound(): void
     {
         $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
@@ -863,7 +864,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $configServiceMock
             ->expects(self::once())->method('getConfiguration')
-            ->with('my-preset')
+            ->with('my-config')
             ->willReturn($configurationStub);
 
         $translatorStub = self::createStub(TranslatorInterface::class);
@@ -882,13 +883,13 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($subject);
         $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['preset' => 'my-preset']);
+        $result = $method->invoke($subject, ['configuration' => 'my-config']);
 
         self::assertSame($translatorStub, $result);
     }
 
     #[Test]
-    public function resolveTranslatorFallsBackToLlmWhenPresetConfigurationNotFound(): void
+    public function resolveTranslatorFallsBackToLlmWhenConfigurationNotFound(): void
     {
         $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
@@ -913,13 +914,13 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($subject);
         $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['preset' => 'missing-preset']);
+        $result = $method->invoke($subject, ['configuration' => 'missing-config']);
 
         self::assertSame($translatorStub, $result);
     }
 
     #[Test]
-    public function resolveTranslatorFallsBackToLlmWhenPresetHasNoTranslator(): void
+    public function resolveTranslatorFallsBackToLlmWhenConfigurationHasNoTranslator(): void
     {
         $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
@@ -948,7 +949,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($subject);
         $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['preset' => 'preset-without-translator']);
+        $result = $method->invoke($subject, ['configuration' => 'config-without-translator']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1520,11 +1521,11 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function resolveTranslatorSkipsPresetLookupForEmptyPresetString(): void
+    public function resolveTranslatorSkipsConfigurationLookupForEmptyConfigurationString(): void
     {
-        // preset === '' must NOT trigger a configuration lookup: the guard is
-        // `is_string($preset) && $preset !== ''`. Swapping && for || would enter
-        // the branch and call getConfiguration('').
+        // configuration === '' must NOT trigger a lookup: the guard is
+        // `is_string($configurationIdentifier) && $configurationIdentifier !== ''`.
+        // Swapping && for || would enter the branch and call getConfiguration('').
         $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
         $configServiceMock
             ->expects(self::never())
@@ -1546,7 +1547,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
 
         $reflection = new ReflectionClass($subject);
         $method = $reflection->getMethod('resolveTranslator');
-        $result = $method->invoke($subject, ['preset' => '']);
+        $result = $method->invoke($subject, ['configuration' => '']);
 
         self::assertSame($translatorStub, $result);
     }
@@ -1661,5 +1662,404 @@ class TranslationServiceTest extends AbstractUnitTestCase
         ]);
 
         self::assertStringContainsString('from French to zz.', $prompt['system']);
+    }
+
+    // ==================== #429: configured model reaches ChatOptions ====================
+
+    #[Test]
+    public function translateForwardsConfiguredModelOntoChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            'Hallo',
+            static fn(TranslationService $subject): object => $subject->translate(
+                'Hello',
+                'de',
+                'en',
+                new TranslationOptions(model: 'gpt-5.2-mini'),
+            ),
+        );
+
+        self::assertSame('gpt-5.2-mini', $captured['options']->getModel());
+    }
+
+    #[Test]
+    public function detectLanguageForwardsConfiguredModelOntoChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            'fr',
+            static fn(TranslationService $subject): string => $subject->detectLanguage(
+                'Bonjour',
+                new TranslationOptions(model: 'gpt-5.2-mini'),
+            ),
+        );
+
+        self::assertSame('gpt-5.2-mini', $captured['options']->getModel());
+    }
+
+    #[Test]
+    public function scoreTranslationQualityForwardsConfiguredModelOntoChatOptions(): void
+    {
+        $captured = $this->captureSingleChat(
+            '0.9',
+            static fn(TranslationService $subject): float => $subject->scoreTranslationQuality(
+                'Hello',
+                'Hallo',
+                'de',
+                new TranslationOptions(model: 'gpt-5.2-mini'),
+            ),
+        );
+
+        self::assertSame('gpt-5.2-mini', $captured['options']->getModel());
+    }
+
+    // ==================== #428: translateForConfiguration ====================
+
+    /**
+     * Capture the arguments handed to LlmServiceManager::chatWithConfiguration().
+     *
+     * @param Closure(TranslationService): mixed $call
+     *
+     * @return array{messages: array<array-key, mixed>, configuration: LlmConfiguration, metadata: array<array-key, mixed>, overrides: array<array-key, mixed>}
+     */
+    private function captureChatWithConfiguration(
+        string $responseContent,
+        Closure $call,
+        ?BackendUserContextResolverInterface $resolver = null,
+    ): array {
+        /** @var array<array-key, mixed> $capturedMessages */
+        $capturedMessages = [];
+        $capturedConfiguration = null;
+        /** @var array<string, mixed> $capturedMetadata */
+        $capturedMetadata = [];
+        /** @var array<string, mixed> $capturedOverrides */
+        $capturedOverrides = [];
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        // detectLanguage() (auto-detection) routes through chat(); default stub
+        // return keeps that sub-call alive when a test omits the source language.
+        $llmManagerMock
+            ->method('chat')
+            ->willReturn($this->createChatResponse('en'));
+        $llmManagerMock
+            ->method('chatWithConfiguration')
+            ->willReturnCallback(
+                /**
+                 * @param array<array-key, mixed> $messages
+                 * @param array<string, mixed>    $metadata
+                 * @param array<string, mixed>    $optionOverrides
+                 */
+                function (
+                    array $messages,
+                    LlmConfiguration $configuration,
+                    array $metadata = [],
+                    array $optionOverrides = [],
+                ) use (
+                    &$capturedMessages,
+                    &$capturedConfiguration,
+                    &$capturedMetadata,
+                    &$capturedOverrides,
+                    $responseContent,
+                ): CompletionResponse {
+                    $capturedMessages = $messages;
+                    $capturedConfiguration = $configuration;
+                    $capturedMetadata = $metadata;
+                    $capturedOverrides = $optionOverrides;
+
+                    return $this->createChatResponse($responseContent);
+                },
+            );
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            $resolver,
+        );
+
+        $call($subject);
+
+        self::assertInstanceOf(LlmConfiguration::class, $capturedConfiguration);
+
+        return [
+            'messages' => $capturedMessages,
+            'configuration' => $capturedConfiguration,
+            'metadata' => $capturedMetadata,
+            'overrides' => $capturedOverrides,
+        ];
+    }
+
+    #[Test]
+    public function translateForConfigurationRoutesThroughChatWithConfiguration(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo Welt',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello World',
+                'de',
+                $configuration,
+                'en',
+            ),
+        );
+
+        self::assertSame($configuration, $captured['configuration']);
+    }
+
+    #[Test]
+    public function translateForConfigurationReturnsTranslationResult(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+        $llmManagerMock
+            ->expects(self::never())
+            ->method('chat');
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+        );
+
+        $result = $subject->translateForConfiguration('Hello World', 'de', $configuration, 'en');
+
+        self::assertSame('Hallo Welt', $result->translation);
+        self::assertSame('en', $result->sourceLanguage);
+        self::assertSame('de', $result->targetLanguage);
+        self::assertSame(0.9, $result->confidence);
+    }
+
+    #[Test]
+    public function translateForConfigurationSendsNoSystemMessageSoConfigurationPromptSurvives(): void
+    {
+        // The whole point of #428: no system message is sent, so
+        // MessageShaper::applySystemPrompt() keeps the configuration's
+        // stored system_prompt as the system message. A single USER
+        // message carries the translation task/constraints instead.
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo Welt',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello World',
+                'de',
+                $configuration,
+                'en',
+                new TranslationOptions(formality: 'formal', glossary: ['Hello' => 'Hallo']),
+            ),
+        );
+
+        $messages = $captured['messages'];
+        self::assertCount(1, $messages);
+
+        $user = $messages[0];
+        self::assertInstanceOf(ChatMessage::class, $user);
+        self::assertTrue($user->isUser());
+        self::assertFalse($user->isSystem());
+
+        // Task + constraints reach the model through the user message.
+        self::assertStringContainsString('from English to German', $user->content);
+        self::assertStringContainsString('Maintain formal tone.', $user->content);
+        self::assertStringContainsString('- Hello → Hallo', $user->content);
+        self::assertStringContainsString('Provide ONLY the translation', $user->content);
+        self::assertStringContainsString('Hello World', $user->content);
+    }
+
+    #[Test]
+    public function translateForConfigurationForwardsGenerationOverridesButNotProvider(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello',
+                'de',
+                $configuration,
+                'en',
+                new TranslationOptions(
+                    temperature: 0.4,
+                    maxTokens: 1234,
+                    provider: 'claude',
+                    model: 'claude-x',
+                ),
+            ),
+        );
+
+        $overrides = $captured['overrides'];
+        self::assertSame(0.4, $overrides['temperature'] ?? null);
+        self::assertSame(1234, $overrides['max_tokens'] ?? null);
+        self::assertSame('claude-x', $overrides['model'] ?? null);
+        // The configuration selects the provider; a provider option must NOT override it.
+        self::assertArrayNotHasKey('provider', $overrides);
+    }
+
+    #[Test]
+    public function translateForConfigurationOmitsOverridesWhenOptionsAreDefault(): void
+    {
+        // No generation knobs set => the configuration's stored defaults apply
+        // (empty overrides), rather than translate()'s 0.3/2000 fallbacks.
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello',
+                'de',
+                $configuration,
+                'en',
+            ),
+        );
+
+        self::assertSame([], $captured['overrides']);
+    }
+
+    #[Test]
+    public function translateForConfigurationForwardsResolvedBeUserUidAsMetadata(): void
+    {
+        $resolver = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->method('resolveBeUserUid')->willReturn(42);
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello',
+                'de',
+                $configuration,
+                'en',
+            ),
+            $resolver,
+        );
+
+        self::assertSame(42, $captured['metadata'][BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+    }
+
+    #[Test]
+    public function translateForConfigurationForwardsExplicitBudgetFieldsAsMetadata(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $captured = $this->captureChatWithConfiguration(
+            'Hallo',
+            static fn(TranslationService $subject): object => $subject->translateForConfiguration(
+                'Hello',
+                'de',
+                $configuration,
+                'en',
+                (new TranslationOptions())->withBeUserUid(99)->withPlannedCost(0.05),
+            ),
+        );
+
+        self::assertSame(99, $captured['metadata'][BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+        self::assertSame(0.05, $captured['metadata'][BudgetMiddleware::METADATA_PLANNED_COST] ?? null);
+    }
+
+    #[Test]
+    public function translateForConfigurationAutoDetectsSourceLanguageViaChat(): void
+    {
+        // Source omitted => detectLanguage() runs first (through chat()),
+        // then the translation runs through chatWithConfiguration().
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chat')
+            ->willReturn($this->createChatResponse('fr'));
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('chatWithConfiguration')
+            ->willReturn($this->createChatResponse('Hallo'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+        );
+
+        $result = $subject->translateForConfiguration('Bonjour', 'de', $configuration);
+
+        self::assertSame('fr', $result->sourceLanguage);
+    }
+
+    #[Test]
+    public function translateForConfigurationThrowsOnEmptyText(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1719410501);
+
+        $this->subject->translateForConfiguration('', 'de', self::createStub(LlmConfiguration::class), 'en');
+    }
+
+    #[Test]
+    public function translateForConfigurationThrowsOnInvalidTargetLanguageCode(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(8727807751);
+
+        $this->subject->translateForConfiguration('Hello', 'invalid', self::createStub(LlmConfiguration::class), 'en');
+    }
+
+    #[Test]
+    public function translateForConfigurationThrowsOnInvalidSourceLanguageCode(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(8727807751);
+
+        $this->subject->translateForConfiguration('Hello', 'de', self::createStub(LlmConfiguration::class), 'invalid');
+    }
+
+    // ==================== #430: configuration-selected translator ====================
+
+    #[Test]
+    public function translateWithTranslatorUsesConfigurationTranslatorFromOptions(): void
+    {
+        // End-to-end reachability of the resolveTranslator() configuration
+        // branch through the public API: an options `configuration` now emits
+        // the key that resolveTranslator() reads (previously an unreachable
+        // `preset` branch, #430).
+        $configurationStub = self::createStub(LlmConfiguration::class);
+        $configurationStub->method('getTranslator')->willReturn('deepl');
+
+        $configServiceMock = $this->createMock(LlmConfigurationServiceInterface::class);
+        $configServiceMock
+            ->expects(self::once())
+            ->method('getConfiguration')
+            ->with('editorial')
+            ->willReturn($configurationStub);
+
+        $translatorMock = $this->createMock(TranslatorInterface::class);
+        $translatorMock
+            ->method('translate')
+            ->willReturn(new TranslatorResult('Hallo Welt', 'en', 'de', 'deepl'));
+
+        $translatorRegistryMock = $this->createMock(TranslatorRegistryInterface::class);
+        $translatorRegistryMock
+            ->expects(self::once())
+            ->method('get')
+            ->with('deepl')
+            ->willReturn($translatorMock);
+
+        $subject = new TranslationService(
+            $this->llmManagerStub,
+            $translatorRegistryMock,
+            $configServiceMock,
+        );
+
+        $result = $subject->translateWithTranslator(
+            'Hello World',
+            'de',
+            'en',
+            (new TranslationOptions())->withConfiguration('editorial'),
+        );
+
+        self::assertSame('deepl', $result->translator);
     }
 }
