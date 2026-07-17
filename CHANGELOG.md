@@ -6,6 +6,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-07-17
+
+Pulls the three retrieval/document capabilities forward that the 0.21.0 revisit
+issues had deferred to a second consumer.
+
+### Added
+
+- **Neutral cross-encoder reranker protocol** (ADR-075, #414). `Service\Rerank\`
+  ships `RerankerInterface` (id/text in, id/score out — no consumer DTOs),
+  `HttpReranker` speaking the sidecar contract (batch cap 128, configurable
+  timeout, typed `RerankerException` on transport/status/protocol failures),
+  `NullReranker`, and a factory selecting by the `rerankerEndpoint` extension
+  setting. The sidecar (`Build/reranker/`: cross-encoder scoring service,
+  Dockerfile, protocol README) moves in from nr_ai_search so client and server
+  version together. Integer candidate ids (TYPO3 uids) are accepted and
+  normalized. DTO mapping, ordering merge, degradation policy and threshold
+  gates stay consumer-side.
+- **Document understanding** (ADR-076, #416).
+  `Specialized\Document\DocumentAnalysisService` analyzes a PDF via the
+  provider's native document path (`DocumentCapableInterface`: whole-document
+  reasoning in one call) and falls back to poppler rasterization plus per-page
+  vision otherwise. `PdfRasterizerInterface` + `PopplerPdfRenderer` (hardened:
+  concurrent pipe draining, stderr in failure exceptions, race-free temp-stub
+  handling) come from nr_ai_search's proven pipeline; `poppler-utils` is an
+  optional runtime dependency (composer suggest). Ingestion orchestration
+  stays consumer-side.
+- **Hosted rank fusion** (ADR-074, #415). `Service\Retrieval\ReciprocalRankFusion`
+  ports nr_ai_search's fusion math with an identical `fuse()` signature, so
+  hybrid consumers migrate by swapping the namespace import. Newable utility,
+  not a DI service; ADR-049's first-available-wins cascade is unchanged.
+
 ## [0.21.0] - 2026-07-17
 
 ### Added
@@ -1164,7 +1195,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.18.0...v0.19.0
