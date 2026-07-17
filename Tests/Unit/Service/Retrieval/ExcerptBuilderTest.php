@@ -36,6 +36,24 @@ final class ExcerptBuilderTest extends TestCase
     }
 
     #[Test]
+    public function keepsWordsJoinedByInlineElementsIntact(): void
+    {
+        self::assertSame(
+            'cybersecurity',
+            ExcerptBuilder::plain('cyber<b>security</b>'),
+        );
+    }
+
+    #[Test]
+    public function separatesAdjacentParagraphs(): void
+    {
+        self::assertSame(
+            'one two',
+            ExcerptBuilder::plain('<p>one</p><p>two</p>'),
+        );
+    }
+
+    #[Test]
     public function adjacentBlockElementsYieldSingleSpaces(): void
     {
         $plain = ExcerptBuilder::plain("<h1>Title</h1>\n<p>Intro <b>text</b></p><p>Next</p>");

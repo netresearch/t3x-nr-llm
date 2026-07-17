@@ -21,8 +21,9 @@ use ReflectionClass;
 /**
  * Tag-boundary spacing of the tools' plain-text excerpts: naive strip_tags
  * concatenates adjacent text nodes ('<td>Price</td><td>100</td>' becomes
- * 'Price100'), so each excerpt helper inserts a space at tag boundaries
- * before stripping and collapses the whitespace afterwards. The excerpt
+ * 'Price100'), so each excerpt helper inserts a space at non-inline tag
+ * boundaries before stripping and collapses the whitespace afterwards —
+ * words joined by inline markup ('cyber<b>security</b>') stay intact. The excerpt
  * helpers touch no collaborator (formatHit only the dependency-free
  * TableReadAccessService), so newInstanceWithoutConstructor is safe.
  */
@@ -78,6 +79,18 @@ final class ExcerptTagSpacingTest extends TestCase
     }
 
     #[Test]
+    public function probeUrlBodyExcerptKeepsInlineJoinedWordsIntact(): void
+    {
+        $excerpt = self::invokeExcerptHelper(
+            ProbeUrlTool::class,
+            'bodyExcerpt',
+            ['<p>cyber<b>security</b> report</p>'],
+        );
+
+        self::assertSame('cybersecurity report', $excerpt);
+    }
+
+    #[Test]
     public function probeUrlBodyExcerptKeepsTheByteCap(): void
     {
         $excerpt = self::invokeExcerptHelper(
@@ -101,6 +114,18 @@ final class ExcerptTagSpacingTest extends TestCase
         );
 
         self::assertSame('Price 100 Total 200', $excerpt);
+    }
+
+    #[Test]
+    public function pageContentExcerptKeepsInlineJoinedWordsIntact(): void
+    {
+        $excerpt = self::invokeExcerptHelper(
+            GetPageContentTool::class,
+            'excerpt',
+            ['<p>cyber<b>security</b> report</p>'],
+        );
+
+        self::assertSame('cybersecurity report', $excerpt);
     }
 
     #[Test]
@@ -135,5 +160,23 @@ final class ExcerptTagSpacingTest extends TestCase
         // the cell boundary produced no match excerpt at all.
         self::assertStringContainsString('tt_content:7', $hit);
         self::assertStringContainsString('match(bodytext): Price 100', $hit);
+    }
+
+    #[Test]
+    public function searchRecordsMatchExcerptKeepsInlineJoinedWordsIntact(): void
+    {
+        $hit = self::invokeExcerptHelper(
+            SearchRecordsTool::class,
+            'formatHit',
+            [
+                'tt_content',
+                ['uid' => 7, 'pid' => 1, 'bodytext' => '<p>cyber<b>security</b> report</p>'],
+                ['bodytext'],
+                'cybersecurity',
+            ],
+        );
+
+        // A word joined by an inline element must stay searchable as one word.
+        self::assertStringContainsString('match(bodytext): cybersecurity report', $hit);
     }
 }
