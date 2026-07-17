@@ -15,7 +15,8 @@ use Netresearch\NrLlm\Service\Rerank\RerankerFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ReflectionProperty;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 use TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationExtensionNotConfiguredException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\RequestFactory;
@@ -23,6 +24,9 @@ use TYPO3\CMS\Core\Http\RequestFactory;
 #[CoversClass(RerankerFactory::class)]
 final class RerankerFactoryTest extends TestCase
 {
+    /** @var list<array<string, mixed>> */
+    private array $requestOptions = [];
+
     #[Test]
     public function emptyEndpointSelectsNullReranker(): void
     {
@@ -38,7 +42,7 @@ final class RerankerFactoryTest extends TestCase
     #[Test]
     public function configuredEndpointSelectsHttpReranker(): void
     {
-        self::assertInstanceOf(HttpReranker::class, $this->buildFactory('http://reranker:8081', '30')->create());
+        self::assertInstanceOf(HttpReranker::class, $this->buildFactory('https://reranker:8081', '30')->create());
     }
 
     #[Test]
@@ -56,27 +60,34 @@ final class RerankerFactoryTest extends TestCase
     #[Test]
     public function configuredTimeoutIsPassedToHttpReranker(): void
     {
-        self::assertSame(12.5, $this->createdTimeout($this->buildFactory('http://reranker:8081', '12.5')));
+        self::assertSame(12.5, $this->createdTimeout($this->buildFactory('https://reranker:8081', '12.5')));
     }
 
     #[Test]
     public function nonNumericTimeoutFallsBackToDefault(): void
     {
-        self::assertSame(30.0, $this->createdTimeout($this->buildFactory('http://reranker:8081', 'soon')));
+        self::assertSame(30.0, $this->createdTimeout($this->buildFactory('https://reranker:8081', 'soon')));
     }
 
     #[Test]
     public function zeroTimeoutFallsBackToDefault(): void
     {
-        self::assertSame(30.0, $this->createdTimeout($this->buildFactory('http://reranker:8081', '0')));
+        self::assertSame(30.0, $this->createdTimeout($this->buildFactory('https://reranker:8081', '0')));
     }
 
+    /**
+     * The configured timeout is observable through the public API as the
+     * per-request ``timeout`` option the created reranker sends.
+     */
     private function createdTimeout(RerankerFactory $factory): float
     {
         $reranker = $factory->create();
         self::assertInstanceOf(HttpReranker::class, $reranker);
 
-        $timeout = (new ReflectionProperty(HttpReranker::class, 'timeout'))->getValue($reranker);
+        $reranker->rerank('query', [['id' => 'a', 'text' => 'passage']]);
+
+        self::assertCount(1, $this->requestOptions);
+        $timeout = $this->requestOptions[0]['timeout'] ?? null;
         self::assertIsFloat($timeout);
 
         return $timeout;
@@ -90,6 +101,29 @@ final class RerankerFactoryTest extends TestCase
             ['nr_llm', 'rerankerTimeout', $timeout],
         ]);
 
-        return new RerankerFactory($this->createMock(RequestFactory::class), $extensionConfiguration);
+        $requestFactory = $this->createMock(RequestFactory::class);
+        $requestFactory->method('request')->willReturnCallback(
+            function (string $url, string $method, array $options): ResponseInterface {
+                /** @var array<string, mixed> $captured */
+                $captured = $options;
+                $this->requestOptions[] = $captured;
+
+                return $this->jsonResponse('{"scores": []}');
+            },
+        );
+
+        return new RerankerFactory($requestFactory, $extensionConfiguration);
+    }
+
+    private function jsonResponse(string $body): ResponseInterface
+    {
+        $stream = self::createStub(StreamInterface::class);
+        $stream->method('__toString')->willReturn($body);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+
+        return $response;
     }
 }

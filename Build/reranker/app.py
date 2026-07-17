@@ -88,7 +88,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             data = json.loads(body or b"{}")
-        except (ValueError, json.JSONDecodeError):
+        except ValueError:  # json.JSONDecodeError is a ValueError subclass
             self._send(400, {"error": "invalid JSON body"})
             return
 
@@ -112,6 +112,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    # Serves plain HTTP by design: a sidecar deployed next to its consumer on
+    # a private container network; TLS termination is the deployment's concern.
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     log.info("listening on %s:%d", HOST, PORT)
     server.serve_forever()

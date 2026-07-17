@@ -29,7 +29,7 @@ final class HttpRerankerTest extends TestCase
     #[Test]
     public function sendsTheSidecarProtocolRequestAndMapsScores(): void
     {
-        $subject = $this->buildSubject('{"scores": [{"id": "a", "score": 0.87}, {"id": "b", "score": -1}]}', endpoint: 'http://reranker:8081/');
+        $subject = $this->buildSubject('{"scores": [{"id": "a", "score": 0.87}, {"id": "b", "score": -1}]}', endpoint: 'https://reranker:8081/');
 
         $result = $subject->rerank('what is bim?', [
             ['id' => 'a', 'text' => 'BIM is building information modeling.'],
@@ -43,7 +43,7 @@ final class HttpRerankerTest extends TestCase
 
         self::assertCount(1, $this->requests);
         $request = $this->requests[0];
-        self::assertSame('http://reranker:8081/rerank', $request['url'], 'trailing endpoint slash must not double');
+        self::assertSame('https://reranker:8081/rerank', $request['url'], 'trailing endpoint slash must not double');
         self::assertSame('POST', $request['method']);
         self::assertSame(
             [
@@ -94,7 +94,7 @@ final class HttpRerankerTest extends TestCase
             },
         );
 
-        $result = (new HttpReranker($requestFactory, 'http://reranker:8081', 30.0))->rerank('query', $candidates);
+        $result = (new HttpReranker($requestFactory, 'https://reranker:8081', 30.0))->rerank('query', $candidates);
 
         self::assertCount(2, $this->requests);
         self::assertCount(HttpReranker::MAX_DOCUMENTS_PER_REQUEST, $this->sentDocuments(0));
@@ -111,7 +111,7 @@ final class HttpRerankerTest extends TestCase
         $requestFactory->method('request')->willThrowException(
             new class ('connection refused') extends RuntimeException implements ClientExceptionInterface {},
         );
-        $subject = new HttpReranker($requestFactory, 'http://reranker:8081', 30.0);
+        $subject = new HttpReranker($requestFactory, 'https://reranker:8081', 30.0);
 
         $this->expectException(RerankerException::class);
         $this->expectExceptionCode(1784750001);
@@ -181,7 +181,7 @@ final class HttpRerankerTest extends TestCase
         return $documents;
     }
 
-    private function buildSubject(string $responseBody, int $status = 200, string $endpoint = 'http://reranker:8081', float $timeout = 12.5): HttpReranker
+    private function buildSubject(string $responseBody, int $status = 200, string $endpoint = 'https://reranker:8081', float $timeout = 12.5): HttpReranker
     {
         $requestFactory = $this->createMock(RequestFactory::class);
         $requestFactory->method('request')->willReturnCallback(
