@@ -29,13 +29,15 @@ final readonly class ReciprocalRankFusion
      *                                           duplicates within a list are ignored past their first rank
      * @param list<float>        $weights        per-list weight (same index); missing/extra default to 1.0
      *
-     * @return list<string> fused keys, highest RRF score first; ties keep first-seen order
+     * @return list<int|string> fused keys, highest RRF score first; ties keep first-seen
+     *                          order. PHP array-key coercion applies: numeric-string keys
+     *                          (e.g. '42') come back as ints.
      */
     public function fuse(array $rankedKeyLists, int $k = 60, array $weights = []): array
     {
         $k = max(1, $k);
 
-        /** @var array<string, float> $scores insertion order = list order, then per-list new keys */
+        /** @var array<int|string, float> $scores insertion order = list order, then per-list new keys */
         $scores = [];
 
         foreach ($rankedKeyLists as $listIndex => $keys) {

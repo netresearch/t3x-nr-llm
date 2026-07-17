@@ -38,7 +38,10 @@ ReciprocalRankFusion
          ranks dominate
       :param array $weights: list<float> — per-list weight (same index);
          missing or extra entries default to 1.0
-      :returns: list<string> — fused keys, highest RRF score first
+      :returns: list<int|string> — fused keys, highest RRF score first.
+         PHP array-key coercion applies: numeric-string keys (e.g.
+         ``'42'``) come back as ``int``, so compare fused keys loosely or
+         cast before a strict comparison.
 
 Usage
 =====

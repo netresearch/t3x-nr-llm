@@ -44,6 +44,8 @@ Host the class as ``Netresearch\NrLlm\Service\Retrieval\ReciprocalRankFusion``
 with the signature identical to the ``nr_ai_search`` original —
 ``fuse(array $rankedKeyLists, int $k = 60, array $weights = []): array`` —
 so a consumer migrates by swapping the namespace import, nothing else.
+As in the original, PHP array-key coercion applies to the fused result:
+numeric-string keys (e.g. ``'42'``) come back as ``int``.
 
 - **Pure final class, no interface.** The math has exactly one correct
   implementation; an interface would add an abstraction with nothing to

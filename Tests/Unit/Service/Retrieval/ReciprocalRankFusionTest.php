@@ -94,6 +94,13 @@ final class ReciprocalRankFusionTest extends TestCase
     }
 
     #[Test]
+    public function numericStringKeysComeBackAsInts(): void
+    {
+        // PHP array-key coercion in the score accumulator: '42' becomes int 42.
+        self::assertSame([42], (new ReciprocalRankFusion())->fuse([['42']]));
+    }
+
+    #[Test]
     public function nonPositiveKIsClamped(): void
     {
         // k=0 would divide by rank alone; clamped to 1, so this must not error and stays ordered.
