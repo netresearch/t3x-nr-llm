@@ -105,7 +105,7 @@ final class RerankerFactoryTest extends TestCase
         $requestFactory->method('request')->willReturnCallback(
             function (string $url, string $method, array $options): ResponseInterface {
                 /** @var array<string, mixed> $captured */
-                $captured = $options;
+                $captured = [...$options, '_url' => $url, '_method' => $method];
                 $this->requestOptions[] = $captured;
 
                 return $this->jsonResponse('{"scores": []}');
