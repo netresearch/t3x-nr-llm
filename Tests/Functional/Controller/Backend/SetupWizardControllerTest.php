@@ -501,6 +501,66 @@ final class SetupWizardControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function saveActionSeedsDimensionsForKnownEmbeddingModels(): void
+    {
+        $request = new ServerRequest('POST', self::AJAX_NRLLM_WIZARD_SAVE);
+        $request = $request->withHeader('Content-Type', self::APPLICATION_JSON);
+        $request = $request->withBody(Utils::streamFor(json_encode([
+            'provider' => [
+                'suggestedName' => 'OpenAI Embeddings',
+                'adapterType' => 'openai',
+                'endpoint' => self::HTTPS_API_OPENAI_COM_V1,
+                'apiKey' => 'sk-test-key-12345',
+            ],
+            'models' => [
+                [
+                    'modelId' => 'text-embedding-3-small',
+                    'name' => 'Text Embedding 3 Small',
+                    'capabilities' => ['embeddings'],
+                    'selected' => true,
+                ],
+                [
+                    'modelId' => 'gpt-5',
+                    'name' => 'GPT-5',
+                    'capabilities' => ['chat'],
+                    'selected' => true,
+                ],
+            ],
+            'configurations' => [],
+            'pid' => 0,
+        ])));
+
+        // Act
+        $response = $this->controller->saveAction($request);
+
+        // Assert
+        self::assertSame(200, $response->getStatusCode());
+        // Known embedding models get the published dimensionality (ADR-055),
+        // everything else keeps the column default 0 ("unknown").
+        self::assertSame(1536, $this->dimensionsOfModelId('text-embedding-3-small'));
+        self::assertSame(0, $this->dimensionsOfModelId('gpt-5'));
+    }
+
+    private function dimensionsOfModelId(string $modelId): int
+    {
+        $queryBuilder = $this->getConnectionPool()->getQueryBuilderForTable('tx_nrllm_model');
+        $queryBuilder->getRestrictions()->removeAll();
+        $value = $queryBuilder
+            ->select('dimensions')
+            ->from('tx_nrllm_model')
+            ->where(
+                $queryBuilder->expr()->eq(
+                    'model_id',
+                    $queryBuilder->createNamedParameter($modelId),
+                ),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return (int)$value;
+    }
+
+    #[Test]
     public function saveActionNormalizesBareOpenAiEndpointToIncludeV1(): void
     {
         // #98: a bare OpenAI host entered in the wizard must be stored WITH the /v1
