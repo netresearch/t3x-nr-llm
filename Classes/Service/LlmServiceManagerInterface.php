@@ -76,6 +76,20 @@ interface LlmServiceManagerInterface
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse;
 
     /**
+     * Complete a prompt against a specific LLM configuration from a high-level
+     * ChatOptions object.
+     *
+     * The named-configuration counterpart to chat(): builds the system/user
+     * messages, injects the configuration's skills, and threads the per-user
+     * budget and idempotency metadata from the options so BudgetMiddleware
+     * enforces the configuration's and the user's limits — the parity
+     * embedForConfiguration() already provides for embeddings. Unlike the
+     * low-level completeWithConfiguration(), the caller passes a typed
+     * ChatOptions rather than a raw metadata/override array.
+     */
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse;
+
+    /**
      * Chat using a specific LLM configuration (database-backed provider resolution).
      *
      * Legacy array-shaped message fixtures are accepted for back-compat

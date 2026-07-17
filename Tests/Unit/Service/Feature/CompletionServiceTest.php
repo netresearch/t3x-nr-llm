@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -845,6 +846,162 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('ok'));
 
         $subject->complete('hello');
+    }
+
+    #[Test]
+    public function completeForConfigurationDelegatesToTheManagerWithTheConfiguration(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+        $mockResponse  = $this->createMockResponse('Configured response');
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with('Prompt', self::identicalTo($configuration), self::isInstanceOf(ChatOptions::class))
+            ->willReturn($mockResponse);
+
+        $result = $subject->completeForConfiguration('Prompt', $configuration);
+
+        self::assertSame('Configured response', $result->content);
+    }
+
+    #[Test]
+    public function completeForConfigurationValidatesOptions(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('temperature must be between 0 and 2');
+
+        $this->subject->completeForConfiguration('Test', $configuration, new ChatOptions(temperature: 3.0));
+    }
+
+    #[Test]
+    public function completeJsonForConfigurationDecodesTheResponse(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with(
+                'Prompt',
+                self::identicalTo($configuration),
+                self::callback(static fn(ChatOptions $o): bool => $o->getResponseFormat() === 'json'),
+            )
+            ->willReturn($this->createMockResponse('{"key": "value", "number": 42}'));
+
+        $result = $subject->completeJsonForConfiguration('Prompt', $configuration);
+
+        self::assertSame('value', $result['key']);
+        self::assertSame(42, $result['number']);
+    }
+
+    #[Test]
+    public function completeJsonForConfigurationThrowsOnInvalidJson(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->willReturn($this->createMockResponse('not json'));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Failed to decode JSON response');
+
+        $subject->completeJsonForConfiguration('Prompt', $configuration);
+    }
+
+    #[Test]
+    public function completeMarkdownForConfigurationAugmentsTheSystemPrompt(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with(
+                'Prompt',
+                self::identicalTo($configuration),
+                self::callback(static fn(ChatOptions $o): bool => str_contains($o->getSystemPrompt() ?? '', 'Markdown')),
+            )
+            ->willReturn($this->createMockResponse('# Heading'));
+
+        self::assertSame('# Heading', $subject->completeMarkdownForConfiguration('Prompt', $configuration));
+    }
+
+    #[Test]
+    public function completeFactualForConfigurationAppliesFactualPresets(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with(
+                'Prompt',
+                self::identicalTo($configuration),
+                self::callback(static fn(ChatOptions $o): bool => $o->getTemperature() === 0.2 && $o->getTopP() === 0.9),
+            )
+            ->willReturn($this->createMockResponse('Factual'));
+
+        $subject->completeFactualForConfiguration('Prompt', $configuration);
+    }
+
+    #[Test]
+    public function completeCreativeForConfigurationAppliesCreativePresets(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with(
+                'Prompt',
+                self::identicalTo($configuration),
+                self::callback(static fn(ChatOptions $o): bool => $o->getTemperature() === 1.2
+                        && $o->getTopP() === 1.0
+                        && $o->getPresencePenalty() === 0.6),
+            )
+            ->willReturn($this->createMockResponse('Creative'));
+
+        $subject->completeCreativeForConfiguration('Prompt', $configuration);
+    }
+
+    #[Test]
+    public function completeForConfigurationAutoPopulatesBeUserUidFromResolver(): void
+    {
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $resolver       = $this->createMock(BackendUserContextResolverInterface::class);
+        $resolver->expects(self::once())->method('resolveBeUserUid')->willReturn(42);
+
+        $subject       = new CompletionService($llmManagerMock, $resolver);
+        $configuration = self::createStub(LlmConfiguration::class);
+
+        $llmManagerMock
+            ->expects(self::once())
+            ->method('completeForConfiguration')
+            ->with(
+                'hello',
+                self::identicalTo($configuration),
+                self::callback(static fn(ChatOptions $o): bool => $o->getBeUserUid() === 42),
+            )
+            ->willReturn($this->createMockResponse('ok'));
+
+        $subject->completeForConfiguration('hello', $configuration);
     }
 
     /**

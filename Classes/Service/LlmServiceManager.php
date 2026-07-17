@@ -724,6 +724,36 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Complete a prompt against a specific configuration from a ChatOptions object.
+     *
+     * The named-configuration counterpart to chat(): it takes the same route as
+     * chat()'s default-configuration branch — build the system/user messages,
+     * inject the configuration's skills, thread the per-user budget and
+     * idempotency metadata — but against the caller's chosen configuration
+     * instead of the resolved instance default. A pinned provider on the options
+     * is irrelevant on the configuration path and is dropped, matching chat().
+     */
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        $options ??= new ChatOptions();
+        [, $optionsArray] = $this->splitProviderKey($options->toArray());
+
+        $messages     = [];
+        $systemPrompt = $optionsArray['system_prompt'] ?? null;
+        if (is_string($systemPrompt) && $systemPrompt !== '') {
+            $messages[] = ChatMessage::system($systemPrompt);
+        }
+        $messages[] = ChatMessage::user($prompt);
+
+        return $this->chatWithConfiguration(
+            $this->injectConfigSkillsIntoMessages($messages, $configuration),
+            $configuration,
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $optionsArray,
+        );
+    }
+
+    /**
      * Invoke the provider middleware pipeline for a per-configuration call.
      *
      * The pipeline composes every service tagged
