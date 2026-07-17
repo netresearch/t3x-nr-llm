@@ -61,7 +61,10 @@ final readonly class HttpReranker implements RerankerInterface
         $payload = [
             'query' => $query,
             'documents' => array_map(
-                static fn(array $candidate): array => ['id' => $candidate['id'], 'text' => $candidate['text']],
+                // Cast liberally: TYPO3 consumers naturally hold integer uids,
+                // and a strict string contract would silently mismatch on the
+                // score mapping.
+                static fn(array $candidate): array => ['id' => (string)$candidate['id'], 'text' => $candidate['text']],
                 $candidates,
             ),
         ];

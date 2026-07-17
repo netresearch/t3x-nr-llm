@@ -28,7 +28,9 @@ interface RerankerInterface
      * backend failed to score may be omitted — consumers merge by ``id``
      * and decide how an unscored candidate ranks.
      *
-     * @param list<array{id: string, text: string}> $candidates
+     * @param list<array{id: string|int, text: string}> $candidates integer
+     *                                                              ids (TYPO3 uids) are accepted and normalized to
+     *                                                              strings in the returned entries
      *
      * @throws RerankerException when the reranker backend is unreachable or
      *                           answers outside the protocol

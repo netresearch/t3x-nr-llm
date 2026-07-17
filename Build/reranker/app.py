@@ -94,7 +94,12 @@ class Handler(BaseHTTPRequestHandler):
 
         query = data.get("query")
         documents = data.get("documents")
-        if not isinstance(query, str) or query == "" or not isinstance(documents, list):
+        if (
+            not isinstance(query, str)
+            or query == ""
+            or not isinstance(documents, list)
+            or not all(isinstance(d, dict) for d in documents)
+        ):
             self._send(400, {"error": "expected {query: string, documents: [{id, text}]}"})
             return
         if len(documents) > MAX_DOCUMENTS:

@@ -23,7 +23,7 @@ final readonly class NullReranker implements RerankerInterface
     public function rerank(string $query, array $candidates): array
     {
         return array_map(
-            static fn(array $candidate): array => ['id' => $candidate['id'], 'score' => 0.0],
+            static fn(array $candidate): array => ['id' => (string)$candidate['id'], 'score' => 0.0],
             $candidates,
         );
     }

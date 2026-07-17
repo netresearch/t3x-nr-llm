@@ -64,6 +64,14 @@ final class RerankerFactoryTest extends TestCase
     }
 
     #[Test]
+    public function integerTypedTimeoutIsAccepted(): void
+    {
+        // int+-typed template fields may come back as int when set
+        // programmatically instead of through the install tool.
+        self::assertSame(45.0, $this->createdTimeout($this->buildFactory('https://reranker:8081', 45)));
+    }
+
+    #[Test]
     public function nonNumericTimeoutFallsBackToDefault(): void
     {
         self::assertSame(30.0, $this->createdTimeout($this->buildFactory('https://reranker:8081', 'soon')));
@@ -93,7 +101,7 @@ final class RerankerFactoryTest extends TestCase
         return $timeout;
     }
 
-    private function buildFactory(string $endpoint, string $timeout): RerankerFactory
+    private function buildFactory(string $endpoint, string|int $timeout): RerankerFactory
     {
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturnMap([

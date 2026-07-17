@@ -65,6 +65,13 @@ final readonly class RerankerFactory
             return '';
         }
 
+        // Values saved through the install tool arrive as strings, but int-
+        // typed template fields (rerankerTimeout, int+) may come back as int
+        // when set programmatically.
+        if (\is_int($raw) || \is_float($raw)) {
+            return (string)$raw;
+        }
+
         return is_string($raw) ? $raw : '';
     }
 }
