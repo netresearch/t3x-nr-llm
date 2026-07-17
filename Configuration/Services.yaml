@@ -20,6 +20,8 @@ services:
       - '../Classes/Attribute/*'
       - '../Classes/Domain/Model/*'
       - '../Classes/Provider/Exception/*'
+      # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
+      - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Specialized/Exception/*'

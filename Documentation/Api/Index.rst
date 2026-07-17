@@ -18,6 +18,7 @@ Complete API reference for the TYPO3 LLM extension.
    TranslationService
    ToolCallingService
    KeywordSearch
+   ReciprocalRankFusion
    ResponseObjects
    OptionClasses
    ProviderInterface
