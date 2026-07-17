@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -64,6 +65,35 @@ final class StaticCompletionService implements CompletionServiceInterface
     }
 
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
+    {
+        return $this->complete($prompt, $options);
+    }
+
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        return $this->complete($prompt, $options);
+    }
+
+    public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+    {
+        $this->receivedPrompts[] = $prompt;
+
+        return [];
+    }
+
+    public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
+    {
+        $this->receivedPrompts[] = $prompt;
+
+        return $this->content;
+    }
+
+    public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        return $this->complete($prompt, $options);
+    }
+
+    public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
         return $this->complete($prompt, $options);
     }

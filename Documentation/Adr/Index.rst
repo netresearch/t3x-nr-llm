@@ -374,3 +374,4 @@ Tools
    Adr074ReciprocalRankFusionUtility
    Adr075RerankerProtocol
    Adr076DocumentUnderstanding
+   Adr077NamedConfigurationCompletion

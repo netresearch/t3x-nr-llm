@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
@@ -69,14 +70,7 @@ final readonly class CompletionService implements CompletionServiceInterface
 
         $messages[] = ChatMessage::user($prompt);
 
-        // Handle response format
-        $responseFormat = $optionsArray['response_format'] ?? null;
-        if (is_string($responseFormat)) {
-            $normalizedFormat = $this->normalizeResponseFormat($responseFormat);
-            $options = $options->withResponseFormat(
-                is_string($normalizedFormat) ? $normalizedFormat : 'json',
-            );
-        }
+        $options = $this->normalizeOptionsResponseFormat($options, $optionsArray);
 
         // Pass the (immutable) options straight through: they already carry
         // every typed field — including stopSequences, which toArray() emits as
@@ -101,26 +95,7 @@ final readonly class CompletionService implements CompletionServiceInterface
         $options ??= new ChatOptions();
         $options = $options->withResponseFormat('json');
 
-        $response = $this->complete($prompt, $options);
-
-        $decoded = json_decode($response->content, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new InvalidArgumentException(
-                'Failed to decode JSON response: ' . json_last_error_msg(),
-                2805117333,
-            );
-        }
-
-        if (!is_array($decoded)) {
-            throw new InvalidArgumentException(
-                'JSON response must be an object, got ' . gettype($decoded),
-                2805117334,
-            );
-        }
-
-        /** @var array<string, mixed> $decoded */
-        return $decoded;
+        return $this->decodeJsonResponse($this->complete($prompt, $options)->content);
     }
 
     /**
@@ -132,16 +107,9 @@ final readonly class CompletionService implements CompletionServiceInterface
      */
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
-        $options ??= new ChatOptions();
-        $options = $options->withResponseFormat('markdown');
+        $options = $this->applyMarkdownPresets($options ?? new ChatOptions());
 
-        $systemPrompt = $options->getSystemPrompt() ?? '';
-        $systemPrompt .= "\n\nFormat your response in clean, well-structured Markdown.";
-        $options = $options->withSystemPrompt(trim($systemPrompt));
-
-        $response = $this->complete($prompt, $options);
-
-        return $response->content;
+        return $this->complete($prompt, $options)->content;
     }
 
     /**
@@ -151,16 +119,7 @@ final readonly class CompletionService implements CompletionServiceInterface
      */
     public function completeFactual(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options ??= new ChatOptions();
-
-        if ($options->getTemperature() === null) {
-            $options = $options->withTemperature(0.2);
-        }
-        if ($options->getTopP() === null) {
-            $options = $options->withTopP(0.9);
-        }
-
-        return $this->complete($prompt, $options);
+        return $this->complete($prompt, $this->applyFactualPresets($options ?? new ChatOptions()));
     }
 
     /**
@@ -170,19 +129,43 @@ final readonly class CompletionService implements CompletionServiceInterface
      */
     public function completeCreative(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
-        $options ??= new ChatOptions();
+        return $this->complete($prompt, $this->applyCreativePresets($options ?? new ChatOptions()));
+    }
 
-        if ($options->getTemperature() === null) {
-            $options = $options->withTemperature(1.2);
-        }
-        if ($options->getTopP() === null) {
-            $options = $options->withTopP(1.0);
-        }
-        if ($options->getPresencePenalty() === null) {
-            $options = $options->withPresencePenalty(0.6);
-        }
+    public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        $options      = $this->autoPopulateBeUserUid($options ?? new ChatOptions());
+        $optionsArray = $options->toArray();
+        $this->validateOptions($optionsArray);
+        $options = $this->normalizeOptionsResponseFormat($options, $optionsArray);
 
-        return $this->complete($prompt, $options);
+        return $this->llmManager->completeForConfiguration($prompt, $configuration, $options);
+    }
+
+    public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+    {
+        $options = ($options ?? new ChatOptions())->withResponseFormat('json');
+
+        return $this->decodeJsonResponse(
+            $this->completeForConfiguration($prompt, $configuration, $options)->content,
+        );
+    }
+
+    public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
+    {
+        $options = $this->applyMarkdownPresets($options ?? new ChatOptions());
+
+        return $this->completeForConfiguration($prompt, $configuration, $options)->content;
+    }
+
+    public function completeFactualForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        return $this->completeForConfiguration($prompt, $configuration, $this->applyFactualPresets($options ?? new ChatOptions()));
+    }
+
+    public function completeCreativeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        return $this->completeForConfiguration($prompt, $configuration, $this->applyCreativePresets($options ?? new ChatOptions()));
     }
 
     /**
@@ -247,6 +230,104 @@ final readonly class CompletionService implements CompletionServiceInterface
             'markdown', 'text' => 'text',
             default => 'text',
         };
+    }
+
+    /**
+     * Apply the provider-compatible response-format normalization to the options.
+     *
+     * Shared by the instance-default and configuration completion paths so both
+     * emit the identical `response_format` the providers expect.
+     *
+     * @param array<string, mixed> $optionsArray already-materialized $options->toArray()
+     */
+    private function normalizeOptionsResponseFormat(ChatOptions $options, array $optionsArray): ChatOptions
+    {
+        $responseFormat = $optionsArray['response_format'] ?? null;
+        if (!is_string($responseFormat)) {
+            return $options;
+        }
+
+        $normalizedFormat = $this->normalizeResponseFormat($responseFormat);
+
+        return $options->withResponseFormat(is_string($normalizedFormat) ? $normalizedFormat : 'json');
+    }
+
+    /**
+     * Decode a JSON completion into an object array.
+     *
+     * @throws InvalidArgumentException when the content is not a valid JSON object
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeJsonResponse(string $content): array
+    {
+        $decoded = json_decode($content, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new InvalidArgumentException(
+                'Failed to decode JSON response: ' . json_last_error_msg(),
+                2805117333,
+            );
+        }
+
+        if (!is_array($decoded)) {
+            throw new InvalidArgumentException(
+                'JSON response must be an object, got ' . gettype($decoded),
+                2805117334,
+            );
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
+    }
+
+    /**
+     * Request Markdown output: force the markdown format and augment the system
+     * prompt. Shared by the instance-default and configuration paths.
+     */
+    private function applyMarkdownPresets(ChatOptions $options): ChatOptions
+    {
+        $options = $options->withResponseFormat('markdown');
+
+        $systemPrompt = $options->getSystemPrompt() ?? '';
+        $systemPrompt .= "\n\nFormat your response in clean, well-structured Markdown.";
+
+        return $options->withSystemPrompt(trim($systemPrompt));
+    }
+
+    /**
+     * Low-creativity (factual, consistent) presets, applied only where unset.
+     * Shared by the instance-default and configuration paths.
+     */
+    private function applyFactualPresets(ChatOptions $options): ChatOptions
+    {
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(0.2);
+        }
+        if ($options->getTopP() === null) {
+            $options = $options->withTopP(0.9);
+        }
+
+        return $options;
+    }
+
+    /**
+     * High-creativity (diverse) presets, applied only where unset.
+     * Shared by the instance-default and configuration paths.
+     */
+    private function applyCreativePresets(ChatOptions $options): ChatOptions
+    {
+        if ($options->getTemperature() === null) {
+            $options = $options->withTemperature(1.2);
+        }
+        if ($options->getTopP() === null) {
+            $options = $options->withTopP(1.0);
+        }
+        if ($options->getPresencePenalty() === null) {
+            $options = $options->withPresencePenalty(0.6);
+        }
+
+        return $options;
     }
 
     // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`

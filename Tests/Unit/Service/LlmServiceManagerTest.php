@@ -679,6 +679,58 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     /**
+     * completeForConfiguration() takes chat()'s configuration route: it builds a
+     * leading system message from the option's system prompt and a trailing user
+     * message from the prompt, then dispatches through the chat adapter — not the
+     * raw ``complete`` provider operation.
+     */
+    #[Test]
+    public function completeForConfigurationBuildsChatMessagesAndReturnsAdapterResponse(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $expectedResponse = new CompletionResponse(
+            content: 'Configured completion',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(10, 5, 15),
+            finishReason: 'stop',
+            provider: 'test',
+        );
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->expects(self::once())
+            ->method('chatCompletion')
+            ->with(
+                self::callback(static function (array $messages): bool {
+                    $first = $messages[0] ?? null;
+                    $last  = $messages[array_key_last($messages)] ?? null;
+
+                    return $first instanceof ChatMessage
+                        && $first->isSystem()
+                        && $first->content === 'Sys prompt'
+                        && $last instanceof ChatMessage
+                        && $last->isUser()
+                        && $last->content === 'Do the thing';
+                }),
+                self::anything(),
+            )
+            ->willReturn($expectedResponse);
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $result = $manager->completeForConfiguration('Do the thing', $config, new ChatOptions(systemPrompt: 'Sys prompt'));
+
+        self::assertSame($expectedResponse, $result);
+    }
+
+    /**
      * A configuration's stored system prompt must reach the adapter as a
      * leading system message — the adapters read the system instruction from
      * the message list, not from options['system_prompt'].
