@@ -43,9 +43,12 @@ final class PublicServicesPolicyTest extends TestCase
      * overrides were never load-bearing. Categories per ADR-065:
      *
      * - Category A (Documented downstream LLM-API contract): 7 concrete
-     *   services + 7 interface aliases = 14 — LlmServiceManager,
-     *   ProviderAdapterRegistry, and the Completion/Vision/Embedding/
-     *   Translation/ToolCalling (ADR-051) feature pairs.
+     *   services + 7 interface aliases + 2 keyword-search facade entries
+     *   (ADR-071: KeywordSearchInterface alias and the named
+     *   `nr_llm.keyword_search.index_backed` variant) = 16 —
+     *   LlmServiceManager, ProviderAdapterRegistry, and the
+     *   Completion/Vision/Embedding/Translation/ToolCalling (ADR-051)
+     *   feature pairs.
      * - Category B (Supporting-service interface aliases; the concrete
      *   classes are now private): 5 — CacheManagerInterface,
      *   UsageTrackerServiceInterface, TranslatorRegistryInterface,
@@ -58,15 +61,15 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 14 + 5 + 1 + 4 + 2 = **26**.
+     * Total: 16 + 5 + 1 + 4 + 2 = **28**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr069RemovePromptTemplateStack.rst` (the current
-     * count authority, superseding ADR-065's count) in the same PR — the
+     * `Documentation/Adr/Adr071PublicKeywordSearchFacade.rst` (the current
+     * count authority, superseding ADR-069's count) in the same PR — the
      * diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 26;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 28;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

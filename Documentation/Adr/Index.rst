@@ -368,4 +368,5 @@ Tools
    Adr067SolrPerLanguageCoreFilter
    Adr069RemovePromptTemplateStack
    Adr070UserlessConfigurationResolutionByIdentifier
+   Adr071PublicKeywordSearchFacade
    Adr073FirstPartyTestingFixtures
