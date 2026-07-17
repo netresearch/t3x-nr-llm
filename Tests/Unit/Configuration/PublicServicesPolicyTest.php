@@ -45,7 +45,8 @@ final class PublicServicesPolicyTest extends TestCase
      * - Category A (Documented downstream LLM-API contract): 7 concrete
      *   services + 7 interface aliases + 2 keyword-search facade entries
      *   (ADR-071: KeywordSearchInterface alias and the named
-     *   `nr_llm.keyword_search.index_backed` variant) = 16 —
+     *   `nr_llm.keyword_search.index_backed` variant) + 1 reranker
+     *   protocol entry (ADR-075: RerankerInterface, factory-built) = 17 —
      *   LlmServiceManager, ProviderAdapterRegistry, and the
      *   Completion/Vision/Embedding/Translation/ToolCalling (ADR-051)
      *   feature pairs.
@@ -61,15 +62,15 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 16 + 5 + 1 + 5 + 2 = **29**.
+     * Total: 17 + 5 + 1 + 5 + 2 = **30**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr076DocumentUnderstanding.rst` (the current
-     * count authority, superseding ADR-071's count) in the same PR — the
+     * `Documentation/Adr/Adr075RerankerProtocol.rst` (the current
+     * count authority, superseding ADR-076's count) in the same PR — the
      * diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 29;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 30;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

@@ -91,6 +91,16 @@ circuitBreaker.cooldownSeconds = 30
 health.reorderFallback = 0
 
 # =============================================================================
+# Cross-encoder reranker sidecar (ADR-075)
+# =============================================================================
+
+# cat=reranker; type=string; label=Reranker Endpoint: Base URL of the cross-encoder reranker sidecar (Build/reranker), e.g. http://reranker:8081. Empty disables reranking: consumers get the input-order NullReranker.
+rerankerEndpoint =
+
+# cat=reranker; type=int+; label=Reranker Timeout: Request timeout in seconds for the reranker call. A cross-encoder on CPU can be slow for a wide candidate pool. Empty or 0 falls back to 30.
+rerankerTimeout = 30
+
+# =============================================================================
 # Testing
 # =============================================================================
 

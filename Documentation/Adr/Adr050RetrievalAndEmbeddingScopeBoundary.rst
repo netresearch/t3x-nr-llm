@@ -6,9 +6,16 @@
 ADR-050: Retrieval and embedding scope — the boundary with nr_ai_search
 =======================================================================
 
-:Status: Accepted
+:Status: Accepted (cross-encoder reranking placement amended by :ref:`adr-075`)
 :Date: 2026-07-11
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   :ref:`ADR-075 <adr-075>` moves the cross-encoder reranker protocol
+   (client + sidecar) into nr_llm as a **stateless** capability once a
+   second consumer materialized. The guardrail below — no nr_llm-owned
+   persistent index — is unchanged.
 
 .. _adr-050-context:
 
