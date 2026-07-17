@@ -49,6 +49,13 @@ final readonly class ProbeUrlTool implements ToolInterface
 
     private const REPORTED_HEADERS = ['content-type', 'location', 'cache-control', 'x-typo3-cache'];
 
+    /**
+     * The '<' of non-inline tags only: a space inserted there keeps adjacent
+     * text nodes ("<td>Price</td><td>100</td>") separated after strip_tags
+     * without splitting words joined by inline markup ("cyber<b>security</b>").
+     */
+    private const NON_INLINE_TAG_PATTERN = '/<(?!\/?(?:a|abbr|b|bdi|bdo|cite|code|data|dfn|em|i|kbd|mark|q|s|samp|small|span|strong|sub|sup|time|u|var|wbr)\b)/i';
+
     public function __construct(
         private EgressPolicyService $egressPolicy,
         private RequestFactory $requestFactory,
@@ -168,7 +175,10 @@ final readonly class ProbeUrlTool implements ToolInterface
 
     private function bodyExcerpt(string $body): string
     {
-        $text = trim((string)preg_replace('/\s+/', ' ', strip_tags($body)));
+        // Space before each non-inline tag so adjacent text nodes stay
+        // separated after strip_tags; the collapse removes the extra spaces.
+        $spaced = (string)preg_replace(self::NON_INLINE_TAG_PATTERN, ' <', $body);
+        $text   = trim((string)preg_replace('/\s+/', ' ', strip_tags($spaced)));
         if ($text === '') {
             return '';
         }

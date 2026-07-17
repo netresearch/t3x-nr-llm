@@ -27,6 +27,42 @@ final class ExcerptBuilderTest extends TestCase
     }
 
     #[Test]
+    public function separatesAdjacentTextNodesAtTagBoundaries(): void
+    {
+        self::assertSame(
+            'Price 100 Total 200',
+            ExcerptBuilder::plain('<tr><td>Price</td><td>100</td></tr><tr><td>Total</td><td>200</td></tr>'),
+        );
+    }
+
+    #[Test]
+    public function keepsWordsJoinedByInlineElementsIntact(): void
+    {
+        self::assertSame(
+            'cybersecurity',
+            ExcerptBuilder::plain('cyber<b>security</b>'),
+        );
+    }
+
+    #[Test]
+    public function separatesAdjacentParagraphs(): void
+    {
+        self::assertSame(
+            'one two',
+            ExcerptBuilder::plain('<p>one</p><p>two</p>'),
+        );
+    }
+
+    #[Test]
+    public function adjacentBlockElementsYieldSingleSpaces(): void
+    {
+        $plain = ExcerptBuilder::plain("<h1>Title</h1>\n<p>Intro <b>text</b></p><p>Next</p>");
+
+        self::assertSame('Title Intro text Next', $plain);
+        self::assertStringNotContainsString('  ', $plain);
+    }
+
+    #[Test]
     public function centresExcerptOnTheMatchWithEllipses(): void
     {
         $text = str_repeat('lorem ipsum ', 30) . 'Netresearch Migration' . str_repeat(' dolor sit', 30);
