@@ -22,8 +22,10 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
@@ -40,6 +42,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionInputGuardrail;
 use Netresearch\NrLlm\Service\LlmServiceManager;
@@ -772,6 +775,151 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertIsString($received);
         self::assertStringContainsString('sk-***', $received);
         self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $received);
+    }
+
+    #[Test]
+    public function chatScreensInputOnTheAdHocProviderKeyPath(): void
+    {
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->chat([['role' => 'user', 'content' => 'key sk-abcdef0123456789ABCDEF end']], new ChatOptions(provider: 'openai'));
+
+        $joined = $this->joinContents($provider->capturedMessages);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function completeScreensInputOnTheAdHocProviderKeyPath(): void
+    {
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->complete('key sk-abcdef0123456789ABCDEF end', new ChatOptions(provider: 'openai'));
+
+        $joined = $this->joinContents($provider->capturedMessages);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function chatWithToolsScreensInputOnTheAdHocProviderKeyPath(): void
+    {
+        $provider = new TestableToolProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->chatWithTools(
+            [['role' => 'user', 'content' => 'key sk-abcdef0123456789ABCDEF end']],
+            [],
+            new ToolOptions(provider: 'openai-tools'),
+        );
+
+        $joined = $this->joinContents($provider->capturedMessages);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function streamChatScreensInputOnTheAdHocProviderKeyPath(): void
+    {
+        $provider = new StubStreamingProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        iterator_to_array($manager->streamChat(
+            [['role' => 'user', 'content' => 'key sk-abcdef0123456789ABCDEF end']],
+            new ChatOptions(provider: 'mock'),
+        ));
+
+        $joined = $this->joinContents($provider->capturedMessages);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function chatBlocksAndDoesNotCallTheProviderWhenAnAdHocInputGuardrailDenies(): void
+    {
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider, $this->denyingInputScreener('blocked prompt'));
+
+        try {
+            $manager->chat([['role' => 'user', 'content' => 'anything']], new ChatOptions(provider: 'openai'));
+            self::fail('Expected GuardrailViolationException.');
+        } catch (GuardrailViolationException $e) {
+            self::assertSame('blocked prompt', $e->getMessage());
+        }
+
+        self::assertSame([], $provider->capturedMessages, 'A denied prompt must never reach the provider.');
+    }
+
+    #[Test]
+    public function streamChatThrowsAtCallTimeWhenAnAdHocInputGuardrailDenies(): void
+    {
+        $provider = new StubStreamingProvider();
+        $manager  = $this->managerWithInputScreener($provider, $this->denyingInputScreener('blocked stream'));
+
+        // The DENY must throw synchronously on the streamChat() call — screenInput
+        // runs before the $open closure, so an over-policy prompt never opens a
+        // stream. (No iterator_to_array: the throw is at call time, not on drain.)
+        $this->expectException(GuardrailViolationException::class);
+        $manager->streamChat([['role' => 'user', 'content' => 'anything']], new ChatOptions(provider: 'mock'));
+    }
+
+    #[Test]
+    public function chatLeavesACleanAdHocPromptUnchanged(): void
+    {
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->chat([['role' => 'user', 'content' => 'a perfectly normal question']], new ChatOptions(provider: 'openai'));
+
+        self::assertStringContainsString('a perfectly normal question', $this->joinContents($provider->capturedMessages));
+    }
+
+    private function managerWithInputScreener(TestableProvider $provider, ?InputGuardrailScreener $screener = null): LlmServiceManager
+    {
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $screener ?? new InputGuardrailScreener([new SecretRedactionInputGuardrail()]),
+        );
+        $manager->registerProvider($provider);
+
+        return $manager;
+    }
+
+    private function denyingInputScreener(string $reason): InputGuardrailScreener
+    {
+        return new InputGuardrailScreener([
+            new class ($reason) implements InputGuardrailInterface {
+                public function __construct(private readonly string $reason) {}
+
+                public function checkInput(string $text): GuardrailResult
+                {
+                    return GuardrailResult::deny($this->reason);
+                }
+            },
+        ]);
+    }
+
+    /**
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function joinContents(array $messages): string
+    {
+        return implode("\n", array_map(
+            static fn(ChatMessage|array $m): string => $m instanceof ChatMessage
+                ? $m->content
+                : (is_string($m['content'] ?? null) ? $m['content'] : ''),
+            $messages,
+        ));
     }
 
     /**
@@ -2424,6 +2572,13 @@ class TestableProvider extends AbstractProvider
     private array $lastOptions = [];
     /** @var array<string, mixed> */
     private array $lastConfiguration = [];
+    /**
+     * Messages the provider last received (for asserting input screening on the
+     * ad-hoc provider-key path, ADR-087).
+     *
+     * @var list<ChatMessage|array<string, mixed>>
+     */
+    public array $capturedMessages = [];
 
     public function __construct(
         private readonly string $id = 'openai',
@@ -2456,7 +2611,8 @@ class TestableProvider extends AbstractProvider
 
     public function chatCompletion(array $messages, array $options = []): CompletionResponse
     {
-        $this->lastOptions = $options;
+        $this->lastOptions      = $options;
+        $this->capturedMessages = $messages;
         return $this->nextResponse ?? new CompletionResponse(
             content: 'Default response',
             model: 'gpt-4o',

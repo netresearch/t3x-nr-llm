@@ -214,6 +214,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             );
         }
 
+        // Ad-hoc pinned-provider path: screen the prompt too (ADR-087), matching
+        // the configuration-driven entry points.
+        $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
 
         return $this->runThroughPipeline(
@@ -242,6 +245,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $optionsArray,
             );
         }
+
+        // Ad-hoc pinned-provider path: screen the raw prompt too (ADR-087).
+        $prompt = $this->screenInputPrompt($prompt);
 
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
@@ -374,8 +380,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         }
 
         // Ad-hoc: a pinned provider with no configuration entity — no fallback
-        // chain, provider resolved by key.
-        $open = function () use ($messages, $optionsArray, $providerKey): Generator {
+        // chain, provider resolved by key. Screen the prompt before the opener
+        // captures it (ADR-087), so a redaction reaches the provider and a DENY
+        // throws at call time.
+        $messages = $this->screenInput($messages);
+        $open     = function () use ($messages, $optionsArray, $providerKey): Generator {
             $provider = $this->getProvider($providerKey);
             $this->assertStreamingCapable($provider, 1581627129);
 
@@ -423,6 +432,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $options ??= new ToolOptions();
         [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
+        // Ad-hoc pinned-provider path: screen the prompt too (ADR-087).
+        $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
