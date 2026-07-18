@@ -380,3 +380,4 @@ Tools
    Adr080TypedProviderHttpExceptions
    Adr081AgentRunPersistence
    Adr082StructuredOutputs
+   Adr083ConversationSessions

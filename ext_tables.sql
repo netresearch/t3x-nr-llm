@@ -711,3 +711,58 @@ CREATE TABLE tx_nrllm_agentrun_event (
     KEY run_sequence (run, sequence),
     KEY crdate (crdate)
 );
+
+#
+# Conversation sessions (ADR-083): one row per multi-turn conversation, so a
+# stateful assistant can resume. UI-less append-and-update log (no TCA, no
+# Extbase), mirroring tx_nrllm_telemetry.
+#
+CREATE TABLE tx_nrllm_ai_session (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    uuid varchar(36) DEFAULT '' NOT NULL,
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+    configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+    title varchar(255) DEFAULT '' NOT NULL,
+    message_count int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Retention is by inactivity: the purge deletes sessions whose last_activity
+    -- predates the window.
+    last_activity int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY session_uuid (uuid),
+    KEY be_user (be_user, last_activity),
+    KEY inactivity (last_activity)
+);
+
+#
+# Conversation session messages (ADR-083): one row per turn, ordered by sequence
+# within a session. `content` carries the prompt/reply text.
+#
+CREATE TABLE tx_nrllm_ai_session_message (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    session int(11) unsigned DEFAULT '0' NOT NULL,
+    sequence int(11) unsigned DEFAULT '0' NOT NULL,
+    role varchar(32) DEFAULT '' NOT NULL,
+    content mediumtext,
+    model varchar(128) DEFAULT '' NOT NULL,
+    prompt_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    completion_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    total_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- Replay read path: a session's turns in order.
+    KEY session_sequence (session, sequence)
+);
