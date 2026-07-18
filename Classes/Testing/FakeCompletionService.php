@@ -54,6 +54,14 @@ final class FakeCompletionService implements CompletionServiceInterface
      */
     public array $jsonResult = [];
 
+    /**
+     * Canned result for {@see self::completeStructured()} and
+     * {@see self::completeStructuredForConfiguration()}.
+     *
+     * @var array<string, mixed>
+     */
+    public array $structuredResult = [];
+
     /** Canned result for {@see self::completeMarkdown()} and {@see self::completeMarkdownForConfiguration()}. */
     public string $markdownResult = '';
 
@@ -93,6 +101,12 @@ final class FakeCompletionService implements CompletionServiceInterface
     /** @var list<array{prompt: string, configuration: LlmConfiguration, options: ?ChatOptions}> */
     public array $completeCreativeForConfigurationCalls = [];
 
+    /** @var list<array{prompt: string, schema: array<string, mixed>, options: ?ChatOptions}> */
+    public array $completeStructuredCalls = [];
+
+    /** @var list<array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ?ChatOptions}> */
+    public array $completeStructuredForConfigurationCalls = [];
+
     public function complete(string $prompt, ?ChatOptions $options = null): CompletionResponse
     {
         $this->completeCalls[] = ['prompt' => $prompt, 'options' => $options];
@@ -106,6 +120,14 @@ final class FakeCompletionService implements CompletionServiceInterface
         $this->guardThrow();
 
         return $this->jsonResult;
+    }
+
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    {
+        $this->completeStructuredCalls[] = ['prompt' => $prompt, 'schema' => $schema, 'options' => $options];
+        $this->guardThrow();
+
+        return $this->structuredResult;
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
@@ -143,6 +165,14 @@ final class FakeCompletionService implements CompletionServiceInterface
         $this->guardThrow();
 
         return $this->jsonResult;
+    }
+
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    {
+        $this->completeStructuredForConfigurationCalls[] = ['prompt' => $prompt, 'configuration' => $configuration, 'schema' => $schema, 'options' => $options];
+        $this->guardThrow();
+
+        return $this->structuredResult;
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string

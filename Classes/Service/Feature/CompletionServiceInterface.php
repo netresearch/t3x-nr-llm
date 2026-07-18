@@ -41,6 +41,21 @@ interface CompletionServiceInterface
     public function completeJson(string $prompt, ?ChatOptions $options = null): array;
 
     /**
+     * Generate a completion validated against a subset JSON Schema, with one
+     * controlled repair round-trip on a decode or schema failure (ADR-082).
+     *
+     * @param array<string, mixed> $schema Subset JSON Schema (top-level `type`,
+     *                                     object `required` keys, per-key
+     *                                     `properties` types)
+     *
+     * @throws InvalidArgumentException when the response still fails to match the
+     *                                  schema after one repair attempt
+     *
+     * @return array<string, mixed> The decoded, schema-valid JSON payload
+     */
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array;
+
+    /**
      * Generate a Markdown-formatted completion (system prompt augmented to request Markdown).
      */
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string;
@@ -76,6 +91,18 @@ interface CompletionServiceInterface
      * @return array<string, mixed> Parsed JSON response
      */
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array;
+
+    /**
+     * The named-configuration counterpart to {@see completeStructured()}.
+     *
+     * @param array<string, mixed> $schema
+     *
+     * @throws InvalidArgumentException when the response still fails to match the
+     *                                  schema after one repair attempt
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array;
 
     /**
      * Generate a Markdown-formatted completion against a specific LlmConfiguration record.

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 
 /**
  * High-level service for text completion.
@@ -41,6 +42,7 @@ final readonly class CompletionService implements CompletionServiceInterface
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
+        private JsonSchemaValidator $schemaValidator = new JsonSchemaValidator(),
     ) {}
 
     /**
@@ -99,6 +101,50 @@ final readonly class CompletionService implements CompletionServiceInterface
     }
 
     /**
+     * Generate a completion whose JSON response is validated against a subset
+     * JSON Schema, with one controlled repair round-trip on a decode or schema
+     * failure (ADR-082).
+     *
+     * Provider-agnostic: the schema is injected into the prompt and JSON mode is
+     * requested, then the decoded payload is validated locally with
+     * {@see JsonSchemaValidator}. A native provider structured-output guarantee
+     * is a separate concern (see ADR-082).
+     *
+     * @param array<string, mixed> $schema Subset JSON Schema: top-level `type`,
+     *                                     object `required` keys and per-key
+     *                                     `properties` types are enforced.
+     *
+     * @throws InvalidArgumentException when the response still fails to match the
+     *                                  schema after one repair attempt
+     *
+     * @return array<string, mixed> The decoded, schema-valid JSON payload
+     */
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    {
+        $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
+        $schemaJson = $this->encodeSchema($schema);
+
+        $first  = $this->complete($this->withSchemaInstruction($prompt, $schemaJson), $options)->content;
+        $result = $this->decodeAndValidate($first, $schema);
+        if ($result !== null) {
+            return $result;
+        }
+
+        // One controlled repair round-trip: show the model its invalid output
+        // and the schema, and ask again.
+        $repaired = $this->complete($this->withRepairInstruction($prompt, $schemaJson, $first), $options)->content;
+        $result   = $this->decodeAndValidate($repaired, $schema);
+        if ($result !== null) {
+            return $result;
+        }
+
+        throw new InvalidArgumentException(
+            'Structured completion did not match the required schema after one repair attempt.',
+            1784500001,
+        );
+    }
+
+    /**
      * Generate markdown-formatted completion.
      *
      * @param string $prompt The user prompt
@@ -149,6 +195,85 @@ final readonly class CompletionService implements CompletionServiceInterface
         return $this->decodeJsonResponse(
             $this->completeForConfiguration($prompt, $configuration, $options)->content,
         );
+    }
+
+    /**
+     * The named-configuration counterpart to {@see completeStructured()}.
+     *
+     * @param array<string, mixed> $schema
+     *
+     * @throws InvalidArgumentException when the response still fails to match the
+     *                                  schema after one repair attempt
+     *
+     * @return array<string, mixed>
+     */
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
+    {
+        $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
+        $schemaJson = $this->encodeSchema($schema);
+
+        $first  = $this->completeForConfiguration($this->withSchemaInstruction($prompt, $schemaJson), $configuration, $options)->content;
+        $result = $this->decodeAndValidate($first, $schema);
+        if ($result !== null) {
+            return $result;
+        }
+
+        $repaired = $this->completeForConfiguration($this->withRepairInstruction($prompt, $schemaJson, $first), $configuration, $options)->content;
+        $result   = $this->decodeAndValidate($repaired, $schema);
+        if ($result !== null) {
+            return $result;
+        }
+
+        throw new InvalidArgumentException(
+            'Structured completion did not match the required schema after one repair attempt.',
+            1784500002,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $schema
+     */
+    private function encodeSchema(array $schema): string
+    {
+        return json_encode($schema, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function withSchemaInstruction(string $prompt, string $schemaJson): string
+    {
+        return $prompt
+            . "\n\nRespond with ONLY a single JSON value conforming to this JSON Schema. "
+            . "Do not wrap it in Markdown code fences and do not add any prose:\n"
+            . $schemaJson;
+    }
+
+    private function withRepairInstruction(string $prompt, string $schemaJson, string $invalid): string
+    {
+        return $this->withSchemaInstruction($prompt, $schemaJson)
+            . "\n\nYour previous response did not conform to the schema. It was:\n"
+            . mb_substr($invalid, 0, 2000);
+    }
+
+    /**
+     * Decode a response and validate it against the schema. Returns the decoded
+     * payload only when it is a schema-valid JSON value, null otherwise (an
+     * invalid decode or a schema mismatch), so the caller can trigger a repair.
+     *
+     * @param array<string, mixed> $schema
+     *
+     * @return array<string, mixed>|null
+     */
+    private function decodeAndValidate(string $content, array $schema): ?array
+    {
+        $decoded = json_decode($content, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+        if (!$this->schemaValidator->validate($decoded, $schema)) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     public function completeMarkdownForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): string
