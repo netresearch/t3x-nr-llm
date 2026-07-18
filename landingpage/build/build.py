@@ -109,6 +109,17 @@ STRINGS = {
         "onThisPage": "On this page",
         "readAdrs": "Read the architecture decisions",
         "tocLabel": "Sections",
+        "featuresNav": "Features",
+        "featuresIndexTitle": "Feature deep dives",
+        "featuresIndexIntro": "Longer, developer-focused walk-throughs of the features that carry the "
+                              "most detail — what they are for, why they exist, how they work, and how to "
+                              "use them. Each links the authoritative ADRs and the developer docs.",
+        "featuresReadMore": "Read the deep dive",
+        "featuresBackToIndex": "All feature deep dives",
+        "featuresIndexMeta": "Developer deep dives into nr-llm's streaming, tool calling, RAG "
+                             "site-search, and provider fallback — with real code and ADR links.",
+        "gotchasHeading": "Gotchas",
+        "learnMoreHeading": "Go deeper",
     },
     "de": {
         "skip": "Zum Hauptinhalt springen",
@@ -153,6 +164,18 @@ STRINGS = {
         "onThisPage": "Auf dieser Seite",
         "readAdrs": "Architektur-Entscheidungen lesen",
         "tocLabel": "Abschnitte",
+        "featuresNav": "Features",
+        "featuresIndexTitle": "Feature-Deep-Dives",
+        "featuresIndexIntro": "Ausführlichere, entwicklerorientierte Durchläufe der detailreichsten "
+                              "Features – wozu sie da sind, warum es sie gibt, wie sie funktionieren und "
+                              "wie man sie nutzt. Jede Seite verlinkt die maßgeblichen ADRs und die "
+                              "Entwicklerdokumentation.",
+        "featuresReadMore": "Zum Deep-Dive",
+        "featuresBackToIndex": "Alle Feature-Deep-Dives",
+        "featuresIndexMeta": "Entwickler-Deep-Dives zu Streaming, Tool-Calling, RAG-Site-Search und "
+                             "Provider-Fallback von nr-llm – mit echtem Code und Links zu den ADRs.",
+        "gotchasHeading": "Fallstricke",
+        "learnMoreHeading": "Tiefer einsteigen",
     },
 }
 
@@ -357,16 +380,27 @@ def main():
     adr_meta = load("adr")
     brand = load("brand")
     seo = load("seo")
+    features_en = load("features") if (DATA / "features.json").exists() else []
+    features = {"en": features_en,
+                "de": load("features_de") if (DATA / "features_de.json").exists() else features_en}
 
     adrs = collect_adrs(adr_meta)
     group_order = [g["name"] for g in adr_meta.get("groups", [])]
     grouped = group_adrs(adrs, group_order)
 
-    # Autoescaping is enabled for html/xml below; raw HTML (ADR bodies, JSON-LD) is
-    # our own generated content, injected explicitly via |safe.
+    # Resolve each feature's ADR links to the rendered ADR page URLs.
+    adr_url_by_number = {a["number"]: a["url"] for a in adrs}
+    for lang in LANGS:
+        for f in features[lang]:
+            for a in f["adrLinks"]:
+                a["href"] = adr_url_by_number.get(a["number"], url("adr/"))
+
+    # Autoescape everything (templates use the .html.j2 suffix, so an
+    # extension allow-list would miss them); every deliberate raw-HTML injection
+    # — ADR bodies, JSON-LD, inline SVG icons — is marked |safe at its use site.
     env = Environment(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         loader=FileSystemLoader(str(SRC / "templates")),
-        autoescape=select_autoescape(["html", "xml"]),
+        autoescape=select_autoescape(default=True, default_for_string=True),
         trim_blocks=True, lstrip_blocks=True,
     )
     env.globals.update(BASE=BASE, SITE_URL=SITE_URL, url=url)
@@ -405,6 +439,7 @@ def main():
             canonical=SITE_URL + url(f"{lang}/"), alternates=alternates,
             jsonld_blocks=blocks, adr_index_url=url("adr/"),
             show_nav=True, is_landing=True, nav_prefix="#",
+            feature_slugs=[f["slug"] for f in features[lang]],
             js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
         )
         outdir = OUT / lang
@@ -450,6 +485,61 @@ def main():
         )
         (OUT / "adr" / f"{a['slug']}.html").write_text(page, encoding="utf-8")
 
+    # Feature deep-dive pages (bilingual)
+    for lang in LANGS:
+        feats = features[lang]
+        if not feats:
+            continue
+        featdir = OUT / lang / "features"
+        featdir.mkdir(parents=True, exist_ok=True)
+        feat_alts = [
+            {"lang": "en", "href": SITE_URL + url("en/features/")},
+            {"lang": "de", "href": SITE_URL + url("de/features/")},
+            {"lang": "x-default", "href": SITE_URL + url("en/features/")},
+        ]
+        (featdir / INDEX_HTML).write_text(env.get_template("feature_index.html.j2").render(
+            lang=lang, s=STRINGS[lang], brand=brand, features=feats,
+            canonical=SITE_URL + url(f"{lang}/features/"), alternates=feat_alts,
+            jsonld_blocks=jsonld_common,
+            meta={"title": f"{STRINGS[lang]['featuresIndexTitle']} — nr-llm",
+                  "description": STRINGS[lang]["featuresIndexMeta"]},
+            show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
+            js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
+        ), encoding="utf-8")
+
+        for f in feats:
+            page_path = f"{lang}/features/{f['slug']}.html"
+            crumb = [{"name": "nr-llm", "href": url(f"{lang}/")},
+                     {"name": STRINGS[lang]["featuresNav"], "href": url(f"{lang}/features/")},
+                     {"name": f["title"], "href": url(page_path)}]
+            breadcrumb_ld = json.dumps({
+                "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
+                "itemListElement": [
+                    {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
+                    for i, x in enumerate(crumb)
+                ],
+            }, ensure_ascii=False)
+            techarticle_ld = json.dumps({
+                "@context": "https://schema.org", SCHEMA_TYPE: "TechArticle",
+                "headline": f["title"], "description": f["meta"]["description"],
+                "inLanguage": lang, "url": SITE_URL + url(page_path),
+                "isPartOf": {SCHEMA_TYPE: "SoftwareSourceCode", "name": "nr-llm"},
+            }, ensure_ascii=False)
+            (featdir / f"{f['slug']}.html").write_text(env.get_template("feature_page.html.j2").render(
+                lang=lang, s=STRINGS[lang], brand=brand, f=f,
+                canonical=SITE_URL + url(page_path),
+                alternates=[
+                    {"lang": "en", "href": SITE_URL + url(f"en/features/{f['slug']}.html")},
+                    {"lang": "de", "href": SITE_URL + url(f"de/features/{f['slug']}.html")},
+                    {"lang": "x-default", "href": SITE_URL + url(f"en/features/{f['slug']}.html")},
+                ],
+                jsonld_blocks=[{"name": "BreadcrumbList", "json": breadcrumb_ld},
+                               {"name": "TechArticle", "json": techarticle_ld}],
+                meta=f["meta"],
+                show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
+                js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
+            ), encoding="utf-8")
+
     # Root chooser (x-default)
     root = env.get_template("root.html.j2").render(
         brand=brand, canonical=SITE_URL + BASE,
@@ -464,11 +554,26 @@ def main():
 
     # Search index
     docs = build_search_docs(content, adrs)
+    for lang in LANGS:
+        for f in features[lang]:
+            text = " ".join([f["tagline"], *f["why"]["paragraphs"], *f["technical"]["paragraphs"],
+                             *f["when"]["bullets"]])
+            # Feature text is already plain (not HTML); only collapse whitespace so that
+            # terms in angle brackets (<think>, provider-<identifier>.svg) stay searchable.
+            docs.append({"id": f"{lang}-feature-{f['slug']}", "title": f["title"],
+                         "section": STRINGS[lang]["featuresNav"],
+                         "text": re.sub(r"\s+", " ", text).strip()[:1000],
+                         "url": url(f"{lang}/features/{f['slug']}.html"), "kind": "feature", "lang": lang})
     (OUT / SEARCH_INDEX).write_text(
         json.dumps({"documents": docs}, ensure_ascii=False), encoding="utf-8")
 
     # sitemap.xml
-    paths = list(seo.get("sitemapPaths", [])) + [SITE_URL + a["url"] for a in adrs]
+    feature_paths = []
+    for lang in LANGS:
+        if features[lang]:
+            feature_paths.append(SITE_URL + url(f"{lang}/features/"))
+            feature_paths += [SITE_URL + url(f"{lang}/features/{f['slug']}.html") for f in features[lang]]
+    paths = list(seo.get("sitemapPaths", [])) + [SITE_URL + a["url"] for a in adrs] + feature_paths
     urls_xml = "\n".join(
         f"  <url><loc>{html.escape(p)}</loc></url>" for p in paths)
     (OUT / "sitemap.xml").write_text(
