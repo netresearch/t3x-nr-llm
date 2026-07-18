@@ -66,16 +66,16 @@
       </nav>
       {% endif %}
 
-      <div class="header-tools">
-        <div class="search header-search" data-search hidden>
-          <div class="search__field">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" data-search-input aria-label="{{ s.searchLabel }}" placeholder="{{ s.searchPlaceholder }}">
-          </div>
-          <ul class="search__results" data-search-results hidden></ul>
-          <p class="visually-hidden" role="status" aria-live="polite" data-search-status></p>
+      <div class="search header-search" data-search hidden>
+        <div class="search__field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" data-search-input aria-label="{{ s.searchLabel }}" placeholder="{{ s.searchPlaceholder }}">
         </div>
+        <ul class="search__results" data-search-results hidden></ul>
+        <p class="visually-hidden" role="status" aria-live="polite" data-search-status></p>
+      </div>
 
+      <div class="header-tools">
         <div class="lang-switch" role="group" aria-label="{{ s.langLabel }}">
           <a href="{{ url('en/') }}" hreflang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a>
           <a href="{{ url('de/') }}" hreflang="de"{% if lang == 'de' %} aria-current="true"{% endif %}>DE</a>
