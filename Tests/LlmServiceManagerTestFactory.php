@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\EmbedCacheKeyBuilder;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\KeyedProviderRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
@@ -52,6 +53,7 @@ trait LlmServiceManagerTestFactory
         ?SkillInjectionService $skillInjection = null,
         ?ModelSelectionServiceInterface $modelSelectionService = null,
         ?StreamingDispatcher $streaming = null,
+        ?InputGuardrailScreener $inputScreener = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -63,6 +65,7 @@ trait LlmServiceManagerTestFactory
             $skillInjection,
             $modelSelectionService,
             $streaming,
+            $inputScreener,
         );
     }
 }

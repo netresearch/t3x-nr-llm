@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -50,6 +51,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         private ?SkillInjectionService $skillInjection = null,
         private ?ModelSelectionServiceInterface $modelSelectionService = null,
         private ?StreamingDispatcher $streaming = null,
+        // Input-side guardrails (ADR-087): screen/redact the outgoing prompt on
+        // the send path (the pipeline cannot reach the payload). Optional so the
+        // lean unit-test constructions keep working — absent it, input screening
+        // is a no-op, exactly as with the other optional collaborators above.
+        private ?InputGuardrailScreener $inputScreener = null,
     ) {}
 
     /**
@@ -92,6 +98,28 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $messages,
             SkillInjectionService::toList($configuration->getSkills()),
         );
+    }
+
+    /**
+     * Screen (and redact) the outgoing messages through the input guardrails
+     * before they reach a provider (ADR-087). A no-op when no screener is wired
+     * (lean unit-test constructions). Throws
+     * {@see \Netresearch\NrLlm\Exception\GuardrailViolationException} /
+     * {@see \Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException} on a
+     * DENY / REQUIRE_APPROVAL verdict — at call time, so an over-policy prompt
+     * never opens a stream.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function screenInput(array $messages): array
+    {
+        if ($this->inputScreener === null) {
+            return $messages;
+        }
+
+        return $this->inputScreener->screen($messages);
     }
 
     /**
@@ -427,6 +455,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
+        $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
             static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
@@ -685,6 +714,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
+        $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
 
         return $this->runThroughPipeline(
@@ -968,6 +998,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function streamChatWithConfiguration(array $messages, LlmConfiguration $configuration, array $optionOverrides = [], array $metadata = []): Generator
     {
+        // Screen the prompt before it is captured by the opener or measured for
+        // token estimation, so a redaction reaches the provider and a DENY throws
+        // at call time rather than on first iteration (ADR-087).
+        $messages = $this->screenInput($messages);
+
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
             $llmModel = $this->resolveModelForConfiguration($config);
             $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
