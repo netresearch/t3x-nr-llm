@@ -93,6 +93,7 @@ STRINGS = {
             "enable": "Enable on-device AI",
             "enableHint": "On-device AI is available but needs a one-time model download in your browser.",
             "checking": "Checking on-device AI…",
+            "preparing": "Preparing the on-device AI — the first answer can take a few seconds…",
             "downloading": "Downloading on-device model…",
             "unsupported": "On-device AI needs Chrome 148+ on desktop. Your browser can't run it — "
                            "all content and every ADR on this site remain available to read.",
@@ -147,6 +148,7 @@ STRINGS = {
             "enableHint": "Die On-Device-KI ist verfügbar, benötigt aber einen einmaligen "
                           "Modell-Download in deinem Browser.",
             "checking": "On-Device-KI wird geprüft…",
+            "preparing": "Die On-Device-KI wird vorbereitet — die erste Antwort kann ein paar Sekunden dauern…",
             "downloading": "On-Device-Modell wird geladen…",
             "unsupported": "Die On-Device-KI benötigt Chrome 148+ auf dem Desktop. In diesem Browser "
                            "ist sie nicht verfügbar – alle Inhalte und jedes ADR lassen sich weiterhin lesen.",
@@ -187,7 +189,7 @@ def js_strings(lang: str) -> dict:
         "searchResults": s["searchResults"], "searchNoResults": s["searchNoResults"],
         "copy": s["copy"], "copied": s["copied"],
         "aiUnsupported": a["unsupported"], "aiDownloading": a["downloading"],
-        "aiEnableHint": a["enableHint"], "aiChecking": a["checking"],
+        "aiEnableHint": a["enableHint"], "aiChecking": a["checking"], "aiPreparing": a["preparing"],
         "aiError": a["error"], "aiEmpty": a["empty"], "aiSources": a["sources"],
     }
 
