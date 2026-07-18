@@ -133,12 +133,24 @@
         if (sources && ctx) renderSources(query);
         var prompt = (ctx ? ('Context:\n' + ctx + '\n\n') : '') + 'Question: ' + query;
         var stream = session.promptStreaming(prompt, { signal: controller.signal });
+        // The Prompt API has shipped both cumulative snapshots and incremental
+        // deltas across Chrome versions (the current docs don't pin it down).
+        // Detect the mode from the first two chunks, then lock it for the whole
+        // stream — this avoids a per-chunk heuristic swallowing a repeated token.
+        var mode = null; // 'cumulative' | 'delta'
         return (async function () {
           for await (var chunk of stream) {
             if (typeof chunk !== 'string') chunk = String(chunk);
-            // Handle both cumulative snapshots and incremental deltas.
-            if (chunk.length >= acc.length && chunk.indexOf(acc) === 0) acc = chunk;
-            else acc += chunk;
+            if (!acc) {
+              acc = chunk; // first chunk is identical under either mode
+            } else if (mode === null) {
+              mode = (chunk.length >= acc.length && chunk.indexOf(acc) === 0) ? 'cumulative' : 'delta';
+              acc = mode === 'cumulative' ? chunk : acc + chunk;
+            } else if (mode === 'cumulative') {
+              acc = chunk;
+            } else {
+              acc += chunk;
+            }
             output.textContent = acc;
           }
         })();

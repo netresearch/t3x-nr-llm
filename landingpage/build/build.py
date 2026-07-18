@@ -16,6 +16,7 @@ Env:  NRLLM_BASE   base path (default "/t3x-nr-llm/"), NRLLM_ORIGIN (default the
 """
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import os
@@ -48,6 +49,10 @@ ORIGIN = os.environ.get("NRLLM_ORIGIN", "https://netresearch.github.io").rstrip(
 SITE_URL = ORIGIN
 
 LANGS = ["en", "de"]
+
+SEARCH_INDEX = "search-index.json"
+INDEX_HTML = "index.html"
+SCHEMA_TYPE = "@type"
 
 
 def url(path: str) -> str:
@@ -205,9 +210,11 @@ def _literal_role(name, rawtext, text, lineno, inliner, options=None, content=No
 
 
 def _text_role(name, rawtext, text, lineno, inliner, options=None, content=None):
-    # :ref:`label` or :ref:`Nice text <label>` -> keep the human text only
-    m = re.match(r"^(.*?)\s*<[^>]+>$", text)
-    label = m.group(1) if m else text
+    # :ref:`label` or :ref:`Nice text <label>` -> keep the human text only.
+    # Plain string ops (no backtracking regex) to strip a trailing "<target>".
+    label = text
+    if text.endswith(">") and "<" in text:
+        label = text[:text.rindex("<")].rstrip()
     return [nodes.Text(html.unescape(label))], []
 
 
@@ -297,10 +304,10 @@ def group_adrs(adrs: list[dict], order: list[str]) -> list[dict]:
 def faq_jsonld(faq_items: list[dict]) -> str:
     return json.dumps({
         "@context": "https://schema.org",
-        "@type": "FAQPage",
+        SCHEMA_TYPE: "FAQPage",
         "mainEntity": [
-            {"@type": "Question", "name": q["q"],
-             "acceptedAnswer": {"@type": "Answer", "text": q["a"]}}
+            {SCHEMA_TYPE: "Question", "name": q["q"],
+             "acceptedAnswer": {SCHEMA_TYPE: "Answer", "text": q["a"]}}
             for q in faq_items
         ],
     }, ensure_ascii=False, indent=2)
@@ -320,7 +327,7 @@ def build_search_docs(content_by_lang: dict, adrs: list[dict]) -> list[dict]:
             ("faq", c["faq"]["heading"], " ".join(q["q"] + " " + q["a"] for q in c["faq"]["items"])),
         ]
         for cid, heading, text in sects:
-            docs.append({"id": f"{lang}-{cid}", "title": heading, "section": c["hero"]["headline"][:0] or heading,
+            docs.append({"id": f"{lang}-{cid}", "title": heading, "section": heading,
                          "text": strip_html(text)[:1200], "url": f"{landing}#{cid}", "kind": "section", "lang": lang})
         for item in c["concepts"]["items"]:
             docs.append({"id": f"{lang}-concept-{slugify(item['title'])}", "title": item["title"],
@@ -366,7 +373,6 @@ def main():
     shutil.copytree(SRC / "assets", OUT / "assets")
 
     # Cache-busting version derived from asset content (CSS + JS).
-    import hashlib
     hasher = hashlib.sha256()
     for rel in ("css/site.css", "js/search.js", "js/ai-assistant.js", "js/site.js", "js/minisearch.min.js"):
         p = OUT / "assets" / rel
@@ -392,11 +398,11 @@ def main():
             canonical=SITE_URL + url(f"{lang}/"), alternates=alternates,
             jsonld_blocks=blocks, adr_index_url=url("adr/"),
             show_nav=True, is_landing=True, nav_prefix="#",
-            js_config={"indexUrl": url("search-index.json"), "lang": lang, "strings": js_strings(lang)},
+            js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
         )
         outdir = OUT / lang
         outdir.mkdir(parents=True, exist_ok=True)
-        (outdir / "index.html").write_text(page, encoding="utf-8")
+        (outdir / INDEX_HTML).write_text(page, encoding="utf-8")
 
     # ADR index (English content, but reachable from both languages)
     idx = env.get_template("adr_index.html.j2").render(
@@ -408,10 +414,10 @@ def main():
               "description": "All architecture decision records for the nr-llm TYPO3 extension: "
                              "provider abstraction, configuration, services, tools, security and more."},
         show_nav=True, is_landing=False, nav_prefix=url("en/") + "#",
-        js_config={"indexUrl": url("search-index.json"), "lang": "en", "strings": js_strings("en")},
+        js_config={"indexUrl": url(SEARCH_INDEX), "lang": "en", "strings": js_strings("en")},
     )
     (OUT / "adr").mkdir(parents=True, exist_ok=True)
-    (OUT / "adr" / "index.html").write_text(idx, encoding="utf-8")
+    (OUT / "adr" / INDEX_HTML).write_text(idx, encoding="utf-8")
 
     # ADR pages
     for a in adrs:
@@ -419,9 +425,9 @@ def main():
                  {"name": STRINGS["en"]["adrIndexTitle"], "href": url("adr/")},
                  {"name": f"ADR {a['number']}", "href": a["url"]}]
         breadcrumb_ld = json.dumps({
-            "@context": "https://schema.org", "@type": "BreadcrumbList",
+            "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
             "itemListElement": [
-                {"@type": "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
+                {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
                 for i, x in enumerate(crumb)
             ],
         }, ensure_ascii=False)
@@ -433,7 +439,7 @@ def main():
             meta={"title": f"ADR {a['number']}: {a['title']} — nr-llm",
                   "description": (a["summary"] or strip_html(a["body"])[:150] or a["title"])[:155]},
             show_nav=True, is_landing=False, nav_prefix=url("en/") + "#",
-            js_config={"indexUrl": url("search-index.json"), "lang": "en", "strings": js_strings("en")},
+            js_config={"indexUrl": url(SEARCH_INDEX), "lang": "en", "strings": js_strings("en")},
         )
         (OUT / "adr" / f"{a['slug']}.html").write_text(page, encoding="utf-8")
 
@@ -447,11 +453,11 @@ def main():
         ],
         en_url=url("en/"), de_url=url("de/"), meta=seo["metaEn"],
     )
-    (OUT / "index.html").write_text(root, encoding="utf-8")
+    (OUT / INDEX_HTML).write_text(root, encoding="utf-8")
 
     # Search index
     docs = build_search_docs(content, adrs)
-    (OUT / "search-index.json").write_text(
+    (OUT / SEARCH_INDEX).write_text(
         json.dumps({"documents": docs}, ensure_ascii=False), encoding="utf-8")
 
     # sitemap.xml

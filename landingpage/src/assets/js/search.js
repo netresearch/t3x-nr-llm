@@ -74,15 +74,18 @@
     if (!terms.length) { frag.appendChild(document.createTextNode(text)); return frag; }
     // terms are regex-escaped literals joined by alternation — no ReDoS surface
     var re = new RegExp('(' + terms.join('|') + ')', 'ig'); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-    var last = 0;
-    Array.from(text.matchAll(re)).forEach(function (m) {
-      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      var mark = document.createElement('mark');
-      mark.textContent = m[0];
-      frag.appendChild(mark);
-      last = m.index + m[0].length;
+    // String.split with a capturing group is ES3-safe (no matchAll/exec) and puts
+    // matched fragments at the odd indices of the result.
+    text.split(re).forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1) {
+        var mark = document.createElement('mark');
+        mark.textContent = part;
+        frag.appendChild(mark);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
     });
-    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
     return frag;
   }
 
