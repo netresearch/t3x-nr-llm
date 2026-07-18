@@ -40,6 +40,8 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Service\Guardrail\SecretRedactionInputGuardrail;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -676,6 +678,100 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertSame($expectedResponse, $result);
+    }
+
+    #[Test]
+    public function chatWithConfigurationRedactsSecretsFromTheOutgoingPromptViaInputGuardrails(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $received    = null;
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$received): CompletionResponse {
+                $received = $messages;
+
+                return new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2));
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        // A real SecretRedactionInputGuardrail: the prompt secret must be masked
+        // before the adapter is called (ADR-087).
+        $screener = new InputGuardrailScreener([new SecretRedactionInputGuardrail()]);
+        $manager  = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $screener,
+        );
+
+        $manager->chatWithConfiguration(
+            [['role' => 'user', 'content' => 'my key is sk-abcdef0123456789ABCDEF ok']],
+            $config,
+        );
+
+        self::assertIsArray($received);
+        $joined = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $received));
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function completeWithConfigurationRedactsSecretsFromTheRawPromptViaInputGuardrails(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $received    = null;
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('complete')->willReturnCallback(
+            function (string $prompt) use (&$received): CompletionResponse {
+                $received = $prompt;
+
+                return new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2));
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        // The raw-string completion path also screens input (ADR-087) — it does
+        // not funnel through chatWithConfiguration.
+        $screener = new InputGuardrailScreener([new SecretRedactionInputGuardrail()]);
+        $manager  = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $screener,
+        );
+
+        $manager->completeWithConfiguration('my key is sk-abcdef0123456789ABCDEF ok', $config);
+
+        self::assertIsString($received);
+        self::assertStringContainsString('sk-***', $received);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $received);
     }
 
     /**
