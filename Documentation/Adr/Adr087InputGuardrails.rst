@@ -78,9 +78,10 @@ Consequences
   input on the send path (here). The alternative — threading the payload onto
   ``ProviderCallContext`` — was rejected to keep the context payload-free
   (ADR-026); the trade is two locations instead of one.
-- Scope is the configuration-driven surface. The ad-hoc pinned-provider-key
-  path (``chat()`` / ``chatWithTools()`` / ``streamChat()`` with an explicit
-  provider and no DB configuration) is not input-screened; it is the ADR-034
-  escape hatch and out of scope here.
+- Screening covers both the configuration-driven surface and the ad-hoc
+  pinned-provider-key path. The ad-hoc branches of ``chat()`` / ``complete()`` /
+  ``chatWithTools()`` / ``streamChat()`` (an explicit provider, no DB
+  configuration — the ADR-034 escape hatch) screen the prompt as well, so every
+  message-carrying send path is covered.
 - Input guardrails support ALLOW / REDACT / DENY / REQUIRE_APPROVAL. RETRY is
   ignored on the input side.
