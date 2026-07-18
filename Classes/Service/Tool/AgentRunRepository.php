@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -26,6 +27,8 @@ use TYPO3\CMS\Core\SingletonInterface;
  */
 final readonly class AgentRunRepository implements AgentRunRepositoryInterface, SingletonInterface
 {
+    use SafeCastTrait;
+
     private const TABLE_RUN = 'tx_nrllm_agentrun';
 
     private const TABLE_EVENT = 'tx_nrllm_agentrun_event';
@@ -142,19 +145,35 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function purgeOlderThan(int $timestamp): int
     {
+        // Delete the runs' events by run id first, then the runs — deleting each
+        // table independently by crdate would orphan events of a run that began
+        // before the cutoff but recorded events after it.
+        $runConnection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $selectBuilder = $runConnection->createQueryBuilder();
+        $rows          = $selectBuilder
+            ->select('uid')
+            ->from(self::TABLE_RUN)
+            ->where($selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $uids = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+        if ($uids === []) {
+            return 0;
+        }
+
         $eventConnection = $this->connectionPool->getConnectionForTable(self::TABLE_EVENT);
         $eventBuilder    = $eventConnection->createQueryBuilder();
         $eventBuilder
             ->delete(self::TABLE_EVENT)
-            ->where($eventBuilder->expr()->lt('crdate', $eventBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
+            ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
 
-        $runConnection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
-        $runBuilder    = $runConnection->createQueryBuilder();
+        $deleteBuilder = $runConnection->createQueryBuilder();
 
-        return (int)$runBuilder
+        return (int)$deleteBuilder
             ->delete(self::TABLE_RUN)
-            ->where($runBuilder->expr()->lt('crdate', $runBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
+            ->where($deleteBuilder->expr()->lt('crdate', $deleteBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
             ->executeStatement();
     }
 
@@ -164,22 +183,22 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     private function hydrateRun(array $row): AgentRun
     {
         return new AgentRun(
-            uid: $this->intOf($row['uid'] ?? 0),
-            uuid: $this->stringOf($row['uuid'] ?? ''),
-            status: $this->stringOf($row['status'] ?? ''),
-            configurationUid: $this->intOf($row['configuration_uid'] ?? 0),
-            configurationIdentifier: $this->stringOf($row['configuration_identifier'] ?? ''),
-            beUser: $this->intOf($row['be_user'] ?? 0),
-            iterations: $this->intOf($row['iterations'] ?? 0),
-            truncated: $this->intOf($row['truncated'] ?? 0) === 1,
-            totalPromptTokens: $this->intOf($row['total_prompt_tokens'] ?? 0),
-            totalCompletionTokens: $this->intOf($row['total_completion_tokens'] ?? 0),
-            totalTokens: $this->intOf($row['total_tokens'] ?? 0),
-            estimatedCost: $this->floatOf($row['estimated_cost'] ?? 0),
-            errorClass: $this->stringOf($row['error_class'] ?? ''),
-            startedAt: $this->intOf($row['started_at'] ?? 0),
-            finishedAt: $this->intOf($row['finished_at'] ?? 0),
-            crdate: $this->intOf($row['crdate'] ?? 0),
+            uid: self::toInt($row['uid'] ?? 0),
+            uuid: self::toStr($row['uuid'] ?? ''),
+            status: self::toStr($row['status'] ?? ''),
+            configurationUid: self::toInt($row['configuration_uid'] ?? 0),
+            configurationIdentifier: self::toStr($row['configuration_identifier'] ?? ''),
+            beUser: self::toInt($row['be_user'] ?? 0),
+            iterations: self::toInt($row['iterations'] ?? 0),
+            truncated: self::toInt($row['truncated'] ?? 0) === 1,
+            totalPromptTokens: self::toInt($row['total_prompt_tokens'] ?? 0),
+            totalCompletionTokens: self::toInt($row['total_completion_tokens'] ?? 0),
+            totalTokens: self::toInt($row['total_tokens'] ?? 0),
+            estimatedCost: self::toFloat($row['estimated_cost'] ?? 0),
+            errorClass: self::toStr($row['error_class'] ?? ''),
+            startedAt: self::toInt($row['started_at'] ?? 0),
+            finishedAt: self::toInt($row['finished_at'] ?? 0),
+            crdate: self::toInt($row['crdate'] ?? 0),
         );
     }
 
@@ -199,29 +218,15 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         return new AgentRunEvent(
-            uid: $this->intOf($row['uid'] ?? 0),
-            run: $this->intOf($row['run'] ?? 0),
-            sequence: $this->intOf($row['sequence'] ?? 0),
-            kind: $this->stringOf($row['kind'] ?? ''),
-            round: $this->intOf($row['round'] ?? 0),
-            durationMs: $this->floatOf($row['duration_ms'] ?? 0),
+            uid: self::toInt($row['uid'] ?? 0),
+            run: self::toInt($row['run'] ?? 0),
+            sequence: self::toInt($row['sequence'] ?? 0),
+            kind: self::toStr($row['kind'] ?? ''),
+            round: self::toInt($row['round'] ?? 0),
+            durationMs: self::toFloat($row['duration_ms'] ?? 0),
             payload: $payload,
-            crdate: $this->intOf($row['crdate'] ?? 0),
+            crdate: self::toInt($row['crdate'] ?? 0),
         );
     }
 
-    private function intOf(mixed $value): int
-    {
-        return is_numeric($value) ? (int)$value : 0;
-    }
-
-    private function floatOf(mixed $value): float
-    {
-        return is_numeric($value) ? (float)$value : 0.0;
-    }
-
-    private function stringOf(mixed $value): string
-    {
-        return is_scalar($value) ? (string)$value : '';
-    }
 }
