@@ -107,7 +107,6 @@ STRINGS = {
         "adrIndexIntro": "Every significant design decision in nr-llm is recorded as an ADR — the "
                          "context, the decision, and its consequences. Browse the full set below.",
         "adrBackToOverview": "All ADRs",
-        "onThisPage": "On this page",
         "readAdrs": "Read the architecture decisions",
         "tocLabel": "Sections",
         "featuresNav": "Features",
@@ -163,7 +162,6 @@ STRINGS = {
                          "Kontext, Entscheidung und Konsequenzen. Die vollständige Sammlung findest "
                          "du unten. Die ADRs selbst sind auf Englisch verfasst.",
         "adrBackToOverview": "Alle ADRs",
-        "onThisPage": "Auf dieser Seite",
         "readAdrs": "Architektur-Entscheidungen lesen",
         "tocLabel": "Abschnitte",
         "featuresNav": "Features",
@@ -382,6 +380,14 @@ def main():
     adr_meta = load("adr")
     brand = load("brand")
     seo = load("seo")
+    # seo.json bakes the github.io origin+base into its absolute URLs (sitemap,
+    # robots Sitemap:, llms.txt links, JSON-LD url/@id). Retarget them to the active
+    # origin+base so a custom-domain build (NRLLM_ORIGIN / NRLLM_BASE) stays
+    # host-consistent. No-op for the default github.io deploy.
+    _default_site = "https://netresearch.github.io/t3x-nr-llm/"
+    _target_site = SITE_URL + BASE
+    if _target_site != _default_site:
+        seo = json.loads(json.dumps(seo).replace(_default_site, _target_site))
     features_en = load("features") if (DATA / "features.json").exists() else []
     features = {"en": features_en,
                 "de": load("features_de") if (DATA / "features_de.json").exists() else features_en}
@@ -423,6 +429,24 @@ def main():
             hasher.update(p.read_bytes())
     env.globals["ASSET_VER"] = hasher.hexdigest()[:10]
 
+    # Search index — built before templates so its content hash can cache-bust the
+    # fetch URL. The index is derived purely from content, so a content-only deploy
+    # changes it while CSS/JS (and thus ASSET_VER) stay the same; without its own
+    # version query a returning visitor could be served a stale index from cache.
+    docs = build_search_docs(content, adrs)
+    for lang in LANGS:
+        for f in features[lang]:
+            text = " ".join([f["tagline"], *f["why"]["paragraphs"], *f["technical"]["paragraphs"],
+                             *f["when"]["bullets"]])
+            # Feature text is already plain (not HTML); only collapse whitespace so that
+            # terms in angle brackets (<think>, provider-<identifier>.svg) stay searchable.
+            docs.append({"id": f"{lang}-feature-{f['slug']}", "title": f["title"],
+                         "section": STRINGS[lang]["featuresNav"],
+                         "text": re.sub(r"\s+", " ", text).strip()[:1000],
+                         "url": url(f"{lang}/features/{f['slug']}.html"), "kind": "feature", "lang": lang})
+    index_url = url(SEARCH_INDEX) + "?v=" + hashlib.sha256(
+        json.dumps(docs, ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
+
     jsonld_common = seo["jsonLdBlocks"]
 
     # Landing pages
@@ -442,7 +466,7 @@ def main():
             jsonld_blocks=blocks, adr_index_url=url("adr/"),
             show_nav=True, is_landing=True, nav_prefix="#",
             feature_slugs=[f["slug"] for f in features[lang]],
-            js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
+            js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
         )
         outdir = OUT / lang
         outdir.mkdir(parents=True, exist_ok=True)
@@ -458,7 +482,7 @@ def main():
               "description": "All architecture decision records for the nr-llm TYPO3 extension: "
                              "provider abstraction, configuration, services, tools, security and more."},
         show_nav=True, is_landing=False, nav_prefix=url("en/") + "#",
-        js_config={"indexUrl": url(SEARCH_INDEX), "lang": "en", "strings": js_strings("en")},
+        js_config={"indexUrl": index_url, "lang": "en", "strings": js_strings("en")},
     )
     (OUT / "adr").mkdir(parents=True, exist_ok=True)
     (OUT / "adr" / INDEX_HTML).write_text(idx, encoding="utf-8")
@@ -467,7 +491,7 @@ def main():
     for a in adrs:
         crumb = [{"name": "nr-llm", "href": url("en/")},
                  {"name": STRINGS["en"]["adrIndexTitle"], "href": url("adr/")},
-                 {"name": f"ADR {a['number']}", "href": a["url"]}]
+                 {"name": f"ADR {a['number']}: {a['title']}", "href": a["url"]}]
         breadcrumb_ld = json.dumps({
             "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
             "itemListElement": [
@@ -483,7 +507,7 @@ def main():
             meta={"title": f"ADR {a['number']}: {a['title']} — nr-llm",
                   "description": (a["summary"] or strip_html(a["body"])[:150] or a["title"])[:155]},
             show_nav=True, is_landing=False, nav_prefix=url("en/") + "#",
-            js_config={"indexUrl": url(SEARCH_INDEX), "lang": "en", "strings": js_strings("en")},
+            js_config={"indexUrl": index_url, "lang": "en", "strings": js_strings("en")},
         )
         (OUT / "adr" / f"{a['slug']}.html").write_text(page, encoding="utf-8")
 
@@ -506,7 +530,7 @@ def main():
             meta={"title": f"{STRINGS[lang]['featuresIndexTitle']} — nr-llm",
                   "description": STRINGS[lang]["featuresIndexMeta"]},
             show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
-            js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
+            js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
         ), encoding="utf-8")
 
         for f in feats:
@@ -521,10 +545,14 @@ def main():
                     for i, x in enumerate(crumb)
                 ],
             }, ensure_ascii=False)
+            org_ld = {SCHEMA_TYPE: "Organization", "name": "Netresearch DTT GmbH",
+                      "url": "https://www.netresearch.de/"}
             techarticle_ld = json.dumps({
                 "@context": "https://schema.org", SCHEMA_TYPE: "TechArticle",
                 "headline": f["title"], "description": f["meta"]["description"],
                 "inLanguage": lang, "url": SITE_URL + url(page_path),
+                "image": SITE_URL + url("assets/img/og-image.png"),
+                "author": org_ld, "publisher": org_ld,
                 "isPartOf": {SCHEMA_TYPE: "SoftwareSourceCode", "name": "nr-llm"},
             }, ensure_ascii=False)
             (featdir / f"{f['slug']}.html").write_text(env.get_template("feature_page.html.j2").render(
@@ -539,7 +567,7 @@ def main():
                                {"name": "TechArticle", "json": techarticle_ld}],
                 meta=f["meta"],
                 show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
-                js_config={"indexUrl": url(SEARCH_INDEX), "lang": lang, "strings": js_strings(lang)},
+                js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
             ), encoding="utf-8")
 
     # Root chooser (x-default)
@@ -550,22 +578,15 @@ def main():
             {"lang": "de", "href": SITE_URL + url("de/")},
             {"lang": "x-default", "href": SITE_URL + BASE},
         ],
-        en_url=url("en/"), de_url=url("de/"), meta=seo["metaEn"],
+        en_url=url("en/"), de_url=url("de/"),
+        # Distinct from the /en/ landing description so the shareable root URL
+        # (the x-default) doesn't duplicate the English page's meta description.
+        meta={"description": "Choose your language — nr-llm is shared AI/LLM infrastructure for TYPO3. "
+                             "Wählen Sie Ihre Sprache — nr-llm ist die gemeinsame KI-Basis für TYPO3."},
     )
     (OUT / INDEX_HTML).write_text(root, encoding="utf-8")
 
-    # Search index
-    docs = build_search_docs(content, adrs)
-    for lang in LANGS:
-        for f in features[lang]:
-            text = " ".join([f["tagline"], *f["why"]["paragraphs"], *f["technical"]["paragraphs"],
-                             *f["when"]["bullets"]])
-            # Feature text is already plain (not HTML); only collapse whitespace so that
-            # terms in angle brackets (<think>, provider-<identifier>.svg) stay searchable.
-            docs.append({"id": f"{lang}-feature-{f['slug']}", "title": f["title"],
-                         "section": STRINGS[lang]["featuresNav"],
-                         "text": re.sub(r"\s+", " ", text).strip()[:1000],
-                         "url": url(f"{lang}/features/{f['slug']}.html"), "kind": "feature", "lang": lang})
+    # Search index (docs assembled above, before the templates, for cache-busting)
     (OUT / SEARCH_INDEX).write_text(
         json.dumps({"documents": docs}, ensure_ascii=False), encoding="utf-8")
 

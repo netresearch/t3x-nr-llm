@@ -8,7 +8,7 @@
     <div class="grid grid--3">
       {% for f in features %}
       <article class="card">
-        <h3><a href="{{ url(lang + '/features/' + f.slug + '.html') }}">{{ f.title }}</a></h3>
+        <h2><a href="{{ url(lang + '/features/' + f.slug + '.html') }}">{{ f.title }}</a></h2>
         <p>{{ f.tagline }}</p>
         <p><a href="{{ url(lang + '/features/' + f.slug + '.html') }}">{{ s.featuresReadMore }} →</a></p>
       </article>
