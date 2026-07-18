@@ -631,6 +631,30 @@
       "summary": "Adds ProviderAuthenticationException (401) and ProviderRateLimitException (429) as final subclasses of a de-finalized ProviderResponseException, chosen by a shared AbstractProvider factory so buffered and streaming 4xx branches never drift, preserving backward compatibility via inheritance.",
       "file": "Adr080TypedProviderHttpExceptions.rst",
       "group": "Provider & Resilience"
+    },
+    {
+      "number": 81,
+      "title": "Agent run persistence and a durable event stream",
+      "status": "Accepted",
+      "summary": "Persists each tool-loop agent run and its steps in two UI-less log tables, so a run can be resumed after a restart, queued, paused for approval, audited or replayed — instead of living only for a single HTTP request.",
+      "file": "Adr081AgentRunPersistence.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 82,
+      "title": "Schema-validated structured outputs with one repair round-trip",
+      "status": "Accepted",
+      "summary": "completeJson() now validates results against a business JSON-Schema and runs one repair round-trip on a malformed response (reusing the evaluation subsystem's structural matcher), so AI output is reliable to program against.",
+      "file": "Adr082StructuredOutputs.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 83,
+      "title": "Conversation sessions and memory",
+      "status": "Accepted",
+      "summary": "Adds an explicit, persisted session model — two UI-less log tables read via a raw-SQL repository — so multi-turn conversations keep their history server-side instead of each consumer re-assembling and re-sending it.",
+      "file": "Adr083ConversationSessions.rst",
+      "group": "Core Services & Architecture"
     }
   ],
   "directives": [
@@ -679,7 +703,10 @@
         58,
         59,
         65,
-        76
+        76,
+        81,
+        82,
+        83
       ]
     },
     {
