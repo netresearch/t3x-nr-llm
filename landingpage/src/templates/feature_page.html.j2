@@ -14,9 +14,9 @@
 </section>
 
 <section class="section section--alt" aria-labelledby="why-h">
-  <div class="container section__intro">
+  <div class="container">
     <h2 id="why-h">{{ f.why.heading }}</h2>
-    {% for p in f.why.paragraphs %}<p>{{ p }}</p>{% endfor %}
+    {% for p in f.why.paragraphs %}<p class="section__intro">{{ p }}</p>{% endfor %}
   </div>
 </section>
 

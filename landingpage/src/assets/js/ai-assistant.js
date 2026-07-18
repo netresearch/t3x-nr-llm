@@ -29,6 +29,45 @@
 
   function setEl(el, text) { if (el) el.textContent = text; }
 
+  /* ---- Minimal, safe Markdown -> HTML (the model answers in Markdown) ---- */
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function inlineMd(escaped) {
+    // Input is already HTML-escaped; only our own known tags are introduced.
+    return escaped
+      .replace(/`([^`]+)`/g, function (_, c) { return '<code>' + c + '</code>'; })
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, t, u) {
+        u = u.trim();
+        if (!/^(https?:|mailto:|#|\/)/i.test(u)) return t; // drop unsafe schemes
+        return '<a href="' + u + '" rel="noopener nofollow">' + t + '</a>';
+      })
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+  }
+  function renderMarkdown(md) {
+    var out = '', list = null, para = [];
+    function flushPara() { if (para.length) { out += '<p>' + inlineMd(para.join(' ')) + '</p>'; para = []; } }
+    function closeList() { if (list) { out += '</' + list + '>'; list = null; } }
+    md.replace(/\r\n?/g, '\n').split('\n').forEach(function (line) {
+      var ul = line.match(/^\s*[-*]\s+(.*)$/);
+      var ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+      if (ul) { flushPara(); if (list !== 'ul') { closeList(); out += '<ul>'; list = 'ul'; } out += '<li>' + inlineMd(escapeHtml(ul[1])) + '</li>'; }
+      else if (ol) { flushPara(); if (list !== 'ol') { closeList(); out += '<ol>'; list = 'ol'; } out += '<li>' + inlineMd(escapeHtml(ol[1])) + '</li>'; }
+      else if (line.trim() === '') { flushPara(); closeList(); }
+      else { closeList(); para.push(escapeHtml(line.trim())); }
+    });
+    flushPara(); closeList();
+    return out;
+  }
+  function setHtml(el, htmlStr) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+    var doc = new DOMParser().parseFromString('<body>' + htmlStr + '</body>', 'text/html');
+    Array.prototype.slice.call(doc.body.childNodes).forEach(function (n) {
+      el.appendChild(document.importNode(n, true));
+    });
+  }
+
   function buildSystemPrompt() {
     return [
       'You are a concise assistant for "nr-llm", a TYPO3 extension that provides a shared',
@@ -151,7 +190,7 @@
             } else {
               acc += chunk;
             }
-            output.textContent = acc;
+            setHtml(output, renderMarkdown(acc));
           }
         })();
       }).then(function () {
