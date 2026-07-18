@@ -655,6 +655,46 @@
       "summary": "Adds an explicit, persisted session model — two UI-less log tables read via a raw-SQL repository — so multi-turn conversations keep their history server-side instead of each consumer re-assembling and re-sending it.",
       "file": "Adr083ConversationSessions.rst",
       "group": "Core Services & Architecture"
+    },
+    {
+      "number": 84,
+      "title": "Human-in-the-loop tool approval",
+      "status": "Accepted",
+      "summary": "Adds a human approval gate for side-effecting tools: a tool opts in via the empty RequiresApprovalInterface marker, and the agent loop suspends on such a call by throwing a control-flow signal that carries the serialised run state, persists it (status WAITING_FOR_APPROVAL), and resumes on approval or denial — the 41 read-only tools stay unchanged.",
+      "file": "Adr084HumanInTheLoopApproval.rst",
+      "group": "Guardrails & Safety"
+    },
+    {
+      "number": 85,
+      "title": "Guardrail pipeline for provider responses",
+      "status": "Accepted",
+      "summary": "Introduces a content-policy layer over provider responses: a GuardrailInterface returns an ALLOW/REDACT/RETRY/REQUIRE_APPROVAL/DENY verdict, auto-collected via the nr_llm.guardrail DI tag and run by GuardrailMiddleware at priority 115 (outermost). Ships secret-redaction and provider content-filter guardrails.",
+      "file": "Adr085GuardrailPipeline.rst",
+      "group": "Guardrails & Safety"
+    },
+    {
+      "number": 86,
+      "title": "Guardrail enforcement gaps",
+      "status": "Accepted",
+      "summary": "Closes two gaps in the guardrail pipeline: the tool playground settles guardrail verdicts as policy outcomes (HTTP 200 guardrail_blocked / guardrail_approval_required) instead of a 500, and the streaming dispatcher screens the assembled completion at end-of-stream as a bounded, fail-soft audit (streamed chunks cannot be retracted).",
+      "file": "Adr086GuardrailEnforcementGaps.rst",
+      "group": "Guardrails & Safety"
+    },
+    {
+      "number": 87,
+      "title": "Input-side guardrails",
+      "status": "Accepted",
+      "summary": "Extends guardrails to the outgoing prompt: an InputGuardrailInterface (tag nr_llm.input_guardrail) runs on the send path in LlmServiceManager, where a REDACT verdict rewrites the messages in place and DENY / REQUIRE_APPROVAL throw the same exceptions as the output side. Ships a secret-redaction input guardrail.",
+      "file": "Adr087InputGuardrails.rst",
+      "group": "Guardrails & Safety"
+    },
+    {
+      "number": 88,
+      "title": "Live streaming redaction",
+      "status": "Accepted",
+      "summary": "Adds live REDACT for streamed output: each chunk re-redacts the whole raw buffer and emits only the stable prefix beyond a 128-byte holdback, so a secret — even one split across chunk boundaries — collapses to its marker before it is yielded. Opt-in via StreamRedactableInterface, bounded and multibyte-safe; DENY remains the end-of-stream audit's job.",
+      "file": "Adr088StreamingRedaction.rst",
+      "group": "Guardrails & Safety"
     }
   ],
   "directives": [
@@ -757,6 +797,16 @@
         57,
         64,
         78
+      ]
+    },
+    {
+      "name": "Guardrails & Safety",
+      "numbers": [
+        84,
+        85,
+        86,
+        87,
+        88
       ]
     },
     {
