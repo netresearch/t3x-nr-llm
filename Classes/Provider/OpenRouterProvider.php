@@ -22,8 +22,10 @@ use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Psr\Http\Message\RequestInterface;
 use Throwable;
@@ -926,19 +928,27 @@ final class OpenRouterProvider extends AbstractProvider implements
         $message = $this->sanitizeErrorMessage($rawMessage);
 
         match ($statusCode) {
-            401 => throw new ProviderConfigurationException(
-                'Invalid OpenRouter API key',
-                $statusCode,
+            // 401/429 use the typed HTTP subclasses (ADR-080) for consistency
+            // with AbstractProvider; 402 (billing) and 503 (unavailable) keep
+            // their config/connection classes.
+            401 => throw new ProviderAuthenticationException(
+                message: 'Invalid OpenRouter API key',
+                httpStatus: $statusCode,
+                responseBody: $responseBody,
+                endpoint: $endpoint,
             ),
             402 => throw new ProviderConfigurationException(
                 'Insufficient OpenRouter credits',
                 $statusCode,
             ),
-            429, 503 => throw new ProviderConnectionException(
-                match ($statusCode) {
-                    429 => 'Rate limit exceeded',
-                    503 => 'Model or provider unavailable',
-                },
+            429 => throw new ProviderRateLimitException(
+                message: 'Rate limit exceeded',
+                httpStatus: $statusCode,
+                responseBody: $responseBody,
+                endpoint: $endpoint,
+            ),
+            503 => throw new ProviderConnectionException(
+                'Model or provider unavailable',
                 $statusCode,
             ),
             default => throw new ProviderResponseException(

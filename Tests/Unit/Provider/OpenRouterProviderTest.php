@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -817,6 +819,38 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $this->expectExceptionMessageMatches("/{$expectedMessage}/");
 
         $this->subject->chatCompletion($messages);
+    }
+
+    #[Test]
+    public function openRouterMaps401ToProviderAuthenticationException(): void
+    {
+        // ADR-080: realigned from ProviderConfigurationException.
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'bad key']], 401));
+
+        try {
+            $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
+            self::fail('Expected ProviderAuthenticationException was not thrown');
+        } catch (ProviderAuthenticationException $e) {
+            self::assertSame(401, $e->getCode());
+        }
+    }
+
+    #[Test]
+    public function openRouterMaps429ToProviderRateLimitException(): void
+    {
+        // ADR-080: realigned from ProviderConnectionException; getCode() stays 429.
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'slow down']], 429));
+
+        try {
+            $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
+            self::fail('Expected ProviderRateLimitException was not thrown');
+        } catch (ProviderRateLimitException $e) {
+            self::assertSame(429, $e->getCode());
+        }
     }
 
     /**
