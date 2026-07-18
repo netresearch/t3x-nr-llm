@@ -288,7 +288,12 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                 // arrives as an object, which ToolCall normalises straight
                 // through.
                 $callData['id'] = 'call_' . $index;
-                $toolCalls[]    = ToolCall::fromArray($callData);
+                // Untrusted provider output: skip a malformed call (missing name)
+                // instead of crashing the whole completion.
+                $call = ToolCall::tryFromArray($callData);
+                if ($call !== null) {
+                    $toolCalls[] = $call;
+                }
                 ++$index;
             }
         }
@@ -531,6 +536,8 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                     return;
                 }
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider;
 
+use JsonException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
 /**
  * Trait for type-safe API response parsing.
@@ -19,6 +21,38 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  */
 trait ResponseParserTrait
 {
+    /**
+     * Upper bound for a single unterminated line while consuming a streamed
+     * response body. Streaming loops accumulate raw bytes into a line buffer
+     * and flush on each newline; a broken or hostile upstream that never emits
+     * a newline would otherwise grow the buffer to the full response size in
+     * memory. 1 MiB is far above any legitimate single SSE/NDJSON line while
+     * still bounding memory.
+     */
+    protected const MAX_STREAM_LINE_BYTES = 1_048_576;
+
+    /**
+     * Guard a streaming line buffer against unbounded growth.
+     *
+     * Call after draining all complete (newline-terminated) lines from the
+     * buffer: if the residual — a single line still awaiting its newline —
+     * exceeds {@see self::MAX_STREAM_LINE_BYTES}, the upstream is not framing
+     * its response and continuing would accumulate the whole body in memory.
+     * Surface it as a typed, retryable provider error rather than exhausting
+     * memory.
+     */
+    protected function guardStreamLineBuffer(string $buffer): void
+    {
+        if (strlen($buffer) > self::MAX_STREAM_LINE_BYTES) {
+            throw new ProviderConnectionException(
+                sprintf(
+                    'Streamed response exceeded the %d-byte single-line limit without a line terminator',
+                    self::MAX_STREAM_LINE_BYTES,
+                ),
+                1784600600,
+            );
+        }
+    }
     /**
      * Get a string value from array, with optional default.
      *
@@ -324,8 +358,8 @@ trait ResponseParserTrait
     /**
      * Safely decode JSON and return as array.
      *
-     *
-     * @throws InvalidArgumentException If JSON is invalid
+     * @throws JsonException            If $json is not valid JSON (JSON_THROW_ON_ERROR)
+     * @throws InvalidArgumentException If the decoded JSON is not an object
      *
      * @return array<string, mixed>
      */

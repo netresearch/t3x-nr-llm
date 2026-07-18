@@ -444,6 +444,52 @@ class GeminiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionWithToolsSkipsFunctionCallWithEmptyName(): void
+    {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $messages = [['role' => 'user', 'content' => 'What is the weather in London?']];
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'parameters' => ['type' => 'object', 'properties' => []],
+                ],
+            ]),
+        ];
+
+        // A functionCall part with no usable name must be skipped rather than
+        // build an invalid ToolCall (empty name) and abort the response.
+        $apiResponse = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            ['functionCall' => ['name' => '', 'args' => ['location' => 'London']]],
+                            ['functionCall' => ['name' => 'get_weather', 'args' => ['location' => 'London']]],
+                        ],
+                        'role' => 'model',
+                    ],
+                    'finishReason' => 'STOP',
+                ],
+            ],
+            'usageMetadata' => ['promptTokenCount' => 15, 'candidatesTokenCount' => 10],
+        ];
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('get_weather', $result->toolCalls[0]->name);
+    }
+
+    #[Test]
     public function embeddingsReturnsValidResponse(): void
     {
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();

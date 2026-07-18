@@ -224,6 +224,22 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionMapsNonJsonSuccessBodyToConnectionException(): void
+    {
+        // A 2xx whose body is not JSON (an upstream HTML error page, a
+        // truncated response) must surface as a typed provider error rather
+        // than a raw uncaught JsonException bubbling up as a 500.
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createHttpResponseMock(200, '<html><body>502 Bad Gateway</body></html>'));
+
+        $this->expectException(ProviderConnectionException::class);
+        $this->expectExceptionCode(1784600500);
+
+        $this->subject->chatCompletion([['role' => 'user', 'content' => 'hi']]);
+    }
+
+    #[Test]
     public function chatCompletionSendsCustomHeaders(): void
     {
         $capturedRequest = null;
@@ -584,6 +600,49 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $toolCall = $result->toolCalls[0];
         self::assertEquals('get_weather', $toolCall->name);
         self::assertEquals(['location' => 'San Francisco'], $toolCall->arguments);
+    }
+
+    #[Test]
+    public function chatCompletionWithToolsSkipsMalformedToolCall(): void
+    {
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
+            ]),
+        ];
+
+        // A tool call with an empty function name must be skipped, not crash the
+        // whole completion (ToolCall::tryFromArray returns null for it).
+        $apiResponse = [
+            'id'    => 'gen-test',
+            'model' => 'anthropic/claude-3.5-sonnet',
+            'choices' => [
+                [
+                    'message' => [
+                        'role'       => 'assistant',
+                        'content'    => '',
+                        'tool_calls' => [
+                            ['id' => 'call_bad', 'type' => 'function', 'function' => ['name' => '', 'arguments' => '{}']],
+                            ['id' => 'call_ok', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"location":"San Francisco"}']],
+                        ],
+                    ],
+                    'finish_reason' => 'tool_calls',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 50, 'completion_tokens' => 20, 'total_tokens' => 70],
+            'provider' => 'anthropic',
+        ];
+
+        $this->httpClientMock
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools([['role' => 'user', 'content' => 'weather?']], $tools);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('get_weather', $result->toolCalls[0]->name);
     }
 
     #[Test]

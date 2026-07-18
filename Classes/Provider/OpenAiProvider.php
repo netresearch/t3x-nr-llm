@@ -211,7 +211,12 @@ final class OpenAiProvider extends AbstractProvider implements
         if ($rawToolCalls !== []) {
             $toolCalls = [];
             foreach ($rawToolCalls as $tc) {
-                $toolCalls[] = ToolCall::fromArray($this->asArray($tc));
+                // Untrusted provider output: skip a malformed tool call (missing
+                // id/name) instead of crashing the whole completion.
+                $call = ToolCall::tryFromArray($this->asArray($tc));
+                if ($call !== null) {
+                    $toolCalls[] = $call;
+                }
             }
         }
 
@@ -411,6 +416,8 @@ final class OpenAiProvider extends AbstractProvider implements
                     }
                 }
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 

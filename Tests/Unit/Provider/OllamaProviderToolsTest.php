@@ -92,6 +92,33 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function skipsMalformedToolCallWithEmptyName(): void
+    {
+        // A tool_call carrying no name would make ToolCall construction throw
+        // even after id synthesis; the malformed entry must be skipped so the
+        // valid one still reaches the caller.
+        $subject = $this->buildSubject([
+            'model'   => 'llama3.2',
+            'message' => [
+                'role'       => 'assistant',
+                'content'    => '',
+                'tool_calls' => [
+                    ['function' => ['name' => '', 'arguments' => ['limit' => 5]]],
+                    ['function' => ['name' => 'fetch_logs', 'arguments' => ['limit' => 5]]],
+                ],
+            ],
+            'done'        => true,
+            'done_reason' => 'stop',
+        ]);
+
+        $result = $subject->chatCompletionWithTools([['role' => 'user', 'content' => 'logs']], []);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('fetch_logs', $result->toolCalls[0]->name);
+    }
+
+    #[Test]
     public function translatesReplayedAssistantAndToolTurnsToNativeShape(): void
     {
         $subject = $this->buildSubject($this->plainAssistantResponse('ok'));

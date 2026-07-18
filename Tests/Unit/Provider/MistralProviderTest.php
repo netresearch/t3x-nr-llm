@@ -282,6 +282,53 @@ class MistralProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionWithToolsSkipsMalformedToolCall(): void
+    {
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();
+
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => ['name' => 'get_weather', 'parameters' => ['type' => 'object', 'properties' => []]],
+            ]),
+        ];
+
+        // A tool call with an empty function name must be skipped, not crash the
+        // whole completion (ToolCall::tryFromArray returns null for it).
+        $apiResponse = [
+            'id'     => 'cmpl-test',
+            'object' => 'chat.completion',
+            'model'  => 'mistral-large-latest',
+            'choices' => [
+                [
+                    'index' => 0,
+                    'message' => [
+                        'role'       => 'assistant',
+                        'content'    => '',
+                        'tool_calls' => [
+                            ['id' => 'call_bad', 'type' => 'function', 'function' => ['name' => '', 'arguments' => '{}']],
+                            ['id' => 'call_ok', 'type' => 'function', 'function' => ['name' => 'get_weather', 'arguments' => '{"location": "Paris"}']],
+                        ],
+                    ],
+                    'finish_reason' => 'tool_calls',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 15, 'completion_tokens' => 10, 'total_tokens' => 25],
+        ];
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $subject->chatCompletionWithTools([['role' => 'user', 'content' => 'weather?']], $tools);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('get_weather', $result->toolCalls[0]->name);
+    }
+
+    #[Test]
     public function embeddingsReturnsValidResponse(): void
     {
         ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createSubjectWithMockHttpClient();

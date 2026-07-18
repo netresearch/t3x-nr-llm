@@ -536,6 +536,8 @@ final class ClaudeProvider extends AbstractProvider implements
 
                 yield $event['text'];
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 

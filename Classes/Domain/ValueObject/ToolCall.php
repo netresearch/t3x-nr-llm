@@ -115,6 +115,24 @@ final readonly class ToolCall implements JsonSerializable
     }
 
     /**
+     * Tolerant variant of {@see self::fromArray()} for UNTRUSTED provider output:
+     * returns null instead of throwing when the raw entry cannot form a valid
+     * call (missing / empty id or name), so a nonconforming provider degrades —
+     * the bad call is skipped — instead of crashing the whole completion with an
+     * uncaught exception (a 500 the frontend cannot parse).
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function tryFromArray(array $data): ?self
+    {
+        try {
+            return self::fromArray($data);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
      * Convenience factory mirroring `ToolSpec::function()`.
      *
      * @param array<string, mixed> $arguments
