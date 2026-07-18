@@ -23,12 +23,14 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
+use Netresearch\NrLlm\Service\Guardrail\StreamRedactableInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
+use Traversable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
@@ -102,6 +104,29 @@ final readonly class StreamingDispatcher
     private const MAX_GUARDRAIL_BUFFER_BYTES = 50000;
 
     /**
+     * Trailing bytes of the redacted output held back from the live stream, so a
+     * match still in progress near the end is never emitted before it completes
+     * (ADR-088). Redaction is recomputed on the raw buffer each chunk, so a
+     * complete secret always collapses to its marker; the only unstable region is
+     * a partial anchor / sub-minimum match at the very tail, whose reach-back is
+     * an anchor plus the pattern minimum (``sk-`` + 15, ``Bearer `` + 7, a
+     * credential URL-param name + 1) — well under this window. A credential whose
+     * anchor/param-name alone exceeds 128 bytes and straddles the final boundary
+     * can still partially leak: a documented limit of a lazy stream.
+     */
+    private const HOLDBACK_BYTES = 128;
+
+    /** @var list<GuardrailInterface> */
+    private array $guardrails;
+
+    /**
+     * The subset of guardrails that opt into live-stream redaction (ADR-088).
+     *
+     * @var list<GuardrailInterface&StreamRedactableInterface>
+     */
+    private array $streamRedactors;
+
+    /**
      * @param iterable<GuardrailInterface> $guardrails
      */
     public function __construct(
@@ -113,8 +138,17 @@ final readonly class StreamingDispatcher
         private Context $context,
         private ExtensionConfiguration $extensionConfiguration,
         #[AutowireIterator(GuardrailInterface::TAG_NAME)]
-        private iterable $guardrails = [],
-    ) {}
+        iterable $guardrails = [],
+    ) {
+        // Materialise once: the full set is walked for the end-of-stream audit;
+        // only the redaction-capable subset drives the live holdback path, so a
+        // policy-only (DENY) guardrail adds no streaming buffer or latency.
+        $this->guardrails      = array_values($guardrails instanceof Traversable ? iterator_to_array($guardrails) : $guardrails);
+        $this->streamRedactors = array_values(array_filter(
+            $this->guardrails,
+            static fn(GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
+        ));
+    }
 
     /**
      * Enter the streaming lifecycle.
@@ -156,6 +190,10 @@ final readonly class StreamingDispatcher
         $firstTokenNs    = null;
         $completionBytes = 0;
         $completion      = '';
+        $raw             = '';
+        $emitted         = 0;
+        $redacts         = $this->streamRedactors !== [];
+        $overflow        = false;
         $served          = $configuration;
         $success         = false;
         $errorClass      = '';
@@ -168,16 +206,64 @@ final readonly class StreamingDispatcher
                     $firstTokenNs = hrtime(true);
                 }
                 $chunk = $inner->current();
-                // Count bytes as they pass; token estimation and logging only need
-                // the length. A bounded leading window is also buffered for the
-                // end-of-stream guardrail audit (ADR-086) — never the whole
-                // response, which would defeat streaming's memory benefit.
+                // Usage/telemetry count the RAW provider output. A bounded leading
+                // window is buffered raw for the end-of-stream audit (ADR-086).
                 $completionBytes += \strlen($chunk);
                 if (\strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
                     $completion .= $chunk;
                 }
-                yield $chunk;
+
+                if (!$redacts || $overflow) {
+                    // No redaction-capable guardrail, or the redaction buffer has
+                    // hit its cap: pass through with no holdback / no added latency.
+                    yield $chunk;
+                    $inner->next();
+                    continue;
+                }
+
+                // Live redaction (ADR-088). Redact the RAW accumulated text FRESH
+                // each chunk — never re-processing an earlier redaction marker,
+                // which would orphan the tail of a secret whose recognizable head
+                // was already masked (``sk-***`` + continuation no longer matches).
+                // Emit only the redacted prefix that is stable: everything but a
+                // holdback tail large enough to cover any match still in progress
+                // near the end, so a secret is only ever emitted once masked in
+                // full — including one split across chunk boundaries.
+                $raw .= $chunk;
+
+                if (\strlen($raw) > self::MAX_GUARDRAIL_BUFFER_BYTES) {
+                    // Bound memory + the per-chunk rescan on a pathologically long
+                    // stream: flush what we have and pass the rest through raw.
+                    // Past this cap content is neither masked NOR recorded — the
+                    // audit buffer ($completion) caps at the same size — so a
+                    // secret beyond ~50 KB into a single completion can leak; a
+                    // documented limit for a runaway stream.
+                    $full = $this->redactStream($raw);
+                    if (\strlen($full) > $emitted) {
+                        yield \substr($full, $emitted);
+                    }
+                    $raw      = '';
+                    $overflow = true;
+                    $inner->next();
+                    continue;
+                }
+
+                $full   = $this->redactStream($raw);
+                $stable = $this->utf8SafeLength($full, \strlen($full) - self::HOLDBACK_BYTES);
+                if ($stable > $emitted) {
+                    yield \substr($full, $emitted, $stable - $emitted);
+                    $emitted = $stable;
+                }
                 $inner->next();
+            }
+
+            // Flush the redacted remainder once the stream is complete (unless the
+            // overflow path already drained and switched to passthrough).
+            if ($redacts && !$overflow) {
+                $full = $this->redactStream($raw);
+                if (\strlen($full) > $emitted) {
+                    yield \substr($full, $emitted);
+                }
             }
 
             $success = true;
@@ -421,7 +507,10 @@ final readonly class StreamingDispatcher
                 }
 
                 $this->logger->warning(
-                    'Streamed LLM response tripped a guardrail after delivery (audit only — chunks were already sent)',
+                    // REDACT was already applied to the live stream (ADR-088); this
+                    // records that a policy matched, and is the only signal for a
+                    // DENY / REQUIRE_APPROVAL, which cannot retract a sent stream.
+                    'Streamed LLM response matched a guardrail (REDACT masked live where possible; a stream cannot be retracted)',
                     $this->logContext($context, [
                         'guardrail' => $guardrail::class,
                         'verdict'   => $verdict->verdict->value,
@@ -439,6 +528,59 @@ final readonly class StreamingDispatcher
                 // Never let guardrail auditing break a delivered stream.
             }
         }
+    }
+
+    /**
+     * Apply the output guardrails' REDACT verdicts to a text fragment (ADR-088).
+     *
+     * Always called on the RAW accumulated completion (never on already-redacted
+     * output), so a secret is re-matched in full on every chunk regardless of how
+     * it was split — this is what lets {@see self::drain()} mask a boundary-split
+     * secret without an earlier marker orphaning its tail. Only REDACT is applied;
+     * DENY / REQUIRE_APPROVAL cannot retract a sent stream and are left to the
+     * end-of-stream audit ({@see self::screenStreamedOutput()}). Fail-soft: a
+     * guardrail that throws leaves the fragment unchanged rather than breaking the
+     * stream.
+     */
+    private function redactStream(string $text): string
+    {
+        foreach ($this->streamRedactors as $guardrail) {
+            try {
+                $verdict = $guardrail->checkOutput(new CompletionResponse($text, '', UsageStatistics::fromTokens(0, 0)));
+            } catch (Throwable) {
+                continue;
+            }
+
+            if ($verdict->verdict === GuardrailVerdict::REDACT && $verdict->redactedContent !== null) {
+                $text = $verdict->redactedContent;
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * Back off a byte length so it never lands inside a multibyte UTF-8 sequence
+     * (ADR-088) — the redaction path re-chunks the stream, so without this a
+     * codepoint could be split across two yielded deltas and a per-delta SSE
+     * consumer would decode mojibake on that boundary. Continuation bytes are
+     * ``10xxxxxx`` (0x80–0xBF); walk back off any run of them. The held-back
+     * remainder carries the rest of the codepoint and is emitted next.
+     */
+    private function utf8SafeLength(string $text, int $length): int
+    {
+        if ($length <= 0) {
+            return 0;
+        }
+        if ($length >= \strlen($text)) {
+            return \strlen($text);
+        }
+
+        while ($length > 0 && (\ord($text[$length]) & 0xC0) === 0x80) {
+            --$length;
+        }
+
+        return $length;
     }
 
     private function recordUsage(

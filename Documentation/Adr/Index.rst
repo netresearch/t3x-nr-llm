@@ -385,3 +385,4 @@ Tools
    Adr085GuardrailPipeline
    Adr086GuardrailEnforcementGaps
    Adr087InputGuardrails
+   Adr088StreamingRedaction
