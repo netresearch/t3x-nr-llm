@@ -59,7 +59,7 @@
   --radius: 10px;
   --radius-sm: 6px;
   --maxw: 1200px;
-  --maxw-prose: 74ch;
+  --maxw-prose: 90ch;
   --gap: clamp(1.5rem, 3vw, 3rem);
   --section-y: clamp(3rem, 7vw, 6rem);
 }
