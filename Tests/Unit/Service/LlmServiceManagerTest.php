@@ -729,6 +729,51 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
     }
 
+    #[Test]
+    public function completeWithConfigurationRedactsSecretsFromTheRawPromptViaInputGuardrails(): void
+    {
+        $model = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $received    = null;
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('complete')->willReturnCallback(
+            function (string $prompt) use (&$received): CompletionResponse {
+                $received = $prompt;
+
+                return new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2));
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        // The raw-string completion path also screens input (ADR-087) — it does
+        // not funnel through chatWithConfiguration.
+        $screener = new InputGuardrailScreener([new SecretRedactionInputGuardrail()]);
+        $manager  = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $screener,
+        );
+
+        $manager->completeWithConfiguration('my key is sk-abcdef0123456789ABCDEF ok', $config);
+
+        self::assertIsString($received);
+        self::assertStringContainsString('sk-***', $received);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $received);
+    }
+
     /**
      * completeForConfiguration() takes chat()'s configuration route: it builds a
      * leading system message from the option's system prompt and a trailing user

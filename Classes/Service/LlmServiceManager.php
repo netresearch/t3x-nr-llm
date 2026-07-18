@@ -123,6 +123,25 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Screen a raw string prompt through the input guardrails (ADR-087) — the
+     * ``complete`` entry points take a bare string, not a message list, so they
+     * cannot use {@see self::screenInput()}. Wraps the prompt as a single user
+     * message, screens it (so a REDACT rewrites it and a DENY / REQUIRE_APPROVAL
+     * throws), and returns the redacted text. A no-op when no screener is wired.
+     */
+    private function screenInputPrompt(string $prompt): string
+    {
+        if ($this->inputScreener === null) {
+            return $prompt;
+        }
+
+        $screened = $this->inputScreener->screen([ChatMessage::user($prompt)]);
+        $message  = $screened[0] ?? null;
+
+        return $message instanceof ChatMessage ? $message->content : $prompt;
+    }
+
+    /**
      * Resolve the effective configuration for a configuration-driven completion.
      *
      * Delegates to {@see ConfigurationResolver}; retained on the manager
@@ -740,6 +759,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function completeWithConfiguration(string $prompt, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
     {
+        $prompt = $this->screenInputPrompt($prompt);
+
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Completion,

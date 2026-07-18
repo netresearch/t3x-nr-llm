@@ -52,9 +52,12 @@ provider) has no meaning before the call and is ignored.
 Screening is applied at the configuration-driven entry points —
 ``chatWithConfiguration``, ``chatWithToolsForConfiguration``,
 ``streamChatWithConfiguration`` — which is where ``chat()`` / ``streamChat()``
-funnel once a default configuration resolves (ADR-034). For streaming it runs
-before the opener captures the messages, so a redaction reaches the provider and
-a DENY throws at call time, not on first iteration. The screener handles both
+funnel once a default configuration resolves (ADR-034). The raw-string
+``completeWithConfiguration`` (where ``complete()`` funnels) takes a prompt
+string rather than a message list, so it screens through a string variant that
+wraps, screens, and unwraps the prompt. For streaming, screening runs before the
+opener captures the messages, so a redaction reaches the provider and a DENY
+throws at call time, not on first iteration. The screener handles both
 typed ``ChatMessage`` and legacy array messages; a message with no string
 content (an assistant tool-call turn) passes through untouched.
 
