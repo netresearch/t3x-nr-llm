@@ -1,0 +1,94 @@
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url(lang + '/') }}">nr-llm</a> ›
+      <a href="{{ url(lang + '/features/') }}">{{ s.featuresNav }}</a> ›
+      <span aria-current="page">{{ f.title }}</span>
+    </nav>
+    <p class="eyebrow">{{ s.featuresNav }}</p>
+    <h1 class="hero__headline" style="font-size:clamp(1.9rem,4.4vw,2.8rem)">{{ f.title }}</h1>
+    <p class="hero__sub">{{ f.tagline }}</p>
+  </div>
+</section>
+
+<section class="section section--alt" aria-labelledby="why-h">
+  <div class="container section__intro">
+    <h2 id="why-h">{{ f.why.heading }}</h2>
+    {% for p in f.why.paragraphs %}<p>{{ p }}</p>{% endfor %}
+  </div>
+</section>
+
+<section class="section" aria-labelledby="when-h">
+  <div class="container">
+    <h2 id="when-h">{{ f.when.heading }}</h2>
+    <ul class="bullets">{% for b in f.when.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  </div>
+</section>
+
+<section class="section section--alt" aria-labelledby="tech-h">
+  <div class="container">
+    <h2 id="tech-h">{{ f.technical.heading }}</h2>
+    {% for p in f.technical.paragraphs %}<p class="section__intro">{{ p }}</p>{% endfor %}
+    {% if f.technical.components %}
+    <div class="grid grid--2">
+      {% for comp in f.technical.components %}
+      <article class="card"><h3><code>{{ comp.name }}</code></h3><p>{{ comp.role }}</p></article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section" id="dev" aria-labelledby="dev-h">
+  <div class="container">
+    <h2 id="dev-h">{{ f.how.heading }}</h2>
+    {% if f.how.intro %}<p class="section__intro">{{ f.how.intro }}</p>{% endif %}
+    <div class="steps">
+      {% for step in f.how.steps %}
+      <div class="step">
+        <div class="step__num" aria-hidden="true"></div>
+        <div class="step__body">
+          <h3>{{ step.title }}</h3>
+          <p>{{ step.body }}</p>
+          {% if step.code %}
+          <div class="codeblock">
+            <span class="codeblock__label">{{ step.lang or 'php' }}</span>
+            <button class="copy-btn" type="button" data-copy="feat-code-{{ f.slug }}-{{ loop.index }}" aria-label="{{ s.copy }}" hidden>⧉</button>
+            <pre id="feat-code-{{ f.slug }}-{{ loop.index }}" tabindex="0"><code>{{ step.code }}</code></pre>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if f.gotchas %}
+<section class="section section--alt" aria-labelledby="gotchas-h">
+  <div class="container">
+    <h2 id="gotchas-h">{{ s.gotchasHeading }}</h2>
+    <div class="grid grid--2">
+      {% for g in f.gotchas %}<article class="card"><h3>{{ g.title }}</h3><p>{{ g.body }}</p></article>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section" aria-labelledby="more-h">
+  <div class="container">
+    <h2 id="more-h">{{ s.learnMoreHeading }}</h2>
+    <ul class="linklist">
+      {% for a in f.adrLinks %}
+      <li><a href="{{ a.href }}"><b>ADR&nbsp;{{ '%03d'|format(a.number) }}</b><span>{{ a.title }}</span></a></li>
+      {% endfor %}
+      {% for d in f.docsLinks %}
+      <li><a href="{{ d.href }}"><b>{{ d.label }}</b>{% if d.desc %}<span>{{ d.desc }}</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+    <p style="margin-top:2rem"><a class="btn btn--secondary" href="{{ url(lang + '/features/') }}">← {{ s.featuresBackToIndex }}</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <p class="eyebrow">nr-llm</p>
+    <h1>{{ s.featuresIndexTitle }}</h1>
+    <p class="section__intro">{{ s.featuresIndexIntro }}</p>
+    <div class="grid grid--3">
+      {% for f in features %}
+      <article class="card">
+        <h3><a href="{{ url(lang + '/features/' + f.slug + '.html') }}">{{ f.title }}</a></h3>
+        <p>{{ f.tagline }}</p>
+        <p><a href="{{ url(lang + '/features/' + f.slug + '.html') }}">{{ s.featuresReadMore }} →</a></p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

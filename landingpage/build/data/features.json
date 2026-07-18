@@ -1,0 +1,453 @@
+[
+  {
+    "slug": "streaming-and-tools",
+    "title": "Streaming & Tool/Function Calling",
+    "tagline": "Incremental SSE-style chat streaming and OpenAI-compatible tool calling behind one provider-agnostic interface, with budget, usage, and telemetry accounting on every path.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "Every TYPO3 extension that wanted streamed output or function calling had to implement it per provider — parsing each vendor's SSE frames and each vendor's tool-call payload shape. nr-llm exposes both as single methods (streamChat, chatWithTools) that resolve the configured provider and translate to and from the OpenAI-compatible tool format (ADR-010), so an extension writes the integration once and works across OpenAI, Anthropic, Gemini, Ollama, OpenRouter and the rest.",
+        "Streaming used to bypass the middleware pipeline entirely: a streamed chat ran no budget pre-flight, wrote no usage row, and produced no telemetry — a live budget hole where an over-budget user could stream freely and the tokens stayed invisible. ADR-062 closes that with a dedicated streaming lifecycle so streamed calls are accounted for like every other call."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "Use streamChat() when perceived latency matters — long completions render token-by-token instead of after a multi-second wait.",
+        "Use chatWithTools() when the model needs to fetch data, run an action, or produce structured output; the model decides when to call a tool and you execute it and feed the result back.",
+        "Do not stream when you need fallback resilience across providers: fallback only works up to the first chunk (once a chunk is delivered a provider swap is impossible), and streamed responses are never cached.",
+        "Check provider capabilities first — only providers implementing StreamingCapableInterface stream, and only those implementing ToolCapableInterface accept tools.",
+        "For admin-driven agent runs (the bounded tool loop with per-group toggles and a live trace), drive it through the Playground / ToolLoopService rather than a single chatWithTools() call."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "streamChat() returns a PHP Generator that yields string chunks as the provider produces them. Because a generator is lazy, it cannot be pushed through the response middleware pipeline (every middleware would fire against a not-yet-started stream). Instead a private StreamingDispatcher wraps the provider generator and runs a four-stage lifecycle: eager budget pre-flight before any generator is returned, provider selection with shallow fallback that primes each candidate up to its first yield, lazy re-yielding of each chunk while buffering the completion, and settlement (usage + telemetry) in a finally block so accounting lands on normal completion, mid-stream exception, and abandoned/early-break streams alike. Stream token counts are estimated (~4 chars/token) since the streaming adapters yield only text deltas.",
+        "Tool calling follows the OpenAI-compatible schema: you pass a list of tool definitions ({type: function, function: {name, description, parameters}}) to chatWithTools(). The response's toolCalls is a nullable list of ToolCall value objects whose arguments are already a JSON-decoded associative array. You echo the assistant turn back with ChatMessage::assistantToolCalls(), execute each requested tool, answer each by id with ChatMessage::toolResult(), and call chat() again so the model can incorporate the results. nr-llm ships 41 built-in read-only tools in 8 toggleable groups; a bounded agent loop (ToolLoopService::runLoop) drives multi-round tool execution and is gated by a fail-closed cascade — global per-tool state, per-tool group state, per-configuration allowed groups, and the per-run allow-list — where each layer can only narrow, never widen.",
+        "Reasoning-model output is separated from the answer: AbstractProvider::extractThinkingBlocks() pulls inline <think>…</think> blocks (DeepSeek, Qwen, local models) and Claude's native thinking content blocks into CompletionResponse::$thinking, so thinking is available via hasThinking() for debugging without polluting the main content."
+      ],
+      "components": [
+        {
+          "name": "LlmServiceManagerInterface",
+          "role": "Public entry point: streamChat() / streamChatWithConfiguration() return a Generator of string chunks; chatWithTools() / chatWithToolsForConfiguration() return a CompletionResponse."
+        },
+        {
+          "name": "StreamingCapableInterface",
+          "role": "Provider contract for streaming — streamChatCompletion(array $messages, array $options = []): Generator and supportsStreaming(): bool."
+        },
+        {
+          "name": "ToolCapableInterface",
+          "role": "Provider contract for tools — chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse and supportsTools(): bool."
+        },
+        {
+          "name": "StreamingDispatcher",
+          "role": "Private wrapping generator that owns the streaming lifecycle: eager budget pre-flight, pre-first-chunk fallback priming, lazy re-yield, and usage/telemetry settlement in finally (ADR-062)."
+        },
+        {
+          "name": "ToolCall",
+          "role": "Readonly value object for one tool call — id, name, and arguments as an already JSON-decoded associative array; carried in CompletionResponse::$toolCalls."
+        },
+        {
+          "name": "ToolLoopService",
+          "role": "Bounded agent loop (runLoop) that runs multiple tool rounds against a configuration, intersecting each per-run allow-list with the globally enabled tool set (ToolAvailabilityService)."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "Both features are single calls on the injected LlmServiceManagerInterface. Streaming yields strings; tool calling returns a CompletionResponse you inspect and answer.",
+      "steps": [
+        {
+          "title": "Stream a chat response",
+          "body": "streamChat() returns a Generator of string chunks. Echo and flush each chunk as it arrives; budget, usage and telemetry are settled automatically when the stream ends or is abandoned.",
+          "code": "$stream = $this->llmManager->streamChat($messages);\n\nforeach ($stream as $chunk) {\n    echo $chunk;\n    ob_flush();\n    flush();\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Define tools in the OpenAI-compatible format",
+          "body": "Each tool is a function entry with a JSON-Schema parameters object. The model decides when to call one based on the conversation.",
+          "code": "$tools = [\n    [\n        'type' => 'function',\n        'function' => [\n            'name' => 'get_weather',\n            'description' => 'Get current weather for a location',\n            'parameters' => [\n                'type' => 'object',\n                'properties' => [\n                    'location' => [\n                        'type' => 'string',\n                        'description' => 'City name',\n                    ],\n                    'unit' => [\n                        'type' => 'string',\n                        'enum' => ['celsius', 'fahrenheit'],\n                    ],\n                ],\n                'required' => ['location'],\n            ],\n        ],\n    ],\n];",
+          "lang": "php"
+        },
+        {
+          "title": "Execute tool calls and feed results back",
+          "body": "toolCalls is a list of ToolCall value objects; arguments is already a decoded array. Echo the assistant turn, answer each call by its id, then call chat() again for the final answer.",
+          "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$response = $this->llmManager->chatWithTools($messages, $tools);\n\nif ($response->hasToolCalls()) {\n    $messages[] = ChatMessage::assistantToolCalls($response->toolCalls, $response->content);\n\n    foreach ($response->toolCalls as $toolCall) {\n        $result = match ($toolCall->name) {\n            'get_weather' => $this->getWeather($toolCall->arguments['location']),\n            default => throw new \\RuntimeException(\"Unknown function: {$toolCall->name}\"),\n        };\n\n        $messages[] = ChatMessage::toolResult($toolCall->id, json_encode($result, JSON_THROW_ON_ERROR));\n    }\n\n    $response = $this->llmManager->chat($messages);\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Guard on provider capability",
+          "body": "Not every provider streams or accepts tools. Check the capability interface before using the feature to fail early rather than at the API call.",
+          "code": "$provider = $this->llmManager->getProvider('openai');\nif ($provider instanceof StreamingCapableInterface) {\n    // Provider supports streaming\n}",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Fallback stops at the first chunk",
+        "body": "The streaming dispatcher walks the configuration's fallback chain and primes candidates only up to their first yield. Once a chunk has been handed to the caller, a provider swap is impossible — so a mid-stream failure cannot be retried against another provider. This asymmetry with the non-streaming pipeline is intrinsic to streaming (ADR-062)."
+      },
+      {
+        "title": "Streamed token counts are estimated, not reported",
+        "body": "The streaming adapters yield only text deltas and emit no usage frame at stream end, so the dispatcher estimates tokens with a ~4 chars/token heuristic. An estimate is deliberately better than the previous silent zero for budget enforcement, but it is not the provider's exact figure. Streaming also never caches and always records cache_hit = false."
+      },
+      {
+        "title": "Tool availability is fail-closed and cascades",
+        "body": "A per-run allow-list can only narrow what is globally enabled. A globally disabled tool (ToolStateRepository) or a disabled tool group can never be re-enabled by a skill or playground selection — a per-tool override cannot re-enable a tool inside a disabled group (ADR-039, ADR-043). Third-party ToolInterface implementations must implement getGroup()."
+      },
+      {
+        "title": "No automatic tool execution",
+        "body": "chatWithTools() returns the model's requested calls; it never runs your functions. You must dispatch on $toolCall->name, execute, and return each result via ChatMessage::toolResult() before the model can produce a final answer. Treat every tool result and model output as untrusted content."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 10,
+        "title": "Tool/function calling design"
+      },
+      {
+        "number": 16,
+        "title": "Thinking/reasoning block extraction"
+      },
+      {
+        "number": 39,
+        "title": "Global per-tool availability state"
+      },
+      {
+        "number": 41,
+        "title": "Playground live run streaming"
+      },
+      {
+        "number": 43,
+        "title": "Tool groups with a fail-closed enable cascade"
+      },
+      {
+        "number": 62,
+        "title": "Streaming request lifecycle"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Streaming (Developer Guide)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/Streaming.rst"
+      },
+      {
+        "label": "Tool/function calling (Developer Guide)",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/ToolCalling.rst"
+      }
+    ],
+    "meta": {
+      "title": "Streaming & Tool Calling — nr-llm",
+      "description": "Provider-agnostic SSE streaming and OpenAI-compatible tool calling in TYPO3, with budget, usage and telemetry accounting on every path."
+    }
+  },
+  {
+    "slug": "rag-site-search",
+    "title": "RAG Site-Search Tools",
+    "tagline": "Two function-calling tools that ground the model in the site's own public content, reading whichever TYPO3 search index is installed with a database fallback.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "Agent runs should answer questions about the website's own content with cited evidence instead of model world-knowledge. The retrieval source usually already exists in a TYPO3 install: EXT:solr, ke_search, or the core's indexed_search. What was missing is a controlled retrieval layer that uses whichever index is present, degrades gracefully when none is, and hands the model a curated evidence package with resolvable source URLs rather than raw search hits (ADR-049).",
+        "A generic per-engine tool list (solr_search, ke_search_query, …) was rejected: the model would need to know what is installed, every engine would leak its own result shape into prompts, and the tool count would grow per engine. Instead nr_llm ships one retrieval core with many backends behind a single tool group. Grounding a model in the site's own content is treated as a cross-cutting primitive on the same footing as the content and introspection tools — nr_llm may read indexes others own and keep fresh, but it never owns a persistent index it has to keep synchronised (ADR-050). Vector/semantic RAG stays in the sibling extension nr_ai_search."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "An agent must answer questions about the site's own public content and cite where the answer came from, rather than rely on the model's training data.",
+        "You run any of EXT:solr, ke_search, or indexed_search — the tools read whichever is installed, in priority order, first-available-wins.",
+        "You run none of them: the always-available pages/tt_content database fallback still answers, labelled as such in the evidence header.",
+        "Evidence must be scoped to what an anonymous visitor could read — index-level filtering is always public-only (fail-closed without a backend user).",
+        "Use site_rag_query to get a curated evidence package, then site_fetch_source(source_id) to read a single source's full indexed text (capped).",
+        "For persistent vector store / chunking / reindex-on-change semantic retrieval, install nr_ai_search on top instead — that is deliberately out of scope here (ADR-050)."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "One retrieval core, many backends. A Service/Retrieval layer defines SearchBackendInterface (getIdentifier, getPriority, isAvailable, search, fetchSource), with four implementations collected via the nr_llm.retrieval_backend DI tag. RetrievalService asks the backends in priority order and uses the first available one — there is no cross-engine score merging, because Solr relevance, MySQL fulltext scores and LIKE hits are not comparable. A backend that throws is treated as unavailable and the cascade continues with a note; an empty result from an available backend is final by design. The answering backend is always named in the result so the model knows the evidence quality.",
+        "Two tools form one new group, rag: site_rag_query (question → evidence package of source_id · title · url plus a match excerpt per source) and site_fetch_source (source_id → the indexed full text, capped). These are 2 of the 41 built-in read-only tools across 8 toggleable groups. Tool arguments are model-chosen and untrusted, so length caps, source-id grammar validation and result caps apply.",
+        "Access is fail-closed and public-only: index-level filtering is always fe_group ''/0, gr_list 0,-1, and the Solr access filter {!typo3access}0,-1 — RAG evidence is exactly what the anonymous visitor could read. Because that content is public, no per-user page narrowing applies; the tools still require a backend user like every builtin."
+      ],
+      "components": [
+        {
+          "name": "SolrSearchBackend",
+          "role": "Talks to the EXT:solr server over the documented HTTP select API (site-config solr_*_read keys, per-language read cores) instead of EXT:solr's @internal PHP classes; carries the {!typo3access}0,-1 public filter and adds no composer dependency on EXT:solr."
+        },
+        {
+          "name": "KeSearchBackend",
+          "role": "Reads tx_kesearch_index directly — MATCH … AGAINST on MySQL/MariaDB, LIKE elsewhere; matches title/content only, never hidden_content."
+        },
+        {
+          "name": "IndexedSearchBackend",
+          "role": "Reads the core index_* tables directly (word-hash join with the md5 computed in PHP; LIKE over index_fulltext when the word tables are empty)."
+        },
+        {
+          "name": "DatabaseSearchBackend",
+          "role": "Always-available fallback (priority 0): LIKE across pages/tt_content search fields, grouped per page — works on a bare instance with no search extension."
+        },
+        {
+          "name": "RetrievalService",
+          "role": "The cascade: sorts backends by priority, asks the first available one, deduplicates same-URL hits, caps the source count, and labels the evidence with the answering backend."
+        },
+        {
+          "name": "SiteRagQueryTool / SiteFetchSourceTool",
+          "role": "The two builtin tools of the rag group; clamp model-supplied arguments and format the evidence list into a citable text block for the model."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "The retrieval core is extensible via a single DI tag. A niche search engine's adapter registers through nr_llm.retrieval_backend without a core release; the two rag tools consume RetrievalService and need no change.",
+      "steps": [
+        {
+          "title": "Implement a backend against the interface",
+          "body": "Every backend implements SearchBackendInterface. The tag is auto-applied via AutoconfigureTag, so implementing the interface is enough to enter the cascade. isAvailable() must be cheap and must not throw; keep every reference to an optional extension's classes behind availability checks so the class can always be instantiated.",
+          "code": "#[AutoconfigureTag(name: self::TAG_NAME)]\ninterface SearchBackendInterface\n{\n    public const TAG_NAME = 'nr_llm.retrieval_backend';\n\n    public function getIdentifier(): string;\n\n    public function getPriority(): int;\n\n    public function isAvailable(): bool;\n\n    public function search(RetrievalQuery $query, AccessContext $context): EvidenceList;\n\n    public function fetchSource(SourceReference $reference, AccessContext $context): ?string;\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Understand the first-available-wins cascade",
+          "body": "RetrievalService sorts backends by descending priority, skips unavailable ones, treats a throwing backend as unavailable (adding a note and continuing), and returns the first available backend's result — deduplicated by URL and capped to maxSources. There is no cross-backend score merging.",
+          "code": "foreach ($this->prioritized() as $backend) {\n    if (!$this->available($backend)) {\n        continue;\n    }\n\n    try {\n        $result = $backend->search($query, $context);\n    } catch (Throwable) {\n        $notes[] = sprintf('Backend \"%s\" failed and was skipped.', $backend->getIdentifier());\n        continue;\n    }\n\n    return $this->deduplicate($result, $query->maxSources)->withNotes($notes);\n}\n\nreturn new EvidenceList('none', [], [...$notes, 'No search backend available.']);",
+          "lang": "php"
+        },
+        {
+          "title": "The rag group is defined per tool",
+          "body": "A builtin tool joins the rag group by returning it from getGroup(). SiteRagQueryTool clamps the model's question length and source count, runs RetrievalService with a public-only AccessContext for the acting backend user, and formats the evidence into a citable text block.",
+          "code": "public function getGroup(): string\n{\n    return 'rag';\n}\n\npublic function requiresAdmin(): bool\n{\n    // Evidence is public website content; the backend-user gate above\n    // (fail-closed) is the only narrowing needed.\n    return false;\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Fuse rankings when you add your own dense arm (optional)",
+          "body": "The cascade itself never merges backends, but hybrid consumers that pair their own embedding arm with nr_llm's keyword facade can reuse the hosted Reciprocal Rank Fusion utility (ADR-074). It is a pure, newable final class — no DI, no interface — with a signature identical to the nr_ai_search original.",
+          "code": "$fused = (new ReciprocalRankFusion())->fuse(\n    $rankedKeyLists,   // one ranked list of ids per retrieval arm\n    k: 60,\n    weights: [],\n);",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Public-only, always",
+        "body": "Index-level filtering is fixed to public content (fe_group ''/0, gr_list 0,-1, Solr {!typo3access}0,-1). Evidence is what an anonymous visitor could read; there is no per-user page narrowing. AccessContext travels through the core so a future frontend endpoint could widen filtering per fe_group, but that is not consumed beyond public-only in this iteration."
+      },
+      {
+        "title": "First available backend wins — empty is final",
+        "body": "An empty result from an available backend is not a reason to fall through to the next engine; falling through would silently mix engines of different quality, and 'the site's search finds nothing' is itself honest evidence. Only an unavailable or throwing backend advances the cascade."
+      },
+      {
+        "title": "Direct table access can drift on future majors",
+        "body": "KeSearchBackend and IndexedSearchBackend read tx_kesearch_index and index_* directly, trading API stability for decoupling. The schemas are verified against currently supported versions (ke_search v6.6/v7, core 13.4/14.x) and pinned by functional tests, but a future major could drift; isAvailable() checks table presence."
+      },
+      {
+        "title": "Solr uses per-language cores, not a language filter",
+        "body": "EXT:solr separates languages by per-language cores (core_de, core_en, …) whose schema has no 'language' field. An earlier fq=language:<id> filtered on a non-existent field and returned zero results for every query; ADR-067 dropped it — language is handled by per-language read-core selection, access by {!typo3access}0,-1 only."
+      },
+      {
+        "title": "Stale indexes cite stale content",
+        "body": "ke_search incremental runs never delete and indexed_search only updates on render, so search-index RAG can cite content that has since changed. This is a known property of index-backed retrieval, documented for editors — the answering backend is always named so the evidence quality is visible."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 49,
+        "title": "RAG site-search tools over installed search indexes"
+      },
+      {
+        "number": 50,
+        "title": "Retrieval and embedding scope — the boundary with nr_ai_search"
+      },
+      {
+        "number": 67,
+        "title": "Solr per-language core — no language filter query"
+      },
+      {
+        "number": 72,
+        "title": "Retrieval-quality evaluation — golden questions and top-k hit rates"
+      },
+      {
+        "number": 74,
+        "title": "Reciprocal Rank Fusion as a hosted utility"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Administration guide — Tools",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Tools.rst"
+      },
+      {
+        "label": "ADR-049 source",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Adr049RagSiteSearchTools.rst"
+      }
+    ],
+    "meta": {
+      "title": "RAG Site-Search Tools — nr-llm",
+      "description": "Two function-calling tools ground the model in the site's own public content, reading Solr, ke_search, indexed_search, or a database fallback with cited sources."
+    }
+  },
+  {
+    "slug": "providers-fallback-keys",
+    "title": "Provider Abstraction, Fallback & Encrypted Keys",
+    "tagline": "One interface across seven LLM providers, with configuration-level fallback and API keys stored as nr-vault UUIDs rather than plaintext.",
+    "why": {
+      "heading": "Why it exists",
+      "paragraphs": [
+        "Each LLM provider ships a different endpoint, auth scheme, request/response shape, model naming, and capability set. nr-llm hides those differences behind a single contract (ProviderInterface) so consumers call one API regardless of whether OpenAI, Claude, Gemini, Groq, Mistral, Ollama, or OpenRouter answers. Switching providers is an admin change, not a code change (ADR-001).",
+        "Credentials, model catalogs, and use-case prompts change on different schedules and for different reasons, so they are normalized into three tiers: Provider (one API connection = one key = one billing relationship), Model (per-provider capabilities and pricing), and Configuration (system prompt, temperature, and other tunables for a use case). This lets a site keep separate prod/dev keys for the same adapter type and reuse model definitions across configurations (ADR-013).",
+        "API keys must be retrievable to authenticate, so they cannot be hashed. The original approach encrypted them at application level with sodium (ADR-012); that ADR is now Superseded — keys are stored as nr-vault identifiers (UUIDs) and resolved, injected, audited, and memory-scrubbed inside the vault, so the plaintext key never surfaces in this extension's code."
+      ]
+    },
+    "when": {
+      "heading": "When to use it",
+      "bullets": [
+        "You are adding AI to a TYPO3 extension and want provider selection, key handling, caching, and error handling managed for you — inject LlmServiceManagerInterface and call complete()/chatCompletion().",
+        "You need the same request to survive a provider outage: list sibling configurations on a configuration's fallback chain to retry on connection errors, HTTP 5xx, or 429 rate limits.",
+        "You must keep provider credentials out of the database, YAML, and logs — store the nr-vault UUID identifier, never the raw key.",
+        "You are integrating a new provider: implement ProviderInterface (or extend AbstractProvider), mark it with #[AsLlmProvider], and it auto-registers via ProviderCompilerPass.",
+        "You run multiple accounts of one provider type (prod/dev/backup) or custom endpoints (Azure OpenAI, Ollama, vLLM) that the three-tier model represents as distinct Provider rows."
+      ]
+    },
+    "technical": {
+      "heading": "How it works",
+      "paragraphs": [
+        "ProviderInterface is the core contract (getName, getIdentifier, configure, chatCompletion, complete, embeddings, testConnection, and capability checks). Optional features are opt-in capability interfaces — VisionCapableInterface, StreamingCapableInterface, ToolCapableInterface, DocumentCapableInterface — detected by instanceof, while embeddings remain a core method. AbstractProvider supplies shared behavior and every shipped adapter extends it.",
+        "Registration is attribute-driven: a class marked #[AsLlmProvider(priority: N)] in the Netresearch\\NrLlm\\ namespace is auto-tagged nr_llm.provider by ProviderCompilerPass at container-compile time (ADR-022). Providers are kept private; nothing resolves them by class name — access is via LlmServiceManager, resolved by the identifier returned from getIdentifier(). Priority is an ordering hint only. Third-party providers outside the namespace keep the legacy Services.yaml tag path.",
+        "The three tiers are Extbase entities over tx_nrllm_provider, tx_nrllm_model, and tx_nrllm_configuration. A Configuration references a Model, which references a Provider that owns the connection (endpoint_url, adapter_type, timeout, max_retries, and api_key stored as a vault UUID). Calls run through a middleware pipeline (ADR-026) ordered by tag priority: Telemetry (110), Cache (100), Budget (75), Fallback (50), Usage (25), CircuitBreaker (20).",
+        "FallbackMiddleware runs the primary configuration; on a retryable failure it walks the configuration's FallbackChain of sibling configuration identifiers, skipping not-found and inactive ones, until one succeeds or the chain is exhausted (FallbackChainExhaustedException). Retryable is ProviderConnectionException, a 429 ProviderResponseException, or CircuitOpenException. AbstractProvider::getHttpClient() authenticates through nr-vault's HTTP client (vault->http()->withAuthentication(identifier, placement, options)); api-key-less providers such as Ollama use the raw factory client behind an explicit SSRF host check."
+      ],
+      "components": [
+        {
+          "name": "Netresearch\\NrLlm\\Provider\\Contract\\ProviderInterface",
+          "role": "Core provider contract every adapter implements — name, identifier, configure, chatCompletion, complete, embeddings, testConnection, capability checks."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Provider\\AbstractProvider",
+          "role": "Shared base for the seven adapters; stores apiKeyIdentifier and builds the vault-authenticated HTTP client in getHttpClient()."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Attribute\\AsLlmProvider",
+          "role": "#[AsLlmProvider(priority)] marker; ProviderCompilerPass auto-tags it nr_llm.provider so no Services.yaml entry is needed."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Domain\\DTO\\FallbackChain",
+          "role": "Immutable, normalized ordered list of LlmConfiguration identifiers to try when the primary fails; shallow (a fallback's own chain is ignored)."
+        },
+        {
+          "name": "Netresearch\\NrLlm\\Provider\\Middleware\\FallbackMiddleware",
+          "role": "Runtime enforcer (tag priority 50): retries the chain on retryable errors, skips inactive/missing configs, throws FallbackChainExhaustedException when all fail."
+        },
+        {
+          "name": "Netresearch\\NrVault\\Service\\VaultServiceInterface",
+          "role": "Resolves the stored UUID identifier to the real secret and injects it at send time; keeps plaintext keys out of nr-llm's code and database."
+        }
+      ]
+    },
+    "how": {
+      "heading": "For developers",
+      "intro": "Consume through LlmServiceManagerInterface, add providers via the attribute, keep keys as vault UUIDs, and declare fallbacks on the configuration.",
+      "steps": [
+        {
+          "title": "Consume the unified service",
+          "body": "Inject LlmServiceManagerInterface and call it. Provider selection, key resolution, caching, and error handling are handled by the pipeline — you never touch an HTTP client or a provider class directly.",
+          "code": "use Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface;\n\nclass MyController\n{\n    public function __construct(\n        private readonly LlmServiceManagerInterface $llm,\n    ) {}\n\n    public function summarizeAction(string $text): string\n    {\n        return $this->llm->complete(\"Summarize: {$text}\")->content;\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Add a provider",
+          "body": "Implement ProviderInterface (in practice, extend AbstractProvider and add the capability interfaces you support), mark the class with #[AsLlmProvider] so ProviderCompilerPass auto-registers it, return the identifier from getIdentifier(), and add the icon at Resources/Public/Icons/provider-<identifier>.svg.",
+          "code": "#[AsLlmProvider(priority: 100)]\nfinal class OpenAiProvider extends AbstractProvider implements\n    VisionCapableInterface,\n    StreamingCapableInterface,\n    ToolCapableInterface\n{\n    public function getName(): string\n    {\n        return 'OpenAI';\n    }\n\n    public function getIdentifier(): string\n    {\n        return 'openai';\n    }\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Authenticate through nr-vault",
+          "body": "configure() reads apiKeyIdentifier (a vault UUID), not a raw key. isAvailable() is true only when the identifier is set and the vault holds it. getHttpClient() then builds a client via vault->http()->withAuthentication(...), so the secret is injected and audited inside the vault; api-key-less providers (Ollama) take the raw factory client behind an SSRF host check.",
+          "code": "protected function getHttpClient(?int $timeout = null): ClientInterface\n{\n    if ($this->configuredHttpClient !== null) {\n        return $this->configuredHttpClient;\n    }\n\n    $effective = ($timeout !== null && $timeout > 0) ? $timeout : $this->timeout;\n\n    if ($this->apiKeyIdentifier === '') {\n        $this->assertEndpointHostAllowed();\n        return $this->httpClientFactory->create($effective > 0 ? $effective : null);\n    }\n\n    $client = $this->vault->http()->withAuthentication(\n        $this->apiKeyIdentifier,\n        $this->getSecretPlacement(),\n        $this->getSecretPlacementOptions(),\n    );\n\n    return $effective > 0 ? $client->withTimeout($effective) : $client;\n}",
+          "lang": "php"
+        },
+        {
+          "title": "Declare a fallback chain",
+          "body": "A FallbackChain is an ordered, normalized (trimmed + lowercased) list of sibling LlmConfiguration identifiers. Build it immutably with withLink(); FallbackMiddleware walks it on retryable failures (connection error, 5xx, 429, or an open circuit), skipping the primary, and inactive or missing entries.",
+          "code": "$chain = (new FallbackChain())\n    ->withLink('blog-summarizer-openai')\n    ->withLink('blog-summarizer-claude');\n\n// Persisted on the primary configuration; walked by FallbackMiddleware\n// (shallow: a fallback configuration's own chain is ignored).",
+          "lang": "php"
+        }
+      ]
+    },
+    "gotchas": [
+      {
+        "title": "Fallback is shallow",
+        "body": "A fallback configuration's own fallback chain is ignored, by design, to prevent recursion and cycles. Only the primary configuration's chain is walked. If the chain contains only the primary identifier, it becomes empty after filtering and the primary's original error is rethrown verbatim rather than a 'chain exhausted' error."
+      },
+      {
+        "title": "Streaming requests are not routed through fallback",
+        "body": "Once chunks have been emitted to the caller a provider cannot be swapped mid-stream, so FallbackMiddleware excludes streaming (Generator-returning) calls. Build the pipeline without FallbackMiddleware for streaming, or short-circuit on ProviderCallContext::operation === Stream."
+      },
+      {
+        "title": "Keys are vault UUIDs, never plaintext",
+        "body": "The api_key column stores an nr-vault identifier, not a secret. ADR-012's application-level sodium encryption is Superseded by the nr-vault integration. Never put a raw key in TCA, YAML, env, or logs; ErrorMessageSanitizerTrait::sanitizeErrorMessage() strips secret-bearing query params before messages are surfaced."
+      },
+      {
+        "title": "Attribute auto-registration is namespace-scoped",
+        "body": "ProviderCompilerPass only reflects service definitions whose class is in the Netresearch\\NrLlm\\ namespace. Third-party providers outside that namespace must keep the legacy Services.yaml tag (name: nr_llm.provider, priority: N), which is fully supported and takes precedence when both are present. Priority is an ordering hint only — providers are resolved by identifier at runtime."
+      }
+    ],
+    "adrLinks": [
+      {
+        "number": 1,
+        "title": "Provider abstraction layer"
+      },
+      {
+        "number": 13,
+        "title": "Three-level configuration architecture (Provider-Model-Configuration)"
+      },
+      {
+        "number": 12,
+        "title": "API key encryption at application level (superseded by nr-vault)"
+      },
+      {
+        "number": 21,
+        "title": "Provider fallback chain"
+      },
+      {
+        "number": 22,
+        "title": "Attribute-based provider registration"
+      },
+      {
+        "number": 63,
+        "title": "Provider resilience: circuit breaker, health, idempotency"
+      },
+      {
+        "number": 80,
+        "title": "Typed provider HTTP exceptions (401 authentication, 429 rate-limit)"
+      }
+    ],
+    "docsLinks": [
+      {
+        "label": "GitHub source",
+        "href": "https://github.com/netresearch/t3x-nr-llm"
+      },
+      {
+        "label": "Developer Guide",
+        "href": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/Index.rst"
+      },
+      {
+        "label": "Architecture & ADRs",
+        "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation/Adr"
+      }
+    ],
+    "meta": {
+      "title": "Provider Abstraction, Fallback & Keys — nr-llm",
+      "description": "How nr-llm unifies seven LLM providers behind one interface, retries a configuration fallback chain, and stores API keys as nr-vault UUIDs."
+    }
+  }
+]

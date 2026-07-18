@@ -88,11 +88,16 @@
     <h2 id="concepts-h">{{ c.concepts.heading }}</h2>
     <p class="section__intro">{{ c.concepts.intro }}</p>
     <div class="grid grid--3">
+      {% set concept_feature = {'streaming': 'streaming-and-tools', 'rag': 'rag-site-search', 'providers': 'providers-fallback-keys', 'keys': 'providers-fallback-keys'} %}
       {% for item in c.concepts['items'] %}
       <article class="card">
         <div class="card__icon" aria-hidden="true">{{ icon(item.icon) }}</div>
         <h3>{{ item.title }}</h3>
         <p>{{ item.body }}</p>
+        {% set fslug = concept_feature.get(item.icon) %}
+        {% if fslug and fslug in (feature_slugs or []) %}
+        <p class="card__more"><a href="{{ url(lang + '/features/' + fslug + '.html') }}">{{ s.featuresReadMore }} →</a></p>
+        {% endif %}
       </article>
       {% endfor %}
     </div>
