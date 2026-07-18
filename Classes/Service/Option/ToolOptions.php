@@ -162,6 +162,38 @@ class ToolOptions extends ChatOptions
     // Array Conversion
     // ========================================
 
+    /**
+     * Rebuild options from a {@see self::toArray()} snapshot (ADR-084 resume).
+     *
+     * The budget fields (beUserUid, plannedCost) are intentionally not part of
+     * toArray() and are therefore not restored — a resumed run is budget-checked
+     * for the acting user, not the original one.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): static
+    {
+        $stop          = $data['stop_sequences'] ?? null;
+        $stopSequences = is_array($stop) ? array_values(array_filter($stop, is_string(...))) : null;
+
+        return new static(
+            temperature: is_numeric($data['temperature'] ?? null) ? (float)$data['temperature'] : null,
+            maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int)$data['max_tokens'] : null,
+            topP: is_numeric($data['top_p'] ?? null) ? (float)$data['top_p'] : null,
+            frequencyPenalty: is_numeric($data['frequency_penalty'] ?? null) ? (float)$data['frequency_penalty'] : null,
+            presencePenalty: is_numeric($data['presence_penalty'] ?? null) ? (float)$data['presence_penalty'] : null,
+            responseFormat: is_string($data['response_format'] ?? null) ? $data['response_format'] : null,
+            systemPrompt: is_string($data['system_prompt'] ?? null) ? $data['system_prompt'] : null,
+            stopSequences: $stopSequences,
+            provider: is_string($data['provider'] ?? null) ? $data['provider'] : null,
+            model: is_string($data['model'] ?? null) ? $data['model'] : null,
+            think: is_bool($data['think'] ?? null) ? $data['think'] : null,
+            toolChoice: is_string($data['tool_choice'] ?? null) ? $data['tool_choice'] : null,
+            parallelToolCalls: is_bool($data['parallel_tool_calls'] ?? null) ? $data['parallel_tool_calls'] : null,
+            captureRaw: ($data['_capture_raw'] ?? false) === true,
+        );
+    }
+
     public function toArray(): array
     {
         $extra = $this->filterNull([

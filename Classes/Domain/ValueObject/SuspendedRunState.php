@@ -28,8 +28,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class SuspendedRunState
 {
     /**
-     * @param list<array<string, mixed>> $messages     serialised ChatMessage transcript (ends with the assistant tool-call turn)
-     * @param list<array<string, mixed>> $pendingCalls serialised ToolCall list of the suspended turn
+     * @param list<array<string, mixed>> $messages         serialised ChatMessage transcript (ends with the assistant tool-call turn)
+     * @param list<array<string, mixed>> $pendingCalls     serialised ToolCall list of the suspended turn
+     * @param list<string>|null          $allowedToolNames the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
+     * @param array<string, mixed>       $options          the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc.
      */
     public function __construct(
         public array $messages,
@@ -37,10 +39,12 @@ final readonly class SuspendedRunState
         public int $iterations,
         public int $promptTokens,
         public int $completionTokens,
+        public ?array $allowedToolNames = null,
+        public array $options = [],
     ) {}
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>}
      */
     public function toArray(): array
     {
@@ -50,6 +54,8 @@ final readonly class SuspendedRunState
             'iterations'       => $this->iterations,
             'promptTokens'     => $this->promptTokens,
             'completionTokens' => $this->completionTokens,
+            'allowedToolNames' => $this->allowedToolNames,
+            'options'          => $this->options,
         ];
     }
 
@@ -58,12 +64,21 @@ final readonly class SuspendedRunState
      */
     public static function fromArray(array $data): self
     {
+        $allowed          = $data['allowedToolNames'] ?? null;
+        $allowedToolNames = is_array($allowed) ? array_values(array_filter($allowed, is_string(...))) : null;
+
+        $options = $data['options'] ?? null;
+        /** @var array<string, mixed> $options */
+        $options = is_array($options) ? $options : [];
+
         return new self(
             self::listOfArrays($data['messages'] ?? null),
             self::listOfArrays($data['pendingCalls'] ?? null),
             is_numeric($data['iterations'] ?? null) ? (int)$data['iterations'] : 0,
             is_numeric($data['promptTokens'] ?? null) ? (int)$data['promptTokens'] : 0,
             is_numeric($data['completionTokens'] ?? null) ? (int)$data['completionTokens'] : 0,
+            $allowedToolNames,
+            $options,
         );
     }
 

@@ -299,9 +299,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $state = SuspendedRunState::fromArray($decoded);
 
         // Continue the SAME run: rebuild the handle so events keep ascending.
-        $handle  = $this->agentRunPersister?->resumeHandle($run);
-        $options = new ToolOptions(beUserUid: $this->currentBackendUserUid());
-        $trace   = new RunTrace(
+        // The allow-list and options are restored from the suspended state inside
+        // resume() — the run keeps its original constraints (ADR-084).
+        $handle = $this->agentRunPersister?->resumeHandle($run);
+        $trace  = new RunTrace(
             onRecord: $handle !== null
                 ? function (RunStep $step) use ($handle): void {
                     $this->agentRunPersister?->recordStep($handle, $step);
@@ -310,7 +311,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         try {
-            $result = $this->toolLoopService->resume($state, $approved, $config, null, $options, null, $trace);
+            $result = $this->toolLoopService->resume($state, $approved, $config, null, $trace);
         } catch (ToolApprovalRequiredException $approval) {
             if ($handle !== null) {
                 $this->agentRunPersister?->suspend($handle, $approval->state);

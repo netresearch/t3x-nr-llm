@@ -644,7 +644,7 @@ final class ToolLoopServiceTest extends TestCase
         $state = $this->suspend($service);
 
         $trace  = new RunTrace();
-        $result = $service->resume($state, true, new LlmConfiguration(), null, null, null, $trace);
+        $result = $service->resume($state, true, new LlmConfiguration(), null, $trace);
 
         self::assertSame('deleted and done', $result->finalContent);
         // The approved tool really executed (recorded on the trace) with its result.
@@ -671,7 +671,7 @@ final class ToolLoopServiceTest extends TestCase
         $state = $this->suspend($service);
 
         $trace  = new RunTrace();
-        $result = $service->resume($state, false, new LlmConfiguration(), null, null, null, $trace);
+        $result = $service->resume($state, false, new LlmConfiguration(), null, $trace);
 
         self::assertSame('ok, cancelled', $result->finalContent);
         // The pending tool was NOT executed; a denial result was fed back instead.
@@ -679,6 +679,60 @@ final class ToolLoopServiceTest extends TestCase
         self::assertCount(1, $toolSteps);
         self::assertTrue($toolSteps[0]->toolIsError);
         self::assertStringContainsString('denied', $toolSteps[0]->toolResult ?? '');
+    }
+
+    #[Test]
+    public function suspendCapturesTheAllowListAndOptionsForRestoreOnResume(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $options = new ToolOptions(temperature: 0.3, maxTokens: 512);
+
+        $state = null;
+        try {
+            $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['delete_thing'], $options);
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        self::assertSame(['delete_thing'], $state->allowedToolNames);
+        self::assertSame(0.3, $state->options['temperature'] ?? null);
+        self::assertSame(512, $state->options['max_tokens'] ?? null);
+    }
+
+    #[Test]
+    public function resumeReAppliesTheGateAndRefusesANoLongerOfferedTool(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        // The tool was disabled while the run was suspended: the registry no longer
+        // offers it, so resolveOfferedNames() returns nothing and the continuation
+        // does a single plain completion.
+        $mgr->method('chatWithConfiguration')->willReturn($this->response('closed out'));
+        $service = $this->service($mgr, new ToolRegistry([]));
+
+        $assistantTurn = ['role' => 'assistant', 'content' => '', 'tool_calls' => [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]]];
+        $state         = new SuspendedRunState(
+            [['role' => 'user', 'content' => 'delete it'], $assistantTurn],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            1,
+            5,
+            2,
+            ['delete_thing'],
+            [],
+        );
+
+        $trace = new RunTrace();
+        $service->resume($state, true, new LlmConfiguration(), null, $trace);
+
+        // Approved, but the tool is no longer offered → fail-closed, NOT executed.
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        self::assertCount(1, $toolSteps);
+        self::assertTrue($toolSteps[0]->toolIsError);
+        self::assertStringContainsString('no longer permitted', $toolSteps[0]->toolResult ?? '');
     }
 
     /**
