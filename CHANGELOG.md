@@ -23,7 +23,8 @@ completion and translation.
   field on `TranslationOptions` makes the config-selected specialized translator
   reachable.
 - **Named-configuration completion** (ADR-077, #423). `CompletionService` gains
-  a `*WithConfiguration()` family so plain completions resolve a named
+  a `*ForConfiguration()` family (`completeForConfiguration()`,
+  `completeJsonForConfiguration()`, …) so plain completions resolve a named
   `LlmConfiguration` (its provider/model/prompt) and run through the middleware
   pipeline, enforcing budgets and attributing cost per configuration — matching
   the existing chat/tools/embedding `*ForConfiguration` entry points.
