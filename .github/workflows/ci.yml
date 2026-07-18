@@ -25,7 +25,16 @@ jobs:
     permissions:
       contents: read
     with:
-      php-versions: '["8.2","8.3","8.4","8.5"]'
+      # Full PHP matrix on pull_request (and the nightly schedule) for complete
+      # coverage; the merge queue re-validates the merged result on a single PHP
+      # (8.4) against BOTH TYPO3 majors — the queue's job is to catch two
+      # independently-green PRs that break when combined, and such integration
+      # breaks are a TYPO3-major axis (TCA/DI/schema), essentially never a PHP
+      # patch axis, which the PR already proved across all four versions. This
+      # cuts the queue's slowest matrix (functional, 8-11min/cell) from 8 cells
+      # to 2. The required-status-checks ruleset is reduced to match (only the
+      # 8.4 cells stay required); the other cells remain visible on the PR.
+      php-versions: ${{ github.event_name == 'merge_group' && '["8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
       # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
       # its Xdebug tax is negligible and patch coverage stays useful. The
