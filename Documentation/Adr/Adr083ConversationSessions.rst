@@ -64,8 +64,12 @@ Consequences
   point (replayable memory), but it is privacy-relevant: retention is bounded by
   the purge command, and sessions are owned/attributed to a backend user. A
   scheduled purge task registration is a follow-up.
-- The system prompt is prepended only on the first turn, so it is not duplicated
-  once the persisted history already carries the conversation.
+- The system prompt is prepended on **every** turn: the session history stores
+  only user and assistant turns, so re-adding it does not duplicate it, and
+  omitting it would drop the system instructions from the second turn onward.
+- The user turn advances the session's message count immediately (before the
+  provider call), so a failed call cannot leave the next turn reusing the same
+  sequence number.
 - Context-window management (summarising or truncating a long history before
   replay) is **not** in this change — the full history is replayed. A windowing
   strategy is a follow-up once real conversation lengths are observed.

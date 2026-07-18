@@ -65,10 +65,12 @@ final readonly class ConversationService implements ConversationServiceInterface
         $history   = $this->sessions->findMessages($session->uid);
 
         $messages = [];
-        // Prepend the system prompt only on the first turn: once the persisted
-        // history carries the conversation, re-adding it would duplicate it.
+        // Prepend the system prompt on every turn: it is never persisted in the
+        // session history (only user and assistant turns are), so re-adding it
+        // does not duplicate it — and omitting it would drop the system
+        // instructions from the second turn onward.
         $systemPrompt = $options->toArray()['system_prompt'] ?? null;
-        if ($history === [] && is_string($systemPrompt) && $systemPrompt !== '') {
+        if (is_string($systemPrompt) && $systemPrompt !== '') {
             $messages[] = ChatMessage::system($systemPrompt);
         }
         foreach ($history as $message) {
@@ -78,8 +80,10 @@ final readonly class ConversationService implements ConversationServiceInterface
 
         $nextSequence = $session->messageCount;
         // Persist the user turn before the call: it is a real turn regardless of
-        // whether the provider then succeeds.
+        // whether the provider then succeeds. Advance the message count right
+        // away so a failed call cannot leave the next turn reusing this sequence.
         $this->sessions->appendMessage($session->uid, $nextSequence, MessageRole::USER->value, $userMessage, '', 0, 0, 0);
+        $this->sessions->touch($session->uid, $nextSequence + 1);
 
         $response = $this->llmManager->chat($messages, $options);
 

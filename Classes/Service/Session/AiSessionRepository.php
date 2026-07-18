@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Session;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -25,6 +26,8 @@ use TYPO3\CMS\Core\SingletonInterface;
  */
 final readonly class AiSessionRepository implements AiSessionRepositoryInterface, SingletonInterface
 {
+    use SafeCastTrait;
+
     private const TABLE_SESSION = 'tx_nrllm_ai_session';
 
     private const TABLE_MESSAGE = 'tx_nrllm_ai_session_message';
@@ -108,14 +111,14 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         }
 
         return new AiSession(
-            uid: $this->intOf($row['uid'] ?? 0),
-            uuid: $this->stringOf($row['uuid'] ?? ''),
-            beUser: $this->intOf($row['be_user'] ?? 0),
-            configurationIdentifier: $this->stringOf($row['configuration_identifier'] ?? ''),
-            title: $this->stringOf($row['title'] ?? ''),
-            messageCount: $this->intOf($row['message_count'] ?? 0),
-            lastActivity: $this->intOf($row['last_activity'] ?? 0),
-            crdate: $this->intOf($row['crdate'] ?? 0),
+            uid: self::toInt($row['uid'] ?? 0),
+            uuid: self::toStr($row['uuid'] ?? ''),
+            beUser: self::toInt($row['be_user'] ?? 0),
+            configurationIdentifier: self::toStr($row['configuration_identifier'] ?? ''),
+            title: self::toStr($row['title'] ?? ''),
+            messageCount: self::toInt($row['message_count'] ?? 0),
+            lastActivity: self::toInt($row['last_activity'] ?? 0),
+            crdate: self::toInt($row['crdate'] ?? 0),
         );
     }
 
@@ -133,16 +136,16 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             ->fetchAllAssociative();
 
         return array_map(fn(array $row): AiSessionMessage => new AiSessionMessage(
-            uid: $this->intOf($row['uid'] ?? 0),
-            session: $this->intOf($row['session'] ?? 0),
-            sequence: $this->intOf($row['sequence'] ?? 0),
-            role: $this->stringOf($row['role'] ?? ''),
-            content: $this->stringOf($row['content'] ?? ''),
-            model: $this->stringOf($row['model'] ?? ''),
-            promptTokens: $this->intOf($row['prompt_tokens'] ?? 0),
-            completionTokens: $this->intOf($row['completion_tokens'] ?? 0),
-            totalTokens: $this->intOf($row['total_tokens'] ?? 0),
-            crdate: $this->intOf($row['crdate'] ?? 0),
+            uid: self::toInt($row['uid'] ?? 0),
+            session: self::toInt($row['session'] ?? 0),
+            sequence: self::toInt($row['sequence'] ?? 0),
+            role: self::toStr($row['role'] ?? ''),
+            content: self::toStr($row['content'] ?? ''),
+            model: self::toStr($row['model'] ?? ''),
+            promptTokens: self::toInt($row['prompt_tokens'] ?? 0),
+            completionTokens: self::toInt($row['completion_tokens'] ?? 0),
+            totalTokens: self::toInt($row['total_tokens'] ?? 0),
+            crdate: self::toInt($row['crdate'] ?? 0),
         ), $rows);
     }
 
@@ -157,7 +160,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $uids = array_map(fn(array $row): int => $this->intOf($row['uid'] ?? 0), $rows);
+        $uids = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
         if ($uids === []) {
             return 0;
         }
@@ -177,13 +180,4 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             ->executeStatement();
     }
 
-    private function intOf(mixed $value): int
-    {
-        return is_numeric($value) ? (int)$value : 0;
-    }
-
-    private function stringOf(mixed $value): string
-    {
-        return is_scalar($value) ? (string)$value : '';
-    }
 }

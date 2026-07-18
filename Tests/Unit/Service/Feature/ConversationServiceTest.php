@@ -15,10 +15,13 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
 #[CoversClass(ConversationService::class)]
 final class ConversationServiceTest extends TestCase
@@ -75,6 +78,72 @@ final class ConversationServiceTest extends TestCase
         self::assertSame('first', $secondCall[0]->content);
         self::assertSame('reply', $secondCall[1]->content);
         self::assertSame('second', $secondCall[2]->content);
+    }
+
+    #[Test]
+    public function sendPrependsTheSystemPromptOnEveryTurn(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $captured   = [];
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturnCallback(function (array $messages) use (&$captured): CompletionResponse {
+            $captured[] = $messages;
+
+            return $this->response('reply');
+        });
+        $service = new ConversationService($llmManager, $repository);
+        $options = (new ChatOptions())->withSystemPrompt('You are terse.');
+
+        $session = $service->startSession();
+        $service->send($session->uuid, 'first', $options);
+        $service->send($session->uuid, 'second', $options);
+
+        // Both turns lead with the system prompt — it is never persisted in the
+        // history, so it must be re-added every turn or it is lost from turn 2.
+        self::assertCount(2, $captured);
+
+        $turn1System = $captured[0][0];
+        self::assertInstanceOf(ChatMessage::class, $turn1System);
+        self::assertSame('system', $turn1System->getRole()->value);
+        self::assertSame('You are terse.', $turn1System->content);
+
+        $turn2System = $captured[1][0];
+        self::assertInstanceOf(ChatMessage::class, $turn2System);
+        self::assertSame('system', $turn2System->getRole()->value);
+
+        // Second turn: system, user 'first', assistant 'reply', user 'second'.
+        $turn2Last = $captured[1][3];
+        self::assertInstanceOf(ChatMessage::class, $turn2Last);
+        self::assertSame('second', $turn2Last->content);
+    }
+
+    #[Test]
+    public function aFailedTurnStillAdvancesTheSequenceSoTheNextTurnDoesNotCollide(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $calls      = 0;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturnCallback(function () use (&$calls): CompletionResponse {
+            ++$calls;
+            if ($calls === 1) {
+                throw new RuntimeException('provider down', 4844402126);
+            }
+
+            return $this->response('ok');
+        });
+        $service = new ConversationService($llmManager, $repository);
+        $session = $service->startSession();
+
+        try {
+            $service->send($session->uuid, 'first');
+        } catch (Throwable) {
+            // The first provider call fails; the user turn is already recorded.
+        }
+        $service->send($session->uuid, 'second');
+
+        // No two turns share a sequence number, even across the failed attempt.
+        $sequences = array_map(static fn($m): int => $m->sequence, $repository->findMessages($session->uid));
+        self::assertSame($sequences, array_values(array_unique($sequences)));
     }
 
     #[Test]
