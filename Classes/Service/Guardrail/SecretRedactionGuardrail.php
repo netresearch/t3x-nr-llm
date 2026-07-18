@@ -31,8 +31,18 @@ final readonly class SecretRedactionGuardrail implements GuardrailInterface
     {
         $redacted = $this->sanitizeErrorMessage($response->content);
         // API-key and Bearer-token shapes the URL-param sanitiser does not cover.
-        $redacted = (string)preg_replace('/\bsk-[A-Za-z0-9]{16,}\b/', 'sk-***', $redacted);
-        $redacted = (string)preg_replace('/\b(Bearer\s+)[A-Za-z0-9._\-]{8,}/i', '$1***', $redacted);
+        // The sk- class allows hyphens/underscores so modern project keys
+        // (sk-proj-…) match. Each preg_replace is guarded: on failure (e.g. a
+        // backtrack-limit hit on a huge payload) it returns null, which a bare
+        // (string) cast would turn into '' — silently wiping the whole response.
+        $withoutApiKeys = preg_replace('/\bsk-[A-Za-z0-9_\-]{16,}/', 'sk-***', $redacted);
+        if (is_string($withoutApiKeys)) {
+            $redacted = $withoutApiKeys;
+        }
+        $withoutBearer = preg_replace('/\b(Bearer\s+)[A-Za-z0-9._\-]{8,}/i', '$1***', $redacted);
+        if (is_string($withoutBearer)) {
+            $redacted = $withoutBearer;
+        }
 
         if ($redacted === $response->content) {
             return GuardrailResult::allow();

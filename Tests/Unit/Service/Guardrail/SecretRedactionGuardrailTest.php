@@ -41,6 +41,17 @@ final class SecretRedactionGuardrailTest extends TestCase
     }
 
     #[Test]
+    public function redactsAModernProjectApiKeyWithHyphensAndUnderscores(): void
+    {
+        $result = (new SecretRedactionGuardrail())->checkOutput($this->response('the key is sk-proj-Abc123_def-456GHIjkl789 here'));
+
+        self::assertSame(GuardrailVerdict::REDACT, $result->verdict);
+        self::assertNotNull($result->redactedContent);
+        self::assertStringContainsString('sk-***', $result->redactedContent);
+        self::assertStringNotContainsString('sk-proj-Abc123', $result->redactedContent);
+    }
+
+    #[Test]
     public function redactsAUrlCredentialAndABearerToken(): void
     {
         $result = (new SecretRedactionGuardrail())->checkOutput(
