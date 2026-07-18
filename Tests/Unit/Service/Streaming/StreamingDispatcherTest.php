@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
+use Netresearch\NrLlm\Service\Guardrail\SecretRedactionGuardrail;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
@@ -88,12 +89,12 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->staticStream(['here is ', 'sk-secret-value', ' — oops']),
         ));
 
-        // The chunks are delivered unchanged: the audit runs AFTER delivery and
-        // cannot retract or redact what was already streamed.
+        // A DENY guardrail is not StreamRedactable, so it never pulls the stream
+        // onto the buffered path: chunks pass through 1:1, unchanged.
         self::assertSame(['here is ', 'sk-secret-value', ' — oops'], $chunks);
 
         // The verdict is recorded for audit so streamed output is not a blind spot.
-        $record = $this->logger->firstMatching('warning', 'tripped a guardrail');
+        $record = $this->logger->firstMatching('warning', 'matched a guardrail');
         self::assertNotNull($record);
         self::assertSame($guardrail::class, $record['context']['guardrail'] ?? null);
         self::assertSame('deny', $record['context']['verdict'] ?? null);
@@ -117,7 +118,258 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->staticStream(['a perfectly ', 'normal answer']),
         ));
 
-        self::assertNull($this->logger->firstMatching('warning', 'tripped a guardrail'));
+        self::assertNull($this->logger->firstMatching('warning', 'matched a guardrail'));
+    }
+
+    #[Test]
+    public function redactsASecretSpanningAChunkBoundaryBeforeEmittingIt(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // The key 'sk-abcdef0123456789ABCDEF' is split across the two chunks, then
+        // followed by > HOLDBACK bytes of filler so the (now redacted) secret
+        // exits the holdback window and is actually emitted, not just flushed.
+        $filler = str_repeat('x', 200);
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['start sk-abcdef012', '3456789ABCDEF end ' . $filler]),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('sk-***', $emitted);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $emitted);
+        // Non-secret text is preserved verbatim.
+        self::assertStringContainsString('start ', $emitted);
+        self::assertStringContainsString(' end ', $emitted);
+    }
+
+    #[Test]
+    public function redactsASecretAtTheVeryEndOfTheStreamOnFlush(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // The secret straddles the last boundary and completes only at end — the
+        // holdback keeps it unsent until the flush redacts it.
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['final answer sk-', 'abcdef0123456789ABCDEF']),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('sk-***', $emitted);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $emitted);
+        self::assertStringContainsString('final answer ', $emitted);
+    }
+
+    #[Test]
+    public function leavesACleanStreamContentUnchangedThroughTheHoldback(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        $tail   = str_repeat('y', 200);
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['a perfectly ', 'normal answer ', $tail]),
+        ));
+
+        self::assertSame('a perfectly normal answer ' . $tail, implode('', $chunks));
+    }
+
+    #[Test]
+    public function flushesAShortStreamThroughTheHoldback(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // Whole stream is shorter than the holdback: nothing emits mid-stream, the
+        // flush delivers it all at end — concatenation is intact.
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['hi ', 'there']),
+        ));
+
+        self::assertSame('hi there', implode('', $chunks));
+    }
+
+    #[Test]
+    public function masksASecretWhoseTailArrivesAfterItsHeadWasFirstMatched(): void
+    {
+        // The 16-char body prefix arrives in chunk 1 (enough for the pattern to
+        // match); the rest of the SAME key arrives in chunk 2. Re-redacting the
+        // marker would orphan the tail ('sk-***' + continuation no longer
+        // matches); redacting the raw buffer fresh re-masks the whole key.
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['key sk-0123456789abcdef', 'ghijklmnopqrstuvwxyz done']),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('sk-***', $emitted);
+        self::assertStringNotContainsString('sk-0123456789abcdef', $emitted);
+        self::assertStringNotContainsString('ghijklmnopqrstuvwxyz', $emitted);
+        self::assertStringContainsString('key ', $emitted);
+        self::assertStringContainsString(' done', $emitted);
+    }
+
+    #[Test]
+    public function masksASecretStreamedInSmallDeltas(): void
+    {
+        // A 51-char key streamed 4 bytes at a time — the pattern matches at 16
+        // body chars, long before the key completes.
+        $key    = 'sk-' . str_repeat('A', 48);
+        $deltas = str_split('here ' . $key . ' there ' . str_repeat('z', 200), 4);
+
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+        $chunks     = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream($deltas),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('sk-***', $emitted);
+        self::assertStringNotContainsString($key, $emitted);
+        self::assertStringNotContainsString('AAAA', $emitted, 'no run of key characters may leak');
+    }
+
+    #[Test]
+    public function masksABearerTokenSplitAcrossChunks(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['auth Bearer abc123', 'def456ghi789 rest ' . str_repeat('q', 200)]),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('Bearer ***', $emitted);
+        self::assertStringNotContainsString('abc123def456ghi789', $emitted);
+        self::assertStringNotContainsString('def456ghi789', $emitted);
+    }
+
+    #[Test]
+    public function emitsContentMidStreamNotOnlyAtTheFlush(): void
+    {
+        // A long clean stream must deliver incrementally (more than one yielded
+        // chunk), proving the mid-stream emit path runs, not just the end flush.
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+        $long       = str_repeat('word ', 200);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(str_split($long, 50)),
+        ));
+
+        self::assertGreaterThan(1, count($chunks), 'content must be emitted incrementally, not only at flush');
+        self::assertSame($long, implode('', $chunks));
+    }
+
+    #[Test]
+    public function usageCountsRawProviderBytesEvenWhenRedactionShortensTheStream(): void
+    {
+        $model      = $this->model(pricing: false);
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // Raw completion is 92 bytes ('sk-' + 48 + ' ' + 40); the redacted output
+        // ('sk-*** ' + 40) is far shorter. Usage must reflect the RAW length.
+        iterator_to_array($dispatcher->stream(
+            $this->context([StreamingDispatcher::METADATA_PROMPT_CHARS => 0]),
+            $this->configuration('primary', providerType: 'openai', modelId: 'gpt-4o', model: $model, uid: 9),
+            $this->staticStream(['sk-' . str_repeat('A', 48) . ' ', str_repeat('z', 40)]),
+        ));
+
+        self::assertCount(1, $this->usage->calls);
+        // ceil(92 / 4) = 23 raw-byte tokens, not the ~12 of the redacted output.
+        self::assertSame(23, $this->usage->calls[0]['metrics']['completionTokens']);
+    }
+
+    #[Test]
+    public function masksAUrlCredentialSplitAcrossChunks(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['see https://api.example.com/x?api_key=SUPER', 'SECRETvalue123 done ' . str_repeat('q', 200)]),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringNotContainsString('SUPERSECRETvalue123', $emitted);
+        self::assertStringContainsString('see https://', $emitted);
+    }
+
+    #[Test]
+    public function yieldsValidUtf8ChunksForMultibyteContentThroughTheHoldback(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // A run of 3-byte chars longer than the holdback, fed in 7-byte deltas
+        // (misaligned to the 3-byte boundary), so the emit boundary lands inside
+        // multibyte sequences unless backed off.
+        $text   = str_repeat('—', 200);
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(str_split($text, 7)),
+        ));
+
+        foreach ($chunks as $chunk) {
+            self::assertTrue(mb_check_encoding($chunk, 'UTF-8'), 'each yielded chunk must be valid UTF-8');
+        }
+        self::assertSame($text, implode('', $chunks));
+    }
+
+    #[Test]
+    public function aPolicyOnlyGuardrailDoesNotTriggerTheHoldback(): void
+    {
+        // A DENY guardrail is NOT StreamRedactable, so it must not pull the stream
+        // onto the buffered path — chunks pass through 1:1, no re-chunking.
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::deny('policy');
+            }
+        };
+        $dispatcher = $this->dispatcher(guardrails: [$guardrail]);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['one ', 'two ', 'three']),
+        ));
+
+        self::assertSame(['one ', 'two ', 'three'], $chunks);
+    }
+
+    #[Test]
+    public function stopsRedactingPastTheBufferCapAndPassesTheTailThrough(): void
+    {
+        $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
+
+        // A complete key early in the stream is masked; > 50000 bytes of filler
+        // push past MAX_GUARDRAIL_BUFFER_BYTES, after which content passes through
+        // raw (the documented redaction-cap limit).
+        $preSecret = 'sk-' . str_repeat('B', 20);
+        $chunks    = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['start ' . $preSecret . ' ', str_repeat('a', 60000), ' TAIL-AFTER-CAP']),
+        ));
+
+        $emitted = implode('', $chunks);
+        self::assertStringContainsString('sk-***', $emitted);
+        self::assertStringNotContainsString($preSecret, $emitted);
+        self::assertStringContainsString('TAIL-AFTER-CAP', $emitted);
     }
 
     #[Test]

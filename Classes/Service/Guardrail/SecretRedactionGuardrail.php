@@ -23,7 +23,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
  * something — otherwise ALLOW (a pass-through), so a normal response is
  * untouched. The prompt-side counterpart is {@see SecretRedactionInputGuardrail}.
  */
-final readonly class SecretRedactionGuardrail implements GuardrailInterface
+final readonly class SecretRedactionGuardrail implements GuardrailInterface, StreamRedactableInterface
 {
     use RedactsSecretsTrait;
 
