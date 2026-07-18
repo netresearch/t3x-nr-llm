@@ -297,6 +297,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 
 /* ---- Search ---- */
 .search { position: relative; }
+.header-search { flex: 0 1 15rem; }
 .search__field { display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 0.35rem 0.6rem; }
 .search__field:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 25%, transparent); }
 .search input { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 0.95rem; padding: 0.25rem; width: 100%; min-width: 8rem; }
@@ -386,7 +387,8 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 
 /* ---- Responsive ---- */
 @media (max-width: 820px) {
-  .nav-toggle { display: inline-grid; }
+  .site-header__inner { flex-wrap: wrap; padding-block: 0.5rem; }
+  .nav-toggle { display: inline-grid; margin-left: auto; }
   .nav {
     position: absolute; top: 100%; left: 0; right: 0; background: var(--bg);
     border-bottom: 1px solid var(--border-light); box-shadow: var(--shadow-md);
@@ -395,7 +397,10 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
   .nav[data-open='true'] { max-height: 70vh; }
   .nav ul { flex-direction: column; align-items: stretch; gap: 0; padding: 0.5rem 1rem; }
   .nav a { padding: 0.7rem 0; border-bottom: 1px solid var(--border-light); }
-  .header-search { display: none; }
+  /* search drops to its own full-width row below the header bar */
+  .header-search { order: 10; flex: 1 0 100%; margin-bottom: 0.5rem; }
+  .header-search .search__field { width: 100%; }
+  .header-search .search__results { max-height: 55vh; }
 }
 @media (min-width: 821px) {
   .nav[data-open] { max-height: none !important; overflow: visible; }
