@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -18,9 +19,12 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -547,6 +551,111 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($last['usage']);
     }
 
+    #[Test]
+    public function runActionReturnsGuardrailBlockedInsteadOf500WhenAGuardrailDenies(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::deny('blocked by test policy');
+            }
+        };
+        [$controller] = $this->guardedController($guardrail);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'do it']);
+        $response = $controller->runAction($request);
+
+        // A guardrail denial is a policy outcome, not a server error.
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertSame('guardrail_blocked', $payload['status']);
+        self::assertSame($guardrail::class, $payload['guardrail']);
+        self::assertSame('blocked by test policy', $payload['error']);
+    }
+
+    #[Test]
+    public function runActionReturnsApprovalRequiredWhenAGuardrailFlagsTheResponse(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::requireApproval('needs a human');
+            }
+        };
+        [$controller] = $this->guardedController($guardrail);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'do it']);
+        $response = $controller->runAction($request);
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertSame('guardrail_approval_required', $payload['status']);
+        self::assertSame('needs a human', $payload['error']);
+    }
+
+    #[Test]
+    public function streamRunEmitsGuardrailBlockedEventWhenAGuardrailDenies(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::deny('blocked by test policy');
+            }
+        };
+        [$controller, $config] = $this->guardedController($guardrail);
+
+        $events = [];
+        $emit   = static function (array $event) use (&$events): void {
+            $events[] = $event;
+        };
+
+        $method = new ReflectionMethod($controller, 'streamRun');
+        $method->invoke(
+            $controller,
+            $emit,
+            [ChatMessage::user('do it')],
+            $config,
+            ['fetch_logs'],
+            new ToolOptions(),
+            null,
+            new RunAugmentation(),
+            false,
+        );
+
+        $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
+        // A guardrail verdict ends the stream with a distinct terminal event, not
+        // the generic 'error' and not a 'done'.
+        self::assertContains('guardrail_blocked', $kinds);
+        self::assertNotContains('done', $kinds);
+        self::assertNotContains('error', $kinds);
+
+        $blocked = null;
+        foreach ($events as $event) {
+            if (($event['event'] ?? null) === 'guardrail_blocked') {
+                $blocked = $event;
+            }
+        }
+        self::assertIsArray($blocked);
+        self::assertFalse($blocked['success']);
+        self::assertSame($guardrail::class, $blocked['guardrail']);
+        self::assertSame('blocked by test policy', $blocked['error']);
+    }
+
     /**
      * Build a controller wired to the scripted tool adapter (one tool call, then
      * a plain answer) over an in-memory configuration.
@@ -582,6 +691,51 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new NullLogger(),
             $adapterRegistry,
             new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+
+        return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
+    }
+
+    /**
+     * Like {@see self::scriptedController()} but with a guardrail wired into the
+     * provider pipeline, so a DENY / REQUIRE_APPROVAL verdict propagates out of
+     * the tool loop exactly as it does in production (ADR-086).
+     *
+     * @return array{0: ToolPlaygroundController, 1: LlmConfiguration}
+     */
+    private function guardedController(GuardrailInterface $guardrail): array
+    {
+        $provider = new Provider();
+        $provider->setIdentifier('fake-provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('nr_tools_vault_key');
+
+        $model = new Model();
+        $model->setModelId('priced-model-x');
+        $model->setProvider($provider);
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg-tools');
+        $config->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn(new ScriptedToolAdapter());
+
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([]);
+
+        $manager = $this->createLlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([new GuardrailMiddleware([$guardrail])]),
             self::createStub(CacheManagerInterface::class),
         );
 

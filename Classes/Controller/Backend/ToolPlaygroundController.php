@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -235,6 +237,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             }
 
             return $this->respondJson($this->awaitingApprovalPayload($handle !== null ? $handle->uuid : '', $approval, $trace));
+        } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
+            return $this->handleGuardrailBlock($guardrail, $handle, $trace);
         } catch (Throwable $e) {
             if ($handle !== null) {
                 $this->agentRunPersister?->settleFailed($handle, $e);
@@ -318,6 +322,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             }
 
             return $this->respondJson($this->awaitingApprovalPayload($run->uuid, $approval, $trace));
+        } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
+            return $this->handleGuardrailBlock($guardrail, $handle, $trace);
         } catch (Throwable $e) {
             if ($handle !== null) {
                 $this->agentRunPersister?->settleFailed($handle, $e);
@@ -364,6 +370,74 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             ),
             'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $trace->getSteps()),
         ];
+    }
+
+    /**
+     * Common handling for a guardrail verdict on a non-streamed run (ADR-086):
+     * record the run as blocked so it is not left RUNNING, then return the
+     * blocked payload. A guardrail DENY or REQUIRE_APPROVAL is a policy outcome,
+     * not a server error — the HTTP status stays 200 with ``success:false``.
+     */
+    private function handleGuardrailBlock(
+        GuardrailViolationException|GuardrailApprovalRequiredException $guardrail,
+        ?AgentRunHandle $handle,
+        RunTrace $trace,
+    ): ResponseInterface {
+        if ($handle !== null) {
+            $this->agentRunPersister?->settleFailed($handle, $guardrail);
+        }
+        $this->logger?->warning('Tool playground run blocked by guardrail', ['exception' => $guardrail]);
+
+        return $this->respondJson($this->guardrailBlockedPayload($guardrail, $trace));
+    }
+
+    /**
+     * The JSON body for a run a guardrail blocked (ADR-086): the status
+     * (denied vs flagged for approval), the deciding guardrail FQCN and its
+     * reason, plus the steps recorded up to the block.
+     *
+     * @return array<string, mixed>
+     */
+    private function guardrailBlockedPayload(
+        GuardrailViolationException|GuardrailApprovalRequiredException $guardrail,
+        RunTrace $trace,
+    ): array {
+        return [
+            'success'   => false,
+            'status'    => $this->guardrailStatus($guardrail),
+            'guardrail' => $guardrail->guardrail,
+            'error'     => $guardrail->getMessage(),
+            'steps'     => array_map(static fn(RunStep $step): array => $step->toArray(), $trace->getSteps()),
+        ];
+    }
+
+    /**
+     * The terminal streamed event for a guardrail block (ADR-086): same status
+     * and reason as {@see self::guardrailBlockedPayload()}, shaped as a stream
+     * event rather than a full JSON response.
+     *
+     * @return array<string, mixed>
+     */
+    private function guardrailBlockedEvent(
+        GuardrailViolationException|GuardrailApprovalRequiredException $guardrail,
+    ): array {
+        $status = $this->guardrailStatus($guardrail);
+
+        return [
+            'event'     => $status,
+            'success'   => false,
+            'status'    => $status,
+            'guardrail' => $guardrail->guardrail,
+            'error'     => $guardrail->getMessage(),
+        ];
+    }
+
+    private function guardrailStatus(
+        GuardrailViolationException|GuardrailApprovalRequiredException $guardrail,
+    ): string {
+        return $guardrail instanceof GuardrailApprovalRequiredException
+            ? 'guardrail_approval_required'
+            : 'guardrail_blocked';
     }
 
     /**
@@ -487,6 +561,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     $approval->state->toolCalls(),
                 ),
             ]);
+        } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
+            // ADR-085/086: a guardrail verdict is a policy outcome, not a failure
+            // — settle the run as blocked and emit a distinct terminal event
+            // instead of a generic error.
+            if ($handle !== null) {
+                $this->agentRunPersister?->settleFailed($handle, $guardrail);
+                $settled = true;
+            }
+            $this->logger?->warning('Tool playground stream blocked by guardrail', ['exception' => $guardrail]);
+            $emit($this->guardrailBlockedEvent($guardrail));
         } catch (Throwable $e) {
             if ($handle !== null) {
                 $this->agentRunPersister?->settleFailed($handle, $e);
