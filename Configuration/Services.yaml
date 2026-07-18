@@ -202,6 +202,13 @@ services:
     alias: Netresearch\NrLlm\Service\Telemetry\TelemetryRepository
     public: false
 
+  # Agent-run persistence (ADR-081) — private; consumed by AgentRunPersister,
+  # which the tool playground drives. The concrete repository stays private too;
+  # functional tests instantiate it directly with the real ConnectionPool.
+  Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Tool\AgentRunRepository
+    public: false
+
   # Circuit breaker state store (ADR-063) — private; consumed by
   # CircuitBreakerMiddleware. The cache-backed default is instantiated directly
   # in its functional test with the real core cache manager.

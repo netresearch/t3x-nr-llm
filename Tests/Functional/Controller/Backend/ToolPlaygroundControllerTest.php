@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -247,6 +249,73 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // Token usage is summed across both round-trips (7+3 then 5+4 => 19).
         self::assertIsArray($payload['usage']);
         self::assertSame(19, $payload['usage']['totalTokens']);
+    }
+
+    #[Test]
+    public function runActionPersistsCompletedAgentRunWithItsEventStream(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $provider = new Provider();
+        $provider->setIdentifier('fake-provider');
+        $provider->setAdapterType('openai');
+        $provider->setApiKey('nr_tools_vault_key');
+
+        $model = new Model();
+        $model->setModelId('priced-model-x');
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('cfg-tools');
+        $configuration->setLlmModel($model);
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $adapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
+        $adapterRegistry->method('createAdapterFromModel')->willReturn(new ScriptedToolAdapter());
+
+        $extensionConfig = self::createStub(ExtensionConfiguration::class);
+        $extensionConfig->method('get')->willReturn([]);
+
+        $manager = $this->createLlmServiceManager(
+            $extensionConfig,
+            new NullLogger(),
+            $adapterRegistry,
+            new MiddlewarePipeline([]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+
+        // Wire the real persister (ADR-081): the batch runAction path must open a
+        // run, record each step, and settle it COMPLETED.
+        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), new NullLogger());
+        $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService, $persister);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'Show me the last logs.']);
+        $response = $controller->runAction($request);
+        self::assertSame(200, $response->getStatusCode());
+
+        // Exactly one run persisted, COMPLETED, with the iteration count and token
+        // total the response reported.
+        $runs = $this->toolConnectionPool()
+            ->getConnectionForTable('tx_nrllm_agentrun')
+            ->select(['*'], 'tx_nrllm_agentrun')
+            ->fetchAllAssociative();
+        self::assertCount(1, $runs);
+        self::assertSame('completed', $runs[0]['status']);
+        self::assertSame(2, (int)$runs[0]['iterations']);
+        self::assertSame(19, (int)$runs[0]['total_tokens']);
+
+        // The five-step interleaving (request, llm, tool, request, llm) is persisted.
+        $eventCount = $this->toolConnectionPool()
+            ->getConnectionForTable('tx_nrllm_agentrun_event')
+            ->count('*', 'tx_nrllm_agentrun_event', ['run' => (int)$runs[0]['uid']]);
+        self::assertSame(5, $eventCount);
     }
 
     #[Test]
@@ -526,6 +595,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         LlmConfigurationRepository $configurationRepository,
         ToolRegistry $toolRegistry,
         ToolLoopService $toolLoopService,
+        ?AgentRunPersister $agentRunPersister = null,
     ): ToolPlaygroundController {
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
@@ -546,6 +616,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $this->get(AllowedToolsResolver::class),
             $skillRepository,
             $promptSnippetRepository,
+            $agentRunPersister,
         );
     }
 
