@@ -672,6 +672,10 @@ CREATE TABLE tx_nrllm_agentrun (
     estimated_cost decimal(10,6) DEFAULT '0.000000' NOT NULL,
     error_class varchar(255) DEFAULT '' NOT NULL,
 
+    -- Resumable state (ADR-084): serialised transcript + pending tool calls while
+    -- status = waiting_for_approval; empty otherwise.
+    suspended_state mediumtext,
+
     -- Time tracking
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,

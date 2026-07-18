@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -94,6 +96,7 @@ final readonly class ToolLoopService
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?RunAugmentation $augmentation = null,
+        bool $skipAssembly = false,
     ): ToolLoopResult {
         $max = $maxIterations ?? $this->defaultMaxIterations;
 
@@ -104,7 +107,15 @@ final readonly class ToolLoopService
         // loop re-sends its own accumulating array). A RunAugmentation adds the
         // playground extras (forced skills/snippets, baked system prompt) and
         // the dry-run flag.
-        [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+        //
+        // On resume (ADR-084, skipAssembly) the transcript is already fully
+        // assembled and carries the conversation, so re-assembling would double
+        // the system prompt and skills.
+        if ($skipAssembly) {
+            $dryRun = false;
+        } else {
+            [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+        }
 
         if ($dryRun) {
             $runTrace?->recordAssembledMessages($messages);
@@ -188,6 +199,24 @@ final readonly class ToolLoopService
                 }
 
                 $messages[] = ChatMessage::assistantToolCalls($resp->toolCalls ?? [], $resp->content);
+
+                // Human-in-the-loop (ADR-084): if any call in this turn opts into
+                // approval, suspend BEFORE executing any of the turn's calls so a
+                // multi-call turn stays consistent. Existing read-only tools never
+                // implement the marker, so this loop is inert for them and the
+                // synchronous path below is unchanged.
+                foreach ($resp->toolCalls ?? [] as $call) {
+                    if ($this->registry->get($call->name) instanceof RequiresApprovalInterface) {
+                        throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
+                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
+                            array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
+                            $iterations,
+                            $promptTokens,
+                            $completionTokens,
+                        ));
+                    }
+                }
+
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0                = hrtime(true);
                     [$result, $isError] = $this->invoke($call, $allowedNames);
@@ -241,6 +270,71 @@ final readonly class ToolLoopService
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
             );
         }
+    }
+
+    /**
+     * Resume a run suspended for human approval (ADR-084).
+     *
+     * Executes the pending turn's calls when $approved — appending each tool
+     * result to the restored transcript — then re-enters {@see self::runLoop()}
+     * with assembly skipped (the transcript already carries the system prompt and
+     * skills). When not approved, a denial result is appended for each pending
+     * call instead, and the model continues from the refusal. The pre-suspend
+     * iteration and token counters are folded into the returned result so the
+     * totals span the whole run.
+     *
+     * @param list<string>|null $allowedToolNames same semantics as {@see self::runLoop()}
+     */
+    public function resume(
+        SuspendedRunState $state,
+        bool $approved,
+        LlmConfiguration $configuration,
+        ?array $allowedToolNames,
+        ?ToolOptions $options = null,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+    ): ToolLoopResult {
+        $messages     = $state->messages;
+        $pendingCalls = $state->toolCalls();
+        // The pending calls were offered and called by the model in the suspended
+        // run; on approval they execute against exactly that set.
+        $pendingNames = array_map(static fn(ToolCall $c): string => $c->name, $pendingCalls);
+
+        foreach ($pendingCalls as $call) {
+            if ($approved) {
+                $tt0                = hrtime(true);
+                [$result, $isError] = $this->invoke($call, $pendingNames);
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+            } else {
+                $result = sprintf('Error: tool "%s" was denied by the operator.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            }
+            $messages[] = ChatMessage::toolResult($call->id, $result);
+        }
+
+        $result = $this->runLoop(
+            $messages,
+            $configuration,
+            $allowedToolNames,
+            $options,
+            $maxIterations,
+            $runTrace,
+            null,
+            true,
+        );
+
+        // Fold the pre-suspend counters into the continued run so the totals span
+        // the whole run, not just the post-resume segment.
+        return new ToolLoopResult(
+            $result->finalContent,
+            $result->trace,
+            $state->iterations + $result->iterations,
+            $result->truncated,
+            UsageStatistics::fromTokens(
+                $state->promptTokens + $result->usage->promptTokens,
+                $state->completionTokens + $result->usage->completionTokens,
+            ),
+        );
     }
 
     /**

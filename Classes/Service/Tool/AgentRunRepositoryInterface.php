@@ -46,6 +46,13 @@ interface AgentRunRepositoryInterface
         string $errorClass,
     ): void;
 
+    /**
+     * Suspend a run for human approval (ADR-084): persist its serialised state
+     * and move it to WAITING_FOR_APPROVAL — a non-terminal transition, distinct
+     * from finishRun which sets a terminal status and finished_at.
+     */
+    public function suspendRun(int $runUid, string $stateJson): void;
+
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**

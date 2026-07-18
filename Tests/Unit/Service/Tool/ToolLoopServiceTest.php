@@ -15,12 +15,15 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -607,6 +610,126 @@ final class ToolLoopServiceTest extends TestCase
      * tests target). Gating-specific tests build the service inline with a
      * restricted {@see FakeToolAvailability}.
      */
+    #[Test]
+    public function suspendsWhenTheModelCallsAnApprovalRequiredTool(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', ['id' => 7])], 5, 2));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+
+        self::assertCount(1, $state->pendingCalls);
+        self::assertSame('delete_thing', $state->toolCalls()[0]->name);
+        self::assertSame(['id' => 7], $state->toolCalls()[0]->arguments);
+        // The transcript holds the user turn + the assistant tool-call turn,
+        // captured before any tool executed.
+        self::assertCount(2, $state->messages);
+        self::assertSame(1, $state->iterations);
+        self::assertSame(5, $state->promptTokens);
+    }
+
+    #[Test]
+    public function resumeApprovedExecutesThePendingCallThenContinues(): void
+    {
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])], 5, 2),
+            $this->response('deleted and done', null, 3, 4),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+
+        $trace  = new RunTrace();
+        $result = $service->resume($state, true, new LlmConfiguration(), null, null, null, $trace);
+
+        self::assertSame('deleted and done', $result->finalContent);
+        // The approved tool really executed (recorded on the trace) with its result.
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        self::assertCount(1, $toolSteps);
+        self::assertSame('delete_thing', $toolSteps[0]->toolName);
+        self::assertSame('DELETED', $toolSteps[0]->toolResult);
+        self::assertFalse($toolSteps[0]->toolIsError);
+        // Totals span the whole run: pre-suspend (5+2) + post-resume (3+4).
+        self::assertSame(14, $result->usage->totalTokens);
+    }
+
+    #[Test]
+    public function resumeDeniedInjectsARefusalThenContinues(): void
+    {
+        $mgr   = self::createStub(LlmServiceManagerInterface::class);
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('ok, cancelled'),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+
+        $trace  = new RunTrace();
+        $result = $service->resume($state, false, new LlmConfiguration(), null, null, null, $trace);
+
+        self::assertSame('ok, cancelled', $result->finalContent);
+        // The pending tool was NOT executed; a denial result was fed back instead.
+        $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
+        self::assertCount(1, $toolSteps);
+        self::assertTrue($toolSteps[0]->toolIsError);
+        self::assertStringContainsString('denied', $toolSteps[0]->toolResult ?? '');
+    }
+
+    /**
+     * Drive a run to its approval suspension and return the captured state.
+     */
+    private function suspend(ToolLoopService $service): SuspendedRunState
+    {
+        try {
+            $service->runLoop([$this->userTurn('delete it')], new LlmConfiguration(), null);
+        } catch (ToolApprovalRequiredException $e) {
+            return $e->state;
+        }
+        self::fail('Expected the run to suspend for approval.');
+    }
+
+    /**
+     * A tool that opts into human approval (marker), returning 'DELETED' when run.
+     */
+    private function approvalTool(): ToolInterface
+    {
+        return new class implements ToolInterface, RequiresApprovalInterface {
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('delete_thing', 'deletes a thing', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments): string
+            {
+                return 'DELETED';
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+        };
+    }
+
     private function service(
         LlmServiceManagerInterface $mgr,
         ToolRegistry $registry,

@@ -381,4 +381,5 @@ Tools
    Adr081AgentRunPersistence
    Adr082StructuredOutputs
    Adr083ConversationSessions
+   Adr084HumanInTheLoopApproval
    Adr085GuardrailPipeline

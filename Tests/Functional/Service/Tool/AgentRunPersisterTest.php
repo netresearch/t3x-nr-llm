@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -46,6 +47,45 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
 
         $this->repository = new AgentRunRepository($connectionPool);
         $this->persister  = new AgentRunPersister($this->repository, new NullLogger());
+    }
+
+    #[Test]
+    public function suspendPersistsWaitingStateAndResumeContinuesThenSettleClearsIt(): void
+    {
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+        $this->persister->recordStep($handle, new RunStep(kind: RunStep::KIND_REQUEST, round: 1, durationMs: 0.0));
+        $this->persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'x'));
+
+        $state = new SuspendedRunState(
+            [['role' => 'user', 'content' => 'delete it']],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            1,
+            5,
+            2,
+        );
+        $this->persister->suspend($handle, $state);
+
+        // The run is now WAITING_FOR_APPROVAL with its state persisted.
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('waiting_for_approval', $run->status);
+        self::assertNotNull($run->suspendedState);
+        $decoded = json_decode($run->suspendedState, true);
+        self::assertIsArray($decoded);
+        self::assertSame(1, $decoded['iterations']);
+
+        // resumeHandle continues the event stream after the two recorded events.
+        $resumed = $this->persister->resumeHandle($run);
+        self::assertSame($handle->runUid, $resumed->runUid);
+        self::assertSame(2, $resumed->sequence);
+
+        // Settling a resumed run clears the suspended state.
+        $this->persister->settleCompleted($resumed, new ToolLoopResult('done', [], 2, false, UsageStatistics::fromTokens(8, 6)));
+        $settled = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($settled);
+        self::assertSame('completed', $settled->status);
+        self::assertNull($settled->suspendedState);
     }
 
     #[Test]

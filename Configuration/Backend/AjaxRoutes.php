@@ -167,6 +167,11 @@ return [
         'path' => '/nrllm/tool/run',
         'target' => ToolPlaygroundController::class . '::runAction',
     ],
+    // Resume a run suspended for human approval (ADR-084)
+    'nrllm_tool_resume' => [
+        'path' => '/nrllm/tool/resume',
+        'target' => ToolPlaygroundController::class . '::resumeAction',
+    ],
     // Tool management route (global enable/disable)
     'nrllm_tool_toggle' => [
         'path' => '/nrllm/tool/toggle',

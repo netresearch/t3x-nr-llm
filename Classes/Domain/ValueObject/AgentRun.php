@@ -37,6 +37,9 @@ final readonly class AgentRun
         public int $startedAt,
         public int $finishedAt,
         public int $crdate,
+        // Serialised SuspendedRunState JSON while status = waiting_for_approval
+        // (ADR-084); null once the run is running or terminal.
+        public ?string $suspendedState = null,
     ) {}
 
     /**
