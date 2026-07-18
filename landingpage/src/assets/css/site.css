@@ -232,13 +232,19 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 
 /* ---- Cards / grids ---- */
 .grid { display: grid; gap: var(--gap); margin-top: 2.5rem; }
-.grid--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
-.grid--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+/* min-width:0 lets a grid item shrink below its content width so long,
+   unbreakable strings (e.g. FQCNs) wrap instead of overflowing the card. */
+.grid > * { min-width: 0; }
+/* Genuinely two-up on desktop (wider boxes) — the 30rem floor prevents the
+   auto-fit track count from creeping to 3-4 columns at 1200px. */
+/* At most two cards side by side on desktop; one column on narrow screens. */
+.grid--2, .grid--3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
 .card {
   background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
   padding: 1.5rem 1.6rem; box-shadow: var(--shadow-sm);
 }
-.card h3 { margin-top: 0; }
+.card h3 { margin-top: 0; overflow-wrap: anywhere; }
+.card code, .card h3 code { overflow-wrap: anywhere; }
 .card__icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: grid; place-items: center; background: color-mix(in srgb, var(--teal) 14%, transparent); color: var(--teal-text); margin-bottom: 0.9rem; }
 :root[data-theme='dark'] .card__icon { color: var(--link); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .card__icon { color: var(--link); } }
@@ -329,7 +335,9 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .ai__output ul, .ai__output ol { margin: 0 0 0.7rem; padding-left: 1.3rem; }
 .ai__output li { margin: 0.2rem 0; }
 .ai__output li > p { margin: 0; }
-.ai__output code { background: var(--code-bg); color: var(--code-ink); padding: 0.05em 0.35em; border-radius: 4px; font-size: 0.9em; }
+.ai__output code { background: var(--code-bg); color: var(--code-ink); padding: 0.05em 0.35em; border-radius: 4px; font-size: 0.9em; overflow-wrap: anywhere; }
+.ai__output pre.ai-code { margin: 0 0 0.7rem; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.7rem 0.85rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+.ai__output pre.ai-code code { background: none; padding: 0; font-size: inherit; color: inherit; overflow-wrap: normal; white-space: pre; }
 .ai__output a { color: var(--link); }
 .ai__output strong { color: var(--ink-strong); }
 .ai__output:empty:not([aria-busy='true']) { display: none; }
@@ -352,8 +360,9 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .adr-list a:hover { background: var(--bg-alt); }
 .adr-num { font-family: var(--font-head); font-weight: 700; color: var(--teal-text); font-variant-numeric: tabular-nums; }
 :root[data-theme='dark'] .adr-num { color: var(--link); }
-.adr-title { font-family: var(--font-head); font-weight: 600; color: var(--ink-strong); }
-.adr-summary { grid-column: 2; font-size: 0.9rem; color: var(--muted); }
+.adr-list a > * { min-width: 0; }   /* let the 1fr column shrink so long titles wrap */
+.adr-title { font-family: var(--font-head); font-weight: 600; color: var(--ink-strong); overflow-wrap: anywhere; }
+.adr-summary { grid-column: 2; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
 .badge { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--bg-alt); color: var(--muted); border: 1px solid var(--border-light); }
 .badge--accepted { color: var(--teal-text); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
 
