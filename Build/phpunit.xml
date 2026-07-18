@@ -57,6 +57,8 @@
             <file>../Classes/Provider/Exception/ProviderConnectionException.php</file>
             <file>../Classes/Provider/Exception/ProviderConfigurationException.php</file>
             <file>../Classes/Provider/Exception/ProviderResponseException.php</file>
+            <file>../Classes/Provider/Exception/ProviderAuthenticationException.php</file>
+            <file>../Classes/Provider/Exception/ProviderRateLimitException.php</file>
             <file>../Classes/Provider/Exception/UnsupportedFeatureException.php</file>
             <file>../Classes/Specialized/Exception/ImageGenerationException.php</file>
             <file>../Classes/Specialized/Exception/SpeechServiceException.php</file>

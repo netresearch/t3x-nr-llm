@@ -39,8 +39,15 @@ use Throwable;
  * so providers like Gemini (which embed the API key in the URL via
  * `?key=<secret>`) don't accidentally leak credentials through
  * exception logging or telemetry.
+ *
+ * Not `final`: the two status-specific subclasses
+ * {@see ProviderAuthenticationException} (401) and
+ * {@see ProviderRateLimitException} (429) extend this so callers can branch on
+ * the exception class, while `catch (ProviderResponseException)` still catches
+ * every non-2xx decoded response (ADR-080). The constructor and typed fields
+ * are inherited unchanged.
  */
-final class ProviderResponseException extends ProviderException
+class ProviderResponseException extends ProviderException
 {
     public readonly int $httpStatus;
     public readonly string $endpoint;

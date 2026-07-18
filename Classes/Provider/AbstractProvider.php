@@ -14,8 +14,10 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -416,11 +418,11 @@ abstract class AbstractProvider implements ProviderInterface
             $body = (string)$response->getBody();
             $decoded = json_decode($body, true);
             $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
-            throw new ProviderResponseException(
-                message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
-                httpStatus: $statusCode,
-                responseBody: $body,
-                endpoint: $endpoint,
+            throw $this->clientErrorException(
+                $statusCode,
+                $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                $body,
+                $endpoint,
             );
         }
 
@@ -547,11 +549,11 @@ abstract class AbstractProvider implements ProviderInterface
         if ($statusCode >= 400 && $statusCode < 500) {
             $decoded = json_decode($body, true);
             $error = is_array($decoded) ? $this->asArray($decoded) : ['error' => ['message' => self::UNKNOWN_ERROR]];
-            throw new ProviderResponseException(
-                message: $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
-                httpStatus: $statusCode,
-                responseBody: $body,
-                endpoint: $endpoint,
+            throw $this->clientErrorException(
+                $statusCode,
+                $this->sanitizeErrorMessage($this->extractErrorMessage($error)),
+                $body,
+                $endpoint,
             );
         }
 
@@ -559,6 +561,24 @@ abstract class AbstractProvider implements ProviderInterface
             sprintf('Server returned status %d', $statusCode),
             $statusCode,
         );
+    }
+
+    /**
+     * Map a 4xx client-error status to the most specific
+     * {@see ProviderResponseException} subclass — 401 →
+     * {@see ProviderAuthenticationException}, 429 →
+     * {@see ProviderRateLimitException}, everything else the base class — so
+     * callers can branch on the exception type (ADR-080). Every result is a
+     * `ProviderResponseException` carrying `httpStatus`, so existing catches and
+     * the `getCode() === 429` middleware keep working.
+     */
+    private function clientErrorException(int $statusCode, string $message, string $responseBody, string $endpoint): ProviderResponseException
+    {
+        return match ($statusCode) {
+            401 => new ProviderAuthenticationException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
+            429 => new ProviderRateLimitException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
+            default => new ProviderResponseException(message: $message, httpStatus: $statusCode, responseBody: $responseBody, endpoint: $endpoint),
+        };
     }
 
     /**

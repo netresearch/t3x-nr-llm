@@ -15,8 +15,10 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\AbstractProvider;
+use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
@@ -475,6 +477,83 @@ class AbstractProviderTest extends AbstractUnitTestCase
         } catch (ProviderResponseException $e) {
             self::assertStringContainsString('key=***', $e->getMessage());
             self::assertStringNotContainsString('sk-secret123', $e->getMessage());
+        }
+    }
+
+    /**
+     * Build an OpenAI provider whose HTTP client returns the given status with a
+     * decodable error body, bypassing the pipeline so `handleResponse()`'s
+     * status-to-exception mapping is exercised directly (ADR-080).
+     */
+    private function openAiProviderReturning(int $statusCode): OpenAiProvider
+    {
+        $provider = new OpenAiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel'     => 'gpt-5.2',
+            'maxRetries'       => 0,
+        ]);
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['error' => ['message' => 'boom']], $statusCode),
+        );
+        $provider->setHttpClient($client);
+
+        return $provider;
+    }
+
+    #[Test]
+    public function status401MapsToProviderAuthenticationException(): void
+    {
+        try {
+            $this->openAiProviderReturning(401)->complete('hello');
+            self::fail('Expected ProviderAuthenticationException was not thrown');
+        } catch (ProviderAuthenticationException $e) {
+            self::assertSame(401, $e->getCode());
+            self::assertSame(401, $e->httpStatus);
+        }
+    }
+
+    #[Test]
+    public function status429MapsToProviderRateLimitException(): void
+    {
+        try {
+            $this->openAiProviderReturning(429)->complete('hello');
+            self::fail('Expected ProviderRateLimitException was not thrown');
+        } catch (ProviderRateLimitException $e) {
+            // getCode() === 429 is the BC anchor for the retry/circuit-breaker middleware.
+            self::assertSame(429, $e->getCode());
+        }
+    }
+
+    #[Test]
+    public function otherClientErrorsStayTheBaseProviderResponseException(): void
+    {
+        try {
+            $this->openAiProviderReturning(403)->complete('hello');
+            self::fail('Expected ProviderResponseException was not thrown');
+        } catch (ProviderResponseException $e) {
+            // The discriminator only fires on 401/429 — 403 stays the base class.
+            self::assertNotInstanceOf(ProviderAuthenticationException::class, $e);
+            self::assertNotInstanceOf(ProviderRateLimitException::class, $e);
+            self::assertSame(403, $e->getCode());
+        }
+    }
+
+    #[Test]
+    public function streamingStatus429MapsToProviderRateLimitException(): void
+    {
+        try {
+            $this->openAiProviderReturning(429)->streamChatCompletion([['role' => 'user', 'content' => 'hi']])->current();
+            self::fail('Expected ProviderRateLimitException was not thrown');
+        } catch (ProviderRateLimitException $e) {
+            self::assertSame(429, $e->getCode());
         }
     }
 
