@@ -72,7 +72,8 @@
       return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     });
     if (!terms.length) { frag.appendChild(document.createTextNode(text)); return frag; }
-    var re = new RegExp('(' + terms.join('|') + ')', 'ig');
+    // terms are regex-escaped literals joined by alternation — no ReDoS surface
+    var re = new RegExp('(' + terms.join('|') + ')', 'ig'); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     var last = 0;
     Array.from(text.matchAll(re)).forEach(function (m) {
       if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));

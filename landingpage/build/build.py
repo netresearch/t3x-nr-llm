@@ -348,7 +348,9 @@ def main():
     group_order = [g["name"] for g in adr_meta.get("groups", [])]
     grouped = group_adrs(adrs, group_order)
 
-    env = Environment(
+    # Autoescaping is enabled for html/xml below; raw HTML (ADR bodies, JSON-LD) is
+    # our own generated content, injected explicitly via |safe.
+    env = Environment(  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         loader=FileSystemLoader(str(SRC / "templates")),
         autoescape=select_autoescape(["html", "xml"]),
         trim_blocks=True, lstrip_blocks=True,
@@ -365,7 +367,7 @@ def main():
 
     # Cache-busting version derived from asset content (CSS + JS).
     import hashlib
-    hasher = hashlib.md5()
+    hasher = hashlib.sha256()
     for rel in ("css/site.css", "js/search.js", "js/ai-assistant.js", "js/site.js", "js/minisearch.min.js"):
         p = OUT / "assets" / rel
         if p.exists():

@@ -14,6 +14,8 @@ vendor/
 # minified upstream code, not ours to scan (avoids false-positive SAST findings
 # such as "prototype pollution" inside the minified library).
 Resources/Public/JavaScript/Vendor/
+# Vendored MiniSearch UMD bundle used by the landing page search (minified upstream).
+landingpage/src/assets/js/minisearch.min.js
 
 # Test code is scanned by our own test suites + PHPStan; opengrep's
 # default ruleset flags legitimate test patterns such as unlink() for
