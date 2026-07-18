@@ -121,6 +121,15 @@ services:
     alias: Netresearch\NrLlm\Service\Feature\CompletionService
     public: true
 
+  # Stateful conversation service (ADR-083) — public feature surface, like the
+  # other completion services.
+  Netresearch\NrLlm\Service\Feature\ConversationService:
+    public: true
+
+  Netresearch\NrLlm\Service\Feature\ConversationServiceInterface:
+    alias: Netresearch\NrLlm\Service\Feature\ConversationService
+    public: true
+
   Netresearch\NrLlm\Service\Feature\VisionService:
     public: true
 
@@ -207,6 +216,13 @@ services:
   # functional tests instantiate it directly with the real ConnectionPool.
   Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface:
     alias: Netresearch\NrLlm\Service\Tool\AgentRunRepository
+    public: false
+
+  # Conversation session store (ADR-083) — private; consumed by ConversationService
+  # and the nrllm:session:purge command. The concrete repository stays private too;
+  # functional tests instantiate it directly with the real ConnectionPool.
+  Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Session\AiSessionRepository
     public: false
 
   # Circuit breaker state store (ADR-063) — private; consumed by
