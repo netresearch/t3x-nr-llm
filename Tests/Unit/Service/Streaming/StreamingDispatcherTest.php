@@ -12,9 +12,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Streaming;
 use Generator;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -22,6 +24,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
@@ -64,6 +67,57 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         ));
 
         self::assertSame(['Hello', ' ', 'World'], $chunks);
+    }
+
+    #[Test]
+    public function auditsTheAssembledStreamedResponseAgainstGuardrailsAfterDelivery(): void
+    {
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return str_contains($response->content, 'sk-secret')
+                    ? GuardrailResult::deny('a secret was streamed')
+                    : GuardrailResult::allow();
+            }
+        };
+        $dispatcher = $this->dispatcher(guardrails: [$guardrail]);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['here is ', 'sk-secret-value', ' — oops']),
+        ));
+
+        // The chunks are delivered unchanged: the audit runs AFTER delivery and
+        // cannot retract or redact what was already streamed.
+        self::assertSame(['here is ', 'sk-secret-value', ' — oops'], $chunks);
+
+        // The verdict is recorded for audit so streamed output is not a blind spot.
+        $record = $this->logger->firstMatching('warning', 'tripped a guardrail');
+        self::assertNotNull($record);
+        self::assertSame($guardrail::class, $record['context']['guardrail'] ?? null);
+        self::assertSame('deny', $record['context']['verdict'] ?? null);
+        self::assertSame('a secret was streamed', $record['context']['reason'] ?? null);
+    }
+
+    #[Test]
+    public function doesNotRecordAGuardrailAuditForACleanStream(): void
+    {
+        $guardrail = new class implements GuardrailInterface {
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::allow();
+            }
+        };
+        $dispatcher = $this->dispatcher(guardrails: [$guardrail]);
+
+        iterator_to_array($dispatcher->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $this->staticStream(['a perfectly ', 'normal answer']),
+        ));
+
+        self::assertNull($this->logger->firstMatching('warning', 'tripped a guardrail'));
     }
 
     #[Test]
@@ -681,10 +735,14 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         return $record;
     }
 
+    /**
+     * @param iterable<GuardrailInterface> $guardrails
+     */
     private function dispatcher(
         ?BudgetServiceInterface $budget = null,
         ?LlmConfigurationRepository $repository = null,
         ?ExtensionConfiguration $extensionConfiguration = null,
+        iterable $guardrails = [],
     ): StreamingDispatcher {
         return new StreamingDispatcher(
             $budget ?? $this->budget(BudgetCheckResult::allowed()),
@@ -694,6 +752,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->logger,
             $this->contextWithAmbientUser(0),
             $extensionConfiguration ?? $this->extensionConfiguration(true),
+            $guardrails,
         );
     }
 
