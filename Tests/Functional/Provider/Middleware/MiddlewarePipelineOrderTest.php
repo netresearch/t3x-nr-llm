@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
@@ -50,7 +51,8 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             [
-                TelemetryMiddleware::class,      // 110 outermost: observes every run (ADR-058)
+                GuardrailMiddleware::class,      // 115 outermost: screens the final response; a guardrail deny is a policy outcome, not a provider failure, so it sits above Telemetry (ADR-085)
+                TelemetryMiddleware::class,      // 110 observes every provider run (ADR-058)
                 IdempotencyMiddleware::class,    // 105 replays a stored result by key (ADR-063)
                 CacheMiddleware::class,          // 100 outermost behavioural layer: a cache hit short-circuits
                 BudgetMiddleware::class,         //  75 pre-flight budget gate on a miss

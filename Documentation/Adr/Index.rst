@@ -381,3 +381,4 @@ Tools
    Adr081AgentRunPersistence
    Adr082StructuredOutputs
    Adr083ConversationSessions
+   Adr085GuardrailPipeline
