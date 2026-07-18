@@ -32,6 +32,7 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         private ?int $maxTokens = null,
         private ?string $provider = null,
         private ?string $model = null,
+        private ?string $configuration = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
     ) {
@@ -192,6 +193,18 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $clone;
     }
 
+    /**
+     * Pin a stored LlmConfiguration by identifier. On the specialized-translator
+     * path (`translateWithTranslator()`), the translator bound to that
+     * configuration (`LlmConfiguration::getTranslator()`) is used when set.
+     */
+    public function withConfiguration(string $configuration): static
+    {
+        $clone = clone $this;
+        $clone->configuration = $configuration;
+        return $clone;
+    }
+
     // Budget pre-flight setters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -246,6 +259,11 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $this->model;
     }
 
+    public function getConfiguration(): ?string
+    {
+        return $this->configuration;
+    }
+
     // Budget pre-flight getters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -264,6 +282,7 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
             'max_tokens' => $this->maxTokens,
             'provider' => $this->provider,
             'model' => $this->model,
+            'configuration' => $this->configuration,
         ]);
     }
 

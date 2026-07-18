@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\TranslationOptions;
@@ -50,6 +51,26 @@ interface TranslationServiceInterface
     ): TranslationResult;
 
     /**
+     * Translate text with a stored LlmConfiguration's persona/tone.
+     *
+     * Routes through `LlmServiceManager::chatWithConfiguration()` so the
+     * configuration's `system_prompt`, model, provider and skills apply,
+     * while the translation task/constraints are layered into the user
+     * message. Mirrors `chatWithToolsForConfiguration`/`embedForConfiguration`.
+     *
+     * @param string|null $sourceLanguage ISO 639-1 code, or null for auto-detection
+     *
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
+     */
+    public function translateForConfiguration(
+        string $text,
+        string $targetLanguage,
+        LlmConfiguration $configuration,
+        ?string $sourceLanguage = null,
+        ?TranslationOptions $options = null,
+    ): TranslationResult;
+
+    /**
      * Translate multiple texts using the LLM-based path. Empty input returns `[]`.
      *
      * @param array<int, string> $texts
@@ -79,7 +100,7 @@ interface TranslationServiceInterface
     ): float;
 
     /**
-     * Translate via a specialized translator (DeepL etc.) resolved from options/preset/default.
+     * Translate via a specialized translator (DeepL etc.) resolved from options/configuration/default.
      *
      * @throws InvalidArgumentException when input is empty or language code invalid
      */

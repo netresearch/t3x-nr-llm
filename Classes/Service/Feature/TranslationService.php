@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -49,6 +51,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  */
 final readonly class TranslationService implements TranslationServiceInterface
 {
+    private const EMPTY_TEXT_ERROR = 'Text cannot be empty';
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
@@ -56,6 +59,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         private LlmServiceManagerInterface $llmManager,
         private TranslatorRegistryInterface $translatorRegistry,
         private LlmConfigurationServiceInterface $configurationService,
+        private TranslationPromptBuilder $promptBuilder,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
@@ -73,30 +77,13 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?TranslationOptions $options = null,
     ): TranslationResult {
         $options ??= new TranslationOptions();
-        $optionsArray = $options->toArray();
 
-        if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty', 1478981390);
-        }
-
-        $this->validateLanguageCode($targetLanguage);
-
-        // Auto-detect source language if not provided
-        if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text, $options);
-        } else {
-            $this->validateLanguageCode($sourceLanguage);
-        }
-
-        // Validate options
-        $this->validateOptions($optionsArray);
-
-        // Build prompt
-        $prompt = $this->buildTranslationPrompt(
+        ['sourceLanguage' => $sourceLanguage, 'prompt' => $prompt] = $this->prepareTranslation(
             $text,
-            $sourceLanguage,
             $targetLanguage,
-            $optionsArray,
+            $sourceLanguage,
+            $options,
+            1478981390,
         );
 
         // Execute translation. REC #2 closure: build typed
@@ -111,11 +98,101 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: $options->getTemperature() ?? 0.3,
             maxTokens: $options->getMaxTokens() ?? 2000,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
 
         $response = $this->llmManager->chat($messages, $chatOptions);
+
+        return new TranslationResult(
+            translation: $response->content,
+            sourceLanguage: $sourceLanguage,
+            targetLanguage: $targetLanguage,
+            confidence: $this->calculateConfidence($response->finishReason),
+            usage: $response->usage,
+        );
+    }
+
+    /**
+     * Translate text using the persona/tone of a stored LlmConfiguration.
+     *
+     * Unlike {@see self::translate()} — which supplies its own system
+     * message and therefore short-circuits
+     * {@see \Netresearch\NrLlm\Service\MessageShaper::applySystemPrompt()},
+     * so the configuration's stored `system_prompt` never applies — this
+     * method routes through {@see LlmServiceManagerInterface::chatWithConfiguration()}
+     * so the configuration drives the provider/model/skills AND its
+     * `system_prompt` becomes the system message.
+     *
+     * The translation task itself (target/source language, formality,
+     * glossary, preserve-formatting, "output only the translation") is
+     * carried in the USER message rather than a second system message:
+     * a system message would re-trigger the short-circuit and clobber the
+     * configuration's persona. The configuration's `system_prompt` is the
+     * persona/tone layer; this user-message preamble is the task layer.
+     *
+     * Source-language auto-detection (when `$sourceLanguage` is null) runs
+     * through the options' provider, not the configuration — pass an explicit
+     * `$sourceLanguage` to avoid that extra call and keep the whole operation
+     * on the chosen configuration.
+     *
+     * @param string      $text           Text to translate
+     * @param string      $targetLanguage Target language code (ISO 639-1)
+     * @param string|null $sourceLanguage Source language code (auto-detected if null)
+     *
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
+     */
+    public function translateForConfiguration(
+        string $text,
+        string $targetLanguage,
+        LlmConfiguration $configuration,
+        ?string $sourceLanguage = null,
+        ?TranslationOptions $options = null,
+    ): TranslationResult {
+        $options ??= new TranslationOptions();
+
+        // Build the same task/constraints prompt as translate(), but fold the
+        // instruction block into the USER message so no system message is sent —
+        // that keeps the configuration's stored system_prompt as the system
+        // message (see applySystemPrompt short-circuit).
+        ['sourceLanguage' => $sourceLanguage, 'prompt' => $prompt] = $this->prepareTranslation(
+            $text,
+            $targetLanguage,
+            $sourceLanguage,
+            $options,
+            1719410501,
+        );
+
+        $messages = [
+            ChatMessage::user($prompt['system'] . "\n\n" . $prompt['user']),
+        ];
+
+        // Budget metadata for chatWithConfiguration's pipeline (ADR-052):
+        // absent keys mean "skip the check", matching the middleware contract.
+        $metadata = [];
+        $beUserUid = $this->resolveBeUserUid($options);
+        if ($beUserUid !== null) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
+        if ($options->getPlannedCost() !== null) {
+            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
+        }
+
+        // Only forward set generation knobs; unset ones let the configuration's
+        // stored defaults apply. Provider is omitted — the configuration owns it.
+        $overrides = [];
+        if ($options->getTemperature() !== null) {
+            $overrides['temperature'] = $options->getTemperature();
+        }
+        if ($options->getMaxTokens() !== null) {
+            $overrides['max_tokens'] = $options->getMaxTokens();
+        }
+        if ($options->getModel() !== null) {
+            $overrides['model'] = $options->getModel();
+        }
+
+        $response = $this->llmManager->chatWithConfiguration($messages, $configuration, $metadata, $overrides);
 
         return new TranslationResult(
             translation: $response->content,
@@ -174,6 +251,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
@@ -223,6 +301,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
+            model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
         );
@@ -240,7 +319,7 @@ final readonly class TranslationService implements TranslationServiceInterface
      *
      * Supports dual-path translation with priority routing:
      * 1. Explicit translator specified in options
-     * 2. Translator from LlmConfiguration preset
+     * 2. Translator pinned on a selected LlmConfiguration (options configuration key)
      * 3. Default LLM-based translation
      *
      * @param string      $text           Text to translate
@@ -259,7 +338,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
 
         if (empty($text)) {
-            throw new InvalidArgumentException('Text cannot be empty', 3459949413);
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 3459949413);
         }
 
         $this->validateLanguageCode($targetLanguage);
@@ -373,11 +452,13 @@ final readonly class TranslationService implements TranslationServiceInterface
             return $this->translatorRegistry->get($translator);
         }
 
-        // Priority 2: Preset specified - check for translator in configuration
-        $preset = $options['preset'] ?? '';
-        if (is_string($preset) && $preset !== '') {
+        // Priority 2: Configuration identifier specified - use the translator
+        // pinned on that LlmConfiguration, if any. Reachable via
+        // TranslationOptions::withConfiguration() (#430).
+        $configurationIdentifier = $options['configuration'] ?? '';
+        if (is_string($configurationIdentifier) && $configurationIdentifier !== '') {
             try {
-                $configuration = $this->configurationService->getConfiguration($preset);
+                $configuration = $this->configurationService->getConfiguration($configurationIdentifier);
                 if ($configuration->getTranslator() !== '') {
                     return $this->translatorRegistry->get($configuration->getTranslator());
                 }
@@ -391,65 +472,52 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
-     * Build translation prompt with template.
+     * Shared preamble for translate() and translateForConfiguration():
+     * empty-text guard, language-code validation, source-language
+     * detection, option validation, and prompt construction. Only the
+     * message assembly and dispatch differ between the two callers.
      *
-     * @param array<string, mixed> $options
+     * @param int $emptyTextErrorCode caller-specific code for the empty-text guard
      *
-     * @return array{system: string, user: string}
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
+     *
+     * @return array{sourceLanguage: string, prompt: array{system: string, user: string}}
      */
-    private function buildTranslationPrompt(
+    private function prepareTranslation(
         string $text,
-        string $sourceLanguage,
         string $targetLanguage,
-        array $options,
+        ?string $sourceLanguage,
+        TranslationOptions $options,
+        int $emptyTextErrorCode,
     ): array {
-        $formality = is_string($options['formality'] ?? null) ? $options['formality'] : 'default';
-        $domain = is_string($options['domain'] ?? null) ? $options['domain'] : 'general';
-        $glossary = is_array($options['glossary'] ?? null) ? $options['glossary'] : [];
-        $context = is_string($options['context'] ?? null) ? $options['context'] : '';
-        $preserveFormatting = $options['preserve_formatting'] ?? true;
+        if (empty($text)) {
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, $emptyTextErrorCode);
+        }
 
-        // Build system prompt
-        $systemPrompt = sprintf(
-            "You are a professional %s translator. Translate the following text from %s to %s.\n",
-            $domain,
-            $this->getLanguageName($sourceLanguage),
-            $this->getLanguageName($targetLanguage),
+        $optionsArray = $options->toArray();
+
+        $this->validateLanguageCode($targetLanguage);
+
+        // Auto-detect source language if not provided
+        if ($sourceLanguage === null) {
+            $sourceLanguage = $this->detectLanguage($text, $options);
+        } else {
+            $this->validateLanguageCode($sourceLanguage);
+        }
+
+        // Validate options
+        $this->validateOptions($optionsArray);
+
+        $prompt = $this->promptBuilder->build(
+            $text,
+            $sourceLanguage,
+            $targetLanguage,
+            $optionsArray,
         );
 
-        // Add formality instruction
-        if ($formality !== 'default') {
-            $systemPrompt .= sprintf("Maintain %s tone.\n", $formality);
-        }
-
-        // Add formatting instruction
-        if ($preserveFormatting) {
-            $systemPrompt .= "Preserve all formatting, HTML tags, markdown, and special characters.\n";
-        }
-
-        // Add glossary if provided
-        if ($glossary !== []) {
-            $systemPrompt .= "\nUse these exact term translations:\n";
-            foreach ($glossary as $term => $translation) {
-                if (is_string($translation) || is_int($translation) || is_float($translation)) {
-                    $systemPrompt .= sprintf("- %s → %s\n", $term, $translation);
-                }
-            }
-        }
-
-        // Add context if provided
-        if ($context !== '') {
-            $systemPrompt .= sprintf("\nContext (for reference only):\n%s\n", $context);
-        }
-
-        $systemPrompt .= "\nProvide ONLY the translation, no explanations or notes.";
-
-        // Build user prompt
-        $userPrompt = sprintf("Translate this text:\n\n%s", $text);
-
         return [
-            'system' => $systemPrompt,
-            'user' => $userPrompt,
+            'sourceLanguage' => $sourceLanguage,
+            'prompt' => $prompt,
         ];
     }
 
@@ -512,30 +580,6 @@ final readonly class TranslationService implements TranslationServiceInterface
         if (isset($options['glossary']) && !is_array($options['glossary'])) {
             throw new InvalidArgumentException('Glossary must be an associative array', 8571915742);
         }
-    }
-
-    /**
-     * Get human-readable language name.
-     */
-    private function getLanguageName(string $code): string
-    {
-        $languages = [
-            'en' => 'English',
-            'de' => 'German',
-            'fr' => 'French',
-            'es' => 'Spanish',
-            'it' => 'Italian',
-            'pt' => 'Portuguese',
-            'nl' => 'Dutch',
-            'pl' => 'Polish',
-            'ru' => 'Russian',
-            'ja' => 'Japanese',
-            'zh' => 'Chinese',
-            'ko' => 'Korean',
-            'ar' => 'Arabic',
-        ];
-
-        return $languages[$code] ?? $code;
     }
 
     /**

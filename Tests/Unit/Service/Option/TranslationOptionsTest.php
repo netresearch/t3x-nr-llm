@@ -357,6 +357,18 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         self::assertEquals('model2', $options2->getModel());
     }
 
+    #[Test]
+    public function withConfigurationReturnsNewInstanceAndIsEmittedInArray(): void
+    {
+        $options1 = new TranslationOptions();
+        $options2 = $options1->withConfiguration('editorial');
+
+        self::assertNull($options1->getConfiguration());
+        self::assertEquals('editorial', $options2->getConfiguration());
+        self::assertArrayNotHasKey('configuration', $options1->toArray());
+        self::assertSame('editorial', $options2->toArray()['configuration'] ?? null);
+    }
+
     // Array Conversion
 
     #[Test]
