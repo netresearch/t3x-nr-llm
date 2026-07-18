@@ -94,6 +94,14 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         ];
     }
 
+    /** @var array{runUid: int, stateJson: string}|null */
+    public ?array $suspended = null;
+
+    public function suspendRun(int $runUid, string $stateJson): void
+    {
+        $this->suspended = ['runUid' => $runUid, 'stateJson' => $stateJson];
+    }
+
     public function findByUuid(string $uuid): ?AgentRun
     {
         return null;

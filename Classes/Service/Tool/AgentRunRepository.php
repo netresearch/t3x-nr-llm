@@ -100,8 +100,25 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 'total_tokens'            => $totalTokens,
                 'estimated_cost'          => $estimatedCost,
                 'error_class'             => $errorClass,
+                // A terminal run is no longer suspended.
+                'suspended_state'         => '',
                 'finished_at'             => time(),
                 'tstamp'                  => time(),
+            ],
+            ['uid' => $runUid],
+        );
+    }
+
+    public function suspendRun(int $runUid, string $stateJson): void
+    {
+        // Non-terminal transition (ADR-084): store the resumable state and move
+        // the run to WAITING_FOR_APPROVAL without setting finished_at.
+        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'status'          => AgentRunStatus::WAITING_FOR_APPROVAL->value,
+                'suspended_state' => $stateJson,
+                'tstamp'          => time(),
             ],
             ['uid' => $runUid],
         );
@@ -199,7 +216,17 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             startedAt: self::toInt($row['started_at'] ?? 0),
             finishedAt: self::toInt($row['finished_at'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
+            suspendedState: $this->suspendedStateOf($row['suspended_state'] ?? null),
         );
+    }
+
+    /**
+     * The stored suspended-state JSON, or null when the run is not suspended
+     * (empty column) — distinct from a genuine payload.
+     */
+    private function suspendedStateOf(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

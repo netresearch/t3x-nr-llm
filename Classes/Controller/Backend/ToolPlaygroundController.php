@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -19,11 +20,14 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -221,6 +225,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         try {
             $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
+        } catch (ToolApprovalRequiredException $approval) {
+            // ADR-084: a called tool requires human approval. Persist the
+            // suspended state (transcript + pending calls) so a later resume can
+            // continue, and return an awaiting-approval response — caught BEFORE
+            // the generic Throwable below so a suspension is not a failed run.
+            if ($handle !== null) {
+                $this->agentRunPersister?->suspend($handle, $approval->state);
+            }
+
+            return $this->respondJson($this->awaitingApprovalPayload($handle !== null ? $handle->uuid : '', $approval, $trace));
         } catch (Throwable $e) {
             if ($handle !== null) {
                 $this->agentRunPersister?->settleFailed($handle, $e);
@@ -247,6 +261,109 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         return $this->respondJson($response->toArray());
+    }
+
+    /**
+     * Resume a run suspended for human approval (ADR-084).
+     *
+     * Admin-gated like {@see runAction()}. Loads the suspended run by uuid,
+     * rehydrates its state, executes (or, when not approved, refuses) the pending
+     * tool call(s) via {@see ToolLoopService::resume()}, and returns the continued
+     * run's result — which may itself suspend again on another approval-required
+     * tool.
+     */
+    public function resumeAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
+
+        $body     = $request->getParsedBody();
+        $runUuid  = trim($this->stringFromBody($body, 'runUuid'));
+        $approved = $this->boolFromBody($body, 'approve');
+
+        $run = $this->agentRunPersister?->findRun($runUuid);
+        if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingApproval', 'No run is awaiting approval for that id.')], 400);
+        }
+
+        $config = $this->configurationRepository->findByUid($run->configurationUid);
+        if ($config === null) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400);
+        }
+
+        $decoded = json_decode($run->suspendedState, true);
+        if (!is_array($decoded)) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
+        }
+        $state = SuspendedRunState::fromArray($decoded);
+
+        // Continue the SAME run: rebuild the handle so events keep ascending.
+        // The allow-list and options are restored from the suspended state inside
+        // resume() — the run keeps its original constraints (ADR-084).
+        $handle = $this->agentRunPersister?->resumeHandle($run);
+        $trace  = new RunTrace(
+            onRecord: $handle !== null
+                ? function (RunStep $step) use ($handle): void {
+                    $this->agentRunPersister?->recordStep($handle, $step);
+                }
+            : null,
+        );
+
+        try {
+            $result = $this->toolLoopService->resume($state, $approved, $config, null, $trace);
+        } catch (ToolApprovalRequiredException $approval) {
+            if ($handle !== null) {
+                $this->agentRunPersister?->suspend($handle, $approval->state);
+            }
+
+            return $this->respondJson($this->awaitingApprovalPayload($run->uuid, $approval, $trace));
+        } catch (Throwable $e) {
+            if ($handle !== null) {
+                $this->agentRunPersister?->settleFailed($handle, $e);
+            }
+            $this->logger?->error('Tool playground resume failed', ['exception' => $e]);
+
+            return $this->respondJson(['success' => false, 'error' => $this->diagnoseRunFailure($e)], 500);
+        }
+
+        if ($handle !== null) {
+            $this->agentRunPersister?->settleCompleted($handle, $result);
+        }
+
+        $response = new PlaygroundRunResponse(
+            finalContent: $result->finalContent,
+            iterations: $result->iterations,
+            truncated: $result->truncated,
+            dryRun: false,
+            steps: $trace->getSteps(),
+            promptTokens: $result->usage->promptTokens,
+            completionTokens: $result->usage->completionTokens,
+            totalTokens: $result->usage->totalTokens,
+            estimatedCost: $result->usage->estimatedCost,
+        );
+
+        return $this->respondJson($response->toArray());
+    }
+
+    /**
+     * The JSON body for a run that suspended for approval: the pending tool calls
+     * the operator must approve, plus the steps recorded up to the pause.
+     *
+     * @return array<string, mixed>
+     */
+    private function awaitingApprovalPayload(string $runUuid, ToolApprovalRequiredException $approval, RunTrace $trace): array
+    {
+        return [
+            'success'      => true,
+            'status'       => 'awaiting_approval',
+            'runUuid'      => $runUuid,
+            'pendingTools' => array_map(
+                static fn(ToolCall $call): array => ['name' => $call->name, 'arguments' => $call->arguments],
+                $approval->state->toolCalls(),
+            ),
+            'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $trace->getSteps()),
+        ];
     }
 
     /**
@@ -353,6 +470,22 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'totalTokens'      => $result->usage->totalTokens,
                     'estimatedCost'    => $result->usage->estimatedCost,
                 ],
+            ]);
+        } catch (ToolApprovalRequiredException $approval) {
+            // ADR-084: a called tool requires approval — suspend the run and emit
+            // an awaiting-approval event instead of failing.
+            if ($handle !== null) {
+                $this->agentRunPersister?->suspend($handle, $approval->state);
+                $settled = true;
+            }
+            $emit([
+                'event'        => 'awaiting_approval',
+                'success'      => true,
+                'runUuid'      => $handle !== null ? $handle->uuid : '',
+                'pendingTools' => array_map(
+                    static fn(ToolCall $call): array => ['name' => $call->name, 'arguments' => $call->arguments],
+                    $approval->state->toolCalls(),
+                ),
             ]);
         } catch (Throwable $e) {
             if ($handle !== null) {

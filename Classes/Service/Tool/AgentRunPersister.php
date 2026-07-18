@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -116,6 +118,52 @@ final readonly class AgentRunPersister
     public function settleFailed(AgentRunHandle $handle, Throwable $error): void
     {
         $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class);
+    }
+
+    /**
+     * Suspend a run for human approval (ADR-084): persist the transcript and
+     * pending tool calls and move the run to WAITING_FOR_APPROVAL. Fail-soft.
+     */
+    public function suspend(AgentRunHandle $handle, SuspendedRunState $state): void
+    {
+        try {
+            $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            $this->repository->suspendRun($handle->runUid, $stateJson);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be suspended', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * Load a persisted run by uuid. Exposed on the persister (a service) so a
+     * controller can reach a run without depending on the repository directly
+     * (the layered-architecture rule). Null when unknown or unavailable.
+     */
+    public function findRun(string $uuid): ?AgentRun
+    {
+        try {
+            return $this->repository->findByUuid($uuid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be loaded', ['exception' => $exception]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Rebuild a live handle for an existing (suspended) run so a resume continues
+     * its event stream at the right sequence.
+     */
+    public function resumeHandle(AgentRun $run): AgentRunHandle
+    {
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        try {
+            $handle->sequence = count($this->repository->findEvents($run->uid));
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun events could not be counted for resume; sequence restarts at 0', ['exception' => $exception]);
+        }
+
+        return $handle;
     }
 
     private function finish(

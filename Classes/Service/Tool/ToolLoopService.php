@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -94,6 +96,7 @@ final readonly class ToolLoopService
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?RunAugmentation $augmentation = null,
+        bool $skipAssembly = false,
     ): ToolLoopResult {
         $max = $maxIterations ?? $this->defaultMaxIterations;
 
@@ -104,7 +107,15 @@ final readonly class ToolLoopService
         // loop re-sends its own accumulating array). A RunAugmentation adds the
         // playground extras (forced skills/snippets, baked system prompt) and
         // the dry-run flag.
-        [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+        //
+        // On resume (ADR-084, skipAssembly) the transcript is already fully
+        // assembled and carries the conversation, so re-assembling would double
+        // the system prompt and skills.
+        if ($skipAssembly) {
+            $dryRun = false;
+        } else {
+            [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
+        }
 
         if ($dryRun) {
             $runTrace?->recordAssembledMessages($messages);
@@ -112,30 +123,8 @@ final readonly class ToolLoopService
             return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
         }
 
-        // Fail-closed global gate: the effective allow-set is always intersected
-        // with the globally-enabled tools. A null caller list means "no per-run
-        // restriction" and collapses to the enabled set (NOT every registered
-        // tool); a disabled tool can therefore never be offered, even when a
-        // caller — or a model steered by injected skill prose — names it.
-        $enabled   = $this->availability->enabledNames();
-        $effective = $allowedToolNames === null
-            ? $enabled
-            : array_values(array_intersect($allowedToolNames, $enabled));
-
-        // Fail-closed RBAC gate: admin-only tools (logs, environment, phpinfo,
-        // backend user/group listings) are never offered unless the ACTING
-        // backend user is an admin — enforced here in the runtime, not just the
-        // (admin-only) playground, so the public service cannot be invoked on a
-        // non-admin's behalf to reach them. An unknown tool name is treated as
-        // admin-only (fail-closed).
-        if (!$this->actingUserIsAdmin()) {
-            $effective = array_values(array_filter(
-                $effective,
-                fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
-            ));
-        }
-
-        $specs = $this->registry->specs($effective);
+        $effective = $this->resolveOfferedNames($allowedToolNames);
+        $specs     = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
         // request with an empty `tools` array makes some providers (OpenAI) 400.
@@ -188,6 +177,29 @@ final readonly class ToolLoopService
                 }
 
                 $messages[] = ChatMessage::assistantToolCalls($resp->toolCalls ?? [], $resp->content);
+
+                // Human-in-the-loop (ADR-084): if any call in this turn opts into
+                // approval, suspend BEFORE executing any of the turn's calls so a
+                // multi-call turn stays consistent. Existing read-only tools never
+                // implement the marker, so this loop is inert for them and the
+                // synchronous path below is unchanged.
+                foreach ($resp->toolCalls ?? [] as $call) {
+                    if ($this->registry->get($call->name) instanceof RequiresApprovalInterface) {
+                        throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
+                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
+                            array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
+                            $iterations,
+                            $promptTokens,
+                            $completionTokens,
+                            // Persist the run's constraints so resume re-applies the
+                            // SAME allow-list and options instead of falling back to
+                            // defaults (ADR-084).
+                            $allowedToolNames,
+                            $options?->toArray() ?? [],
+                        ));
+                    }
+                }
+
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0                = hrtime(true);
                     [$result, $isError] = $this->invoke($call, $allowedNames);
@@ -241,6 +253,77 @@ final readonly class ToolLoopService
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
             );
         }
+    }
+
+    /**
+     * Resume a run suspended for human approval (ADR-084).
+     *
+     * Restores the run's original allow-list and options from the suspended state
+     * (so the continuation keeps the same constraints, not defaults), then
+     * executes the pending turn's calls when $approved — appending each tool
+     * result to the restored transcript — and re-enters {@see self::runLoop()}
+     * with assembly skipped (the transcript already carries the system prompt and
+     * skills). When not approved, a denial result is appended for each pending
+     * call; the model then continues from the refusal.
+     *
+     * The gate is re-applied at resume time: a pending call whose tool has since
+     * been disabled or become admin-only is NOT executed even when approved
+     * (fail-closed). The pre-suspend iteration and token counters are folded into
+     * the returned result so the totals span the whole run.
+     */
+    public function resume(
+        SuspendedRunState $state,
+        bool $approved,
+        LlmConfiguration $configuration,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+    ): ToolLoopResult {
+        $messages     = $state->messages;
+        $pendingCalls = $state->toolCalls();
+        $options      = ToolOptions::fromArray($state->options);
+        // Re-apply the gate NOW (a tool may have been disabled or restricted while
+        // the run was suspended) rather than trusting the names captured at
+        // suspend time.
+        $offered = $this->resolveOfferedNames($state->allowedToolNames);
+
+        foreach ($pendingCalls as $call) {
+            if (!$approved) {
+                $result = sprintf('Error: tool "%s" was denied by the operator.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } elseif (!in_array($call->name, $offered, true)) {
+                $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } else {
+                $tt0                = hrtime(true);
+                [$result, $isError] = $this->invoke($call, $offered);
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+            }
+            $messages[] = ChatMessage::toolResult($call->id, $result);
+        }
+
+        $result = $this->runLoop(
+            $messages,
+            $configuration,
+            $state->allowedToolNames,
+            $options,
+            $maxIterations,
+            $runTrace,
+            null,
+            true,
+        );
+
+        // Fold the pre-suspend counters into the continued run so the totals span
+        // the whole run, not just the post-resume segment.
+        return new ToolLoopResult(
+            $result->finalContent,
+            $result->trace,
+            $state->iterations + $result->iterations,
+            $result->truncated,
+            UsageStatistics::fromTokens(
+                $state->promptTokens + $result->usage->promptTokens,
+                $state->completionTokens + $result->usage->completionTokens,
+            ),
+        );
     }
 
     /**
@@ -313,11 +396,54 @@ final readonly class ToolLoopService
      * X@host') that URL-sanitising would not strip, so it must never reach the
      * provider.
      *
-     * @param list<string> $allowedNames Names of the tools actually offered this
-     *                                   run; a call to any other registered tool
-     *                                   is rejected unexecuted.
      *
      * @return array{0: string, 1: bool} [result, isError]
+     */
+    /**
+     * Resolve the tool names offered for a run: the caller's per-run allow-list
+     * intersected with the globally-enabled set, then admin-only tools filtered
+     * out unless the acting backend user is an admin. Both gates are fail-closed.
+     * Reused by {@see self::resume()} so a resume re-applies the gate at approval
+     * time — a tool disabled or restricted while suspended is not executed.
+     *
+     * @param list<string>|null $allowedToolNames null ⇒ the globally-enabled set;
+     *                                            a list ⇒ that set ∩ enabled;
+     *                                            `[]` ⇒ no tools
+     *
+     * @return list<string>
+     */
+    private function resolveOfferedNames(?array $allowedToolNames): array
+    {
+        // Fail-closed global gate: the effective allow-set is always intersected
+        // with the globally-enabled tools. A null caller list means "no per-run
+        // restriction" and collapses to the enabled set (NOT every registered
+        // tool); a disabled tool can therefore never be offered, even when a
+        // caller — or a model steered by injected skill prose — names it.
+        $enabled   = $this->availability->enabledNames();
+        $effective = $allowedToolNames === null
+            ? $enabled
+            : array_values(array_intersect($allowedToolNames, $enabled));
+
+        // Fail-closed RBAC gate: admin-only tools (logs, environment, phpinfo,
+        // backend user/group listings) are never offered unless the ACTING
+        // backend user is an admin — enforced here in the runtime, not just the
+        // (admin-only) playground, so the public service cannot be invoked on a
+        // non-admin's behalf to reach them. An unknown tool name is treated as
+        // admin-only (fail-closed).
+        if (!$this->actingUserIsAdmin()) {
+            $effective = array_values(array_filter(
+                $effective,
+                fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
+            ));
+        }
+
+        return $effective;
+    }
+
+    /**
+     * @param list<string> $allowedNames
+     *
+     * @return array{string, bool} the tool result and whether it is an error
      */
     private function invoke(ToolCall $call, array $allowedNames): array
     {
