@@ -255,6 +255,13 @@ def strip_html(s: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s)).strip()
 
 
+def make_scrollables_focusable(html_fragment: str) -> str:
+    """Add tabindex=0 to horizontally scrollable blocks (<pre>, <table>) so keyboard
+    users can scroll them (WCAG 2.1.1 / axe scrollable-region-focusable). The trailing
+    [\\s>] boundary matches only the exact tags, never <preview>/<table-foo>."""
+    return re.sub(r'<(pre|table)([\s>])', r'<\1 tabindex="0"\2', html_fragment)
+
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -283,7 +290,7 @@ def collect_adrs(adr_meta: dict) -> list[dict]:
             "slug": slug,
             "file": f"adr/{slug}.html",
             "url": url(f"adr/{slug}.html"),
-            "body": rendered["body"],
+            "body": make_scrollables_focusable(rendered["body"]),
         })
     return adrs
 
