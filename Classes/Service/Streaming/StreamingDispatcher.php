@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Streaming;
 
 use Generator;
+use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -19,10 +22,12 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Context\Context;
@@ -87,6 +92,18 @@ final readonly class StreamingDispatcher
 
     private const CHARS_PER_TOKEN = 4;
 
+    /**
+     * Upper bound on the completion text buffered for the end-of-stream guardrail
+     * audit (ADR-086). Streaming deliberately avoids holding the whole response
+     * (see the class doc block); a secret a model echoes appears near where it
+     * was given, so the leading window is enough to screen while keeping the
+     * memory cost bounded on a pathologically long stream.
+     */
+    private const MAX_GUARDRAIL_BUFFER_BYTES = 50000;
+
+    /**
+     * @param iterable<GuardrailInterface> $guardrails
+     */
     public function __construct(
         private BudgetServiceInterface $budgetService,
         private UsageTrackerServiceInterface $usageTracker,
@@ -95,6 +112,8 @@ final readonly class StreamingDispatcher
         private LoggerInterface $logger,
         private Context $context,
         private ExtensionConfiguration $extensionConfiguration,
+        #[AutowireIterator(GuardrailInterface::TAG_NAME)]
+        private iterable $guardrails = [],
     ) {}
 
     /**
@@ -136,6 +155,7 @@ final readonly class StreamingDispatcher
         $startNs         = hrtime(true);
         $firstTokenNs    = null;
         $completionBytes = 0;
+        $completion      = '';
         $served          = $configuration;
         $success         = false;
         $errorClass      = '';
@@ -148,15 +168,20 @@ final readonly class StreamingDispatcher
                     $firstTokenNs = hrtime(true);
                 }
                 $chunk = $inner->current();
-                // Count bytes as they pass; never buffer the whole completion —
-                // token estimation and logging only need the length, and holding
-                // the full response would defeat streaming's memory benefit.
+                // Count bytes as they pass; token estimation and logging only need
+                // the length. A bounded leading window is also buffered for the
+                // end-of-stream guardrail audit (ADR-086) — never the whole
+                // response, which would defeat streaming's memory benefit.
                 $completionBytes += \strlen($chunk);
+                if (\strlen($completion) < self::MAX_GUARDRAIL_BUFFER_BYTES) {
+                    $completion .= $chunk;
+                }
                 yield $chunk;
                 $inner->next();
             }
 
             $success = true;
+            $this->screenStreamedOutput($context, $served, $completion);
         } catch (Throwable $e) {
             $errorClass = $e::class;
 
@@ -353,6 +378,65 @@ final readonly class StreamingDispatcher
                 );
             } catch (Throwable) {
                 // Nothing safe left to do; never let accounting break the call.
+            }
+        }
+    }
+
+    /**
+     * End-of-stream guardrail audit (ADR-086).
+     *
+     * The pipeline's {@see \Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware}
+     * never runs on a streamed response — a lazy generator cannot be the pipeline
+     * terminal (see the class doc block) — so streamed output would otherwise be
+     * a guardrail blind spot. This screens the assembled completion once the
+     * stream finishes and records any non-ALLOW verdict.
+     *
+     * It is an AUDIT, not enforcement: the chunks have already been yielded to
+     * the caller, so a DENY / REDACT cannot retract or live-redact them. Catching
+     * a secret mid-stream would need a delta-oriented guardrail contract, a
+     * deliberate ADR-086 follow-up. Fail-soft — the stream already succeeded, so
+     * this never throws (a broken guardrail must not turn a delivered response
+     * into an error).
+     */
+    private function screenStreamedOutput(
+        ProviderCallContext $context,
+        LlmConfiguration $served,
+        string $completion,
+    ): void {
+        if ($completion === '') {
+            return;
+        }
+
+        try {
+            $response = new CompletionResponse(
+                content: $completion,
+                model: $served->getModelId(),
+                usage: UsageStatistics::fromTokens(0, 0),
+            );
+
+            foreach ($this->guardrails as $guardrail) {
+                $verdict = $guardrail->checkOutput($response);
+                if ($verdict->verdict === GuardrailVerdict::ALLOW) {
+                    continue;
+                }
+
+                $this->logger->warning(
+                    'Streamed LLM response tripped a guardrail after delivery (audit only — chunks were already sent)',
+                    $this->logContext($context, [
+                        'guardrail' => $guardrail::class,
+                        'verdict'   => $verdict->verdict->value,
+                        'reason'    => $verdict->reason,
+                    ]),
+                );
+            }
+        } catch (Throwable $e) {
+            try {
+                $this->logger->error(
+                    'Failed to screen streamed LLM output for guardrails',
+                    $this->logContext($context, ['exception' => $e]),
+                );
+            } catch (Throwable) {
+                // Never let guardrail auditing break a delivered stream.
             }
         }
     }

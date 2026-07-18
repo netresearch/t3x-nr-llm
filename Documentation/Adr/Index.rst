@@ -383,3 +383,4 @@ Tools
    Adr083ConversationSessions
    Adr084HumanInTheLoopApproval
    Adr085GuardrailPipeline
+   Adr086GuardrailEnforcementGaps
