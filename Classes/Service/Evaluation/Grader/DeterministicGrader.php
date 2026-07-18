@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AssertionType;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPrompt;
 use Netresearch\NrLlm\Service\Evaluation\GradingResult;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 
 /**
  * Grades a response by evaluating a golden prompt's deterministic
@@ -27,6 +28,10 @@ use Netresearch\NrLlm\Service\Evaluation\GradingResult;
 final readonly class DeterministicGrader implements GraderInterface
 {
     public const IDENTIFIER = 'deterministic';
+
+    public function __construct(
+        private JsonSchemaValidator $schemaValidator = new JsonSchemaValidator(),
+    ) {}
 
     public function getIdentifier(): string
     {
@@ -69,80 +74,7 @@ final readonly class DeterministicGrader implements GraderInterface
             AssertionType::EXACT => trim($response) === trim($assertion->value),
             AssertionType::CONTAINS => str_contains($response, $assertion->value),
             AssertionType::REGEX => preg_match($assertion->value, $response) === 1,
-            AssertionType::JSON_SCHEMA => $this->matchesJsonSchema($response, $assertion->value),
-        };
-    }
-
-    /**
-     * Lightweight structural JSON match: valid JSON whose shape satisfies a
-     * subset schema (top-level `type`, object `required` keys, and recursive
-     * `properties` types). Extra keys are allowed; this is deliberately not a
-     * full JSON Schema draft validator.
-     */
-    private function matchesJsonSchema(string $response, string $schemaJson): bool
-    {
-        $data = json_decode($response, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return false;
-        }
-        $schema = json_decode($schemaJson, true);
-        if (!is_array($schema)) {
-            return false;
-        }
-
-        return $this->validateAgainstSchema($data, $schema);
-    }
-
-    /**
-     * @param array<array-key, mixed> $schema
-     */
-    private function validateAgainstSchema(mixed $data, array $schema): bool
-    {
-        $type = $schema['type'] ?? null;
-        if (is_string($type) && !$this->matchesType($data, $type)) {
-            return false;
-        }
-
-        if (isset($schema['required']) && is_array($schema['required'])) {
-            // An empty JSON object decodes to []; treat it as an object here
-            // (consistent with matchesType()) so an empty object is not
-            // mistaken for a list and the required-key checks still run.
-            if (!is_array($data) || ($data !== [] && array_is_list($data))) {
-                return false;
-            }
-            foreach ($schema['required'] as $key) {
-                if (!is_string($key) || !array_key_exists($key, $data)) {
-                    return false;
-                }
-            }
-        }
-
-        if (isset($schema['properties']) && is_array($schema['properties']) && is_array($data)) {
-            foreach ($schema['properties'] as $key => $propSchema) {
-                if (is_array($propSchema) && array_key_exists($key, $data)
-                    && !$this->validateAgainstSchema($data[$key], $propSchema)
-                ) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private function matchesType(mixed $data, string $type): bool
-    {
-        return match ($type) {
-            // An empty JSON object and array both decode to []; ambiguity is
-            // accepted for this lightweight matcher.
-            'object' => is_array($data) && (!array_is_list($data) || $data === []),
-            'array' => is_array($data) && array_is_list($data),
-            'string' => is_string($data),
-            'number' => is_int($data) || is_float($data),
-            'integer' => is_int($data),
-            'boolean' => is_bool($data),
-            'null' => $data === null,
-            default => true,
+            AssertionType::JSON_SCHEMA => $this->schemaValidator->validateJson($response, $assertion->value),
         };
     }
 

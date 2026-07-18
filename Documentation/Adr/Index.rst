@@ -378,3 +378,4 @@ Tools
    Adr078SpecializedServiceBudgetEnforcement
    Adr079FirstPartyCompletionVisionBudgetFakes
    Adr080TypedProviderHttpExceptions
+   Adr082StructuredOutputs

@@ -54,6 +54,13 @@ final class StaticCompletionService implements CompletionServiceInterface
         return [];
     }
 
+    public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
+    {
+        $this->receivedPrompts[] = $prompt;
+
+        return [];
+    }
+
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
     {
         return $this->content;
@@ -75,6 +82,13 @@ final class StaticCompletionService implements CompletionServiceInterface
     }
 
     public function completeJsonForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): array
+    {
+        $this->receivedPrompts[] = $prompt;
+
+        return [];
+    }
+
+    public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
         $this->receivedPrompts[] = $prompt;
 

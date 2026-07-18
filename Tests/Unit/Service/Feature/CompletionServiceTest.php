@@ -1004,6 +1004,92 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $subject->completeForConfiguration('hello', $configuration);
     }
 
+    #[Test]
+    public function completeStructuredReturnsValidatedPayloadOnFirstAttempt(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::once())->method('chat')
+            ->willReturn($this->createMockResponse('{"title": "Hello", "description": "World"}'));
+
+        $schema = [
+            'type'       => 'object',
+            'required'   => ['title', 'description'],
+            'properties' => [
+                'title'       => ['type' => 'string'],
+                'description' => ['type' => 'string'],
+            ],
+        ];
+
+        $result = $subject->completeStructured('Generate metadata', $schema);
+
+        self::assertSame('Hello', $result['title']);
+        self::assertSame('World', $result['description']);
+    }
+
+    #[Test]
+    public function completeStructuredRepairsOnceWhenTheFirstResponseFailsTheSchema(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        // First response omits the required 'description'; the single repair
+        // round-trip supplies it.
+        $responses = [
+            $this->createMockResponse('{"title": "Hello"}'),
+            $this->createMockResponse('{"title": "Hello", "description": "World"}'),
+        ];
+        $index = 0;
+        $llmManagerMock->expects(self::exactly(2))->method('chat')
+            ->willReturnCallback(function () use (&$responses, &$index): CompletionResponse {
+                return $responses[$index++];
+            });
+
+        $result = $subject->completeStructured('Generate metadata', ['type' => 'object', 'required' => ['title', 'description']]);
+
+        self::assertSame('World', $result['description']);
+    }
+
+    #[Test]
+    public function completeStructuredRepairsOnceWhenTheFirstResponseIsNotJson(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $responses = [
+            $this->createMockResponse('Sure, here you go:'),
+            $this->createMockResponse('{"ok": true}'),
+        ];
+        $index = 0;
+        $llmManagerMock->expects(self::exactly(2))->method('chat')
+            ->willReturnCallback(function () use (&$responses, &$index): CompletionResponse {
+                return $responses[$index++];
+            });
+
+        $result = $subject->completeStructured('Generate', ['type' => 'object', 'required' => ['ok']]);
+
+        self::assertTrue($result['ok']);
+    }
+
+    #[Test]
+    public function completeStructuredThrowsWhenTheSchemaStillFailsAfterRepair(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        // Both the initial attempt and the repair omit the required key.
+        $llmManagerMock->expects(self::exactly(2))->method('chat')
+            ->willReturn($this->createMockResponse('{"title": "Hello"}'));
+
+        $this->expectException(InvalidArgumentException::class);
+        $subject->completeStructured('Generate', ['type' => 'object', 'required' => ['description']]);
+    }
+
+    #[Test]
+    public function completeStructuredForConfigurationValidatesAgainstTheSchema(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::once())->method('completeForConfiguration')
+            ->willReturn($this->createMockResponse('{"score": 5}'));
+
+        $result = $subject->completeStructuredForConfiguration('Rate this', new LlmConfiguration(), ['type' => 'object', 'required' => ['score']]);
+
+        self::assertSame(5, $result['score']);
+    }
+
     /**
      * Create mock CompletionResponse.
      */
