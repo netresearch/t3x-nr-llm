@@ -332,7 +332,7 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .ai__output code { background: var(--code-bg); color: var(--code-ink); padding: 0.05em 0.35em; border-radius: 4px; font-size: 0.9em; }
 .ai__output a { color: var(--link); }
 .ai__output strong { color: var(--ink-strong); }
-.ai__output:empty { display: none; }
+.ai__output:empty:not([aria-busy='true']) { display: none; }
 .ai__output[aria-busy='true']::after { content: '▋'; animation: blink 1s steps(2) infinite; color: var(--teal); }
 @keyframes blink { 50% { opacity: 0; } }
 .ai__status { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
