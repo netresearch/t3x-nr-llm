@@ -8,11 +8,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.22.0] - 2026-07-17
 
-Pulls the three retrieval/document capabilities forward that the 0.21.0 revisit
-issues had deferred to a second consumer.
+Pulls the retrieval/document capabilities forward that the 0.21.0 revisit issues
+had deferred to a second consumer, and extends the named-configuration model to
+completion and translation.
 
 ### Added
 
+- **Per-configuration translation** (#428, #429, #430).
+  `TranslationService::translateForConfiguration()` translates with a stored
+  `LlmConfiguration`'s persona/tone — routing through `chatWithConfiguration()`
+  so the configuration's `system_prompt`, model and provider apply while the
+  translation task rides in the user message. The translation path now also
+  forwards the configured `model` (previously dropped), and a `configuration`
+  field on `TranslationOptions` makes the config-selected specialized translator
+  reachable.
+- **Named-configuration completion** (ADR-077, #423). `CompletionService` gains
+  a `*ForConfiguration()` family (`completeForConfiguration()`,
+  `completeJsonForConfiguration()`, …) so plain completions resolve a named
+  `LlmConfiguration` (its provider/model/prompt) and run through the middleware
+  pipeline, enforcing budgets and attributing cost per configuration — matching
+  the existing chat/tools/embedding `*ForConfiguration` entry points.
+- **Budget pre-flight for specialized image/speech services** (ADR-078, #425).
+  The DALL-E/FAL/Whisper/TTS services dispatch HTTP directly and bypassed the
+  provider middleware; they now enforce per-user and per-configuration spend
+  ceilings before the provider request (previously usage was attributed but not
+  enforced on this path).
+- **First-party fakes for Completion, Vision and Budget services** (ADR-079,
+  #427). Ready-made doubles under the runtime-autoloaded
+  `Netresearch\NrLlm\Testing\` namespace, so consumers stop hand-rolling doubles
+  that break when an interface grows.
 - **Neutral cross-encoder reranker protocol** (ADR-075, #414). `Service\Rerank\`
   ships `RerankerInterface` (id/text in, id/score out — no consumer DTOs),
   `HttpReranker` speaking the sidecar contract (batch cap 128, configurable
