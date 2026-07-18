@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\AbstractProvider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -874,6 +875,108 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager->chat([['role' => 'user', 'content' => 'a perfectly normal question']], new ChatOptions(provider: 'openai'));
 
         self::assertStringContainsString('a perfectly normal question', $this->joinContents($provider->capturedMessages));
+    }
+
+    #[Test]
+    public function screensASecretInTheSystemPrompt(): void
+    {
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        // The system prompt is prepended after user-message screening; it must be
+        // screened too (ADR-089), not only the user turns.
+        $manager->chat(
+            [['role' => 'user', 'content' => 'hello']],
+            new ChatOptions(provider: 'openai', systemPrompt: 'You hold key sk-abcdef0123456789ABCDEF now'),
+        );
+
+        $joined = $this->joinContents($provider->capturedMessages);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function chatWithConfigurationScreensASecretInTheSystemPrompt(): void
+    {
+        $model  = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $received    = null;
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('chatCompletion')->willReturnCallback(
+            function (array $messages) use (&$received): CompletionResponse {
+                $received = $messages;
+
+                return new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2));
+            },
+        );
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $screener = new InputGuardrailScreener([new SecretRedactionInputGuardrail()]);
+        $manager  = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $screener,
+        );
+
+        // The configuration-driven path (the dominant production path) must screen
+        // the system prompt too, not only user turns (ADR-089).
+        $manager->chatWithConfiguration(
+            [['role' => 'user', 'content' => 'hello']],
+            $config,
+            [],
+            ['system_prompt' => 'You hold key sk-abcdef0123456789ABCDEF now'],
+        );
+
+        self::assertIsArray($received);
+        $joined = implode("\n", array_map(static fn(ChatMessage $m): string => $m->content, $received));
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+    }
+
+    #[Test]
+    public function screensASecretInTheVisionTextPrompt(): void
+    {
+        $provider = new TestableVisionProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->vision(
+            [
+                VisionContent::text('describe this using key sk-abcdef0123456789ABCDEF'),
+                VisionContent::imageUrl('https://example.com/x.png'),
+            ],
+            new VisionOptions(provider: 'openai-vision'),
+        );
+
+        $texts = array_map(
+            static fn(VisionContent $c): string => $c->text ?? '',
+            array_values(array_filter(
+                $provider->capturedContent,
+                static fn(VisionContent|array $c): bool => $c instanceof VisionContent && $c->isText(),
+            )),
+        );
+        $joined = implode("\n", $texts);
+        self::assertStringContainsString('sk-***', $joined);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $joined);
+
+        // Non-text items pass through untouched (redaction must not drop the image).
+        $images = array_values(array_filter(
+            $provider->capturedContent,
+            static fn(VisionContent|array $c): bool => $c instanceof VisionContent && !$c->isText(),
+        ));
+        self::assertCount(1, $images);
+        self::assertSame('https://example.com/x.png', $images[0]->imageUrl);
     }
 
     private function managerWithInputScreener(TestableProvider $provider, ?InputGuardrailScreener $screener = null): LlmServiceManager
@@ -2692,6 +2795,9 @@ class TestableVisionProvider extends TestableProvider implements VisionCapableIn
 {
     private ?VisionResponse $nextVisionResponse = null;
 
+    /** @var list<VisionContent|array<string, mixed>> */
+    public array $capturedContent = [];
+
     public function __construct()
     {
         parent::__construct('openai-vision', 'OpenAI Vision', true);
@@ -2704,6 +2810,8 @@ class TestableVisionProvider extends TestableProvider implements VisionCapableIn
 
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
+        $this->capturedContent = $content;
+
         return $this->nextVisionResponse ?? new VisionResponse(
             description: 'Default description',
             model: 'gpt-4o',

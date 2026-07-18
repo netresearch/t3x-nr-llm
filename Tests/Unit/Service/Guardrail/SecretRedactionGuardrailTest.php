@@ -64,6 +64,47 @@ final class SecretRedactionGuardrailTest extends TestCase
         self::assertStringContainsString('Bearer ***', $result->redactedContent);
     }
 
+    #[Test]
+    public function redactsASecretEchoedIntoTheReasoningBlockLeavingCleanContent(): void
+    {
+        $response = new CompletionResponse(
+            'a perfectly clean answer',
+            'test-model',
+            UsageStatistics::fromTokens(1, 1),
+            'stop',
+            '',
+            null,
+            null,
+            'reasoning: the key is sk-abcdef0123456789ABCDEF, use it',
+        );
+
+        $result = (new SecretRedactionGuardrail())->checkOutput($response);
+
+        self::assertSame(GuardrailVerdict::REDACT, $result->verdict);
+        self::assertNotNull($result->redactedThinking);
+        self::assertStringContainsString('sk-***', $result->redactedThinking);
+        self::assertStringNotContainsString('sk-abcdef0123456789ABCDEF', $result->redactedThinking);
+        // Clean content passes through unchanged.
+        self::assertSame('a perfectly clean answer', $result->redactedContent);
+    }
+
+    #[Test]
+    public function leavesAResponseWithNoSecretsInEitherContentOrThinkingAlone(): void
+    {
+        $response = new CompletionResponse(
+            'clean answer',
+            'test-model',
+            UsageStatistics::fromTokens(1, 1),
+            'stop',
+            '',
+            null,
+            null,
+            'clean reasoning',
+        );
+
+        self::assertSame(GuardrailVerdict::ALLOW, (new SecretRedactionGuardrail())->checkOutput($response)->verdict);
+    }
+
     private function response(string $content): CompletionResponse
     {
         return new CompletionResponse($content, 'test-model', UsageStatistics::fromTokens(1, 1));

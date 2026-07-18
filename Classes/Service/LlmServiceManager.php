@@ -142,6 +142,23 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Apply the system prompt to the outgoing messages, then screen the final
+     * assembled list through the input guardrails (ADR-089) — so a secret in the
+     * system prompt is redacted before the provider sees it, closing the gap
+     * where the same secret was masked in a user turn but leaked in the system
+     * turn. Re-screening the already-screened user turns is an idempotent no-op.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function applyAndScreenSystemPrompt(array $messages, array $options): array
+    {
+        return $this->screenInput($this->messageShaper->applySystemPrompt($messages, $options));
+    }
+
+    /**
      * Resolve the effective configuration for a configuration-driven completion.
      *
      * Delegates to {@see ConfigurationResolver}; retained on the manager
@@ -222,7 +239,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
-            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
+            fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
     }
@@ -332,6 +349,21 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $content,
         ));
 
+        // Screen the text prompt(s) sent alongside the images (ADR-089): a pasted
+        // secret in the vision prompt is redacted / a denied prompt blocked before
+        // it reaches the provider, matching the chat and tool send paths.
+        $normalisedContent = array_map(
+            function (VisionContent $item): VisionContent {
+                if (!$item->isText() || $item->text === null) {
+                    return $item;
+                }
+                $screened = $this->screenInputPrompt($item->text);
+
+                return $screened === $item->text ? $item : VisionContent::text($screened);
+            },
+            $normalisedContent,
+        );
+
         return $this->runThroughPipeline(
             $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
             ProviderOperation::Vision,
@@ -389,7 +421,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->assertStreamingCapable($provider, 1581627129);
 
             return $provider->streamChatCompletion(
-                $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $optionsArray),
+                $this->applyAndScreenSystemPrompt($this->messageShaper->normalise($messages), $optionsArray),
                 $optionsArray,
             );
         };
@@ -452,7 +484,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     );
                 }
 
-                return $provider->chatCompletionWithTools($this->messageShaper->applySystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
+                return $provider->chatCompletionWithTools($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
             $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
         );
@@ -508,7 +540,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $callOptions = $this->buildCallOptions($config, $llmModel, $optionOverrides);
 
                 return $adapter->chatCompletionWithTools(
-                    $this->messageShaper->applySystemPrompt($normalisedMessages, $callOptions),
+                    $this->applyAndScreenSystemPrompt($normalisedMessages, $callOptions),
                     $normalisedTools,
                     $callOptions,
                 );
@@ -754,7 +786,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $llmModel = $this->resolveModelForConfiguration($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
-                return $adapter->chatCompletion($this->messageShaper->applySystemPrompt($normalisedMessages, $options), $options);
+                return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $options), $options);
             },
             $metadata,
         );
@@ -1043,7 +1075,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->assertStreamingCapable($adapter, 1735300101);
 
             return $adapter->streamChatCompletion(
-                $this->messageShaper->applySystemPrompt($this->messageShaper->normalise($messages), $options),
+                $this->applyAndScreenSystemPrompt($this->messageShaper->normalise($messages), $options),
                 $options,
             );
         };

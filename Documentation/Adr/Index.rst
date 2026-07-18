@@ -386,3 +386,4 @@ Tools
    Adr086GuardrailEnforcementGaps
    Adr087InputGuardrails
    Adr088StreamingRedaction
+   Adr089GuardrailBoundaryCompleteness
