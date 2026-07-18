@@ -59,6 +59,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         private LlmServiceManagerInterface $llmManager,
         private TranslatorRegistryInterface $translatorRegistry,
         private LlmConfigurationServiceInterface $configurationService,
+        private TranslationPromptBuilder $promptBuilder,
         private ?BackendUserContextResolverInterface $beUserContextResolver = null,
     ) {}
 
@@ -76,30 +77,13 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?TranslationOptions $options = null,
     ): TranslationResult {
         $options ??= new TranslationOptions();
-        $optionsArray = $options->toArray();
 
-        if (empty($text)) {
-            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 1478981390);
-        }
-
-        $this->validateLanguageCode($targetLanguage);
-
-        // Auto-detect source language if not provided
-        if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text, $options);
-        } else {
-            $this->validateLanguageCode($sourceLanguage);
-        }
-
-        // Validate options
-        $this->validateOptions($optionsArray);
-
-        // Build prompt
-        $prompt = $this->buildTranslationPrompt(
+        ['sourceLanguage' => $sourceLanguage, 'prompt' => $prompt] = $this->prepareTranslation(
             $text,
-            $sourceLanguage,
             $targetLanguage,
-            $optionsArray,
+            $sourceLanguage,
+            $options,
+            1478981390,
         );
 
         // Execute translation. REC #2 closure: build typed
@@ -167,32 +151,17 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?TranslationOptions $options = null,
     ): TranslationResult {
         $options ??= new TranslationOptions();
-        $optionsArray = $options->toArray();
-
-        if (empty($text)) {
-            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 1719410501);
-        }
-
-        $this->validateLanguageCode($targetLanguage);
-
-        // Auto-detect source language if not provided (mirrors translate()).
-        if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text, $options);
-        } else {
-            $this->validateLanguageCode($sourceLanguage);
-        }
-
-        $this->validateOptions($optionsArray);
 
         // Build the same task/constraints prompt as translate(), but fold the
         // instruction block into the USER message so no system message is sent —
         // that keeps the configuration's stored system_prompt as the system
         // message (see applySystemPrompt short-circuit).
-        $prompt = $this->buildTranslationPrompt(
+        ['sourceLanguage' => $sourceLanguage, 'prompt' => $prompt] = $this->prepareTranslation(
             $text,
-            $sourceLanguage,
             $targetLanguage,
-            $optionsArray,
+            $sourceLanguage,
+            $options,
+            1719410501,
         );
 
         $messages = [
@@ -503,65 +472,52 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
-     * Build translation prompt with template.
+     * Shared preamble for translate() and translateForConfiguration():
+     * empty-text guard, language-code validation, source-language
+     * detection, option validation, and prompt construction. Only the
+     * message assembly and dispatch differ between the two callers.
      *
-     * @param array<string, mixed> $options
+     * @param int $emptyTextErrorCode caller-specific code for the empty-text guard
      *
-     * @return array{system: string, user: string}
+     * @throws InvalidArgumentException when input is empty or a language code is invalid
+     *
+     * @return array{sourceLanguage: string, prompt: array{system: string, user: string}}
      */
-    private function buildTranslationPrompt(
+    private function prepareTranslation(
         string $text,
-        string $sourceLanguage,
         string $targetLanguage,
-        array $options,
+        ?string $sourceLanguage,
+        TranslationOptions $options,
+        int $emptyTextErrorCode,
     ): array {
-        $formality = is_string($options['formality'] ?? null) ? $options['formality'] : 'default';
-        $domain = is_string($options['domain'] ?? null) ? $options['domain'] : 'general';
-        $glossary = is_array($options['glossary'] ?? null) ? $options['glossary'] : [];
-        $context = is_string($options['context'] ?? null) ? $options['context'] : '';
-        $preserveFormatting = $options['preserve_formatting'] ?? true;
+        if (empty($text)) {
+            throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, $emptyTextErrorCode);
+        }
 
-        // Build system prompt
-        $systemPrompt = sprintf(
-            "You are a professional %s translator. Translate the following text from %s to %s.\n",
-            $domain,
-            $this->getLanguageName($sourceLanguage),
-            $this->getLanguageName($targetLanguage),
+        $optionsArray = $options->toArray();
+
+        $this->validateLanguageCode($targetLanguage);
+
+        // Auto-detect source language if not provided
+        if ($sourceLanguage === null) {
+            $sourceLanguage = $this->detectLanguage($text, $options);
+        } else {
+            $this->validateLanguageCode($sourceLanguage);
+        }
+
+        // Validate options
+        $this->validateOptions($optionsArray);
+
+        $prompt = $this->promptBuilder->build(
+            $text,
+            $sourceLanguage,
+            $targetLanguage,
+            $optionsArray,
         );
 
-        // Add formality instruction
-        if ($formality !== 'default') {
-            $systemPrompt .= sprintf("Maintain %s tone.\n", $formality);
-        }
-
-        // Add formatting instruction
-        if ($preserveFormatting) {
-            $systemPrompt .= "Preserve all formatting, HTML tags, markdown, and special characters.\n";
-        }
-
-        // Add glossary if provided
-        if ($glossary !== []) {
-            $systemPrompt .= "\nUse these exact term translations:\n";
-            foreach ($glossary as $term => $translation) {
-                if (is_string($translation) || is_int($translation) || is_float($translation)) {
-                    $systemPrompt .= sprintf("- %s → %s\n", $term, $translation);
-                }
-            }
-        }
-
-        // Add context if provided
-        if ($context !== '') {
-            $systemPrompt .= sprintf("\nContext (for reference only):\n%s\n", $context);
-        }
-
-        $systemPrompt .= "\nProvide ONLY the translation, no explanations or notes.";
-
-        // Build user prompt
-        $userPrompt = sprintf("Translate this text:\n\n%s", $text);
-
         return [
-            'system' => $systemPrompt,
-            'user' => $userPrompt,
+            'sourceLanguage' => $sourceLanguage,
+            'prompt' => $prompt,
         ];
     }
 
@@ -624,30 +580,6 @@ final readonly class TranslationService implements TranslationServiceInterface
         if (isset($options['glossary']) && !is_array($options['glossary'])) {
             throw new InvalidArgumentException('Glossary must be an associative array', 8571915742);
         }
-    }
-
-    /**
-     * Get human-readable language name.
-     */
-    private function getLanguageName(string $code): string
-    {
-        $languages = [
-            'en' => 'English',
-            'de' => 'German',
-            'fr' => 'French',
-            'es' => 'Spanish',
-            'it' => 'Italian',
-            'pt' => 'Portuguese',
-            'nl' => 'Dutch',
-            'pl' => 'Polish',
-            'ru' => 'Russian',
-            'ja' => 'Japanese',
-            'zh' => 'Chinese',
-            'ko' => 'Korean',
-            'ar' => 'Arabic',
-        ];
-
-        return $languages[$code] ?? $code;
     }
 
     /**
