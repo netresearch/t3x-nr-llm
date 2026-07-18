@@ -1,0 +1,256 @@
+{
+  "hero": {
+    "eyebrow": "TYPO3 Extension · nr-llm",
+    "headline": "One LLM setup. Every extension. Full admin control.",
+    "subhead": "nr-llm is shared AI infrastructure for TYPO3 — like the caching framework, but for language models. Administrators configure providers once in the backend; every AI-powered extension on the site uses them automatically. Supports OpenAI, Anthropic Claude, Google Gemini, Ollama, and more.",
+    "ctaPrimary": {
+      "label": "Get started",
+      "href": "#dev-kickstart"
+    },
+    "ctaSecondary": {
+      "label": "View on GitHub",
+      "href": "https://github.com/netresearch/t3x-nr-llm"
+    }
+  },
+  "problem": {
+    "heading": "The problem",
+    "intro": "Every TYPO3 extension that wants AI capabilities today has to solve the same infrastructure problems on its own. When a site runs three AI extensions, that means three separate API key configurations, three places to check when something breaks, and no way to switch providers globally.",
+    "bullets": [
+      "Build its own provider integration — HTTP calls, authentication, error handling, streaming",
+      "Store API keys in its own way, often as plaintext in extension settings",
+      "Create its own backend configuration UI",
+      "Leave administrators with no central overview of AI usage or costs"
+    ]
+  },
+  "solution": {
+    "heading": "The solution",
+    "intro": "nr-llm provides the missing shared layer between your extensions and the LLM providers. Extension developers add AI in a few lines of dependency injection; administrators manage every connection, key, and budget from one backend module.",
+    "paragraphs": [
+      "Extensions inject a single service interface and call methods for chat, completion, translation, vision, embeddings, streaming, and tool calling. Provider selection, API keys, caching, and error handling are all managed by nr-llm.",
+      "Underneath, a provider abstraction layer maps a common interface onto OpenAI, Anthropic, Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI, and any OpenAI-compatible endpoint. Switching providers is an admin setting, not a code change.",
+      "The Admin Tools > LLM backend module holds encrypted keys, usage and cost tracking, per-user budgets, and a setup wizard — restricted to administrators."
+    ],
+    "diagramCaption": "Extensions call the nr-llm service layer (chat, translation, vision, embeddings, streaming, tool calling, caching), which sits on a provider abstraction layer (OpenAI, Anthropic, Gemini, Ollama, and more), backed by the Admin Tools > LLM backend module for encrypted keys, usage tracking, and the setup wizard."
+  },
+  "concepts": {
+    "heading": "Core concepts",
+    "intro": "nr-llm is organized around a small set of building blocks. Each one solves a problem you would otherwise re-implement in every AI extension.",
+    "items": [
+      {
+        "icon": "providers",
+        "title": "Provider abstraction",
+        "body": "All providers implement one common interface. OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI, and any OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM) are reachable through the same service calls. Switch provider with a single configuration change — no code edits, no vendor lock-in."
+      },
+      {
+        "icon": "keys",
+        "title": "Encrypted API keys via nr-vault",
+        "body": "Every API key is stored as a vault identifier (UUID) using nr-vault envelope encryption. nr-llm never stores or logs raw keys in plain text. Error messages are sanitized to strip secret-bearing query parameters before anything is logged."
+      },
+      {
+        "icon": "config",
+        "title": "Three-tier configuration",
+        "body": "A Provider holds an endpoint, encrypted key, and adapter type. A Model references a provider and defines its model id, capabilities, and pricing. A Configuration references a model and adds use-case settings — system prompt, temperature, token limits. This lets you keep multiple keys per provider (prod/dev/backup) and reuse model definitions across use cases."
+      },
+      {
+        "icon": "services",
+        "title": "Feature services",
+        "body": "High-level services cover common tasks: CompletionService for text generation with format and creativity control, TranslationService with formality and glossary support, VisionService for alt-text and image analysis, and EmbeddingService for text-to-vector conversion with similarity calculations."
+      },
+      {
+        "icon": "streaming",
+        "title": "Streaming and tool calling",
+        "body": "Stream responses chunk by chunk with a single foreach over streamChat() for real-time UIs. Tool/function calling lets the model request functions your code executes, via chatWithTools() — the response reports which tools were called so you can process them."
+      },
+      {
+        "icon": "rag",
+        "title": "RAG site-search tools",
+        "body": "41 built-in read-only function-calling tools in 8 toggleable groups give the model grounded access to the TYPO3 instance — content search, TCA/FlexForm schema, TypoScript, source and exception reads, FAL files, diagnostics, and backend accounts. The rag group returns cited site-content evidence from the installed search index (EXT:solr, ke_search, indexed_search, or a database fallback)."
+      },
+      {
+        "icon": "budget",
+        "title": "Per-user budgets and usage tracking",
+        "body": "Cap per-backend-user spending across every preset by requests, tokens, or estimated cost, on a daily or monthly basis. The Analytics view shows cost and usage trends with breakdowns per provider, model, and service, plus per-user consumption against monthly budgets."
+      },
+      {
+        "icon": "cache",
+        "title": "TYPO3 caching-framework integration",
+        "body": "Responses are cached automatically through TYPO3's caching framework — using whatever backend the instance configures (Redis, Valkey, Memcached, or the default). Embedding results cache deterministically with a 24-hour default lifetime, and cache lifetimes are configurable per operation type."
+      }
+    ]
+  },
+  "audience": {
+    "heading": "Who it is for",
+    "intro": "nr-llm serves three audiences with the same shared foundation.",
+    "useCases": [
+      {
+        "title": "Extension developers",
+        "body": "Add AI capabilities without building provider integrations, handling API keys, or implementing caching and streaming. Inject one service interface and call it. Register custom providers when you need them."
+      },
+      {
+        "title": "TYPO3 administrators",
+        "body": "Manage every AI connection, encrypted key, and provider configuration from a single backend module. Switch from OpenAI to Anthropic without touching extension code. Set per-user budgets and watch cost and usage in one dashboard."
+      },
+      {
+        "title": "Agencies and solution architects",
+        "body": "Reduce integration effort across client projects with a consistent AI architecture and no vendor lock-in. Encrypted keys, admin-only access, and SBOM plus SLSA provenance on every release support compliance. Ollama gives a local-first option for data-sensitive environments."
+      }
+    ]
+  },
+  "devKickstart": {
+    "heading": "Developer kickstart",
+    "intro": "Add AI to your TYPO3 extension in a few minutes — no API key handling, no HTTP client code, no provider-specific logic.",
+    "steps": [
+      {
+        "title": "Require the package",
+        "body": "Install via Composer. Then activate in Admin Tools > Extensions and run Admin Tools > LLM > Setup Wizard.",
+        "lang": "bash",
+        "code": "composer require netresearch/nr-llm"
+      },
+      {
+        "title": "Inject the service you need",
+        "body": "Inject LlmServiceManagerInterface via constructor promotion and call it. Provider selection, API keys, caching, and error handling are all managed by nr-llm.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface;\n\nclass MyController\n{\n    public function __construct(\n        private readonly LlmServiceManagerInterface $llm,\n    ) {}\n\n    public function summarizeAction(string $text): string\n    {\n        return $this->llm->complete(\"Summarize: {$text}\")->content;\n    }\n}"
+      },
+      {
+        "title": "Use the services you need",
+        "body": "Chat and completion, translation, vision, embeddings, streaming, and tool calling are all available through the injected services.",
+        "lang": "php",
+        "code": "// Chat & completion\n$response = $llm->chat($messages);\n$response = $llm->complete('Explain TYPO3 content elements');\n\n// Translation\n$result = $translationService->translate('Hello world', 'de');\n\n// Vision / image analysis\n$altText = $visionService->generateAltText($imageUrl);\n\n// Embeddings & similarity\n$vector = $embeddingService->embed('semantic search query');\n\n// Streaming\nforeach ($llm->streamChat($messages) as $chunk) { echo $chunk; }\n\n// Tool/function calling\n$response = $llm->chatWithTools($messages, $toolDefinitions);"
+      }
+    ]
+  },
+  "adminOverview": {
+    "heading": "For administrators",
+    "intro": "The Admin Tools > LLM backend module gives administrators full control over AI on the site — providers, models, configurations, budgets, and analytics in one place.",
+    "features": [
+      {
+        "title": "Providers, Models, Configurations",
+        "body": "Register API connections (OpenAI, Anthropic, Gemini, Ollama, and more), define which models are available and their capabilities, and create use-case presets with temperature, system prompts, and token limits."
+      },
+      {
+        "title": "Setup wizard",
+        "body": "The Setup Wizard auto-detects your provider type from the endpoint URL, discovers available models, and generates a ready-to-use configuration in five guided steps. Paste your API key and go."
+      },
+      {
+        "title": "AI-powered wizards",
+        "body": "The Task Wizard and Configuration Wizard generate complete tasks and configurations — system prompt, parameters, and model recommendation — from a plain-language description. A Fetch Models button auto-fills capabilities and pricing from the provider API."
+      },
+      {
+        "title": "User budgets and analytics",
+        "body": "Cap per-backend-user spending by requests, tokens, or cost on a daily or monthly basis across every preset. The Analytics view shows estimated cost and usage trends with breakdowns per provider, model, and service, plus per-user consumption against budgets."
+      },
+      {
+        "title": "Tools and RAG",
+        "body": "41 read-only function-calling tools in 8 toggleable groups let models inspect content, schema, configuration, code, files, system diagnostics, and accounts — with the rag group returning cited evidence from the installed search index."
+      },
+      {
+        "title": "Tool Playground",
+        "body": "The admin-only Playground runs the bounded agent loop against any configuration and streams the whole dialog live — every request, response, and tool execution — plus a dry-run mode that shows the exact prompt without calling the model."
+      },
+      {
+        "title": "Resilience and security",
+        "body": "Configurations can list fallback configurations to retry against on connection errors, HTTP 5xx, or rate limits. Per-capability permissions map to native TYPO3 backend-group options. Keys are stored encrypted via nr-vault and the module is restricted to administrators."
+      }
+    ]
+  },
+  "architecture": {
+    "heading": "Architecture",
+    "intro": "nr-llm uses a three-tier configuration hierarchy that separates concerns cleanly. A Configuration (use-case settings such as system prompt, temperature, and max tokens) references a Model (model id, capabilities, pricing), which references a Provider (endpoint, encrypted API key, adapter type). This lets you keep multiple API keys per provider type, point at custom endpoints such as Azure OpenAI or a local Ollama or vLLM instance, and reuse model definitions across configurations. Requests flow through a middleware pipeline that enforces fallback chains and records usage after each successful call. The extension targets PHP 8.2+ and TYPO3 v13.4 LTS or v14.3 LTS, with a PSR-18 HTTP client."
+  },
+  "faq": {
+    "heading": "Frequently asked questions",
+    "items": [
+      {
+        "q": "Which TYPO3 and PHP versions are supported?",
+        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.22.0)."
+      },
+      {
+        "q": "Which AI providers can I use?",
+        "a": "OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI, and any OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM). Capabilities vary by provider — for example OpenAI, Gemini, and OpenRouter support chat, embeddings, vision, streaming, and tools, while Groq focuses on fast chat and streaming."
+      },
+      {
+        "q": "Where are API keys stored?",
+        "a": "Keys are stored as vault identifiers (UUIDs) via nr-vault envelope encryption. nr-llm never stores or logs raw keys in plain text, and the backend module is restricted to administrators. nr-vault is a required dependency."
+      },
+      {
+        "q": "Is it free and open source?",
+        "a": "Yes. nr-llm is licensed under GPL-2.0-or-later and developed by Netresearch DTT GmbH. The source is on GitHub and the package is on Packagist."
+      },
+      {
+        "q": "Does it work offline with Ollama?",
+        "a": "Yes. Ollama runs models locally and needs no API key, so AI features can work without sending data to external APIs — a local-first option for data-sensitive environments. Ollama supports chat, embeddings, and streaming."
+      },
+      {
+        "q": "How do I add AI to my own extension?",
+        "a": "Require netresearch/nr-llm via Composer, inject LlmServiceManagerInterface (or a specific feature service), and call its methods for chat, completion, translation, vision, embeddings, streaming, or tool calling. You can also register custom providers. See the Developer and Integration guides."
+      },
+      {
+        "q": "How do I control cost?",
+        "a": "Set per-backend-user budgets that cap spending by requests, tokens, or estimated cost on a daily or monthly basis across every preset. Response caching through the TYPO3 caching framework reduces repeat calls, and the Analytics view tracks estimated cost and usage per provider, model, service, and user."
+      },
+      {
+        "q": "What about data privacy?",
+        "a": "You choose the provider, including a local Ollama instance that keeps data on your own infrastructure. Keys are encrypted at rest, access is admin-only, and error messages are sanitized to strip secrets. Treat LLM responses as untrusted content and sanitize user input before sending it, as with any AI integration."
+      },
+      {
+        "q": "Can I switch providers without changing code?",
+        "a": "Yes. All providers implement a common interface, so switching from OpenAI to Anthropic or a local model is a configuration change in the backend, not a code edit. Configurations can also list fallback configurations to retry against on connection errors, HTTP 5xx, or rate limits."
+      }
+    ]
+  },
+  "links": [
+    {
+      "label": "GitHub repository",
+      "href": "https://github.com/netresearch/t3x-nr-llm",
+      "desc": "Source code, releases, and issues"
+    },
+    {
+      "label": "Issue tracker",
+      "href": "https://github.com/netresearch/t3x-nr-llm/issues",
+      "desc": "Report bugs and request features"
+    },
+    {
+      "label": "Documentation",
+      "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation",
+      "desc": "Introduction, configuration, developer and integration guides, and ADRs"
+    },
+    {
+      "label": "Packagist",
+      "href": "https://packagist.org/packages/netresearch/nr-llm",
+      "desc": "Install via composer require netresearch/nr-llm"
+    },
+    {
+      "label": "License (GPL-2.0-or-later)",
+      "href": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html",
+      "desc": "Free and open source"
+    }
+  ],
+  "meta": {
+    "title": "nr-llm — Shared AI Foundation for TYPO3",
+    "description": "nr-llm is shared AI infrastructure for TYPO3: configure LLM providers once, and every AI extension uses them. Supports OpenAI, Anthropic Claude, Google Gemini, Ollama, and more, with encrypted API keys, chat, translation, vision, and embeddings.",
+    "keywords": [
+      "TYPO3",
+      "TYPO3 extension",
+      "LLM",
+      "AI",
+      "artificial intelligence",
+      "OpenAI",
+      "Anthropic Claude",
+      "Google Gemini",
+      "Ollama",
+      "provider abstraction",
+      "embeddings",
+      "translation",
+      "streaming",
+      "tool calling",
+      "RAG",
+      "encrypted API keys",
+      "nr-vault",
+      "chatbot",
+      "TYPO3 AI",
+      "nr-llm"
+    ],
+    "ogDescription": "One LLM setup. Every extension. Full admin control. Shared AI infrastructure for TYPO3 supporting OpenAI, Anthropic, Gemini, Ollama, and more."
+  }
+}

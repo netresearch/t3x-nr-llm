@@ -1,0 +1,256 @@
+{
+  "hero": {
+    "eyebrow": "TYPO3-Extension · nr-llm",
+    "headline": "Ein LLM-Setup. Jede Extension. Volle Admin-Kontrolle.",
+    "subhead": "nr-llm ist gemeinsame KI-Infrastruktur für TYPO3 — wie das Caching-Framework, nur für Sprachmodelle. Administratoren konfigurieren die Provider einmalig im Backend; jede KI-gestützte Extension der Website nutzt sie automatisch. Unterstützt OpenAI, Anthropic Claude, Google Gemini, Ollama und weitere.",
+    "ctaPrimary": {
+      "label": "Erste Schritte",
+      "href": "#dev-kickstart"
+    },
+    "ctaSecondary": {
+      "label": "Auf GitHub ansehen",
+      "href": "https://github.com/netresearch/t3x-nr-llm"
+    }
+  },
+  "problem": {
+    "heading": "Das Problem",
+    "intro": "Jede TYPO3-Extension, die heute KI-Funktionen möchte, muss dieselben Infrastrukturprobleme selbst lösen. Betreibt eine Website drei KI-Extensions, bedeutet das drei getrennte API-Key-Konfigurationen, drei Stellen zur Fehlersuche und keine Möglichkeit, den Provider global zu wechseln.",
+    "bullets": [
+      "Eine eigene Provider-Anbindung bauen — HTTP-Aufrufe, Authentifizierung, Fehlerbehandlung, Streaming",
+      "API-Keys auf eigene Weise speichern, oft als Klartext in den Extension-Einstellungen",
+      "Eine eigene Backend-Oberfläche zur Konfiguration erstellen",
+      "Administratoren ohne zentralen Überblick über KI-Nutzung oder Kosten lassen"
+    ]
+  },
+  "solution": {
+    "heading": "Die Lösung",
+    "intro": "nr-llm liefert die fehlende gemeinsame Schicht zwischen den Extensions und den LLM-Providern. Extension-Entwickler ergänzen KI in wenigen Zeilen Dependency Injection; Administratoren verwalten jede Verbindung, jeden Key und jedes Budget in einem einzigen Backend-Modul.",
+    "paragraphs": [
+      "Extensions binden eine einzige Service-Schnittstelle ein und rufen Methoden für Chat, Completion, Übersetzung, Vision, Embeddings, Streaming und Tool Calling auf. Provider-Auswahl, API-Keys, Caching und Fehlerbehandlung übernimmt nr-llm.",
+      "Darunter bildet eine Provider-Abstraktionsschicht eine gemeinsame Schnittstelle auf OpenAI, Anthropic, Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI und jeden OpenAI-kompatiblen Endpunkt ab. Der Provider-Wechsel ist eine Admin-Einstellung, keine Code-Änderung.",
+      "Das Backend-Modul Admin-Werkzeuge > LLM enthält verschlüsselte Keys, Nutzungs- und Kostenerfassung, benutzerbezogene Budgets und einen Einrichtungsassistenten — beschränkt auf Administratoren."
+    ],
+    "diagramCaption": "Extensions rufen die Service-Schicht von nr-llm auf (Chat, Übersetzung, Vision, Embeddings, Streaming, Tool Calling, Caching), die auf einer Provider-Abstraktionsschicht aufsetzt (OpenAI, Anthropic, Gemini, Ollama und weitere) und vom Backend-Modul Admin-Werkzeuge > LLM mit verschlüsselten Keys, Nutzungserfassung und Einrichtungsassistent gestützt wird."
+  },
+  "concepts": {
+    "heading": "Kernkonzepte",
+    "intro": "nr-llm ist um wenige Bausteine herum aufgebaut. Jeder löst ein Problem, das man sonst in jeder KI-Extension neu implementieren müsste.",
+    "items": [
+      {
+        "icon": "providers",
+        "title": "Provider-Abstraktion",
+        "body": "Alle Provider implementieren eine gemeinsame Schnittstelle. OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI und jeder OpenAI-kompatible Endpunkt (vLLM, LocalAI, LiteLLM) sind über dieselben Service-Aufrufe erreichbar. Der Provider-Wechsel erfolgt über eine einzige Konfigurationsänderung — ohne Code-Änderungen, ohne Vendor-Lock-in."
+      },
+      {
+        "icon": "keys",
+        "title": "Verschlüsselte API-Keys über nr-vault",
+        "body": "Jeder API-Key wird als Vault-Identifier (UUID) über die Envelope-Verschlüsselung von nr-vault gespeichert. nr-llm speichert oder protokolliert Rohschlüssel nie im Klartext. Fehlermeldungen werden bereinigt, sodass geheimnistragende Query-Parameter entfernt werden, bevor etwas protokolliert wird."
+      },
+      {
+        "icon": "config",
+        "title": "Dreistufige Konfiguration",
+        "body": "Ein Provider hält einen Endpunkt, einen verschlüsselten Key und einen Adapter-Typ. Ein Model verweist auf einen Provider und definiert dessen Model-ID, Fähigkeiten und Preise. Eine Configuration verweist auf ein Model und ergänzt Einstellungen für den Anwendungsfall — System-Prompt, Temperatur, Token-Limits. So lassen sich mehrere Keys pro Provider vorhalten (Prod/Dev/Backup) und Model-Definitionen über Anwendungsfälle hinweg wiederverwenden."
+      },
+      {
+        "icon": "services",
+        "title": "Feature-Services",
+        "body": "High-Level-Services decken gängige Aufgaben ab: CompletionService für Textgenerierung mit Steuerung von Format und Kreativität, TranslationService mit Unterstützung für Förmlichkeit und Glossar, VisionService für Alt-Texte und Bildanalyse sowie EmbeddingService für die Umwandlung von Text in Vektoren samt Ähnlichkeitsberechnung."
+      },
+      {
+        "icon": "streaming",
+        "title": "Streaming und Tool Calling",
+        "body": "Antworten lassen sich Chunk für Chunk streamen — mit einer einzigen foreach-Schleife über streamChat() für Echtzeit-Oberflächen. Tool-/Function-Calling lässt das Model Funktionen anfragen, die der eigene Code ausführt, über chatWithTools() — die Antwort meldet, welche Tools aufgerufen wurden, sodass sie sich verarbeiten lassen."
+      },
+      {
+        "icon": "rag",
+        "title": "RAG-Werkzeuge für die Website-Suche",
+        "body": "41 eingebaute, schreibgeschützte Function-Calling-Tools in 8 umschaltbaren Gruppen geben dem Model fundierten Zugriff auf die TYPO3-Instanz — Inhaltssuche, TCA-/FlexForm-Schema, TypoScript, Quellcode- und Exception-Zugriff, FAL-Dateien, Diagnose und Backend-Konten. Die Gruppe rag liefert belegte Website-Inhalte aus dem installierten Suchindex (EXT:solr, ke_search, indexed_search oder einer Datenbank als Fallback)."
+      },
+      {
+        "icon": "budget",
+        "title": "Benutzerbezogene Budgets und Nutzungserfassung",
+        "body": "Die Ausgaben pro Backend-Benutzer lassen sich über alle Presets hinweg nach Anfragen, Tokens oder geschätzten Kosten begrenzen — täglich oder monatlich. Die Analytics-Ansicht zeigt Kosten- und Nutzungstrends mit Aufschlüsselung nach Provider, Model und Service sowie den Verbrauch pro Benutzer gegenüber den Monatsbudgets."
+      },
+      {
+        "icon": "cache",
+        "title": "Integration in das TYPO3-Caching-Framework",
+        "body": "Antworten werden automatisch über das Caching-Framework von TYPO3 zwischengespeichert — mit dem Backend, das die Instanz konfiguriert (Redis, Valkey, Memcached oder dem Standard). Embedding-Ergebnisse werden deterministisch zwischengespeichert, standardmäßig 24 Stunden, und die Cache-Lebensdauer lässt sich pro Operationstyp konfigurieren."
+      }
+    ]
+  },
+  "audience": {
+    "heading": "Für wen es gedacht ist",
+    "intro": "nr-llm bedient drei Zielgruppen auf derselben gemeinsamen Grundlage.",
+    "useCases": [
+      {
+        "title": "Extension-Entwickler",
+        "body": "KI-Funktionen ergänzen, ohne Provider-Anbindungen zu bauen, API-Keys zu verwalten oder Caching und Streaming zu implementieren. Eine Service-Schnittstelle einbinden und aufrufen. Eigene Provider registrieren, wenn nötig."
+      },
+      {
+        "title": "TYPO3-Administratoren",
+        "body": "Jede KI-Verbindung, jeden verschlüsselten Key und jede Provider-Konfiguration aus einem einzigen Backend-Modul verwalten. Von OpenAI zu Anthropic wechseln, ohne Extension-Code anzufassen. Benutzerbezogene Budgets setzen und Kosten und Nutzung in einem Dashboard verfolgen."
+      },
+      {
+        "title": "Agenturen und Solution Architects",
+        "body": "Den Integrationsaufwand über Kundenprojekte hinweg senken — mit einer einheitlichen KI-Architektur und ohne Vendor-Lock-in. Verschlüsselte Keys, ausschließlich administrativer Zugriff sowie SBOM und SLSA-Provenance bei jedem Release unterstützen die Compliance. Ollama bietet eine Local-First-Option für datensensible Umgebungen."
+      }
+    ]
+  },
+  "devKickstart": {
+    "heading": "Kickstart für Entwickler",
+    "intro": "KI in wenigen Minuten in die eigene TYPO3-Extension ergänzen — ohne API-Key-Handhabung, ohne HTTP-Client-Code, ohne providerspezifische Logik.",
+    "steps": [
+      {
+        "title": "Das Paket einbinden",
+        "body": "Über Composer installieren. Anschließend in Admin-Werkzeuge > Erweiterungen aktivieren und Admin-Werkzeuge > LLM > Einrichtungsassistent ausführen.",
+        "lang": "bash",
+        "code": "composer require netresearch/nr-llm"
+      },
+      {
+        "title": "Den benötigten Service einbinden",
+        "body": "LlmServiceManagerInterface per Constructor Promotion einbinden und aufrufen. Provider-Auswahl, API-Keys, Caching und Fehlerbehandlung übernimmt nr-llm.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Service\\LlmServiceManagerInterface;\n\nclass MyController\n{\n    public function __construct(\n        private readonly LlmServiceManagerInterface $llm,\n    ) {}\n\n    public function summarizeAction(string $text): string\n    {\n        return $this->llm->complete(\"Summarize: {$text}\")->content;\n    }\n}"
+      },
+      {
+        "title": "Die benötigten Services nutzen",
+        "body": "Chat und Completion, Übersetzung, Vision, Embeddings, Streaming und Tool Calling stehen alle über die eingebundenen Services zur Verfügung.",
+        "lang": "php",
+        "code": "// Chat & completion\n$response = $llm->chat($messages);\n$response = $llm->complete('Explain TYPO3 content elements');\n\n// Translation\n$result = $translationService->translate('Hello world', 'de');\n\n// Vision / image analysis\n$altText = $visionService->generateAltText($imageUrl);\n\n// Embeddings & similarity\n$vector = $embeddingService->embed('semantic search query');\n\n// Streaming\nforeach ($llm->streamChat($messages) as $chunk) { echo $chunk; }\n\n// Tool/function calling\n$response = $llm->chatWithTools($messages, $toolDefinitions);"
+      }
+    ]
+  },
+  "adminOverview": {
+    "heading": "Für Administratoren",
+    "intro": "Das Backend-Modul Admin-Werkzeuge > LLM gibt Administratoren die volle Kontrolle über KI auf der Website — Provider, Models, Configurations, Budgets und Analytics an einem Ort.",
+    "features": [
+      {
+        "title": "Providers, Models, Configurations",
+        "body": "API-Verbindungen registrieren (OpenAI, Anthropic, Gemini, Ollama und weitere), festlegen, welche Models verfügbar sind und welche Fähigkeiten sie haben, und Presets für Anwendungsfälle mit Temperatur, System-Prompts und Token-Limits erstellen."
+      },
+      {
+        "title": "Einrichtungsassistent",
+        "body": "Der Einrichtungsassistent erkennt den Provider-Typ automatisch anhand der Endpunkt-URL, ermittelt verfügbare Models und erzeugt in fünf geführten Schritten eine einsatzbereite Configuration. API-Key einfügen und loslegen."
+      },
+      {
+        "title": "KI-gestützte Assistenten",
+        "body": "Der Task-Assistent und der Konfigurationsassistent erzeugen vollständige Tasks und Configurations — System-Prompt, Parameter und Model-Empfehlung — aus einer Beschreibung in normaler Sprache. Eine Schaltfläche „Models abrufen“ füllt Fähigkeiten und Preise automatisch aus der Provider-API."
+      },
+      {
+        "title": "Benutzerbudgets und Analytics",
+        "body": "Die Ausgaben pro Backend-Benutzer nach Anfragen, Tokens oder Kosten begrenzen — täglich oder monatlich über alle Presets hinweg. Die Analytics-Ansicht zeigt geschätzte Kosten- und Nutzungstrends mit Aufschlüsselung nach Provider, Model und Service sowie den Verbrauch pro Benutzer gegenüber den Budgets."
+      },
+      {
+        "title": "Tools und RAG",
+        "body": "41 schreibgeschützte Function-Calling-Tools in 8 umschaltbaren Gruppen lassen Models Inhalte, Schema, Konfiguration, Code, Dateien, Systemdiagnose und Konten inspizieren — wobei die Gruppe rag belegte Evidenz aus dem installierten Suchindex liefert."
+      },
+      {
+        "title": "Tool-Playground",
+        "body": "Der ausschließlich Administratoren vorbehaltene Playground führt die begrenzte Agent-Schleife gegen jede Configuration aus und streamt den gesamten Dialog live — jede Anfrage, jede Antwort und jede Tool-Ausführung — samt Dry-Run-Modus, der den exakten Prompt zeigt, ohne das Model aufzurufen."
+      },
+      {
+        "title": "Ausfallsicherheit und Sicherheit",
+        "body": "Configurations können Fallback-Configurations auflisten, die bei Verbindungsfehlern, HTTP-5xx oder Rate-Limits erneut versucht werden. Fähigkeitsbezogene Berechtigungen bilden sich auf native TYPO3-Backend-Gruppenoptionen ab. Keys werden über nr-vault verschlüsselt gespeichert, und das Modul ist auf Administratoren beschränkt."
+      }
+    ]
+  },
+  "architecture": {
+    "heading": "Architektur",
+    "intro": "nr-llm nutzt eine dreistufige Konfigurationshierarchie, die Zuständigkeiten sauber trennt. Eine Configuration (Einstellungen für den Anwendungsfall wie System-Prompt, Temperatur und maximale Tokens) verweist auf ein Model (Model-ID, Fähigkeiten, Preise), das auf einen Provider verweist (Endpunkt, verschlüsselter API-Key, Adapter-Typ). So lassen sich mehrere API-Keys pro Provider-Typ vorhalten, eigene Endpunkte wie Azure OpenAI oder eine lokale Ollama- oder vLLM-Instanz ansprechen und Model-Definitionen über Configurations hinweg wiederverwenden. Anfragen durchlaufen eine Middleware-Pipeline, die Fallback-Ketten durchsetzt und die Nutzung nach jedem erfolgreichen Aufruf erfasst. Die Extension setzt PHP 8.2+ und TYPO3 v13.4 LTS oder v14.3 LTS voraus, mit einem PSR-18-HTTP-Client."
+  },
+  "faq": {
+    "heading": "Häufig gestellte Fragen",
+    "items": [
+      {
+        "q": "Welche TYPO3- und PHP-Versionen werden unterstützt?",
+        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.22.0)."
+      },
+      {
+        "q": "Welche KI-Provider kann ich nutzen?",
+        "a": "OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter, Mistral, Groq, Azure OpenAI und jeden OpenAI-kompatiblen Endpunkt (vLLM, LocalAI, LiteLLM). Die Fähigkeiten unterscheiden sich je nach Provider — so unterstützen etwa OpenAI, Gemini und OpenRouter Chat, Embeddings, Vision, Streaming und Tools, während Groq auf schnellen Chat und Streaming ausgerichtet ist."
+      },
+      {
+        "q": "Wo werden die API-Keys gespeichert?",
+        "a": "Keys werden als Vault-Identifier (UUIDs) über die Envelope-Verschlüsselung von nr-vault gespeichert. nr-llm speichert oder protokolliert Rohschlüssel nie im Klartext, und das Backend-Modul ist auf Administratoren beschränkt. nr-vault ist eine erforderliche Abhängigkeit."
+      },
+      {
+        "q": "Ist es kostenlos und Open Source?",
+        "a": "Ja. nr-llm steht unter der Lizenz GPL-2.0-or-later und wird von der Netresearch DTT GmbH entwickelt. Der Quellcode liegt auf GitHub, das Paket auf Packagist."
+      },
+      {
+        "q": "Funktioniert es offline mit Ollama?",
+        "a": "Ja. Ollama führt Models lokal aus und benötigt keinen API-Key, sodass KI-Funktionen arbeiten können, ohne Daten an externe APIs zu senden — eine Local-First-Option für datensensible Umgebungen. Ollama unterstützt Chat, Embeddings und Streaming."
+      },
+      {
+        "q": "Wie ergänze ich KI in meiner eigenen Extension?",
+        "a": "netresearch/nr-llm über Composer einbinden, LlmServiceManagerInterface (oder einen bestimmten Feature-Service) injizieren und dessen Methoden für Chat, Completion, Übersetzung, Vision, Embeddings, Streaming oder Tool Calling aufrufen. Zudem lassen sich eigene Provider registrieren. Siehe die Entwickler- und Integrationshandbücher."
+      },
+      {
+        "q": "Wie kontrolliere ich die Kosten?",
+        "a": "Benutzerbezogene Budgets setzen, die die Ausgaben nach Anfragen, Tokens oder geschätzten Kosten begrenzen — täglich oder monatlich über alle Presets hinweg. Das Antwort-Caching über das TYPO3-Caching-Framework reduziert wiederholte Aufrufe, und die Analytics-Ansicht erfasst geschätzte Kosten und Nutzung pro Provider, Model, Service und Benutzer."
+      },
+      {
+        "q": "Wie steht es um den Datenschutz?",
+        "a": "Der Provider ist frei wählbar, einschließlich einer lokalen Ollama-Instanz, die die Daten auf der eigenen Infrastruktur hält. Keys werden verschlüsselt gespeichert, der Zugriff ist auf Administratoren beschränkt, und Fehlermeldungen werden um Geheimnisse bereinigt. LLM-Antworten sind wie nicht vertrauenswürdige Inhalte zu behandeln, und Benutzereingaben sind vor dem Senden zu bereinigen — wie bei jeder KI-Integration."
+      },
+      {
+        "q": "Kann ich Provider ohne Code-Änderung wechseln?",
+        "a": "Ja. Alle Provider implementieren eine gemeinsame Schnittstelle, sodass der Wechsel von OpenAI zu Anthropic oder zu einem lokalen Model eine Konfigurationsänderung im Backend ist, keine Code-Änderung. Configurations können zudem Fallback-Configurations auflisten, die bei Verbindungsfehlern, HTTP-5xx oder Rate-Limits erneut versucht werden."
+      }
+    ]
+  },
+  "links": [
+    {
+      "label": "GitHub-Repository",
+      "href": "https://github.com/netresearch/t3x-nr-llm",
+      "desc": "Quellcode, Releases und Issues"
+    },
+    {
+      "label": "Issue-Tracker",
+      "href": "https://github.com/netresearch/t3x-nr-llm/issues",
+      "desc": "Fehler melden und Features anfragen"
+    },
+    {
+      "label": "Dokumentation",
+      "href": "https://github.com/netresearch/t3x-nr-llm/tree/main/Documentation",
+      "desc": "Einführung, Konfiguration, Entwickler- und Integrationshandbücher sowie ADRs"
+    },
+    {
+      "label": "Packagist",
+      "href": "https://packagist.org/packages/netresearch/nr-llm",
+      "desc": "Installation über composer require netresearch/nr-llm"
+    },
+    {
+      "label": "Lizenz (GPL-2.0-or-later)",
+      "href": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html",
+      "desc": "Kostenlos und Open Source"
+    }
+  ],
+  "meta": {
+    "title": "nr-llm — Gemeinsame KI-Basis für TYPO3",
+    "description": "nr-llm ist gemeinsame KI-Infrastruktur für TYPO3: Provider einmal konfigurieren, jede KI-Extension nutzt sie. OpenAI, Anthropic Claude, Gemini, Ollama.",
+    "keywords": [
+      "TYPO3",
+      "TYPO3-Extension",
+      "LLM",
+      "KI",
+      "Künstliche Intelligenz",
+      "OpenAI",
+      "Anthropic Claude",
+      "Google Gemini",
+      "Ollama",
+      "Provider-Abstraktion",
+      "Embeddings",
+      "Übersetzung",
+      "Streaming",
+      "Tool Calling",
+      "RAG",
+      "Verschlüsselte API-Keys",
+      "nr-vault",
+      "Chatbot",
+      "TYPO3 KI",
+      "nr-llm"
+    ],
+    "ogDescription": "Ein LLM-Setup. Jede Extension. Volle Admin-Kontrolle. Gemeinsame KI-Infrastruktur für TYPO3 mit Unterstützung für OpenAI, Anthropic, Gemini, Ollama und mehr."
+  }
+}

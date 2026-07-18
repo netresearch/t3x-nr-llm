@@ -74,3 +74,6 @@ config/
 # Test coverage reports
 coverage_output_final.txt
 coverage_report.txt
+
+# nr-llm landing page build output
+landingpage/public/

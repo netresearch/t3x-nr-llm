@@ -1,0 +1,32 @@
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <p class="eyebrow">nr-llm</p>
+    <h1>{{ s.adrIndexTitle }}</h1>
+    <p class="section__intro">{{ s.adrIndexIntro }}</p>
+    <p class="section__intro"><strong>{{ total }}</strong> {{ 'decisions' if lang == 'en' else 'Entscheidungen' }}.</p>
+
+    <div class="adr-groups">
+      {% for g in grouped %}
+      <section class="adr-group" aria-labelledby="grp-{{ loop.index }}">
+        <h2 id="grp-{{ loop.index }}">{{ g.name }} <span class="badge">{{ g.adrs|length }}</span></h2>
+        <ul class="adr-list">
+          {% for a in g.adrs %}
+          <li>
+            <a href="{{ a.url }}">
+              <span class="adr-num">ADR&nbsp;{{ '%03d'|format(a.number) }}</span>
+              <span class="adr-title">{{ a.title }}
+                {% if a.status %}<span class="badge {{ 'badge--accepted' if a.status|lower == 'accepted' else '' }}">{{ a.status }}</span>{% endif %}
+              </span>
+              {% if a.summary %}<span class="adr-summary">{{ a.summary }}</span>{% endif %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

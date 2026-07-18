@@ -1,0 +1,810 @@
+{
+  "adrs": [
+    {
+      "number": 1,
+      "title": "Provider Abstraction Layer",
+      "status": "Accepted",
+      "summary": "Introduces a ProviderInterface contract plus optional capability interfaces (vision, streaming, tools, documents), an AbstractProvider base class, and LlmServiceManager as the unified entry point, so multiple LLM providers share one consistent API.",
+      "file": "Adr001ProviderAbstractionLayer.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 2,
+      "title": "Feature Services Architecture",
+      "status": "Accepted",
+      "summary": "Adds dedicated high-level feature services (Completion, Embedding, Vision, Translation) that use LlmServiceManager internally, expose domain-specific methods, handle caching, and return typed response objects.",
+      "file": "Adr002FeatureServicesArchitecture.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 3,
+      "title": "Typed Response Objects",
+      "status": "Accepted",
+      "summary": "Provider and service responses are returned as immutable readonly value objects (e.g. CompletionResponse) instead of loosely-typed arrays.",
+      "file": "Adr003TypedResponseObjects.rst",
+      "group": "Domain Model & Types"
+    },
+    {
+      "number": 4,
+      "title": "PSR-14 Event System",
+      "status": "Superseded",
+      "summary": "Originally dispatched BeforeRequest/AfterResponse PSR-14 events from LlmServiceManager to let consumers modify requests and process responses; superseded by the provider middleware pipeline (ADR-026).",
+      "file": "Adr004Psr14EventSystem.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 5,
+      "title": "TYPO3 Caching Framework Integration",
+      "status": "Accepted",
+      "summary": "Integrates with TYPO3's caching framework using the nrllm_responses cache with no hardcoded backend, keying entries on provider+model+input hash, so deterministic calls (embeddings, temperature-0 completions) can be cached while streaming and tool calls are not.",
+      "file": "Adr005Typo3CachingFrameworkIntegration.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 6,
+      "title": "Option Objects vs Arrays",
+      "status": "Superseded",
+      "summary": "Introduced typed Option objects with fluent builders and factory presets (initially alongside array backward-compatibility) to replace ad-hoc option arrays; superseded by the object-only API (ADR-011).",
+      "file": "Adr006OptionObjectsVsArrays.rst",
+      "group": "Domain Model & Types"
+    },
+    {
+      "number": 7,
+      "title": "Multi-Provider Strategy",
+      "status": "Accepted",
+      "summary": "Registers providers as a tagged service collection ordered by priority so the manager can select and iterate providers by rank.",
+      "file": "Adr007MultiProviderStrategy.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 8,
+      "title": "Error Handling Strategy",
+      "status": "Accepted",
+      "summary": "Defines a hierarchical exception system rooted at ProviderException (connection, response, configuration, unsupported-feature, fallback-exhausted) plus extension-level configuration and argument exceptions.",
+      "file": "Adr008ErrorHandlingStrategy.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 9,
+      "title": "Streaming Implementation",
+      "status": "Accepted",
+      "summary": "Uses PHP Generators to stream chat responses, yielding parsed SSE chunks so consumers can iterate output incrementally.",
+      "file": "Adr009StreamingImplementation.rst",
+      "group": "Streaming"
+    },
+    {
+      "number": 10,
+      "title": "Tool/Function Calling Design",
+      "status": "Accepted",
+      "summary": "Adopts the OpenAI-compatible tool/function schema (type/function/name/description/parameters) as the common tool-definition format across providers.",
+      "file": "Adr010ToolFunctionCallingDesign.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 11,
+      "title": "Object-Only Options API",
+      "status": "Accepted",
+      "summary": "Removes array option support entirely; all methods take nullable typed Option objects (ChatOptions, EmbeddingOptions, VisionOptions) with factory presets.",
+      "file": "Adr011ObjectOnlyOptionsApi.rst",
+      "group": "Domain Model & Types"
+    },
+    {
+      "number": 12,
+      "title": "API Key Encryption at Application Level",
+      "status": "Superseded",
+      "summary": "Encrypted stored API keys at application level using sodium_crypto_secretbox with a key derived from TYPO3's encryptionKey; later superseded (keys now live in nr-vault as UUIDs).",
+      "file": "Adr012ApiKeyEncryption.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 13,
+      "title": "Three-Level Configuration Architecture (Provider-Model-Configuration)",
+      "status": "Accepted",
+      "summary": "Separates concerns into three hierarchical levels — use-case Configuration references a Model, which belongs to a Provider — rather than embedding models in providers.",
+      "file": "Adr013ThreeLevelConfigurationArchitecture.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 14,
+      "title": "AI-Powered Wizard System",
+      "status": "Accepted",
+      "summary": "Adds three backend wizards (Setup, Configuration, Task) that turn natural-language descriptions into structured configurations/task chains via WizardGeneratorService, with graceful fallback when no LLM is available.",
+      "file": "Adr014AiPoweredWizardSystem.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 15,
+      "title": "Type-Safe Domain Models via PHP 8.1+ Enums & Value Objects",
+      "status": "Accepted",
+      "summary": "Uses PHP 8.1+ string-backed enums for all domain constants, each providing values()/isValid()/tryFromString() helpers plus domain methods like label() and getIconIdentifier().",
+      "file": "Adr015TypeSafeDomainModels.rst",
+      "group": "Domain Model & Types"
+    },
+    {
+      "number": 16,
+      "title": "Thinking/Reasoning Block Extraction",
+      "status": "Accepted",
+      "summary": "Extracts model reasoning via a two-tier strategy — native structured thinking blocks (Anthropic) plus a regex <think>-tag fallback — surfaced as an optional thinking property on CompletionResponse.",
+      "file": "Adr016ThinkingReasoningBlockExtraction.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 17,
+      "title": "Safe Type Casting via SafeCastTrait",
+      "status": "Accepted",
+      "summary": "Provides a reusable SafeCastTrait with static toStr/toInt/toFloat helpers that coerce mixed input to sensible defaults without PHPStan suppressions.",
+      "file": "Adr017SafeCastTrait.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 18,
+      "title": "Multi-Provider Model Discovery",
+      "status": "Accepted",
+      "summary": "Abstracts model discovery behind ModelDiscoveryInterface (testConnection + discover) with per-adapter dispatch so each provider's model list and connection test share one contract.",
+      "file": "Adr018MultiProviderModelDiscovery.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 19,
+      "title": "Internationalization Strategy",
+      "status": "Accepted",
+      "summary": "Follows TYPO3 XLIFF conventions (one label file per backend module, with German translations) for static UI strings and adds locale-aware placeholder substitution for dynamic LLM interactions.",
+      "file": "Adr019InternationalizationStrategy.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 20,
+      "title": "Backend Output Format Rendering",
+      "status": "Accepted",
+      "summary": "Stores raw LLM output and renders format (HTML/Markdown/JSON/text) entirely client-side, with an ephemeral, non-persisted toggle operating on the cached raw content.",
+      "file": "Adr020BackendOutputFormatRendering.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 21,
+      "title": "Provider Fallback Chain",
+      "status": "Accepted",
+      "summary": "A configuration's ordered fallback_chain of configuration identifiers is walked by FallbackMiddleware on narrowly-defined retryable failures (connection errors, HTTP 429), returning the first success or throwing FallbackChainExhaustedException.",
+      "file": "Adr021ProviderFallbackChain.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 22,
+      "title": "Attribute-Based Provider Registration",
+      "status": "Accepted",
+      "summary": "Adds a #[AsLlmProvider(priority)] attribute scanned by ProviderCompilerPass to auto-tag providers at compile time, keeping providers private while an explicit YAML tag still wins when both are present.",
+      "file": "Adr022AttributeBasedProviderRegistration.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 23,
+      "title": "Native Backend Capability Permissions",
+      "status": "Accepted",
+      "summary": "Registers every ModelCapability enum value as a native TYPO3 BE group custom permission, with CapabilityPermissionService resolving checks (CLI/admin allowed, otherwise delegating to the backend user's permission).",
+      "file": "Adr023BackendCapabilityPermissions.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 24,
+      "title": "Dashboard Widgets",
+      "status": "Accepted",
+      "summary": "Ships two dashboard widgets (monthly AI cost, requests-by-provider over 7 days) reusing TYPO3's built-in widget classes, registered conditionally only when the Dashboard system extension is present.",
+      "file": "Adr024DashboardWidgets.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 25,
+      "title": "Per-User AI Budgets",
+      "status": "Accepted",
+      "summary": "Adds a tx_nrllm_user_budget table of per-user ceilings (requests/tokens/cost × daily/monthly), enforced as a pure pre-flight BudgetService::check() that aggregates usage on demand from the existing usage table without a second write.",
+      "file": "Adr025PerUserBudgets.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 26,
+      "title": "Provider Middleware Pipeline",
+      "status": "Accepted",
+      "summary": "Introduces a PSR-15-inspired provider middleware pipeline (ProviderMiddlewareInterface with an immutable ProviderCallContext and callable $next), replacing the earlier PSR-14 event system.",
+      "file": "Adr026ProviderMiddlewarePipeline.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 27,
+      "title": "Split TaskController",
+      "status": "Accepted",
+      "summary": "Splits the monolithic TaskController into four focused per-pathway controllers (list, wizard, execution, ...) plus service extraction and uniform typed responses.",
+      "file": "Adr027SplitTaskController.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 28,
+      "title": "Public Services Policy",
+      "status": "Accepted",
+      "summary": "Documents the deliberate public-service set in Services.yaml as a policy of load-bearing categories, enforced by a unit test that keeps the count honest; its count/tail rationale is later superseded by ADR-065.",
+      "file": "Adr028PublicServicesPolicy.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 29,
+      "title": "Usage Analytics Dashboard",
+      "status": "Accepted",
+      "summary": "Ships a read-only usage-analytics module backed by a richer usage table (adding model and per-side token columns) and real cost computation derived from model pricing in UsageMiddleware.",
+      "file": "Adr029UsageAnalyticsDashboard.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 30,
+      "title": "Specialized Services Authenticate Through nr-vault",
+      "status": "Accepted",
+      "summary": "Migrates keyed specialized services onto the nr-vault secure HTTP client, storing an API-key identifier (vault UUID) instead of the key and using placement hooks instead of manual auth-header building.",
+      "file": "Adr030SpecializedServicesVaultMigration.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 31,
+      "title": "Tagged Prompt Snippet Library",
+      "status": "Accepted",
+      "summary": "Adds a lightweight PromptSnippet entity (identifier/name/description/fragment with free-form CSV tags) queried by case-insensitive exact tag tokens, separate from the heavier PromptTemplate.",
+      "file": "Adr031PromptSnippetLibrary.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 32,
+      "title": "Specialized Usage Tracking and Pricing Catalog",
+      "status": "Accepted",
+      "summary": "Makes specialized services report real usage units (images, characters, audio seconds, tokens) and adds a static OpenAI price catalog with a DB override so image/speech/transcription calls get accurate cost tracking.",
+      "file": "Adr032SpecializedUsageAndPricingCatalog.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 33,
+      "title": "Specialized Models in the Model Registry",
+      "status": "Accepted",
+      "summary": "Adds IMAGE/TEXT_TO_SPEECH/TRANSCRIPTION capabilities so image, TTS and transcription models are regular registry records, with fail-soft capability-based default-model resolution in the specialized services.",
+      "file": "Adr033SpecializedModelRegistry.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 34,
+      "title": "Remove the ExtensionConfiguration Default-Provider Fallback",
+      "status": "Accepted",
+      "summary": "Removes the defaultProvider concept from LlmServiceManager (state, seed, accessors) making the database the single source of truth for provider selection; a breaking change where getProvider(null) now throws.",
+      "file": "Adr034RemoveExtensionConfigDefaultProvider.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 35,
+      "title": "Skill Ingest (GitHub-hosted SKILL.md sources)",
+      "status": "Accepted",
+      "summary": "Adds dedicated SkillSource and Skill Extbase entities to fetch, parse and review GitHub-hosted SKILL.md files, with an app-level GitHub host allowlist on top of the nr-vault SSRF guard.",
+      "file": "Adr035SkillIngest.rst",
+      "group": "Skills"
+    },
+    {
+      "number": 36,
+      "title": "Skill Injection (attach + compose into prompts)",
+      "status": "Accepted",
+      "summary": "Composes attached skill prose in a shared SkillInjectionService and prepends it to the user prompt (never the system role), applied only to text-generation paths (completion/translation/task) and never to embeddings, vision or speech.",
+      "file": "Adr036SkillInjection.rst",
+      "group": "Skills"
+    },
+    {
+      "number": 37,
+      "title": "Backend AJAX Admin Guard",
+      "status": "Accepted",
+      "summary": "Adds one shared RequiresBackendAdminTrait::denyNonAdmin() returning a 403 JSON response for non-admins, applied at the very top of every AJAX-routed backend action.",
+      "file": "Adr037BackendAjaxAdminGuard.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 38,
+      "title": "Tool Runtime (function-calling agent loop)",
+      "status": "Accepted",
+      "summary": "Introduces a DI-tagged ToolInterface/ToolRegistry (getSpec/execute/isEnabledByDefault/requiresAdmin) as the authoritative allow-set, so an extension adds a tool just by tagging a class, driving a bounded function-calling agent loop.",
+      "file": "Adr038ToolRuntime.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 39,
+      "title": "Global Per-Tool Availability State",
+      "status": "Accepted",
+      "summary": "Adds a UI-less tx_nrllm_tool_state override table and ToolAvailabilityService computing each tool's effective enabled state (admin override, else its default) sitting between per-tool defaults and per-run allow-lists.",
+      "file": "Adr039GlobalToolAvailabilityState.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 40,
+      "title": "Playground Run Trace and Tool-Path Prompt Augmentation",
+      "status": "Accepted",
+      "summary": "Adds an opt-in RunTrace recorder to ToolLoopService capturing per-round messages, tokens, timing and thinking for the admin playground, plus one-time prompt assembly, leaving production callers unaffected.",
+      "file": "Adr040PlaygroundRunTrace.rst",
+      "group": "Backend & UI"
+    },
+    {
+      "number": 41,
+      "title": "Playground Live Run Streaming",
+      "status": "Accepted",
+      "summary": "Streams the playground run as newline-delimited JSON (one event per RunStep via an opt-in onRecord closure) over the existing admin AJAX route, keeping the batch JSON response as the no-JS fallback.",
+      "file": "Adr041PlaygroundLiveStreaming.rst",
+      "group": "Streaming"
+    },
+    {
+      "number": 42,
+      "title": "Content and Configuration Read Tools for the Agent",
+      "status": "Accepted",
+      "summary": "Adds five native read-only tools (search_records, get_page_content, read_records, get_typoscript, ...) implemented in-house without depending on mcp_server or ai_mate, using bound named-parameter equality filters (never raw SQL).",
+      "file": "Adr042ContentAndIntrospectionTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 43,
+      "title": "Tool Groups with a Fail-Closed Enable Cascade",
+      "status": "Accepted",
+      "summary": "Every tool declares a group (breaking getGroup() addition) and enablement cascades fail-closed across central group state, per-tool state and per-run allow-list, so a disabled group also covers later same-group tools.",
+      "file": "Adr043ToolGroups.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 44,
+      "title": "Error-Analysis Tools with Fail-Closed Guards",
+      "status": "Accepted",
+      "summary": "Adds admin-only code-group tools (get_last_exception with inlined stack context, read_source, search_code) that inspect TYPO3 logs and project source via pure-PHP walks under hard budgets, sharing two guards.",
+      "file": "Adr044ErrorAnalysisTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 45,
+      "title": "Schema and Resolution Tools",
+      "status": "Accepted",
+      "summary": "Adds four read-only structure-group tools (get_full_tca index, get_table_schema with relation view, get_flexform_schema, ...) using a navigate-don't-dump approach that never serializes the whole TCA at once.",
+      "file": "Adr045SchemaAndResolutionTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 46,
+      "title": "History, URL and Validation Tools",
+      "status": "Accepted",
+      "summary": "Adds four read-only tools (get_record_history, resolve_url via real SiteMatcher/PageRouter, validate_tca structural checks, ...) for auditing changes, routing-only URL mapping and live TCA validation.",
+      "file": "Adr046HistoryUrlAndValidationTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 47,
+      "title": "FAL Tools",
+      "status": "Accepted",
+      "summary": "Adds five read-only tools in a new files group (list_fal_storages, browse_fal_folder, search_fal_files, ...) resolved exclusively through the FAL storage API, never exposing server-side base paths.",
+      "file": "Adr047FalTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 48,
+      "title": "Diagnostics Tools",
+      "status": "Accepted",
+      "summary": "Adds six read-only admin-only tools (list_extensions, get_site_config with credential redaction, list_scheduler_tasks, ...) that enumerate instance configuration and attack surface without egressing package paths or raw YAML.",
+      "file": "Adr048DiagnosticsTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 49,
+      "title": "RAG Site-Search Tools over Installed Search Indexes",
+      "status": "Accepted",
+      "summary": "Adds a Service/Retrieval layer with a SearchBackendInterface and multiple tagged backends (Solr via HTTP select, ke_search, ...) exposing site_rag_query/site_fetch_source tools that read indexes others own, with public-access filtering.",
+      "file": "Adr049RagSiteSearchTools.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 50,
+      "title": "Retrieval and Embedding Scope — the Boundary with nr_ai_search",
+      "status": "Accepted",
+      "summary": "Draws the scope boundary: nr_llm may read from indexes others maintain (or transient embed-and-compare) but must never own a persistent index it has to keep synchronised; cross-encoder reranking placement is later amended by ADR-075.",
+      "file": "Adr050RetrievalAndEmbeddingScopeBoundary.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 51,
+      "title": "Tool-Calling Feature Service — Narrow Consumer Interface",
+      "status": "Accepted",
+      "summary": "Adds a ToolCallingService/Interface feature-service pair delegating to the manager's two tool-calling methods and adding beUserUid auto-population so per-user budget enforcement works without caller wiring.",
+      "file": "Adr051ToolCallingFeatureService.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 52,
+      "title": "Usage Attribution Honours the Caller-Supplied beUserUid",
+      "status": "Accepted",
+      "summary": "Adds an optional trailing beUserUid to trackUsage() and has UsageMiddleware read the same pipeline-context key the budget gate uses, so usage attribution and budget enforcement can no longer disagree.",
+      "file": "Adr052UsageAttributionViaOptions.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 53,
+      "title": "One Marker Interface for All Thrown Exceptions",
+      "status": "Accepted",
+      "summary": "Adds NrLlmExceptionInterface (extending Throwable) implemented by every exception the extension throws, with value-object normalization errors now throwing the nr_llm InvalidArgumentException and a reflection test enforcing the marker.",
+      "file": "Adr053ExceptionMarkerInterface.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 54,
+      "title": "Typed Tool Turns on ChatMessage Instead of Wire Arrays",
+      "status": "Accepted",
+      "summary": "Extends ChatMessage with two validated optional tail fields (toolCalls on assistant, toolCallId on tool) and named constructors, keeping it the single value object for all four roles instead of per-shape subclasses.",
+      "file": "Adr054TypedToolTurnMessages.rst",
+      "group": "Domain Model & Types"
+    },
+    {
+      "number": 55,
+      "title": "Embeddings Join the Configuration Path; Dimensions Metadata",
+      "status": "Accepted",
+      "summary": "Adds embedForConfiguration() mirroring the chat configuration path (adapter resolution, middleware, budget metadata, feature guard) with per-call options overriding stored defaults and cache keys keyed on the effective model.",
+      "file": "Adr055EmbeddingConfigurationPath.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 56,
+      "title": "Configuration Presets — Consumer-Declared, Admin-Imported Records",
+      "status": "Accepted",
+      "summary": "Consuming extensions declare needed configurations as presets via a DI tag (requirements/criteria only, never a provider/model/key); nr_llm lists undeclared-but-unimported presets as pending for one-click admin import.",
+      "file": "Adr056ConfigurationPresets.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 57,
+      "title": "Speech and Image Services Carry Attribution in Options",
+      "status": "Accepted",
+      "summary": "Extends options-based attribution (ADR-052) to specialized services via BudgetAwareOptionsInterface (optional beUserUid/plannedCost kept out of toArray to avoid leaking to remote APIs) — attribution only, no enforcement.",
+      "file": "Adr057SpecializedServiceAttribution.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 58,
+      "title": "Telemetry Middleware",
+      "status": "Accepted",
+      "summary": "Adds a TelemetryMiddleware at the outermost priority and a UI-less tx_nrllm_telemetry table writing exactly one immutable row per pipeline run (latency, cache-hit, fallback attempts, success/error) on both success and failure.",
+      "file": "Adr058TelemetryMiddleware.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 59,
+      "title": "Decompose LlmServiceManager into Focused Collaborators",
+      "status": "Accepted",
+      "summary": "Stage-1 decomposition extracting self-contained groups into private autowired collaborators (KeyedProviderRegistry, ConfigurationResolver, ...) while the manager stays final and keeps its unchanged interface via thin delegation.",
+      "file": "Adr059DecomposeLlmServiceManager.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 60,
+      "title": "Quality Evaluation — Golden Sets, Grading and Regression Detection",
+      "status": "Accepted",
+      "summary": "Adds an opt-in evaluation layer (DI-tagged golden prompt sets, pluggable graders, run/aggregate service, result persistence with regression detection, CLI) that never touches the request pipeline.",
+      "file": "Adr060QualityEvaluation.rst",
+      "group": "Testing & Quality"
+    },
+    {
+      "number": 61,
+      "title": "Skill Trust Levels, Signed Manifests, Injection Scanning",
+      "status": "Accepted",
+      "summary": "Adds a SkillTrustLevel provenance scale gating injection/allowed-tools against a configurable minimum, plus manifest fingerprints and prompt-injection scanning, separate from support status.",
+      "file": "Adr061SkillTrustEgressAndAudit.rst",
+      "group": "Skills"
+    },
+    {
+      "number": 62,
+      "title": "Streaming Request Lifecycle",
+      "status": "Accepted",
+      "summary": "Introduces a dedicated StreamingDispatcher (a wrapping generator preserving the public Generator contract) owning a four-stage lifecycle whose budget pre-flight is eager so an over-budget caller is rejected at call time.",
+      "file": "Adr062StreamingLifecycle.rst",
+      "group": "Streaming"
+    },
+    {
+      "number": 63,
+      "title": "Provider Resilience — Circuit Breaker, Health, Idempotency",
+      "status": "Accepted",
+      "summary": "Adds a per-provider CircuitBreakerMiddleware (opens after consecutive tripping failures, half-open probe after cooldown) placed innermost, tripping only on the same connection/429 failures FallbackMiddleware treats as retryable.",
+      "file": "Adr063ProviderResilience.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 64,
+      "title": "Central Privacy Model",
+      "status": "Accepted",
+      "summary": "Introduces one central PrivacyLevel enum (none/metadata/redacted/full, default metadata) read from extension configuration and applied at every content sink before a write, combining with strictest-wins.",
+      "file": "Adr064CentralPrivacyModel.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 65,
+      "title": "Reduce the Public Service Surface (ADR-028 Follow-up)",
+      "status": "Accepted",
+      "summary": "Keeps public: true only where genuinely required (documented API contract, interface alias, concrete-only surface, standalone consumer API, or makeInstance reuse) and privatises everything public solely for test resolution.",
+      "file": "Adr065ReducePublicServiceSurface.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 66,
+      "title": "Criteria-Mode Configurations Resolve in the Service Layer",
+      "status": "Accepted",
+      "summary": "getAdapterFromConfiguration() resolves the model via ModelSelectionService (direct model for fixed mode, criteria-selected for criteria mode) without writing the resolved model back onto the Extbase entity to avoid silently converting it to fixed-mode.",
+      "file": "Adr066CriteriaConfigurationResolution.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 67,
+      "title": "Solr Per-Language Core — No Language Filter Query",
+      "status": "Accepted",
+      "summary": "Drops the fq=language filter from Solr search/fetchSource since language is already selected by the per-language read core, keeping only the public-access filter; shared-core language separation is a documented unsupported boundary.",
+      "file": "Adr067SolrPerLanguageCoreFilter.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 69,
+      "title": "Remove the Unusable PromptTemplate Stack",
+      "status": "Accepted",
+      "summary": "Removes the never-usable PromptTemplate stack in full (entity, repository, service+interface, exception, table, tests/fixtures) since it had no TCA mapping and zero consumers, leaving Task's prompt_template string field and PromptSnippet untouched.",
+      "file": "Adr069RemovePromptTemplateStack.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 70,
+      "title": "User-less Configuration Resolution by Identifier",
+      "status": "Accepted",
+      "summary": "Adds ConfigurationResolver::getActiveByIdentifier() throwing typed exceptions (NotFound/Inactive/AccessDenied) instead of returning null, and refuses beGroups-restricted records in user-less contexts.",
+      "file": "Adr070UserlessConfigurationResolutionByIdentifier.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 71,
+      "title": "Public Keyword-Search Facade over the Retrieval Cascade",
+      "status": "Accepted",
+      "summary": "Exposes a deliberately narrow KeywordSearchInterface (search + isAvailable) returning a stable KeywordHit DTO, so retrieval-cascade internals can evolve without touching the public contract.",
+      "file": "Adr071PublicKeywordSearchFacade.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 72,
+      "title": "Retrieval-Quality Evaluation — Golden Questions and Top-k Hit Rates",
+      "status": "Accepted",
+      "summary": "Adds the retrieval counterpart of ADR-060 — DI-tagged golden question sets, a pluggable retriever contract, document-level top-1/top-3 hit-rate scoring and a CLI — reusing ADR-060's persistence/regression machinery, shipping methodology not questions.",
+      "file": "Adr072RetrievalQualityEvaluation.rst",
+      "group": "Testing & Quality"
+    },
+    {
+      "number": 73,
+      "title": "First-Party Test Doubles for Consumer-Facing Interfaces",
+      "status": "Accepted",
+      "summary": "Ships maintained fakes (FakeToolCallingService, FakeEmbeddingService) in a runtime-autoloaded Testing namespace so consumers can use them without nr_llm's dev dependencies, with PHPStan enforcing they track the real interfaces.",
+      "file": "Adr073FirstPartyTestingFixtures.rst",
+      "group": "Testing & Quality"
+    },
+    {
+      "number": 74,
+      "title": "Reciprocal Rank Fusion as a Hosted Utility",
+      "status": "Accepted",
+      "summary": "Hosts a pure final ReciprocalRankFusion class with a signature identical to the nr_ai_search original so consumers migrate by swapping the import; newable (not a DI service), so the audited public-service count is unchanged.",
+      "file": "Adr074ReciprocalRankFusionUtility.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 75,
+      "title": "Neutral Cross-Encoder Reranker Protocol",
+      "status": "Accepted",
+      "summary": "Defines a neutral RerankerInterface (rerank(query, candidates)) with no consumer DTO crossing the boundary, plus an HttpReranker sidecar implementation that splits over-cap pools score-neutrally and throws typed errors — nr_llm never decides degradation.",
+      "file": "Adr075RerankerProtocol.rst",
+      "group": "Tools & RAG"
+    },
+    {
+      "number": 76,
+      "title": "Document Understanding — Native-First, Rasterize Fallback",
+      "status": "Accepted",
+      "summary": "Adds a stateless DocumentAnalysisService that sends a whole PDF in one chat call as a Base64 document block when the provider supports it, falling back to page-by-page rasterization for providers without document support.",
+      "file": "Adr076DocumentUnderstanding.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 77,
+      "title": "Plain Completion Joins the Named-Configuration Path",
+      "status": "Accepted",
+      "summary": "Adds completeForConfiguration(prompt, configuration, options) mirroring chat's default-configuration branch (builds ChatMessages, injects skills, threads budget/idempotency metadata) taking typed ChatOptions rather than low-level arrays.",
+      "file": "Adr077NamedConfigurationCompletion.rst",
+      "group": "Configuration"
+    },
+    {
+      "number": 78,
+      "title": "Budget Pre-Flight for the Specialized Image/Speech Services",
+      "status": "Accepted",
+      "summary": "Adds a protected enforceBudget() to AbstractSpecializedService mirroring BudgetMiddleware, called after option resolution and before any HTTP dispatch in the image, TTS and transcription services so limits are enforced pre-flight.",
+      "file": "Adr078SpecializedServiceBudgetEnforcement.rst",
+      "group": "Security, Privacy & Budgets"
+    },
+    {
+      "number": 79,
+      "title": "First-Party Fakes for Completion, Vision and Budget Services",
+      "status": "Accepted",
+      "summary": "Extends ADR-073 with FakeCompletionService, FakeVisionService and FakeBudgetService (FIFO/canned returns plus call recording) as plain final classes implementing the real interfaces for consumer tests.",
+      "file": "Adr079FirstPartyCompletionVisionBudgetFakes.rst",
+      "group": "Testing & Quality"
+    },
+    {
+      "number": 80,
+      "title": "Typed Provider HTTP Exceptions (Authentication 401, Rate-Limit 429)",
+      "status": "Accepted",
+      "summary": "Adds ProviderAuthenticationException (401) and ProviderRateLimitException (429) as final subclasses of a de-finalized ProviderResponseException, chosen by a shared AbstractProvider factory so buffered and streaming 4xx branches never drift, preserving backward compatibility via inheritance.",
+      "file": "Adr080TypedProviderHttpExceptions.rst",
+      "group": "Provider & Resilience"
+    },
+    {
+      "number": 81,
+      "title": "Agent run persistence and a durable event stream",
+      "status": "Accepted",
+      "summary": "Persists each tool-loop agent run and its steps in two UI-less log tables, so a run can be resumed after a restart, queued, paused for approval, audited or replayed — instead of living only for a single HTTP request.",
+      "file": "Adr081AgentRunPersistence.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 82,
+      "title": "Schema-validated structured outputs with one repair round-trip",
+      "status": "Accepted",
+      "summary": "completeJson() now validates results against a business JSON-Schema and runs one repair round-trip on a malformed response (reusing the evaluation subsystem's structural matcher), so AI output is reliable to program against.",
+      "file": "Adr082StructuredOutputs.rst",
+      "group": "Core Services & Architecture"
+    },
+    {
+      "number": 83,
+      "title": "Conversation sessions and memory",
+      "status": "Accepted",
+      "summary": "Adds an explicit, persisted session model — two UI-less log tables read via a raw-SQL repository — so multi-turn conversations keep their history server-side instead of each consumer re-assembling and re-sending it.",
+      "file": "Adr083ConversationSessions.rst",
+      "group": "Core Services & Architecture"
+    }
+  ],
+  "directives": [
+    "code-block",
+    "csv-table",
+    "include",
+    "note"
+  ],
+  "roles": [
+    "bash",
+    "code",
+    "composer",
+    "file",
+    "guilabel",
+    "php",
+    "ref",
+    "sql"
+  ],
+  "groups": [
+    {
+      "name": "Provider & Resilience",
+      "numbers": [
+        1,
+        7,
+        8,
+        18,
+        21,
+        22,
+        26,
+        34,
+        63,
+        80
+      ]
+    },
+    {
+      "name": "Core Services & Architecture",
+      "numbers": [
+        2,
+        4,
+        5,
+        16,
+        17,
+        28,
+        32,
+        53,
+        58,
+        59,
+        65,
+        76,
+        81,
+        82,
+        83
+      ]
+    },
+    {
+      "name": "Domain Model & Types",
+      "numbers": [
+        3,
+        6,
+        11,
+        15,
+        54
+      ]
+    },
+    {
+      "name": "Configuration",
+      "numbers": [
+        13,
+        31,
+        33,
+        55,
+        56,
+        66,
+        69,
+        70,
+        77
+      ]
+    },
+    {
+      "name": "Backend & UI",
+      "numbers": [
+        14,
+        19,
+        20,
+        24,
+        27,
+        29,
+        40
+      ]
+    },
+    {
+      "name": "Security, Privacy & Budgets",
+      "numbers": [
+        12,
+        23,
+        25,
+        30,
+        37,
+        52,
+        57,
+        64,
+        78
+      ]
+    },
+    {
+      "name": "Streaming",
+      "numbers": [
+        9,
+        41,
+        62
+      ]
+    },
+    {
+      "name": "Tools & RAG",
+      "numbers": [
+        10,
+        38,
+        39,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        67,
+        71,
+        74,
+        75
+      ]
+    },
+    {
+      "name": "Skills",
+      "numbers": [
+        35,
+        36,
+        61
+      ]
+    },
+    {
+      "name": "Testing & Quality",
+      "numbers": [
+        60,
+        72,
+        73,
+        79
+      ]
+    }
+  ]
+}

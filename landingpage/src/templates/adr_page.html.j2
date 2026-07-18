@@ -1,0 +1,16 @@
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      {% for x in crumb %}{% if not loop.last %}<a href="{{ x.href }}">{{ x.name }}</a> › {% else %}<span aria-current="page">{{ x.name }}</span>{% endif %}{% endfor %}
+    </nav>
+    <article class="doc">
+      <p class="eyebrow">ADR&nbsp;{{ '%03d'|format(adr.number) }}{% if adr.status %} · {{ adr.status }}{% endif %}</p>
+      <h1>{{ adr.title }}</h1>
+      {{ adr.body | safe }}
+    </article>
+    <p style="margin-top:2.5rem"><a class="btn btn--secondary" href="{{ url('adr/') }}">← {{ s.adrBackToOverview }}</a></p>
+  </div>
+</section>
+{% endblock %}

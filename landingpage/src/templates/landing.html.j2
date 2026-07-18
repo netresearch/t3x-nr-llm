@@ -1,0 +1,209 @@
+{% extends "base.html.j2" %}
+
+{% macro icon(name) %}
+{% set icons = {
+  'providers': '<path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="1.5"/><circle cx="14" cy="12" r="1.5"/><circle cx="10" cy="17" r="1.5"/>',
+  'keys': '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M17 12v4M21 12v3"/>',
+  'config': '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/>',
+  'services': '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  'streaming': '<path d="M3 12h4l2 6 4-14 2 8h6"/>',
+  'rag': '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  'budget': '<path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 7v5l3 2"/><path d="M22 12a10 10 0 0 0-10-10"/>',
+  'cache': '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'
+} %}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.get(name, icons['services']) | safe }}</svg>
+{% endmacro %}
+
+{% macro codeblock(code, lang, id) %}
+<div class="codeblock">
+  <span class="codeblock__label">{{ lang }}</span>
+  <button class="copy-btn" type="button" data-copy="{{ id }}" aria-label="{{ s.copy }}" hidden>⧉</button>
+  <pre id="{{ id }}"><code>{{ code }}</code></pre>
+</div>
+{% endmacro %}
+
+{% block main %}
+<section class="hero">
+  <div class="container">
+    <p class="eyebrow">{{ c.hero.eyebrow }}</p>
+    <h1 class="hero__headline">{{ c.hero.headline }}</h1>
+    <p class="hero__sub">{{ c.hero.subhead }}</p>
+    <div class="hero__cta">
+      <a class="btn btn--primary" href="{{ c.hero.ctaPrimary.href }}">{{ c.hero.ctaPrimary.label }}</a>
+      <a class="btn btn--secondary" href="{{ c.hero.ctaSecondary.href }}">{{ c.hero.ctaSecondary.label }}</a>
+    </div>
+    <div class="hero__providers">
+      <span>{{ 'Unterstützte Anbieter' if lang == 'de' else 'Supported providers' }}</span>
+      <div class="provider-row">
+        <img src="{{ url('assets/img/provider-openai.svg') }}" alt="OpenAI" width="28" height="28">
+        <img src="{{ url('assets/img/provider-claude.svg') }}" alt="Anthropic Claude" width="28" height="28">
+        <img src="{{ url('assets/img/provider-gemini.svg') }}" alt="Google Gemini" width="28" height="28">
+        <img src="{{ url('assets/img/provider-mistral.svg') }}" alt="Mistral AI" width="28" height="28">
+        <img src="{{ url('assets/img/provider-ollama.svg') }}" alt="Ollama" width="28" height="28">
+        <span>+ Groq, OpenRouter, Azure OpenAI</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" id="problem" aria-labelledby="problem-h">
+  <div class="container">
+    <h2 id="problem-h">{{ c.problem.heading }}</h2>
+    <p class="section__intro">{{ c.problem.intro }}</p>
+    <ul class="bullets">
+      {% for b in c.problem.bullets %}<li>{{ b }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="solution" aria-labelledby="solution-h">
+  <div class="container">
+    <h2 id="solution-h">{{ c.solution.heading }}</h2>
+    <p class="section__intro">{{ c.solution.intro }}</p>
+    {% for p in c.solution.paragraphs %}<p class="section__intro">{{ p }}</p>{% endfor %}
+    <figure class="stack" role="group" aria-label="{{ c.solution.diagramCaption }}">
+      <div class="stack__layer stack__layer--apps">
+        <span class="stack__name">{{ 'Deine Extensions' if lang == 'de' else 'Your extensions' }}</span>
+        <span class="stack__items">Cowriter · SEO Assistant · {{ '…' }}</span>
+      </div>
+      <div class="stack__layer stack__layer--service">
+        <span class="stack__name">nr-llm {{ 'Service-Ebene' if lang == 'de' else 'service layer' }}</span>
+        <span class="stack__items">Chat · Translation · Vision · Embeddings · Streaming · Tools · Caching</span>
+      </div>
+      <div class="stack__layer stack__layer--provider">
+        <span class="stack__name">{{ 'Provider-Abstraktion' if lang == 'de' else 'Provider abstraction' }}</span>
+        <span class="stack__items">OpenAI · Anthropic · Gemini · Ollama · Mistral · Groq · …</span>
+      </div>
+      <div class="stack__layer stack__layer--admin">
+        <span class="stack__name">Admin Tools &gt; LLM</span>
+        <span class="stack__items">{{ 'Verschlüsselte Schlüssel · Nutzung/Kosten · Setup-Wizard' if lang == 'de' else 'Encrypted keys · Usage &amp; cost · Setup wizard' }}</span>
+      </div>
+      <figcaption class="figure-caption">{{ c.solution.diagramCaption }}</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="section section--alt" id="concepts" aria-labelledby="concepts-h">
+  <div class="container">
+    <h2 id="concepts-h">{{ c.concepts.heading }}</h2>
+    <p class="section__intro">{{ c.concepts.intro }}</p>
+    <div class="grid grid--3">
+      {% for item in c.concepts['items'] %}
+      <article class="card">
+        <div class="card__icon" aria-hidden="true">{{ icon(item.icon) }}</div>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" id="audience" aria-labelledby="audience-h">
+  <div class="container">
+    <h2 id="audience-h">{{ c.audience.heading }}</h2>
+    <p class="section__intro">{{ c.audience.intro }}</p>
+    <div class="grid grid--3">
+      {% for u in c.audience.useCases %}
+      <article class="card">
+        <h3>{{ u.title }}</h3>
+        <p>{{ u.body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" id="dev-kickstart" aria-labelledby="dev-h">
+  <div class="container">
+    <p class="eyebrow">{{ s.nav.dev }}</p>
+    <h2 id="dev-h">{{ c.devKickstart.heading }}</h2>
+    <p class="section__intro">{{ c.devKickstart.intro }}</p>
+    <div class="steps">
+      {% for step in c.devKickstart.steps %}
+      <div class="step">
+        <div class="step__num" aria-hidden="true"></div>
+        <div class="step__body">
+          <h3>{{ step.title }}</h3>
+          <p>{{ step.body }}</p>
+          {% if step.code %}{{ codeblock(step.code, step.lang or 'text', 'code-' ~ lang ~ '-' ~ loop.index) }}{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" id="admin" aria-labelledby="admin-h">
+  <div class="container">
+    <p class="eyebrow">{{ s.nav.admin }}</p>
+    <h2 id="admin-h">{{ c.adminOverview.heading }}</h2>
+    <p class="section__intro">{{ c.adminOverview.intro }}</p>
+    <div class="grid grid--3">
+      {% for f in c.adminOverview.features %}
+      <article class="card"><h3>{{ f.title }}</h3><p>{{ f.body }}</p></article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" id="ask" aria-labelledby="ask-h">
+  <div class="container">
+    <p class="eyebrow">{{ s.ai.badge }}</p>
+    <h2 id="ask-h">{{ s.ai.title }}</h2>
+    <p class="section__intro">{{ s.ai.intro }}</p>
+    <div class="ai" data-ai-assistant hidden>
+      <form class="ai__form" data-ai-form>
+        <label class="visually-hidden" for="ai-input-{{ lang }}">{{ s.ai.title }}</label>
+        <input id="ai-input-{{ lang }}" type="text" data-ai-input placeholder="{{ s.ai.placeholder }}" autocomplete="off">
+        <button class="btn btn--primary" type="submit" data-ai-submit>{{ s.ai.ask }}</button>
+        <button class="btn btn--secondary" type="button" data-ai-cancel hidden>{{ s.ai.cancel }}</button>
+      </form>
+      <div class="ai__enable" data-ai-enable hidden>
+        <button class="btn btn--primary" type="button" data-ai-enable-btn>{{ s.ai.enable }}</button>
+      </div>
+      <div class="ai__output" data-ai-output role="region" aria-live="polite" aria-label="{{ s.ai.title }}"></div>
+      <div class="ai-sources" data-ai-sources hidden></div>
+      <p class="ai__status" data-ai-status role="status" aria-live="polite"></p>
+      <p class="ai__privacy">{{ s.ai.privacy }}</p>
+    </div>
+    <noscript>
+      <p class="section__intro">{{ s.ai.unsupported if s.ai.unsupported is defined else '' }}</p>
+    </noscript>
+  </div>
+</section>
+
+<section class="section" id="architecture" aria-labelledby="arch-h">
+  <div class="container">
+    <p class="eyebrow">{{ s.nav.adr }}</p>
+    <h2 id="arch-h">{{ c.architecture.heading }}</h2>
+    <p class="section__intro">{{ c.architecture.intro }}</p>
+    <p><a class="btn btn--secondary" href="{{ adr_index_url }}">{{ s.readAdrs }} ({{ adrs|length }})</a></p>
+  </div>
+</section>
+
+<section class="section section--alt" id="faq" aria-labelledby="faq-h">
+  <div class="container">
+    <h2 id="faq-h">{{ c.faq.heading }}</h2>
+    <div class="faq">
+      {% for q in c.faq['items'] %}
+      <details>
+        <summary>{{ q.q }}</summary>
+        <p>{{ q.a }}</p>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" id="links" aria-labelledby="links-h">
+  <div class="container">
+    <h2 id="links-h">{{ 'Ressourcen' if lang == 'de' else 'Resources' }}</h2>
+    <ul class="linklist">
+      {% for l in c.links %}
+      <li><a href="{{ l.href }}"><b>{{ l.label }}</b>{% if l.desc %}<span>{{ l.desc }}</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

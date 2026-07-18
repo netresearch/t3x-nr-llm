@@ -1,0 +1,60 @@
+name: Landing Page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landingpage/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Least privilege by default; each job opts into exactly what it needs.
+permissions: {}
+
+# Allow one concurrent deployment; let a running deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Build site
+        env:
+          # Base path / origin come from the Pages config, so a rename or a
+          # custom domain needs no code change.
+          NRLLM_BASE: ${{ steps.pages.outputs.base_path }}
+          NRLLM_ORIGIN: ${{ steps.pages.outputs.origin }}
+        run: uv run landingpage/build/build.py
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: landingpage/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

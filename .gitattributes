@@ -31,3 +31,4 @@
 /.php-cs-fixer.cache export-ignore
 /infection.json5 export-ignore
 /Build export-ignore
+/landingpage export-ignore
