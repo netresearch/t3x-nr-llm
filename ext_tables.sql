@@ -647,3 +647,67 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Quality-routing read path: latest runs per set for a model.
     KEY model_lookup (model_id, run_date)
 );
+
+#
+# Persisted agent runs (ADR-081): one row per ToolLoopService run, promoted from
+# the in-memory RunTrace so runs survive the request. UI-less append-and-update
+# log, mirroring tx_nrllm_telemetry (no TCA, no Extbase).
+#
+CREATE TABLE tx_nrllm_agentrun (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    uuid varchar(36) DEFAULT '' NOT NULL,
+    status varchar(32) DEFAULT 'queued' NOT NULL,
+    configuration_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Outcome
+    iterations int(11) unsigned DEFAULT '0' NOT NULL,
+    truncated smallint(5) unsigned DEFAULT '0' NOT NULL,
+    total_prompt_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    total_completion_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    total_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    estimated_cost decimal(10,6) DEFAULT '0.000000' NOT NULL,
+    error_class varchar(255) DEFAULT '' NOT NULL,
+
+    -- Time tracking
+    started_at int(11) unsigned DEFAULT '0' NOT NULL,
+    finished_at int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY run_uuid (uuid),
+    KEY be_user (be_user, crdate),
+    KEY status_lookup (status, crdate),
+    KEY crdate (crdate)
+);
+
+#
+# Agent-run event stream (ADR-081): the durable, replayable form of each
+# RunStep, one row per step, ordered by sequence within a run.
+#
+CREATE TABLE tx_nrllm_agentrun_event (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    run int(11) unsigned DEFAULT '0' NOT NULL,
+    sequence int(11) unsigned DEFAULT '0' NOT NULL,
+    kind varchar(32) DEFAULT '' NOT NULL,
+    round int(11) unsigned DEFAULT '0' NOT NULL,
+    duration_ms decimal(10,2) DEFAULT '0.00' NOT NULL,
+    payload mediumtext,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- Replay read path: a run's events in order.
+    KEY run_sequence (run, sequence),
+    KEY crdate (crdate)
+);

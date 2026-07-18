@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -32,6 +34,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use ReflectionClass;
+use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
@@ -87,6 +90,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly AllowedToolsResolver $allowedToolsResolver,
         private readonly SkillRepository $skillRepository,
         private readonly PromptSnippetRepository $promptSnippetRepository,
+        // Optional and last so the existing direct constructions in the
+        // functional tests keep compiling (they run with persistence off — a
+        // free characterization guard that the loop path is unchanged); the DI
+        // container autowires the real persister in production.
+        private readonly ?AgentRunPersister $agentRunPersister = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -188,21 +196,42 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $messages      = [ChatMessage::user($prompt)];
         $maxIterations = $maxRounds > 0 ? $maxRounds : null;
 
+        // Persist the run (ADR-081): open a RUNNING row and get a handle to
+        // thread each recorded step through. Null when persistence is
+        // unavailable — the run then proceeds unpersisted, exactly as before.
+        $handle = $this->agentRunPersister?->begin($config, $this->currentBackendUserUid());
+
         // Live path: stream each recorded step to the browser as it happens.
         if ($this->boolFromBody($body, 'stream')) {
-            return $this->runStreamed($messages, $config, $allowed, $options, $maxIterations, $augmentation, $captureRaw);
+            return $this->runStreamed($messages, $config, $allowed, $options, $maxIterations, $augmentation, $captureRaw, $handle);
         }
 
         // Batch path: run the whole loop, then return the full trace as one JSON
         // document (the no-JS fallback and the shape the functional tests assert).
-        $trace = new RunTrace(captureRaw: $captureRaw);
+        // The onRecord hook persists each step as it is recorded (ADR-081) —
+        // additive to the loop, which is unaware of it.
+        $trace = new RunTrace(
+            captureRaw: $captureRaw,
+            onRecord: $handle !== null
+                ? function (RunStep $step) use ($handle): void {
+                    $this->agentRunPersister?->recordStep($handle, $step);
+                }
+            : null,
+        );
 
         try {
             $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
         } catch (Throwable $e) {
+            if ($handle !== null) {
+                $this->agentRunPersister?->settleFailed($handle, $e);
+            }
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
 
             return $this->respondJson(['success' => false, 'error' => $this->diagnoseRunFailure($e)], 500);
+        }
+
+        if ($handle !== null) {
+            $this->agentRunPersister?->settleCompleted($handle, $result);
         }
 
         $response = new PlaygroundRunResponse(
@@ -241,6 +270,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         ?int $maxIterations,
         RunAugmentation $augmentation,
         bool $captureRaw,
+        ?AgentRunHandle $handle = null,
     ): ResponseInterface {
         ini_set('zlib.output_compression', '0');
         ini_set('output_buffering', '0');
@@ -265,6 +295,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             $maxIterations,
             $augmentation,
             $captureRaw,
+            $handle,
         );
 
         return new NullResponse();
@@ -290,16 +321,25 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         ?int $maxIterations,
         RunAugmentation $augmentation,
         bool $captureRaw,
+        ?AgentRunHandle $handle = null,
     ): void {
         $trace = new RunTrace(
             captureRaw: $captureRaw,
-            onRecord: static function (RunStep $step) use ($emit): void {
+            onRecord: function (RunStep $step) use ($emit, $handle): void {
                 $emit(['event' => 'step', 'step' => $step->toArray()]);
+                if ($handle !== null) {
+                    $this->agentRunPersister?->recordStep($handle, $step);
+                }
             },
         );
 
+        $settled = false;
         try {
             $result = $this->toolLoopService->runLoop($messages, $config, $allowed, $options, $maxIterations, $trace, $augmentation);
+            if ($handle !== null) {
+                $this->agentRunPersister?->settleCompleted($handle, $result);
+                $settled = true;
+            }
             $emit([
                 'event'        => 'done',
                 'success'      => true,
@@ -315,8 +355,19 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 ],
             ]);
         } catch (Throwable $e) {
+            if ($handle !== null) {
+                $this->agentRunPersister?->settleFailed($handle, $e);
+                $settled = true;
+            }
             $this->logger?->error('Tool playground run failed', ['exception' => $e]);
             $emit(['event' => 'error', 'success' => false, 'error' => $this->diagnoseRunFailure($e)]);
+        } finally {
+            // A client disconnect (or a fatal mid-stream) can abandon the run
+            // before either branch settles it; mark it failed so no run is left
+            // stuck RUNNING. Mirrors StreamingDispatcher's finally-block settle.
+            if ($handle !== null && !$settled) {
+                $this->agentRunPersister?->settleFailed($handle, new RuntimeException('Agent run did not complete'));
+            }
         }
     }
 
