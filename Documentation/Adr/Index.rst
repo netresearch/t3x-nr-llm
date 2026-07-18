@@ -377,3 +377,4 @@ Tools
    Adr077NamedConfigurationCompletion
    Adr078SpecializedServiceBudgetEnforcement
    Adr079FirstPartyCompletionVisionBudgetFakes
+   Adr080TypedProviderHttpExceptions
