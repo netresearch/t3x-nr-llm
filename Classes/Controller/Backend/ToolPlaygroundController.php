@@ -302,6 +302,13 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
         $state = SuspendedRunState::fromArray($decoded);
 
+        // Atomically claim the run before executing its pending (approval-gated,
+        // possibly destructive) tool calls, so two concurrent Approve requests
+        // — an admin double-click, a client retry — cannot both run them (ADR-084).
+        if ($this->agentRunPersister !== null && !$this->agentRunPersister->claimResume($run)) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        }
+
         // Continue the SAME run: rebuild the handle so events keep ascending.
         // The allow-list and options are restored from the suspended state inside
         // resume() — the run keeps its original constraints (ADR-084).
@@ -315,7 +322,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         );
 
         try {
-            $result = $this->toolLoopService->resume($state, $approved, $config, null, $trace);
+            $result = $this->toolLoopService->resume($state, $approved, $config, null, $trace, $this->currentBackendUserUid());
         } catch (ToolApprovalRequiredException $approval) {
             if ($handle !== null) {
                 $this->agentRunPersister?->suspend($handle, $approval->state);

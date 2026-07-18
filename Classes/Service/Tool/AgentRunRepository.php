@@ -124,6 +124,30 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         );
     }
 
+    /**
+     * Atomically claim a suspended run for resume (ADR-084): move it off
+     * WAITING_FOR_APPROVAL to RUNNING only if it is still awaiting approval, in a
+     * single conditional UPDATE. Returns true for the caller that won the claim,
+     * false if another resume already claimed it — so two concurrent Approve
+     * requests cannot both execute the gated (destructive) tool.
+     */
+    public function claimForResume(int $runUid): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'status' => AgentRunStatus::RUNNING->value,
+                'tstamp' => time(),
+            ],
+            [
+                'uid'    => $runUid,
+                'status' => AgentRunStatus::WAITING_FOR_APPROVAL->value,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
     public function findByUuid(string $uuid): ?AgentRun
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);

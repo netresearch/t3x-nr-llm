@@ -151,6 +151,22 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Atomically claim a suspended run before resuming it (ADR-084). Fail-closed:
+     * returns false — refusing the resume — if the claim is lost to a concurrent
+     * approval or the store errors, so the gated tool is never double-executed.
+     */
+    public function claimResume(AgentRun $run): bool
+    {
+        try {
+            return $this->repository->claimForResume($run->uid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be claimed for resume', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Rebuild a live handle for an existing (suspended) run so a resume continues
      * its event stream at the right sequence.
      */

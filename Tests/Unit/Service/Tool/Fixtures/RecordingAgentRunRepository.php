@@ -102,9 +102,31 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         $this->suspended = ['runUid' => $runUid, 'stateJson' => $stateJson];
     }
 
+    public bool $throwOnClaim = false;
+
+    /** Number of resume claims that were granted; false is returned after the first. */
+    public int $claimsGranted = 0;
+
+    public function claimForResume(int $runUid): bool
+    {
+        if ($this->throwOnClaim) {
+            throw new RuntimeException('claimForResume failed', 1784600400);
+        }
+        // First claim wins; a second concurrent claim on the same run loses.
+        if ($this->claimsGranted > 0) {
+            return false;
+        }
+        ++$this->claimsGranted;
+
+        return true;
+    }
+
+    /** Run returned by findByUuid() (default null = unknown). */
+    public ?AgentRun $findResult = null;
+
     public function findByUuid(string $uuid): ?AgentRun
     {
-        return null;
+        return $this->findResult;
     }
 
     public function findEvents(int $runUid): array

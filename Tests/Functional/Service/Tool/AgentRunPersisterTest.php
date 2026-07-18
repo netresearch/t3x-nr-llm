@@ -89,6 +89,34 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function claimForResumeIsAtomicSoOnlyTheFirstConcurrentApprovalWins(): void
+    {
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+        $state = new SuspendedRunState(
+            [['role' => 'user', 'content' => 'delete it']],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            1,
+            5,
+            2,
+        );
+        $this->persister->suspend($handle, $state);
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+
+        // First claim wins (WAITING_FOR_APPROVAL -> RUNNING).
+        self::assertTrue($this->persister->claimResume($run));
+        $afterFirst = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($afterFirst);
+        self::assertSame('running', $afterFirst->status);
+
+        // A second, concurrent/duplicate approval on the same run loses — the
+        // gated (destructive) tool cannot be double-executed.
+        self::assertFalse($this->persister->claimResume($run));
+    }
+
+    #[Test]
     public function aCompletedRunPersistsItsSummaryAndOrderedEventStream(): void
     {
         $handle = $this->persister->begin(null, 5);

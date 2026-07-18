@@ -725,19 +725,108 @@ final class ToolLoopServiceTest extends TestCase
             [],
         );
 
-        $trace = new RunTrace();
-        $service->resume($state, true, new LlmConfiguration(), null, $trace);
+        $trace  = new RunTrace();
+        $result = $service->resume($state, true, new LlmConfiguration(), null, $trace);
 
         // Approved, but the tool is no longer offered → fail-closed, NOT executed.
         $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
         self::assertCount(1, $toolSteps);
         self::assertTrue($toolSteps[0]->toolIsError);
         self::assertStringContainsString('no longer permitted', $toolSteps[0]->toolResult ?? '');
+
+        // The no-offered-tools synthesis branch still folds the pre-suspend
+        // counters (1 iteration + 5/2 tokens) into the totals, not just its own
+        // single round — the whole run is not under-reported.
+        self::assertSame(2, $result->iterations);
+        self::assertGreaterThanOrEqual(5, $result->usage->promptTokens);
+        self::assertGreaterThanOrEqual(2, $result->usage->completionTokens);
     }
 
     /**
      * Drive a run to its approval suspension and return the captured state.
      */
+    #[Test]
+    public function doesNotSuspendForARegisteredApprovalToolThatIsNotOffered(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('handled'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool(), new FakeTool('safe_tool')]));
+
+        // Only safe_tool is offered; delete_thing (an approval tool) is registered
+        // but NOT in the allow-list. A model naming it must be refused by the gate,
+        // not raise a spurious pending-approval suspension.
+        $result = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['safe_tool']);
+
+        self::assertSame('handled', $result->finalContent);
+        self::assertCount(1, $result->trace);
+        self::assertTrue($result->trace[0]->isError);
+        self::assertNotSame('DELETED', $result->trace[0]->result);
+    }
+
+    #[Test]
+    public function accumulatesCountersAcrossASecondSuspend(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        // The resumed continuation immediately calls the approval tool again.
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_2', 'delete_thing', [])]),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        // A state that already accumulated 3 iterations before the first suspend.
+        $assistantTurn = ['role' => 'assistant', 'content' => '', 'tool_calls' => [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]]];
+        $state         = new SuspendedRunState(
+            [$this->userTurn('go'), $assistantTurn],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            3,
+            30,
+            12,
+            ['delete_thing'],
+            [],
+        );
+
+        $second = null;
+        try {
+            $service->resume($state, true, new LlmConfiguration(), null, null, 7);
+        } catch (ToolApprovalRequiredException $e) {
+            $second = $e->state;
+        }
+
+        self::assertNotNull($second);
+        // The re-suspend carries the ACCUMULATED counters (3 prior iterations +
+        // the continuation's one round; the pre-suspend tokens preserved), not
+        // just the continuation's own segment.
+        self::assertSame(4, $second->iterations);
+        self::assertGreaterThanOrEqual(30, $second->promptTokens);
+        self::assertGreaterThanOrEqual(12, $second->completionTokens);
+    }
+
+    #[Test]
+    public function resumeInjectsTheActingUserUidForBudgetChecks(): void
+    {
+        $capturedOptions = null;
+        $mgr             = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (array $messages, array $tools, LlmConfiguration $config, ?ToolOptions $options = null) use (&$capturedOptions): CompletionResponse {
+                $capturedOptions = $options;
+
+                return $this->response('done');
+            },
+        );
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('safe_tool')]));
+        $state   = new SuspendedRunState([$this->userTurn('go')], [], 1, 5, 2, ['safe_tool'], []);
+
+        $service->resume($state, true, new LlmConfiguration(), null, null, 42);
+
+        // The resumed continuation carries the acting user's uid so BudgetMiddleware
+        // gates it (the uid is not part of the persisted options).
+        self::assertInstanceOf(ToolOptions::class, $capturedOptions);
+        self::assertSame(42, $capturedOptions->getBeUserUid());
+    }
+
     private function suspend(ToolLoopService $service): SuspendedRunState
     {
         try {

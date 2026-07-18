@@ -18,8 +18,10 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -40,6 +42,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -654,6 +657,48 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertFalse($blocked['success']);
         self::assertSame($guardrail::class, $blocked['guardrail']);
         self::assertSame('blocked by test policy', $blocked['error']);
+    }
+
+    #[Test]
+    public function resumeActionRejectsASecondConcurrentApprovalWithoutExecutingTheTool(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        // A suspended run whose atomic claim is LOST to a concurrent approval:
+        // findByUuid still returns it WAITING, but claimForResume returns false.
+        $state   = new SuspendedRunState([['role' => 'user', 'content' => 'delete it']], [], 1, 5, 2, [], []);
+        $encoded = json_encode($state->toArray());
+        self::assertIsString($encoded);
+        $run = new AgentRun(1, 'run-uuid-1', 'waiting_for_approval', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', 0, 0, 0, $encoded);
+
+        $repo                = new RecordingAgentRunRepository();
+        $repo->findResult    = $run;
+        $repo->claimsGranted = 1; // the next claim loses
+        $persister           = new AgentRunPersister($repo, new NullLogger());
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        // The provider must never be touched — resume() is never reached.
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+        $manager->expects(self::never())->method('chatWithConfiguration');
+
+        $registry        = new ToolRegistry([new FakeTool('safe_tool')]);
+        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
+
+        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+            ->withParsedBody(['runUuid' => 'run-uuid-1', 'approve' => '1']);
+        $response = $controller->resumeAction($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
     }
 
     /**
