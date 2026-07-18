@@ -248,9 +248,16 @@ final readonly class CompletionService implements CompletionServiceInterface
 
     private function withRepairInstruction(string $prompt, string $schemaJson, string $invalid): string
     {
+        // Mark truncation so the model does not mistake a system-cut JSON tail
+        // for the model's own malformed output.
+        $snippet = mb_substr($invalid, 0, 2000);
+        if (mb_strlen($invalid) > 2000) {
+            $snippet .= "\n[... truncated ...]";
+        }
+
         return $this->withSchemaInstruction($prompt, $schemaJson)
             . "\n\nYour previous response did not conform to the schema. It was:\n"
-            . mb_substr($invalid, 0, 2000);
+            . $snippet;
     }
 
     /**
