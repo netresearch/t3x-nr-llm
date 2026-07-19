@@ -97,6 +97,12 @@ final readonly class ToolLoopService
         ?RunTrace $runTrace = null,
         ?RunAugmentation $augmentation = null,
         bool $skipAssembly = false,
+        // Counters carried over from a suspended run (ADR-084) so a run that
+        // suspends more than once accumulates its totals instead of each segment
+        // starting from zero; a re-suspend then persists the running total.
+        int $seedIterations = 0,
+        int $seedPromptTokens = 0,
+        int $seedCompletionTokens = 0,
     ): ToolLoopResult {
         $max = $maxIterations ?? $this->defaultMaxIterations;
 
@@ -135,12 +141,18 @@ final readonly class ToolLoopService
             $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
             $runTrace?->recordLlmCall(1, self::elapsedMs($t0), $resp);
 
+            // Fold in any carried-over counters (a resume whose continuation has
+            // no offered tools still ran this synthesis round on top of the
+            // pre-suspend total) — otherwise the whole run is under-reported.
             return new ToolLoopResult(
                 $resp->content,
                 [],
-                1,
+                $seedIterations + 1,
                 false,
-                UsageStatistics::fromTokens($resp->usage->promptTokens, $resp->usage->completionTokens),
+                UsageStatistics::fromTokens(
+                    $seedPromptTokens + $resp->usage->promptTokens,
+                    $seedCompletionTokens + $resp->usage->completionTokens,
+                ),
             );
         }
 
@@ -150,9 +162,9 @@ final readonly class ToolLoopService
         $allowedNames = array_map(static fn(ToolSpec $s): string => $s->name, $specs);
 
         $trace            = [];
-        $promptTokens     = 0;
-        $completionTokens = 0;
-        $iterations       = 0;
+        $promptTokens     = $seedPromptTokens;
+        $completionTokens = $seedCompletionTokens;
+        $iterations       = $seedIterations;
 
         try {
             for ($i = 0; $i < $max; $i++) {
@@ -184,7 +196,13 @@ final readonly class ToolLoopService
                 // implement the marker, so this loop is inert for them and the
                 // synchronous path below is unchanged.
                 foreach ($resp->toolCalls ?? [] as $call) {
-                    if ($this->registry->get($call->name) instanceof RequiresApprovalInterface) {
+                    // Fail-closed like invoke()/resolveOfferedNames(): only an
+                    // OFFERED approval tool suspends. A registered-but-not-offered
+                    // approval tool (a model steered by injected prose naming it)
+                    // falls through to invoke(), which refuses it — no spurious
+                    // pending-approval prompt for a tool the run never allowed.
+                    if (in_array($call->name, $allowedNames, true)
+                        && $this->registry->get($call->name) instanceof RequiresApprovalInterface) {
                         throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
                             array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
                             array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
@@ -277,10 +295,14 @@ final readonly class ToolLoopService
         LlmConfiguration $configuration,
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
+        ?int $beUserUid = null,
     ): ToolLoopResult {
         $messages     = $state->messages;
         $pendingCalls = $state->toolCalls();
-        $options      = ToolOptions::fromArray($state->options);
+        // Restore the run's options and re-inject the acting user's uid so the
+        // resumed continuation is budget-checked — the uid is intentionally not
+        // part of the persisted options (ADR-084).
+        $options = ToolOptions::fromArray($state->options, $beUserUid);
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
@@ -301,7 +323,10 @@ final readonly class ToolLoopService
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
-        $result = $this->runLoop(
+        // Seed the loop with the pre-suspend counters so the returned totals span
+        // the whole run — and a further suspend inside the continuation persists
+        // the running total, not just its own segment (ADR-084).
+        return $this->runLoop(
             $messages,
             $configuration,
             $state->allowedToolNames,
@@ -310,19 +335,9 @@ final readonly class ToolLoopService
             $runTrace,
             null,
             true,
-        );
-
-        // Fold the pre-suspend counters into the continued run so the totals span
-        // the whole run, not just the post-resume segment.
-        return new ToolLoopResult(
-            $result->finalContent,
-            $result->trace,
-            $state->iterations + $result->iterations,
-            $result->truncated,
-            UsageStatistics::fromTokens(
-                $state->promptTokens + $result->usage->promptTokens,
-                $state->completionTokens + $result->usage->completionTokens,
-            ),
+            $state->iterations,
+            $state->promptTokens,
+            $state->completionTokens,
         );
     }
 

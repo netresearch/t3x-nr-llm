@@ -165,18 +165,19 @@ class ToolOptions extends ChatOptions
     /**
      * Rebuild options from a {@see self::toArray()} snapshot (ADR-084 resume).
      *
-     * The budget fields (beUserUid, plannedCost) are intentionally not part of
-     * toArray() and are therefore not restored — a resumed run is budget-checked
-     * for the acting user, not the original one.
+     * The budget fields are not part of toArray(): $beUserUid is supplied by the
+     * caller (the acting user, so the resumed continuation is budget-checked for
+     * whoever approved it) and plannedCost is not restored.
      *
      * @param array<string, mixed> $data
      */
-    public static function fromArray(array $data): static
+    public static function fromArray(array $data, ?int $beUserUid = null): static
     {
         $stop          = $data['stop_sequences'] ?? null;
         $stopSequences = is_array($stop) ? array_values(array_filter($stop, is_string(...))) : null;
 
         return new static(
+            beUserUid: $beUserUid,
             temperature: is_numeric($data['temperature'] ?? null) ? (float)$data['temperature'] : null,
             maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int)$data['max_tokens'] : null,
             topP: is_numeric($data['top_p'] ?? null) ? (float)$data['top_p'] : null,

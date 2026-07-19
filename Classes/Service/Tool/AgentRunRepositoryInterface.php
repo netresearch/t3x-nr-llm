@@ -53,6 +53,13 @@ interface AgentRunRepositoryInterface
      */
     public function suspendRun(int $runUid, string $stateJson): void;
 
+    /**
+     * Atomically claim a WAITING_FOR_APPROVAL run for resume (move it to RUNNING);
+     * true for the winner, false if already claimed. Prevents two concurrent
+     * approvals from double-executing the gated tool (ADR-084).
+     */
+    public function claimForResume(int $runUid): bool;
+
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**

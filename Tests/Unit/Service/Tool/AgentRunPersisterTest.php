@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -138,6 +139,19 @@ final class AgentRunPersisterTest extends TestCase
         self::assertNotNull($repository->finished);
         self::assertSame('failed', $repository->finished['status']);
         self::assertSame(RuntimeException::class, $repository->finished['errorClass']);
+    }
+
+    #[Test]
+    public function claimResumeReturnsFalseWhenTheRepositoryThrows(): void
+    {
+        $repository               = new RecordingAgentRunRepository();
+        $repository->throwOnClaim = true;
+        $persister                = new AgentRunPersister($repository);
+        $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', 0, 0, 0, '{}');
+
+        // Fail-closed: a store error refuses the resume rather than risk a
+        // double-execute of the gated tool.
+        self::assertFalse($persister->claimResume($run));
     }
 
     #[Test]
