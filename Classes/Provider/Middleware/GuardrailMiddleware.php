@@ -79,9 +79,10 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 
     /**
      * Screen a vision response's description text through the same output
-     * guardrails. A vision call cannot be re-requested through the pipeline here,
-     * so RETRY is a pass; REDACT rewrites the description, DENY/REQUIRE_APPROVAL
-     * throw the same exceptions as a completion.
+     * guardrails. REDACT rewrites the description, DENY/REQUIRE_APPROVAL throw the
+     * same exceptions as a completion. A vision call cannot be re-requested
+     * through the pipeline, so a RETRY (the response was deemed deficient) fails
+     * CLOSED — throwing rather than silently returning the unscreened response.
      */
     private function screenVision(VisionResponse $vision): VisionResponse
     {
@@ -90,7 +91,10 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             $result  = $guardrail->checkOutput(new CompletionResponse($screened, $vision->model, $vision->usage, provider: $vision->provider));
             $verdict = $result->verdict;
             if ($verdict === GuardrailVerdict::RETRY) {
-                continue;
+                throw new GuardrailViolationException(
+                    $guardrail::class,
+                    'A guardrail asked to retry, but retrying is not supported for vision responses.',
+                );
             }
             $screened = match ($verdict) {
                 GuardrailVerdict::ALLOW => $screened,

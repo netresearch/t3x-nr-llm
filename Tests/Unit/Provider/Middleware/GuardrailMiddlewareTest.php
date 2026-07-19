@@ -192,6 +192,15 @@ final class GuardrailMiddlewareTest extends TestCase
         $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
     }
 
+    #[Test]
+    public function visionResponseRetryFailsClosedBecauseAVisionCallCannotBeRetried(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::retry('deficient'))]);
+
+        $this->expectException(GuardrailViolationException::class);
+        $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('desc', 'm', UsageStatistics::fromTokens(1, 1)));
+    }
+
     /**
      * @param callable(): mixed $terminal
      */
