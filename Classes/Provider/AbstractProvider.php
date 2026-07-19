@@ -64,6 +64,14 @@ abstract class AbstractProvider implements ProviderInterface
     protected int $maxRetries = 3;
     protected string $organizationId = '';
 
+    /**
+     * Upper bound for retries after the initial attempt, matching the
+     * `max_retries` TCA range (0–10). Clamped in configure() and defended in
+     * the send loop so a free-text options-JSON override cannot request an
+     * effectively unbounded retry loop against a down upstream.
+     */
+    protected const MAX_RETRIES_LIMIT = 10;
+
     /** @var array<string, string> */
     protected array $customHeaders = [];
 
@@ -93,7 +101,7 @@ abstract class AbstractProvider implements ProviderInterface
         $this->baseUrl = $this->getString($config, 'baseUrl', $this->getDefaultBaseUrl());
         $this->defaultModel = $this->getString($config, 'defaultModel', $this->getDefaultModel());
         $this->timeout = $this->getInt($config, 'timeout', 120);
-        $this->maxRetries = $this->getInt($config, 'maxRetries', 3);
+        $this->maxRetries = max(0, min(self::MAX_RETRIES_LIMIT, $this->getInt($config, 'maxRetries', 3)));
         $this->organizationId = $this->getString($config, 'organizationId');
         $this->customHeaders = $this->extractCustomHeaders($config);
 
@@ -318,10 +326,10 @@ abstract class AbstractProvider implements ProviderInterface
         $attempt = 0;
         $lastException = null;
         // maxRetries counts retries after the initial attempt; max_retries = 0
-        // still sends one request. Clamp negatives (reachable via the options
-        // JSON maxRetries override, which configure() does not range-check) so
-        // the loop always runs at least once.
-        $maxAttempts = max(0, $this->maxRetries) + 1;
+        // still sends one request. configure() clamps the stored value to
+        // [0, MAX_RETRIES_LIMIT]; re-clamp here so the loop is bounded even if
+        // the property is set through another path.
+        $maxAttempts = max(0, min(self::MAX_RETRIES_LIMIT, $this->maxRetries)) + 1;
 
         while ($attempt < $maxAttempts) {
             $attemptStart = microtime(true);
