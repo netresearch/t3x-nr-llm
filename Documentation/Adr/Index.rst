@@ -387,3 +387,4 @@ Tools
    Adr087InputGuardrails
    Adr088StreamingRedaction
    Adr089GuardrailBoundaryCompleteness
+   Adr090SingleExtensionUntil10

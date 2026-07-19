@@ -253,6 +253,35 @@ The three-tier configuration hierarchy separates concerns cleanly:
 - Reusable model definitions across configurations
 - Clear separation of concerns
 
+### Packaging: one extension for now
+
+nr-llm ships as a **single extension** today, even though it bundles several
+independently useful subsystems — the provider core, specialized services
+(translation / image / speech), the tool & agent system, the guardrail safety
+layer, and the backend UI.
+
+This is deliberate. While the extension is under rapid pre-1.0 development the
+internal contracts between these subsystems still change often, and splitting
+now would freeze them into public cross-extension APIs prematurely and add
+coordinated multi-repo release friction. We keep the architecture *split-ready*
+instead — the phpat architecture tests enforce the vertical layering (Controller
+→ Service → Provider), and the horizontal module seams are kept clean by review
+(with phpat rules for those seams a planned split-readiness step) — and will
+revisit a split **with or before the 1.0 release**, once the seams have
+stabilized.
+
+The anticipated seams, if/when we split:
+
+| Package | Scope |
+|---------|-------|
+| `nr_llm` (core) | Provider → Model → Configuration, middleware pipeline, completion / embedding / vision services — the base every other package needs |
+| `nr_llm_specialized` | Translation (DeepL / LLM), image (DALL·E / FAL), speech (Whisper / TTS) |
+| `nr_llm_tools` | Builtin tools, RAG site-search, tool loop, human-in-the-loop approval, agent-run persistence |
+| `nr_llm_guardrail` | Guardrail / secret-redaction safety pipeline (may instead stay in core) |
+| `nr_llm_backend` | Tool Playground, analytics dashboard, setup wizard, skills management |
+
+See [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst) for the full rationale and the criteria that would trigger a split.
+
 ---
 
 ## Requirements
