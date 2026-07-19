@@ -77,7 +77,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
                 case GuardrailVerdict::ALLOW:
                     break;
                 case GuardrailVerdict::REDACT:
-                    $response = $this->withContent($response, $result->redactedContent ?? $response->content);
+                    $response = $this->withContent($response, $result->redactedContent ?? $response->content, $result->redactedThinking);
                     break;
                 case GuardrailVerdict::DENY:
                     throw new GuardrailViolationException(
@@ -108,9 +108,10 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         return $response;
     }
 
-    private function withContent(CompletionResponse $response, string $content): CompletionResponse
+    private function withContent(CompletionResponse $response, string $content, ?string $thinking): CompletionResponse
     {
-        // CompletionResponse is final readonly — rebuild it with the new content.
+        // CompletionResponse is final readonly — rebuild it with the new content
+        // (and redacted thinking, if the guardrail supplied one; null keeps it).
         return new CompletionResponse(
             content: $content,
             model: $response->model,
@@ -119,7 +120,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             provider: $response->provider,
             toolCalls: $response->toolCalls,
             metadata: $response->metadata,
-            thinking: $response->thinking,
+            thinking: $thinking ?? $response->thinking,
         );
     }
 }

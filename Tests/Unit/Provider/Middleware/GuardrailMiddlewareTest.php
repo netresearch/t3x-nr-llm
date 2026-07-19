@@ -60,6 +60,33 @@ final class GuardrailMiddlewareTest extends TestCase
     }
 
     #[Test]
+    public function redactAppliesTheRedactedThinkingToTheResponse(): void
+    {
+        $middleware = new GuardrailMiddleware([
+            $this->guardrail(GuardrailResult::redact('[redacted]', 'secret', '[thinking-redacted]')),
+        ]);
+        $terminal = fn(): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'raw thinking');
+
+        $result = $this->screen($middleware, $terminal);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('[redacted]', $result->content);
+        self::assertSame('[thinking-redacted]', $result->thinking);
+    }
+
+    #[Test]
+    public function redactWithNullThinkingKeepsTheOriginalThinking(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::redact('[redacted]', 'secret'))]);
+        $terminal   = fn(): CompletionResponse => new CompletionResponse('raw', 'test-model', UsageStatistics::fromTokens(1, 1), 'stop', '', null, null, 'original thinking');
+
+        $result = $this->screen($middleware, $terminal);
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('original thinking', $result->thinking);
+    }
+
+    #[Test]
     public function denyThrowsAViolation(): void
     {
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))]);

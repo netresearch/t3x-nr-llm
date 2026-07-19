@@ -29,6 +29,24 @@ final readonly class SecretRedactionGuardrail implements GuardrailInterface, Str
 
     public function checkOutput(CompletionResponse $response): GuardrailResult
     {
-        return $this->redactionResult($response->content, 'response');
+        // Screen both the answer and the model's reasoning trace: a secret in
+        // context is echoed into the `thinking` block as readily as the content
+        // (ADR-089). Tool-call arguments are NOT redacted — they are functional
+        // parameters the tool consumes, and masking them would break the call.
+        $redactedContent  = $this->redactSecrets($response->content);
+        $redactedThinking = $response->thinking !== null ? $this->redactSecrets($response->thinking) : null;
+
+        $contentChanged  = $redactedContent !== $response->content;
+        $thinkingChanged = $redactedThinking !== $response->thinking;
+
+        if (!$contentChanged && !$thinkingChanged) {
+            return GuardrailResult::allow();
+        }
+
+        return GuardrailResult::redact(
+            $redactedContent,
+            'Redacted secret-shaped strings from the response.',
+            $thinkingChanged ? $redactedThinking : null,
+        );
     }
 }
