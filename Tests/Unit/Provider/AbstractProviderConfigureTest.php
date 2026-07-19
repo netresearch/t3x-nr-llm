@@ -69,6 +69,51 @@ class AbstractProviderConfigureTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function configureClampsMaxRetriesToTheTcaUpperBound(): void
+    {
+        // A free-text options-JSON override above the TCA range (0-10) must be
+        // clamped so the send loop cannot request an effectively unbounded
+        // retry sequence against a down upstream.
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'maxRetries'       => 1000,
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        self::assertEquals(10, $reflection->getProperty('maxRetries')->getValue($provider));
+    }
+
+    #[Test]
+    public function configureClampsNegativeMaxRetriesToZero(): void
+    {
+        $provider = new GeminiProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $provider->setHttpClient($this->createHttpClientMock());
+
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'maxRetries'       => -5,
+        ]);
+
+        $reflection = new ReflectionClass($provider);
+        self::assertEquals(0, $reflection->getProperty('maxRetries')->getValue($provider));
+    }
+
+    #[Test]
     public function configureUsesProvidedTimeoutValue(): void
     {
         $provider = new GeminiProvider(

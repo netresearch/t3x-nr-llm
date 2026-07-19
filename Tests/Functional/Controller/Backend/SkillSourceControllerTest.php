@@ -25,6 +25,7 @@ use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -228,5 +229,31 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         self::assertNotSame('ghp_plaintext_secret', $reloaded->getGithubToken(), 'the column holds a vault UUID, not the plaintext token');
         self::assertSame($capturedId, $reloaded->getGithubToken());
         self::assertStringStartsWith('ghtoken_', $reloaded->getGithubToken());
+    }
+
+    #[Test]
+    public function setTokenActionReturnsJsonErrorWhenVaultStoreFails(): void
+    {
+        $source = $this->persistedSource();
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $this->setUpBackendRequest();
+
+        // A vault/encryption failure must surface as a JSON 500 the module can
+        // render, not a raw HTML 500 from an uncaught exception.
+        $vault = $this->createMock(VaultServiceInterface::class);
+        $vault->method('store')->willThrowException(new RuntimeException('vault unavailable'));
+        $controller = $this->controllerWithVault($vault);
+
+        $uid = $source->getUid();
+        self::assertNotNull($uid);
+        $request = (new ServerRequest())->withParsedBody(['source' => $uid, 'token' => 'ghp_plaintext_secret']);
+        $response = $controller->setTokenAction($request);
+
+        self::assertSame(500, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertArrayHasKey('error', $payload);
     }
 }

@@ -109,9 +109,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->sendDeeplRequest('translate', $payload);
 
-        /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
-        if ($translations === []) {
+        if (!is_array($translations) || $translations === []) {
             throw new ServiceUnavailableException(
                 'DeepL returned empty translation response',
                 'translation',
@@ -120,14 +119,15 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         $translation = $translations[0];
-        $detectedSourceLanguage = strtolower($translation['detected_source_language'] ?? $sourceLanguage ?? 'en');
+        $translatedText = $this->extractTranslatedText($translation);
+        $detectedSourceLanguage = $this->extractDetectedSourceLanguage($translation, $sourceLanguage);
 
         $this->usageTracker->trackUsage('translation', 'deepl', [
             'characters' => mb_strlen($text),
         ], beUserUid: $this->extractBeUserUid($options));
 
         return new TranslatorResult(
-            translatedText: $translation['text'],
+            translatedText: $translatedText,
             sourceLanguage: $detectedSourceLanguage,
             targetLanguage: strtolower($targetLanguage),
             translator: 'deepl',
@@ -160,15 +160,22 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $response = $this->sendDeeplRequest('translate', $payload);
 
-        /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
+        if (!is_array($translations)) {
+            throw new ServiceUnavailableException(
+                'DeepL returned a malformed translation response',
+                'translation',
+                ['provider' => 'deepl'],
+            );
+        }
         $results = [];
 
         foreach ($translations as $index => $translation) {
-            $detectedSourceLanguage = strtolower($translation['detected_source_language'] ?? $sourceLanguage ?? 'en');
+            $translatedText = $this->extractTranslatedText($translation);
+            $detectedSourceLanguage = $this->extractDetectedSourceLanguage($translation, $sourceLanguage);
 
             $results[] = new TranslatorResult(
-                translatedText: $translation['text'],
+                translatedText: $translatedText,
                 sourceLanguage: $detectedSourceLanguage,
                 targetLanguage: strtolower($targetLanguage),
                 translator: 'deepl',
@@ -187,6 +194,43 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         ], beUserUid: $this->extractBeUserUid($options));
 
         return $results;
+    }
+
+    /**
+     * Extract the translated text from a single untrusted DeepL translation entry.
+     *
+     * The response body is untrusted: a broken upstream or an intermediary proxy
+     * can return a 200 whose `translations` element is not an object, or lacks a
+     * string `text`. Surface that as the typed service error rather than letting
+     * a raw TypeError escape as a 500.
+     *
+     * @throws ServiceUnavailableException
+     */
+    private function extractTranslatedText(mixed $translation): string
+    {
+        if (is_array($translation)) {
+            $text = $translation['text'] ?? null;
+            if (is_string($text)) {
+                return $text;
+            }
+        }
+
+        throw new ServiceUnavailableException(
+            'DeepL returned a malformed translation entry',
+            'translation',
+            ['provider' => 'deepl'],
+        );
+    }
+
+    /**
+     * Read the detected source language from an untrusted DeepL entry, falling
+     * back to the requested source (or `en`) when absent or non-string.
+     */
+    private function extractDetectedSourceLanguage(mixed $translation, ?string $fallback): string
+    {
+        $detected = is_array($translation) ? ($translation['detected_source_language'] ?? null) : null;
+
+        return strtolower(is_string($detected) ? $detected : ($fallback ?? 'en'));
     }
 
     public function getSupportedLanguages(): array

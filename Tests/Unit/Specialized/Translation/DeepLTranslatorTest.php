@@ -370,6 +370,83 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         self::assertEquals('fr', $result->targetLanguage);
     }
 
+    /**
+     * A malformed 2xx body (from a broken upstream or an intermediary proxy)
+     * whose translation entry is not an object or lacks a string `text` must
+     * raise the typed service error, not a raw TypeError -> 500.
+     *
+     * @param mixed $translationEntry the untrusted `translations[0]` value
+     */
+    #[Test]
+    #[DataProvider('malformedTranslationEntryProvider')]
+    public function translateThrowsServiceUnavailableOnMalformedEntry(mixed $translationEntry): void
+    {
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['translations' => [$translationEntry]]),
+        );
+        $subject = $this->buildTranslator($httpClientStub, $this->defaultConfig);
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->translate('Hello World', 'de');
+    }
+
+    #[Test]
+    #[DataProvider('malformedTranslationEntryProvider')]
+    public function translateBatchThrowsServiceUnavailableOnMalformedEntry(mixed $translationEntry): void
+    {
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['translations' => [$translationEntry]]),
+        );
+        $subject = $this->buildTranslator($httpClientStub, $this->defaultConfig);
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->translateBatch(['Hello World'], 'de');
+    }
+
+    #[Test]
+    public function translateThrowsServiceUnavailableWhenTranslationsContainerIsNotArray(): void
+    {
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['translations' => 'not-an-array']),
+        );
+        $subject = $this->buildTranslator($httpClientStub, $this->defaultConfig);
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->translate('Hello World', 'de');
+    }
+
+    #[Test]
+    public function translateBatchThrowsServiceUnavailableWhenTranslationsContainerIsNotArray(): void
+    {
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub->method('sendRequest')->willReturn(
+            $this->createJsonResponseMock(['translations' => 'not-an-array']),
+        );
+        $subject = $this->buildTranslator($httpClientStub, $this->defaultConfig);
+
+        $this->expectException(ServiceUnavailableException::class);
+
+        $subject->translateBatch(['Hello World'], 'de');
+    }
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function malformedTranslationEntryProvider(): array
+    {
+        return [
+            'entry missing text'    => [['detected_source_language' => 'EN']],
+            'entry text not string' => [['text' => 123]],
+            'entry is a scalar'     => ['plain-string-entry'],
+        ];
+    }
+
     #[Test]
     public function translateTracksUsage(): void
     {
