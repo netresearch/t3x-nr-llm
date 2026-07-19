@@ -44,6 +44,19 @@ final class SecretRedactionInputGuardrailTest extends TestCase
     }
 
     #[Test]
+    public function redactsAConnectionStringPasswordFromThePrompt(): void
+    {
+        $result = (new SecretRedactionInputGuardrail())->checkInput(
+            'connect to postgres://appuser:S3cr3tP4ss@db.internal:5432/prod please',
+        );
+
+        self::assertSame(GuardrailVerdict::REDACT, $result->verdict);
+        self::assertNotNull($result->redactedContent);
+        self::assertStringNotContainsString('S3cr3tP4ss', $result->redactedContent);
+        self::assertStringContainsString('postgres://appuser:***@db.internal', $result->redactedContent);
+    }
+
+    #[Test]
     public function allowsACleanPrompt(): void
     {
         $result = (new SecretRedactionInputGuardrail())->checkInput('just a normal question about the weather');
