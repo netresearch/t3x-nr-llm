@@ -138,13 +138,15 @@ final readonly class GetSiteConfigTool implements ToolInterface
 
             // Normalize camelCase (apiKey → api_Key) AND acronym→word boundaries
             // (APIKey → API_Key) first — the credential pattern is snake_case-segment
-            // based, site settings are often camelCase.
-            $normalizedKey = (string)preg_replace(
+            // based, site settings are often camelCase. Null-guard the split so a
+            // preg failure falls back to the raw key (still checked) rather than an
+            // empty string, which would bypass the credential check.
+            $normalizedKey = preg_replace(
                 ['/(?<=[a-z0-9])(?=[A-Z])/', '/(?<=[A-Z])(?=[A-Z][a-z])/'],
                 '_',
                 $keyName,
             );
-            if ($this->tableAccess->isSensitiveField($normalizedKey)) {
+            if ($this->tableAccess->isSensitiveField(is_string($normalizedKey) ? $normalizedKey : $keyName)) {
                 $lines[] = sprintf('%s: %s', $path, self::REDACTED);
                 continue;
             }
