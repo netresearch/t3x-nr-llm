@@ -46,6 +46,9 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
         file_put_contents($siteDir . '/config.yaml', <<<YAML
             rootPageId: 1
             base: 'http://localhost:59999/'
+            baseVariants:
+              - base: 'http://staging.internal:8080/'
+                condition: 'applicationContext == "Production/Staging"'
             languages:
               - languageId: 0
                 title: English
@@ -83,6 +86,17 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'file:///etc/passwd']));
         self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'gopher://localhost:59999/x']));
+    }
+
+    #[Test]
+    public function deniesAnInactiveBaseVariantHost(): void
+    {
+        // The site declares a staging baseVariant on an internal host; its
+        // condition is inactive in the test context, so it is NOT the served
+        // base — probe_url must not reach it (only the active base is trusted).
+        $output = $this->tool->execute(['url' => 'http://staging.internal:8080/']);
+
+        self::assertStringContainsString('Denied', $output);
     }
 
     #[Test]

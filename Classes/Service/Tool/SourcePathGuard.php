@@ -165,7 +165,23 @@ final readonly class SourcePathGuard
      */
     public function redactSecretLine(string $line): string
     {
-        return (string)preg_replace(self::SECRET_LINE_PATTERN, '$1[redacted]', $line);
+        $out  = preg_replace(self::SECRET_LINE_PATTERN, '$1[redacted]', $line);
+        $line = is_string($out) ? $out : $line;
+        // Also mask token-shaped secrets that carry NO credential key — the shape
+        // logs emit (var/log is readable): JSON `"Authorization":"Bearer …"`
+        // headers, bearer / sk- tokens, and connection-string URLs in free-form or
+        // structured lines that the key-based pattern above never matches.
+        $out = preg_replace(
+            [
+                '/\bBearer\s+[A-Za-z0-9._~+\/\-]+=*/i',
+                '/\bsk-[A-Za-z0-9_\-]{16,}/',
+                '~(\b[a-z][a-z0-9+.\-]*://[^:/?#\s@]*):[^@/?#\s]+@~i',
+            ],
+            ['Bearer [redacted]', 'sk-[redacted]', '$1:***@'],
+            $line,
+        );
+
+        return is_string($out) ? $out : $line;
     }
 
     /**

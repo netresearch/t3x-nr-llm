@@ -42,6 +42,9 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
               maps:
                 apiKey: 'super-secret-value-123'
                 zoom: 12
+              cache:
+                endpoint: 'redis://user:s3cr3tpw@cache.internal:6379/0'
+                accesskey: 'lowercase-key-secret'
             languages:
               - languageId: 0
                 title: English
@@ -76,6 +79,12 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('settings.maps.apiKey: [redacted]', $output);
         self::assertStringNotContainsString('super-secret-value-123', $output);
         self::assertStringContainsString('settings.maps.zoom: 12', $output);
+        // A lowercase credential key is redacted too (aligned field pattern).
+        self::assertStringContainsString('settings.cache.accesskey: [redacted]', $output);
+        self::assertStringNotContainsString('lowercase-key-secret', $output);
+        // A DSN password under a benign key is masked by value, not by key name.
+        self::assertStringNotContainsString('s3cr3tpw', $output);
+        self::assertStringContainsString('redis://user:***@cache.internal', $output);
     }
 
     #[Test]

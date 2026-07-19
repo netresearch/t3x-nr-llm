@@ -136,11 +136,17 @@ final readonly class GetSiteConfigTool implements ToolInterface
             $keyName = (string)$key;
             $path    = $prefix === '' ? $keyName : $prefix . '.' . $keyName;
 
-            // Normalize camelCase (apiKey → api_Key) first — the credential
-            // pattern is snake_case-segment based, site settings are often
-            // camelCase.
-            $normalizedKey = (string)preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', '_', $keyName);
-            if ($this->tableAccess->isSensitiveField($normalizedKey)) {
+            // Normalize camelCase (apiKey → api_Key) AND acronym→word boundaries
+            // (APIKey → API_Key) first — the credential pattern is snake_case-segment
+            // based, site settings are often camelCase. Null-guard the split so a
+            // preg failure falls back to the raw key (still checked) rather than an
+            // empty string, which would bypass the credential check.
+            $normalizedKey = preg_replace(
+                ['/(?<=[a-z0-9])(?=[A-Z])/', '/(?<=[A-Z])(?=[A-Z][a-z])/'],
+                '_',
+                $keyName,
+            );
+            if ($this->tableAccess->isSensitiveField(is_string($normalizedKey) ? $normalizedKey : $keyName)) {
                 $lines[] = sprintf('%s: %s', $path, self::REDACTED);
                 continue;
             }
@@ -168,6 +174,12 @@ final readonly class GetSiteConfigTool implements ToolInterface
         }
 
         $text = trim((string)preg_replace('/\s+/', ' ', self::toStr($value)));
+        // Mask an inline connection-string password even under a benign key name
+        // (e.g. a DSN whose key spelling escapes the credential-name match).
+        $masked = preg_replace('~(\b[a-z][a-z0-9+.\-]*://[^:/?#\s@]*):[^@/?#\s]+@~i', '$1:***@', $text);
+        if (is_string($masked)) {
+            $text = $masked;
+        }
 
         return mb_strimwidth($text, 0, self::VALUE_WIDTH, '…');
     }

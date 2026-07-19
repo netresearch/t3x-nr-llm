@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\ToolEgressScope;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\UriInterface;
-use TYPO3\CMS\Core\Http\Uri;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
@@ -145,18 +144,12 @@ final readonly class EgressPolicyService
      */
     private function siteBases(Site $site): array
     {
-        $bases = [$site->getBase()];
-
-        $variants = $site->getConfiguration()['baseVariants'] ?? null;
-        if (is_array($variants)) {
-            foreach ($variants as $variant) {
-                if (is_array($variant) && is_string($variant['base'] ?? null)) {
-                    $bases[] = new Uri($variant['base']);
-                }
-            }
-        }
-
-        return $bases;
+        // Only the site's ACTIVE resolved base is a legitimate probe_url target.
+        // baseVariants are context/condition-resolved (a local/staging variant may
+        // point at an internal host, e.g. http://web:80); folding them all into the
+        // egress allowlist unconditionally would widen it to hosts the instance
+        // does not actually serve.
+        return [$site->getBase()];
     }
 
     private function firstSiteBase(): ?string
