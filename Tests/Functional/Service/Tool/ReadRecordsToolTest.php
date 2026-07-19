@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -122,6 +123,26 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(2); // editor without any group rights
 
         $output = $this->tool->execute(['table' => 'tt_content']);
+
+        self::assertSame('Table not found or not permitted.', $output);
+    }
+
+    #[Test]
+    public function nonAdminFilteringByForbiddenLanguageIsDenied(): void
+    {
+        $this->setUpBackendUser(2); // editor
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
+        // Grant table read but restrict to the default language only.
+        $beUser->groupData['tables_select']     = 'tt_content';
+        $beUser->groupData['allowed_languages'] = '0';
+
+        // Explicitly filtering by the forbidden language 1 -> neutral denial,
+        // before any row is fetched.
+        $output = $this->tool->execute([
+            'table'        => 'tt_content',
+            'where_equals' => ['sys_language_uid' => 1],
+        ]);
 
         self::assertSame('Table not found or not permitted.', $output);
     }

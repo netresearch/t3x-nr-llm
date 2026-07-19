@@ -130,6 +130,15 @@ final readonly class ReadRecordsTool implements ToolInterface
             return 'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.';
         }
 
+        // A non-admin explicitly filtering by a language they may not access
+        // gets nothing — the backend language restriction applies here too.
+        if (!$user->isAdmin()
+            && isset($filters['sys_language_uid'])
+            && !$user->checkLanguageAccess((int)$filters['sys_language_uid'])
+        ) {
+            return self::NOT_PERMITTED;
+        }
+
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         if ($limit < 1) {
             $limit = self::DEFAULT_LIMIT;

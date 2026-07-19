@@ -13,8 +13,10 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetPageContentTool;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * Functional tests for GetPageContentTool (ADR-042).
@@ -125,5 +127,37 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute(['uid' => 999]);
 
         self::assertSame('Page not found or not permitted.', $output);
+    }
+
+    #[Test]
+    public function nonAdminWithoutLanguageAccessIsDenied(): void
+    {
+        $pages = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        // A root-level page the editor can fully reach (own rootline, everybody
+        // perms, in web mount below) so the language gate is the only variable.
+        $pages->insert('pages', [
+            'uid' => 5, 'pid' => 0, 'title' => 'Public', 'doktype' => 1, 'slug' => '/public',
+            'sorting' => 5, 'perms_everybody' => Permission::ALL,
+        ]);
+
+        $this->setUpBackendUser(2); // editor (non-admin)
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
+        // Web mount covers page 5 (readPageAccess requires isInWebMount); the
+        // acting user is restricted to the default language only.
+        $beUser->groupData['webmounts']         = '5';
+        $beUser->groupData['allowed_languages'] = '0';
+
+        // Language 0 is permitted -> the page resolves past the language gate.
+        self::assertStringContainsString(
+            'Page [5] Public',
+            $this->tool->execute(['uid' => 5, 'language' => 0]),
+        );
+        // Language 1 is not permitted -> neutral denial at the language gate.
+        self::assertSame(
+            'Page not found or not permitted.',
+            $this->tool->execute(['uid' => 5, 'language' => 1]),
+        );
     }
 }
