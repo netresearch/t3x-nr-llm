@@ -32,7 +32,14 @@ trait RendersTypoScriptTreeTrait
      * last path segment, per camelCase/underscore word.
      */
     private const SECRET_KEY_PATTERN
-        = '/(password|passwd|pwd|secret|token|credential|apikey|api_key|privatekey|private_key|authorization)/i';
+        = '/(password|passwd|pwd|secret|token|credential|apikey|api_key|accesskey|access_key|encryptionkey|encryption_key|licensekey|privatekey|private_key|authorization|salt|dsn)/i';
+
+    /**
+     * Credentials embedded in a connection-string value (scheme://user:pass@host)
+     * are masked regardless of the key name — a DSN under a benign key (e.g.
+     * `settings.dsn`) would otherwise egress its inline password.
+     */
+    private const SECRET_URL_PATTERN = '~(\b[a-z][a-z0-9+.\-]*://[^:/?#\s@]*):[^@/?#\s]+@~i';
 
     /** Maximum rendered lines per reply. */
     private const MAX_LINES = 300;
@@ -147,10 +154,15 @@ trait RendersTypoScriptTreeTrait
      */
     private function redactSecretValue(string $key, string $value): string
     {
-        if ($value !== '' && preg_match(self::SECRET_KEY_PATTERN, $key) === 1) {
+        if ($value === '') {
+            return $value;
+        }
+        if (preg_match(self::SECRET_KEY_PATTERN, $key) === 1) {
             return '[redacted]';
         }
+        // Mask an inline connection-string password even under a benign key name.
+        $masked = preg_replace(self::SECRET_URL_PATTERN, '$1:***@', $value);
 
-        return $value;
+        return is_string($masked) ? $masked : $value;
     }
 }
