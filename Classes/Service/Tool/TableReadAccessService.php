@@ -44,13 +44,18 @@ final readonly class TableReadAccessService
         'sys_refindex',
         'sys_http_report',
         'sys_lockedrecords',
+        // The FAL storage `configuration` FlexForm carries remote-driver
+        // credentials (S3/FTP/WebDAV keys) and the server base path; storages are
+        // exposed only through the FAL tools' redacted view (ADR-049).
+        'sys_file_storage',
     ];
 
     /**
      * Table-name prefixes treated like {@see self::SENSITIVE_TABLES} — the
-     * nr_llm tables store provider endpoints and vault key references.
+     * nr_llm tables store provider endpoints and vault key references, and the
+     * nr_vault tables ARE the secret store (identifiers, ACLs, ciphertext).
      */
-    private const SENSITIVE_TABLE_PREFIXES = ['tx_nrllm'];
+    private const SENSITIVE_TABLE_PREFIXES = ['tx_nrllm', 'tx_nrvault'];
 
     /**
      * Credential-ish field-name segments whose values must never egress.
@@ -60,7 +65,7 @@ final readonly class TableReadAccessService
      * without listing each one.
      */
     private const SENSITIVE_FIELD_PATTERN
-        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa)(\d+)?($|_)/i';
+        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa|dsn|authorization)(\d+)?($|_)/i';
 
     /**
      * Unambiguous credential nouns matched boundary-free, catching concatenated

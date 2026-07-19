@@ -108,7 +108,23 @@ final class RendersTypoScriptTreeTraitTest extends TestCase
         self::assertSame('[redacted]', $this->renderer->redact('apiKey', 'x'));
         self::assertSame('[redacted]', $this->renderer->redact('password', 'x'));
         self::assertSame('[redacted]', $this->renderer->redact('authorization', 'x'));
+        // Keys aligned with the record denylist (previously leaked):
+        self::assertSame('[redacted]', $this->renderer->redact('accessKey', 'x'));
+        self::assertSame('[redacted]', $this->renderer->redact('encryptionKey', 'x'));
+        self::assertSame('[redacted]', $this->renderer->redact('licenseKey', 'x'));
+        self::assertSame('[redacted]', $this->renderer->redact('dsn', 'x'));
+        self::assertSame('[redacted]', $this->renderer->redact('salt', 'x'));
         self::assertSame('kept', $this->renderer->redact('title', 'kept'));
         self::assertSame('kept', $this->renderer->redact('monkeys', 'kept'));
+    }
+
+    #[Test]
+    public function masksAnInlineConnectionStringPasswordUnderABenignKey(): void
+    {
+        // A DSN under a non-credential key would otherwise egress its inline password.
+        $out = $this->renderer->redact('endpoint', 'mysql://dbuser:dbpass@127.0.0.1/app');
+
+        self::assertStringNotContainsString('dbpass', $out);
+        self::assertStringContainsString('mysql://dbuser:***@127.0.0.1/app', $out);
     }
 }

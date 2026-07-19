@@ -44,13 +44,16 @@ final readonly class SourcePathGuard
 
     private const DENIED_EXTENSIONS = ['key', 'pem', 'crt', 'p12', 'pfx'];
 
-    // settings/additional.php hold TYPO3 secrets; auth.json holds Composer
-    // registry/OAuth credentials (deploy tokens) — none may be read by read_source.
-    private const DENIED_BASENAME_PATTERN = '/^(?:settings|additional)\.php$|^auth\.json$/i';
+    // settings/additional.php (modern config/system) AND the legacy
+    // LocalConfiguration.php / AdditionalConfiguration.php (typo3conf, still valid
+    // on upgraded/non-composer v13.4 instances) hold TYPO3 secrets; auth.json
+    // holds Composer registry/OAuth credentials — none may be read by read_source.
+    private const DENIED_BASENAME_PATTERN
+        = '/^(?:settings|additional)\.php$|^(?:local|additional)configuration\.php$|^auth\.json$/i';
 
     /** Lines whose key looks credential-bearing get their value replaced. */
     private const SECRET_LINE_PATTERN
-        = '/^(?<lead>.*?(?:password|passwd|pwd|secret|token|salt|api[_-]?key|credential|private[_-]?key)[\'"\s\]]*\s*(?:=>?|:)\s*)(?<value>.+)$/i';
+        = '/^(?<lead>.*?(?:password|passwd|pwd|secret|token|salt|api[_-]?key|encryption[_-]?key|credential|private[_-]?key)[\'"\s\]]*\s*(?:=>?|:)\s*)(?<value>.+)$/i';
 
     public function __construct(
         private ?string $projectPath = null,

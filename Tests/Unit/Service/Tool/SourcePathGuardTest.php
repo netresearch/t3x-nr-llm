@@ -123,6 +123,27 @@ final class SourcePathGuardTest extends TestCase
     }
 
     #[Test]
+    public function deniesLegacyTypo3confCredentialFiles(): void
+    {
+        // typo3conf/LocalConfiguration.php + AdditionalConfiguration.php hold the
+        // DB credentials + encryptionKey on upgraded/non-composer v13.4 instances.
+        self::assertTrue($this->guard->isDeniedRelativePath('public/typo3conf/LocalConfiguration.php'));
+        self::assertTrue($this->guard->isDeniedRelativePath('typo3conf/AdditionalConfiguration.php'));
+        self::assertTrue($this->guard->isDeniedRelativePath('LocalConfiguration.php'));
+        // An ordinary *Configuration.php class file is still readable.
+        self::assertFalse($this->guard->isDeniedRelativePath('Classes/Configuration/MyConfiguration.php'));
+    }
+
+    #[Test]
+    public function redactsAnEncryptionKeyLine(): void
+    {
+        $redacted = $this->guard->redactSecretLine("    'encryptionKey' => 'abc123def456ghi789jkl',");
+
+        self::assertStringContainsString('[redacted]', $redacted);
+        self::assertStringNotContainsString('abc123def456ghi789jkl', $redacted);
+    }
+
+    #[Test]
     public function readLinesIsRangedNumberedAndSecretRedacted(): void
     {
         $read = $this->guard->readLines('Classes/Service.php', 2, 2);

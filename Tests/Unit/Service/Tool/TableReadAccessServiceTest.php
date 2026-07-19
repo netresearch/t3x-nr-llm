@@ -113,6 +113,8 @@ final class TableReadAccessServiceTest extends TestCase
             'ses_token'         => ['ses_token', true],
             'mfa'               => ['mfa', true],
             'salt'              => ['salt', true],
+            'dsn'               => ['dsn', true],
+            'authorization'     => ['authorization', true],
             // Concatenated / camelCase / digit-suffixed forms the segment
             // pattern misses, caught by the substring pattern:
             'apikey'            => ['apikey', true],
@@ -150,5 +152,17 @@ final class TableReadAccessServiceTest extends TestCase
         $fields = $this->service->filterSensitiveFields(['uid', 'title', 'password', 'api_key', 'author']);
 
         self::assertSame(['uid', 'title', 'author'], $fields);
+    }
+
+    #[Test]
+    public function nrVaultAndFalStorageTablesAreSensitive(): void
+    {
+        // The nr_vault tables ARE the secret store (identifiers, ACLs, ciphertext).
+        self::assertTrue($this->service->isSensitiveTable('tx_nrvault_secret'));
+        self::assertTrue($this->service->isSensitiveTable('tx_nrvault_audit_log'));
+        // sys_file_storage.configuration carries remote-driver credentials.
+        self::assertTrue($this->service->isSensitiveTable('sys_file_storage'));
+        // An ordinary content table is still readable.
+        self::assertFalse($this->service->isSensitiveTable('pages'));
     }
 }
