@@ -65,7 +65,7 @@ final readonly class TableReadAccessService
      * without listing each one.
      */
     private const SENSITIVE_FIELD_PATTERN
-        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa|dsn|authorization)(\d+)?($|_)/i';
+        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa|dsn|authorization|accesskey|licensekey|encryptionkey)(\d+)?($|_)/i';
 
     /**
      * Unambiguous credential nouns matched boundary-free, catching concatenated

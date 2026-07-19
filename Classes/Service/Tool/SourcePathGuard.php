@@ -53,7 +53,7 @@ final readonly class SourcePathGuard
 
     /** Lines whose key looks credential-bearing get their value replaced. */
     private const SECRET_LINE_PATTERN
-        = '/^(?<lead>.*?(?:password|passwd|pwd|secret|token|salt|api[_-]?key|encryption[_-]?key|credential|private[_-]?key)[\'"\s\]]*\s*(?:=>?|:)\s*)(?<value>.+)$/i';
+        = '/^(?<lead>.*?(?:password|passwd|pwd|secret|token|salt|api[_-]?key|access[_-]?key|encryption[_-]?key|license[_-]?key|credential|private[_-]?key|authorization|dsn)[\'"\s\]]*\s*(?:=>?|:)\s*)(?<value>.+)$/i';
 
     public function __construct(
         private ?string $projectPath = null,

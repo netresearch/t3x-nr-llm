@@ -115,6 +115,11 @@ final class TableReadAccessServiceTest extends TestCase
             'salt'              => ['salt', true],
             'dsn'               => ['dsn', true],
             'authorization'     => ['authorization', true],
+            // camelCase concatenated credential columns (no underscore boundary):
+            'accesskey'         => ['accesskey', true],
+            'accessKey camel'   => ['accessKey', true],
+            'licensekey'        => ['licensekey', true],
+            'encryptionKey'     => ['encryptionKey', true],
             // Concatenated / camelCase / digit-suffixed forms the segment
             // pattern misses, caught by the substring pattern:
             'apikey'            => ['apikey', true],
