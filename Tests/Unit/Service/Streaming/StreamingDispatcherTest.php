@@ -352,28 +352,26 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function stopsRedactingPastTheBufferCapAndPassesTheTailThrough(): void
+    public function masksASecretPositionedPastTheOldBufferCap(): void
     {
         $dispatcher = $this->dispatcher(guardrails: [new SecretRedactionGuardrail()]);
 
-        // A complete key early in the stream is masked; > 50000 bytes of filler
-        // push past MAX_GUARDRAIL_BUFFER_BYTES, after which content passes through
-        // raw (the documented redaction-cap limit).
-        $preSecret = 'sk-' . str_repeat('B', 20);
-        $chunks    = iterator_to_array($dispatcher->stream(
+        // > 50000 bytes of benign filler, THEN a secret. The old layout switched
+        // to raw passthrough past MAX_GUARDRAIL_BUFFER_BYTES and leaked it; the
+        // sliding window keeps redacting (bounded memory), so it is masked.
+        $postSecret = 'sk-' . str_repeat('B', 20);
+        $chunks     = iterator_to_array($dispatcher->stream(
             $this->context(),
             $this->configuration('primary'),
-            $this->staticStream(['start ' . $preSecret . ' ', str_repeat('a', 60000), ' TAIL-AFTER-CAP']),
+            $this->staticStream([str_repeat('a', 60000), ' the key is ' . $postSecret . ' end']),
         ));
 
         $emitted = implode('', $chunks);
-        self::assertStringContainsString('sk-***', $emitted);
-        self::assertStringNotContainsString($preSecret, $emitted);
-        self::assertStringContainsString('TAIL-AFTER-CAP', $emitted);
-
-        // The silent-bypass limit is observable: a warning records that live
-        // redaction stopped for this stream.
-        self::assertNotNull($this->logger->firstMatching('warning', 'exceeded the live-redaction cap'));
+        self::assertStringContainsString('sk-***', $emitted, 'a secret past the old cap is now masked');
+        self::assertStringNotContainsString($postSecret, $emitted);
+        self::assertStringContainsString(str_repeat('a', 100), $emitted, 'benign filler still streams');
+        // Live redaction no longer stops, so there is no cap-exceeded warning.
+        self::assertNull($this->logger->firstMatching('warning', 'exceeded the live-redaction cap'));
     }
 
     #[Test]
