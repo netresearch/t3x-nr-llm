@@ -104,17 +104,17 @@ final class DallEImageService extends AbstractSpecializedService
         $this->setAuditContext(sprintf('%s, generate', $model));
         $response = $this->sendJsonRequest('generations', $payload);
 
-        /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
+        /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
-        $data = $responseData[0] ?? [];
+        $data = $responseData[0] ?? null;
 
         $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration, $options->getBeUserUid());
 
         return new ImageGenerationResult(
-            url: $data['url'] ?? '',
-            base64: $data['b64_json'] ?? null,
+            url: $this->imageString($data, 'url') ?? '',
+            base64: $this->imageString($data, 'b64_json'),
             prompt: $prompt,
-            revisedPrompt: $data['revised_prompt'] ?? null,
+            revisedPrompt: $this->imageString($data, 'revised_prompt'),
             model: $model,
             size: $size,
             provider: 'dall-e',
@@ -175,14 +175,14 @@ final class DallEImageService extends AbstractSpecializedService
         $response = $this->sendJsonRequest('generations', $payload);
 
         $results = [];
-        /** @var array<int, array{url?: string, b64_json?: string, revised_prompt?: string}> $responseData */
+        /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         foreach ($responseData as $data) {
             $results[] = new ImageGenerationResult(
-                url: $data['url'] ?? '',
-                base64: $data['b64_json'] ?? null,
+                url: $this->imageString($data, 'url') ?? '',
+                base64: $this->imageString($data, 'b64_json'),
                 prompt: $prompt,
-                revisedPrompt: $data['revised_prompt'] ?? null,
+                revisedPrompt: $this->imageString($data, 'revised_prompt'),
                 model: $model,
                 size: $size,
                 provider: 'dall-e',
@@ -235,12 +235,12 @@ final class DallEImageService extends AbstractSpecializedService
         ]);
 
         $results = [];
-        /** @var array<int, array{url?: string, b64_json?: string}> $responseData */
+        /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         foreach ($responseData as $data) {
             $results[] = new ImageGenerationResult(
-                url: $data['url'] ?? '',
-                base64: $data['b64_json'] ?? null,
+                url: $this->imageString($data, 'url') ?? '',
+                base64: $this->imageString($data, 'b64_json'),
                 prompt: '[variation of uploaded image]',
                 revisedPrompt: null,
                 model: 'dall-e-2',
@@ -294,15 +294,15 @@ final class DallEImageService extends AbstractSpecializedService
             'response_format' => 'url',
         ]);
 
-        /** @var array<int, array{url?: string, b64_json?: string}> $responseData */
+        /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
-        $data = $responseData[0] ?? [];
+        $data = $responseData[0] ?? null;
 
         $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response, beUserUid: $beUserUid);
 
         return new ImageGenerationResult(
-            url: $data['url'] ?? '',
-            base64: $data['b64_json'] ?? null,
+            url: $this->imageString($data, 'url') ?? '',
+            base64: $this->imageString($data, 'b64_json'),
             prompt: $prompt,
             revisedPrompt: null,
             model: 'dall-e-2',
@@ -415,6 +415,26 @@ final class DallEImageService extends AbstractSpecializedService
     private function capabilityKey(string $model): string
     {
         return str_starts_with($model, 'gpt-image-') ? 'gpt-image-1' : $model;
+    }
+
+    /**
+     * Read a string field from a single untrusted image `data[]` element.
+     *
+     * The response body is untrusted: an element may be a scalar rather than an
+     * object, or carry a non-string field. Returns null when the value is absent
+     * or not a string, so a malformed 2xx body degrades to an empty result
+     * instead of a raw TypeError (a 500 the caller cannot handle).
+     */
+    private function imageString(mixed $element, string $key): ?string
+    {
+        if (is_array($element)) {
+            $value = $element[$key] ?? null;
+            if (is_string($value)) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /**

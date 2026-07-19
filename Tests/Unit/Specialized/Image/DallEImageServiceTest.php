@@ -372,6 +372,34 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function generateDegradesGracefullyWhenDataElementIsScalar(): void
+    {
+        $subject = $this->createSubject();
+        // Untrusted 2xx body whose data[] element is a scalar, not an object:
+        // must degrade to an empty url rather than crash with a TypeError.
+        $this->setupSuccessfulRequest(['data' => ['not-an-object']]);
+
+        $result = $subject->generate('A cat');
+
+        self::assertInstanceOf(ImageGenerationResult::class, $result);
+        self::assertSame('', $result->url);
+        self::assertNull($result->base64);
+        self::assertNull($result->revisedPrompt);
+    }
+
+    #[Test]
+    public function generateIgnoresNonStringFieldsInDataElement(): void
+    {
+        $subject = $this->createSubject();
+        $this->setupSuccessfulRequest(['data' => [['url' => 12345, 'b64_json' => ['nested']]]]);
+
+        $result = $subject->generate('A cat');
+
+        self::assertSame('', $result->url);
+        self::assertNull($result->base64);
+    }
+
+    #[Test]
     public function generateThrowsWhenServiceUnavailable(): void
     {
         $subject = $this->createSubjectWithoutApiKey();
