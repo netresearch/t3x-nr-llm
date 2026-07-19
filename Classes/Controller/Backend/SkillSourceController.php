@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Service\Skill\SkillSyncService;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Http\JsonResponse;
@@ -50,6 +52,9 @@ final class SkillSourceController extends ActionController
         // audit record is simply skipped (the ingest records still come from
         // SkillSyncService).
         private readonly ?SkillAuditService $audit = null,
+        // Optional + trailing for the same reason; used only to log a vault
+        // store failure in setTokenAction. Null in lean test construction.
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -168,10 +173,19 @@ final class SkillSourceController extends ActionController
         }
         $token = $this->stringFromBody($body, 'token');
         $uuid = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
-        $this->vault->store($uuid, $token);
-        $source->setGithubToken($uuid);
-        $this->sourceRepository->update($source);
-        $this->persistenceManager->persistAll();
+        try {
+            $this->vault->store($uuid, $token);
+            $source->setGithubToken($uuid);
+            $this->sourceRepository->update($source);
+            $this->persistenceManager->persistAll();
+        } catch (Throwable $e) {
+            // A vault/encryption or persistence failure must surface as a JSON
+            // error the backend module can render, not a raw HTML 500.
+            $this->logger?->error('Skill source: failed to store GitHub token', ['exception' => $e]);
+
+            return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.tokenStoreFailed', 'Failed to store the token securely. See the system log for details.')], 500);
+        }
+
         return new JsonResponse(['success' => true]);
     }
 
