@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
@@ -43,9 +44,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  * - RETRY: ask the provider once more and re-screen the fresh response (capped at
  *   one retry).
  *
- * Non-`CompletionResponse` operations (embeddings, vision, raw arrays) pass
- * through untouched. Streaming bypasses the whole pipeline (see ADR-085 /
- * ADR-062), so streamed output is not screened here.
+ * A {@see VisionResponse}'s description is screened too (it is model-generated,
+ * untrusted text — a secret in a transcribed image would otherwise leak).
+ * Embeddings and raw-array operations pass through untouched. Streaming bypasses
+ * the whole pipeline (see ADR-085 / ADR-062), so streamed output is not screened
+ * here.
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 90])]
 final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
@@ -64,11 +67,58 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         callable $next,
     ): mixed {
         $result = $next($configuration);
-        if (!$result instanceof CompletionResponse) {
-            return $result;
+        if ($result instanceof CompletionResponse) {
+            return $this->screen($result, $configuration, $next, false);
+        }
+        if ($result instanceof VisionResponse) {
+            return $this->screenVision($result);
         }
 
-        return $this->screen($result, $configuration, $next, false);
+        return $result;
+    }
+
+    /**
+     * Screen a vision response's description text through the same output
+     * guardrails. A vision call cannot be re-requested through the pipeline here,
+     * so RETRY is a pass; REDACT rewrites the description, DENY/REQUIRE_APPROVAL
+     * throw the same exceptions as a completion.
+     */
+    private function screenVision(VisionResponse $vision): VisionResponse
+    {
+        $screened = $vision->description;
+        foreach ($this->guardrails as $guardrail) {
+            $result  = $guardrail->checkOutput(new CompletionResponse($screened, $vision->model, $vision->usage, provider: $vision->provider));
+            $verdict = $result->verdict;
+            if ($verdict === GuardrailVerdict::RETRY) {
+                continue;
+            }
+            $screened = match ($verdict) {
+                GuardrailVerdict::ALLOW => $screened,
+                GuardrailVerdict::REDACT => $result->redactedContent ?? $screened,
+                GuardrailVerdict::DENY => throw new GuardrailViolationException(
+                    $guardrail::class,
+                    $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
+                ),
+                GuardrailVerdict::REQUIRE_APPROVAL => throw new GuardrailApprovalRequiredException(
+                    $guardrail::class,
+                    $result->reason !== '' ? $result->reason : 'A guardrail flagged the response for human approval.',
+                ),
+            };
+        }
+
+        if ($screened === $vision->description) {
+            return $vision;
+        }
+
+        return new VisionResponse(
+            description: $screened,
+            model: $vision->model,
+            usage: $vision->usage,
+            provider: $vision->provider,
+            confidence: $vision->confidence,
+            detectedObjects: $vision->detectedObjects,
+            metadata: $vision->metadata,
+        );
     }
 
     /**
