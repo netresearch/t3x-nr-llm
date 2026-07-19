@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Where is this file used? (ADR-047).
@@ -89,7 +91,12 @@ final readonly class GetFalReferencesTool implements ToolInterface
         }
 
         $refQuery = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
+        // removeAll() intentionally surfaces hidden references (deleted stays
+        // filtered by the explicit where below), but sys_file_reference is
+        // workspace-aware: re-add a live-workspace restriction so unpublished
+        // draft references never egress to the LLM.
         $refQuery->getRestrictions()->removeAll();
+        $refQuery->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         $rows = $refQuery
             ->select('tablenames', 'uid_foreign', 'fieldname', 'hidden')
             ->from('sys_file_reference')
