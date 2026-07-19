@@ -260,11 +260,16 @@ final class GeminiProvider extends AbstractProvider implements
                 // reset to 0 each loop turn and collide across turns in
                 // buildToolCallIdToName(); uniqid(more_entropy: true) is
                 // collision-free even for multiple calls in one response.
-                $toolCalls[] = ToolCall::function(
-                    id: uniqid('call_', true),
-                    name: $this->getString($functionCall, 'name'),
-                    arguments: $this->getArray($functionCall, 'args'),
-                );
+                // Untrusted provider output: skip a functionCall with no name
+                // instead of crashing the whole response.
+                $functionName = $this->getString($functionCall, 'name');
+                if ($functionName !== '') {
+                    $toolCalls[] = ToolCall::function(
+                        id: uniqid('call_', true),
+                        name: $functionName,
+                        arguments: $this->getArray($functionCall, 'args'),
+                    );
+                }
             }
         }
 
@@ -533,6 +538,8 @@ final class GeminiProvider extends AbstractProvider implements
                     yield $text;
                 }
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 

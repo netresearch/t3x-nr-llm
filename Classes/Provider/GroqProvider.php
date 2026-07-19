@@ -230,7 +230,12 @@ final class GroqProvider extends AbstractProvider implements
         if ($rawToolCalls !== []) {
             $toolCalls = [];
             foreach ($rawToolCalls as $tc) {
-                $toolCalls[] = ToolCall::fromArray($this->asArray($tc));
+                // Untrusted provider output: skip a malformed tool call (missing
+                // id/name) instead of crashing the whole completion.
+                $call = ToolCall::tryFromArray($this->asArray($tc));
+                if ($call !== null) {
+                    $toolCalls[] = $call;
+                }
             }
         }
 
@@ -320,6 +325,8 @@ final class GroqProvider extends AbstractProvider implements
                     yield $content;
                 }
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 

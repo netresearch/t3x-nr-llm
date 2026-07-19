@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
@@ -402,7 +403,12 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($rawToolCalls !== []) {
             $toolCalls = [];
             foreach ($rawToolCalls as $tc) {
-                $toolCalls[] = ToolCall::fromArray($this->asArray($tc));
+                // Untrusted provider output: skip a malformed tool call (missing
+                // id/name) instead of crashing the whole completion.
+                $call = ToolCall::tryFromArray($this->asArray($tc));
+                if ($call !== null) {
+                    $toolCalls[] = $call;
+                }
             }
         }
 
@@ -602,6 +608,8 @@ final class OpenRouterProvider extends AbstractProvider implements
                     yield $content;
                 }
             }
+
+            $this->guardStreamLineBuffer($buffer);
         }
     }
 
@@ -911,7 +919,15 @@ final class OpenRouterProvider extends AbstractProvider implements
             $this->handleOpenRouterError($statusCode, $responseBody, $endpoint);
         }
 
-        return $this->decodeJsonResponse($responseBody);
+        try {
+            return $this->decodeJsonResponse($responseBody);
+        } catch (JsonException|InvalidArgumentException $e) {
+            // A 2xx body that is not valid JSON (an upstream HTML error page, a
+            // truncated response from a fronted model) — surface it as the typed,
+            // retryable provider error the shared AbstractProvider path produces,
+            // not a raw uncaught exception (a 500 the caller cannot handle).
+            throw new ProviderConnectionException('OpenRouter returned an unparseable response body', 1784600500, $e);
+        }
     }
 
     /**

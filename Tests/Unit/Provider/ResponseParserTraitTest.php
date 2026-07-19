@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
 use InvalidArgumentException;
 use JsonException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -468,6 +469,26 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
 
         $this->subject->decodeJsonResponse('"just a string"');
     }
+
+    // ==================== guardStreamLineBuffer tests ====================
+
+    #[Test]
+    public function guardStreamLineBufferAllowsBufferAtLimit(): void
+    {
+        // A single unterminated line up to the limit is tolerated (no throw).
+        $this->subject->guardStreamLineBuffer(str_repeat('a', 1_048_576));
+
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function guardStreamLineBufferThrowsWhenBufferExceedsLimit(): void
+    {
+        $this->expectException(ProviderConnectionException::class);
+        $this->expectExceptionCode(1784600600);
+
+        $this->subject->guardStreamLineBuffer(str_repeat('a', 1_048_577));
+    }
 }
 
 /**
@@ -498,5 +519,6 @@ class ResponseParserTraitTestSubject
         asInt as public;
         asFloat as public;
         decodeJsonResponse as public;
+        guardStreamLineBuffer as public;
     }
 }

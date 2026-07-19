@@ -203,4 +203,41 @@ final class ToolCallTest extends TestCase
 
         self::assertSame($call->toArray(), $call->jsonSerialize());
     }
+
+    #[Test]
+    public function tryFromArrayReturnsInstanceForValidWire(): void
+    {
+        $call = ToolCall::tryFromArray([
+            'id'   => 'call_abc',
+            'type' => 'function',
+            'function' => [
+                'name'      => 'get_weather',
+                'arguments' => '{"city":"Berlin"}',
+            ],
+        ]);
+
+        self::assertInstanceOf(ToolCall::class, $call);
+        self::assertSame('call_abc', $call->id);
+        self::assertSame('get_weather', $call->name);
+        self::assertSame(['city' => 'Berlin'], $call->arguments);
+    }
+
+    #[Test]
+    public function tryFromArrayReturnsNullWhenIdMissing(): void
+    {
+        // A malformed provider payload that would make fromArray() throw must
+        // instead yield null so adapters can skip the entry rather than crash.
+        self::assertNull(ToolCall::tryFromArray([
+            'function' => ['name' => 'fn', 'arguments' => '{}'],
+        ]));
+    }
+
+    #[Test]
+    public function tryFromArrayReturnsNullWhenNameEmpty(): void
+    {
+        self::assertNull(ToolCall::tryFromArray([
+            'id'   => 'call_abc',
+            'function' => ['name' => '', 'arguments' => '{}'],
+        ]));
+    }
 }

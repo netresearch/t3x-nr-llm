@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OllamaProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -697,6 +698,44 @@ class OllamaProviderTest extends AbstractUnitTestCase
         $chunks = iterator_to_array($generator);
 
         self::assertEquals(['Test'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionAbortsOnUnterminatedOversizedLine(): void
+    {
+        // Ollama's NDJSON loop uses the `$buffer .= read()` accumulation shape;
+        // a single unterminated line beyond the 1 MiB cap must trip the guard
+        // rather than grow the buffer without bound.
+        $subject = new OllamaProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+        );
+        $subject->configure([
+            'apiKeyIdentifier' => '',
+            'defaultModel'     => 'llama3.2',
+            'baseUrl'          => 'http://localhost:11434',
+            'timeout'          => 30,
+        ]);
+
+        $streamStub = self::createStub(StreamInterface::class);
+        $streamStub->method('eof')->willReturnOnConsecutiveCalls(false, true);
+        $streamStub->method('read')->willReturn(str_repeat('a', 1_048_577));
+
+        $responseStub = self::createStub(ResponseInterface::class);
+        $responseStub->method('getStatusCode')->willReturn(200);
+        $responseStub->method('getBody')->willReturn($streamStub);
+
+        $httpClientMock = $this->createHttpClientWithExpectations();
+        $httpClientMock->method('sendRequest')->willReturn($responseStub);
+        $subject->setHttpClient($httpClientMock);
+
+        $this->expectException(ProviderConnectionException::class);
+        $this->expectExceptionCode(1784600600);
+
+        iterator_to_array($subject->streamChatCompletion([['role' => 'user', 'content' => 'Test']]));
     }
 
     #[Test]

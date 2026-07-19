@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
@@ -553,6 +554,60 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionWithToolsSkipsMalformedToolCall(): void
+    {
+        $messages = [['role' => 'user', 'content' => 'What is the weather?']];
+        $tools = [
+            ToolSpec::fromArray([
+                'type' => 'function',
+                'function' => [
+                    'name' => 'get_weather',
+                    'parameters' => ['type' => 'object', 'properties' => []],
+                ],
+            ]),
+        ];
+
+        // A provider that emits a tool call with an empty function name would
+        // previously make ToolCall::fromArray() throw and abort the whole
+        // response; the malformed entry must now be skipped, keeping the valid one.
+        $apiResponse = [
+            'id'    => 'chatcmpl-test',
+            'model' => 'gpt-4o',
+            'choices' => [
+                [
+                    'message' => [
+                        'content'    => '',
+                        'tool_calls' => [
+                            [
+                                'id'   => 'call_bad',
+                                'type' => 'function',
+                                'function' => ['name' => '', 'arguments' => '{}'],
+                            ],
+                            [
+                                'id'   => 'call_ok',
+                                'type' => 'function',
+                                'function' => ['name' => 'get_weather', 'arguments' => '{"location": "Tokyo"}'],
+                            ],
+                        ],
+                    ],
+                    'finish_reason' => 'tool_calls',
+                ],
+            ],
+            'usage' => ['prompt_tokens' => 20, 'completion_tokens' => 15, 'total_tokens' => 35],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletionWithTools($messages, $tools);
+
+        self::assertNotNull($result->toolCalls);
+        self::assertCount(1, $result->toolCalls);
+        self::assertSame('get_weather', $result->toolCalls[0]->name);
+    }
+
+    #[Test]
     public function chatCompletionWithToolsAndToolChoice(): void
     {
         $messages = [['role' => 'user', 'content' => 'Get weather']];
@@ -791,6 +846,38 @@ class OpenAiProviderTest extends AbstractUnitTestCase
         }
 
         self::assertEquals(['Valid'], $chunks);
+    }
+
+    #[Test]
+    public function streamChatCompletionAbortsOnUnterminatedOversizedLine(): void
+    {
+        // A broken/hostile upstream that streams a single line with no newline
+        // must not grow the in-memory buffer without bound — the guard trips
+        // once the residual passes the per-line limit.
+        $streamData = str_repeat('a', 1_048_577);
+
+        $stream = self::createStub(StreamInterface::class);
+        $eofCallCount = 0;
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+            return ++$eofCallCount > 1;
+        });
+        $stream->method('read')->willReturn($streamData);
+
+        $response = self::createStub(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn(200);
+        $response->method('getBody')->willReturn($stream);
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($response);
+
+        $this->expectException(ProviderConnectionException::class);
+        $this->expectExceptionCode(1784600600);
+
+        foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'test']]) as $chunk) {
+            // Draining the generator triggers the buffer guard.
+            unset($chunk);
+        }
     }
 
     #[Test]
