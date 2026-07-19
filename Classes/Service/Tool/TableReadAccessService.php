@@ -61,6 +61,17 @@ final readonly class TableReadAccessService
         = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa)($|_)/i';
 
     /**
+     * Unambiguous credential nouns matched boundary-free, catching concatenated
+     * or camelCase forms the segment pattern misses (`apikey`, `accessToken`,
+     * `password2`, `clientSecret`). Only words that never legitimately appear
+     * inside a non-secret column name are listed here — deliberately excluding
+     * `secret`/`token` as bare substrings, which would flag `secretary`/`tokenizer`;
+     * their separated forms stay covered by {@see self::SENSITIVE_FIELD_PATTERN}.
+     */
+    private const SENSITIVE_FIELD_SUBSTRING_PATTERN
+        = '/(password|passphrase|apikey|accesstoken|authtoken|refreshtoken|credential|privatekey|clientsecret)/i';
+
+    /**
      * Whether the acting user may read rows of the given table. Fail-closed:
      * no user, unknown table, denylisted table, or (for non-admins) a table
      * outside the user's `tables_select` rights or flagged `adminOnly` all
@@ -121,7 +132,8 @@ final readonly class TableReadAccessService
      */
     public function isSensitiveField(string $field): bool
     {
-        return preg_match(self::SENSITIVE_FIELD_PATTERN, $field) === 1;
+        return preg_match(self::SENSITIVE_FIELD_PATTERN, $field) === 1
+            || preg_match(self::SENSITIVE_FIELD_SUBSTRING_PATTERN, $field) === 1;
     }
 
     /**
