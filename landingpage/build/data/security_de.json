@@ -1,0 +1,164 @@
+{
+  "slug": "security",
+  "hero": {
+    "eyebrow": "Governance & Sicherheit",
+    "headline": "Governance und Sicherheit von Anfang an — nicht nachträglich angeflanscht",
+    "tagline": "nr-llm bündelt genau die Punkte, nach denen ein Security-Review tatsächlich fragt: wo die Secrets liegen, wer was darf, was das Modell senden und empfangen darf, wie die Kosten gedeckelt sind und wohin die Daten gehen. Jede dieser Maßnahmen ist in einem Architecture Decision Record dokumentiert."
+  },
+  "intro": "KI in einem CMS wirft jedes Mal dieselben Fragen auf: Sind unsere API-Keys sicher, kann eine Redakteurin die Kosten in die Höhe treiben, könnte das Modell ein Secret preisgeben, und verlassen unsere Daten das Haus? Weil nr-llm gemeinsame Infrastruktur ist und kein einzelnes Feature, beantwortet es diese Fragen einmal, an einer Stelle, für jede Extension der Website.",
+  "glance": {
+    "heading": "Die Kontrollen auf einen Blick",
+    "items": [
+      "API-Keys als verschlüsselte nr-vault-Identifier gespeichert — nie im Klartext, nie protokolliert",
+      "Backend-Modul nur für Administratoren, dazu kapabilitätsbezogene Berechtigungen über TYPO3-Backend-Gruppen",
+      "Guardrail-Pipeline, die Eingabe, Ausgabe, Reasoning und gestreamte Chunks prüft und maskiert",
+      "Human-in-the-Loop-Freigabe für Aktionen mit Seiteneffekten",
+      "41 nur lesende Built-in-Tools in fail-closed-Gruppen, mit fail-closed-Netzwerkzugriff",
+      "Budgets pro Benutzer (Requests, Tokens, Kosten — täglich und monatlich) samt Nutzungsanalyse",
+      "Vollständiger Betrieb auf lokalem Ollama oder jedem OpenAI-kompatiblen Endpoint — ohne Datenabfluss",
+      "Signierte Releases: SLSA-Level-3-Provenance, Cosign-Signaturen, SBOMs in SPDX + CycloneDX"
+    ]
+  },
+  "sections": [
+    {
+      "id": "secrets",
+      "heading": "Secrets & Schlüsselverwaltung",
+      "paragraphs": [
+        "nr-llm speichert einen LLM-API-Key nie im Klartext. Jede Zugangsdaten von Providern und spezialisierten Diensten liegen als nr-vault-Identifier — eine UUID — vor, während das Secret selbst in der Extension netresearch/nr-vault liegt, die Envelope-Verschlüsselung, Audit-Logging und Zugriffskontrolle bereitstellt.",
+        "Zum Aufrufzeitpunkt löst der sichere HTTP-Client des Vaults das Secret auf, fügt es in die ausgehende Anfrage ein, protokolliert den Zugriff und löscht es unmittelbar danach aus dem Speicher. Der Klartext-Schlüssel taucht weder im Code von nr-llm noch in einem Datenbank-Dump oder einer Log-Zeile auf. Zusätzlich werden Fehlermeldungen bereinigt: Secret-tragende Query-Parameter wie ?key= und ?token= werden entfernt, bevor etwas protokolliert oder angezeigt wird."
+      ],
+      "adrs": [12, 30]
+    },
+    {
+      "id": "access",
+      "heading": "Zugriffskontrolle",
+      "paragraphs": [
+        "Das gesamte Backend-Modul von nr-llm ist ausschließlich Administratoren vorbehalten. Jeder Backend-Endpoint — Änderungen an Providern, Modellen und Konfigurationen, die Test-Aufrufe, die Vault-Keys entschlüsseln, die Task-Ausführung, das Tool-Playground — ist zusätzlich abgesichert, sodass ein Nicht-Administrator ein einheitliches 403 erhält, bevor ein Zustand geändert oder ein Schlüssel entschlüsselt wird.",
+        "Über das Administrator-Gate hinaus ist jede der elf KI-Kapabilitäten — Chat, Completion, Embeddings, Vision, Streaming, Tools, JSON-Modus, Audio, Bild, Text-to-Speech und Transkription — eine native Berechtigung der TYPO3-Backend-Gruppen. So kann ein Administrator eine einzelne Kapabilität websiteweit über die Standard-Gruppenbearbeitung erteilen oder entziehen. Benannte Konfigurationen tragen zudem ihre eigene Zugriffsgruppen-ACL, und ein Aufruf muss sowohl die Konfigurations-ACL als auch die Kapabilitäts-Berechtigung erfüllen."
+      ],
+      "adrs": [23, 37]
+    },
+    {
+      "id": "guardrails",
+      "heading": "Guardrails: Eingabe, Ausgabe & Streaming-Maskierung",
+      "paragraphs": [
+        "Modellausgaben und Benutzereingaben werden als nicht vertrauenswürdige Inhalte behandelt und durchlaufen eine Guardrail-Pipeline, die ein echtes Verdikt zurückgibt — zulassen, maskieren, wiederholen, Freigabe anfordern oder ablehnen — kein bloßes Boolean. Auf der Antwortseite läuft die Prüfung innerhalb der Persistenzschicht, sodass ein Secret, das ein Modell zurückgibt, maskiert oder die Antwort blockiert wird, bevor sie je gecacht oder erneut ausgeliefert wird. Auf der Eingabeseite wird der ausgehende Prompt geprüft und kann maskiert werden, bevor er die Extension verlässt.",
+        "Streaming, früher ein blinder Fleck, ist live abgedeckt: Ein Holdback-Puffer maskiert ein Secret auch dann, wenn es über zwei Chunks verteilt ist, und die Ausgabegrenze ist UTF-8-sicher. Die Prüfung umfasst jede Grenze, die dasselbe Secret überschreiten kann — die Antwort, das Reasoning des Modells, den Benutzer-Turn, den System-Prompt und Vision-Text. Secret-Maskierung und die Durchsetzung des Provider-Content-Filters sind aktiv ausgeliefert, und neue Guardrails werden allein dadurch aktiv, dass sie existieren."
+      ],
+      "adrs": [85, 87, 88, 89]
+    },
+    {
+      "id": "hitl",
+      "heading": "Human-in-the-Loop-Freigabe",
+      "paragraphs": [
+        "Ein Tool, das schreibt oder Seiteneffekte hat, kann vor der Ausführung eine menschliche Freigabe verlangen. Das Tool meldet sich mit einem einzigen Marker an; die Agent-Schleife pausiert daraufhin den gesamten Turn, persistiert ein serialisiertes Transkript im Zustand „wartet auf Freigabe“ zum Lauf und legt es einer Bearbeiterin zur Freigabe oder Ablehnung vor.",
+        "Bei Freigabe setzt der Lauf genau dort fort, wo er pausiert hat; bei Ablehnung wird das dem Modell mitgeteilt, und es fährt fort. Die 41 heute ausgelieferten Tools sind alle nur lesend, sodass dieser Pfad für sie nie greift und ihr Verhalten unverändert bleibt — er ist für den Moment da, in dem ein schreibfähiges Tool hinzukommt. Ein „Freigabe anfordern“-Verdikt eines Guardrails läuft in dieselbe Prüfnahtstelle."
+      ],
+      "adrs": [84]
+    },
+    {
+      "id": "tools",
+      "heading": "Tool-Sicherheit",
+      "paragraphs": [
+        "Jedes der 41 Built-in-Tools ist nur lesend, und jedes folgt einem Sicherheitsvertrag: Vom Modell gewählte Argumente werden validiert und begrenzt, Ausgabemengen sind gedeckelt, und jede Secret-tragende Ausgabe wird maskiert oder hinter eine separate Raw-Variante gesperrt, die deaktiviert ausgeliefert wird. Die meisten Tools erfordern Administratorrechte; die nur lesenden Struktur-, Inhalts- und Datei-Tools, die Nicht-Administratoren angeboten werden, setzen die eigenen TYPO3-Berechtigungen dieser Benutzerin durch.",
+        "Tools sind in Gruppen mit einer dreistufigen, fail-closed-Freigabekaskade organisiert: Eine deaktivierte Gruppe lässt sich nicht durch eine Einzel-Tool-Übersteuerung reaktivieren, und ein Tool, das ein Skill nicht gewährt hat, ist über Prompt-Injection nie erreichbar. Der Netzwerkzugriff wird pro Gruppe geregelt und ist fail-closed — eine Gruppe ohne Deklaration sendet keine ausgehende Anfrage, und es gibt keinen „beliebiger Host“-Scope. Host-nahe Tools laufen über einen Path-Guard, der settings.php und Schlüsselmaterial selbst für Administratoren strukturell unlesbar macht, und der URL-Probe ist auf die eigene Website der Instanz begrenzt. Jeder Lauf ist eine begrenzte Agent-Schleife."
+      ],
+      "adrs": [38, 43, 44, 47]
+    },
+    {
+      "id": "budgets",
+      "heading": "Kosten-Governance",
+      "paragraphs": [
+        "Budgets pro Benutzer deckeln die KI-Ausgaben jeder Backend-Benutzerin unabhängig von den täglichen Limits pro Konfiguration. Ein Budget trägt sechs unabhängige Obergrenzen — Requests, Tokens und Kosten, jeweils täglich und monatlich — und ist eine Obergrenze, kein Zähler: Die Nutzung wird bei Bedarf aus der einen Nutzungstabelle aggregiert, sodass beide nie auseinanderdriften können.",
+        "Die Prüfung ist ein reiner Pre-Flight vor jedem Aufruf; über dem Budget führt sie zu einer expliziten Ablehnung, die den gerissenen Topf benennt — nie zu stillem Throttling. Jeder Request wird der aufrufenden Backend-Benutzerin zugeordnet und in einem Analytics-Dashboard für Administratoren aufgerollt — Kosten- und Request-Trends, Aufschlüsselungen nach Provider, Modell und Dienst sowie der Verbrauch jeder Benutzerin gegen ihr Monatsbudget. Idempotente Completions werden gecacht, sodass ein wiederholter Aufruf nicht zweimal bezahlt wird."
+      ],
+      "adrs": [25, 52]
+    },
+    {
+      "id": "privacy",
+      "heading": "Datenhaltung & Datenschutz",
+      "paragraphs": [
+        "Wo das Modell läuft, ist deine Entscheidung. nr-llm spricht mit Ollama und jedem OpenAI-kompatiblen Endpoint — vLLM, LocalAI, LiteLLM —, sodass eine Instanz vollständig auf selbst gehosteten On-Premises-Modellen laufen kann, ohne dass Prompt oder Inhalt das Netzwerk verlässt, oder je Konfiguration einen gehosteten Provider nutzt, wo das vertretbar ist.",
+        "Weil Tool-Ausgaben und jede Modellantwort an den gewählten Provider gehen, behandelt die Extension beide als nicht vertrauenswürdig: Tool-Ergebnisse sind mengenbegrenzt und entfernen personenbezogene Felder, Antworten werden escaped gerendert, und HTML wird nur in einer Sandbox-Vorschau angezeigt."
+      ],
+      "adrs": [1]
+    },
+    {
+      "id": "supply-chain",
+      "heading": "Supply-Chain-Integrität",
+      "paragraphs": [
+        "Jedes Release ist signiert und verifizierbar. Release-Artefakte tragen keyless Cosign-Signaturen (Sigstore), SHA-256-Prüfsummen, eine Software Bill of Materials in den Formaten SPDX und CycloneDX sowie SLSA-Level-3-Provenance-Attestierungen, die sich mit gh attestation verify prüfen lassen. Commits sind kryptografisch signiert und per DCO abgezeichnet.",
+        "Die CI-Pipeline führt CodeQL-Semantikanalyse, Gitleaks-Secret-Scanning, OpenSSF Scorecard, Dependency-Review mit CVE- und Lizenz-Gating sowie wöchentliche Dependency-Audits aus; GitHub Actions von Dritten sind auf vollständige Commit-SHAs gepinnt, und die Release-Orchestrierung läuft über einen gemeinsamen, per Scorecard überwachten Reusable Workflow."
+      ],
+      "adrs": []
+    },
+    {
+      "id": "openness",
+      "heading": "Lizenz & Offenheit",
+      "paragraphs": [
+        "nr-llm ist freie und quelloffene Software unter GPL-2.0-or-later, herausgegeben von der Netresearch DTT GmbH. Das Design ist offen dokumentiert: 89 Architecture Decision Records legen jede Sicherheits- und Architekturentscheidung dar — auch die auf dieser Seite — samt der geprüften Alternativen und der Gründe für ihre Ablehnung.",
+        "Sicherheitslücken werden über das private Vulnerability-Reporting von GitHub behandelt. Transparenz ist selbst Teil der Haltung: Nichts auf dieser Seite muss man auf Vertrauen hinnehmen, denn die Begründung hinter jeder Maßnahme ist als ADR veröffentlicht."
+      ],
+      "adrs": []
+    }
+  ],
+  "example": {
+    "heading": "Für Entwickler: der Governance-Vertrag",
+    "intro": "Guardrails, Freigabe und Budgets werden von der Middleware-Pipeline durchgesetzt — du rufst sie nicht auf, du fängst ab, was sie werfen. Jeder Governance-Fehlschlag ist eine typisierte Exception, sodass eine konsumierende Extension sauber degradiert, statt einen Stacktrace zu zeigen.",
+    "lang": "php",
+    "code": "use Netresearch\\NrLlm\\Exception\\GuardrailViolationException;\nuse Netresearch\\NrLlm\\Exception\\GuardrailApprovalRequiredException;\nuse Netresearch\\NrLlm\\Exception\\BudgetExceededException;\n\ntry {\n    $response = $this->llm->chat($messages);\n} catch (GuardrailViolationException $e) {\n    // Input or output blocked by policy — show a safe, generic message.\n    return 'Diese Anfrage wurde von der Content-Policy blockiert.';\n} catch (GuardrailApprovalRequiredException $e) {\n    // Paused: a backend user must approve before the action runs.\n    return 'Zur Freigabe eingereicht. Sie läuft, sobald ein Administrator sie freigibt.';\n} catch (BudgetExceededException $e) {\n    // This account's per-user AI budget is exhausted.\n    return 'Das KI-Budget deines Kontos ist vorerst aufgebraucht.';\n}"
+  },
+  "faq": {
+    "heading": "FAQ zu Governance & Sicherheit",
+    "items": [
+      {
+        "q": "Werden meine API-Keys jemals im Klartext preisgegeben?",
+        "a": "Nein. Keys werden als nr-vault-Identifier (UUIDs) gespeichert, nicht als Werte. Das Klartext-Secret wird zum Aufrufzeitpunkt im auditierten HTTP-Client des Vaults aufgelöst und unmittelbar danach aus dem Speicher gelöscht; es taucht nie in der Datenbank, den Logs, den Fehlermeldungen oder der Backend-Ausgabe von nr-llm auf."
+      },
+      {
+        "q": "Kann ich das betreiben, ohne Daten an einen Drittanbieter-KI-Provider zu senden?",
+        "a": "Ja. Richte eine Konfiguration auf ein selbst gehostetes Ollama oder einen OpenAI-kompatiblen Endpoint (vLLM, LocalAI, LiteLLM) aus, und die Anfrage verlässt nie dein Netzwerk. Die Provider-Wahl erfolgt je Konfiguration, sodass datensensible Workloads lokal bleiben, während andere einen gehosteten Provider nutzen."
+      },
+      {
+        "q": "Was hindert den KI-Agenten daran, Secrets zu lesen oder Daten zu ändern?",
+        "a": "Alle 41 Built-in-Tools sind nur lesend; Secret-tragende Ausgaben werden maskiert oder hinter deaktivierten Raw-Varianten gehalten; Dateien wie settings.php sind strukturell unlesbar; Tool-Gruppen und Netzwerkzugriff sind fail-closed; und jedes künftige schreibfähige Tool suspendiert den Lauf zunächst für eine menschliche Freigabe."
+      },
+      {
+        "q": "Wie verhindere ich, dass eine einzelne Redakteurin die Kosten in die Höhe treibt?",
+        "a": "Gib ihr ein Budget pro Benutzer mit täglichen und monatlichen Obergrenzen für Requests, Tokens und Kosten. Eine Pre-Flight-Prüfung lehnt den Aufruf mit klarer Begründung ab, sobald eine Obergrenze erreicht ist, und das Analytics-Dashboard zeigt die Ausgaben jeder Benutzerin gegen ihr Budget."
+      },
+      {
+        "q": "Könnte ein Modell ein Secret preisgeben, das es erhalten hat?",
+        "a": "Die Guardrail-Pipeline prüft den Prompt, die Antwort, das Reasoning des Modells, den System-Prompt, Vision-Text und gestreamte Chunks und maskiert Secret-förmige Zeichenketten, bevor sie gecacht, gestreamt oder angezeigt werden — auch ein Secret, das über zwei Streaming-Chunks verteilt ist."
+      },
+      {
+        "q": "Wie überprüfe ich, dass ein Release nicht manipuliert wurde?",
+        "a": "Jedes Release liefert eine Cosign-Signatur, SHA-256-Prüfsummen, SBOMs in SPDX und CycloneDX sowie SLSA-Level-3-Provenance, die du mit gh attestation verify prüfen kannst."
+      }
+    ]
+  },
+  "links": [
+    {
+      "label": "Architecture Decision Records",
+      "href": "adr/",
+      "desc": "Jede Sicherheits- und Architekturentscheidung, offengelegt",
+      "internal": true
+    },
+    {
+      "label": "Security-Policy & Vulnerability-Reporting",
+      "href": "https://github.com/netresearch/t3x-nr-llm/security/policy",
+      "desc": "Sicherheitslücke über das private Reporting von GitHub melden"
+    },
+    {
+      "label": "GitHub-Repository",
+      "href": "https://github.com/netresearch/t3x-nr-llm",
+      "desc": "Quellcode, Releases und signierte Artefakte"
+    }
+  ],
+  "meta": {
+    "title": "Governance & Sicherheit — nr-llm für TYPO3",
+    "description": "Wie nr-llm KI in TYPO3 absichert: verschlüsselte API-Keys über nr-vault, Zugriff nur für Administratoren mit kapabilitätsbezogenen Berechtigungen, Eingabe-/Ausgabe-Guardrails, Human-in-the-Loop-Freigabe, Budgets pro Benutzer, Datenhaltung mit lokalen Modellen und signierte Releases mit SLSA Level 3.",
+    "keywords": ["TYPO3 KI-Sicherheit", "nr-llm Governance", "Guardrails", "Human-in-the-Loop", "verschlüsselte API-Keys", "nr-vault", "Budgets pro Benutzer", "SLSA", "SBOM", "Datenhaltung", "Ollama", "DSGVO"],
+    "ogDescription": "Governance und Sicherheit für KI in TYPO3: verschlüsselte Keys, Guardrails, Human-in-the-Loop-Freigabe, Budgets pro Benutzer, lokale Modelle und signierte Releases."
+  }
+}

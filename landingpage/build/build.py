@@ -71,7 +71,8 @@ STRINGS = {
     "en": {
         "skip": "Skip to main content",
         "nav": {"problem": "Problem", "solution": "Solution", "concepts": "Concepts",
-                "dev": "Developers", "admin": "For admins", "adr": "Architecture", "faq": "FAQ"},
+                "dev": "Developers", "admin": "For admins", "adr": "Architecture",
+                "security": "Security", "faq": "FAQ"},
         "searchLabel": "Search",
         "searchPlaceholder": "Search the site and all ADRs…",
         "searchResults": "{n} results",
@@ -120,11 +121,13 @@ STRINGS = {
                              "site-search, and provider fallback — with real code and ADR links.",
         "gotchasHeading": "Gotchas",
         "learnMoreHeading": "Go deeper",
+        "onThisPage": "On this page",
     },
     "de": {
         "skip": "Zum Hauptinhalt springen",
         "nav": {"problem": "Problem", "solution": "Lösung", "concepts": "Konzepte",
-                "dev": "Entwickler", "admin": "Für Admins", "adr": "Architektur", "faq": "FAQ"},
+                "dev": "Entwickler", "admin": "Für Admins", "adr": "Architektur",
+                "security": "Sicherheit", "faq": "FAQ"},
         "searchLabel": "Suche",
         "searchPlaceholder": "Website und alle ADRs durchsuchen…",
         "searchResults": "{n} Treffer",
@@ -176,6 +179,7 @@ STRINGS = {
                              "Provider-Fallback von nr-llm – mit echtem Code und Links zu den ADRs.",
         "gotchasHeading": "Fallstricke",
         "learnMoreHeading": "Tiefer einsteigen",
+        "onThisPage": "Auf dieser Seite",
     },
 }
 
@@ -343,6 +347,35 @@ def faq_jsonld(faq_items: list[dict]) -> str:
     }, ensure_ascii=False, indent=2)
 
 
+def howto_jsonld(kickstart: dict, anchor: str, name: str) -> str:
+    """HowTo schema for the developer kickstart steps (answer-engine friendly)."""
+    return json.dumps({
+        "@context": "https://schema.org",
+        SCHEMA_TYPE: "HowTo",
+        "name": name,
+        "description": kickstart["intro"],
+        "step": [
+            {SCHEMA_TYPE: "HowToStep", "position": i + 1, "name": step["title"],
+             "text": step["body"], "url": f"{anchor}#dev-kickstart"}
+            for i, step in enumerate(kickstart["steps"])
+        ],
+    }, ensure_ascii=False, indent=2)
+
+
+def itemlist_jsonld(name: str, entries: list[dict]) -> str:
+    """ItemList schema for a catalog page (ADR index) — extractable by AI engines."""
+    return json.dumps({
+        "@context": "https://schema.org",
+        SCHEMA_TYPE: "ItemList",
+        "name": name,
+        "numberOfItems": len(entries),
+        "itemListElement": [
+            {SCHEMA_TYPE: "ListItem", "position": i + 1, "url": e["url"], "name": e["name"]}
+            for i, e in enumerate(entries)
+        ],
+    }, ensure_ascii=False, indent=2)
+
+
 def build_search_docs(content_by_lang: dict, adrs: list[dict]) -> list[dict]:
     docs = []
     for lang in LANGS:
@@ -391,6 +424,8 @@ def main():
     features_en = load("features") if (DATA / "features.json").exists() else []
     features = {"en": features_en,
                 "de": load("features_de") if (DATA / "features_de.json").exists() else features_en}
+    security = {"en": load("security"),
+                "de": load("security_de") if (DATA / "security_de.json").exists() else load("security")}
 
     adrs = collect_adrs(adr_meta)
     group_order = [g["name"] for g in adr_meta.get("groups", [])]
@@ -444,6 +479,13 @@ def main():
                          "section": STRINGS[lang]["featuresNav"],
                          "text": re.sub(r"\s+", " ", text).strip()[:1000],
                          "url": url(f"{lang}/features/{f['slug']}.html"), "kind": "feature", "lang": lang})
+        g = security[lang]
+        sec_text = " ".join([g["intro"], *g["glance"]["items"],
+                             *[p for sec in g["sections"] for p in sec["paragraphs"]]])
+        docs.append({"id": f"{lang}-security", "title": g["hero"]["headline"],
+                     "section": STRINGS[lang]["nav"]["security"],
+                     "text": re.sub(r"\s+", " ", sec_text).strip()[:1200],
+                     "url": url(f"{lang}/security/"), "kind": "page", "lang": lang})
     index_url = url(SEARCH_INDEX) + "?v=" + hashlib.sha256(
         json.dumps(docs, ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
 
@@ -459,7 +501,12 @@ def main():
             {"lang": "de", "href": SITE_URL + url("de/")},
             {"lang": "x-default", "href": SITE_URL + BASE},
         ]
-        blocks = list(jsonld_common) + [{"name": "FAQPage", "json": faq_jsonld(c["faq"]["items"])}]
+        howto_name = ("KI in einer TYPO3-Extension mit nr-llm ergänzen" if lang == "de"
+                      else "Add AI to a TYPO3 extension with nr-llm")
+        blocks = list(jsonld_common) + [
+            {"name": "FAQPage", "json": faq_jsonld(c["faq"]["items"])},
+            {"name": "HowTo", "json": howto_jsonld(c["devKickstart"], SITE_URL + url(f"{lang}/"), howto_name)},
+        ]
         page = env.get_template("landing.html.j2").render(
             lang=lang, s=s, c=c, brand=brand, meta=meta, adrs=adrs, grouped=grouped,
             canonical=SITE_URL + url(f"{lang}/"), alternates=alternates,
@@ -473,11 +520,14 @@ def main():
         (outdir / INDEX_HTML).write_text(page, encoding="utf-8")
 
     # ADR index (English content, but reachable from both languages)
+    adr_itemlist = itemlist_jsonld(
+        "nr-llm Architecture Decision Records",
+        [{"url": SITE_URL + a["url"], "name": f"ADR {a['number']}: {a['title']}"} for a in adrs])
     idx = env.get_template("adr_index.html.j2").render(
         lang="en", s=STRINGS["en"], brand=brand, grouped=grouped, total=len(adrs),
         canonical=SITE_URL + url("adr/"),
         alternates=[{"lang": "x-default", "href": SITE_URL + url("adr/")}],
-        jsonld_blocks=jsonld_common,
+        jsonld_blocks=list(jsonld_common) + [{"name": "ItemList", "json": adr_itemlist}],
         meta={"title": f"{STRINGS['en']['adrIndexTitle']} — nr-llm",
               "description": "All architecture decision records for the nr-llm TYPO3 extension: "
                              "provider abstraction, configuration, services, tools, security and more."},
@@ -570,6 +620,36 @@ def main():
                 js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
             ), encoding="utf-8")
 
+    # Governance & Security page (bilingual, first-class URL /<lang>/security/)
+    for lang in LANGS:
+        g = security[lang]
+        page_path = f"{lang}/security/"
+        crumb = [{"name": "nr-llm", "href": url(f"{lang}/")},
+                 {"name": g["hero"]["eyebrow"], "href": url(page_path)}]
+        breadcrumb_ld = json.dumps({
+            "@context": "https://schema.org", SCHEMA_TYPE: "BreadcrumbList",
+            "itemListElement": [
+                {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
+                for i, x in enumerate(crumb)
+            ],
+        }, ensure_ascii=False)
+        blocks = [{"name": "BreadcrumbList", "json": breadcrumb_ld},
+                  {"name": "FAQPage", "json": faq_jsonld(g["faq"]["items"])}]
+        secdir = OUT / lang / "security"
+        secdir.mkdir(parents=True, exist_ok=True)
+        (secdir / INDEX_HTML).write_text(env.get_template("security.html.j2").render(
+            lang=lang, s=STRINGS[lang], g=g, brand=brand, adr_urls=adr_url_by_number,
+            canonical=SITE_URL + url(page_path), meta=g["meta"],
+            alternates=[
+                {"lang": "en", "href": SITE_URL + url("en/security/")},
+                {"lang": "de", "href": SITE_URL + url("de/security/")},
+                {"lang": "x-default", "href": SITE_URL + url("en/security/")},
+            ],
+            jsonld_blocks=blocks,
+            show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
+            js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
+        ), encoding="utf-8")
+
     # Root chooser (x-default)
     root = env.get_template("root.html.j2").render(
         brand=brand, canonical=SITE_URL + BASE,
@@ -596,7 +676,9 @@ def main():
         if features[lang]:
             feature_paths.append(SITE_URL + url(f"{lang}/features/"))
             feature_paths += [SITE_URL + url(f"{lang}/features/{f['slug']}.html") for f in features[lang]]
-    paths = list(seo.get("sitemapPaths", [])) + [SITE_URL + a["url"] for a in adrs] + feature_paths
+    security_paths = [SITE_URL + url(f"{lang}/security/") for lang in LANGS]
+    paths = (list(seo.get("sitemapPaths", [])) + [SITE_URL + a["url"] for a in adrs]
+             + feature_paths + security_paths)
     urls_xml = "\n".join(
         f"  <url><loc>{html.escape(p)}</loc></url>" for p in paths)
     (OUT / "sitemap.xml").write_text(
@@ -607,8 +689,28 @@ def main():
     # robots.txt
     (OUT / "robots.txt").write_text(seo.get("robotsTxt", "User-agent: *\nAllow: /\n"), encoding="utf-8")
 
-    # llms.txt
-    (OUT / "llms.txt").write_text(seo.get("llmsTxt", "# nr-llm\n"), encoding="utf-8")
+    # llms.txt — {ADR_COUNT} is substituted with the live rendered count so the
+    # figure AI engines quote can never drift from the actual ADR set.
+    llms_txt = seo.get("llmsTxt", "# nr-llm\n").replace("{ADR_COUNT}", str(len(adrs)))
+    (OUT / "llms.txt").write_text(llms_txt, encoding="utf-8")
+
+    # llms-full.txt — the short llms.txt header plus every feature and every ADR
+    # summary flattened to Markdown, so an agent can ingest the whole project in
+    # one fetch (llmstxt.org convention).
+    full = [llms_txt.rstrip(), "\n\n# Governance & security (full)\n"]
+    gsec = security["en"]
+    full.append(f"\n{gsec['intro']}\n")
+    for sec in gsec["sections"]:
+        full.append(f"\n## {sec['heading']}\n" + "\n".join(sec["paragraphs"]))
+    full.append("\n\n# Feature deep dives (full)\n")
+    for f in features["en"]:
+        parts = [f["tagline"], *f["why"]["paragraphs"], *f["technical"]["paragraphs"]]
+        full.append(f"\n## {f['title']}\n" + "\n".join(parts))
+    full.append("\n\n# Architecture Decision Records\n")
+    for a in adrs:
+        summary = a["summary"] or strip_html(a["body"])[:400]
+        full.append(f"\n## ADR-{a['number']:03d}: {a['title']} ({a['status']})\n{summary}")
+    (OUT / "llms-full.txt").write_text("\n".join(full) + "\n", encoding="utf-8")
 
     # .nojekyll so GitHub Pages serves _-prefixed paths untouched
     (OUT / ".nojekyll").write_text("", encoding="utf-8")

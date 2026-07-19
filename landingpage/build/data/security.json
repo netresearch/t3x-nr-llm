@@ -1,0 +1,164 @@
+{
+  "slug": "security",
+  "hero": {
+    "eyebrow": "Governance & Security",
+    "headline": "Governance and security, built in — not bolted on",
+    "tagline": "nr-llm centralizes the parts of AI that a security review actually asks about: where secrets live, who can do what, what the model may send and receive, how spend is capped, and where data goes. Every control here is documented in an Architecture Decision Record."
+  },
+  "intro": "AI in a CMS raises the same questions every time: are our API keys safe, can an editor run up the bill, could the model leak a secret, and does our data leave the building? Because nr-llm is shared infrastructure rather than a single feature, it answers those questions once, in one place, for every extension on the site.",
+  "glance": {
+    "heading": "Controls at a glance",
+    "items": [
+      "API keys stored as encrypted nr-vault identifiers — never plaintext, never logged",
+      "Admin-only backend module, plus per-capability TYPO3 backend-group permissions",
+      "Guardrail pipeline that screens and redacts input, output, reasoning, and streamed chunks",
+      "Human-in-the-loop approval gate for actions with side effects",
+      "41 read-only built-in tools in fail-closed groups, with fail-closed network egress",
+      "Per-user budgets (requests, tokens, cost — daily and monthly) with usage analytics",
+      "Run entirely on local Ollama or any OpenAI-compatible endpoint — no data egress",
+      "Signed releases: SLSA Level 3 provenance, Cosign signatures, SPDX + CycloneDX SBOMs"
+    ]
+  },
+  "sections": [
+    {
+      "id": "secrets",
+      "heading": "Secrets & key management",
+      "paragraphs": [
+        "nr-llm never stores an LLM API key in plaintext. Every provider and specialized-service credential is held as an nr-vault identifier — a UUID — while the secret itself lives in the netresearch/nr-vault extension, which provides envelope encryption, audit logging, and access control.",
+        "At call time the vault's secure HTTP client resolves the secret, injects it into the outbound request, records the access, and scrubs it from memory immediately after. The plaintext key never surfaces in nr-llm's own code, a database dump, or a log line. On top of that, error messages are sanitized: secret-bearing query parameters such as ?key= and ?token= are stripped before anything is logged or shown."
+      ],
+      "adrs": [12, 30]
+    },
+    {
+      "id": "access",
+      "heading": "Access control",
+      "paragraphs": [
+        "The entire nr-llm backend module is admin-only. Every backend endpoint — provider, model, and configuration changes, the test calls that decrypt vault keys, task execution, the tool playground — is additionally guarded, so a non-admin receives a uniform 403 before any state is changed or any key is decrypted.",
+        "Beyond the admin gate, each of the eleven AI capabilities — chat, completion, embeddings, vision, streaming, tools, JSON mode, audio, image, text-to-speech, and transcription — is a native TYPO3 backend-group permission, so an administrator can grant or revoke a single capability site-wide from the standard group-edit screen. Named configurations carry their own access-group ACL as well, and a call must clear both the configuration ACL and the capability permission."
+      ],
+      "adrs": [23, 37]
+    },
+    {
+      "id": "guardrails",
+      "heading": "Guardrails: input, output & streaming redaction",
+      "paragraphs": [
+        "Model output and user prompts are treated as untrusted content and run through a guardrail pipeline that returns a real verdict — allow, redact, retry, require-approval, or deny — not a boolean. On the response side, screening runs inside the persistence layer, so a secret a model echoes is masked, or the response blocked, before it is ever cached or replayed. On the input side, the outgoing prompt is screened and can be redacted before it leaves the extension.",
+        "Streaming, historically a blind spot, is covered live: a holdback buffer masks a secret even when it is split across two chunks, and the emit boundary is UTF-8-safe. Screening spans every boundary the same secret can cross — the answer, the model's reasoning, the user turn, the system prompt, and vision text. Secret redaction and provider content-filter enforcement ship active, and new guardrails become active simply by existing."
+      ],
+      "adrs": [85, 87, 88, 89]
+    },
+    {
+      "id": "hitl",
+      "heading": "Human-in-the-loop approval",
+      "paragraphs": [
+        "A tool that writes or has side effects can require a human gate before it runs. The tool opts in with a single marker; the agent loop then pauses the whole turn, persists a serialized transcript to the run in a waiting-for-approval state, and surfaces it for an operator to approve or deny.",
+        "On approval the run resumes exactly where it paused; on denial the model is told and continues. The 41 tools that ship today are all read-only, so this path never fires for them and their behavior is unchanged — it is there for the moment a write-capable tool is added. A guardrail's require-approval verdict routes into the same review seam."
+      ],
+      "adrs": [84]
+    },
+    {
+      "id": "tools",
+      "heading": "Tool safety",
+      "paragraphs": [
+        "Every one of the 41 built-in tools is read-only, and each follows one security contract: model-chosen arguments are validated and scoped, output volumes are capped, and any secret-bearing output is redacted or gated behind a separate raw variant that ships disabled. Most tools require admin; the read-only structure, content, and file tools offered to non-admins self-enforce that user's own TYPO3 permissions.",
+        "Tools are organized into groups with a three-level, fail-closed enable cascade: a disabled group cannot be re-enabled by a per-tool override, and a tool a skill did not grant can never be reached through prompt injection. Network egress is governed per group and is fail-closed — a group with no declaration makes no outbound request, and there is no \"any host\" scope. Host-level tools resolve through a path guard that makes settings.php and key material structurally unreadable even for admins, and the URL probe is contained to the instance's own site. Each run is a bounded agent loop."
+      ],
+      "adrs": [38, 43, 44, 47]
+    },
+    {
+      "id": "budgets",
+      "heading": "Cost governance",
+      "paragraphs": [
+        "Per-user budgets cap each backend user's AI spend independently of the per-configuration daily limits. A budget carries six independent ceilings — requests, tokens, and cost, each daily and monthly — and is a ceiling, not a counter: usage is aggregated on demand from the single usage table, so the two can never drift apart.",
+        "The check is a pure pre-flight run before each call; over budget produces an explicit denial that names the bucket it tripped, never silent throttling. Every request is attributed to the calling backend user and rolled up in an admin Analytics dashboard — cost and request trends, breakdowns by provider, model, and service, and each user's consumption against their monthly budget. Idempotent completions are cached, so a repeated call is not paid for twice."
+      ],
+      "adrs": [25, 52]
+    },
+    {
+      "id": "privacy",
+      "heading": "Data residency & privacy",
+      "paragraphs": [
+        "Where the model runs is your choice. nr-llm speaks to Ollama and any OpenAI-compatible endpoint — vLLM, LocalAI, LiteLLM — so an instance can run entirely on self-hosted, on-premises models with no prompt or content leaving your network, or use a hosted provider per configuration where that is acceptable.",
+        "Because tool output and every model response go to the chosen provider, the extension treats both as untrusted: tool results are volume-capped and strip personally identifying fields, responses are rendered escaped, and any HTML is shown only inside a sandboxed preview."
+      ],
+      "adrs": [1]
+    },
+    {
+      "id": "supply-chain",
+      "heading": "Supply-chain integrity",
+      "paragraphs": [
+        "Every release is signed and verifiable. Release artifacts carry Cosign keyless signatures (Sigstore), SHA-256 checksums, a Software Bill of Materials in both SPDX and CycloneDX formats, and SLSA Level 3 provenance attestations you can check with gh attestation verify. Commits are cryptographically signed and DCO signed-off.",
+        "The CI pipeline runs CodeQL semantic analysis, Gitleaks secret scanning, OpenSSF Scorecard, dependency review with CVE and licence gating, and weekly dependency audits; third-party GitHub Actions are pinned to full commit SHAs, and release orchestration runs through a shared, Scorecard-monitored reusable workflow."
+      ],
+      "adrs": []
+    },
+    {
+      "id": "openness",
+      "heading": "Licensing & openness",
+      "paragraphs": [
+        "nr-llm is free and open source under GPL-2.0-or-later, published by Netresearch DTT GmbH. Its design is documented in the open: 89 Architecture Decision Records set out every security and architecture choice — including the ones on this page — together with the alternatives considered and why they were rejected.",
+        "Security vulnerabilities are handled through GitHub's private vulnerability reporting. Transparency is itself part of the posture: nothing on this page is a claim you have to take on trust, because the reasoning behind each control is published as an ADR."
+      ],
+      "adrs": []
+    }
+  ],
+  "example": {
+    "heading": "For developers: the governance contract",
+    "intro": "Guardrails, approval, and budgets are enforced by the middleware pipeline — you do not call them, you catch what they throw. Every governance failure is a typed exception, so a consuming extension degrades gracefully instead of surfacing a stack trace.",
+    "lang": "php",
+    "code": "use Netresearch\\NrLlm\\Exception\\GuardrailViolationException;\nuse Netresearch\\NrLlm\\Exception\\GuardrailApprovalRequiredException;\nuse Netresearch\\NrLlm\\Exception\\BudgetExceededException;\n\ntry {\n    $response = $this->llm->chat($messages);\n} catch (GuardrailViolationException $e) {\n    // Input or output blocked by policy — show a safe, generic message.\n    return 'This request was blocked by the content policy.';\n} catch (GuardrailApprovalRequiredException $e) {\n    // Paused: a backend user must approve before the action runs.\n    return 'Submitted for approval. It will run once an administrator signs off.';\n} catch (BudgetExceededException $e) {\n    // This account's per-user AI budget is exhausted.\n    return 'The AI budget for your account is used up for now.';\n}"
+  },
+  "faq": {
+    "heading": "Governance & security FAQ",
+    "items": [
+      {
+        "q": "Are my API keys ever exposed in plaintext?",
+        "a": "No. Keys are stored as nr-vault identifiers (UUIDs), not values. The plaintext secret is resolved inside the vault's audited HTTP client at call time and scrubbed from memory immediately after; it never appears in nr-llm's database, logs, error messages, or backend output."
+      },
+      {
+        "q": "Can I run this without sending data to a third-party AI provider?",
+        "a": "Yes. Point a configuration at a self-hosted Ollama or OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM) and the request never leaves your network. Provider choice is per configuration, so data-sensitive workloads can stay local while others use a hosted provider."
+      },
+      {
+        "q": "What stops the AI agent from reading secrets or changing data?",
+        "a": "All 41 built-in tools are read-only; secret-bearing output is redacted or kept behind disabled raw variants; files such as settings.php are structurally unreadable; tool groups and network egress are fail-closed; and any future write-capable tool suspends the run for human approval first."
+      },
+      {
+        "q": "How do I stop one editor from running up the bill?",
+        "a": "Give them a per-user budget with daily and monthly ceilings on requests, tokens, and cost. A pre-flight check denies the call with a clear reason when a ceiling is reached, and the Analytics dashboard shows each user's spend against their budget."
+      },
+      {
+        "q": "Could a model leak a secret it was given?",
+        "a": "The guardrail pipeline screens the prompt, the answer, the model's reasoning, the system prompt, vision text, and streamed chunks, masking secret-shaped strings before they are cached, streamed, or displayed — including a secret split across two streaming chunks."
+      },
+      {
+        "q": "How do I verify a release hasn't been tampered with?",
+        "a": "Each release ships a Cosign signature, SHA-256 checksums, SPDX and CycloneDX SBOMs, and SLSA Level 3 provenance you can verify with gh attestation verify."
+      }
+    ]
+  },
+  "links": [
+    {
+      "label": "Architecture Decision Records",
+      "href": "adr/",
+      "desc": "Every security and architecture decision, in the open",
+      "internal": true
+    },
+    {
+      "label": "Security policy & vulnerability reporting",
+      "href": "https://github.com/netresearch/t3x-nr-llm/security/policy",
+      "desc": "Report a vulnerability via GitHub private reporting"
+    },
+    {
+      "label": "GitHub repository",
+      "href": "https://github.com/netresearch/t3x-nr-llm",
+      "desc": "Source, releases, and signed artifacts"
+    }
+  ],
+  "meta": {
+    "title": "Governance & Security — nr-llm for TYPO3",
+    "description": "How nr-llm secures AI in TYPO3: encrypted API keys via nr-vault, admin-only access with per-capability permissions, input/output guardrails, human-in-the-loop approval, per-user budgets, local-model data residency, and SLSA Level 3 signed releases.",
+    "keywords": ["TYPO3 AI security", "nr-llm governance", "guardrails", "human in the loop", "encrypted API keys", "nr-vault", "per-user budgets", "SLSA", "SBOM", "data residency", "Ollama", "GDPR"],
+    "ogDescription": "Governance and security for AI in TYPO3: encrypted keys, guardrails, human-in-the-loop approval, per-user budgets, local models, and signed releases."
+  }
+}

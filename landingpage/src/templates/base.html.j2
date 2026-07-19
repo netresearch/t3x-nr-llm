@@ -104,6 +104,7 @@
         {% for l in brand.footer.links %}
         <li><a href="{{ l.href }}">{{ l.label }}</a></li>
         {% endfor %}
+        <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
         <li><a href="https://github.com/netresearch/t3x-nr-llm">GitHub</a></li>
       </ul>
       <div class="site-footer__meta">

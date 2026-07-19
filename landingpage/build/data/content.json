@@ -114,9 +114,21 @@
       },
       {
         "title": "Use the services you need",
-        "body": "Chat and completion, translation, vision, embeddings, streaming, and tool calling are all available through the injected services.",
+        "body": "Chat, completion, streaming, embeddings and tool calling are methods on the injected LlmServiceManagerInterface. Translation and vision alt-text are dedicated feature services — inject them the same way. Tool calling is a request/execute/reply loop; the Streaming & Tool Calling deep dive has the complete example.",
         "lang": "php",
-        "code": "// Chat & completion\n$response = $llm->chat($messages);\n$response = $llm->complete('Explain TYPO3 content elements');\n\n// Translation\n$result = $translationService->translate('Hello world', 'de');\n\n// Vision / image analysis\n$altText = $visionService->generateAltText($imageUrl);\n\n// Embeddings & similarity\n$vector = $embeddingService->embed('semantic search query');\n\n// Streaming\nforeach ($llm->streamChat($messages) as $chunk) { echo $chunk; }\n\n// Tool/function calling\n$response = $llm->chatWithTools($messages, $toolDefinitions);"
+        "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$messages = [\n    ChatMessage::system('You are a helpful TYPO3 assistant.'),\n    ChatMessage::user('Explain TYPO3 content elements in one paragraph.'),\n];\n\n// Chat & completion (LlmServiceManagerInterface)\n$answer = $this->llm->chat($messages)->content;\n$answer = $this->llm->complete('Summarize the TYPO3 release cycle.')->content;\n\n// Streaming — yields string chunks\nforeach ($this->llm->streamChat($messages) as $chunk) {\n    echo $chunk;\n}\n\n// Embeddings — EmbeddingResponse carries the vector\n$embedding = $this->llm->embed('semantic search query');\n\n// Translation — dedicated service, returns a TranslationResult\n$german = $this->translationService->translate('Hello world', 'de')->getText();\n\n// Vision alt-text — dedicated service\n$altText = $this->visionService->generateAltText($imageUrl);"
+      },
+      {
+        "title": "Handle failures with typed exceptions",
+        "body": "Every provider error is a typed exception. Catch the ones you care about and show a friendly message; the fallback chain and retries have already run before these surface.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Exception\\BudgetExceededException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderRateLimitException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderConnectionException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\FallbackChainExhaustedException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderResponseException;\n\ntry {\n    return $this->llm->complete(\"Summarize: {$text}\")->content;\n} catch (BudgetExceededException) {\n    return 'The AI budget for this account is exhausted.';\n} catch (ProviderRateLimitException) {\n    return 'The AI provider is rate-limiting requests. Please retry shortly.';\n} catch (FallbackChainExhaustedException | ProviderConnectionException) {\n    return 'Could not reach any AI provider right now.';\n} catch (ProviderResponseException $e) {\n    $this->logger->warning('LLM provider error', ['status' => $e->httpStatus]);\n    return 'The AI service returned an error.';\n}"
+      },
+      {
+        "title": "Tune output and get structured JSON back",
+        "body": "ChatOptions ships tuned presets — factual, creative, balanced, json, code — plus fluent overrides. CompletionService::completeJson() returns a decoded array, so you extract fields directly.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Service\\Option\\ChatOptions;\n\n// Deterministic output, capped length\n$options = ChatOptions::factual()->withMaxTokens(200);\n$summary = $this->llm->complete('Summarize the changelog.', $options)->content;\n\n// Decoded JSON straight from the model\n$data = $this->completionService->completeJson(\n    'Return {\"title\": ..., \"tags\": [...]} for this article: ' . $article,\n);\n$title = $data['title'];"
       }
     ]
   },
@@ -196,6 +208,22 @@
       {
         "q": "Can I switch providers without changing code?",
         "a": "Yes. All providers implement a common interface, so switching from OpenAI to Anthropic or a local model is a configuration change in the backend, not a code edit. Configurations can also list fallback configurations to retry against on connection errors, HTTP 5xx, or rate limits."
+      },
+      {
+        "q": "Why use nr-llm instead of calling a provider SDK directly?",
+        "a": "Building your own means re-implementing key encryption, provider switching, caching, streaming, tool calling, cost tracking, budgets, guardrails, and error handling in every extension — and hard-coding one vendor. nr-llm centralizes all of that once, so administrators manage providers and keys in one backend module and any extension on the site reuses them with no vendor lock-in."
+      },
+      {
+        "q": "Is nr-llm GDPR-friendly, and can I keep data in the EU?",
+        "a": "You choose the provider per configuration. Running Ollama or another OpenAI-compatible endpoint locally keeps all prompt data on your own infrastructure with no external API calls; for hosted providers you can select EU-region endpoints such as Azure OpenAI. API keys are encrypted at rest via nr-vault, access is admin-only, and error messages are sanitized to strip secrets."
+      },
+      {
+        "q": "How is nr-llm different from other TYPO3 AI extensions?",
+        "a": "nr-llm is not an end-user AI feature — it is shared infrastructure, like the TYPO3 caching framework, that other extensions build on. It provides one provider abstraction across seven-plus providers, encrypted key storage, and typed services, rather than a single bundled use case."
+      },
+      {
+        "q": "What governance and security controls does nr-llm provide?",
+        "a": "Encrypted API keys via nr-vault, an admin-only backend module with per-capability backend-group permissions, a guardrail pipeline that redacts secrets across input, output, and streaming, optional human-in-the-loop approval, and per-user budgets with usage analytics. All 41 built-in tools are read-only. The Governance & Security page covers each control in detail."
       }
     ]
   },
