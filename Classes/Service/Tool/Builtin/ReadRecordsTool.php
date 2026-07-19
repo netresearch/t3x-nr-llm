@@ -130,6 +130,15 @@ final readonly class ReadRecordsTool implements ToolInterface
             return 'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.';
         }
 
+        // A non-admin explicitly filtering by a language they may not access
+        // gets nothing — the backend language restriction applies here too.
+        if (!$user->isAdmin()
+            && isset($filters['sys_language_uid'])
+            && !$user->checkLanguageAccess((int)$filters['sys_language_uid'])
+        ) {
+            return self::NOT_PERMITTED;
+        }
+
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         if ($limit < 1) {
             $limit = self::DEFAULT_LIMIT;
@@ -139,15 +148,26 @@ final readonly class ReadRecordsTool implements ToolInterface
         $offset = self::toInt($arguments['offset'] ?? 0);
         $offset = max(0, min($offset, self::MAX_OFFSET));
 
-        $rows = $this->fetchRows($table, $fields, $filters, $limit, $offset);
+        // For a non-admin on a language-aware table, fetch the language column
+        // too (even if not displayed) so rows in a forbidden language can be
+        // dropped below — an unfiltered read must not leak them to the provider.
+        $languageField = $this->languageField($table);
+        $queryFields   = $fields;
+        if (!$user->isAdmin() && $languageField !== null && !in_array($languageField, $queryFields, true)) {
+            $queryFields[] = $languageField;
+        }
 
-        // Non-admins only see rows on pages they may show (fail-closed).
+        $rows = $this->fetchRows($table, $queryFields, $filters, $limit, $offset);
+
+        // Non-admins only see rows on pages they may show and in languages they
+        // may access (fail-closed).
         if (!$user->isAdmin()) {
             $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
             $pidAccess   = [];
             $rows        = array_values(array_filter(
                 $rows,
-                fn(array $row): bool => $this->pageIsReadable($table, $row, $permsClause, $pidAccess),
+                fn(array $row): bool => $this->pageIsReadable($table, $row, $permsClause, $pidAccess)
+                    && ($languageField === null || $user->checkLanguageAccess(self::toInt($row[$languageField] ?? 0))),
             ));
         }
 
@@ -179,6 +199,20 @@ final readonly class ReadRecordsTool implements ToolInterface
     {
         // Usable by non-admins; execute() self-enforces the acting user's TYPO3 permissions.
         return false;
+    }
+
+    /**
+     * The table's TCA language field (ctrl.languageField), or null when the
+     * table is not language-aware.
+     */
+    private function languageField(string $table): ?string
+    {
+        $tca        = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $definition = $tca[$table] ?? null;
+        $ctrl       = is_array($definition) ? ($definition['ctrl'] ?? null) : null;
+        $field      = is_array($ctrl) ? ($ctrl['languageField'] ?? null) : null;
+
+        return is_string($field) && $field !== '' ? $field : null;
     }
 
     /**

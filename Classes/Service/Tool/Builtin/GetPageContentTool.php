@@ -103,6 +103,12 @@ final readonly class GetPageContentTool implements ToolInterface
 
         $isAdmin = $user->isAdmin();
 
+        // Non-admins may only read content in languages they are permitted;
+        // otherwise a language restriction is a no-op against this tool.
+        if (!$isAdmin && !$user->checkLanguageAccess($language)) {
+            return self::NOT_PERMITTED;
+        }
+
         // Non-admins must hold PAGE_SHOW on the page itself; a missing page and
         // a denied page are indistinguishable in the reply (fail-closed).
         if (!$isAdmin) {

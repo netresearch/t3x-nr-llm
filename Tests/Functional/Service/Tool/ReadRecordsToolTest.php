@@ -14,8 +14,10 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * Functional tests for ReadRecordsTool (ADR-042).
@@ -124,5 +126,64 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute(['table' => 'tt_content']);
 
         self::assertSame('Table not found or not permitted.', $output);
+    }
+
+    #[Test]
+    public function nonAdminFilteringByForbiddenLanguageIsDenied(): void
+    {
+        $this->setUpBackendUser(2); // editor
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
+        // Grant table read but restrict to the default language only.
+        $beUser->groupData['tables_select']     = 'tt_content';
+        $beUser->groupData['allowed_languages'] = '0';
+
+        // Explicitly filtering by the forbidden language 1 -> neutral denial,
+        // before any row is fetched.
+        $output = $this->tool->execute([
+            'table'        => 'tt_content',
+            'where_equals' => ['sys_language_uid' => 1],
+        ]);
+
+        self::assertSame('Table not found or not permitted.', $output);
+    }
+
+    #[Test]
+    public function nonAdminNeverSeesForbiddenLanguageRowsEvenWithoutAFilter(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        $pages = $connectionPool->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $pages);
+        // A page the editor can reach (root page, everybody-show, in web mount).
+        $pages->insert('pages', [
+            'uid' => 7, 'pid' => 0, 'title' => 'Public', 'doktype' => 1,
+            'sorting' => 7, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $content = $connectionPool->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        $content->insert('tt_content', [
+            'uid' => 40, 'pid' => 7, 'colPos' => 0, 'sorting' => 1,
+            'CType' => 'text', 'header' => 'LangZeroRow', 'sys_language_uid' => 0,
+        ]);
+        $content->insert('tt_content', [
+            'uid' => 41, 'pid' => 7, 'colPos' => 0, 'sorting' => 2,
+            'CType' => 'text', 'header' => 'LangOneRow', 'sys_language_uid' => 1,
+        ]);
+
+        $this->setUpBackendUser(2);
+        $beUser = $GLOBALS['BE_USER'] ?? null;
+        self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
+        $beUser->groupData['tables_select']     = 'tt_content';
+        $beUser->groupData['webmounts']         = '7';
+        $beUser->groupData['allowed_languages'] = '0';
+
+        // No language filter given: the language-0 row is returned, the
+        // language-1 row (on the same, accessible page) is dropped and its
+        // content never egresses.
+        $output = $this->tool->execute(['table' => 'tt_content', 'where_equals' => ['pid' => 7]]);
+
+        self::assertStringContainsString('tt_content:40', $output);
+        self::assertStringNotContainsString('tt_content:41', $output);
+        self::assertStringNotContainsString('LangOneRow', $output);
     }
 }
