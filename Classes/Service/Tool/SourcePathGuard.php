@@ -44,7 +44,9 @@ final readonly class SourcePathGuard
 
     private const DENIED_EXTENSIONS = ['key', 'pem', 'crt', 'p12', 'pfx'];
 
-    private const DENIED_BASENAME_PATTERN = '/^(settings|additional)\.php$/i';
+    // settings/additional.php hold TYPO3 secrets; auth.json holds Composer
+    // registry/OAuth credentials (deploy tokens) — none may be read by read_source.
+    private const DENIED_BASENAME_PATTERN = '/^(?:settings|additional)\.php$|^auth\.json$/i';
 
     /** Lines whose key looks credential-bearing get their value replaced. */
     private const SECRET_LINE_PATTERN

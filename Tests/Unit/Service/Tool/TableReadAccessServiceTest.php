@@ -113,12 +113,27 @@ final class TableReadAccessServiceTest extends TestCase
             'ses_token'         => ['ses_token', true],
             'mfa'               => ['mfa', true],
             'salt'              => ['salt', true],
+            // Concatenated / camelCase / digit-suffixed forms the segment
+            // pattern misses, caught by the substring pattern:
+            'apikey'            => ['apikey', true],
+            'accessToken'       => ['accessToken', true],
+            'password2'         => ['password2', true],
+            'clientSecret'      => ['clientSecret', true],
+            'refreshtoken'      => ['refreshtoken', true],
+            'apitoken'          => ['apitoken', true],
+            // Digit-suffixed segment secrets (confirm-style columns):
+            'secret2'           => ['secret2', true],
+            'token2'            => ['token2', true],
+            'key2'              => ['key2', true],
             // No false positives on editorial columns:
             'author'            => ['author', false],
             'author_email'      => ['author_email', false],
             'title'             => ['title', false],
             'keywords'          => ['keywords', false],
             'monkey'            => ['monkey', false],
+            // Bare secret/token as substrings must NOT flag these:
+            'secretary'         => ['secretary', false],
+            'tokenizer'         => ['tokenizer', false],
         ];
     }
 

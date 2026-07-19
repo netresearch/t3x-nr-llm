@@ -106,6 +106,17 @@ final class SourcePathGuardTest extends TestCase
     }
 
     #[Test]
+    public function deniesComposerAuthJson(): void
+    {
+        // Composer auth.json holds registry/OAuth deploy tokens — read_source must
+        // never surface it, at the root or nested.
+        self::assertTrue($this->guard->isDeniedRelativePath('auth.json'));
+        self::assertTrue($this->guard->isDeniedRelativePath('some/dir/auth.json'));
+        // A non-credential JSON of a similar name is still readable.
+        self::assertFalse($this->guard->isDeniedRelativePath('Configuration/author.json'));
+    }
+
+    #[Test]
     public function deniesCredentialMentioningPath(): void
     {
         self::assertTrue($this->guard->isDeniedRelativePath('Classes/CredentialStore.php'));
