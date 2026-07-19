@@ -103,9 +103,16 @@ final readonly class FalStorageGate
             if ($storage === null) {
                 return false;
             }
+            // findByUid returns a request-shared, cached storage; restore its
+            // prior evaluatePermissions so this check does not leak into other
+            // consumers of the same instance in the request.
+            $previous = $storage->getEvaluatePermissions();
             $storage->setEvaluatePermissions(true);
-
-            return $storage->checkFileActionPermission('read', $storage->getFile($identifier));
+            try {
+                return $storage->checkFileActionPermission('read', $storage->getFile($identifier));
+            } finally {
+                $storage->setEvaluatePermissions($previous);
+            }
         } catch (Throwable) {
             return false;
         }

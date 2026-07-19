@@ -34,6 +34,14 @@ final readonly class SearchFalFilesTool implements ToolInterface
 
     private const MAX_LIMIT = 50;
 
+    /**
+     * Non-admins are mount-filtered in PHP after the query, so the DB limit
+     * must not be the result cap or an out-of-mount-heavy window could yield
+     * fewer (or zero) in-mount hits than exist. Scan up to this many matching
+     * rows, then cap the accessible subset to the requested limit.
+     */
+    private const MOUNT_SCAN_CAP = 1000;
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
@@ -90,6 +98,8 @@ final readonly class SearchFalFilesTool implements ToolInterface
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
+        $isAdmin = $user !== null && $user->isAdmin();
+
         // sys_file has no enable columns; metadata is language-pinned below
         // and the storage gate is the access boundary (cf. read_fal_asset_meta).
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file');
@@ -119,21 +129,24 @@ final readonly class SearchFalFilesTool implements ToolInterface
                 ),
             )
             ->orderBy('f.name')
-            ->setMaxResults($limit)
+            ->setMaxResults($isAdmin ? $limit : self::MOUNT_SCAN_CAP)
             ->executeQuery()
             ->fetchAllAssociative();
 
         // effectiveStorages() only gates the storage; a non-admin whose file
         // mount is a subfolder would otherwise see file names/paths across the
-        // whole storage. Drop files outside the acting user's file mounts.
-        $rows = array_values(array_filter(
-            $rows,
-            fn(array $row): bool => $this->storageGate->isFileAccessible(
-                $user,
-                self::toInt($row['storage'] ?? 0),
-                self::toStr($row['identifier'] ?? ''),
-            ),
-        ));
+        // whole storage. Drop files outside the acting user's file mounts, then
+        // cap to the requested limit (the DB scanned a wider window above).
+        if (!$isAdmin) {
+            $rows = array_slice(array_values(array_filter(
+                $rows,
+                fn(array $row): bool => $this->storageGate->isFileAccessible(
+                    $user,
+                    self::toInt($row['storage'] ?? 0),
+                    self::toStr($row['identifier'] ?? ''),
+                ),
+            )), 0, $limit);
+        }
 
         if ($rows === []) {
             return sprintf('No files match "%s" in the accessible storages.', $query);

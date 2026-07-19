@@ -96,6 +96,10 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
 
     private function indexFile(Connection $connection, int $uid, string $identifier, string $name, int $missing): void
     {
+        // identifier_hash / folder_hash use TYPO3's own sha1 identifier-hash
+        // algorithm so getFile() resolves the index row exactly as core does.
+        // This is a test fixture, not a security context (SonarCloud's
+        // "weak hashing" flag here is a false positive).
         $connection->insert('sys_file', [
             'uid'             => $uid,
             'pid'             => 0,
