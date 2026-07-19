@@ -21,6 +21,8 @@ use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Unit tests for {@see ReadRecordsTool}: spec shape, field resolution
@@ -96,6 +98,9 @@ final class ReadRecordsToolTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Drop any TcaSchemaFactory stub queued by tool() but not consumed
+        // (tests that never reach fetchRows), so it cannot leak into the next test.
+        GeneralUtility::purgeInstances();
         $GLOBALS['TCA'] = $this->tcaBackup;
         if ($this->beUserBackup !== null) {
             $GLOBALS['BE_USER'] = $this->beUserBackup;
@@ -357,6 +362,12 @@ final class ReadRecordsToolTest extends TestCase
      */
     private function tool(array $rows): ReadRecordsTool
     {
+        // fetchRows() adds a WorkspaceRestriction, whose constructor pulls a
+        // TcaSchemaFactory from the container; provide a stub so the pure-unit
+        // environment can build it (its buildExpression never runs here — the
+        // query builder is a stub that does not execute).
+        GeneralUtility::addInstance(TcaSchemaFactory::class, self::createStub(TcaSchemaFactory::class));
+
         $result = self::createStub(Result::class);
         $result->method('fetchAllAssociative')->willReturn($rows);
 

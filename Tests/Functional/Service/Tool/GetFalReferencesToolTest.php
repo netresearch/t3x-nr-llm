@@ -81,6 +81,26 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function workspaceDraftReferencesAreExcluded(): void
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('sys_file_reference');
+        self::assertInstanceOf(Connection::class, $connection);
+        // Unpublished workspace draft reference (t3ver_wsid > 0) must not egress.
+        $connection->insert('sys_file_reference', [
+            'uid' => 203, 'uid_local' => 20, 'uid_foreign' => 77, 'tablenames' => 'tt_content',
+            'fieldname' => 'image', 'deleted' => 0, 'hidden' => 0,
+            't3ver_wsid' => 1, 't3ver_oid' => 200, 't3ver_state' => 0,
+        ]);
+
+        $this->setUpBackendUser(1);
+
+        $output = $this->tool->execute(['uid' => 20]);
+
+        self::assertStringNotContainsString('tt_content:77', $output);
+        self::assertStringContainsString('References to logo.svg (2):', $output);
+    }
+
+    #[Test]
     public function unusedFileSaysSoWithTheSoftReferenceCaveat(): void
     {
         $this->setUpBackendUser(1);

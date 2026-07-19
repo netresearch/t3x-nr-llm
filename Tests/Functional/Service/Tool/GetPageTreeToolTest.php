@@ -84,6 +84,24 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function excludesWorkspaceDraftPages(): void
+    {
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('pages');
+        self::assertInstanceOf(Connection::class, $connection);
+        // Unpublished workspace draft page (t3ver_wsid > 0) must not surface in
+        // the tree sent to the LLM (it would also appear as a duplicate node).
+        $connection->insert('pages', [
+            'uid' => 6, 'pid' => 1, 'title' => 'Draft Branch', 'doktype' => 1, 'sorting' => 4,
+            't3ver_wsid' => 1, 't3ver_oid' => 2, 't3ver_state' => 0,
+        ]);
+
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3]);
+
+        self::assertStringNotContainsString('Draft Branch', $output);
+        self::assertStringContainsString('[2] About', $output);
+    }
+
+    #[Test]
     public function depthOneStopsAtImmediateChildren(): void
     {
         $output = $this->tool->execute(['rootUid' => 1, 'depth' => 1]);

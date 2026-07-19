@@ -96,6 +96,27 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function workspaceDraftRowsAreExcluded(): void
+    {
+        $content = $this->get(ConnectionPool::class)->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the LLM.
+        $content->insert('tt_content', [
+            'uid' => 99, 'pid' => 1, 'colPos' => 0, 'sorting' => 9,
+            'CType' => 'text', 'header' => 'DraftSecret',
+            't3ver_wsid' => 1, 't3ver_oid' => 30, 't3ver_state' => 0,
+        ]);
+
+        $this->setUpBackendUser(1);
+
+        $output = $this->tool->execute(['table' => 'tt_content']);
+
+        self::assertStringNotContainsString('DraftSecret', $output);
+        self::assertStringNotContainsString('tt_content:99', $output);
+        self::assertStringContainsString('tt_content:30', $output);
+    }
+
+    #[Test]
     public function nonAdminWithoutTableRightsIsDenied(): void
     {
         $this->setUpBackendUser(2); // editor without any group rights

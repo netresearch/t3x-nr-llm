@@ -93,4 +93,21 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
 
         self::assertSame('Table not found or not permitted.', $output);
     }
+
+    #[Test]
+    public function workspaceDraftRowsNeverReachTheOutput(): void
+    {
+        $content = $this->get(ConnectionPool::class)->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the LLM.
+        $content->insert('tt_content', [
+            'uid' => 14, 'pid' => 1, 'colPos' => 0, 'sorting' => 3, 'CType' => 'text',
+            'header' => 'Draft', 'bodytext' => 'Netresearch workspacedraftmarker.',
+            't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
+        ]);
+
+        $output = $this->tool->execute(['query' => 'workspacedraftmarker']);
+
+        self::assertSame('No matches.', $output);
+    }
 }

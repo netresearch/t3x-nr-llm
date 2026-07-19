@@ -18,7 +18,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\EndTimeRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\StartTimeRestriction;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Return one page's header data and its content elements in column/sorting
@@ -173,6 +175,9 @@ final readonly class GetPageContentTool implements ToolInterface
     private function fetchPage(int $uid, bool $isAdmin): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        // Never send workspace draft/versioned rows to the external LLM provider
+        // (the default restrictions do not exclude them). Applies to admins too.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         if ($isAdmin) {
             // Admins may inspect hidden and timed-out pages; the [hidden]
             // marker makes it explicit. Soft-deleted rows stay excluded.
@@ -203,6 +208,9 @@ final readonly class GetPageContentTool implements ToolInterface
     private function fetchContent(int $pageUid, int $language, bool $isAdmin): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
+        // Never send workspace draft/versioned rows to the external LLM provider
+        // (the default restrictions do not exclude them). Applies to admins too.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         if ($isAdmin) {
             $queryBuilder->getRestrictions()
                 ->removeByType(HiddenRestriction::class)

@@ -87,6 +87,27 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function workspaceDraftContentIsExcludedEvenForAdmin(): void
+    {
+        $content = $this->get(ConnectionPool::class)->getConnectionForTable('tt_content');
+        self::assertInstanceOf(Connection::class, $content);
+        // Unpublished workspace draft (t3ver_wsid > 0) must never egress to the
+        // LLM — not even for an admin, who may otherwise inspect hidden rows.
+        $content->insert('tt_content', [
+            'uid' => 29, 'pid' => 1, 'colPos' => 0, 'sorting' => 9, 'CType' => 'text',
+            'header' => 'DraftOnlyMarker', 'bodytext' => 'draft body',
+            't3ver_wsid' => 1, 't3ver_oid' => 21, 't3ver_state' => 0,
+        ]);
+
+        $this->setUpBackendUser(1);
+
+        $output = $this->tool->execute(['uid' => 1]);
+
+        self::assertStringNotContainsString('DraftOnlyMarker', $output);
+        self::assertStringContainsString('Intro', $output);
+    }
+
+    #[Test]
     public function nonAdminWithoutPagePermissionIsDenied(): void
     {
         $this->setUpBackendUser(2); // editor, no rights on page 1
