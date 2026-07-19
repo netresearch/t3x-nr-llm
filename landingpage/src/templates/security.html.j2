@@ -1,0 +1,78 @@
+{% extends "base.html.j2" %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url(lang + '/') }}">nr-llm</a> ›
+      <span aria-current="page">{{ g.hero.eyebrow }}</span>
+    </nav>
+    <p class="eyebrow">{{ g.hero.eyebrow }}</p>
+    <h1 class="hero__headline" style="font-size:clamp(1.9rem,4.4vw,2.8rem)">{{ g.hero.headline }}</h1>
+    <p class="hero__sub">{{ g.hero.tagline }}</p>
+    <p class="section__intro">{{ g.intro }}</p>
+  </div>
+</section>
+
+<section class="section section--alt" aria-labelledby="glance-h">
+  <div class="container">
+    <h2 id="glance-h">{{ g.glance.heading }}</h2>
+    <ul class="bullets">
+      {% for item in g.glance['items'] %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+
+{% for sec in g.sections %}
+<section class="section{{ ' section--alt' if loop.index0 % 2 == 1 else '' }}" id="{{ sec.id }}" aria-labelledby="{{ sec.id }}-h">
+  <div class="container">
+    <h2 id="{{ sec.id }}-h">{{ sec.heading }}</h2>
+    {% for p in sec.paragraphs %}<p class="section__intro">{{ p }}</p>{% endfor %}
+    {% if sec.adrs %}
+    <p class="adr-refs">
+      <span class="adr-refs__label">{{ 'Entscheidungen' if lang == 'de' else 'Decisions' }}:</span>
+      {% for n in sec.adrs %}<a class="adr-chip" href="{{ adr_urls.get(n, url('adr/')) }}">ADR&nbsp;{{ '%03d'|format(n) }}</a>{% endfor %}
+    </p>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="section{{ ' section--alt' if g.sections|length % 2 == 1 else '' }}" id="dev" aria-labelledby="dev-h">
+  <div class="container">
+    <p class="eyebrow">{{ s.nav.dev }}</p>
+    <h2 id="dev-h">{{ g.example.heading }}</h2>
+    <p class="section__intro">{{ g.example.intro }}</p>
+    <div class="codeblock">
+      <span class="codeblock__label">{{ g.example.lang or 'php' }}</span>
+      <button class="copy-btn" type="button" data-copy="sec-code" aria-label="{{ s.copy }}" hidden>⧉</button>
+      <pre id="sec-code" tabindex="0"><code>{{ g.example.code }}</code></pre>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq" aria-labelledby="sec-faq-h">
+  <div class="container">
+    <h2 id="sec-faq-h">{{ g.faq.heading }}</h2>
+    <div class="faq">
+      {% for q in g.faq['items'] %}
+      <details>
+        <summary>{{ q.q }}</summary>
+        <p>{{ q.a }}</p>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" aria-labelledby="sec-more-h">
+  <div class="container">
+    <h2 id="sec-more-h">{{ s.learnMoreHeading }}</h2>
+    <ul class="linklist">
+      {% for l in g.links %}
+      <li><a href="{{ url(l.href) if l.internal else l.href }}"><b>{{ l.label }}</b>{% if l.desc %}<span>{{ l.desc }}</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+    <p style="margin-top:2rem"><a class="btn btn--secondary" href="{{ url(lang + '/') }}">← nr-llm</a></p>
+  </div>
+</section>
+{% endblock %}

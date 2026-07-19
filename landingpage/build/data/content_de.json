@@ -114,9 +114,21 @@
       },
       {
         "title": "Die benötigten Services nutzen",
-        "body": "Chat und Completion, Übersetzung, Vision, Embeddings, Streaming und Tool Calling stehen alle über die eingebundenen Services zur Verfügung.",
+        "body": "Chat, Completion, Streaming, Embeddings und Tool-Calling sind Methoden der injizierten LlmServiceManagerInterface. Übersetzung und Vision-Alt-Text sind eigene Feature-Services — injiziere sie genauso. Tool-Calling ist eine Schleife aus Anfrage, Ausführung und Antwort; das vollständige Beispiel steht im Deep-Dive „Streaming & Tool-Calling“.",
         "lang": "php",
-        "code": "// Chat & completion\n$response = $llm->chat($messages);\n$response = $llm->complete('Explain TYPO3 content elements');\n\n// Translation\n$result = $translationService->translate('Hello world', 'de');\n\n// Vision / image analysis\n$altText = $visionService->generateAltText($imageUrl);\n\n// Embeddings & similarity\n$vector = $embeddingService->embed('semantic search query');\n\n// Streaming\nforeach ($llm->streamChat($messages) as $chunk) { echo $chunk; }\n\n// Tool/function calling\n$response = $llm->chatWithTools($messages, $toolDefinitions);"
+        "code": "use Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage;\n\n$messages = [\n    ChatMessage::system('You are a helpful TYPO3 assistant.'),\n    ChatMessage::user('Explain TYPO3 content elements in one paragraph.'),\n];\n\n// Chat & completion (LlmServiceManagerInterface)\n$answer = $this->llm->chat($messages)->content;\n$answer = $this->llm->complete('Summarize the TYPO3 release cycle.')->content;\n\n// Streaming — yields string chunks\nforeach ($this->llm->streamChat($messages) as $chunk) {\n    echo $chunk;\n}\n\n// Embeddings — EmbeddingResponse carries the vector\n$embedding = $this->llm->embed('semantic search query');\n\n// Translation — dedicated service, returns a TranslationResult\n$german = $this->translationService->translate('Hello world', 'de')->getText();\n\n// Vision alt-text — dedicated service\n$altText = $this->visionService->generateAltText($imageUrl);"
+      },
+      {
+        "title": "Fehler mit typisierten Exceptions behandeln",
+        "body": "Jeder Provider-Fehler ist eine typisierte Exception. Fange die ab, die dich interessieren, und zeige eine freundliche Meldung; die Fallback-Kette und die Retries sind bereits gelaufen, bevor diese auftauchen.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Exception\\BudgetExceededException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderRateLimitException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderConnectionException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\FallbackChainExhaustedException;\nuse Netresearch\\NrLlm\\Provider\\Exception\\ProviderResponseException;\n\ntry {\n    return $this->llm->complete(\"Summarize: {$text}\")->content;\n} catch (BudgetExceededException) {\n    return 'The AI budget for this account is exhausted.';\n} catch (ProviderRateLimitException) {\n    return 'The AI provider is rate-limiting requests. Please retry shortly.';\n} catch (FallbackChainExhaustedException | ProviderConnectionException) {\n    return 'Could not reach any AI provider right now.';\n} catch (ProviderResponseException $e) {\n    $this->logger->warning('LLM provider error', ['status' => $e->httpStatus]);\n    return 'The AI service returned an error.';\n}"
+      },
+      {
+        "title": "Ausgabe steuern und strukturiertes JSON erhalten",
+        "body": "ChatOptions liefert abgestimmte Presets — factual, creative, balanced, json, code — plus fluente Overrides. CompletionService::completeJson() gibt ein dekodiertes Array zurück, sodass du Felder direkt ausliest.",
+        "lang": "php",
+        "code": "use Netresearch\\NrLlm\\Service\\Option\\ChatOptions;\n\n// Deterministic output, capped length\n$options = ChatOptions::factual()->withMaxTokens(200);\n$summary = $this->llm->complete('Summarize the changelog.', $options)->content;\n\n// Decoded JSON straight from the model\n$data = $this->completionService->completeJson(\n    'Return {\"title\": ..., \"tags\": [...]} for this article: ' . $article,\n);\n$title = $data['title'];"
       }
     ]
   },
@@ -196,6 +208,22 @@
       {
         "q": "Kann ich Provider ohne Code-Änderung wechseln?",
         "a": "Ja. Alle Provider implementieren eine gemeinsame Schnittstelle, sodass der Wechsel von OpenAI zu Anthropic oder zu einem lokalen Model eine Konfigurationsänderung im Backend ist, keine Code-Änderung. Configurations können zudem Fallback-Configurations auflisten, die bei Verbindungsfehlern, HTTP-5xx oder Rate-Limits erneut versucht werden."
+      },
+      {
+        "q": "Warum nr-llm nutzen statt ein Provider-SDK direkt aufzurufen?",
+        "a": "Eine Eigenlösung bedeutet, Schlüsselverschlüsselung, Provider-Wechsel, Caching, Streaming, Tool-Calling, Kostenerfassung, Budgets, Guardrails und Fehlerbehandlung in jeder Extension neu zu bauen — und einen Anbieter fest zu verdrahten. nr-llm bündelt all das einmal, sodass Administratoren Provider und Keys in einem Backend-Modul verwalten und jede Extension der Website sie ohne Vendor-Lock-in wiederverwendet."
+      },
+      {
+        "q": "Ist nr-llm DSGVO-freundlich, und kann ich Daten in der EU halten?",
+        "a": "Du wählst den Provider je Konfiguration. Ein lokal betriebenes Ollama oder ein anderer OpenAI-kompatibler Endpoint hält alle Prompt-Daten auf deiner eigenen Infrastruktur, ohne externe API-Aufrufe; bei gehosteten Providern kannst du EU-Region-Endpoints wie Azure OpenAI wählen. API-Keys sind über nr-vault verschlüsselt gespeichert, der Zugriff ist nur für Administratoren, und Fehlermeldungen werden um Secrets bereinigt."
+      },
+      {
+        "q": "Wie unterscheidet sich nr-llm von anderen TYPO3-KI-Extensions?",
+        "a": "nr-llm ist kein Endnutzer-KI-Feature — es ist gemeinsame Infrastruktur, wie das TYPO3-Caching-Framework, auf der andere Extensions aufbauen. Es liefert eine Provider-Abstraktion über sieben und mehr Provider, verschlüsselte Schlüsselspeicherung und typisierte Dienste statt eines einzelnen gebündelten Anwendungsfalls."
+      },
+      {
+        "q": "Welche Governance- und Sicherheitskontrollen bietet nr-llm?",
+        "a": "Verschlüsselte API-Keys über nr-vault, ein Backend-Modul nur für Administratoren mit kapabilitätsbezogenen Berechtigungen über Backend-Gruppen, eine Guardrail-Pipeline, die Secrets über Eingabe, Ausgabe und Streaming maskiert, optionale Human-in-the-Loop-Freigabe sowie Budgets pro Benutzer mit Nutzungsanalyse. Alle 41 Built-in-Tools sind nur lesend. Die Seite „Governance & Sicherheit“ beschreibt jede Kontrolle im Detail."
       }
     ]
   },

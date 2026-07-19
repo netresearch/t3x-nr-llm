@@ -46,6 +46,24 @@
   </div>
 </section>
 
+<nav class="toc" aria-label="{{ s.onThisPage }}">
+  <div class="container">
+    <span class="toc__label">{{ s.onThisPage }}</span>
+    <ul class="toc__list">
+      <li><a href="#problem">{{ c.problem.heading }}</a></li>
+      <li><a href="#solution">{{ c.solution.heading }}</a></li>
+      <li><a href="#concepts">{{ c.concepts.heading }}</a></li>
+      <li><a href="#audience">{{ c.audience.heading }}</a></li>
+      <li><a href="#dev-kickstart">{{ c.devKickstart.heading }}</a></li>
+      <li><a href="#admin">{{ c.adminOverview.heading }}</a></li>
+      <li><a href="#ask">{{ s.ai.title }}</a></li>
+      <li><a href="#architecture">{{ c.architecture.heading }}</a></li>
+      <li><a href="#faq">{{ c.faq.heading }}</a></li>
+      <li><a href="{{ url(lang + '/security/') }}">{{ s.nav.security }}</a></li>
+    </ul>
+  </div>
+</nav>
+
 <section class="section section--alt" id="problem" aria-labelledby="problem-h">
   <div class="container">
     <h2 id="problem-h">{{ c.problem.heading }}</h2>

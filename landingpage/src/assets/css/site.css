@@ -388,6 +388,20 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .breadcrumb { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.5rem; }
 .breadcrumb a { color: var(--link); }
 
+/* ---- On-page table of contents (landing) ---- */
+.toc { border-bottom: 1px solid var(--border-light); background: var(--bg-alt); }
+.toc .container { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; padding-top: 0.9rem; padding-bottom: 0.9rem; }
+.toc__label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.toc__list { display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; list-style: none; margin: 0; padding: 0; }
+.toc__list a { display: inline-block; padding: 0.25rem 0.7rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: var(--link); background: var(--surface); }
+.toc__list a:hover, .toc__list a:focus-visible { border-color: var(--accent); }
+
+/* ---- ADR reference chips (governance page sections) ---- */
+.adr-refs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1.25rem; }
+.adr-refs__label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.adr-chip { display: inline-block; padding: 0.2rem 0.6rem; font-size: 0.82rem; font-weight: 600; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--link); text-decoration: none; }
+.adr-chip:hover, .adr-chip:focus-visible { border-color: var(--accent); }
+
 /* ---- Links section ---- */
 .linklist { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); list-style: none; padding: 0; margin-top: 1.5rem; }
 .linklist a { display: block; padding: 1rem 1.2rem; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: var(--ink); box-shadow: var(--shadow-sm); }
