@@ -19,7 +19,7 @@ use Throwable;
  * tripped; the message is the guardrail's reason. Mirrors
  * {@see BudgetExceededException} — a typed, catchable pipeline denial.
  */
-final class GuardrailViolationException extends RuntimeException implements NrLlmExceptionInterface
+final class GuardrailViolationException extends RuntimeException implements GuardrailPolicyException
 {
     public function __construct(
         public readonly string $guardrail,

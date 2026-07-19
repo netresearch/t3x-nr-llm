@@ -51,10 +51,10 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             [
-                GuardrailMiddleware::class,      // 115 outermost: screens the final response; a guardrail deny is a policy outcome, not a provider failure, so it sits above Telemetry (ADR-085)
-                TelemetryMiddleware::class,      // 110 observes every provider run (ADR-058)
+                TelemetryMiddleware::class,      // 110 outermost observer (ADR-058)
                 IdempotencyMiddleware::class,    // 105 replays a stored result by key (ADR-063)
                 CacheMiddleware::class,          // 100 outermost behavioural layer: a cache hit short-circuits
+                GuardrailMiddleware::class,      //  90 screens/redacts the response INSIDE the persistence layers, so no unredacted response is ever stored (ADR-085)
                 BudgetMiddleware::class,         //  75 pre-flight budget gate on a miss
                 FallbackMiddleware::class,       //  50 swaps configuration on retryable failure
                 UsageMiddleware::class,          //  25 records the served call

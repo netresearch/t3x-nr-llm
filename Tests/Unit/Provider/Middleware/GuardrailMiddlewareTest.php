@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
@@ -142,15 +143,62 @@ final class GuardrailMiddlewareTest extends TestCase
     }
 
     #[Test]
-    public function nonCompletionResponsePassesThroughUnscreened(): void
+    public function nonScreenableResponsePassesThroughUnscreened(): void
     {
-        // e.g. an embedding/vision payload (a different type): the guardrail — even
-        // a denying one — is never consulted.
+        // e.g. an embedding payload (a raw string/array): the guardrail — even a
+        // denying one — is never consulted.
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('should not run'))]);
 
         $result = $this->screen($middleware, static fn(): string => 'raw-embedding');
 
         self::assertSame('raw-embedding', $result);
+    }
+
+    #[Test]
+    public function visionResponseDescriptionIsScreenedAndRedactedPreservingOtherFields(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::redact('[redacted]', 'secret'))]);
+        $vision     = new VisionResponse('the key is sk-secret', 'vision-model', UsageStatistics::fromTokens(1, 1), 'openai', 0.9, [['label' => 'cat']], ['k' => 'v']);
+
+        $result = $this->screen($middleware, static fn(): VisionResponse => $vision);
+
+        self::assertInstanceOf(VisionResponse::class, $result);
+        self::assertSame('[redacted]', $result->description);
+        // Non-text fields survive the rebuild.
+        self::assertSame('vision-model', $result->model);
+        self::assertSame('openai', $result->provider);
+        self::assertSame(0.9, $result->confidence);
+        self::assertSame([['label' => 'cat']], $result->detectedObjects);
+        self::assertSame(['k' => 'v'], $result->metadata);
+    }
+
+    #[Test]
+    public function cleanVisionResponseIsReturnedUnchanged(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::allow())]);
+        $vision     = new VisionResponse('a perfectly clean caption', 'vision-model', UsageStatistics::fromTokens(1, 1));
+
+        $result = $this->screen($middleware, static fn(): VisionResponse => $vision);
+
+        self::assertSame($vision, $result, 'A clean vision response is returned as the same instance.');
+    }
+
+    #[Test]
+    public function visionResponseDenyThrowsAViolation(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))]);
+
+        $this->expectException(GuardrailViolationException::class);
+        $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
+    }
+
+    #[Test]
+    public function visionResponseRetryFailsClosedBecauseAVisionCallCannotBeRetried(): void
+    {
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::retry('deficient'))]);
+
+        $this->expectException(GuardrailViolationException::class);
+        $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('desc', 'm', UsageStatistics::fromTokens(1, 1)));
     }
 
     /**

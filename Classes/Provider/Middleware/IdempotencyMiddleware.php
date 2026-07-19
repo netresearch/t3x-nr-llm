@@ -41,14 +41,21 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
  * Pipeline placement — priority 105, just inside TelemetryMiddleware (110) and
  * OUTSIDE CacheMiddleware (100):
  *
- *   TelemetryMiddleware      <-- 110  observes every run, replays included
- *     IdempotencyMiddleware  <-- 105  replays a stored result by key   (THIS)
- *       CacheMiddleware      <-- 100  payload cache
- *         ...                <--      budget / fallback / usage / circuit
+ *   TelemetryMiddleware       <-- 110  observes every run, replays included
+ *     IdempotencyMiddleware   <-- 105  replays a stored result by key   (THIS)
+ *       CacheMiddleware       <-- 100  payload cache
+ *         GuardrailMiddleware <-- 90   screens/redacts the response
+ *           ...               <--      budget / fallback / usage / circuit
  *
  * Outside Cache/Budget so a replay short-circuits the whole behavioural stack
  * (no second budget charge), yet inside Telemetry so a replay is still recorded
  * as a (fast) run.
+ *
+ * The value stored under a key is the POST-guardrail (screened/redacted)
+ * response: GuardrailMiddleware (90) runs INSIDE this layer, so it redacts before
+ * this middleware's store, and a denied / approval-required response throws
+ * before the store is reached — so no unredacted or blocked completion is ever
+ * persisted as a replayable idempotency result (ADR-085).
  *
  * Why not reuse CacheMiddleware's key? CacheMiddleware is deliberately
  * array-only (it persists `array<string, mixed>`), so it cannot round-trip the

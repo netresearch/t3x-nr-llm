@@ -73,26 +73,24 @@ final readonly class InputGuardrailScreener
         $redacted = $content;
         foreach ($this->guardrails as $guardrail) {
             $result = $guardrail->checkInput($redacted);
-            switch ($result->verdict) {
-                case GuardrailVerdict::ALLOW:
-                case GuardrailVerdict::RETRY:
-                    // RETRY re-asks the provider; no provider call has happened
-                    // yet on the input side, so it is a pass here.
-                    break;
-                case GuardrailVerdict::REDACT:
-                    $redacted = $result->redactedContent ?? $redacted;
-                    break;
-                case GuardrailVerdict::DENY:
-                    throw new GuardrailViolationException(
-                        $guardrail::class,
-                        $result->reason !== '' ? $result->reason : 'A guardrail denied the prompt.',
-                    );
-                case GuardrailVerdict::REQUIRE_APPROVAL:
-                    throw new GuardrailApprovalRequiredException(
-                        $guardrail::class,
-                        $result->reason !== '' ? $result->reason : 'A guardrail flagged the prompt for human approval.',
-                    );
-            }
+            // match (no default) is exhaustive over GuardrailVerdict: adding a new
+            // verdict without handling it here is a compile-time PHPStan error and
+            // a runtime \UnhandledMatchError — an unknown verdict fails closed
+            // rather than silently passing the prompt through.
+            $redacted = match ($result->verdict) {
+                // RETRY re-asks the provider; no provider call has happened yet on
+                // the input side, so it is a pass here (like ALLOW).
+                GuardrailVerdict::ALLOW, GuardrailVerdict::RETRY => $redacted,
+                GuardrailVerdict::REDACT => $result->redactedContent ?? $redacted,
+                GuardrailVerdict::DENY => throw new GuardrailViolationException(
+                    $guardrail::class,
+                    $result->reason !== '' ? $result->reason : 'A guardrail denied the prompt.',
+                ),
+                GuardrailVerdict::REQUIRE_APPROVAL => throw new GuardrailApprovalRequiredException(
+                    $guardrail::class,
+                    $result->reason !== '' ? $result->reason : 'A guardrail flagged the prompt for human approval.',
+                ),
+            };
         }
 
         if ($redacted === $content) {

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -90,6 +92,57 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         self::assertFalse($record->success);
         // The exception FQCN is stored, never the message (privacy).
         self::assertSame(RuntimeException::class, $record->errorClass);
+    }
+
+    /**
+     * The guardrail now runs INSIDE this layer (priority 90), so a guardrail
+     * policy outcome throws through Telemetry. It must be recorded as a SUCCESS
+     * (the provider call itself succeeded) so a policy denial does not distort the
+     * provider failure-rate — the semantics that held when the guardrail was above
+     * Telemetry.
+     */
+    #[Test]
+    public function recordsAGuardrailDenialAsASuccessfulProviderRunAndReThrows(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $caught = false;
+        try {
+            $this->pipeline($repository)->run(
+                new ProviderCallContext(ProviderOperation::Chat, 'corr-guardrail'),
+                $this->configuration('primary'),
+                static fn(LlmConfiguration $c): string => throw new GuardrailViolationException('Some\\Guardrail', 'blocked'),
+            );
+        } catch (GuardrailViolationException) {
+            $caught = true;
+        }
+
+        self::assertTrue($caught, 'The guardrail exception must still propagate.');
+        self::assertCount(1, $repository->records);
+        self::assertTrue($repository->records[0]->success);
+        self::assertSame('', $repository->records[0]->errorClass);
+    }
+
+    #[Test]
+    public function recordsAGuardrailApprovalRequirementAsASuccessfulProviderRun(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $caught = false;
+        try {
+            $this->pipeline($repository)->run(
+                new ProviderCallContext(ProviderOperation::Chat, 'corr-approval'),
+                $this->configuration('primary'),
+                static fn(LlmConfiguration $c): string => throw new GuardrailApprovalRequiredException('Some\\Guardrail', 'needs approval'),
+            );
+        } catch (GuardrailApprovalRequiredException) {
+            $caught = true;
+        }
+
+        self::assertTrue($caught);
+        self::assertCount(1, $repository->records);
+        self::assertTrue($repository->records[0]->success);
+        self::assertSame('', $repository->records[0]->errorClass);
     }
 
     #[Test]
