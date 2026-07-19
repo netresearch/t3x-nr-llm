@@ -36,9 +36,19 @@ final class StreamRedactionWindowTest extends TestCase
     private function redactor(): Closure
     {
         return static function (string $s): string {
-            $s = (string)preg_replace('/([?&])(key|token|secret)=[^&\s]+/i', '$1$2=***', $s);
-            $s = (string)preg_replace('/\bsk-[A-Za-z0-9_-]{16,}/', 'sk-***', $s);
-            $s = (string)preg_replace('/\b(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/i', '$1***', $s);
+            // Null-guard each preg_replace (a backtrack-limit failure returns null,
+            // which a bare (string) cast would silently wipe to '') — mirroring the
+            // production RedactsSecretsTrait.
+            foreach ([
+                ['/([?&])(key|token|secret)=[^&\s]+/i', '$1$2=***'],
+                ['/\bsk-[A-Za-z0-9_-]{16,}/', 'sk-***'],
+                ['/\b(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/i', '$1***'],
+            ] as [$pattern, $replacement]) {
+                $replaced = preg_replace($pattern, $replacement, $s);
+                if (is_string($replaced)) {
+                    $s = $replaced;
+                }
+            }
 
             return $s;
         };

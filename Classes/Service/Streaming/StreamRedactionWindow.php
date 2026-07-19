@@ -246,6 +246,9 @@ final class StreamRedactionWindow
         if ($offset <= 0) {
             return 0;
         }
+        if ($offset >= \strlen($text)) {
+            return \strlen($text);
+        }
         while ($offset < \strlen($text) && (\ord($text[$offset]) & 0xC0) === 0x80) {
             ++$offset;
         }
