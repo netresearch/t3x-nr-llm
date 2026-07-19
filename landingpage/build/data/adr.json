@@ -695,6 +695,22 @@
       "summary": "Adds live REDACT for streamed output: each chunk re-redacts the whole raw buffer and emits only the stable prefix beyond a 128-byte holdback, so a secret — even one split across chunk boundaries — collapses to its marker before it is yielded. Opt-in via StreamRedactableInterface, bounded and multibyte-safe; DENY remains the end-of-stream audit's job.",
       "file": "Adr088StreamingRedaction.rst",
       "group": "Guardrails & Safety"
+    },
+    {
+      "number": 89,
+      "title": "Guardrail boundary completeness — reasoning, system prompt, vision",
+      "status": "Accepted",
+      "summary": "Extends secret redaction and the safety guardrails to boundaries an adversarial audit found unguarded — the model's reasoning/thinking output, the system prompt, and vision text inputs — so a secret cannot leak through a path the earlier output-side (ADR-085) and input-side (ADR-087) guards did not cover.",
+      "file": "Adr089GuardrailBoundaryCompleteness.rst",
+      "group": "Guardrails & Safety"
+    },
+    {
+      "number": 90,
+      "title": "One extension until 1.0, with documented split seams",
+      "status": "Accepted",
+      "summary": "Keeps nr-llm as a single extension through the 1.0 line rather than splitting its subsystems (tools/RAG, skills, guardrails) into separate packages now, while documenting the seams along which a future split could occur so the option stays open.",
+      "file": "Adr090SingleExtensionUntil10.rst",
+      "group": "Core Services & Architecture"
     }
   ],
   "directives": [
@@ -746,7 +762,8 @@
         76,
         81,
         82,
-        83
+        83,
+        90
       ]
     },
     {
@@ -806,7 +823,8 @@
         85,
         86,
         87,
-        88
+        88,
+        89
       ]
     },
     {
