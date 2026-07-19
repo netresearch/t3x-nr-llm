@@ -55,10 +55,12 @@ final readonly class TableReadAccessService
     /**
      * Credential-ish field-name segments whose values must never egress.
      * Matched per underscore-separated segment so `api_key` and
-     * `identifier_hash` hit while `author` does not.
+     * `identifier_hash` hit while `author` does not. The optional trailing
+     * digit run also catches confirm-style suffixes (`token2`, `secret2`)
+     * without listing each one.
      */
     private const SENSITIVE_FIELD_PATTERN
-        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa)($|_)/i';
+        = '/(^|_)(password|passwd|pwd|secret|token|salt|hash|credential|key|mfa)(\d+)?($|_)/i';
 
     /**
      * Unambiguous credential nouns matched boundary-free, catching concatenated
@@ -69,7 +71,7 @@ final readonly class TableReadAccessService
      * their separated forms stay covered by {@see self::SENSITIVE_FIELD_PATTERN}.
      */
     private const SENSITIVE_FIELD_SUBSTRING_PATTERN
-        = '/(password|passphrase|apikey|accesstoken|authtoken|refreshtoken|credential|privatekey|clientsecret)/i';
+        = '/(password|passphrase|apikey|apitoken|accesstoken|authtoken|refreshtoken|credential|privatekey|clientsecret)/i';
 
     /**
      * Whether the acting user may read rows of the given table. Fail-closed:

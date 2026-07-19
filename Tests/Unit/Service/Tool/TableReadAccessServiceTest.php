@@ -120,6 +120,11 @@ final class TableReadAccessServiceTest extends TestCase
             'password2'         => ['password2', true],
             'clientSecret'      => ['clientSecret', true],
             'refreshtoken'      => ['refreshtoken', true],
+            'apitoken'          => ['apitoken', true],
+            // Digit-suffixed segment secrets (confirm-style columns):
+            'secret2'           => ['secret2', true],
+            'token2'            => ['token2', true],
+            'key2'              => ['key2', true],
             // No false positives on editorial columns:
             'author'            => ['author', false],
             'author_email'      => ['author_email', false],
