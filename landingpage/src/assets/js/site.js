@@ -42,6 +42,14 @@
       try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
       sync();
     });
+    // Keep the toggle's pressed state truthful if the OS theme flips while the
+    // page is open and the user hasn't made an explicit choice.
+    if (window.matchMedia) {
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      var onSchemeChange = function () { if (!storedTheme()) sync(); };
+      if (mq.addEventListener) mq.addEventListener('change', onSchemeChange);
+      else if (mq.addListener) mq.addListener(onSchemeChange);
+    }
   }
 
   /* ---- Scrollspy ---- */
@@ -56,14 +64,18 @@
       if (el) { map[id] = a; targets.push(el); }
     });
     var current = null;
+    var visible = {};
     var obs = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          if (current) current.removeAttribute('aria-current');
-          var link = map[entry.target.id];
-          if (link) { link.setAttribute('aria-current', 'true'); current = link; }
-        }
+        if (entry.isIntersecting) visible[entry.target.id] = true;
+        else delete visible[entry.target.id];
       });
+      // Highlight the first in-band section in document order; clear the marker
+      // entirely when none is in the band (scrolled to the very top or bottom).
+      var activeId = null;
+      for (var i = 0; i < targets.length; i++) { if (visible[targets[i].id]) { activeId = targets[i].id; break; } }
+      if (current) { current.removeAttribute('aria-current'); current = null; }
+      if (activeId && map[activeId]) { map[activeId].setAttribute('aria-current', 'true'); current = map[activeId]; }
     }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
     targets.forEach(function (el) { obs.observe(el); });
   }
@@ -90,16 +102,27 @@
   function initCopy() {
     if (!navigator.clipboard) return;
     var strings = (window.__NRLLM__ || {}).strings || {};
-    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    var buttons = document.querySelectorAll('[data-copy]');
+    if (!buttons.length) return;
+    // A single polite live region announces copy success — mutating the focused
+    // button's own aria-label is not reliably announced by screen readers.
+    var live = document.createElement('div');
+    live.className = 'visually-hidden';
+    live.setAttribute('role', 'status');
+    live.setAttribute('aria-live', 'polite');
+    document.body.appendChild(live);
+    buttons.forEach(function (btn) {
       btn.hidden = false;
       btn.addEventListener('click', function () {
         var sel = btn.getAttribute('data-copy');
         var pre = sel && document.getElementById(sel);
         if (!pre) return;
         navigator.clipboard.writeText(pre.textContent).then(function () {
+          btn.classList.add('is-copied');
+          live.textContent = '';
+          live.textContent = strings.copied || 'Copied';
           var prev = btn.getAttribute('aria-label');
           btn.setAttribute('aria-label', strings.copied || 'Copied');
-          btn.classList.add('is-copied');
           setTimeout(function () {
             btn.setAttribute('aria-label', prev || (strings.copy || 'Copy'));
             btn.classList.remove('is-copied');

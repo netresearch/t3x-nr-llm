@@ -78,8 +78,8 @@
 
       <div class="header-tools">
         <div class="lang-switch" role="group" aria-label="{{ s.langLabel }}">
-          <a href="{{ url('en/') }}" hreflang="en"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</a>
-          <a href="{{ url('de/') }}" hreflang="de"{% if lang == 'de' %} aria-current="true"{% endif %}>DE</a>
+          <a href="{{ url('en/') }}" hreflang="en"{% if lang == 'en' %} aria-current="page"{% endif %}>EN</a>
+          <a href="{{ url('de/') }}" hreflang="de"{% if lang == 'de' %} aria-current="page"{% endif %}>DE</a>
         </div>
 
         <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-pressed="false" aria-label="{{ s.themeLabel }}">
@@ -90,7 +90,7 @@
     </div>
   </header>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     {% block main %}{% endblock %}
   </main>
 

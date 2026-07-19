@@ -14,6 +14,14 @@
   var CFG = window.__NRLLM__ || {};
   var S = CFG.strings || {};
 
+  // Allowlist URL schemes so an index-supplied url can never be a javascript:/data:
+  // sink. '' for anything not http(s)/mailto/#/relative. (Today the index is
+  // build-generated, but the index is treated as untrusted.)
+  function safeUrl(u) {
+    u = (u == null ? '' : String(u)).trim();
+    return /^(https?:|mailto:|#|\/)/i.test(u) ? u : '';
+  }
+
   /* ---- Shared index singleton (also consumed by the AI assistant) ---- */
   var indexPromise = null;
 
@@ -142,7 +150,7 @@
         li.setAttribute('aria-selected', 'false');
         li.className = 'search-result';
         var a = document.createElement('a');
-        a.href = r.url;
+        a.href = safeUrl(r.url) || '#';
         a.tabIndex = -1;
         var t = document.createElement('span');
         t.className = 'search-result__title';
@@ -155,7 +163,15 @@
         ex.appendChild(highlight(snippet(r.text, 120), q));
         a.appendChild(t); a.appendChild(meta); a.appendChild(ex);
         li.appendChild(a);
-        li.addEventListener('mousedown', function (e) { e.preventDefault(); window.location.href = r.url; });
+        li.addEventListener('mousedown', function (e) {
+          // Let modifier/middle-click reach the native anchor (open in a new tab);
+          // only hijack a plain left click, and only to a safe URL.
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          var u = safeUrl(r.url);
+          if (!u) return;
+          e.preventDefault();
+          window.location.href = u;
+        });
         list.appendChild(li);
       });
       list.hidden = false;
@@ -188,7 +204,7 @@
       var opts = list.querySelectorAll('[role="option"]');
       if (e.key === 'ArrowDown') { e.preventDefault(); if (opts.length) setActive((active + 1) % opts.length); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); if (opts.length) setActive((active - 1 + opts.length) % opts.length); }
-      else if (e.key === 'Enter') { if (active >= 0 && current[active]) { e.preventDefault(); window.location.href = current[active].url; } }
+      else if (e.key === 'Enter') { if (active >= 0 && current[active]) { var u = safeUrl(current[active].url); if (u) { e.preventDefault(); window.location.href = u; } } }
       else if (e.key === 'Escape') { close(); input.blur(); }
     });
 

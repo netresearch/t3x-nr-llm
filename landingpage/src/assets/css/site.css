@@ -143,6 +143,9 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
   transition: top 0.15s ease;
 }
 .skip-link:focus { top: 0.5rem; color: #fff; }
+/* Skip-link target is programmatically focusable (tabindex=-1); don't paint a
+   focus ring around the whole main region when focus lands there. */
+#main:focus { outline: none; }
 .visually-hidden {
   position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -178,6 +181,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 .nav a:hover { color: var(--teal-text); }
 .nav a[aria-current='true'] { color: var(--teal-text); border-bottom-color: var(--teal); }
 :root[data-theme='dark'] .nav a:hover, :root[data-theme='dark'] .nav a[aria-current='true'] { color: var(--link); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .nav a:hover, :root:not([data-theme='light']) .nav a[aria-current='true'] { color: var(--link); } }
 
 .header-tools { display: flex; align-items: center; gap: 0.5rem; }
 .icon-btn {
@@ -185,7 +189,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink); cursor: pointer;
 }
-.icon-btn:hover { border-color: var(--teal); color: var(--teal-text); }
+.icon-btn:hover { border-color: var(--teal); color: var(--link); }
 .icon-btn svg { width: 20px; height: 20px; }
 .theme-toggle .icon-sun { display: none; }
 .theme-toggle .icon-moon { display: block; }
@@ -244,6 +248,10 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
   padding: 1.5rem 1.6rem; box-shadow: var(--shadow-sm);
 }
 .card h3 { margin-top: 0; overflow-wrap: anywhere; }
+/* Feature-index cards carry the top-level heading under the page h1, so they use
+   h2 for correct heading order — size it like a card h3, not a section h2. */
+.card h2 { font-size: clamp(1.2rem, 2.2vw, 1.5rem); margin: 0 0 0.4em; overflow-wrap: anywhere; }
+.card h2 a { text-decoration: none; color: inherit; }
 .card code, .card h3 code { overflow-wrap: anywhere; }
 .card__icon { width: 40px; height: 40px; border-radius: var(--radius-sm); display: grid; place-items: center; background: color-mix(in srgb, var(--teal) 14%, transparent); color: var(--teal-text); margin-bottom: 0.9rem; }
 :root[data-theme='dark'] .card__icon { color: var(--link); }
@@ -269,6 +277,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 .stack__layer--service { border-color: var(--teal); background: color-mix(in srgb, var(--teal) 10%, var(--surface)); }
 .stack__layer--service .stack__name { color: var(--teal-text); }
 :root[data-theme='dark'] .stack__layer--service .stack__name { color: var(--link); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .stack__layer--service .stack__name { color: var(--link); } }
 .stack__layer--admin { border-left: 4px solid var(--orange); }
 
 /* ---- Code blocks ---- */
@@ -282,7 +291,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
   position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.75rem;
   border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); cursor: pointer;
 }
-.copy-btn.is-copied { border-color: var(--teal); color: var(--teal-text); }
+.copy-btn.is-copied { border-color: var(--teal); color: var(--link); }
 
 /* ---- Steps (dev kickstart) ---- */
 .steps { counter-reset: step; margin-top: 2rem; display: grid; gap: 1.6rem; }
@@ -318,6 +327,7 @@ code, pre, kbd { font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas
 .search-result__title { font-family: var(--font-head); font-weight: 600; color: var(--ink-strong); }
 .search-result__meta { font-size: 0.75rem; color: var(--teal-text); text-transform: uppercase; letter-spacing: 0.04em; }
 :root[data-theme='dark'] .search-result__meta { color: var(--link); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .search-result__meta { color: var(--link); } }
 .search-result__excerpt { font-size: 0.85rem; color: var(--muted); }
 mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: inherit; padding: 0 1px; border-radius: 2px; }
 
@@ -360,11 +370,12 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .adr-list a:hover { background: var(--bg-alt); }
 .adr-num { font-family: var(--font-head); font-weight: 700; color: var(--teal-text); font-variant-numeric: tabular-nums; }
 :root[data-theme='dark'] .adr-num { color: var(--link); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .adr-num { color: var(--link); } }
 .adr-list a > * { min-width: 0; }   /* let the 1fr column shrink so long titles wrap */
 .adr-title { font-family: var(--font-head); font-weight: 600; color: var(--ink-strong); overflow-wrap: anywhere; }
 .adr-summary { grid-column: 2; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
 .badge { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--bg-alt); color: var(--muted); border: 1px solid var(--border-light); }
-.badge--accepted { color: var(--teal-text); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
+.badge--accepted { color: var(--link); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
 
 /* ADR article (rendered RST) */
 .doc { max-width: var(--maxw-prose); }
@@ -385,8 +396,13 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
 .linklist span { font-size: 0.88rem; color: var(--muted); }
 
 /* ---- Footer ---- */
-.site-footer { background: var(--ink); color: #E9E9EC; margin-top: var(--section-y); }
+/* Footer uses a dedicated dark surface, never `var(--ink)` as a background —
+   `--ink` flips to near-white in dark mode, so reusing it would render the
+   near-white footer text on a near-white plate (invisible) whenever the OS is
+   dark and no explicit theme has been chosen. */
+.site-footer { background: #585961; color: #E9E9EC; margin-top: var(--section-y); }
 :root[data-theme='dark'] .site-footer { background: #0F1115; border-top: 1px solid var(--border); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .site-footer { background: #0F1115; border-top: 1px solid var(--border); } }
 .site-footer__inner { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; justify-content: space-between; padding-block: 2.5rem; }
 .site-footer a { color: #fff; }
 .site-footer__brand { max-width: 32ch; }
@@ -411,9 +427,15 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
   .nav {
     position: absolute; top: 100%; left: 0; right: 0; background: var(--bg);
     border-bottom: 1px solid var(--border-light); box-shadow: var(--shadow-md);
-    max-height: 0; overflow: hidden; transition: max-height 0.2s ease;
+    /* visibility:hidden (not just clipped height) takes the collapsed links out
+       of the tab order and the accessibility tree, so a keyboard user doesn't
+       land on ~7 invisible off-screen links (WCAG 2.4.3 / 2.4.7 / 2.1.1).
+       Kept in the transition so the links stay visible through the close
+       animation, then drop out. */
+    max-height: 0; overflow: hidden; visibility: hidden;
+    transition: max-height 0.2s ease, visibility 0.2s ease;
   }
-  .nav[data-open='true'] { max-height: 70vh; }
+  .nav[data-open='true'] { max-height: 70vh; visibility: visible; }
   .nav ul { flex-direction: column; align-items: stretch; gap: 0; padding: 0.5rem 1rem; }
   .nav a { padding: 0.7rem 0; border-bottom: 1px solid var(--border-light); }
   /* search drops to its own full-width row below the header bar */
