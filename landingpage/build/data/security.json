@@ -96,7 +96,7 @@
       "id": "openness",
       "heading": "Licensing & openness",
       "paragraphs": [
-        "nr-llm is free and open source under GPL-2.0-or-later, published by Netresearch DTT GmbH. Its design is documented in the open: 89 Architecture Decision Records set out every security and architecture choice — including the ones on this page — together with the alternatives considered and why they were rejected.",
+        "nr-llm is free and open source under GPL-2.0-or-later, published by Netresearch DTT GmbH. Its design is documented in the open: {ADR_COUNT} Architecture Decision Records set out every security and architecture choice — including the ones on this page — together with the alternatives considered and why they were rejected.",
         "Security vulnerabilities are handled through GitHub's private vulnerability reporting. Transparency is itself part of the posture: nothing on this page is a claim you have to take on trust, because the reasoning behind each control is published as an ADR."
       ],
       "adrs": []

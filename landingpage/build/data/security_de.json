@@ -24,7 +24,7 @@
       "id": "secrets",
       "heading": "Secrets & Schlüsselverwaltung",
       "paragraphs": [
-        "nr-llm speichert einen LLM-API-Key nie im Klartext. Jede Zugangsdaten von Providern und spezialisierten Diensten liegen als nr-vault-Identifier — eine UUID — vor, während das Secret selbst in der Extension netresearch/nr-vault liegt, die Envelope-Verschlüsselung, Audit-Logging und Zugriffskontrolle bereitstellt.",
+        "nr-llm speichert einen LLM-API-Key nie im Klartext. Alle Zugangsdaten von Providern und spezialisierten Diensten liegen als nr-vault-Identifier — eine UUID — vor, während das Secret selbst in der Extension netresearch/nr-vault liegt, die Envelope-Verschlüsselung, Audit-Logging und Zugriffskontrolle bereitstellt.",
         "Zum Aufrufzeitpunkt löst der sichere HTTP-Client des Vaults das Secret auf, fügt es in die ausgehende Anfrage ein, protokolliert den Zugriff und löscht es unmittelbar danach aus dem Speicher. Der Klartext-Schlüssel taucht weder im Code von nr-llm noch in einem Datenbank-Dump oder einer Log-Zeile auf. Zusätzlich werden Fehlermeldungen bereinigt: Secret-tragende Query-Parameter wie ?key= und ?token= werden entfernt, bevor etwas protokolliert oder angezeigt wird."
       ],
       "adrs": [12, 30]
@@ -33,7 +33,7 @@
       "id": "access",
       "heading": "Zugriffskontrolle",
       "paragraphs": [
-        "Das gesamte Backend-Modul von nr-llm ist ausschließlich Administratoren vorbehalten. Jeder Backend-Endpoint — Änderungen an Providern, Modellen und Konfigurationen, die Test-Aufrufe, die Vault-Keys entschlüsseln, die Task-Ausführung, das Tool-Playground — ist zusätzlich abgesichert, sodass ein Nicht-Administrator ein einheitliches 403 erhält, bevor ein Zustand geändert oder ein Schlüssel entschlüsselt wird.",
+        "Das gesamte Backend-Modul von nr-llm ist ausschließlich Administratoren vorbehalten. Jeder Backend-Endpoint — Änderungen an Providern, Modellen und Konfigurationen, die Test-Aufrufe zur Entschlüsselung von Vault-Keys, die Task-Ausführung, der Tool-Playground — ist zusätzlich abgesichert, sodass ein Nicht-Administrator ein einheitliches 403 erhält, bevor ein Zustand geändert oder ein Schlüssel entschlüsselt wird.",
         "Über das Administrator-Gate hinaus ist jede der elf KI-Kapabilitäten — Chat, Completion, Embeddings, Vision, Streaming, Tools, JSON-Modus, Audio, Bild, Text-to-Speech und Transkription — eine native Berechtigung der TYPO3-Backend-Gruppen. So kann ein Administrator eine einzelne Kapabilität websiteweit über die Standard-Gruppenbearbeitung erteilen oder entziehen. Benannte Konfigurationen tragen zudem ihre eigene Zugriffsgruppen-ACL, und ein Aufruf muss sowohl die Konfigurations-ACL als auch die Kapabilitäts-Berechtigung erfüllen."
       ],
       "adrs": [23, 37]
@@ -51,7 +51,7 @@
       "id": "hitl",
       "heading": "Human-in-the-Loop-Freigabe",
       "paragraphs": [
-        "Ein Tool, das schreibt oder Seiteneffekte hat, kann vor der Ausführung eine menschliche Freigabe verlangen. Das Tool meldet sich mit einem einzigen Marker an; die Agent-Schleife pausiert daraufhin den gesamten Turn, persistiert ein serialisiertes Transkript im Zustand „wartet auf Freigabe“ zum Lauf und legt es einer Bearbeiterin zur Freigabe oder Ablehnung vor.",
+        "Ein Tool, das schreibt oder Seiteneffekte hat, kann vor der Ausführung eine menschliche Freigabe verlangen. Das Tool meldet sich mit einem einzigen Marker an; die Agent-Schleife pausiert daraufhin den gesamten Turn, persistiert ein serialisiertes Transkript für diesen Durchlauf im Zustand „wartet auf Freigabe“ und legt es zur Freigabe oder Ablehnung vor.",
         "Bei Freigabe setzt der Lauf genau dort fort, wo er pausiert hat; bei Ablehnung wird das dem Modell mitgeteilt, und es fährt fort. Die 41 heute ausgelieferten Tools sind alle nur lesend, sodass dieser Pfad für sie nie greift und ihr Verhalten unverändert bleibt — er ist für den Moment da, in dem ein schreibfähiges Tool hinzukommt. Ein „Freigabe anfordern“-Verdikt eines Guardrails läuft in dieselbe Prüfnahtstelle."
       ],
       "adrs": [84]
@@ -61,7 +61,7 @@
       "heading": "Tool-Sicherheit",
       "paragraphs": [
         "Jedes der 41 Built-in-Tools ist nur lesend, und jedes folgt einem Sicherheitsvertrag: Vom Modell gewählte Argumente werden validiert und begrenzt, Ausgabemengen sind gedeckelt, und jede Secret-tragende Ausgabe wird maskiert oder hinter eine separate Raw-Variante gesperrt, die deaktiviert ausgeliefert wird. Die meisten Tools erfordern Administratorrechte; die nur lesenden Struktur-, Inhalts- und Datei-Tools, die Nicht-Administratoren angeboten werden, setzen die eigenen TYPO3-Berechtigungen dieser Benutzerin durch.",
-        "Tools sind in Gruppen mit einer dreistufigen, fail-closed-Freigabekaskade organisiert: Eine deaktivierte Gruppe lässt sich nicht durch eine Einzel-Tool-Übersteuerung reaktivieren, und ein Tool, das ein Skill nicht gewährt hat, ist über Prompt-Injection nie erreichbar. Der Netzwerkzugriff wird pro Gruppe geregelt und ist fail-closed — eine Gruppe ohne Deklaration sendet keine ausgehende Anfrage, und es gibt keinen „beliebiger Host“-Scope. Host-nahe Tools laufen über einen Path-Guard, der settings.php und Schlüsselmaterial selbst für Administratoren strukturell unlesbar macht, und der URL-Probe ist auf die eigene Website der Instanz begrenzt. Jeder Lauf ist eine begrenzte Agent-Schleife."
+        "Tools sind in Gruppen mit einer dreistufigen, fail-closed-Freigabekaskade organisiert: Eine deaktivierte Gruppe lässt sich nicht durch eine Einzel-Tool-Übersteuerung reaktivieren, und ein Tool, das ein Skill nicht gewährt hat, ist über Prompt-Injection nie erreichbar. Der Netzwerkzugriff wird pro Gruppe geregelt und ist fail-closed — eine Gruppe ohne Deklaration sendet keine ausgehende Anfrage, und es gibt keinen „beliebiger Host“-Scope. Host-nahe Tools laufen über einen Path-Guard, der settings.php und Schlüsselmaterial selbst für Administratoren strukturell unlesbar macht, und die URL-Prüfung ist auf die eigene Website der Instanz begrenzt. Jeder Lauf ist eine begrenzte Agent-Schleife."
       ],
       "adrs": [38, 43, 44, 47]
     },
@@ -70,7 +70,7 @@
       "heading": "Kosten-Governance",
       "paragraphs": [
         "Budgets pro Benutzer deckeln die KI-Ausgaben jeder Backend-Benutzerin unabhängig von den täglichen Limits pro Konfiguration. Ein Budget trägt sechs unabhängige Obergrenzen — Requests, Tokens und Kosten, jeweils täglich und monatlich — und ist eine Obergrenze, kein Zähler: Die Nutzung wird bei Bedarf aus der einen Nutzungstabelle aggregiert, sodass beide nie auseinanderdriften können.",
-        "Die Prüfung ist ein reiner Pre-Flight vor jedem Aufruf; über dem Budget führt sie zu einer expliziten Ablehnung, die den gerissenen Topf benennt — nie zu stillem Throttling. Jeder Request wird der aufrufenden Backend-Benutzerin zugeordnet und in einem Analytics-Dashboard für Administratoren aufgerollt — Kosten- und Request-Trends, Aufschlüsselungen nach Provider, Modell und Dienst sowie der Verbrauch jeder Benutzerin gegen ihr Monatsbudget. Idempotente Completions werden gecacht, sodass ein wiederholter Aufruf nicht zweimal bezahlt wird."
+        "Die Prüfung ist ein reiner Pre-Flight vor jedem Aufruf; über dem Budget führt sie zu einer expliziten Ablehnung, die das überschrittene Limit benennt — nie zu stillem Throttling. Jeder Request wird der aufrufenden Backend-Benutzerin zugeordnet und in einem Analytics-Dashboard für Administratoren aufgerollt — Kosten- und Request-Trends, Aufschlüsselungen nach Provider, Modell und Dienst sowie der Verbrauch jeder Benutzerin gegen ihr Monatsbudget. Idempotente Completions werden gecacht, sodass ein wiederholter Aufruf nicht zweimal bezahlt wird."
       ],
       "adrs": [25, 52]
     },
@@ -78,8 +78,8 @@
       "id": "privacy",
       "heading": "Datenhaltung & Datenschutz",
       "paragraphs": [
-        "Wo das Modell läuft, ist deine Entscheidung. nr-llm spricht mit Ollama und jedem OpenAI-kompatiblen Endpoint — vLLM, LocalAI, LiteLLM —, sodass eine Instanz vollständig auf selbst gehosteten On-Premises-Modellen laufen kann, ohne dass Prompt oder Inhalt das Netzwerk verlässt, oder je Konfiguration einen gehosteten Provider nutzt, wo das vertretbar ist.",
-        "Weil Tool-Ausgaben und jede Modellantwort an den gewählten Provider gehen, behandelt die Extension beide als nicht vertrauenswürdig: Tool-Ergebnisse sind mengenbegrenzt und entfernen personenbezogene Felder, Antworten werden escaped gerendert, und HTML wird nur in einer Sandbox-Vorschau angezeigt."
+        "Wo das Modell läuft, ist deine Entscheidung. nr-llm spricht mit Ollama und jedem OpenAI-kompatiblen Endpoint — vLLM, LocalAI, LiteLLM —, sodass eine Instanz vollständig auf selbst gehosteten On-Premises-Modellen laufen kann, ohne dass Prompts oder Inhalte das Netzwerk verlassen, oder je Konfiguration einen gehosteten Provider nutzen kann, wo das vertretbar ist.",
+        "Weil Tool-Ausgaben und jede Modellantwort an den gewählten Provider gehen, behandelt die Extension beide als nicht vertrauenswürdig: Tool-Ergebnisse sind mengenbegrenzt und um personenbezogene Felder bereinigt, Antworten werden escaped gerendert, und HTML wird nur in einer Sandbox-Vorschau angezeigt."
       ],
       "adrs": [1]
     },
@@ -96,7 +96,7 @@
       "id": "openness",
       "heading": "Lizenz & Offenheit",
       "paragraphs": [
-        "nr-llm ist freie und quelloffene Software unter GPL-2.0-or-later, herausgegeben von der Netresearch DTT GmbH. Das Design ist offen dokumentiert: 89 Architecture Decision Records legen jede Sicherheits- und Architekturentscheidung dar — auch die auf dieser Seite — samt der geprüften Alternativen und der Gründe für ihre Ablehnung.",
+        "nr-llm ist freie und quelloffene Software unter GPL-2.0-or-later, herausgegeben von der Netresearch DTT GmbH. Das Design ist offen dokumentiert: {ADR_COUNT} Architecture Decision Records legen jede Sicherheits- und Architekturentscheidung dar — auch die auf dieser Seite — samt der geprüften Alternativen und der Gründe für ihre Ablehnung.",
         "Sicherheitslücken werden über das private Vulnerability-Reporting von GitHub behandelt. Transparenz ist selbst Teil der Haltung: Nichts auf dieser Seite muss man auf Vertrauen hinnehmen, denn die Begründung hinter jeder Maßnahme ist als ADR veröffentlicht."
       ],
       "adrs": []

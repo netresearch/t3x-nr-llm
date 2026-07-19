@@ -431,6 +431,13 @@ def main():
     group_order = [g["name"] for g in adr_meta.get("groups", [])]
     grouped = group_adrs(adrs, group_order)
 
+    # Substitute the live ADR count into the security page copy so the figure
+    # never drifts from the actual rendered ADR set.
+    adr_count = str(len(adrs))
+    for lang in LANGS:
+        for sec in security[lang]["sections"]:
+            sec["paragraphs"] = [p.replace("{ADR_COUNT}", adr_count) for p in sec["paragraphs"]]
+
     # Resolve each feature's ADR links to the rendered ADR page URLs.
     adr_url_by_number = {a["number"]: a["url"] for a in adrs}
     for lang in LANGS:
