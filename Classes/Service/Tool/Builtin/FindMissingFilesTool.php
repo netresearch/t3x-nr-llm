@@ -33,6 +33,13 @@ final readonly class FindMissingFilesTool implements ToolInterface
 
     private const MAX_LIMIT = 50;
 
+    /**
+     * Non-admins are mount-filtered in PHP after the query; scan up to this
+     * many rows so an out-of-mount-heavy window does not starve the in-mount
+     * result set, then cap the accessible subset to the requested limit.
+     */
+    private const MOUNT_SCAN_CAP = 1000;
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
@@ -80,6 +87,8 @@ final readonly class FindMissingFilesTool implements ToolInterface
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
+        $isAdmin = $user !== null && $user->isAdmin();
+
         $countQuery = $this->connectionPool->getQueryBuilderForTable('sys_file');
         $countQuery->getRestrictions()->removeAll();
         $total = self::toInt($countQuery
@@ -113,11 +122,34 @@ final readonly class FindMissingFilesTool implements ToolInterface
             )
             ->orderBy('storage')
             ->addOrderBy('identifier')
-            ->setMaxResults($limit)
+            ->setMaxResults($isAdmin ? $limit : self::MOUNT_SCAN_CAP)
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $lines = [sprintf('%d missing file%s (showing %d):', $total, $total === 1 ? '' : 's', count($rows))];
+        // effectiveStorages() only gates the storage; drop identifiers outside
+        // the acting user's file mounts so a subfolder-mounted non-admin does
+        // not learn missing-file paths elsewhere in the storage, then cap to the
+        // requested limit (the DB scanned a wider window above).
+        if (!$isAdmin) {
+            $rows = array_slice(array_values(array_filter(
+                $rows,
+                fn(array $row): bool => $this->storageGate->isFileAccessible(
+                    $user,
+                    self::toInt($row['storage'] ?? 0),
+                    self::toStr($row['identifier'] ?? ''),
+                ),
+            )), 0, $limit);
+        }
+
+        if ($rows === []) {
+            return 'No missing files in the accessible storages.';
+        }
+
+        // The storage-wide $total is only meaningful (and non-leaking) for an
+        // admin; a non-admin sees just the count of files within their mounts.
+        $lines = [$isAdmin
+            ? sprintf('%d missing file%s (showing %d):', $total, $total === 1 ? '' : 's', count($rows))
+            : sprintf('%d missing file%s shown:', count($rows), count($rows) === 1 ? '' : 's')];
         foreach ($rows as $row) {
             $lines[] = sprintf(
                 '- [%d] %d:%s (last known size %d bytes)',
