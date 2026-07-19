@@ -15,8 +15,10 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Schema\SearchableSchemaFieldsCollector;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Full-text search across the tables that declare TCA `searchFields`.
@@ -219,7 +221,11 @@ final readonly class SearchRecordsTool implements ToolInterface
         )));
 
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $like         = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
+        // A tool result is sent verbatim to an external LLM provider, so exclude
+        // workspace draft/versioned rows (the default restrictions do not) — the
+        // provider must never see unpublished content. Mirrors DatabaseSearchBackend.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
+        $like = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
 
         $orConditions = [];
         foreach ($searchFields as $field) {

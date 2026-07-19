@@ -16,7 +16,9 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Generic filtered read of one TCA table — never raw SQL.
@@ -294,6 +296,10 @@ final readonly class ReadRecordsTool implements ToolInterface
     private function fetchRows(string $table, array $fields, array $filters, int $limit, int $offset): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
+        // A tool result is sent verbatim to an external LLM provider, so exclude
+        // workspace draft/versioned rows (the default restrictions do not) — the
+        // provider must never see unpublished content. Mirrors DatabaseSearchBackend.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         $queryBuilder
             ->select(...$fields)
             ->from($table)

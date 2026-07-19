@@ -14,7 +14,9 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Return the backend page tree (`pages`) as a depth-indented outline.
@@ -134,6 +136,9 @@ final readonly class GetPageTreeTool implements ToolInterface
         // and sys_language_uid is pinned so translated rows do not duplicate the
         // tree.
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        // Never send workspace draft/versioned pages to the external LLM provider
+        // (they would also appear as duplicate tree nodes). Mirrors DatabaseSearchBackend.
+        $queryBuilder->getRestrictions()->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, 0));
         $queryBuilder
             ->select('uid', 'title', 'doktype')
             ->from(self::TABLE)
