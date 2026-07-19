@@ -80,13 +80,20 @@ final readonly class GetFalReferencesTool implements ToolInterface
         $fileQuery = $this->connectionPool->getQueryBuilderForTable('sys_file');
         $fileQuery->getRestrictions()->removeAll();
         $file = $fileQuery
-            ->select('storage', 'name')
+            ->select('storage', 'name', 'identifier')
             ->from('sys_file')
             ->where($fileQuery->expr()->eq('uid', $fileQuery->createNamedParameter($uid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchAssociative();
 
-        if (!is_array($file) || !$this->storageGate->isAllowed($user, self::toInt($file['storage'] ?? 0))) {
+        // Gate at file-mount granularity, not just storage: a non-admin whose
+        // mount is a subfolder must not enumerate usages of a file elsewhere
+        // in the storage.
+        if (!is_array($file) || !$this->storageGate->isFileAccessible(
+            $user,
+            self::toInt($file['storage'] ?? 0),
+            self::toStr($file['identifier'] ?? ''),
+        )) {
             return self::NOT_PERMITTED;
         }
 

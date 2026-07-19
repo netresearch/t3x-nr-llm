@@ -117,7 +117,27 @@ final readonly class FindMissingFilesTool implements ToolInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $lines = [sprintf('%d missing file%s (showing %d):', $total, $total === 1 ? '' : 's', count($rows))];
+        // effectiveStorages() only gates the storage; drop identifiers outside
+        // the acting user's file mounts so a subfolder-mounted non-admin does
+        // not learn missing-file paths elsewhere in the storage.
+        $rows = array_values(array_filter(
+            $rows,
+            fn(array $row): bool => $this->storageGate->isFileAccessible(
+                $user,
+                self::toInt($row['storage'] ?? 0),
+                self::toStr($row['identifier'] ?? ''),
+            ),
+        ));
+
+        if ($rows === []) {
+            return 'No missing files in the accessible storages.';
+        }
+
+        // The storage-wide $total is only meaningful (and non-leaking) for an
+        // admin; a non-admin sees just the count of files within their mounts.
+        $lines = [($user !== null && $user->isAdmin())
+            ? sprintf('%d missing file%s (showing %d):', $total, $total === 1 ? '' : 's', count($rows))
+            : sprintf('%d missing file%s shown:', count($rows), count($rows) === 1 ? '' : 's')];
         foreach ($rows as $row) {
             $lines[] = sprintf(
                 '- [%d] %d:%s (last known size %d bytes)',

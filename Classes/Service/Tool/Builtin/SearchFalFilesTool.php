@@ -123,6 +123,18 @@ final readonly class SearchFalFilesTool implements ToolInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
+        // effectiveStorages() only gates the storage; a non-admin whose file
+        // mount is a subfolder would otherwise see file names/paths across the
+        // whole storage. Drop files outside the acting user's file mounts.
+        $rows = array_values(array_filter(
+            $rows,
+            fn(array $row): bool => $this->storageGate->isFileAccessible(
+                $user,
+                self::toInt($row['storage'] ?? 0),
+                self::toStr($row['identifier'] ?? ''),
+            ),
+        ));
+
         if ($rows === []) {
             return sprintf('No files match "%s" in the accessible storages.', $query);
         }
