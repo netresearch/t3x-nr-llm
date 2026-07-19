@@ -54,10 +54,15 @@ emitted, including one split across chunk boundaries.
   (``SecretRedactionGuardrail`` does). When none is registered — or only
   policy-only DENY guardrails are — the loop passes chunks straight through with
   no buffer and no latency.
-- **Bounded.** The raw buffer is capped at ``MAX_GUARDRAIL_BUFFER_BYTES`` (50 KB,
-  the same cap the audit buffer uses); past it the stream is flushed and passed
-  through raw, so memory and the per-chunk rescan stay bounded on a
-  pathologically long stream.
+- **Bounded (updated 2026-07-19).** Live redaction runs over a bounded, self-
+  certifying sliding window (``StreamRedactionWindow``): it re-redacts only a
+  window (block-coalesced, so the rescan is O(n) not O(n²)) and prunes the settled
+  front at a cut it certifies clean — ``redact(head) . redact(tail) ===
+  redact(window)`` — so memory stays bounded on an arbitrarily long stream WITHOUT
+  ever passing a raw byte through. (The earlier design flushed and passed the tail
+  through raw past a 50 KB cap, which leaked a secret positioned beyond it; that
+  passthrough is removed.) The separate ADR-086 audit buffer still caps at
+  ``MAX_GUARDRAIL_BUFFER_BYTES`` (50 KB).
 - **Multibyte-safe.** The emit boundary is backed off a UTF-8 continuation run so
   a codepoint is never split across two yielded deltas.
 - **Usage/telemetry count the RAW provider output**, unchanged — the redacted
@@ -75,12 +80,14 @@ Consequences
   guardrail arrive at end-of-stream rather than incrementally — a small,
   bounded latency on the stream tail. Accepted as the price of live masking.
 - Limits: a credential whose anchor / URL-param name alone exceeds the holdback
-  window and straddles the final boundary can still partially leak. Past the
-  50 KB cap a secret is neither masked nor recorded — the audit buffer caps at
-  the same size — so it can leak silently on a runaway (>50 KB) single
-  completion; accepted as the bound on memory and rescan cost. Correctness relies
-  on the redactor collapsing a complete secret to a marker outside its own
-  character class (so a partial anchor at the tail is the only unstable region) —
-  true for the shipped ``SecretRedactionGuardrail``.
+  window and straddles the final boundary can still partially leak. A single
+  UNBROKEN match longer than the 1 MB hard cap (with no clean cut anywhere) has
+  its interior bytes DROPPED — a data-completeness loss, never a raw passthrough —
+  so no secret leaks; only an adversarial >1 MB unbroken payload loses data (a
+  benign unbroken blob factorises trivially and is pruned, not truncated).
+  Correctness relies on the redactor collapsing a complete secret to a marker
+  outside its own character class (so a partial anchor at the tail is the only
+  unstable region) — true for the shipped ``SecretRedactionGuardrail`` — and is
+  verified by a randomised property test (``concat(deltas) === redact(fullRaw)``).
 - DENY on a stream stays unenforceable — a hard block needs the non-streaming
   path.

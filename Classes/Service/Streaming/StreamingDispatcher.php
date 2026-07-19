@@ -103,19 +103,6 @@ final readonly class StreamingDispatcher
      */
     private const MAX_GUARDRAIL_BUFFER_BYTES = 50000;
 
-    /**
-     * Trailing bytes of the redacted output held back from the live stream, so a
-     * match still in progress near the end is never emitted before it completes
-     * (ADR-088). Redaction is recomputed on the raw buffer each chunk, so a
-     * complete secret always collapses to its marker; the only unstable region is
-     * a partial anchor / sub-minimum match at the very tail, whose reach-back is
-     * an anchor plus the pattern minimum (``sk-`` + 15, ``Bearer `` + 7, a
-     * credential URL-param name + 1) — well under this window. A credential whose
-     * anchor/param-name alone exceeds 128 bytes and straddles the final boundary
-     * can still partially leak: a documented limit of a lazy stream.
-     */
-    private const HOLDBACK_BYTES = 128;
-
     /** @var list<GuardrailInterface> */
     private array $guardrails;
 
@@ -190,10 +177,15 @@ final readonly class StreamingDispatcher
         $firstTokenNs    = null;
         $completionBytes = 0;
         $completion      = '';
-        $raw             = '';
-        $emitted         = 0;
         $redacts         = $this->streamRedactors !== [];
-        $overflow        = false;
+        // Live redaction (ADR-088): a bounded, self-certifying sliding window that
+        // masks secrets — including one split across chunk boundaries or positioned
+        // arbitrarily far into a long stream — with bounded memory and no O(n^2)
+        // rescan, and never passes a raw secret byte through. null when no
+        // redaction-capable guardrail is registered (verbatim pass-through).
+        $window          = $redacts
+            ? new StreamRedactionWindow(fn(string $s): string => $this->redactStream($s))
+            : null;
         $served          = $configuration;
         $success         = false;
         $errorClass      = '';
@@ -213,63 +205,23 @@ final readonly class StreamingDispatcher
                     $completion .= $chunk;
                 }
 
-                if (!$redacts || $overflow) {
-                    // No redaction-capable guardrail, or the redaction buffer has
-                    // hit its cap: pass through with no holdback / no added latency.
+                if ($window === null) {
+                    // No redaction-capable guardrail: verbatim pass-through.
                     yield $chunk;
                     $inner->next();
                     continue;
                 }
 
-                // Live redaction (ADR-088). Redact the RAW accumulated text FRESH
-                // each chunk — never re-processing an earlier redaction marker,
-                // which would orphan the tail of a secret whose recognizable head
-                // was already masked (``sk-***`` + continuation no longer matches).
-                // Emit only the redacted prefix that is stable: everything but a
-                // holdback tail large enough to cover any match still in progress
-                // near the end, so a secret is only ever emitted once masked in
-                // full — including one split across chunk boundaries.
-                $raw .= $chunk;
-
-                if (\strlen($raw) > self::MAX_GUARDRAIL_BUFFER_BYTES) {
-                    // Bound memory + the per-chunk rescan on a pathologically long
-                    // stream: flush what we have and pass the rest through raw.
-                    // Past this cap content is neither masked NOR recorded — the
-                    // audit buffer ($completion) caps at the same size — so a
-                    // secret beyond ~50 KB into a single completion can leak; a
-                    // documented limit for a runaway stream.
-                    $full = $this->redactStream($raw);
-                    if (\strlen($full) > $emitted) {
-                        yield \substr($full, $emitted);
-                    }
-                    $raw      = '';
-                    $overflow = true;
-                    // Observability for the silent-bypass limit: a secret past this
-                    // point is neither masked nor audited, so record that live
-                    // redaction stopped for this stream.
-                    $this->logger->warning(
-                        'Streamed LLM response exceeded the live-redaction cap; further content passes through unredacted and unaudited',
-                        $this->logContext($context, ['capBytes' => self::MAX_GUARDRAIL_BUFFER_BYTES]),
-                    );
-                    $inner->next();
-                    continue;
-                }
-
-                $full   = $this->redactStream($raw);
-                $stable = $this->utf8SafeLength($full, \strlen($full) - self::HOLDBACK_BYTES);
-                if ($stable > $emitted) {
-                    yield \substr($full, $emitted, $stable - $emitted);
-                    $emitted = $stable;
+                foreach ($window->push($chunk) as $delta) {
+                    yield $delta;
                 }
                 $inner->next();
             }
 
-            // Flush the redacted remainder once the stream is complete (unless the
-            // overflow path already drained and switched to passthrough).
-            if ($redacts && !$overflow) {
-                $full = $this->redactStream($raw);
-                if (\strlen($full) > $emitted) {
-                    yield \substr($full, $emitted);
+            // Flush the redacted remainder once the stream is complete.
+            if ($window !== null) {
+                foreach ($window->flush() as $delta) {
+                    yield $delta;
                 }
             }
 
@@ -564,30 +516,6 @@ final readonly class StreamingDispatcher
         }
 
         return $text;
-    }
-
-    /**
-     * Back off a byte length so it never lands inside a multibyte UTF-8 sequence
-     * (ADR-088) — the redaction path re-chunks the stream, so without this a
-     * codepoint could be split across two yielded deltas and a per-delta SSE
-     * consumer would decode mojibake on that boundary. Continuation bytes are
-     * ``10xxxxxx`` (0x80–0xBF); walk back off any run of them. The held-back
-     * remainder carries the rest of the codepoint and is emitted next.
-     */
-    private function utf8SafeLength(string $text, int $length): int
-    {
-        if ($length <= 0) {
-            return 0;
-        }
-        if ($length >= \strlen($text)) {
-            return \strlen($text);
-        }
-
-        while ($length > 0 && (\ord($text[$length]) & 0xC0) === 0x80) {
-            --$length;
-        }
-
-        return $length;
     }
 
     private function recordUsage(
