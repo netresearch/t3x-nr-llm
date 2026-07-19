@@ -33,8 +33,10 @@ pattern as ``nr_llm.tool``), so a new guardrail is active simply by existing
 under ``Classes/``.
 
 **`GuardrailMiddleware` runs them in the existing ADR-026 provider pipeline**, at
-priority 115 — outermost, above Telemetry (110). It screens every non-streaming
-`CompletionResponse` after the downstream chain produces it:
+priority 115 — outermost, above Telemetry (110) *(superseded — see the*
+*2026-07-19 update under Consequences: the guardrail moved to priority 90, inside*
+*the persistence layers)*. It screens every non-streaming `CompletionResponse`
+after the downstream chain produces it:
 
 - ALLOW passes on; REDACT rewrites the content and keeps screening (a later
   guardrail may still deny); DENY throws `GuardrailViolationException`;
@@ -55,6 +57,23 @@ response into an explicit, catchable denial).
 
 Consequences
 ============
+
+**Update 2026-07-19 — corrected pipeline placement (priority 115 → 90).** Placing
+the guardrail *outermost* meant it redacted the response only AFTER
+`IdempotencyMiddleware` (105) had already serialised the *unredacted*
+`CompletionResponse` into the ``nrllm_idempotency`` cache (24h, possibly a shared
+backend) — so a model that echoed a secret leaked it into persistence even though
+the caller saw the redacted value. The guardrail now runs at priority **90**,
+INSIDE both persistence layers (Idempotency 105, Cache 100) and above the
+behavioural stack, so it redacts (or blocks) *before* anything is stored; a
+DENY/REQUIRE_APPROVAL throws before the store, so a blocked response is never a
+replayable result. Telemetry accuracy is preserved differently now that the
+guardrail sits inside Telemetry (110): the two guardrail exceptions implement a
+`GuardrailPolicyException` marker, and `TelemetryMiddleware` records such a policy
+outcome as a *successful* provider run (the provider produced a response; the
+guardrail refused to release it) — so a denial still does not distort the
+provider failure-rate. A side benefit: a RETRY now genuinely re-runs the provider
+instead of replaying the idempotency-cached response.
 
 - Consumers get allow/redact/deny/retry/require-approval over model output, not
   true/false. A denial is a typed, catchable exception (mirroring

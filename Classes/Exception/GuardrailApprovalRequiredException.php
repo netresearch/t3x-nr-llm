@@ -20,7 +20,7 @@ use Throwable;
  * run/review context catches this to route it to approval (the Epic-D /
  * review-queue seam), rather than to an error.
  */
-final class GuardrailApprovalRequiredException extends RuntimeException implements NrLlmExceptionInterface
+final class GuardrailApprovalRequiredException extends RuntimeException implements GuardrailPolicyException
 {
     public function __construct(
         public readonly string $guardrail,

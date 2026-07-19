@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Psr\Log\LoggerInterface;
@@ -32,13 +33,20 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
  * Pipeline ordering — Telemetry sits OUTSIDE Cache so the measured latency
  * includes the cache lookup and a cache-served response still produces a row:
  *
- *   TelemetryMiddleware      <-- outermost; pure observer          (priority 110)
- *     CacheMiddleware        <-- short-circuits on hit             (priority 100)
- *       BudgetMiddleware     <-- pre-flight denial                 (priority 75)
- *         FallbackMiddleware <-- swaps config on retryable failure (priority 50)
- *           UsageMiddleware  <-- records the call that ran         (priority 25)
- *             CircuitBreaker <-- guards the provider call          (priority 20)
- *               <terminal>
+ *   TelemetryMiddleware        <-- outermost; pure observer          (priority 110)
+ *     IdempotencyMiddleware    <-- replays a stored result by key    (priority 105)
+ *       CacheMiddleware        <-- short-circuits on hit             (priority 100)
+ *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
+ *           BudgetMiddleware   <-- pre-flight denial                 (priority 75)
+ *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
+ *               UsageMiddleware  <-- records the call that ran       (priority 25)
+ *                 CircuitBreaker <-- guards the provider call        (priority 20)
+ *                   <terminal>
+ *
+ * The guardrail sits INSIDE this layer, so a guardrail policy outcome
+ * ({@see GuardrailPolicyException}) is recorded as a SUCCESSFUL provider run (the
+ * provider produced a response; the guardrail then blocked it) — not a provider
+ * failure. A genuine provider/budget exception still records success=false.
  *
  * What it records: the OPERATION and requested primary CONFIGURATION
  * (identifier, plus its provider/model). When FallbackMiddleware swaps to a
@@ -93,6 +101,15 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
             $success = true;
 
             return $result;
+        } catch (GuardrailPolicyException $e) {
+            // A guardrail policy outcome (block / approval-required) means the
+            // provider call itself SUCCEEDED — the guardrail (inside this layer,
+            // priority 90) simply refused to release the response. Record it as a
+            // successful run (errorClass stays '') so a guardrail denial never
+            // distorts the provider failure-rate. Re-throw untouched.
+            $success = true;
+
+            throw $e;
         } catch (Throwable $e) {
             $errorClass = $e::class;
 
