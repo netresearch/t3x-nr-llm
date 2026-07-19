@@ -370,6 +370,10 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertStringContainsString('sk-***', $emitted);
         self::assertStringNotContainsString($preSecret, $emitted);
         self::assertStringContainsString('TAIL-AFTER-CAP', $emitted);
+
+        // The silent-bypass limit is observable: a warning records that live
+        // redaction stopped for this stream.
+        self::assertNotNull($this->logger->firstMatching('warning', 'exceeded the live-redaction cap'));
     }
 
     #[Test]

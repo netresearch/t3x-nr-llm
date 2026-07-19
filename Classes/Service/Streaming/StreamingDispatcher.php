@@ -244,6 +244,13 @@ final readonly class StreamingDispatcher
                     }
                     $raw      = '';
                     $overflow = true;
+                    // Observability for the silent-bypass limit: a secret past this
+                    // point is neither masked nor audited, so record that live
+                    // redaction stopped for this stream.
+                    $this->logger->warning(
+                        'Streamed LLM response exceeded the live-redaction cap; further content passes through unredacted and unaudited',
+                        $this->logContext($context, ['capBytes' => self::MAX_GUARDRAIL_BUFFER_BYTES]),
+                    );
                     $inner->next();
                     continue;
                 }

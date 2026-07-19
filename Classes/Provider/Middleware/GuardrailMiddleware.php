@@ -96,6 +96,12 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
                             'A guardrail asked to retry, but the retried response also failed: ' . $result->reason,
                         );
                     }
+                    // LIMITATION: $next runs the inner pipeline, which includes
+                    // IdempotencyMiddleware (priority 105). When the call carries an
+                    // idempotency key the retry returns the SAME cached response, so
+                    // a RETRY then denies on the second pass. No shipped guardrail
+                    // returns RETRY; a future one that needs a genuinely fresh
+                    // completion must not be paired with an idempotency key.
                     $fresh = $next($configuration);
                     if (!$fresh instanceof CompletionResponse) {
                         return $response;

@@ -131,8 +131,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * tool checkboxes the operator ticked (defaulting to the globally-enabled
      * set when none are sent); {@see ToolLoopService} still intersects it with
      * the global gate, so a disabled tool can never be offered. Any unexpected
-     * provider/tool failure returns a generic JSON 500 — never the exception
-     * message, which can carry DBAL/PDO credentials — while the detail is
+     * provider/tool failure returns a JSON 500 carrying a SANITIZED diagnosis
+     * (exception class + message with secret-bearing URL params stripped via
+     * {@see ErrorMessageSanitizerTrait}, plus a truncated sanitized provider
+     * response body) — never the raw message verbatim — while the full detail is
      * logged downstream.
      */
     public function runAction(ServerRequestInterface $request): ResponseInterface
