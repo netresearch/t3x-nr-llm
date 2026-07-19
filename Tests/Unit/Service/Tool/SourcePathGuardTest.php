@@ -144,6 +144,21 @@ final class SourcePathGuardTest extends TestCase
     }
 
     #[Test]
+    public function redactsTokenShapedSecretsWithNoCredentialKey(): void
+    {
+        // Token shapes with NO credential key (the key-based pattern never fires):
+        // a bare bearer / sk- token and a connection-string URL in a log line.
+        $line = 'app.INFO retrieved Bearer sk-proj-ABCDEFGHIJKLMNOP123 then mysql://u:p4ssw0rd@db/x';
+
+        $out = $this->guard->redactSecretLine($line);
+
+        self::assertStringNotContainsString('sk-proj-ABCDEFGHIJKLMNOP123', $out);
+        self::assertStringContainsString('Bearer [redacted]', $out);
+        self::assertStringNotContainsString(':p4ssw0rd@', $out);
+        self::assertStringContainsString('mysql://u:***@db/x', $out);
+    }
+
+    #[Test]
     public function readLinesIsRangedNumberedAndSecretRedacted(): void
     {
         $read = $this->guard->readLines('Classes/Service.php', 2, 2);
