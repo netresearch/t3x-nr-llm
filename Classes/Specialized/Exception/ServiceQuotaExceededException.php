@@ -38,6 +38,7 @@ final class ServiceQuotaExceededException extends SpecializedServiceException
             [
                 'type' => 'rate_limit',
                 'retry_after' => $retryAfterSeconds,
+                'statusCode' => 429,
             ],
         );
     }

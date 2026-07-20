@@ -756,6 +756,7 @@ abstract class AbstractSpecializedService
             401, 403 => ServiceConfigurationException::invalidApiKey(
                 $this->getServiceDomain(),
                 $this->getServiceProvider(),
+                $statusCode,
             ),
             // 429 gets its own type (ADR-095): a rate limit is transient and
             // distinguishable from an outage, so the failure classifier and any

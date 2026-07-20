@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
@@ -437,6 +438,27 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $this->expectException(ServiceConfigurationException::class);
 
         $subject->callSendJsonRequest('endpoint', []);
+    }
+
+    #[Test]
+    public function theMappedExceptionCarriesTheUpstreamStatusCodeForEveryBranch(): void
+    {
+        // getStatusCode() must work for the typed 401/403 and 429 exceptions,
+        // not only the generic 5xx one — that is the seam a failure classifier
+        // reads on the specialized path (ADR-095).
+        foreach ([401 => 401, 403 => 403, 429 => 429, 503 => 503] as $status => $expected) {
+            $httpClient = $this->createMock(ClientInterface::class);
+            $httpClient->method('sendRequest')
+                ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'x']], $status));
+            $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+            try {
+                $subject->callSendJsonRequest('endpoint', []);
+                self::fail(sprintf('Expected a SpecializedServiceException for status %d', $status));
+            } catch (SpecializedServiceException $e) {
+                self::assertSame($expected, $e->getStatusCode(), sprintf('status %d', $status));
+            }
+        }
     }
 
     #[Test]
