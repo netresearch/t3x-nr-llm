@@ -35,4 +35,10 @@ enum ProviderOperation: string
     case Transcription = 'transcribe';
     case SpeechSynthesis = 'speech';
     case Translation = 'translate';
+
+    // A provider metadata / status call that is not itself an AI generation —
+    // DeepL usage and glossary lookups. Routed through the pipeline so it is
+    // observable and guarded by the circuit breaker like any provider HTTP call,
+    // but labelled honestly rather than as a translation.
+    case Metadata = 'metadata';
 }

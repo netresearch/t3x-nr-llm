@@ -461,6 +461,9 @@ final class TextToSpeechService extends AbstractSpecializedService
             $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)),
         );
 
+        // Fail closed before the try (see AbstractSpecializedService, ADR-099).
+        $this->assertWithinLifecycle();
+
         try {
             $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();

@@ -279,7 +279,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             'target_lang' => 'EN',
         ];
 
-        $response = $this->sendDeeplRequest('translate', $payload);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('translate', $payload),
+        );
 
         /** @var array<int, array{text: string, detected_source_language?: string}> $translations */
         $translations = $response['translations'] ?? [];
@@ -322,7 +325,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     {
         $this->ensureAvailable();
 
-        $response = $this->sendDeeplRequest('usage', [], 'GET');
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('usage', [], 'GET'),
+        );
 
         $characterCount = $response['character_count'] ?? 0;
         $characterLimit = $response['character_limit'] ?? 0;
@@ -342,7 +348,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
     {
         $this->ensureAvailable();
 
-        $response = $this->sendDeeplRequest('glossaries', [], 'GET');
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Metadata, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('glossaries', [], 'GET'),
+        );
 
         /** @var array<int, array{glossary_id: string, name: string, source_lang: string, target_lang: string}> $glossaries */
         $glossaries = $response['glossaries'] ?? [];

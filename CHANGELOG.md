@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The specialized HTTP egress fails closed (ADR-099): a provider call that
+  dispatches without wrapping in `runLifecycle()` now throws a `LogicException`
+  instead of silently spending against the provider with no telemetry, circuit
+  breaker or usage. DeepL's `detectLanguage()` (a billable translate call) now
+  routes through the pipeline too, and its `getUsage()` / `getGlossaries()`
+  metadata lookups run under the new `ProviderOperation::Metadata` — observable
+  and circuit-breaker guarded, labelled honestly rather than as a translation.
 - The specialized services now screen their prompt through the input guardrails
   before it leaves the process (ADR-098): DALL·E (`generate` /
   `generateMultiple` / `edit`), FAL (`generate` / `generateMultiple`), TTS
