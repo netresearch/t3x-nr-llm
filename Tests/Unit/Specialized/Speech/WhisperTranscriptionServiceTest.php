@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -25,6 +27,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\TranscriptionResult;
 use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
+use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -118,6 +121,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
         array $repositories = [],
+        ?MiddlewarePipeline $pipeline = null,
     ): WhisperTranscriptionService {
         $service = new WhisperTranscriptionService(
             $this->vaultStub,
@@ -128,7 +132,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );
@@ -1490,5 +1494,46 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         self::assertNotNull($result->metadata);
         self::assertSame('verbose_json', $result->metadata['format'] ?? null);
         self::assertSame('transcribe', $result->metadata['task'] ?? null);
+    }
+
+    #[Test]
+    public function aCallIsRoutedThroughThePipelineWithAServiceContext(): void
+    {
+        // ADR-097: the HTTP dispatch runs through the shared MiddlewarePipeline
+        // with a service ProviderCallContext (Transcription operation), so a
+        // capturing middleware observes the context the service built.
+        $capture = new CapturingMiddleware();
+        $audioFile = $this->createTestAudioFile();
+        $this->setupSuccessfulRequest((string)json_encode(['text' => 'Hello']));
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'providers' => [
+                    'openai' => [
+                        'apiKeyIdentifier' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $service = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            [],
+            new MiddlewarePipeline([$capture]),
+        );
+
+        $service->transcribe($audioFile);
+
+        $captured = $capture->captured;
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        self::assertSame(ProviderOperation::Transcription, $captured->operation);
+        self::assertNotSame('', $captured->telemetryProvider());
+        self::assertNotSame('', $captured->correlationId);
     }
 }

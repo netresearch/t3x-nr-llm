@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -21,6 +23,7 @@ use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
+use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -87,6 +90,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         ExtensionConfiguration $extensionConfiguration,
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
+        ?MiddlewarePipeline $pipeline = null,
     ): FalImageService {
         $service = new FalImageService(
             $this->vaultStub,
@@ -97,7 +101,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $logger,
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([]),
         );
         $service->setHttpClient($httpClient);
 
@@ -578,6 +582,44 @@ class FalImageServiceTest extends AbstractUnitTestCase
         self::assertEquals('flux-schnell', $result->model);
         self::assertEquals('1024x1024', $result->size);
         self::assertEquals('fal', $result->provider);
+    }
+
+    #[Test]
+    public function aCallIsRoutedThroughThePipelineWithAServiceContext(): void
+    {
+        $capture = new CapturingMiddleware();
+
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn([
+                'image' => [
+                    'fal' => [
+                        'apiKeyIdentifier' => 'test-api-key',
+                    ],
+                ],
+            ]);
+
+        $service = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            new MiddlewarePipeline([$capture]),
+        );
+        $this->setupSuccessfulRequest([
+            'images' => [['url' => 'https://fal.media/files/image.png']],
+        ]);
+
+        $service->generate('a sunset', 'flux-schnell');
+
+        $captured = $capture->captured;
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        self::assertSame(ProviderOperation::ImageGeneration, $captured->operation);
+        self::assertNotSame('', $captured->telemetryProvider());
+        self::assertNotSame('', $captured->correlationId);
     }
 
     #[Test]

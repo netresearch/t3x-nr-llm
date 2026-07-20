@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Speech;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
@@ -102,8 +104,14 @@ final class TextToSpeechService extends AbstractSpecializedService
             'speed' => $speed,
         ];
 
-        $this->setAuditContext(sprintf('%s, voice %s', $model, $voice));
-        $audioContent = $this->sendBinaryRequest($payload);
+        $audioContent = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::SpeechSynthesis, $this->getServiceProvider(), $model),
+            function () use ($model, $voice, $payload): string {
+                $this->setAuditContext(sprintf('%s, voice %s', $model, $voice));
+
+                return $this->sendBinaryRequest($payload);
+            },
+        );
 
         $characterCount = mb_strlen($text);
         $this->usageTracker->trackUsage(

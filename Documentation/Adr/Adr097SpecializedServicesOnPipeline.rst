@@ -41,9 +41,13 @@ middleware is inert because the per-call budget is still enforced by
 with a correlation id** and the **provider circuit breaker** — a flapping image
 or speech endpoint now trips and fails fast like a chat provider.
 
-This ADR migrates the first service, **DALL·E** (all four entry points:
-generate, generate-multiple, variations, edit). The other four follow the same
-shape.
+All five services are migrated: **DALL·E** (generate/generate-multiple/
+variations/edit), **FAL** (generate/generate-multiple), **Whisper**
+(transcribe/transcribe-from-content/translate-to-English), **TTS** (synthesize)
+and **DeepL** (translate/translate-batch). Each wraps its dispatch in
+``runLifecycle()`` with a ``forService()`` context labelled by its operation
+(``ProviderOperation::ImageGeneration`` / ``Transcription`` / ``SpeechSynthesis``
+/ ``Translation``).
 
 .. _adr-097-consequences:
 
@@ -64,8 +68,8 @@ Consequences
 - ``Classes/Specialized`` now depends on ``Classes/Provider/Middleware``. That is
   the point — the specialized services join the shared lifecycle rather than
   reimplementing it.
-- Deferred, each its own step: migrating FAL / Whisper / TTS / DeepL; applying
-  input-guardrail screening to the specialized prompts; the fail-closed dispatch
+- Deferred, each its own step: applying input-guardrail screening to the
+  specialized prompts; the fail-closed dispatch
   seam that makes a forgotten lifecycle wrapper throw rather than spend
   unmetered (it can only be switched on once all five services route through
   ``runLifecycle()``); and folding the per-service usage recording into a tagged

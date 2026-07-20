@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use LogicException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -19,6 +21,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
+use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -73,8 +76,10 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
      * The translator is wired to a vault mock and the response client is
      * injected through the test seam (bypassing the vault secure client).
      */
-    private function createSubjectWithResponse(ResponseInterface $response): DeepLTranslator
-    {
+    private function createSubjectWithResponse(
+        ResponseInterface $response,
+        ?MiddlewarePipeline $pipeline = null,
+    ): DeepLTranslator {
         /** @var ClientInterface&MockObject $httpClientStub */
         $httpClientStub = self::createStub(ClientInterface::class);
         $httpClientStub->method('sendRequest')->willReturn($response);
@@ -88,7 +93,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -1323,5 +1328,32 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         self::assertFalse($translator->isAvailable());
+    }
+
+    /**
+     * ADR-097: the HTTP dispatch is routed through the shared MiddlewarePipeline
+     * via runLifecycle(), building a service-scoped ProviderCallContext so a
+     * middleware observes the Translation operation and a non-empty telemetry
+     * provider / correlation id.
+     */
+    #[Test]
+    public function aCallIsRoutedThroughThePipelineWithAServiceContext(): void
+    {
+        $capture = new CapturingMiddleware();
+
+        $subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock([
+                'translations' => [['text' => 'Hello', 'detected_source_language' => 'DE']],
+            ]),
+            new MiddlewarePipeline([$capture]),
+        );
+
+        $subject->translate('Hallo', 'en');
+
+        $captured = $capture->captured;
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        self::assertSame(ProviderOperation::Translation, $captured->operation);
+        self::assertNotSame('', $captured->telemetryProvider());
+        self::assertNotSame('', $captured->correlationId);
     }
 }

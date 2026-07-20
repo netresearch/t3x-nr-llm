@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Speech;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -81,7 +83,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->validateAudioFile($audioPath);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
-        $response = $this->sendTranscriptionRequest($audioPath, $options);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            fn(): array|string => $this->sendTranscriptionRequest($audioPath, $options),
+        );
 
         return $this->parseTranscriptionResponse($response, $options);
     }
@@ -120,7 +125,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
 
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
-        $response = $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            fn(): array|string => $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options),
+        );
 
         return $this->parseTranscriptionResponse($response, $options);
     }
@@ -149,7 +157,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->validateAudioFile($audioPath);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
-        $response = $this->sendTranslationRequest($audioPath, $options);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            fn(): array|string => $this->sendTranslationRequest($audioPath, $options),
+        );
 
         // Usage is recorded once inside dispatchMultipart() — no extra
         // tracking here, a second call would double-count the request.
