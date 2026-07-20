@@ -95,6 +95,7 @@ final class FalImageService extends AbstractSpecializedService
             $this->extractConfigurationIdentifier($options),
         );
 
+        $prompt   = $this->screenPrompt($prompt);
         $response = $this->dispatchGeneration($prompt, $model, $options);
 
         $images = $response['images'] ?? [];
@@ -153,6 +154,7 @@ final class FalImageService extends AbstractSpecializedService
             $this->extractConfigurationIdentifier($options),
         );
 
+        $prompt   = $this->screenPrompt($prompt);
         $response = $this->dispatchGeneration($prompt, $model, $options);
 
         $results = [];

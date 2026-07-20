@@ -115,6 +115,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             $sourceLanguage = $this->normalizeLanguageCode($sourceLanguage, true);
         }
 
+        $text    = $this->screenPrompt($text);
         $payload = $this->buildTranslatePayload($text, $targetLanguage, $sourceLanguage, $options);
 
         $response = $this->runLifecycle(
@@ -174,6 +175,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             $sourceLanguage = $this->normalizeLanguageCode($sourceLanguage, true);
         }
 
+        $texts   = array_map($this->screenPrompt(...), $texts);
         $payload = $this->buildBatchPayload($texts, $targetLanguage, $sourceLanguage, $options);
 
         $response = $this->runLifecycle(

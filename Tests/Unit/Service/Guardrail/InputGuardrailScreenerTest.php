@@ -125,6 +125,53 @@ final class InputGuardrailScreenerTest extends TestCase
         self::assertSame($messages, $screener->screen($messages));
     }
 
+    #[Test]
+    public function screenTextReturnsAnEmptyStringUnchanged(): void
+    {
+        $screener = new InputGuardrailScreener([$this->redacting('x', 'y')]);
+
+        self::assertSame('', $screener->screenText(''));
+    }
+
+    #[Test]
+    public function screenTextPassesTextThroughWhenEveryGuardrailAllows(): void
+    {
+        $screener = new InputGuardrailScreener([$this->allowing()]);
+
+        self::assertSame('a clean prompt', $screener->screenText('a clean prompt'));
+    }
+
+    #[Test]
+    public function screenTextRedactsAndAppliesEveryGuardrailInOrder(): void
+    {
+        $screener = new InputGuardrailScreener([
+            $this->redacting('one', '1'),
+            $this->redacting('two', '2'),
+        ]);
+
+        self::assertSame('1 and 2', $screener->screenText('one and two'));
+    }
+
+    #[Test]
+    public function screenTextThrowsWhenAGuardrailDeniesThePrompt(): void
+    {
+        $screener = new InputGuardrailScreener([$this->denying('policy says no')]);
+
+        $this->expectException(GuardrailViolationException::class);
+        $this->expectExceptionMessage('policy says no');
+        $screener->screenText('anything');
+    }
+
+    #[Test]
+    public function screenTextThrowsApprovalRequiredWhenAGuardrailFlagsThePrompt(): void
+    {
+        $screener = new InputGuardrailScreener([$this->requireApproval('needs review')]);
+
+        $this->expectException(GuardrailApprovalRequiredException::class);
+        $this->expectExceptionMessage('needs review');
+        $screener->screenText('anything');
+    }
+
     private function allowing(): InputGuardrailInterface
     {
         return new class implements InputGuardrailInterface {

@@ -59,6 +59,23 @@ final readonly class InputGuardrailScreener
     }
 
     /**
+     * Screen a single free-standing prompt string — the entry point for the
+     * specialized services (image / speech / translation), whose outgoing
+     * payload is a prompt rather than a chat-message list (ADR-098). Applies the
+     * exact same guardrails and verdict handling as {@see screen()}: a REDACT
+     * rewrites the returned text, a DENY / REQUIRE_APPROVAL throws the typed
+     * exception.
+     */
+    public function screenText(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        return $this->screenContent($text);
+    }
+
+    /**
      * @param ChatMessage|array<string, mixed> $message
      *
      * @return ChatMessage|array<string, mixed>
@@ -70,6 +87,21 @@ final readonly class InputGuardrailScreener
             return $message;
         }
 
+        $redacted = $this->screenContent($content);
+        if ($redacted === $content) {
+            return $message;
+        }
+
+        return $this->withContent($message, $redacted);
+    }
+
+    /**
+     * Run every input guardrail over one content string and return the
+     * possibly-redacted result. Shared by {@see screenMessage()} (chat path) and
+     * {@see screenText()} (specialized path) so both apply identical verdicts.
+     */
+    private function screenContent(string $content): string
+    {
         $redacted = $content;
         foreach ($this->guardrails as $guardrail) {
             $result = $guardrail->checkInput($redacted);
@@ -93,11 +125,7 @@ final readonly class InputGuardrailScreener
             };
         }
 
-        if ($redacted === $content) {
-            return $message;
-        }
-
-        return $this->withContent($message, $redacted);
+        return $redacted;
     }
 
     /**

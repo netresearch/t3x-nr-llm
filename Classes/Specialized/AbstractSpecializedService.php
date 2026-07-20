@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -105,6 +106,10 @@ abstract class AbstractSpecializedService
         // telemetry row, correlation id and circuit breaker as a chat call.
         // Required — a lifecycle that silently disappears is not a lifecycle.
         protected readonly MiddlewarePipeline $pipeline,
+        // Input-guardrail screening for the prompt before it leaves the process
+        // (ADR-098). Required for the same reason as the budget gate: a secret /
+        // injection screener that silently disappears when unwired is fail-open.
+        protected readonly InputGuardrailScreener $inputGuardrailScreener,
         protected readonly ?ModelRepository $modelRepository = null,
         protected readonly ?LlmConfigurationRepository $configurationRepository = null,
     ) {
@@ -131,6 +136,21 @@ abstract class AbstractSpecializedService
     protected function runLifecycle(ProviderCallContext $context, callable $call): mixed
     {
         return $this->pipeline->run($context, static fn(ProviderCallContext $context): mixed => $call());
+    }
+
+    /**
+     * Screen a user-supplied prompt through the input guardrails before it is
+     * built into a request payload (ADR-098).
+     *
+     * The output guardrails run inside the pipeline (ADR-085), but they only see
+     * a model-generated {@see CompletionResponse}; a specialized service sends a
+     * prompt, not a completion, so screening it must happen here on the send path
+     * where a REDACT verdict can still rewrite the text. A DENY / REQUIRE_APPROVAL
+     * throws before any spend, exactly as on the chat path.
+     */
+    protected function screenPrompt(string $prompt): string
+    {
+        return $this->inputGuardrailScreener->screenText($prompt);
     }
 
     /**
