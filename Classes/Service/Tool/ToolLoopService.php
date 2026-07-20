@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -251,13 +252,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations,
                 true,
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                AgentRunTerminationReason::MAX_ITERATIONS,
             );
         } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
-            // trace is consistent. Surface what ran rather than aborting — but
-            // log the denial (with the tripped bucket) so operators can tell a
-            // budget stop from an iteration cap, since both surface as
-            // truncated=true with an empty final answer.
+            // trace is consistent. Surface what ran rather than aborting, and
+            // carry the reason on the result so a budget stop is distinguishable
+            // from an iteration cap — both truncate (ADR-092).
             $this->logger?->warning(
                 'Tool loop stopped: budget pre-flight denied the call.',
                 ['exception' => $e],
@@ -269,6 +270,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations,
                 true,
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                AgentRunTerminationReason::BUDGET_EXHAUSTED,
             );
         }
     }

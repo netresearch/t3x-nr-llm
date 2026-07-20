@@ -69,8 +69,10 @@ Consequences
 ============
 
 - A guardrail decision in the playground is a clean, distinguishable outcome
-  (blocked vs flagged-for-approval), and the ``AgentRun`` row reflects it rather
-  than a spurious failure.
+  (blocked vs flagged-for-approval). The ``AgentRun`` row reflects it rather
+  than a spurious failure since :ref:`ADR-092 <adr-092>`, which stores the
+  verdict as the run's termination reason — until then the row was written
+  through the generic failure path and was indistinguishable from a crash.
 - Streamed output is no longer a guardrail blind spot: a leaked secret or a
   policy trip is recorded for audit even though it cannot be un-sent.
 - Live protection of a stream (redacting a secret *before* the chunk is sent, or

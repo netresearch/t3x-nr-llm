@@ -49,8 +49,9 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void {
-        // Not needed by the command tests.
+        string $terminationReason = '',
+    ): bool {
+        return true;
     }
 
     public function suspendRun(int $runUid, string $stateJson): void

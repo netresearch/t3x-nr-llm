@@ -672,6 +672,11 @@ CREATE TABLE tx_nrllm_agentrun (
     estimated_cost decimal(10,6) DEFAULT '0.000000' NOT NULL,
     error_class varchar(255) DEFAULT '' NOT NULL,
 
+    -- Why the run ended (ADR-092). The status says what state the run is in,
+    -- this says how it got there: an iteration cap and an exhausted budget both
+    -- surface as completed-but-truncated and are otherwise indistinguishable.
+    termination_reason varchar(32) DEFAULT '' NOT NULL,
+
     -- Resumable state (ADR-084): serialised transcript + pending tool calls while
     -- status = waiting_for_approval; empty otherwise.
     suspended_state mediumtext,

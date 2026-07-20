@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -60,6 +61,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame([], $result->trace);
         self::assertSame(1, $result->iterations);
         self::assertFalse($result->truncated);
+        self::assertSame(AgentRunTerminationReason::COMPLETED, $result->terminationReason);
     }
 
     #[Test]
@@ -279,6 +281,8 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertSame(2, $result->iterations);
         self::assertTrue($result->truncated);
+        // The reason distinguishes this from a budget stop, which also truncates.
+        self::assertSame(AgentRunTerminationReason::MAX_ITERATIONS, $result->terminationReason);
         self::assertSame('SYNTHESISED', $result->finalContent);
         self::assertCount(2, $result->trace);
 
@@ -361,6 +365,7 @@ final class ToolLoopServiceTest extends TestCase
         $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), null);
 
         self::assertTrue($result->truncated);
+        self::assertSame(AgentRunTerminationReason::BUDGET_EXHAUSTED, $result->terminationReason);
         self::assertSame('', $result->finalContent);
         self::assertCount(1, $result->trace);
         self::assertSame('fetch_logs', $result->trace[0]->name);
@@ -371,8 +376,8 @@ final class ToolLoopServiceTest extends TestCase
     public function budgetExceededIsLoggedServerSide(): void
     {
         // A budget stop and an iteration-cap stop both surface as
-        // truncated=true with an empty answer; the denial must be logged so
-        // operators can tell them apart (and see which bucket tripped).
+        // truncated=true with an empty answer; the reason on the result tells
+        // them apart, and the log additionally names the bucket that tripped.
         $budgetException = new BudgetExceededException(
             BudgetCheckResult::denied(BudgetCheckResult::LIMIT_MONTHLY_COST, 10.0, 5.0),
         );

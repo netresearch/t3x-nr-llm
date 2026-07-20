@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -22,6 +24,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunReposito
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 #[CoversClass(AgentRunPersister::class)]
@@ -149,7 +152,7 @@ final class AgentRunPersisterTest extends TestCase
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnClaim = true;
         $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
-        $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', 0, 0, 0, '{}');
+        $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
 
         // Fail-closed: a store error refuses the resume rather than risk a
         // double-execute of the gated tool.
@@ -178,6 +181,98 @@ final class AgentRunPersisterTest extends TestCase
 
         // No exception escaped, and the sequence only advances on a successful write.
         self::assertSame(0, $handle->sequence);
+    }
+
+    #[Test]
+    public function settleCompletedStoresTheLoopsTerminationReason(): void
+    {
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $handle     = new AgentRunHandle(1, 'uuid');
+
+        $persister->settleCompleted($handle, new ToolLoopResult(
+            '',
+            [],
+            3,
+            true,
+            UsageStatistics::fromTokens(1, 1),
+            AgentRunTerminationReason::BUDGET_EXHAUSTED,
+        ));
+
+        self::assertNotNull($repository->finished);
+        self::assertSame('completed', $repository->finished['status']);
+        // Without the reason this row is indistinguishable from an iteration-cap stop.
+        self::assertSame('budget_exhausted', $repository->finished['terminationReason']);
+    }
+
+    #[Test]
+    public function settleFailedRecordsAProviderFailureAndAGuardrailStopRecordsAPolicyReason(): void
+    {
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+
+        $persister->settleFailed(new AgentRunHandle(1, 'uuid'), new RuntimeException('provider down'));
+        self::assertNotNull($repository->finished);
+        self::assertSame('provider_failed', $repository->finished['terminationReason']);
+
+        $persister->settlePolicyStopped(
+            new AgentRunHandle(2, 'uuid-2'),
+            new RuntimeException('denied'),
+            AgentRunTerminationReason::POLICY_DENIED,
+        );
+        self::assertNotNull($repository->finished);
+        self::assertSame('failed', $repository->finished['status']);
+        self::assertSame('policy_denied', $repository->finished['terminationReason'], 'A guardrail denial is not an outage.');
+    }
+
+    #[Test]
+    public function settleCancelledIsItsOwnStateNotAFailure(): void
+    {
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+
+        $persister->settleCancelled(new AgentRunHandle(1, 'uuid'));
+
+        self::assertNotNull($repository->finished);
+        self::assertSame('cancelled', $repository->finished['status']);
+        self::assertSame('cancelled', $repository->finished['terminationReason']);
+        self::assertSame('', $repository->finished['errorClass'], 'Nothing went wrong; somebody stopped it.');
+    }
+
+    #[Test]
+    public function aRefusedTransitionIsReportedButNeverThrows(): void
+    {
+        $repository               = new RecordingAgentRunRepository();
+        $repository->refuseFinish = true;
+        $logger                   = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('notice')->with(self::stringContains('already settled'), self::anything());
+
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), $logger);
+        $persister->settleCompleted(new AgentRunHandle(1, 'uuid'), new ToolLoopResult('', [], 1, false, UsageStatistics::fromTokens(0, 0)));
+
+        // The guard kept the first outcome; the later one is dropped, not merged.
+        self::assertNull($repository->finished);
+    }
+
+    #[Test]
+    public function suspendReportsFailureSoTheCallerCanFailClosed(): void
+    {
+        $repository                 = new RecordingAgentRunRepository();
+        $repository->throwOnSuspend = true;
+        $persister                  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+
+        // An approval-gated tool is side-effecting: telling the caller "awaiting
+        // approval" without stored state would promise a resume that cannot happen.
+        self::assertFalse($persister->suspend(new AgentRunHandle(1, 'uuid'), new SuspendedRunState([], [], 1, 0, 0)));
+    }
+
+    #[Test]
+    public function cancelRefusesAnUnknownRun(): void
+    {
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+
+        self::assertFalse($persister->cancel('does-not-exist'));
     }
 
     #[Test]

@@ -32,7 +32,13 @@ interface AgentRunRepositoryInterface
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void;
 
     /**
-     * Move a run into a terminal state, recording its final totals.
+     * Move a run into a terminal state, recording its final totals and why it
+     * ended.
+     *
+     * Guarded: only a run that is not already terminal transitions. A late or
+     * duplicate settle therefore cannot reopen or overwrite a finished run.
+     *
+     * @return bool true when the run transitioned, false when it was already terminal (or gone)
      */
     public function finishRun(
         int $runUid,
@@ -44,7 +50,8 @@ interface AgentRunRepositoryInterface
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void;
+        string $terminationReason = '',
+    ): bool;
 
     /**
      * Suspend a run for human approval (ADR-084): persist its serialised state

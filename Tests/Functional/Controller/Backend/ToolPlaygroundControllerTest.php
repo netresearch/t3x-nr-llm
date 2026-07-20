@@ -672,7 +672,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $state   = new SuspendedRunState([['role' => 'user', 'content' => 'delete it']], [], 1, 5, 2, [], []);
         $encoded = json_encode($state->toArray());
         self::assertIsString($encoded);
-        $run = new AgentRun(1, 'run-uuid-1', 'waiting_for_approval', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', 0, 0, 0, $encoded);
+        $run = new AgentRun(1, 'run-uuid-1', 'waiting_for_approval', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', '', 0, 0, 0, $encoded);
 
         $repo                = new RecordingAgentRunRepository();
         $repo->findResult    = $run;

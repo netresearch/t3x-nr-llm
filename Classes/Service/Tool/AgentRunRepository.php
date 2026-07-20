@@ -58,6 +58,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'total_tokens'             => 0,
             'estimated_cost'           => 0.0,
             'error_class'              => '',
+            'termination_reason'       => '',
             'started_at'               => $now,
             'finished_at'              => 0,
             'tstamp'                   => $now,
@@ -91,25 +92,40 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void {
-        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
-            self::TABLE_RUN,
-            [
-                'status'                  => $status,
-                'iterations'              => $iterations,
-                'truncated'               => $truncated ? 1 : 0,
-                'total_prompt_tokens'     => $promptTokens,
-                'total_completion_tokens' => $completionTokens,
-                'total_tokens'            => $totalTokens,
-                'estimated_cost'          => $estimatedCost,
-                'error_class'             => $errorClass,
-                // A terminal run is no longer suspended.
-                'suspended_state'         => '',
-                'finished_at'             => time(),
-                'tstamp'                  => time(),
-            ],
-            ['uid' => $runUid],
-        );
+        string $terminationReason = '',
+    ): bool {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $builder    = $connection->createQueryBuilder();
+        $now        = time();
+
+        // Guarded transition: only a non-terminal run may be settled. Without the
+        // predicate a late callback could reopen or overwrite a finished run —
+        // COMPLETED -> RUNNING -> COMPLETED with different totals (ADR-092).
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', $status)
+            ->set('iterations', (string)$iterations, false, Connection::PARAM_INT)
+            ->set('truncated', $truncated ? '1' : '0', false, Connection::PARAM_INT)
+            ->set('total_prompt_tokens', (string)$promptTokens, false, Connection::PARAM_INT)
+            ->set('total_completion_tokens', (string)$completionTokens, false, Connection::PARAM_INT)
+            ->set('total_tokens', (string)$totalTokens, false, Connection::PARAM_INT)
+            ->set('estimated_cost', (string)$estimatedCost, false, Connection::PARAM_STR)
+            ->set('error_class', $errorClass)
+            ->set('termination_reason', $terminationReason)
+            // A terminal run is no longer suspended.
+            ->set('suspended_state', '')
+            ->set('finished_at', (string)$now, false, Connection::PARAM_INT)
+            ->set('tstamp', (string)$now, false, Connection::PARAM_INT)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->in(
+                    'status',
+                    $builder->createNamedParameter(AgentRunStatus::nonTerminalValues(), Connection::PARAM_STR_ARRAY),
+                ),
+            )
+            ->executeStatement();
+
+        return $affected > 0;
     }
 
     public function suspendRun(int $runUid, string $stateJson): void
@@ -270,6 +286,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             totalTokens: self::toInt($row['total_tokens'] ?? 0),
             estimatedCost: self::toFloat($row['estimated_cost'] ?? 0),
             errorClass: self::toStr($row['error_class'] ?? ''),
+            terminationReason: self::toStr($row['termination_reason'] ?? ''),
             startedAt: self::toInt($row['started_at'] ?? 0),
             finishedAt: self::toInt($row['finished_at'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),

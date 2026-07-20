@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AgentRunTerminationReason` records **why** an agent run ended — completed,
+  iteration cap, exhausted budget, policy denial, denied approval, provider
+  failure or cancellation — in a new `termination_reason` column. A budget stop
+  and an iteration cap were previously indistinguishable: both are completed
+  and truncated (ADR-092).
+- `nrllm:agent:cancel <uuid>` retires a run that is stuck queued, running or
+  awaiting a decision. `CANCELLED` is now a state runs actually reach.
 - `AiActorContext` — an explicit caller identity (backend user, service account
   or anonymous) for the stateful entry points, so a queue worker can act for the
   user who queued the work instead of inheriting the ambient backend user
@@ -35,6 +42,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A guardrail stop is recorded as a policy outcome (`policy_denied`, or
+  `approval_denied` when an approval was required and never obtained) instead
+  of as a provider failure, so a denial can no longer be mistaken for an outage
+  in the run table (ADR-092).
+- An agent run can no longer be settled twice: `finishRun()` transitions only
+  non-terminal runs and reports whether it did. A late settle — for instance
+  the streamed path's `finally` block after a client disconnect — previously
+  overwrote a finished run's totals and error class.
+- The playground now fails a run whose approval state could not be stored
+  instead of answering "awaiting approval". An approval-gated tool is
+  side-effecting; promising a resume that cannot happen is worse than an error.
 - **Breaking:** `ConversationServiceInterface::startSession()` and `send()` take
   a leading `AiActorContext`. A session uuid is no longer sufficient to continue
   a conversation: the actor must own the session, be an administrator, or be a

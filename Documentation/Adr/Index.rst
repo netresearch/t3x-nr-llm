@@ -389,3 +389,4 @@ Tools
    Adr089GuardrailBoundaryCompleteness
    Adr090SingleExtensionUntil10
    Adr091ConversationActorContext
+   Adr092AgentRunTerminationReason
