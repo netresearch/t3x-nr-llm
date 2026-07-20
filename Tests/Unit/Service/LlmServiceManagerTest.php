@@ -40,6 +40,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -1683,6 +1684,54 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // coexists with the budget keys.
         self::assertArrayHasKey(CacheMiddleware::METADATA_CACHE_KEY, $metadata);
         self::assertSame(86400, $metadata[CacheMiddleware::METADATA_CACHE_TTL]);
+    }
+
+    #[Test]
+    public function chatThreadsSuppressRequestCountIntoPipelineMetadata(): void
+    {
+        // #473: ChatOptions::suppressRequestCount must reach the pipeline as the
+        // UsageMiddleware skip-request-count metadata key, so a sub-call's request
+        // is recorded (tokens/cost) without being counted.
+        $spy = new RecordingMiddleware();
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            new MiddlewarePipeline([$spy]),
+            self::createStub(CacheManagerInterface::class),
+        );
+        $manager->registerProvider(new TestableProvider());
+
+        $manager->chat(
+            [['role' => 'user', 'content' => 'Hi']],
+            (new ChatOptions(provider: 'openai'))->withSuppressRequestCount(true),
+        );
+
+        self::assertCount(1, $spy->calls);
+        self::assertArrayHasKey(UsageMiddleware::METADATA_SKIP_REQUEST_COUNT, $spy->calls[0]['metadata']);
+        self::assertTrue($spy->calls[0]['metadata'][UsageMiddleware::METADATA_SKIP_REQUEST_COUNT]);
+    }
+
+    #[Test]
+    public function chatOmitsSkipRequestCountMetadataByDefault(): void
+    {
+        $spy = new RecordingMiddleware();
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            new MiddlewarePipeline([$spy]),
+            self::createStub(CacheManagerInterface::class),
+        );
+        $manager->registerProvider(new TestableProvider());
+
+        $manager->chat(
+            [['role' => 'user', 'content' => 'Hi']],
+            new ChatOptions(provider: 'openai'),
+        );
+
+        self::assertCount(1, $spy->calls);
+        self::assertArrayNotHasKey(UsageMiddleware::METADATA_SKIP_REQUEST_COUNT, $spy->calls[0]['metadata']);
     }
 
     #[Test]

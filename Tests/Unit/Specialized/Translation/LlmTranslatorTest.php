@@ -126,6 +126,130 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function translateSuppressesRequestCountOnTheUnderlyingChatCall(): void
+    {
+        // Regression for #473: the translator records its own 'translation' request
+        // row, so the underlying chat call must not be counted as a second request.
+        $capturedOptions = [];
+
+        $managerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $managerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$capturedOptions): CompletionResponse {
+                    $capturedOptions[] = $options;
+
+                    return new CompletionResponse(
+                        content: 'Hallo',
+                        model: 'gpt-5.2',
+                        usage: new UsageStatistics(100, 50, 150),
+                        finishReason: 'stop',
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $translator = new LlmTranslator(
+            $managerMock,
+            self::createStub(UsageTrackerServiceInterface::class),
+        );
+
+        // Explicit source language avoids the auto-detection sub-call, isolating
+        // the translation chat call under assertion.
+        $translator->translate('Hello', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertNotEmpty($capturedOptions);
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions[0]);
+        self::assertTrue(
+            $capturedOptions[0]->getSuppressRequestCount(),
+            'The underlying chat call of a translation must not be counted as a request.',
+        );
+    }
+
+    #[Test]
+    public function detectLanguageStandaloneDoesNotSuppressRequestCount(): void
+    {
+        // #473 review: a standalone LlmTranslator::detectLanguage() is a request
+        // in its own right and must count — the translator records no separate
+        // 'translation' row for it, unlike the detection sub-step of translate().
+        $captured = [];
+
+        $managerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $managerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$captured): CompletionResponse {
+                    $captured[] = $options;
+
+                    return new CompletionResponse(
+                        content: 'en',
+                        model: 'gpt-5.2',
+                        usage: new UsageStatistics(100, 50, 150),
+                        finishReason: 'stop',
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $translator = new LlmTranslator(
+            $managerMock,
+            self::createStub(UsageTrackerServiceInterface::class),
+        );
+
+        $translator->detectLanguage('Hello World');
+
+        self::assertNotEmpty($captured);
+        self::assertInstanceOf(ChatOptions::class, $captured[0]);
+        self::assertFalse(
+            $captured[0]->getSuppressRequestCount(),
+            'Standalone language detection must count as a request.',
+        );
+    }
+
+    #[Test]
+    public function translateWithAutoDetectionSuppressesBothChatCalls(): void
+    {
+        // #473: an auto-detected translation makes two chat calls (detect +
+        // translate); both must be suppressed so only the 'translation' row
+        // counts, giving exactly one request.
+        $captured = [];
+
+        $managerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $managerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$captured): CompletionResponse {
+                    $captured[] = $options;
+
+                    return new CompletionResponse(
+                        content: 'en',
+                        model: 'gpt-5.2',
+                        usage: new UsageStatistics(100, 50, 150),
+                        finishReason: 'stop',
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $translator = new LlmTranslator(
+            $managerMock,
+            self::createStub(UsageTrackerServiceInterface::class),
+        );
+
+        // No source language → auto-detection runs before the translation.
+        $translator->translate('Hello', 'de', null, ['provider' => 'openai']);
+
+        self::assertCount(2, $captured);
+        foreach ($captured as $options) {
+            self::assertInstanceOf(ChatOptions::class, $options);
+            self::assertTrue(
+                $options->getSuppressRequestCount(),
+                'Both the detection and translation chat calls must be suppressed.',
+            );
+        }
+    }
+
+    #[Test]
     public function isAvailableReturnsTrueWhenProviderAvailable(): void
     {
         self::assertTrue($this->subject->isAvailable());

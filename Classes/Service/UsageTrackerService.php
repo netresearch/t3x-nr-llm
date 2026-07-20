@@ -53,6 +53,12 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
      * @param int|null $beUserUid        Backend user to attribute the usage to; null falls
      *                                   back to the ambient `backend.user` context aspect
      *                                   (0 when no backend user is authenticated)
+     * @param bool     $countsAsRequest  Whether this call increments the request counter.
+     *                                   Pass false for a provider sub-call that belongs to
+     *                                   a higher-level operation which records its own
+     *                                   request row (e.g. the language-detection step of a
+     *                                   translation), so the metrics (tokens/cost) are still
+     *                                   aggregated but the request is counted only once.
      */
     public function trackUsage(
         string $serviceType,
@@ -63,10 +69,15 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         string $modelId = '',
         int $taskUid = 0,
         ?int $beUserUid = null,
+        bool $countsAsRequest = true,
     ): void {
         $beUser = $beUserUid ?? $this->getCurrentBackendUserId();
         $today = strtotime('today');
         $now = time();
+        // Sub-calls of a larger operation (e.g. a translation's language-detection
+        // step) still record their tokens/cost but must not inflate the request
+        // counter — the parent operation records the single request-of-record.
+        $requestIncrement = $countsAsRequest ? 1 : 0;
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
@@ -99,7 +110,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
             // Update existing record with incremental values
             $connection->executeStatement(
                 'UPDATE ' . self::TABLE . ' SET
-                    request_count = request_count + 1,
+                    request_count = request_count + :requestIncrement,
                     tokens_used = tokens_used + :tokens,
                     prompt_tokens = prompt_tokens + :promptTokens,
                     completion_tokens = completion_tokens + :completionTokens,
@@ -110,6 +121,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                     tstamp = :tstamp
                 WHERE uid = :uid',
                 [
+                    'requestIncrement' => $requestIncrement,
                     'tokens' => $metrics['tokens'] ?? 0,
                     'promptTokens' => $metrics['promptTokens'] ?? 0,
                     'completionTokens' => $metrics['completionTokens'] ?? 0,
@@ -132,7 +144,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'model_id' => $modelId,
                 'task_uid' => $taskUid,
                 'be_user' => $beUser,
-                'request_count' => 1,
+                'request_count' => $requestIncrement,
                 'tokens_used' => $metrics['tokens'] ?? 0,
                 'prompt_tokens' => $metrics['promptTokens'] ?? 0,
                 'completion_tokens' => $metrics['completionTokens'] ?? 0,

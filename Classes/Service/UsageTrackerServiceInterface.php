@@ -39,6 +39,12 @@ interface UsageTrackerServiceInterface
      * @param int|null $beUserUid        Backend user to attribute the usage to; null falls
      *                                   back to the ambient `backend.user` context aspect
      *                                   (0 when no backend user is authenticated)
+     * @param bool     $countsAsRequest  Whether this call increments the request counter.
+     *                                   Pass false for a provider sub-call that belongs to
+     *                                   a higher-level operation which records its own
+     *                                   request row (e.g. the language-detection step of a
+     *                                   translation), so the metrics (tokens/cost) are still
+     *                                   aggregated but the request is counted only once.
      */
     public function trackUsage(
         string $serviceType,
@@ -49,6 +55,7 @@ interface UsageTrackerServiceInterface
         string $modelId = '',
         int $taskUid = 0,
         ?int $beUserUid = null,
+        bool $countsAsRequest = true,
     ): void;
 
     /**

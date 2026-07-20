@@ -104,6 +104,58 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function trackUsageWithCountsAsRequestFalseRecordsMetricsWithoutCountingRequest(): void
+    {
+        // #473: a provider sub-call (e.g. a translation's language detection)
+        // records its tokens/cost but must not increment the request counter.
+        $this->service->trackUsage(
+            'chat',
+            'openai',
+            ['tokens' => 150, 'promptTokens' => 100, 'completionTokens' => 50, 'cost' => 0.01],
+            modelId: 'gpt-4o-mini',
+            countsAsRequest: false,
+        );
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['request_count', 'tokens_used', 'estimated_cost'],
+            self::TABLE,
+            ['service_type' => 'chat', 'service_provider' => 'openai'],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertIsNumeric($row['request_count']);
+        self::assertIsNumeric($row['tokens_used']);
+        self::assertIsNumeric($row['estimated_cost']);
+        self::assertSame(0, (int)$row['request_count']);
+        self::assertSame(150, (int)$row['tokens_used']);
+        self::assertEqualsWithDelta(0.01, (float)$row['estimated_cost'], 0.0001);
+    }
+
+    #[Test]
+    public function trackUsageWithCountsAsRequestFalseDoesNotIncrementExistingRequestCount(): void
+    {
+        // A counting call establishes the daily row; a following non-counting
+        // sub-call aggregates its tokens but leaves request_count at 1 — one
+        // logical operation is a single request of record (#473).
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 10], modelId: 'gpt-4o-mini');
+        $this->service->trackUsage('chat', 'openai', ['tokens' => 150], modelId: 'gpt-4o-mini', countsAsRequest: false);
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(
+            ['request_count', 'tokens_used'],
+            self::TABLE,
+            ['service_type' => 'chat', 'service_provider' => 'openai'],
+        )->fetchAssociative();
+
+        self::assertIsArray($row);
+        self::assertIsNumeric($row['request_count']);
+        self::assertIsNumeric($row['tokens_used']);
+        self::assertSame(1, (int)$row['request_count']);
+        self::assertSame(160, (int)$row['tokens_used']);
+    }
+
+    #[Test]
     public function trackUsageKeepsSeparateRecordsForDifferentModelIds(): void
     {
         // Specialized calls carry model_uid=0 and only a model_id string — two

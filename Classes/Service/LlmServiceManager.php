@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -220,7 +221,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()) + $this->requestCountMetadata($options),
                 $optionsArray,
             );
         }
@@ -234,7 +235,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()) + $this->requestCountMetadata($options),
         );
     }
 
@@ -1016,6 +1017,21 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         }
 
         return [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $idempotencyKey];
+    }
+
+    /**
+     * Pipeline metadata that tells UsageMiddleware to record the call's metrics
+     * without incrementing the request counter. Set for chat sub-calls that
+     * belong to a higher-level operation recording its own request row (e.g. a
+     * translation's language-detection step, or the LLM translator's chat call).
+     *
+     * @return array<string, bool>
+     */
+    private function requestCountMetadata(ChatOptions $options): array
+    {
+        return $options->getSuppressRequestCount()
+            ? [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true]
+            : [];
     }
 
     /**
