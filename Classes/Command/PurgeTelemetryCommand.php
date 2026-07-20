@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,19 +23,20 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Prunes old rows from the telemetry log (ADR-058).
  *
  * Telemetry appends one row per provider pipeline run, so the table grows with
- * traffic. This command bounds that growth by deleting rows older than a
- * retention window (default 30 days). Run it from the scheduler or cron.
+ * traffic. This command bounds that growth by deleting rows older than the
+ * retention window taken from the central privacy policy
+ * ({@see PrivacyDataCategory::TELEMETRY}). Run it from the scheduler or cron —
+ * or schedule `nrllm:privacy:purge`, which covers every table at once.
  */
 #[AsCommand(
     name: 'nrllm:telemetry:purge',
-    description: 'Delete provider telemetry rows older than the retention window (default 30 days).',
+    description: 'Delete provider telemetry rows older than the configured retention window.',
 )]
 final class PurgeTelemetryCommand extends Command
 {
-    private const DEFAULT_DAYS = 30;
-
     public function __construct(
         private readonly TelemetryRepositoryInterface $repository,
+        private readonly PrivacyPolicyInterface $privacyPolicy,
     ) {
         parent::__construct();
     }
@@ -44,8 +47,7 @@ final class PurgeTelemetryCommand extends Command
             'days',
             'd',
             InputOption::VALUE_REQUIRED,
-            'Delete telemetry rows older than this many days.',
-            self::DEFAULT_DAYS,
+            'Delete telemetry rows older than this many days. Defaults to the configured telemetry retention window.',
         );
     }
 
@@ -54,7 +56,9 @@ final class PurgeTelemetryCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $daysOption = $input->getOption('days');
-        $days       = is_numeric($daysOption) ? (int)$daysOption : 0;
+        $days       = $daysOption === null
+            ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::TELEMETRY)
+            : (is_numeric($daysOption) ? (int)$daysOption : 0);
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

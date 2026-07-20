@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
+use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -22,19 +24,20 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * longer than the retention window (ADR-083).
  *
  * Session messages carry the conversation content (prompts and replies), so a
- * retention purge is the GDPR counterpart to the telemetry/privacy purges.
- * Mirrors {@see PurgeTelemetryCommand}.
+ * retention purge is the GDPR counterpart to the telemetry/privacy purges. The
+ * window comes from the central privacy policy
+ * ({@see PrivacyDataCategory::CONVERSATION}) — this command is the single-table
+ * variant of `nrllm:privacy:purge`, not a second policy.
  */
 #[AsCommand(
     name: 'nrllm:session:purge',
-    description: 'Delete conversation sessions inactive for longer than the retention window (default 30 days).',
+    description: 'Delete conversation sessions inactive for longer than the configured retention window.',
 )]
 final class PurgeAiSessionsCommand extends Command
 {
-    private const DEFAULT_DAYS = 30;
-
     public function __construct(
         private readonly AiSessionRepositoryInterface $repository,
+        private readonly PrivacyPolicyInterface $privacyPolicy,
     ) {
         parent::__construct();
     }
@@ -45,8 +48,7 @@ final class PurgeAiSessionsCommand extends Command
             'days',
             'd',
             InputOption::VALUE_REQUIRED,
-            'Delete sessions with no activity for this many days.',
-            self::DEFAULT_DAYS,
+            'Delete sessions with no activity for this many days. Defaults to the configured conversation retention window.',
         );
     }
 
@@ -55,7 +57,9 @@ final class PurgeAiSessionsCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $daysOption = $input->getOption('days');
-        $days       = is_numeric($daysOption) ? (int)$daysOption : 0;
+        $days       = $daysOption === null
+            ? $this->privacyPolicy->retentionDaysFor(PrivacyDataCategory::CONVERSATION)
+            : (is_numeric($daysOption) ? (int)$daysOption : 0);
 
         if ($days < 1) {
             $io->error('The --days option must be a positive integer.');

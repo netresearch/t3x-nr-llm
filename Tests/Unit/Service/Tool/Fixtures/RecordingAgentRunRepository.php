@@ -138,4 +138,9 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     {
         return 0;
     }
+
+    public function purgeUnfinishedOlderThan(int $timestamp): int
+    {
+        return 0;
+    }
 }

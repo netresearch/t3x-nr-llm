@@ -121,5 +121,23 @@ telemetry.enabled = 1
 # cat=privacy; type=options[None=none,Metadata=metadata,Redacted=redacted,Full=full]; label=Content Privacy Level: How much per-request content the extension stores in its log tables. "None" and "Metadata" drop the content payload and keep only metadata (identifiers, counts, timestamps); "Redacted" stores a length-capped copy with obvious credentials and email addresses masked; "Full" stores it verbatim. Metadata-only is the default and matches the extension's historical behaviour. Governs tx_nrllm_eval_result.details and tx_nrllm_skill_audit.scan_result/detail.
 privacy.level = metadata
 
-# cat=privacy; type=int+; label=Retention (days): How many days per-request log rows are kept before the nrllm:privacy:purge command deletes them (evaluation results, skill audit, telemetry). Minimum 1 day; an empty or zero value falls back to 30 days.
+# cat=privacy; type=int+; label=Retention (days): Default retention window for every content-bearing table before the nrllm:privacy:purge command deletes the rows (evaluation results, skill audit, telemetry, conversation sessions, agent runs). Minimum 1 day; an empty or zero value falls back to 30 days. Override individual categories below.
 privacy.retentionDays = 30
+
+# cat=privacy; type=int+; label=Retention override — Conversation sessions (days): Sessions inactive for longer than this, and their message transcripts, are deleted. Conversation content is the most sensitive data the extension stores. 0 uses the default retention window.
+privacy.retention.conversation = 0
+
+# cat=privacy; type=int+; label=Retention override — Agent runs (days): Finished agent runs and their event payloads (prompts, tool arguments, tool results) are deleted after this window. 0 uses the default retention window.
+privacy.retention.agentRun = 0
+
+# cat=privacy; type=int+; label=Retention override — Runs awaiting a decision (days): Agent runs that never reached a terminal status, above all runs suspended for a human approval, are only deleted after this window — a shorter one would destroy work in flight. 0 uses the default retention window.
+privacy.retention.approval = 0
+
+# cat=privacy; type=int+; label=Retention override — Telemetry (days): Provider pipeline metadata rows (no prompts, no responses). 0 uses the default retention window.
+privacy.retention.telemetry = 0
+
+# cat=privacy; type=int+; label=Retention override — Evaluation results (days): Graded evaluation output. 0 uses the default retention window.
+privacy.retention.evaluation = 0
+
+# cat=privacy; type=int+; label=Retention override — Skill audit (days): Skill scan findings. 0 uses the default retention window.
+privacy.retention.skillAudit = 0

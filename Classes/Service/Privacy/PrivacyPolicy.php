@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Privacy;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -46,6 +47,21 @@ final readonly class PrivacyPolicy implements PrivacyPolicyInterface
         // Clamp to a sane floor: an unset / zero / negative window must not
         // purge everything immediately, so fall back to the default.
         return $days >= 1 ? $days : self::DEFAULT_RETENTION_DAYS;
+    }
+
+    public function retentionDaysFor(PrivacyDataCategory $category): int
+    {
+        $retention = $this->privacyConfig()['retention'] ?? null;
+        if (!is_array($retention)) {
+            return $this->retentionDays();
+        }
+
+        $configured = $retention[$category->configKey()] ?? null;
+        $days       = is_numeric($configured) ? (int)$configured : 0;
+
+        // Same floor as the global window: an unset / zero / negative override
+        // means "no override", never "purge immediately".
+        return $days >= 1 ? $days : $this->retentionDays();
     }
 
     public function filterContent(?string $content): ?string

@@ -32,6 +32,9 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
 
     private const TABLE_MESSAGE = 'tx_nrllm_ai_session_message';
 
+    /** Sessions deleted per statement, so a neglected install purges in batches. */
+    private const PURGE_CHUNK_SIZE = 500;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -166,18 +169,25 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         }
 
         $messageConnection = $this->connectionPool->getConnectionForTable(self::TABLE_MESSAGE);
-        $messageBuilder    = $messageConnection->createQueryBuilder();
-        $messageBuilder
-            ->delete(self::TABLE_MESSAGE)
-            ->where($messageBuilder->expr()->in('session', $messageBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
-            ->executeStatement();
+        $deleted           = 0;
 
-        $deleteBuilder = $sessionConnection->createQueryBuilder();
+        // Chunked: a long-neglected installation must not build one unbounded
+        // IN() list, and each batch commits on its own.
+        foreach (array_chunk($uids, self::PURGE_CHUNK_SIZE) as $chunk) {
+            $messageBuilder = $messageConnection->createQueryBuilder();
+            $messageBuilder
+                ->delete(self::TABLE_MESSAGE)
+                ->where($messageBuilder->expr()->in('session', $messageBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
 
-        return (int)$deleteBuilder
-            ->delete(self::TABLE_SESSION)
-            ->where($deleteBuilder->expr()->lt('last_activity', $deleteBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
-            ->executeStatement();
+            $deleteBuilder = $sessionConnection->createQueryBuilder();
+            $deleted += (int)$deleteBuilder
+                ->delete(self::TABLE_SESSION)
+                ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
+        }
+
+        return $deleted;
     }
 
 }

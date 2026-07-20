@@ -6,6 +6,42 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Per-category data retention: `privacy.retention.conversation`,
+  `.agentRun`, `.approval`, `.telemetry`, `.evaluation` and `.skillAudit`
+  override the global `privacy.retentionDays` window, so conversation
+  transcripts can expire long before telemetry does (ADR-064).
+- `nrllm:privacy:purge` now covers **every** content-bearing table:
+  conversation sessions (`tx_nrllm_ai_session`,
+  `tx_nrllm_ai_session_message`) and agent runs (`tx_nrllm_agentrun`,
+  `tx_nrllm_agentrun_event`) join evaluation results, the skill audit and
+  telemetry. It reports the window and the row count per category.
+- `AgentRunRepositoryInterface::purgeUnfinishedOlderThan()` reaps runs that
+  never reached a terminal status on the separate, longer `approval` window.
+- Administration guide "Data retention & purge"
+  (`Documentation/Administration/DataRetention.rst`).
+
+### Changed
+
+- Persisted agent-run steps follow the central privacy level. At the default
+  metadata level the stored payload keeps timings, tokens, cost, tool names and
+  sizes but no prompts, tool arguments, tool results or raw provider bodies;
+  `redacted` masks them; `full` stores them verbatim. The live playground trace
+  is unaffected — it renders from memory.
+- `AgentRunRepositoryInterface::purgeOlderThan()` deletes only **terminal**
+  runs. Previously a purge by age could delete a run suspended for a human
+  approval, destroying work in flight together with its resumable state.
+- `nrllm:session:purge` and `nrllm:telemetry:purge` take their default window
+  from the central privacy policy instead of a hardcoded 30 days.
+- Session and agent-run purges delete in chunks of 500 instead of building one
+  unbounded `IN()` list on a long-neglected installation.
+
+### Fixed
+
+- Restored the missing `[0.23.0]` changelog link definition; `[Unreleased]` now
+  compares against `v0.23.0` instead of `v0.22.0`.
+
 ## [0.23.0] - 2026-07-20
 
 Adds a content-policy guardrail pipeline, human-in-the-loop tool approval,
@@ -1268,7 +1304,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.19.0...v0.20.0

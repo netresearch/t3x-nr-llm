@@ -68,9 +68,25 @@ interface AgentRunRepositoryInterface
     public function findEvents(int $runUid): array;
 
     /**
-     * Delete runs (and their events) created before the given timestamp.
+     * Delete FINISHED runs (and their events) created before the given
+     * timestamp.
+     *
+     * Only terminal runs — completed, failed, cancelled — are eligible. A run
+     * still queued, running or waiting for a human approval carries the state
+     * needed to resume it; purging it by age alone would destroy work in flight.
+     * Those are reaped separately by {@see purgeUnfinishedOlderThan()}.
      *
      * @return int Number of run rows deleted.
      */
     public function purgeOlderThan(int $timestamp): int;
+
+    /**
+     * Delete runs (and their events) created before the given timestamp that
+     * never reached a terminal status — abandoned runs and approvals nobody
+     * ever decided. Governed by its own, deliberately longer retention window
+     * ({@see \Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory::APPROVAL}).
+     *
+     * @return int Number of run rows deleted.
+     */
+    public function purgeUnfinishedOlderThan(int $timestamp): int;
 }

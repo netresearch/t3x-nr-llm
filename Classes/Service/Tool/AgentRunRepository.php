@@ -33,6 +33,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_EVENT = 'tx_nrllm_agentrun_event';
 
+    /** Rows deleted per statement, so a neglected install purges in batches. */
+    private const PURGE_CHUNK_SIZE = 500;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -186,15 +189,40 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function purgeOlderThan(int $timestamp): int
     {
-        // Delete the runs' events by run id first, then the runs — deleting each
-        // table independently by crdate would orphan events of a run that began
-        // before the cutoff but recorded events after it.
+        return $this->purgeRuns($timestamp, AgentRunStatus::terminalValues());
+    }
+
+    public function purgeUnfinishedOlderThan(int $timestamp): int
+    {
+        return $this->purgeRuns($timestamp, AgentRunStatus::nonTerminalValues());
+    }
+
+    /**
+     * Delete runs created before the cutoff whose status is in the given set,
+     * together with their events.
+     *
+     * Events go first and are addressed by run id: deleting each table
+     * independently by crdate would orphan the events of a run that began before
+     * the cutoff but recorded events after it. Both deletes are chunked so a
+     * long-neglected installation does not build one unbounded IN() list.
+     *
+     * @param list<string> $statuses
+     */
+    private function purgeRuns(int $timestamp, array $statuses): int
+    {
+        if ($statuses === []) {
+            return 0;
+        }
+
         $runConnection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $selectBuilder = $runConnection->createQueryBuilder();
         $rows          = $selectBuilder
             ->select('uid')
             ->from(self::TABLE_RUN)
-            ->where($selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
+            ->where(
+                $selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)),
+                $selectBuilder->expr()->in('status', $selectBuilder->createNamedParameter($statuses, Connection::PARAM_STR_ARRAY)),
+            )
             ->executeQuery()
             ->fetchAllAssociative();
 
@@ -204,18 +232,23 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         $eventConnection = $this->connectionPool->getConnectionForTable(self::TABLE_EVENT);
-        $eventBuilder    = $eventConnection->createQueryBuilder();
-        $eventBuilder
-            ->delete(self::TABLE_EVENT)
-            ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
-            ->executeStatement();
+        $deleted         = 0;
 
-        $deleteBuilder = $runConnection->createQueryBuilder();
+        foreach (array_chunk($uids, self::PURGE_CHUNK_SIZE) as $chunk) {
+            $eventBuilder = $eventConnection->createQueryBuilder();
+            $eventBuilder
+                ->delete(self::TABLE_EVENT)
+                ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
 
-        return (int)$deleteBuilder
-            ->delete(self::TABLE_RUN)
-            ->where($deleteBuilder->expr()->lt('crdate', $deleteBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
-            ->executeStatement();
+            $deleteBuilder = $runConnection->createQueryBuilder();
+            $deleted += (int)$deleteBuilder
+                ->delete(self::TABLE_RUN)
+                ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
+        }
+
+        return $deleted;
     }
 
     /**

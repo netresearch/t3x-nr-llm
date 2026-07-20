@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Privacy;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 
 /**
@@ -33,6 +34,17 @@ interface PrivacyPolicyInterface
      * mean "delete everything immediately".
      */
     public function retentionDays(): int;
+
+    /**
+     * Retention window in days for one data category, at least 1.
+     *
+     * Categories exist because the rows differ in sensitivity and in cost of
+     * loss: conversation transcripts and agent-run payloads carry prompts,
+     * telemetry carries none, and a run awaiting a human decision must outlive
+     * the ordinary window. An unset, zero or negative per-category override
+     * falls back to {@see retentionDays()}.
+     */
+    public function retentionDaysFor(PrivacyDataCategory $category): int;
 
     /**
      * Gate a content payload for persistence according to the current level:

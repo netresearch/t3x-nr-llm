@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -32,6 +33,10 @@ use Throwable;
  * returns null on failure, which the caller treats as "do not record" — exactly
  * as a null {@see RunTrace} callback would.
  *
+ * What a step actually stores is governed by the central privacy level via
+ * {@see RunStepPrivacyFilter}: metadata-only by default, so persistence does not
+ * quietly turn the event stream into a prompt archive (ADR-064).
+ *
  * Note (ADR-081): a run that exhausts its iteration cap OR is denied by the
  * budget guard both surface as COMPLETED with `truncated = true`, because
  * {@see ToolLoopService} swallows the budget denial internally and returns a
@@ -43,6 +48,7 @@ final readonly class AgentRunPersister
 {
     public function __construct(
         private AgentRunRepositoryInterface $repository,
+        private RunStepPrivacyFilter $privacyFilter,
         private ?LoggerInterface $logger = null,
     ) {}
 
@@ -76,7 +82,12 @@ final readonly class AgentRunPersister
     public function recordStep(AgentRunHandle $handle, RunStep $step): void
     {
         try {
-            $payload = json_encode($step->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            // The persisted copy follows the central privacy level; the live
+            // playground stream renders the unfiltered step from memory.
+            $payload = json_encode(
+                $this->privacyFilter->filter($step->toArray()),
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
             $this->repository->recordEvent(
                 $handle->runUid,
                 $handle->sequence,

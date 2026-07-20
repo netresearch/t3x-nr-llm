@@ -71,3 +71,4 @@ left-hand navigation:
    Wizards
    UserBudgets
    Analytics
+   DataRetention

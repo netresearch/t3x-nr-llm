@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -38,6 +39,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -299,7 +301,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         // Wire the real persister (ADR-081): the batch runAction path must open a
         // run, record each step, and settle it COMPLETED.
-        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), new NullLogger());
+        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService, $persister);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -675,7 +677,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $repo                = new RecordingAgentRunRepository();
         $repo->findResult    = $run;
         $repo->claimsGranted = 1; // the next claim loses
-        $persister           = new AgentRunPersister($repo, new NullLogger());
+        $persister           = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');

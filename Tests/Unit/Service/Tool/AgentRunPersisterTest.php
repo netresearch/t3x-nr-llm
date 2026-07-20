@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -16,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,7 +33,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository = new RecordingAgentRunRepository();
         $repository->nextUid = 42;
-        $persister = new AgentRunPersister($repository);
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg-tools');
@@ -56,7 +58,7 @@ final class AgentRunPersisterTest extends TestCase
     public function beginToleratesANullConfiguration(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $persister  = new AgentRunPersister($repository);
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         $handle = $persister->begin(null, 0);
 
@@ -69,7 +71,7 @@ final class AgentRunPersisterTest extends TestCase
     public function recordStepAppendsSequentialEventsAndAdvancesTheHandle(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $persister  = new AgentRunPersister($repository);
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle     = $persister->begin(null, 0);
         self::assertNotNull($handle);
 
@@ -93,7 +95,7 @@ final class AgentRunPersisterTest extends TestCase
     public function settleCompletedWritesCompletedStatusAndSummedTotals(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $persister  = new AgentRunPersister($repository);
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle     = $persister->begin(null, 0);
         self::assertNotNull($handle);
 
@@ -115,7 +117,7 @@ final class AgentRunPersisterTest extends TestCase
     public function settleCompletedCarriesTheTruncatedFlag(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $persister  = new AgentRunPersister($repository);
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle     = $persister->begin(null, 0);
         self::assertNotNull($handle);
 
@@ -130,7 +132,7 @@ final class AgentRunPersisterTest extends TestCase
     public function settleFailedWritesFailedStatusAndTheExceptionClass(): void
     {
         $repository = new RecordingAgentRunRepository();
-        $persister  = new AgentRunPersister($repository);
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle     = $persister->begin(null, 0);
         self::assertNotNull($handle);
 
@@ -146,7 +148,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnClaim = true;
-        $persister                = new AgentRunPersister($repository);
+        $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', 0, 0, 0, '{}');
 
         // Fail-closed: a store error refuses the resume rather than risk a
@@ -159,7 +161,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnStart = true;
-        $persister                = new AgentRunPersister($repository);
+        $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         self::assertNull($persister->begin(null, 0));
     }
@@ -169,7 +171,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnRecord = true;
-        $persister                 = new AgentRunPersister($repository);
+        $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle                    = new AgentRunHandle(1, 'uuid');
 
         $persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'x'));
@@ -183,7 +185,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnFinish = true;
-        $persister                 = new AgentRunPersister($repository);
+        $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle                    = new AgentRunHandle(1, 'uuid');
 
         $persister->settleCompleted($handle, new ToolLoopResult('', [], 1, false, UsageStatistics::fromTokens(0, 0)));
