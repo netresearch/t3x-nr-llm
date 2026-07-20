@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use LogicException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
-use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -23,6 +22,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -41,6 +41,8 @@ use ReflectionClass;
 #[CoversClass(DeepLTranslator::class)]
 class DeepLTranslatorTest extends AbstractUnitTestCase
 {
+    use PipelineRoutingAssertionTrait;
+
     private DeepLTranslator $subject;
     private UsageTrackerServiceInterface $usageTrackerStub;
 
@@ -1350,10 +1352,6 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
 
         $subject->translate('Hallo', 'en');
 
-        $captured = $capture->captured;
-        self::assertInstanceOf(ProviderCallContext::class, $captured);
-        self::assertSame(ProviderOperation::Translation, $captured->operation);
-        self::assertNotSame('', $captured->telemetryProvider());
-        self::assertNotSame('', $captured->correlationId);
+        $this->assertRoutedThroughPipeline($capture, ProviderOperation::Translation);
     }
 }

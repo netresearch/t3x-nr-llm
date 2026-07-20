@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
-use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
@@ -25,6 +24,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -51,6 +51,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(FalImageService::class)]
 class FalImageServiceTest extends AbstractUnitTestCase
 {
+    use PipelineRoutingAssertionTrait;
+
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
@@ -615,11 +617,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
 
         $service->generate('a sunset', 'flux-schnell');
 
-        $captured = $capture->captured;
-        self::assertInstanceOf(ProviderCallContext::class, $captured);
-        self::assertSame(ProviderOperation::ImageGeneration, $captured->operation);
-        self::assertNotSame('', $captured->telemetryProvider());
-        self::assertNotSame('', $captured->correlationId);
+        $this->assertRoutedThroughPipeline($capture, ProviderOperation::ImageGeneration);
     }
 
     #[Test]

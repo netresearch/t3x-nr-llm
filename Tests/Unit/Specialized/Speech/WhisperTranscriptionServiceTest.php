@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
-use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -29,6 +28,7 @@ use Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -51,6 +51,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(WhisperTranscriptionService::class)]
 class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 {
+    use PipelineRoutingAssertionTrait;
+
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
@@ -1530,10 +1532,6 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
         $service->transcribe($audioFile);
 
-        $captured = $capture->captured;
-        self::assertInstanceOf(ProviderCallContext::class, $captured);
-        self::assertSame(ProviderOperation::Transcription, $captured->operation);
-        self::assertNotSame('', $captured->telemetryProvider());
-        self::assertNotSame('', $captured->correlationId);
+        $this->assertRoutedThroughPipeline($capture, ProviderOperation::Transcription);
     }
 }
