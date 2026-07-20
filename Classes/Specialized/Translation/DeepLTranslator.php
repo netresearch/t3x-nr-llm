@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Translation;
 
 use Netresearch\NrLlm\Attribute\AsTranslator;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -115,7 +117,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $payload = $this->buildTranslatePayload($text, $targetLanguage, $sourceLanguage, $options);
 
-        $response = $this->sendDeeplRequest('translate', $payload);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('translate', $payload),
+        );
 
         $translations = $response['translations'] ?? [];
         if (!is_array($translations) || $translations === []) {
@@ -171,7 +176,10 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $payload = $this->buildBatchPayload($texts, $targetLanguage, $sourceLanguage, $options);
 
-        $response = $this->sendDeeplRequest('translate', $payload);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
+            fn(): array => $this->sendDeeplRequest('translate', $payload),
+        );
 
         $translations = $response['translations'] ?? [];
         if (!is_array($translations)) {

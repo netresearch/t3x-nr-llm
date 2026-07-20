@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -24,7 +25,9 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
+use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -48,6 +51,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 #[CoversClass(TextToSpeechService::class)]
 class TextToSpeechServiceTest extends AbstractUnitTestCase
 {
+    use PipelineRoutingAssertionTrait;
+
     private ClientInterface&Stub $httpClientStub;
     private RequestFactoryInterface&Stub $requestFactoryStub;
     private StreamFactoryInterface&Stub $streamFactoryStub;
@@ -91,6 +96,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         UsageTrackerServiceInterface $usageTracker,
         LoggerInterface $logger,
         array $repositories = [],
+        ?MiddlewarePipeline $pipeline = null,
     ): TextToSpeechService {
         $service = new TextToSpeechService(
             $this->vaultStub,
@@ -101,7 +107,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );
@@ -356,6 +362,35 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         self::assertEquals('mp3', $result->format);
         self::assertEquals('tts-1', $result->model);
         self::assertEquals('alloy', $result->voice);
+    }
+
+    #[Test]
+    public function aCallIsRoutedThroughThePipelineWithAServiceContext(): void
+    {
+        // ADR-097: the HTTP dispatch runs through the shared MiddlewarePipeline
+        // with a service-scoped ProviderCallContext (SpeechSynthesis operation).
+        $capture = new CapturingMiddleware();
+
+        $this->setupSuccessfulRequest();
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            [],
+            new MiddlewarePipeline([$capture]),
+        );
+
+        $subject->synthesize('hello world');
+
+        $this->assertRoutedThroughPipeline($capture, ProviderOperation::SpeechSynthesis);
     }
 
     #[Test]
