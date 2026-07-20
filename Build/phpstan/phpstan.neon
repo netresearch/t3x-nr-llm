@@ -38,7 +38,7 @@ parameters:
     # no-op on the version that does not emit it, and a safety net for when CI
     # bumps to the version that does.
     -
-      message: '#Using nullsafe method call on non-nullable type#'
+      message: '#Using nullsafe (method call|property access) on non-nullable type#'
       reportUnmatched: false
     -
       message: '#Only booleans are allowed in#'
