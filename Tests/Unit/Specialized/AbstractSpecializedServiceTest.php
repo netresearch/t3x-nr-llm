@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
@@ -450,9 +451,11 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         try {
             $subject->callSendJsonRequest('endpoint', []);
-            self::fail('Expected ServiceUnavailableException');
-        } catch (ServiceUnavailableException $e) {
-            self::assertStringContainsString('rate limit', $e->getMessage());
+            self::fail('Expected ServiceQuotaExceededException');
+        } catch (ServiceQuotaExceededException $e) {
+            // 429 now maps to its own typed exception (ADR-095), not the generic
+            // unavailable one, so a rate limit is distinguishable from an outage.
+            self::assertStringContainsStringIgnoringCase('rate limit', $e->getMessage());
         }
     }
 

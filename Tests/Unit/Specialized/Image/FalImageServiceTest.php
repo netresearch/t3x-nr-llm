@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
@@ -927,7 +928,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupFailedRequest(429, 'Rate limit exceeded');
 
-        $this->expectException(ServiceUnavailableException::class);
+        $this->expectException(ServiceQuotaExceededException::class);
 
         $subject->generate('A sunset');
     }

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
@@ -917,7 +918,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupFailedRequest(429, 'Rate limit exceeded');
 
-        $this->expectException(ServiceUnavailableException::class);
+        $this->expectException(ServiceQuotaExceededException::class);
 
         $subject->synthesize('Hello world');
     }
@@ -1093,8 +1094,8 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->method('sendRequest')
             ->willReturn($responseStub);
 
-        $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('rate limit exceeded');
+        $this->expectException(ServiceQuotaExceededException::class);
+        $this->expectExceptionMessage('Rate limit exceeded');
 
         $subject->synthesize('Test text');
     }

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
 use Netresearch\NrLlm\Specialized\Option\TranscriptionOptions;
@@ -917,7 +918,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $audioFile = $this->createTestAudioFile();
         $this->setupFailedRequest(429, 'Rate limit exceeded');
 
-        $this->expectException(ServiceUnavailableException::class);
+        $this->expectException(ServiceQuotaExceededException::class);
 
         $subject->transcribe($audioFile);
     }

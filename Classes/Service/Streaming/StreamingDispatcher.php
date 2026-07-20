@@ -17,8 +17,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
@@ -341,15 +341,10 @@ final readonly class StreamingDispatcher
 
     private function isRetryable(Throwable $e): bool
     {
-        if ($e instanceof ProviderConnectionException) {
-            return true;
-        }
-        if ($e instanceof ProviderResponseException) {
-            // Rate limit: a different provider might not be throttled.
-            return $e->getCode() === 429;
-        }
-
-        return false;
+        // Shared taxonomy (ADR-095) — the same decision the fallback middleware
+        // and the circuit breaker make, so the streaming path cannot drift from
+        // them. Previously this retried only connection and 429.
+        return FailureClassifier::classify($e)->isRetryable();
     }
 
     /**

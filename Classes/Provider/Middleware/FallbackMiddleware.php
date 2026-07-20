@@ -11,10 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
-use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
-use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -23,12 +20,11 @@ use Throwable;
 /**
  * Walks the primary configuration's fallback chain on retryable failure.
  *
- * Retryable = the request might succeed against a different provider:
- *  - ProviderConnectionException (network / timeout / 5xx / retries exhausted)
- *  - ProviderResponseException with HTTP code 429 (rate-limited here)
- *
- * Non-retryable errors bubble up immediately (misconfiguration, unsupported
- * feature, client-side 4xx, etc.) — fallback won't fix those.
+ * Retryable is decided by the shared {@see FailureClassifier} (ADR-095): a
+ * connection failure, a 429 rate limit, a 5xx server error or an open circuit
+ * routes to the next configuration. Non-retryable errors bubble up immediately
+ * (auth, misconfiguration, unsupported feature, client-side 4xx) — fallback
+ * won't fix those.
  *
  * Streaming calls (Generator returning) should not be routed through this
  * middleware: once chunks have been emitted to the caller, we cannot swap
@@ -194,20 +190,10 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 
     private function isRetryable(Throwable $e): bool
     {
-        if ($e instanceof ProviderConnectionException) {
-            return true;
-        }
-        if ($e instanceof CircuitOpenException) {
-            // An open circuit (ADR-063) means the provider just failed
-            // repeatedly and is being skipped; routing to the next configuration
-            // is exactly what tripping fast is for.
-            return true;
-        }
-        if ($e instanceof ProviderResponseException) {
-            // Rate limit: a different provider might not be throttled
-            return $e->getCode() === 429;
-        }
-
-        return false;
+        // One shared taxonomy (ADR-095): connection, rate-limit, 5xx and an open
+        // circuit route to the next configuration; auth, client and config
+        // errors would fail the same way everywhere. Previously an inline ladder
+        // here retried only connection/429/circuit and never a 5xx.
+        return FailureClassifier::classify($e)->isRetryable();
     }
 }

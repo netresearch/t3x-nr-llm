@@ -186,14 +186,11 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
      */
     private function isTrippingFailure(Throwable $e): bool
     {
-        if ($e instanceof ProviderConnectionException) {
-            return true;
-        }
-        if ($e instanceof ProviderResponseException) {
-            return $e->getCode() === 429;
-        }
-
-        return false;
+        // Provider-side faults (connection, rate-limit, 5xx) count towards
+        // opening the circuit; our-side faults (auth, client, config) and an
+        // already-open circuit do not (ADR-095). Previously only connection and
+        // 429 tripped it, so a provider returning 500 repeatedly never opened.
+        return FailureClassifier::classify($e)->tripsCircuit();
     }
 
     /**

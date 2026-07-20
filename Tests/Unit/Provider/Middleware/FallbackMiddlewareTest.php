@@ -224,6 +224,30 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function retriesOnServerError(): void
+    {
+        // New with ADR-095: a 5xx used to bubble up (only connection and 429
+        // were retried). A provider that 500s may have a healthy sibling.
+        $primary = $this->makeConfig('primary', new FallbackChain(['alt']));
+        $alt     = $this->makeConfig('alt');
+        $this->repositoryStub->method('findOneByIdentifier')->willReturn($alt);
+
+        $result = $this->makePipeline()->run(
+            ProviderCallContext::for(ProviderOperation::Chat),
+            $primary,
+            static function (LlmConfiguration $config): string {
+                if ($config->getIdentifier() === 'primary') {
+                    throw new ProviderResponseException('internal error', 500);
+                }
+
+                return 'ok';
+            },
+        );
+
+        self::assertSame('ok', $result);
+    }
+
+    #[Test]
     public function doesNotRetryOn4xxResponseOtherThan429(): void
     {
         $primary = $this->makeConfig('primary', new FallbackChain(['alt']));

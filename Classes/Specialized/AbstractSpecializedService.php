@@ -19,7 +19,9 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -113,12 +115,10 @@ abstract class AbstractSpecializedService
      * per-user and per-configuration check, and throw before any spend when a
      * limit is exceeded.
      *
-     * Fail-open by construction: when no BudgetServiceInterface is wired (the
-     * constructor param is optional, so unconfigured deployments and unit tests
-     * that omit it are unaffected) the gate is a no-op. When wired, the shared
-     * BudgetService still short-circuits to "allowed" for calls without a backend
-     * user or without configured limits, so nothing changes until an operator
-     * actually sets a cap.
+     * The budget service is a required dependency (a gate that disappears when
+     * unwired is fail-open). It still short-circuits to "allowed" for calls
+     * without a backend user or without configured limits, so nothing changes
+     * until an operator actually sets a cap.
      *
      * @throws BudgetExceededException when the pre-flight check denies the call
      */
@@ -678,7 +678,11 @@ abstract class AbstractSpecializedService
             ]);
 
             throw $this->mapErrorStatus($statusCode, $errorMessage);
-        } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
+        } catch (SpecializedServiceException $e) {
+            // Any already-typed failure (config, rate limit, unavailable) passes
+            // through unchanged — re-wrapping a 429 as a connection error below
+            // would erase its classification (ADR-095). Catch the base class so a
+            // new subclass is covered by construction.
             throw $e;
         } catch (Throwable $e) {
             $this->logger->error(sprintf('%s API connection error', $this->getProviderLabel()), [
@@ -688,7 +692,8 @@ abstract class AbstractSpecializedService
             throw new ServiceUnavailableException(
                 sprintf('Failed to connect to %s API: %s', $this->getProviderLabel(), $e->getMessage()),
                 $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider()],
+                // A transport failure never reached the provider: status 0.
+                ['provider' => $this->getServiceProvider(), 'statusCode' => 0],
                 0,
                 $e,
             );
@@ -745,20 +750,22 @@ abstract class AbstractSpecializedService
      */
     protected function mapErrorStatus(int $statusCode, string $errorMessage): Throwable
     {
+        $context = ['provider' => $this->getServiceProvider(), 'statusCode' => $statusCode];
+
         return match ($statusCode) {
             401, 403 => ServiceConfigurationException::invalidApiKey(
                 $this->getServiceDomain(),
                 $this->getServiceProvider(),
             ),
-            429 => new ServiceUnavailableException(
-                sprintf('%s API rate limit exceeded', $this->getProviderLabel()),
-                $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider()],
-            ),
+            // 429 gets its own type (ADR-095): a rate limit is transient and
+            // distinguishable from an outage, so the failure classifier and any
+            // retry logic can tell them apart. This wires the previously-dead
+            // ServiceQuotaExceededException::rateLimitExceeded().
+            429 => ServiceQuotaExceededException::rateLimitExceeded($this->getServiceDomain()),
             default => new ServiceUnavailableException(
                 sprintf('%s API error: %s', $this->getProviderLabel(), $errorMessage),
                 $this->getServiceDomain(),
-                ['provider' => $this->getServiceProvider()],
+                $context,
             ),
         };
     }

@@ -11,8 +11,8 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
-use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions;
 use Throwable;
 
@@ -468,7 +468,10 @@ final class TextToSpeechService extends AbstractSpecializedService
             ]);
 
             throw $this->mapErrorStatus($statusCode, $errorMessage);
-        } catch (ServiceUnavailableException|ServiceConfigurationException $e) {
+        } catch (SpecializedServiceException $e) {
+            // Pass any already-typed failure through unchanged — re-wrapping a 429
+            // (ServiceQuotaExceededException) as a connection error below would
+            // erase its classification (ADR-095).
             throw $e;
         } catch (Throwable $e) {
             // Log the full Throwable server-side (the chained cause below carries

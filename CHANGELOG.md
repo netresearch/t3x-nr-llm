@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `FailureClass` and `FailureClassifier` (ADR-095): one shared taxonomy behind
+  the retry, circuit-breaker and streaming-retry decisions, which had each kept
+  a private `instanceof` ladder that drifted. A 5xx is now classified as a
+  provider-side fault.
+- `SpecializedServiceException::getStatusCode()` exposes the upstream HTTP
+  status the error carries (0 for a transport failure), so the specialized
+  failures can be classified once they reach the shared pipeline.
+
 - Tool egress is governed by a data classification instead of denylists alone:
   every tool has a `ToolDataClass` (from `publicContent` up to
   `secretAdjacent`), every provider declares a `TrustZone` (`local`,
@@ -53,6 +61,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`Documentation/Administration/DataRetention.rst`).
 
 ### Changed
+
+- A provider 5xx now triggers fallback to the next configuration and counts
+  towards opening the provider's circuit breaker (ADR-095). Previously only a
+  connection error and a 429 did, so a provider returning 500 repeatedly neither
+  failed over nor tripped — the two "this provider is unhealthy" mechanisms both
+  ignored the signal.
+- **Breaking:** the specialized image/speech/translation services throw
+  `ServiceQuotaExceededException` on HTTP 429 instead of the generic
+  `ServiceUnavailableException`, so a rate limit is distinguishable from an
+  outage. Both extend `SpecializedServiceException`; a catch on the base class is
+  unaffected (ADR-095).
 
 - **Breaking (tool contract):** the per-configuration tool gate — the skills'
   declared allow-list intersected with `allowed_tool_groups` — is applied inside

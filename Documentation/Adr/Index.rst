@@ -392,3 +392,4 @@ Tools
    Adr092AgentRunTerminationReason
    Adr093ToolGateChokepoint
    Adr094ToolDataClassTrustZone
+   Adr095FailureTaxonomy
