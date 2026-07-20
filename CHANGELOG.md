@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AiActorContext` — an explicit caller identity (backend user, service account
+  or anonymous) for the stateful entry points, so a queue worker can act for the
+  user who queued the work instead of inheriting the ambient backend user
+  (ADR-091).
+- `LlmServiceManagerInterface::chatForConfiguration()`, the message-list
+  counterpart of `completeForConfiguration()`.
+- `ConfigurationResolver::getActiveByIdentifierForActor()` evaluates activity
+  and BE-group restrictions against a passed actor instead of
+  `$GLOBALS['BE_USER']`.
+- `AiSessionRepositoryInterface::appendMessageAtNextSequence()` allocates a
+  message sequence race-free.
 - Per-category data retention: `privacy.retention.conversation`,
   `.agentRun`, `.approval`, `.telemetry`, `.evaluation` and `.skillAudit`
   override the global `privacy.retentionDays` window, so conversation
@@ -23,6 +34,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`Documentation/Administration/DataRetention.rst`).
 
 ### Changed
+
+- **Breaking:** `ConversationServiceInterface::startSession()` and `send()` take
+  a leading `AiActorContext`. A session uuid is no longer sufficient to continue
+  a conversation: the actor must own the session, be an administrator, or be a
+  service account (ADR-091). Previously any caller holding a uuid could read and
+  continue another backend user's conversation.
+- A conversation turn now runs against the configuration the session was opened
+  with, resolved fresh on every turn. Previously the stored identifier was never
+  read and every turn silently used the installation default — a different
+  model, budget and guardrail set than the session started with. A deactivated
+  or newly restricted configuration now stops the session instead of falling
+  back.
+- Conversation turns are attributed to the acting backend user, so per-user
+  budgets apply to conversations as they do to one-shot completions.
+- **Schema:** `tx_nrllm_ai_session_message` gets a UNIQUE key on
+  `(session, sequence)` and `tx_nrllm_ai_session` a UNIQUE key on `uuid`. An
+  installation that already produced colliding rows through the sequence race
+  must resolve those duplicates before the database analyzer can apply the
+  index.
 
 - Persisted agent-run steps follow the central privacy level. At the default
   metadata level the stored payload keeps timings, tokens, cost, tool names and

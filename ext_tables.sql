@@ -741,7 +741,7 @@ CREATE TABLE tx_nrllm_ai_session (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY session_uuid (uuid),
+    UNIQUE KEY session_uuid (uuid),
     KEY be_user (be_user, last_activity),
     KEY inactivity (last_activity)
 );
@@ -768,5 +768,7 @@ CREATE TABLE tx_nrllm_ai_session_message (
     PRIMARY KEY (uid),
     KEY parent (pid),
     -- Replay read path: a session's turns in order.
-    KEY session_sequence (session, sequence)
+    -- Unique, not merely indexed: it is the authority that decides which of two
+    -- concurrent turns owns a sequence (ADR-083).
+    UNIQUE KEY session_sequence (session, sequence)
 );

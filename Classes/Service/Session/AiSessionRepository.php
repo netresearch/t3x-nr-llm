@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Session;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use RuntimeException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -34,6 +36,9 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
 
     /** Sessions deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
+
+    /** Retries when concurrent turns race for the same message sequence. */
+    private const SEQUENCE_ATTEMPTS = 5;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -82,18 +87,83 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         ]);
     }
 
+    public function appendMessageAtNextSequence(
+        int $sessionUid,
+        string $role,
+        string $content,
+        string $model,
+        int $promptTokens,
+        int $completionTokens,
+        int $totalTokens,
+    ): int {
+        // Two concurrent turns in one session must not share a sequence. The
+        // unique key on (session, sequence) is the authority: read the next free
+        // slot, try to take it, and on a collision read again. The loser of a
+        // race simply lands on the next slot instead of silently overwriting the
+        // ordering of the conversation.
+        for ($attempt = 0; $attempt < self::SEQUENCE_ATTEMPTS; ++$attempt) {
+            $sequence = $this->nextSequence($sessionUid);
+
+            try {
+                $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens);
+
+                return $sequence;
+            } catch (UniqueConstraintViolationException) {
+                // Another turn took this slot between the read and the insert.
+            }
+        }
+
+        throw new RuntimeException(
+            sprintf('Could not allocate a message sequence for session %d after %d attempts.', $sessionUid, self::SEQUENCE_ATTEMPTS),
+            1784600003,
+        );
+    }
+
     public function touch(int $sessionUid, int $messageCount): void
     {
-        $now = time();
-        $this->connectionPool->getConnectionForTable(self::TABLE_SESSION)->update(
-            self::TABLE_SESSION,
-            [
-                'message_count' => $messageCount,
-                'last_activity' => $now,
-                'tstamp'        => $now,
-            ],
-            ['uid' => $sessionUid],
-        );
+        $now        = time();
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_SESSION);
+
+        // last_activity always advances; the count only ever grows. A slower
+        // concurrent turn settling after a faster one must not report the
+        // session back down to its own view of the message count.
+        $builder = $connection->createQueryBuilder();
+        $builder
+            ->update(self::TABLE_SESSION)
+            ->set('last_activity', (string)$now, false, Connection::PARAM_INT)
+            ->set('tstamp', (string)$now, false, Connection::PARAM_INT)
+            ->where($builder->expr()->eq('uid', $builder->createNamedParameter($sessionUid, Connection::PARAM_INT)))
+            ->executeStatement();
+
+        $countBuilder = $connection->createQueryBuilder();
+        $countBuilder
+            ->update(self::TABLE_SESSION)
+            ->set('message_count', (string)$messageCount, false, Connection::PARAM_INT)
+            ->where(
+                $countBuilder->expr()->eq('uid', $countBuilder->createNamedParameter($sessionUid, Connection::PARAM_INT)),
+                $countBuilder->expr()->lt('message_count', $countBuilder->createNamedParameter($messageCount, Connection::PARAM_INT)),
+            )
+            ->executeStatement();
+    }
+
+    /**
+     * The next free sequence in a session: one past the highest stored, or 0 for
+     * an empty session. Derived from the message rows rather than from the
+     * session's own counter, which is a summary and can lag.
+     */
+    private function nextSequence(int $sessionUid): int
+    {
+        $builder = $this->connectionPool->getConnectionForTable(self::TABLE_MESSAGE)->createQueryBuilder();
+        $highest = $builder
+            ->select('sequence')
+            ->from(self::TABLE_MESSAGE)
+            ->where($builder->expr()->eq('session', $builder->createNamedParameter($sessionUid, Connection::PARAM_INT)))
+            ->orderBy('sequence', 'DESC')
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne();
+
+        return $highest === false || $highest === null ? 0 : self::toInt($highest) + 1;
     }
 
     public function findByUuid(string $uuid): ?AiSession

@@ -43,6 +43,18 @@ final class InMemoryAiSessionRepository implements AiSessionRepositoryInterface
         // Not needed by the command tests.
     }
 
+    public function appendMessageAtNextSequence(
+        int $sessionUid,
+        string $role,
+        string $content,
+        string $model,
+        int $promptTokens,
+        int $completionTokens,
+        int $totalTokens,
+    ): int {
+        return 0;
+    }
+
     public function touch(int $sessionUid, int $messageCount): void
     {
         // Not needed by the command tests.

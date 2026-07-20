@@ -827,6 +827,27 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * instead of the resolved instance default. A pinned provider on the options
      * is irrelevant on the configuration path and is dropped, matching chat().
      */
+    /**
+     * Chat against a specific configuration from a ChatOptions object.
+     *
+     * The message-list counterpart of {@see self::completeForConfiguration()};
+     * see the interface for the contract.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        $options ??= new ChatOptions();
+        [, $optionsArray] = $this->splitProviderKey($options->toArray());
+
+        return $this->chatWithConfiguration(
+            $this->injectConfigSkillsIntoMessages($messages, $configuration),
+            $configuration,
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $optionsArray,
+        );
+    }
+
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();

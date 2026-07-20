@@ -72,10 +72,32 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         ];
     }
 
+    public function appendMessageAtNextSequence(
+        int $sessionUid,
+        string $role,
+        string $content,
+        string $model,
+        int $promptTokens,
+        int $completionTokens,
+        int $totalTokens,
+    ): int {
+        $sequence = 0;
+        foreach ($this->messages as $row) {
+            if ($row['session'] === $sessionUid) {
+                $sequence = max($sequence, $row['sequence'] + 1);
+            }
+        }
+
+        $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens);
+
+        return $sequence;
+    }
+
     public function touch(int $sessionUid, int $messageCount): void
     {
         if (isset($this->sessions[$sessionUid])) {
-            $this->sessions[$sessionUid]['messageCount'] = $messageCount;
+            // Mirrors the real repository: the count only ever grows.
+            $this->sessions[$sessionUid]['messageCount'] = max($this->sessions[$sessionUid]['messageCount'], $messageCount);
             $this->sessions[$sessionUid]['lastActivity'] = 1;
         }
         $this->touchCalls[] = ['session' => $sessionUid, 'messageCount' => $messageCount];
