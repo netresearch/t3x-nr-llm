@@ -206,7 +206,7 @@ final class GuardrailMiddlewareTest extends TestCase
      */
     private function screen(GuardrailMiddleware $middleware, callable $terminal): mixed
     {
-        return $middleware->handle(ProviderCallContext::for(ProviderOperation::Chat), new LlmConfiguration(), $terminal);
+        return $middleware->handle(ProviderCallContext::forConfiguration(ProviderOperation::Chat, new LlmConfiguration()), $terminal);
     }
 
     private function guardrail(GuardrailResult $result): GuardrailInterface

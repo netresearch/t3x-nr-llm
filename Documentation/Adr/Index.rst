@@ -393,3 +393,4 @@ Tools
    Adr093ToolGateChokepoint
    Adr094ToolDataClassTrustZone
    Adr095FailureTaxonomy
+   Adr096PipelineCallContext

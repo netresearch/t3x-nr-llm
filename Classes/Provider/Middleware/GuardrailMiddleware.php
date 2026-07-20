@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
@@ -63,12 +62,11 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
-        $result = $next($configuration);
+        $result = $next($context);
         if ($result instanceof CompletionResponse) {
-            return $this->screen($result, $configuration, $next, false);
+            return $this->screen($result, $context, $next, false);
         }
         if ($result instanceof VisionResponse) {
             return $this->screenVision($result);
@@ -126,11 +124,11 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     }
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     private function screen(
         CompletionResponse $response,
-        LlmConfiguration $configuration,
+        ProviderCallContext $context,
         callable $next,
         bool $retried,
     ): CompletionResponse {
@@ -141,7 +139,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             // RETRY short-circuits the loop (it re-runs the pipeline and re-screens
             // the fresh response from scratch), so it is handled before the match.
             if ($verdict === GuardrailVerdict::RETRY) {
-                return $this->retryOnce($response, $configuration, $next, $retried, $guardrail, $result);
+                return $this->retryOnce($response, $context, $next, $retried, $guardrail, $result);
             }
 
             // match (no default) is exhaustive over the remaining verdicts: a new
@@ -169,11 +167,11 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     }
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     private function retryOnce(
         CompletionResponse $response,
-        LlmConfiguration $configuration,
+        ProviderCallContext $context,
         callable $next,
         bool $retried,
         GuardrailInterface $guardrail,
@@ -190,12 +188,12 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         // retry genuinely re-runs the provider rather than replaying an
         // idempotency-cached response. Still capped at one retry; no shipped
         // guardrail returns RETRY.
-        $fresh = $next($configuration);
+        $fresh = $next($context);
         if (!$fresh instanceof CompletionResponse) {
             return $response;
         }
 
-        return $this->screen($fresh, $configuration, $next, true);
+        return $this->screen($fresh, $context, $next, true);
     }
 
     private function withContent(CompletionResponse $response, string $content, ?string $thinking): CompletionResponse

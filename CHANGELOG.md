@@ -62,6 +62,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The middleware pipeline's configuration moved from a separate parameter onto
+  the call context: `MiddlewarePipeline::run(context, terminal)` and
+  `ProviderMiddlewareInterface::handle(context, next)` no longer take a separate
+  `LlmConfiguration`; it travels on `ProviderCallContext`, which gained a
+  nullable `configuration` plus `provider`/`model`/`configurationIdentifier`
+  strings and `for()`/`forConfiguration()`/`forService()` factories. This lets a
+  caller without an `LlmConfiguration` entity (a specialized image/speech/
+  translation service) drive the same pipeline. No behaviour change on the chat
+  path. `ProviderOperation` gained the specialized cases. **Breaking** for a
+  downstream custom middleware or a direct `run()` caller (ADR-096).
+
 - A provider 5xx now triggers fallback to the next configuration and counts
   towards opening the provider's circuit breaker (ADR-095). Previously only a
   connection error and a 429 did, so a provider returning 500 repeatedly neither

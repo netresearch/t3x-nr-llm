@@ -56,9 +56,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
 
                 return 'ok';
@@ -79,8 +80,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $caught = $this->captureException(
             ProviderConnectionException::class,
             fn() => $pipeline->run(
-                ProviderCallContext::for(ProviderOperation::Chat),
-                $primary,
+                ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
                 static function () use ($err): never {
                     throw $err;
                 },
@@ -102,9 +102,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'primary') {
                     throw new ProviderConnectionException('down', 0);
@@ -132,9 +133,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls    = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'primary') {
                     throw new CircuitOpenException('openai', 12);
@@ -162,13 +164,14 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ['alt2', $alt2],
         ]);
 
-        $context  = ProviderCallContext::for(ProviderOperation::Chat);
+        $context  = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary);
         $pipeline = $this->makePipeline();
 
         $result = $pipeline->run(
             $context,
-            $primary,
-            static function (LlmConfiguration $config): string {
+            static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 if ($config->getIdentifier() !== 'alt2') {
                     throw new ProviderConnectionException('down', 0);
                 }
@@ -186,13 +189,12 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
     public function recordsNoFallbackAttemptWhenPrimarySucceeds(): void
     {
         $primary  = $this->makeConfig('primary', new FallbackChain(['alt']));
-        $context  = ProviderCallContext::for(ProviderOperation::Chat);
+        $context  = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary);
         $pipeline = $this->makePipeline();
 
         $pipeline->run(
             $context,
-            $primary,
-            static fn(LlmConfiguration $config): string => 'ok',
+            static fn(): string => 'ok',
         );
 
         self::assertSame(0, $context->telemetrySignals->fallbackAttempts);
@@ -209,9 +211,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $pipeline = $this->makePipeline();
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            static function (LlmConfiguration $config): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 if ($config->getIdentifier() === 'primary') {
                     throw new ProviderResponseException('rate limited', 429);
                 }
@@ -233,9 +236,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $this->repositoryStub->method('findOneByIdentifier')->willReturn($alt);
 
         $result = $this->makePipeline()->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            static function (LlmConfiguration $config): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 if ($config->getIdentifier() === 'primary') {
                     throw new ProviderResponseException('internal error', 500);
                 }
@@ -262,9 +266,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ProviderResponseException::class,
             function () use ($pipeline, $primary, $err, &$calls): never {
                 $pipeline->run(
-                    ProviderCallContext::for(ProviderOperation::Chat),
-                    $primary,
-                    static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+                    static function (ProviderCallContext $ctx) use (&$calls, $err): never {
+                        $config = $ctx->configuration;
+                        assert($config !== null);
                         $calls[] = $config->getIdentifier();
 
                         throw $err;
@@ -289,9 +294,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             UnsupportedFeatureException::class,
             function () use ($pipeline, $primary, $err, &$calls): never {
                 $pipeline->run(
-                    ProviderCallContext::for(ProviderOperation::Chat),
-                    $primary,
-                    static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+                    static function (ProviderCallContext $ctx) use (&$calls, $err): never {
+                        $config = $ctx->configuration;
+                        assert($config !== null);
                         $calls[] = $config->getIdentifier();
 
                         throw $err;
@@ -316,9 +322,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ProviderConfigurationException::class,
             function () use ($pipeline, $primary, $err, &$calls): never {
                 $pipeline->run(
-                    ProviderCallContext::for(ProviderOperation::Chat),
-                    $primary,
-                    static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+                    static function (ProviderCallContext $ctx) use (&$calls, $err): never {
+                        $config = $ctx->configuration;
+                        assert($config !== null);
                         $calls[] = $config->getIdentifier();
 
                         throw $err;
@@ -350,9 +357,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if (\in_array($config->getIdentifier(), ['p', 'a', 'b'], true)) {
                     throw new ProviderConnectionException('down', 0);
@@ -384,8 +392,7 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $exhausted = $this->captureException(
             FallbackChainExhaustedException::class,
             fn() => $pipeline->run(
-                ProviderCallContext::for(ProviderOperation::Chat),
-                $primary,
+                ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
                 static function (): never {
                     throw new ProviderConnectionException('down', 0);
                 },
@@ -413,9 +420,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'p') {
                     throw new ProviderConnectionException('down', 0);
@@ -446,9 +454,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'p') {
                     throw new ProviderConnectionException('down', 0);
@@ -474,9 +483,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             ProviderConnectionException::class,
             function () use ($pipeline, $primary, $err, &$calls): never {
                 $pipeline->run(
-                    ProviderCallContext::for(ProviderOperation::Chat),
-                    $primary,
-                    static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+                    static function (ProviderCallContext $ctx) use (&$calls, $err): never {
+                        $config = $ctx->configuration;
+                        assert($config !== null);
                         $calls[] = $config->getIdentifier();
 
                         throw $err;
@@ -505,9 +515,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $calls      = [];
 
         $result = $pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Chat),
-            $primary,
-            function (LlmConfiguration $config) use (&$calls): string {
+            ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+            function (ProviderCallContext $ctx) use (&$calls): string {
+                $config = $ctx->configuration;
+                assert($config !== null);
                 $calls[] = $config->getIdentifier();
                 if ($config->getIdentifier() === 'p') {
                     throw new ProviderConnectionException('down', 0);
@@ -533,9 +544,10 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
             RuntimeException::class,
             function () use ($pipeline, $primary, $err, &$calls): never {
                 $pipeline->run(
-                    ProviderCallContext::for(ProviderOperation::Chat),
-                    $primary,
-                    static function (LlmConfiguration $config) use (&$calls, $err): never {
+                    ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary),
+                    static function (ProviderCallContext $ctx) use (&$calls, $err): never {
+                        $config = $ctx->configuration;
+                        assert($config !== null);
                         $calls[] = $config->getIdentifier();
 
                         throw $err;

@@ -29,9 +29,13 @@ final class MiddlewarePipelineTest extends TestCase
         $config   = $this->configuration('primary');
 
         $result = $pipeline->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $config,
-            terminal: static fn(LlmConfiguration $c): string => 'terminal:' . $c->getIdentifier(),
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config),
+            terminal: static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                \assert($config !== null);
+
+                return 'terminal:' . $config->getIdentifier();
+            },
         );
 
         self::assertSame('terminal:primary', $result);
@@ -44,9 +48,13 @@ final class MiddlewarePipelineTest extends TestCase
         $pipeline   = new MiddlewarePipeline([$middleware]);
 
         $result = $pipeline->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration('primary'),
-            terminal: static fn(LlmConfiguration $c): string => 'terminal:' . $c->getIdentifier(),
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration('primary')),
+            terminal: static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                \assert($config !== null);
+
+                return 'terminal:' . $config->getIdentifier();
+            },
         );
 
         self::assertSame('A(terminal:primary)', $result);
@@ -62,9 +70,13 @@ final class MiddlewarePipelineTest extends TestCase
         ]);
 
         $result = $pipeline->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration('primary'),
-            terminal: static fn(LlmConfiguration $c): string => 'T(' . $c->getIdentifier() . ')',
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
+            terminal: static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                \assert($config !== null);
+
+                return 'T(' . $config->getIdentifier() . ')';
+            },
         );
 
         // First-registered is outermost: outer(middle(inner(T)))
@@ -77,7 +89,6 @@ final class MiddlewarePipelineTest extends TestCase
         $shortCircuit = new class implements ProviderMiddlewareInterface {
             public function handle(
                 ProviderCallContext $context,
-                LlmConfiguration $configuration,
                 callable $next,
             ): string {
                 return 'short-circuit';
@@ -89,7 +100,6 @@ final class MiddlewarePipelineTest extends TestCase
 
         $result = $pipeline->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration('primary'),
             terminal: static function () use (&$terminalWasCalled): string {
                 $terminalWasCalled = true;
 
@@ -109,19 +119,22 @@ final class MiddlewarePipelineTest extends TestCase
 
             public function handle(
                 ProviderCallContext $context,
-                LlmConfiguration $configuration,
                 callable $next,
             ): mixed {
-                return $next($this->replacement);
+                return $next($context->withConfiguration($this->replacement));
             }
         };
 
         $pipeline = new MiddlewarePipeline([$swap]);
 
         $result = $pipeline->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration('primary'),
-            terminal: static fn(LlmConfiguration $c): string => $c->getIdentifier(),
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
+            terminal: static function (ProviderCallContext $ctx): string {
+                $config = $ctx->configuration;
+                \assert($config !== null);
+
+                return $config->getIdentifier();
+            },
         );
 
         self::assertSame('fallback', $result);
@@ -145,8 +158,7 @@ final class MiddlewarePipelineTest extends TestCase
 
         $pipeline->run(
             context: $context,
-            configuration: $this->configuration('primary'),
-            terminal: static fn(LlmConfiguration $c): string => 'done',
+            terminal: static fn(): string => 'done',
         );
 
         self::assertSame(
@@ -167,8 +179,7 @@ final class MiddlewarePipelineTest extends TestCase
 
         $result = $pipeline->run(
             context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration('primary'),
-            terminal: static fn(LlmConfiguration $c): string => 'T',
+            terminal: static fn(): string => 'T',
         );
 
         self::assertSame('A(B(T))', $result);
@@ -198,10 +209,9 @@ final class MiddlewarePipelineTest extends TestCase
 
             public function handle(
                 ProviderCallContext $context,
-                LlmConfiguration $configuration,
                 callable $next,
             ): string {
-                $downstream = $next($configuration);
+                $downstream = $next($context);
                 \assert(\is_string($downstream));
 
                 return $this->label . '(' . $downstream . ')';
@@ -230,12 +240,11 @@ final class MiddlewarePipelineTest extends TestCase
 
             public function handle(
                 ProviderCallContext $context,
-                LlmConfiguration $configuration,
                 callable $next,
             ): mixed {
                 ($this->record)($this->label . ':' . $context->correlationId);
 
-                return $next($configuration);
+                return $next($context);
             }
         };
     }

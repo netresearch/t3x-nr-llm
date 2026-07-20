@@ -65,12 +65,14 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         $terminalRan = false;
         $result = $this->pipeline()->run(
-            context: $this->contextFor(plannedCost: 0.5),
-            configuration: $this->configuration(),
-            terminal: static function (LlmConfiguration $config) use (&$terminalRan): string {
+            context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration()),
+            terminal: static function (ProviderCallContext $ctx) use (&$terminalRan): string {
                 $terminalRan = true;
 
                 // The middleware must forward the SAME configuration untouched.
+                $config = $ctx->configuration;
+                self::assertInstanceOf(LlmConfiguration::class, $config);
+
                 return $config->getIdentifier();
             },
         );
@@ -91,8 +93,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         try {
             $this->pipeline()->run(
-                context: $this->contextFor(plannedCost: 0.5),
-                configuration: $this->configuration(),
+                context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration()),
                 terminal: static function () use (&$terminalRan): string {
                     $terminalRan = true;
 
@@ -119,8 +120,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
         // must reach the terminal even with a non-trivial planned cost.
         $terminalRan = false;
         $this->pipeline()->run(
-            context: $this->contextFor(plannedCost: 99.0),
-            configuration: $this->configuration(),
+            context: $this->contextFor(plannedCost: 99.0)->withConfiguration($this->configuration()),
             terminal: static function () use (&$terminalRan): string {
                 $terminalRan = true;
 
@@ -143,8 +143,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         try {
             $this->pipeline()->run(
-                context: $this->contextFor(plannedCost: 0.5),
-                configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+                context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration(uid: 5, maxCostPerDay: 1.0)),
                 terminal: static function () use (&$terminalRan): string {
                     $terminalRan = true;
 
@@ -169,8 +168,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         $terminalRan = false;
         $this->pipeline()->run(
-            context: $this->contextFor(plannedCost: 0.5),
-            configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+            context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration(uid: 5, maxCostPerDay: 1.0)),
             terminal: static function () use (&$terminalRan): string {
                 $terminalRan = true;
 
@@ -190,8 +188,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         $terminalRan = false;
         $this->pipeline()->run(
-            context: $this->contextFor(plannedCost: 0.5),
-            configuration: $this->configuration(uid: 5, maxCostPerDay: 1.0),
+            context: $this->contextFor(plannedCost: 0.5)->withConfiguration($this->configuration(uid: 5, maxCostPerDay: 1.0)),
             terminal: static function () use (&$terminalRan): string {
                 $terminalRan = true;
 

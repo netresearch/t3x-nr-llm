@@ -1023,7 +1023,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
      */
     private function context(array $metadata = []): ProviderCallContext
     {
-        return new ProviderCallContext(ProviderOperation::Stream, 'corr-1', $metadata);
+        return new ProviderCallContext(ProviderOperation::Stream, 'corr-1', metadata: $metadata);
     }
 
     /**

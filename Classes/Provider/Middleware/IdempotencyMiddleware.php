@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Generator;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -87,16 +86,15 @@ final class IdempotencyMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
         $key = $this->readKey($context);
         if ($key === null) {
-            return $next($configuration);
+            return $next($context);
         }
 
         $entryId = $this->entryIdentifier($key);
@@ -106,7 +104,7 @@ final class IdempotencyMiddleware implements ProviderMiddlewareInterface
             return $stored;
         }
 
-        $result = $next($configuration);
+        $result = $next($context);
 
         if ($this->isStorable($result)) {
             $this->safeSet($entryId, $result);

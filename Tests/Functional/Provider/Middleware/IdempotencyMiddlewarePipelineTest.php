@@ -47,7 +47,7 @@ final class IdempotencyMiddlewarePipelineTest extends AbstractFunctionalTestCase
         $context  = new ProviderCallContext(
             ProviderOperation::Chat,
             'corr',
-            [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => 'checkout-99'],
+            metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => 'checkout-99'],
         );
         $response = new CompletionResponse(
             content: 'idempotent answer',
@@ -58,18 +58,16 @@ final class IdempotencyMiddlewarePipelineTest extends AbstractFunctionalTestCase
 
         // First call computes and stores.
         $first = $this->middleware->handle(
-            $context,
-            new LlmConfiguration(),
-            static fn(LlmConfiguration $c): CompletionResponse => $response,
+            $context->withConfiguration(new LlmConfiguration()),
+            static fn(): CompletionResponse => $response,
         );
         self::assertInstanceOf(CompletionResponse::class, $first);
 
         // Second call with the same key must NOT reach the provider — a throwing
         // terminal proves the replay is served entirely from the store.
         $replay = $this->middleware->handle(
-            $context,
-            new LlmConfiguration(),
-            static fn(LlmConfiguration $c): CompletionResponse => throw new RuntimeException('provider must not be called', 1),
+            $context->withConfiguration(new LlmConfiguration()),
+            static fn(): CompletionResponse => throw new RuntimeException('provider must not be called', 1),
         );
 
         self::assertInstanceOf(CompletionResponse::class, $replay);

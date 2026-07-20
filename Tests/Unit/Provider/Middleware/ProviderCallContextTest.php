@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
@@ -73,5 +74,72 @@ final class ProviderCallContextTest extends TestCase
         self::assertInstanceOf(TelemetrySignals::class, $context->telemetrySignals);
         self::assertFalse($context->telemetrySignals->cacheHit);
         self::assertSame(0, $context->telemetrySignals->fallbackAttempts);
+    }
+
+    #[Test]
+    public function forConfigurationBindsTheEntityAndTelemetryReadsItOverTheStrings(): void
+    {
+        $config = new LlmConfiguration();
+        $config->setIdentifier('editorial');
+
+        $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config);
+
+        self::assertSame($config, $context->configuration);
+        // The entity is the source of truth for telemetry while it is present.
+        self::assertSame('editorial', $context->telemetryConfigurationIdentifier());
+    }
+
+    #[Test]
+    public function forServiceCarriesProviderModelStringsForACallWithoutAConfigurationEntity(): void
+    {
+        // The enabling case (ADR-096): an image/speech/translation call with no
+        // LlmConfiguration entity still populates telemetry from the strings.
+        $context = ProviderCallContext::forService(ProviderOperation::ImageGeneration, 'dall-e', 'gpt-image-2', 'image-default');
+
+        self::assertNull($context->configuration);
+        self::assertSame('dall-e', $context->telemetryProvider());
+        self::assertSame('gpt-image-2', $context->telemetryModel());
+        self::assertSame('image-default', $context->telemetryConfigurationIdentifier());
+    }
+
+    #[Test]
+    public function withConfigurationSwapsTheEntityButKeepsCorrelationAndSignals(): void
+    {
+        $primary  = (new LlmConfiguration());
+        $primary->setIdentifier('primary');
+        $fallback = (new LlmConfiguration());
+        $fallback->setIdentifier('fallback');
+
+        $base = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $primary);
+        $base->telemetrySignals->recordFallbackAttempt();
+
+        $swapped = $base->withConfiguration($fallback);
+
+        self::assertSame($fallback, $swapped->configuration);
+        self::assertSame($base->correlationId, $swapped->correlationId);
+        // Fallback substitution mid-run must keep the accumulated signals.
+        self::assertSame($base->telemetrySignals, $swapped->telemetrySignals);
+        self::assertSame(1, $swapped->telemetrySignals->fallbackAttempts);
+    }
+
+    #[Test]
+    public function telemetryFallsThroughToTheContextStringWhenTheConfigurationsValueIsEmpty(): void
+    {
+        // A transient/ad-hoc configuration can carry empty provider/model/id.
+        // The context strings must then win, not the empty entity values.
+        $emptyConfig = new LlmConfiguration();
+
+        $context = new ProviderCallContext(
+            ProviderOperation::ImageGeneration,
+            'corr',
+            configuration: $emptyConfig,
+            provider: 'ctx-provider',
+            model: 'ctx-model',
+            configurationIdentifier: 'ctx-id',
+        );
+
+        self::assertSame('ctx-provider', $context->telemetryProvider());
+        self::assertSame('ctx-model', $context->telemetryModel());
+        self::assertSame('ctx-id', $context->telemetryConfigurationIdentifier());
     }
 }

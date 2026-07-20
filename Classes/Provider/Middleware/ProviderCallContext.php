@@ -9,45 +9,48 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * Immutable context threaded through a MiddlewarePipeline invocation.
  *
  * Carries what every middleware needs to know about the call without leaking
- * the operation-specific payload (messages, embeddings input, tool specs).
- * The payload stays captured in the terminal callable, which lets each
- * feature service keep its typed signature.
+ * the operation-specific payload (messages, embeddings input, tool specs). The
+ * payload stays captured in the terminal callable, which lets each feature
+ * service keep its typed signature (ADR-026).
+ *
+ * The configuration it runs against lives on the context, not as a separate
+ * pipeline parameter, so a caller that has no {@see LlmConfiguration} entity —
+ * an image or speech service identified only by provider/model strings — can
+ * still drive the same pipeline (ADR-096). When the configuration is null those
+ * string fields are the source of truth for telemetry; when it is present they
+ * are ignored and the entity wins. {@see FallbackMiddleware} swaps the
+ * configuration on a retryable failure via {@see self::withConfiguration()}.
  */
 final readonly class ProviderCallContext
 {
     /**
-     * @param array<string, mixed> $metadata         additional cross-cutting data
-     *                                               (e.g. user id for budget checks,
-     *                                               cache-key inputs, trace tags)
-     * @param TelemetrySignals     $telemetrySignals mutable scratchpad an inner
-     *                                               middleware uses to signal the
-     *                                               outer TelemetryMiddleware within
-     *                                               this run (cache hit, fallback
-     *                                               attempts). Default-constructed
-     *                                               per call so every pipeline run
-     *                                               has its own; the `new` default
-     *                                               is evaluated fresh on each call,
-     *                                               never shared across contexts.
+     * @param string               $provider                provider identifier for telemetry when no configuration entity is present
+     * @param string               $model                   model identifier for telemetry when no configuration entity is present
+     * @param string               $configurationIdentifier configuration identifier for telemetry when no configuration entity is present
+     * @param array<string, mixed> $metadata                additional cross-cutting data (user id for budget checks, cache-key inputs, trace tags)
+     * @param TelemetrySignals     $telemetrySignals        mutable scratchpad an inner middleware uses to signal the outer TelemetryMiddleware within this run (cache hit, fallback attempts). Default-constructed per call, never shared across contexts.
      */
     public function __construct(
         public ProviderOperation $operation,
         public string $correlationId,
+        public ?LlmConfiguration $configuration = null,
+        public string $provider = '',
+        public string $model = '',
+        public string $configurationIdentifier = '',
         public array $metadata = [],
         public TelemetrySignals $telemetrySignals = new TelemetrySignals(),
     ) {}
 
     /**
-     * Create a context with an auto-generated UUID v4 correlation id.
-     *
-     * Callers that already hold a correlation id (e.g. propagated from an
-     * upstream trace / request id) should use the regular constructor instead
-     * of this factory so the incoming id survives end-to-end.
+     * A context for a generic call with an auto-generated correlation id and no
+     * configuration entity yet (the pipeline resolves or the caller sets one).
      *
      * @param array<string, mixed> $metadata
      */
@@ -61,10 +64,70 @@ final readonly class ProviderCallContext
     }
 
     /**
-     * Return a new context with the given metadata merged on top of the current
-     * map. Useful for middleware that wants to annotate downstream handlers
-     * (cache hit/miss, budget remaining, retry attempt counter, etc.) without
-     * mutating state.
+     * A context bound to a configuration entity (the chat/embedding/vision
+     * path). The provider/model/identifier strings are left empty — the entity
+     * is the source of truth while it is present.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public static function forConfiguration(ProviderOperation $operation, LlmConfiguration $configuration, array $metadata = []): self
+    {
+        return new self(
+            operation: $operation,
+            correlationId: Uuid::v4()->toRfc4122(),
+            configuration: $configuration,
+            metadata: $metadata,
+        );
+    }
+
+    /**
+     * A context for a service call identified only by provider/model strings —
+     * an image, speech or translation service with no {@see LlmConfiguration}
+     * entity. Telemetry reads these strings.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    public static function forService(
+        ProviderOperation $operation,
+        string $provider,
+        string $model,
+        string $configurationIdentifier = '',
+        array $metadata = [],
+    ): self {
+        return new self(
+            operation: $operation,
+            correlationId: Uuid::v4()->toRfc4122(),
+            provider: $provider,
+            model: $model,
+            configurationIdentifier: $configurationIdentifier,
+            metadata: $metadata,
+        );
+    }
+
+    /**
+     * Return a copy bound to a different configuration — used by
+     * {@see FallbackMiddleware} to route the call to a sibling configuration
+     * while keeping the correlation id and the accumulated telemetry signals.
+     */
+    public function withConfiguration(?LlmConfiguration $configuration): self
+    {
+        return new self(
+            operation: $this->operation,
+            correlationId: $this->correlationId,
+            configuration: $configuration,
+            provider: $this->provider,
+            model: $this->model,
+            configurationIdentifier: $this->configurationIdentifier,
+            metadata: $this->metadata,
+            telemetrySignals: $this->telemetrySignals,
+        );
+    }
+
+    /**
+     * Return a copy with the given metadata merged on top of the current map,
+     * carrying the SAME telemetry-signal sink forward so a context re-derived
+     * mid-run does not drop the cache-hit / fallback signals collected against
+     * the original.
      *
      * @param array<string, mixed> $metadata
      */
@@ -73,11 +136,48 @@ final readonly class ProviderCallContext
         return new self(
             operation: $this->operation,
             correlationId: $this->correlationId,
+            configuration: $this->configuration,
+            provider: $this->provider,
+            model: $this->model,
+            configurationIdentifier: $this->configurationIdentifier,
             metadata: [...$this->metadata, ...$metadata],
-            // Carry the SAME signal sink forward: a context re-derived mid-run
-            // (e.g. to annotate downstream metadata) must not silently drop the
-            // cache-hit / fallback signals collected against the original.
             telemetrySignals: $this->telemetrySignals,
         );
+    }
+
+    /**
+     * The provider identifier for telemetry: the configuration entity's when
+     * present, else the string carried on the context.
+     */
+    public function telemetryProvider(): string
+    {
+        // A configuration entity can carry an empty provider (a transient/ad-hoc
+        // config), so fall through to the context string when it is empty, not
+        // only when the whole entity is absent.
+        $fromConfiguration = $this->configuration?->getProviderType() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->provider;
+    }
+
+    /**
+     * The model identifier for telemetry: the configuration entity's when
+     * present, else the string carried on the context.
+     */
+    public function telemetryModel(): string
+    {
+        $fromConfiguration = $this->configuration?->getModelId() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->model;
+    }
+
+    /**
+     * The configuration identifier for telemetry: the configuration entity's
+     * when present, else the string carried on the context.
+     */
+    public function telemetryConfigurationIdentifier(): string
+    {
+        $fromConfiguration = $this->configuration?->getIdentifier() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->configurationIdentifier;
     }
 }

@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -82,25 +81,26 @@ final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      *
      * @throws BudgetExceededException when the pre-flight check denies the call
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
         $beUserUid   = $this->readInt($context, self::METADATA_BE_USER_UID);
         $plannedCost = $this->readFloat($context, self::METADATA_PLANNED_COST);
 
-        $result = $this->budgetService->check($beUserUid, $plannedCost, $configuration);
+        // check() accepts a null configuration (per-user cap only); a call with
+        // no configuration entity — a specialized service — is still gated (ADR-096).
+        $result = $this->budgetService->check($beUserUid, $plannedCost, $context->configuration);
 
         if (!$result->allowed) {
             throw new BudgetExceededException($result);
         }
 
-        return $next($configuration);
+        return $next($context);
     }
 
     private function readInt(ProviderCallContext $context, string $key): int

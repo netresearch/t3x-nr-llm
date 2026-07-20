@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -23,9 +22,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  *
  * The pipeline is side-effect-free on its own; every behavioural decision
  * (retry on rate-limit, skip cache, record usage, ...) lives in a concrete
- * middleware. Consumers call `run()` with the immutable call context, the
- * primary configuration, and the terminal callable that performs the actual
- * provider invocation.
+ * middleware. Consumers call `run()` with the immutable call context (which carries the
+ * configuration) and the terminal callable that performs the actual provider
+ * invocation.
  */
 final readonly class MiddlewarePipeline
 {
@@ -47,25 +46,26 @@ final readonly class MiddlewarePipeline
     /**
      * @template T
      *
-     * @param callable(LlmConfiguration): T $terminal the actual provider call,
-     *                                                typically a closure over
-     *                                                messages / options /
-     *                                                adapter resolution
+     * @param callable(ProviderCallContext): T $terminal the actual provider
+     *                                                   call, typically a closure
+     *                                                   over messages / options /
+     *                                                   adapter resolution that
+     *                                                   reads the configuration
+     *                                                   from the context
      *
      * @return T
      */
     public function run(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $terminal,
     ): mixed {
         $next = $terminal;
         foreach (\array_reverse($this->middleware) as $middleware) {
             $captured = $next;
-            $next = static fn(LlmConfiguration $config): mixed
-                => $middleware->handle($context, $config, $captured);
+            $next = static fn(ProviderCallContext $ctx): mixed
+                => $middleware->handle($ctx, $captured);
         }
 
-        return $next($configuration);
+        return $next($context);
     }
 }

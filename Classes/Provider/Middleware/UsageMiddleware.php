@@ -89,14 +89,13 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
-        $result = $next($configuration);
+        $result = $next($context);
 
         // Usage recording is post-flight bookkeeping. A tracker/DB failure here
         // must not fail an already-successful provider call, nor propagate out to
@@ -104,7 +103,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // provider failure (success=false, the DB exception FQCN) and re-throw to
         // the caller. Fail soft, like every other accounting sink in the pipeline.
         try {
-            $this->track($context, $configuration, $result);
+            $this->track($context, $result);
         } catch (Throwable $e) {
             $this->logger->warning(
                 'Usage tracking failed after a successful provider call; the call result is unaffected.',
@@ -117,7 +116,6 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 
     private function track(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         mixed $result,
     ): void {
         [$usage, $provider, $responseModel] = $this->extractUsage($result);
@@ -125,13 +123,20 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             return;
         }
 
-        $model    = $configuration->getLlmModel();
-        $modelUid = $model?->getUid() ?? 0;
+        // A call with no configuration entity (a specialized service) carries no
+        // model entity: the model id and cost then come from the response and
+        // the context, not from a pricing lookup.
+        $configuration = $context->configuration;
+        $model         = $configuration?->getLlmModel();
+        $modelUid      = $model?->getUid() ?? 0;
         // Ad-hoc/transient configurations (e.g. the embeddings path) carry no
         // model, so getModelId() is ''. Fall back to the model the provider
         // actually reported on the response so per-model analytics attribute
         // the usage instead of dropping it into an empty-model bucket.
-        $modelId  = $configuration->getModelId();
+        // An empty model id on a present config (a transient/ad-hoc config) must
+        // still fall through to the context's model string, then to the model the
+        // provider reported — `?:` treats '' and null alike.
+        $modelId = ($configuration?->getModelId() ?: $context->model);
         if ($modelId === '' && $responseModel !== '') {
             $modelId = $responseModel;
         }
@@ -153,7 +158,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             $metrics['cost'] = $cost;
         }
 
-        $configUid = $configuration->getUid();
+        $configUid = $configuration?->getUid();
         $uid       = ($configUid !== null && $configUid > 0) ? $configUid : null;
 
         $taskUid = isset($context->metadata[self::METADATA_TASK_UID]) && is_int($context->metadata[self::METADATA_TASK_UID])
