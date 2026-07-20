@@ -62,6 +62,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The DALL·E image service dispatches through the shared middleware pipeline
+  (ADR-097): image generation/variation/edit now writes a telemetry row with a
+  correlation id and is guarded by the provider circuit breaker, like a chat
+  call. `AbstractSpecializedService` gained a required `MiddlewarePipeline`
+  constructor parameter (**breaking** for a subclass or manual construction).
+  Budget enforcement and usage recording are unchanged. FAL/Whisper/TTS/DeepL
+  follow in later steps.
+
 - The middleware pipeline's configuration moved from a separate parameter onto
   the call context: `MiddlewarePipeline::run(context, terminal)` and
   `ProviderMiddlewareInterface::handle(context, next)` no longer take a separate

@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -98,11 +100,37 @@ abstract class AbstractSpecializedService
         // silently disappears when a caller forgets to wire it is a fail-open
         // control on money (ADR-078 shipped it optional; that was wrong).
         protected readonly BudgetServiceInterface $budgetService,
+        // The cross-cutting lifecycle every AI call shares (ADR-097): routing the
+        // HTTP dispatch through the pipeline gives a specialized call the same
+        // telemetry row, correlation id and circuit breaker as a chat call.
+        // Required — a lifecycle that silently disappears is not a lifecycle.
+        protected readonly MiddlewarePipeline $pipeline,
         protected readonly ?ModelRepository $modelRepository = null,
         protected readonly ?LlmConfigurationRepository $configurationRepository = null,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();
+    }
+
+    /**
+     * Run one dispatch through the shared middleware pipeline (ADR-097).
+     *
+     * The call is described by a {@see ProviderCallContext} carrying the
+     * operation and the provider/model strings — no {@see LlmConfiguration}
+     * entity, so the fallback, cache and idempotency middleware self-disable and
+     * the budget middleware is inert (the per-call budget is still enforced by
+     * {@see self::enforceBudget()} before dispatch). What the pipeline adds is a
+     * telemetry row with a correlation id and the provider circuit breaker.
+     *
+     * @template T
+     *
+     * @param callable(): T $call the actual HTTP dispatch
+     *
+     * @return T
+     */
+    protected function runLifecycle(ProviderCallContext $context, callable $call): mixed
+    {
+        return $this->pipeline->run($context, static fn(): mixed => $call());
     }
 
     /**

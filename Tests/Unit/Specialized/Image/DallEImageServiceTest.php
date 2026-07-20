@@ -15,6 +15,10 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -83,9 +87,52 @@ class DallEImageServiceTest extends AbstractUnitTestCase
      * Build a DallEImageService wired to the vault mock, then inject the given
      * plain HTTP client through the test seam (bypasses the vault secure client
      * so request/response assertions can read the request the service built).
-     *
-     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null, budget?: BudgetServiceInterface|null} $repositories
      */
+    #[Test]
+    public function aGenerationIsRoutedThroughThePipelineWithAnImageServiceContext(): void
+    {
+        $captured   = null;
+        $middleware = new class ($captured) implements ProviderMiddlewareInterface {
+            /**
+             * @param ProviderCallContext|null $captured
+             */
+            public function __construct(private mixed &$captured) {}
+
+            public function handle(ProviderCallContext $context, callable $next): mixed
+            {
+                $this->captured = $context;
+
+                return $next($context);
+            }
+        };
+
+        $config = [
+            'providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']],
+        ];
+        $this->extensionConfigMock->expects(self::once())->method('get')->with('nr_llm')->willReturn($config);
+
+        $service = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            ['pipeline' => new MiddlewarePipeline([$middleware])],
+        );
+        $this->setupSuccessfulRequest(['data' => [['url' => 'https://example.org/i.png']]]);
+
+        $service->generate('a cat', ['model' => 'dall-e-3']);
+
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        // The dispatch now carries the shared lifecycle: a labelled operation,
+        // the provider and model for telemetry, and a correlation id (ADR-097).
+        self::assertSame(ProviderOperation::ImageGeneration, $captured->operation);
+        self::assertSame('dall-e', $captured->telemetryProvider());
+        self::assertSame('dall-e-3', $captured->telemetryModel());
+        self::assertNotSame('', $captured->correlationId);
+    }
+
     private function buildService(
         ClientInterface $httpClient,
         RequestFactoryInterface $requestFactory,
@@ -104,6 +151,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             $repositories['budget'] ?? new AllowingBudgetService(),
+            $repositories['pipeline'] ?? new MiddlewarePipeline([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );

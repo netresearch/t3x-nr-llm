@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -127,6 +128,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );
