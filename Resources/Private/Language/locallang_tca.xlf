@@ -300,6 +300,24 @@
                 <source>Description</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_provider.trust_zone">
+                <source>Trust zone</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.description">
+                <source>Where this provider's inference actually happens. It caps how sensitive the tool output a run may collect can be: Local allows everything up to secret-adjacent data, Private hosting up to system diagnostics, External (EU) up to internal configuration, External (global) up to editorial content. This is your declaration — the extension cannot verify where an endpoint runs.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.local">
+                <source>Local (this machine or network)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.privateHosted">
+                <source>Private hosting (own contract and control)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.externalEu">
+                <source>External service, EU jurisdiction</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.externalGlobal">
+                <source>External service, global</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.adapter_type">
                 <source>Adapter Type</source>
             </trans-unit>

@@ -385,6 +385,30 @@
                 <target>Beschreibung</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_provider.trust_zone">
+                <source>Trust zone</source>
+                <target>Vertrauenszone</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.description">
+                <source>Where this provider's inference actually happens. It caps how sensitive the tool output a run may collect can be: Local allows everything up to secret-adjacent data, Private hosting up to system diagnostics, External (EU) up to internal configuration, External (global) up to editorial content. This is your declaration — the extension cannot verify where an endpoint runs.</source>
+                <target>Wo die Inferenz dieses Providers tatsächlich stattfindet. Die Zone begrenzt, wie sensibel die Tool-Ausgaben eines Laufs sein dürfen: Lokal erlaubt alles bis hin zu credential-nahen Daten, Eigenes Hosting bis zu Systemdiagnosen, Extern (EU) bis zur internen Konfiguration, Extern (global) bis zu redaktionellen Inhalten. Die Angabe ist Ihre Erklärung — die Extension kann nicht prüfen, wo ein Endpunkt läuft.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.local">
+                <source>Local (this machine or network)</source>
+                <target>Lokal (dieser Rechner oder dieses Netz)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.privateHosted">
+                <source>Private hosting (own contract and control)</source>
+                <target>Eigenes Hosting (eigener Vertrag, eigene Kontrolle)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.externalEu">
+                <source>External service, EU jurisdiction</source>
+                <target>Externer Dienst, EU-Rechtsraum</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_provider.trust_zone.externalGlobal">
+                <source>External service, global</source>
+                <target>Externer Dienst, global</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_provider.adapter_type">
                 <source>Adapter Type</source>
                 <target>Adapter-Typ</target>

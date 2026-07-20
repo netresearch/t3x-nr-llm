@@ -391,3 +391,4 @@ Tools
    Adr091ConversationActorContext
    Adr092AgentRunTerminationReason
    Adr093ToolGateChokepoint
+   Adr094ToolDataClassTrustZone

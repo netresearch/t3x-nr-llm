@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Tool egress is governed by a data classification instead of denylists alone:
+  every tool has a `ToolDataClass` (from `publicContent` up to
+  `secretAdjacent`), every provider declares a `TrustZone` (`local`,
+  `privateHosted`, `externalEu`, `externalGlobal`) implying a ceiling, and the
+  new public `ToolCallPolicyInterface` decides — registered, enabled, permitted,
+  within the configuration's groups, within the ceiling — returning a typed
+  reason instead of a silent absence (ADR-094).
+  **Ships in observe mode**: `tools.dataClassEnforcement = observe` logs what
+  enforcement would do without removing anything. Run the
+  "Declare a trust zone for existing LLM providers" upgrade wizard and perform a
+  database compare after upgrading; an un-stamped provider resolves to the
+  strictest zone.
 - `AgentRunTerminationReason` records **why** an agent run ended — completed,
   iteration cap, exhausted budget, policy denial, denied approval, provider
   failure or cancellation — in a new `termination_reason` column. A budget stop

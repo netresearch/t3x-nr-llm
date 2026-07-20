@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -26,7 +28,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * TSconfig or any other authorization-bearing column is surfaced. Soft-deleted
  * groups are excluded and the row count is hard-capped at {@see self::HARD_LIMIT}.
  */
-final readonly class ListBeGroupsTool implements ToolInterface
+final readonly class ListBeGroupsTool implements ToolInterface, ToolDataClassInterface
 {
     use SafeCastTrait;
 
@@ -92,5 +94,13 @@ final readonly class ListBeGroupsTool implements ToolInterface
     public function getGroup(): string
     {
         return 'accounts';
+    }
+
+    /**
+     * Backend group structure exposes the installation permission model.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

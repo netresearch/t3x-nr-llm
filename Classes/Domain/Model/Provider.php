@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Domain\DTO\ProviderOptions;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Netresearch\NrVault\Utility\IdentifierValidator;
@@ -41,6 +42,13 @@ class Provider extends AbstractEntity
     protected string $name = '';
     protected string $description = '';
     protected string $adapterType = '';
+
+    /**
+     * The operator's declaration of where this provider runs (ADR-094). Empty
+     * on a row written before the declaration existed; {@see getTrustZoneEnum()}
+     * resolves that to the strictest zone.
+     */
+    protected string $trustZone = '';
     protected string $endpointUrl = '';
     protected string $apiKey = '';
     protected string $organizationId = '';
@@ -307,6 +315,32 @@ class Provider extends AbstractEntity
     public function setDescription(string $description): void
     {
         $this->description = $description;
+    }
+
+    public function getTrustZone(): string
+    {
+        return $this->trustZone;
+    }
+
+    /**
+     * The declared zone, never null: an empty or unknown stored value resolves
+     * to the strictest zone rather than pushing fail-closed handling out to
+     * every call site (contrast {@see getAdapterTypeEnum()}, which is nullable
+     * because an unknown adapter has no safe substitute).
+     */
+    public function getTrustZoneEnum(): TrustZone
+    {
+        return TrustZone::fromStringOrStrictest($this->trustZone);
+    }
+
+    public function setTrustZone(string $trustZone): void
+    {
+        $this->trustZone = $trustZone;
+    }
+
+    public function setTrustZoneEnum(TrustZone $trustZone): void
+    {
+        $this->trustZone = $trustZone->value;
     }
 
     public function setAdapterType(string $adapterType): void

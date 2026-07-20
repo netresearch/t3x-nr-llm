@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\LogExceptionEntry;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -31,7 +33,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * redaction); messages run through the URL-credential sanitizer; output is
  * line-capped.
  */
-final readonly class GetLastExceptionTool implements ToolInterface
+final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClassInterface
 {
     use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
@@ -196,5 +198,13 @@ final readonly class GetLastExceptionTool implements ToolInterface
         }
 
         return $out;
+    }
+
+    /**
+     * Exception bodies leak connection strings and tokens — the tool loop already refuses to pass exception messages into a tool result for this reason.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

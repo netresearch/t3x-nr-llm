@@ -13,6 +13,12 @@ CREATE TABLE tx_nrllm_provider (
 
     -- Connection settings
     adapter_type varchar(50) DEFAULT '' NOT NULL,
+
+    -- Where this provider's inference happens, as declared by the operator
+    -- (ADR-094). Governs the most sensitive tool output a run reaching it may
+    -- collect. Empty resolves to the strictest zone, so an un-migrated row can
+    -- never widen the gate.
+    trust_zone varchar(20) DEFAULT '' NOT NULL,
     endpoint_url varchar(500) DEFAULT '' NOT NULL,
     api_key varchar(500) DEFAULT '' NOT NULL,
     organization_id varchar(100) DEFAULT '' NOT NULL,

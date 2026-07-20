@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Site\SiteFinder;
@@ -29,7 +31,7 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * and the line count are capped, so a huge settings tree cannot flood the
  * egress.
  */
-final readonly class GetSiteConfigTool implements ToolInterface
+final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassInterface
 {
     use SafeCastTrait;
 
@@ -182,5 +184,13 @@ final readonly class GetSiteConfigTool implements ToolInterface
         }
 
         return mb_strimwidth($text, 0, self::VALUE_WIDTH, '…');
+    }
+
+    /**
+     * Site configuration carries search-backend credentials and third-party API keys.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

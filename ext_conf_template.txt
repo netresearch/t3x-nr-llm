@@ -115,6 +115,13 @@ testing.testPrompt = Say hello and introduce yourself in one sentence. Respond i
 telemetry.enabled = 1
 
 # =============================================================================
+# Tool egress policy (ADR-094)
+# =============================================================================
+
+# cat=tools; type=options[Observe (log only)=observe,Enforce=enforce]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Observe is the default so an upgrade cannot silently strip tools from working setups; check the run log, then switch to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
+tools.dataClassEnforcement = observe
+
+# =============================================================================
 # Privacy & data retention (ADR-064)
 # =============================================================================
 

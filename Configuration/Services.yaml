@@ -57,6 +57,14 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
 
+  # The composite tool gate (ADR-094): registered, enabled, permitted, within
+  # the configuration's groups, within the provider trust zone's data-class
+  # ceiling. Public because the backend module and functional tests ask it why
+  # a tool is missing; the two resolvers behind it stay private.
+  Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ToolCallPolicy
+    public: true
+
   Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageAnalyticsService
 

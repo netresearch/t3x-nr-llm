@@ -79,6 +79,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // test wiring keeps working; absent it the run is gated by the global
         // enablement and admin filters alone, exactly as before.
         private ?AllowedToolsResolver $allowedTools = null,
+        // The composite gate (ADR-094). When wired it is the single authority;
+        // absent it the loop falls back to the gates it applied before, which
+        // is what the lean unit-test wiring exercises.
+        private ?ToolCallPolicyInterface $toolPolicy = null,
     ) {}
 
     /**
@@ -435,6 +439,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration): array
     {
+        if ($this->toolPolicy !== null) {
+            $user = $this->actingBackendUser();
+
+            foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
+                if (!$decision->allowed || $decision->observedOnly) {
+                    $this->logger?->info('Tool gate: ' . $decision->message(), [
+                        'tool'   => $decision->toolName,
+                        'reason' => $decision->reason->value,
+                        'zone'   => $decision->zone->value,
+                    ]);
+                }
+            }
+
+            return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user);
+        }
+
         // Fail-closed global gate: the effective allow-set is always intersected
         // with the globally-enabled tools. A null caller list means "no per-run
         // restriction" and collapses to the enabled set (NOT every registered
