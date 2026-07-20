@@ -30,6 +30,16 @@ parameters:
 
   ignoreErrors:
     # --- phpstan-strict-rules ---
+    # A newer PHPStan than the CI matrix pins narrows some `?->` receivers to
+    # never-null (e.g. an enum resolved from a hard-coded set, or a property
+    # already proven non-null by an outer `if ($x !== null)`), then reports the
+    # nullsafe operator as redundant. The CI PHPStan cannot prove those and needs
+    # the `?->`, so the code must keep it. reportUnmatched:false makes this a
+    # no-op on the version that does not emit it, and a safety net for when CI
+    # bumps to the version that does.
+    -
+      message: '#Using nullsafe (method call|property access) on non-nullable type#'
+      reportUnmatched: false
     -
       message: '#Only booleans are allowed in#'
       reportUnmatched: false
