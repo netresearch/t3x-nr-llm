@@ -53,9 +53,11 @@ final class PublicServicesPolicyTest extends TestCase
      *   Completion/Vision/Embedding/Translation/ToolCalling (ADR-051)
      *   feature pairs.
      * - Category B (Supporting-service interface aliases; the concrete
-     *   classes are now private): 5 — CacheManagerInterface,
+     *   classes are now private): 6 — CacheManagerInterface,
      *   UsageTrackerServiceInterface, TranslatorRegistryInterface,
-     *   LlmConfigurationServiceInterface, BudgetServiceInterface.
+     *   LlmConfigurationServiceInterface, BudgetServiceInterface,
+     *   ToolLoopServiceInterface (ADR-084 tool loop, injected by downstream
+     *   extensions running the agent loop).
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
@@ -64,15 +66,15 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 19 + 5 + 1 + 5 + 2 = **32**.
+     * Total: 19 + 6 + 1 + 5 + 2 = **33**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr083ConversationSessions.rst` (the current
-     * count authority, superseding ADR-075's count) in the same PR — the
+     * `Documentation/Adr/Adr084HumanInTheLoopApproval.rst` (the current
+     * count authority, superseding ADR-083's count) in the same PR — the
      * diff is the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 32;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 33;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

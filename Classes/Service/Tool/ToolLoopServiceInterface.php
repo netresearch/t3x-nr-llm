@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 
@@ -47,5 +48,23 @@ interface ToolLoopServiceInterface
         int $seedIterations = 0,
         int $seedPromptTokens = 0,
         int $seedCompletionTokens = 0,
+    ): ToolLoopResult;
+
+    /**
+     * Resume a run suspended for human approval (ADR-084).
+     *
+     * Restores the run's original allow-list and options from the suspended
+     * state, then either executes the pending tool calls ($approved) or appends
+     * a denial for each. The tool gate is re-applied at resume time (a tool
+     * disabled or made admin-only meanwhile is not executed even when approved),
+     * and the pre-suspend counters are folded into the returned totals.
+     */
+    public function resume(
+        SuspendedRunState $state,
+        bool $approved,
+        LlmConfiguration $configuration,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+        ?int $beUserUid = null,
     ): ToolLoopResult;
 }

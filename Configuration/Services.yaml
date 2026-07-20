@@ -51,6 +51,7 @@ services:
 
   Netresearch\NrLlm\Service\UsageTrackerServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageTrackerService
+    public: true
 
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService

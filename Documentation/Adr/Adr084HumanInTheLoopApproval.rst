@@ -74,6 +74,13 @@ Consequences
 - The primitive lives in the runtime (`ToolLoopService` + the persistence layer),
   so any consumer — not only the playground — can suspend and resume; a
   downstream editor "review before the AI writes" flow builds on it.
+- **Public-service policy (count authority).** Extracting
+  ``ToolLoopServiceInterface`` — so downstream extensions inject and test-double
+  the loop (both ``runLoop()`` and ``resume()``) rather than the final
+  ``ToolLoopService`` — adds one ``public: true`` override, a Category B
+  supporting-service interface alias (the concrete stays private). The audited
+  count rises from **32 to 33** (Category B 5 → 6); ``PublicServicesPolicyTest``
+  is updated to match, and this ADR supersedes ADR-083 as the count authority.
 - Not in scope: a resume that re-plans (the model is simply continued from the
   approved result or the refusal), and per-call approval within a multi-call
   turn.
