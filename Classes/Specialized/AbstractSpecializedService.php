@@ -92,9 +92,12 @@ abstract class AbstractSpecializedService
         protected readonly UsageTrackerServiceInterface $usageTracker,
         protected readonly LoggerInterface $logger,
         protected readonly SpecializedCostCalculatorInterface $costCalculator,
+        // Required, and ahead of the optional collaborators: a budget gate that
+        // silently disappears when a caller forgets to wire it is a fail-open
+        // control on money (ADR-078 shipped it optional; that was wrong).
+        protected readonly BudgetServiceInterface $budgetService,
         protected readonly ?ModelRepository $modelRepository = null,
         protected readonly ?LlmConfigurationRepository $configurationRepository = null,
-        protected readonly ?BudgetServiceInterface $budgetService = null,
     ) {
         $this->timeout = $this->getDefaultTimeout();
         $this->loadConfiguration();
@@ -121,10 +124,6 @@ abstract class AbstractSpecializedService
      */
     protected function enforceBudget(?int $beUserUid, ?float $plannedCost, ?string $configurationIdentifier = null): void
     {
-        if ($this->budgetService === null) {
-            return;
-        }
-
         $configuration = $configurationIdentifier !== null
             ? $this->findActiveConfiguration($configurationIdentifier)
             : null;

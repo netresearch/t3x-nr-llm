@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -84,6 +85,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -106,6 +108,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClient);
 
@@ -137,6 +140,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -272,6 +276,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
 
         $reflection = new ReflectionClass($translator);
@@ -487,6 +492,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -532,6 +538,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -576,6 +583,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -951,6 +959,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -1126,6 +1135,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $subject->setHttpClient($httpClientStub);
 

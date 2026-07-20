@@ -66,9 +66,17 @@ use Throwable;
  * turn an already-successful provider call into an error — nor be mis-recorded
  * by TelemetryMiddleware as a provider failure.
  *
- * The default pipeline order is pinned via tag priority (Telemetry outermost
- * at 110 as a pure observer, then Cache at 100, Budget at 75, Fallback at 50,
- * Usage at 25, CircuitBreaker innermost at 20).
+ * The registered pipeline order, pinned by tag priority:
+ *
+ *   TelemetryMiddleware        <-- outermost; pure observer          (priority 110)
+ *     IdempotencyMiddleware    <-- replays a stored result by key    (priority 105)
+ *       CacheMiddleware        <-- short-circuits on hit             (priority 100)
+ *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
+ *           BudgetMiddleware   <-- pre-flight denial                 (priority 75)
+ *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
+ *               UsageMiddleware  <-- records the call that ran       (priority 25)
+ *                 CircuitBreaker <-- guards the provider call        (priority 20)
+ *                   <terminal>
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 25])]
 final readonly class UsageMiddleware implements ProviderMiddlewareInterface

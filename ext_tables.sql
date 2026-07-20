@@ -13,6 +13,12 @@ CREATE TABLE tx_nrllm_provider (
 
     -- Connection settings
     adapter_type varchar(50) DEFAULT '' NOT NULL,
+
+    -- Where this provider's inference happens, as declared by the operator
+    -- (ADR-094). Governs the most sensitive tool output a run reaching it may
+    -- collect. Empty resolves to the strictest zone, so an un-migrated row can
+    -- never widen the gate.
+    trust_zone varchar(20) DEFAULT '' NOT NULL,
     endpoint_url varchar(500) DEFAULT '' NOT NULL,
     api_key varchar(500) DEFAULT '' NOT NULL,
     organization_id varchar(100) DEFAULT '' NOT NULL,
@@ -672,6 +678,11 @@ CREATE TABLE tx_nrllm_agentrun (
     estimated_cost decimal(10,6) DEFAULT '0.000000' NOT NULL,
     error_class varchar(255) DEFAULT '' NOT NULL,
 
+    -- Why the run ended (ADR-092). The status says what state the run is in,
+    -- this says how it got there: an iteration cap and an exhausted budget both
+    -- surface as completed-but-truncated and are otherwise indistinguishable.
+    termination_reason varchar(32) DEFAULT '' NOT NULL,
+
     -- Resumable state (ADR-084): serialised transcript + pending tool calls while
     -- status = waiting_for_approval; empty otherwise.
     suspended_state mediumtext,
@@ -741,7 +752,7 @@ CREATE TABLE tx_nrllm_ai_session (
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY session_uuid (uuid),
+    UNIQUE KEY session_uuid (uuid),
     KEY be_user (be_user, last_activity),
     KEY inactivity (last_activity)
 );
@@ -768,5 +779,7 @@ CREATE TABLE tx_nrllm_ai_session_message (
     PRIMARY KEY (uid),
     KEY parent (pid),
     -- Replay read path: a session's turns in order.
-    KEY session_sequence (session, sequence)
+    -- Unique, not merely indexed: it is the authority that decides which of two
+    -- concurrent turns owns a sequence (ADR-083).
+    UNIQUE KEY session_sequence (session, sequence)
 );

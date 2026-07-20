@@ -99,6 +99,14 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         array $options = [],
     ): TranslatorResult {
         $this->ensureAvailable();
+        // Budget pre-flight before any dispatch. DeepL was excluded from
+        // ADR-078 while it was the only specialized service without one; a paid
+        // external call that no cap can stop is not a defensible exception.
+        $this->enforceBudget(
+            $this->extractBeUserUid($options),
+            $this->extractPlannedCost($options),
+            $this->extractConfigurationIdentifier($options),
+        );
 
         $targetLanguage = $this->normalizeLanguageCode($targetLanguage, false);
         if ($sourceLanguage !== null) {
@@ -150,6 +158,11 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         $this->ensureAvailable();
+        $this->enforceBudget(
+            $this->extractBeUserUid($options),
+            $this->extractPlannedCost($options),
+            $this->extractConfigurationIdentifier($options),
+        );
 
         $targetLanguage = $this->normalizeLanguageCode($targetLanguage, false);
         if ($sourceLanguage !== null) {
@@ -647,6 +660,32 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $beUserUid = $options['beUserUid'] ?? null;
 
         return is_int($beUserUid) ? $beUserUid : null;
+    }
+
+    /**
+     * The per-call cost the caller expects, for the budget pre-flight. Never
+     * part of the DeepL payload.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractPlannedCost(array $options): ?float
+    {
+        $plannedCost = $options['plannedCost'] ?? null;
+
+        return (is_float($plannedCost) || is_int($plannedCost)) && $plannedCost >= 0 ? (float)$plannedCost : null;
+    }
+
+    /**
+     * The configuration a caller attributed this translation to, so the
+     * per-configuration caps apply and not only the per-user one.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractConfigurationIdentifier(array $options): ?string
+    {
+        $identifier = $options['configuration'] ?? null;
+
+        return is_string($identifier) && $identifier !== '' ? $identifier : null;
     }
 
     /**

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -49,6 +50,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
 
         // Inject a client that returns a successful empty-detect response so the
@@ -81,6 +83,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             self::createStub(UsageTrackerServiceInterface::class),
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClient);
 
@@ -528,6 +531,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClientMock);
 

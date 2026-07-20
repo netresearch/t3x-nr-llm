@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -32,6 +33,10 @@ final readonly class GetTcaTool implements ToolInterface
 
     /** Upper bound on listed tables / columns to keep the egress bounded. */
     private const MAX_ITEMS = 500;
+
+    public function __construct(
+        private readonly TableReadAccessService $tableAccess,
+    ) {}
 
     public function getSpec(): ToolSpec
     {
@@ -92,9 +97,15 @@ final readonly class GetTcaTool implements ToolInterface
         }
 
         $names = array_map(static fn(int|string $name): string => (string)$name, array_keys($tca));
+        // Routed through the shared table policy, not the raw permission check:
+        // BackendUserAuthentication::check() returns true for every table for an
+        // admin, so the raw check listed the extension's own credential-bearing
+        // tables (and nr_vault's) to any admin-run loop. Its sibling
+        // GetFullTcaTool has always used this policy — two schema tools must not
+        // disagree on what may be read (ADR-093).
         $names = array_values(array_filter(
             $names,
-            static fn(string $name): bool => $user->check('tables_select', $name),
+            fn(string $name): bool => $this->tableAccess->canReadTable($user, $name),
         ));
         sort($names);
         $names = array_slice($names, 0, self::MAX_ITEMS);
@@ -111,7 +122,7 @@ final readonly class GetTcaTool implements ToolInterface
         // unknown) table returns the same neutral string so the tool never
         // confirms a table's existence to someone without access.
         $user = $this->actingBackendUser();
-        if ($user === null || !$user->check('tables_select', $table)) {
+        if ($user === null || !$this->tableAccess->canReadTable($user, $table)) {
             return 'Unknown TCA table.';
         }
 

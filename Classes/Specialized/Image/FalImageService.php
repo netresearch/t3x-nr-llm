@@ -87,7 +87,11 @@ final class FalImageService extends AbstractSpecializedService
         array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
-        $this->enforceBudget($this->extractBeUserUid($options), $this->extractPlannedCost($options), null);
+        $this->enforceBudget(
+            $this->extractBeUserUid($options),
+            $this->extractPlannedCost($options),
+            $this->extractConfigurationIdentifier($options),
+        );
 
         $modelEndpoint = $this->resolveModelEndpoint($model);
 
@@ -149,7 +153,11 @@ final class FalImageService extends AbstractSpecializedService
         $count = min(max($count, 1), 4);
         $options['num_images'] = $count;
 
-        $this->enforceBudget($this->extractBeUserUid($options), $this->extractPlannedCost($options), null);
+        $this->enforceBudget(
+            $this->extractBeUserUid($options),
+            $this->extractPlannedCost($options),
+            $this->extractConfigurationIdentifier($options),
+        );
 
         $modelEndpoint = $this->resolveModelEndpoint($model);
         $payload = $this->buildGeneratePayload($prompt, $options);
@@ -433,6 +441,21 @@ final class FalImageService extends AbstractSpecializedService
         $beUserUid = $options['beUserUid'] ?? null;
 
         return is_int($beUserUid) && $beUserUid >= 0 ? $beUserUid : null;
+    }
+
+    /**
+     * The configuration a caller attributed this call to, for the
+     * per-configuration budget caps. Like `beUserUid` and `plannedCost` this is
+     * consumer metadata the allowlist payload builder drops before the request
+     * is sent. Without it only the per-user cap could ever fire here (ADR-078).
+     *
+     * @param array<string, mixed> $options
+     */
+    private function extractConfigurationIdentifier(array $options): ?string
+    {
+        $identifier = $options['configuration'] ?? null;
+
+        return is_string($identifier) && $identifier !== '' ? $identifier : null;
     }
 
     /**

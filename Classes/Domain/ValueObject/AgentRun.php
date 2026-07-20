@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 
 /**
  * A persisted agent run, read back from `tx_nrllm_agentrun` (ADR-081).
@@ -34,6 +35,7 @@ final readonly class AgentRun
         public int $totalTokens,
         public float $estimatedCost,
         public string $errorClass,
+        public string $terminationReason,
         public int $startedAt,
         public int $finishedAt,
         public int $crdate,
@@ -49,5 +51,15 @@ final readonly class AgentRun
     public function statusEnum(): ?AgentRunStatus
     {
         return AgentRunStatus::tryFromString($this->status);
+    }
+
+    /**
+     * Why the run ended, as a typed enum; null while it is still going or when
+     * the stored value is unknown (forward compatibility, same guard as
+     * {@see self::statusEnum()}).
+     */
+    public function terminationReasonEnum(): ?AgentRunTerminationReason
+    {
+        return AgentRunTerminationReason::tryFromString($this->terminationReason);
     }
 }

@@ -65,7 +65,7 @@ trait LlmServiceManagerTestFactory
             $skillInjection,
             $modelSelectionService,
             $streaming,
-            $inputScreener,
+            $inputScreener ?? new InputGuardrailScreener([]),
         );
     }
 }

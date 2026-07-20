@@ -33,6 +33,9 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_EVENT = 'tx_nrllm_agentrun_event';
 
+    /** Rows deleted per statement, so a neglected install purges in batches. */
+    private const PURGE_CHUNK_SIZE = 500;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -55,6 +58,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'total_tokens'             => 0,
             'estimated_cost'           => 0.0,
             'error_class'              => '',
+            'termination_reason'       => '',
             'started_at'               => $now,
             'finished_at'              => 0,
             'tstamp'                   => $now,
@@ -88,25 +92,40 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void {
-        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
-            self::TABLE_RUN,
-            [
-                'status'                  => $status,
-                'iterations'              => $iterations,
-                'truncated'               => $truncated ? 1 : 0,
-                'total_prompt_tokens'     => $promptTokens,
-                'total_completion_tokens' => $completionTokens,
-                'total_tokens'            => $totalTokens,
-                'estimated_cost'          => $estimatedCost,
-                'error_class'             => $errorClass,
-                // A terminal run is no longer suspended.
-                'suspended_state'         => '',
-                'finished_at'             => time(),
-                'tstamp'                  => time(),
-            ],
-            ['uid' => $runUid],
-        );
+        string $terminationReason = '',
+    ): bool {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $builder    = $connection->createQueryBuilder();
+        $now        = time();
+
+        // Guarded transition: only a non-terminal run may be settled. Without the
+        // predicate a late callback could reopen or overwrite a finished run —
+        // COMPLETED -> RUNNING -> COMPLETED with different totals (ADR-092).
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', $status)
+            ->set('iterations', $builder->createNamedParameter($iterations, Connection::PARAM_INT), false)
+            ->set('truncated', $builder->createNamedParameter($truncated ? 1 : 0, Connection::PARAM_INT), false)
+            ->set('total_prompt_tokens', $builder->createNamedParameter($promptTokens, Connection::PARAM_INT), false)
+            ->set('total_completion_tokens', $builder->createNamedParameter($completionTokens, Connection::PARAM_INT), false)
+            ->set('total_tokens', $builder->createNamedParameter($totalTokens, Connection::PARAM_INT), false)
+            ->set('estimated_cost', $builder->createNamedParameter((string)$estimatedCost, Connection::PARAM_STR), false)
+            ->set('error_class', $errorClass)
+            ->set('termination_reason', $terminationReason)
+            // A terminal run is no longer suspended.
+            ->set('suspended_state', '')
+            ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->in(
+                    'status',
+                    $builder->createNamedParameter(AgentRunStatus::nonTerminalValues(), Connection::PARAM_STR_ARRAY),
+                ),
+            )
+            ->executeStatement();
+
+        return $affected > 0;
     }
 
     public function suspendRun(int $runUid, string $stateJson): void
@@ -186,15 +205,40 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function purgeOlderThan(int $timestamp): int
     {
-        // Delete the runs' events by run id first, then the runs — deleting each
-        // table independently by crdate would orphan events of a run that began
-        // before the cutoff but recorded events after it.
+        return $this->purgeRuns($timestamp, AgentRunStatus::terminalValues());
+    }
+
+    public function purgeUnfinishedOlderThan(int $timestamp): int
+    {
+        return $this->purgeRuns($timestamp, AgentRunStatus::nonTerminalValues());
+    }
+
+    /**
+     * Delete runs created before the cutoff whose status is in the given set,
+     * together with their events.
+     *
+     * Events go first and are addressed by run id: deleting each table
+     * independently by crdate would orphan the events of a run that began before
+     * the cutoff but recorded events after it. Both deletes are chunked so a
+     * long-neglected installation does not build one unbounded IN() list.
+     *
+     * @param list<string> $statuses
+     */
+    private function purgeRuns(int $timestamp, array $statuses): int
+    {
+        if ($statuses === []) {
+            return 0;
+        }
+
         $runConnection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $selectBuilder = $runConnection->createQueryBuilder();
         $rows          = $selectBuilder
             ->select('uid')
             ->from(self::TABLE_RUN)
-            ->where($selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
+            ->where(
+                $selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)),
+                $selectBuilder->expr()->in('status', $selectBuilder->createNamedParameter($statuses, Connection::PARAM_STR_ARRAY)),
+            )
             ->executeQuery()
             ->fetchAllAssociative();
 
@@ -204,18 +248,23 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         }
 
         $eventConnection = $this->connectionPool->getConnectionForTable(self::TABLE_EVENT);
-        $eventBuilder    = $eventConnection->createQueryBuilder();
-        $eventBuilder
-            ->delete(self::TABLE_EVENT)
-            ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
-            ->executeStatement();
+        $deleted         = 0;
 
-        $deleteBuilder = $runConnection->createQueryBuilder();
+        foreach (array_chunk($uids, self::PURGE_CHUNK_SIZE) as $chunk) {
+            $eventBuilder = $eventConnection->createQueryBuilder();
+            $eventBuilder
+                ->delete(self::TABLE_EVENT)
+                ->where($eventBuilder->expr()->in('run', $eventBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
 
-        return (int)$deleteBuilder
-            ->delete(self::TABLE_RUN)
-            ->where($deleteBuilder->expr()->lt('crdate', $deleteBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)))
-            ->executeStatement();
+            $deleteBuilder = $runConnection->createQueryBuilder();
+            $deleted += (int)$deleteBuilder
+                ->delete(self::TABLE_RUN)
+                ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
+        }
+
+        return $deleted;
     }
 
     /**
@@ -237,6 +286,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             totalTokens: self::toInt($row['total_tokens'] ?? 0),
             estimatedCost: self::toFloat($row['estimated_cost'] ?? 0),
             errorClass: self::toStr($row['error_class'] ?? ''),
+            terminationReason: self::toStr($row['termination_reason'] ?? ''),
             startedAt: self::toInt($row['started_at'] ?? 0),
             finishedAt: self::toInt($row['finished_at'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),

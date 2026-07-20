@@ -34,6 +34,16 @@ enum ToolEgressScope: string
     case OWN_SITE = 'own_site';
 
     /**
+     * An operator-declared service endpoint that is not a site base — the
+     * search backend a RAG tool queries, for example. The host comes from the
+     * site configuration, never from the model, and the request must match that
+     * declaration exactly. OWN_SITE cannot express it: a Solr host is not a
+     * site base, so without this case the policy could only be satisfied by
+     * misdeclaring the group (ADR-093).
+     */
+    case CONFIGURED_ENDPOINT = 'configured_endpoint';
+
+    /**
      * @return list<string>
      */
     public static function values(): array

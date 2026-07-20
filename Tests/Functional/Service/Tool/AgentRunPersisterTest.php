@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -46,7 +49,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
         $this->repository = new AgentRunRepository($connectionPool);
-        $this->persister  = new AgentRunPersister($this->repository, new NullLogger());
+        $this->persister  = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
     }
 
     #[Test]
@@ -86,6 +89,66 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertNotNull($settled);
         self::assertSame('completed', $settled->status);
         self::assertNull($settled->suspendedState);
+    }
+
+    #[Test]
+    public function aSettledRunCannotBeSettledAgain(): void
+    {
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+
+        $this->persister->settleCompleted($handle, new ToolLoopResult('first', [], 2, false, UsageStatistics::fromTokens(10, 5)));
+        // A late callback (a finally-block settle after a client disconnect, a
+        // duplicate stream teardown) must not reopen or overwrite the outcome.
+        $this->persister->settleFailed($handle, new RuntimeException('late failure', 1784600402));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('completed', $run->status);
+        self::assertSame('', $run->errorClass);
+        self::assertSame(10, $run->totalPromptTokens);
+    }
+
+    #[Test]
+    public function theTerminationReasonSurvivesTheRoundTrip(): void
+    {
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+
+        $this->persister->settleCompleted($handle, new ToolLoopResult(
+            '',
+            [],
+            4,
+            true,
+            UsageStatistics::fromTokens(1, 1),
+            AgentRunTerminationReason::BUDGET_EXHAUSTED,
+        ));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        // Both a budget stop and an iteration cap are completed-and-truncated;
+        // only the reason tells an operator which one happened.
+        self::assertTrue($run->truncated);
+        self::assertSame(AgentRunTerminationReason::BUDGET_EXHAUSTED, $run->terminationReasonEnum());
+    }
+
+    #[Test]
+    public function cancelMovesANonTerminalRunToCancelledAndRefusesAFinishedOne(): void
+    {
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+
+        self::assertTrue($this->persister->cancel($handle->uuid));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('cancelled', $run->status);
+        self::assertSame(AgentRunTerminationReason::CANCELLED, $run->terminationReasonEnum());
+        self::assertSame('', $run->errorClass, 'Cancelling is not failing.');
+
+        // Already terminal: the guarded transition refuses the second cancel.
+        self::assertFalse($this->persister->cancel($handle->uuid));
+        self::assertFalse($this->persister->cancel('00000000-0000-0000-0000-000000000000'));
     }
 
     #[Test]

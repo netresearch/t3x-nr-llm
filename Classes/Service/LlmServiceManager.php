@@ -52,10 +52,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         private ?ModelSelectionServiceInterface $modelSelectionService = null,
         private ?StreamingDispatcher $streaming = null,
         // Input-side guardrails (ADR-087): screen/redact the outgoing prompt on
-        // the send path (the pipeline cannot reach the payload). Optional so the
-        // lean unit-test constructions keep working — absent it, input screening
-        // is a no-op, exactly as with the other optional collaborators above.
-        private ?InputGuardrailScreener $inputScreener = null,
+        // the send path (the pipeline cannot reach the payload). Required, not
+        // optional: a screener that silently disappears is a fail-open control.
+        // The default is an empty screener — no guardrails registered means
+        // nothing to screen, which is honest; a null screener meant "screening
+        // was requested and skipped", which was not.
+        private InputGuardrailScreener $inputScreener = new InputGuardrailScreener([]),
     ) {}
 
     /**
@@ -102,8 +104,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
     /**
      * Screen (and redact) the outgoing messages through the input guardrails
-     * before they reach a provider (ADR-087). A no-op when no screener is wired
-     * (lean unit-test constructions). Throws
+     * before they reach a provider (ADR-087). With no guardrails registered the
+     * screener passes the messages through unchanged. Throws
      * {@see \Netresearch\NrLlm\Exception\GuardrailViolationException} /
      * {@see \Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException} on a
      * DENY / REQUIRE_APPROVAL verdict — at call time, so an over-policy prompt
@@ -115,10 +117,6 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function screenInput(array $messages): array
     {
-        if ($this->inputScreener === null) {
-            return $messages;
-        }
-
         return $this->inputScreener->screen($messages);
     }
 
@@ -127,14 +125,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * ``complete`` entry points take a bare string, not a message list, so they
      * cannot use {@see self::screenInput()}. Wraps the prompt as a single user
      * message, screens it (so a REDACT rewrites it and a DENY / REQUIRE_APPROVAL
-     * throws), and returns the redacted text. A no-op when no screener is wired.
+     * throws), and returns the redacted text.
      */
     private function screenInputPrompt(string $prompt): string
     {
-        if ($this->inputScreener === null) {
-            return $prompt;
-        }
-
         $screened = $this->inputScreener->screen([ChatMessage::user($prompt)]);
         $message  = $screened[0] ?? null;
 
@@ -827,6 +821,27 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * instead of the resolved instance default. A pinned provider on the options
      * is irrelevant on the configuration path and is dropped, matching chat().
      */
+    /**
+     * Chat against a specific configuration from a ChatOptions object.
+     *
+     * The message-list counterpart of {@see self::completeForConfiguration()};
+     * see the interface for the contract.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    {
+        $options ??= new ChatOptions();
+        [, $optionsArray] = $this->splitProviderKey($options->toArray());
+
+        return $this->chatWithConfiguration(
+            $this->injectConfigSkillsIntoMessages($messages, $configuration),
+            $configuration,
+            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $optionsArray,
+        );
+    }
+
     public function completeForConfiguration(string $prompt, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
     {
         $options ??= new ChatOptions();

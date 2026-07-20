@@ -32,7 +32,13 @@ interface AgentRunRepositoryInterface
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void;
 
     /**
-     * Move a run into a terminal state, recording its final totals.
+     * Move a run into a terminal state, recording its final totals and why it
+     * ended.
+     *
+     * Guarded: only a run that is not already terminal transitions. A late or
+     * duplicate settle therefore cannot reopen or overwrite a finished run.
+     *
+     * @return bool true when the run transitioned, false when it was already terminal (or gone)
      */
     public function finishRun(
         int $runUid,
@@ -44,7 +50,8 @@ interface AgentRunRepositoryInterface
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void;
+        string $terminationReason = '',
+    ): bool;
 
     /**
      * Suspend a run for human approval (ADR-084): persist its serialised state
@@ -68,9 +75,25 @@ interface AgentRunRepositoryInterface
     public function findEvents(int $runUid): array;
 
     /**
-     * Delete runs (and their events) created before the given timestamp.
+     * Delete FINISHED runs (and their events) created before the given
+     * timestamp.
+     *
+     * Only terminal runs — completed, failed, cancelled — are eligible. A run
+     * still queued, running or waiting for a human approval carries the state
+     * needed to resume it; purging it by age alone would destroy work in flight.
+     * Those are reaped separately by {@see purgeUnfinishedOlderThan()}.
      *
      * @return int Number of run rows deleted.
      */
     public function purgeOlderThan(int $timestamp): int;
+
+    /**
+     * Delete runs (and their events) created before the given timestamp that
+     * never reached a terminal status — abandoned runs and approvals nobody
+     * ever decided. Governed by its own, deliberately longer retention window
+     * ({@see \Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory::APPROVAL}).
+     *
+     * @return int Number of run rows deleted.
+     */
+    public function purgeUnfinishedOlderThan(int $timestamp): int;
 }

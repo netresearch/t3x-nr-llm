@@ -59,4 +59,32 @@ enum AgentRunStatus: string
             default => false,
         };
     }
+
+    /**
+     * The terminal statuses as raw values, for an SQL predicate.
+     *
+     * @return list<string>
+     */
+    public static function terminalValues(): array
+    {
+        return array_values(array_map(
+            static fn(self $case): string => $case->value,
+            array_filter(self::cases(), static fn(self $case): bool => $case->isTerminal()),
+        ));
+    }
+
+    /**
+     * The non-terminal statuses as raw values: a run that is still queued,
+     * running, or waiting for a human. Retention treats these separately —
+     * deleting one destroys work in flight.
+     *
+     * @return list<string>
+     */
+    public static function nonTerminalValues(): array
+    {
+        return array_values(array_map(
+            static fn(self $case): string => $case->value,
+            array_filter(self::cases(), static fn(self $case): bool => !$case->isTerminal()),
+        ));
+    }
 }

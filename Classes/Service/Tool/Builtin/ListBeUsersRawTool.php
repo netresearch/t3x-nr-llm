@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -31,7 +33,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * are truncated to {@see self::MAX_VALUE_LENGTH} and rows capped at
  * {@see self::HARD_LIMIT} to bound the egress.
  */
-final readonly class ListBeUsersRawTool implements ToolInterface
+final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassInterface
 {
     use SafeCastTrait;
 
@@ -124,5 +126,13 @@ final readonly class ListBeUsersRawTool implements ToolInterface
     public function getGroup(): string
     {
         return 'accounts';
+    }
+
+    /**
+     * Unredacted backend user rows: password hashes, tokens and personal data.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

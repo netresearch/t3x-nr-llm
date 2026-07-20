@@ -400,6 +400,21 @@ final readonly class TranslationService implements TranslationServiceInterface
             $optionsArray['beUserUid'] = $beUserUid;
         }
 
+        // The same reasoning applies to the other two budget fields: the
+        // translator path bypasses the middleware pipeline, so a planned cost
+        // and a configuration the caller set would never reach the translator's
+        // own budget pre-flight (ADR-078). Translators read these keys and must
+        // not send them to the remote API.
+        $plannedCost = $options->getPlannedCost();
+        if ($plannedCost !== null) {
+            $optionsArray['plannedCost'] = $plannedCost;
+        }
+
+        $configuration = $options->getConfiguration();
+        if ($configuration !== null && $configuration !== '') {
+            $optionsArray['configuration'] = $configuration;
+        }
+
         return $optionsArray;
     }
 

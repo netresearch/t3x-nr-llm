@@ -34,7 +34,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var list<array{runUid: int, sequence: int, kind: string, round: int, durationMs: float, payloadJson: string}> */
     public array $events = [];
 
-    /** @var array{runUid: int, status: string, iterations: int, truncated: bool, promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: float, errorClass: string}|null */
+    /** @var array{runUid: int, status: string, iterations: int, truncated: bool, promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: float, errorClass: string, terminationReason: string}|null */
     public ?array $finished = null;
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
@@ -77,9 +77,13 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
-    ): void {
+        string $terminationReason = '',
+    ): bool {
         if ($this->throwOnFinish) {
             throw new RuntimeException('finishRun failed', 7543565687);
+        }
+        if ($this->refuseFinish) {
+            return false;
         }
         $this->finished = [
             'runUid'           => $runUid,
@@ -90,15 +94,26 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             'completionTokens' => $completionTokens,
             'totalTokens'      => $totalTokens,
             'estimatedCost'    => $estimatedCost,
-            'errorClass'       => $errorClass,
+            'errorClass'         => $errorClass,
+            'terminationReason'  => $terminationReason,
         ];
+
+        return true;
     }
+
+    /** Simulates a run that is already terminal, so the guarded update matches no row. */
+    public bool $refuseFinish = false;
 
     /** @var array{runUid: int, stateJson: string}|null */
     public ?array $suspended = null;
 
+    public bool $throwOnSuspend = false;
+
     public function suspendRun(int $runUid, string $stateJson): void
     {
+        if ($this->throwOnSuspend) {
+            throw new RuntimeException('suspendRun failed', 1784600401);
+        }
         $this->suspended = ['runUid' => $runUid, 'stateJson' => $stateJson];
     }
 
@@ -135,6 +150,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     }
 
     public function purgeOlderThan(int $timestamp): int
+    {
+        return 0;
+    }
+
+    public function purgeUnfinishedOlderThan(int $timestamp): int
     {
         return 0;
     }

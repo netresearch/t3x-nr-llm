@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -97,6 +98,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
+            new AllowingBudgetService(),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );
@@ -650,7 +652,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $configuration->_setProperty('uid', 11);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $configurationRepository->expects(self::once())->method('findOneByIdentifier')
+        // Called twice now: once by the budget pre-flight, once for the usage
+        // row's configuration link. The count is not what this test is about.
+        $configurationRepository->method('findOneByIdentifier')
             ->with('podcast-narration')
             ->willReturn($configuration);
 

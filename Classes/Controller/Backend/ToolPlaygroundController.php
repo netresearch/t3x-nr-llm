@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -28,7 +29,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -93,7 +93,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly PageRenderer $pageRenderer,
         private readonly ToolLoopService $toolLoopService,
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
-        private readonly AllowedToolsResolver $allowedToolsResolver,
         private readonly SkillRepository $skillRepository,
         private readonly PromptSnippetRepository $promptSnippetRepository,
         // Optional and last so the existing direct constructions in the
@@ -187,14 +186,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // regardless (a disabled tool stays off).
         $selected = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
 
-        // Stay faithful to production (ADR-038 §5): if the configuration's skills
-        // declare an allowed-tools allow-list, intersect the admin's selection
-        // with it so the playground offers only what the config would actually
-        // permit. null = no declaring skill ⇒ no skill-imposed restriction.
-        $skillAllowed = $this->allowedToolsResolver->resolve($config);
-        $allowed      = $skillAllowed !== null
-            ? array_values(array_intersect($selected, $skillAllowed))
-            : $selected;
+        // The selection is a request, not a grant: the configuration's skill
+        // allow-list and allowed_tool_groups are applied inside the loop since
+        // ADR-093, so every consumer of ToolLoopServiceInterface gets the same
+        // gate — not just this controller.
+        $allowed = $selected;
 
         $augmentation = new RunAugmentation(
             forcedSkills: $this->resolveForcedSkills($this->uidListFromBody($body, 'forcedSkills')),
@@ -234,8 +230,18 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             // suspended state (transcript + pending calls) so a later resume can
             // continue, and return an awaiting-approval response — caught BEFORE
             // the generic Throwable below so a suspension is not a failed run.
-            if ($handle !== null) {
-                $this->agentRunPersister?->suspend($handle, $approval->state);
+            $persister = $this->agentRunPersister;
+            if ($handle !== null && $persister !== null && !$persister->suspend($handle, $approval->state)) {
+                // Fail-closed: an approval-gated tool is side-effecting. Without
+                // stored state there is nothing to resume, so promising the
+                // client an approval flow would strand the run (ADR-092).
+                $persister->settleFailed($handle, $approval);
+                $this->logger?->error('Agent run could not be suspended for approval; the run was failed instead', ['run' => $handle->uuid]);
+
+                return $this->respondJson([
+                    'success' => false,
+                    'error'   => 'The run required approval but its state could not be stored, so it cannot be resumed.',
+                ], 500);
             }
 
             return $this->respondJson($this->awaitingApprovalPayload($handle !== null ? $handle->uuid : '', $approval, $trace));
@@ -393,7 +399,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         RunTrace $trace,
     ): ResponseInterface {
         if ($handle !== null) {
-            $this->agentRunPersister?->settleFailed($handle, $guardrail);
+            $this->agentRunPersister?->settlePolicyStopped($handle, $guardrail, $this->guardrailTerminationReason($guardrail));
         }
         $this->logger?->warning('Tool playground run blocked by guardrail', ['exception' => $guardrail]);
 
@@ -447,6 +453,20 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         return $guardrail instanceof GuardrailApprovalRequiredException
             ? 'guardrail_approval_required'
             : 'guardrail_blocked';
+    }
+
+    /**
+     * Why the run ended, for the persisted row (ADR-092). A guardrail stop is a
+     * policy outcome, so it is never recorded as a provider failure; an
+     * approval that was required and never obtained is recorded as such rather
+     * than as an outright denial.
+     */
+    private function guardrailTerminationReason(
+        GuardrailViolationException|GuardrailApprovalRequiredException $guardrail,
+    ): AgentRunTerminationReason {
+        return $guardrail instanceof GuardrailApprovalRequiredException
+            ? AgentRunTerminationReason::APPROVAL_DENIED
+            : AgentRunTerminationReason::POLICY_DENIED;
     }
 
     /**
@@ -557,9 +577,24 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         } catch (ToolApprovalRequiredException $approval) {
             // ADR-084: a called tool requires approval — suspend the run and emit
             // an awaiting-approval event instead of failing.
-            if ($handle !== null) {
-                $this->agentRunPersister?->suspend($handle, $approval->state);
-                $settled = true;
+            $persister = $this->agentRunPersister;
+            if ($handle !== null && $persister !== null) {
+                $suspended = $persister->suspend($handle, $approval->state);
+                $settled   = true;
+
+                if (!$suspended) {
+                    // Fail-closed, as in the batch path: no stored state means no
+                    // resume, so do not announce an approval flow (ADR-092).
+                    $persister->settleFailed($handle, $approval);
+                    $this->logger?->error('Agent run could not be suspended for approval; the run was failed instead', ['run' => $handle->uuid]);
+                    $emit([
+                        'event'   => 'error',
+                        'success' => false,
+                        'error'   => 'The run required approval but its state could not be stored, so it cannot be resumed.',
+                    ]);
+
+                    return;
+                }
             }
             $emit([
                 'event'        => 'awaiting_approval',
@@ -575,7 +610,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             // — settle the run as blocked and emit a distinct terminal event
             // instead of a generic error.
             if ($handle !== null) {
-                $this->agentRunPersister?->settleFailed($handle, $guardrail);
+                $this->agentRunPersister?->settlePolicyStopped($handle, $guardrail, $this->guardrailTerminationReason($guardrail));
                 $settled = true;
             }
             $this->logger?->warning('Tool playground stream blocked by guardrail', ['exception' => $guardrail]);

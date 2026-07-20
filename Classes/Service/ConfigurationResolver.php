@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -133,5 +134,74 @@ final readonly class ConfigurationResolver
         }
 
         return $configuration;
+    }
+
+    /**
+     * Resolve an active configuration by identifier for a known actor.
+     *
+     * The counterpart of {@see self::getActiveByIdentifier()} for callers that
+     * do have a caller identity: a group-restricted configuration resolves when
+     * the actor is an administrator, a service account, or a member of one of
+     * the configuration's backend groups. Unlike
+     * {@see \Netresearch\NrLlm\Service\LlmConfigurationService::hasAccess()},
+     * the check runs against the passed actor rather than the ambient
+     * `$GLOBALS['BE_USER']`, so a worker can act for the user who queued the
+     * work (ADR-070, ADR-083).
+     *
+     * @throws ConfigurationNotFoundException when no configuration with the identifier exists (or no repository is wired)
+     * @throws ConfigurationInactiveException when the configuration exists but is deactivated
+     * @throws AccessDeniedException          when the actor is not entitled to the restricted configuration
+     */
+    public function getActiveByIdentifierForActor(string $identifier, AiActorContext $actor): LlmConfiguration
+    {
+        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
+
+        if ($configuration === null) {
+            throw new ConfigurationNotFoundException(
+                sprintf('LLM configuration "%s" not found', $identifier),
+                1784211001,
+            );
+        }
+
+        if (!$configuration->isActive()) {
+            throw new ConfigurationInactiveException(
+                sprintf('LLM configuration "%s" is not active', $identifier),
+                1784211002,
+            );
+        }
+
+        if (!$this->actorMayUse($configuration, $actor)) {
+            throw new AccessDeniedException(
+                sprintf(
+                    'LLM configuration "%s" is restricted to backend groups %s is not a member of',
+                    $identifier,
+                    $actor->describe(),
+                ),
+                1784211004,
+            );
+        }
+
+        return $configuration;
+    }
+
+    private function actorMayUse(LlmConfiguration $configuration, AiActorContext $actor): bool
+    {
+        if (!$configuration->hasAccessRestrictions()) {
+            return true;
+        }
+
+        if ($actor->isAdmin || $actor->isServiceAccount()) {
+            return true;
+        }
+
+        $allowed = [];
+        foreach ($configuration->getBeGroups() as $group) {
+            $uid = $group->getUid();
+            if ($uid !== null) {
+                $allowed[] = $uid;
+            }
+        }
+
+        return array_intersect($actor->backendGroupIds, $allowed) !== [];
     }
 }

@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -32,17 +34,21 @@ use Throwable;
  * returns null on failure, which the caller treats as "do not record" — exactly
  * as a null {@see RunTrace} callback would.
  *
- * Note (ADR-081): a run that exhausts its iteration cap OR is denied by the
- * budget guard both surface as COMPLETED with `truncated = true`, because
- * {@see ToolLoopService} swallows the budget denial internally and returns a
- * normal result. Distinguishing "cap hit" from "budget denied" as a FAILED run
- * is deferred to the human-in-the-loop epic, which reshapes the loop's exit
- * paths.
+ * What a step actually stores is governed by the central privacy level via
+ * {@see RunStepPrivacyFilter}: metadata-only by default, so persistence does not
+ * quietly turn the event stream into a prompt archive (ADR-064).
+ *
+ * A run that exhausts its iteration cap and one the budget guard denied are
+ * both COMPLETED with `truncated = true` — the loop swallows the denial and
+ * returns a normal result — but they are no longer indistinguishable: the
+ * result carries an {@see AgentRunTerminationReason} that is stored alongside
+ * the status (ADR-092).
  */
 final readonly class AgentRunPersister
 {
     public function __construct(
         private AgentRunRepositoryInterface $repository,
+        private RunStepPrivacyFilter $privacyFilter,
         private ?LoggerInterface $logger = null,
     ) {}
 
@@ -76,7 +82,12 @@ final readonly class AgentRunPersister
     public function recordStep(AgentRunHandle $handle, RunStep $step): void
     {
         try {
-            $payload = json_encode($step->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            // The persisted copy follows the central privacy level; the live
+            // playground stream renders the unfiltered step from memory.
+            $payload = json_encode(
+                $this->privacyFilter->filter($step->toArray()),
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
             $this->repository->recordEvent(
                 $handle->runUid,
                 $handle->sequence,
@@ -93,7 +104,9 @@ final readonly class AgentRunPersister
 
     /**
      * Settle a run that finished normally. The status is always COMPLETED; the
-     * `truncated` flag on the result carries whether the loop hit its cap.
+     * result carries whether the loop was cut short and — since ADR-092 — why:
+     * an iteration cap and an exhausted budget both truncate and are otherwise
+     * indistinguishable in the stored row.
      */
     public function settleCompleted(AgentRunHandle $handle, ToolLoopResult $result): void
     {
@@ -107,6 +120,7 @@ final readonly class AgentRunPersister
             $result->usage->totalTokens,
             $result->usage->estimatedCost ?? 0.0,
             '',
+            $result->terminationReason,
         );
     }
 
@@ -117,20 +131,87 @@ final readonly class AgentRunPersister
      */
     public function settleFailed(AgentRunHandle $handle, Throwable $error): void
     {
-        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class);
+        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, AgentRunTerminationReason::PROVIDER_FAILED);
+    }
+
+    /**
+     * Settle a run a guardrail stopped (ADR-085 ff.): FAILED, but with the
+     * policy reason rather than a provider failure, so a denial is not read as
+     * an outage — and an approval that was required but never obtained is not
+     * read as a denial.
+     */
+    public function settlePolicyStopped(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason): void
+    {
+        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason);
+    }
+
+    /**
+     * Settle a run an operator cancelled. Distinct from a failure: nothing went
+     * wrong, somebody stopped it.
+     */
+    public function settleCancelled(AgentRunHandle $handle): void
+    {
+        $this->finish($handle, AgentRunStatus::CANCELLED, 0, false, 0, 0, 0, 0.0, '', AgentRunTerminationReason::CANCELLED);
+    }
+
+    /**
+     * Cancel a run by uuid — the operator-facing entry point behind
+     * `nrllm:agent:cancel`.
+     *
+     * Cancels a run that is still queued, running or waiting for a decision:
+     * the row moves to CANCELLED with its resumable state dropped, so a
+     * stranded run stops occupying an approval queue. Returns false when the
+     * run is unknown or already terminal; the guarded transition in the
+     * repository decides, so two concurrent cancels cannot both win.
+     */
+    public function cancel(string $uuid): bool
+    {
+        $run = $this->findRun($uuid);
+        if ($run === null) {
+            return false;
+        }
+
+        try {
+            return $this->repository->finishRun(
+                $run->uid,
+                AgentRunStatus::CANCELLED->value,
+                $run->iterations,
+                $run->truncated,
+                $run->totalPromptTokens,
+                $run->totalCompletionTokens,
+                $run->totalTokens,
+                $run->estimatedCost,
+                '',
+                AgentRunTerminationReason::CANCELLED->value,
+            );
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be cancelled', ['exception' => $exception]);
+
+            return false;
+        }
     }
 
     /**
      * Suspend a run for human approval (ADR-084): persist the transcript and
-     * pending tool calls and move the run to WAITING_FOR_APPROVAL. Fail-soft.
+     * pending tool calls and move the run to WAITING_FOR_APPROVAL.
+     *
+     * Returns false when the state could not be stored. Unlike the other
+     * methods here, a caller must NOT ignore that: an approval-gated tool is by
+     * definition side-effecting, and telling the client "awaiting approval"
+     * when nothing was persisted promises a resume that can never happen. The
+     * caller settles the run as failed instead (ADR-092).
      */
-    public function suspend(AgentRunHandle $handle, SuspendedRunState $state): void
+    public function suspend(AgentRunHandle $handle, SuspendedRunState $state): bool
     {
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
             $this->repository->suspendRun($handle->runUid, $stateJson);
+
+            return true;
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be suspended', ['exception' => $exception]);
+
+            return false;
         }
     }
 
@@ -192,9 +273,10 @@ final readonly class AgentRunPersister
         int $totalTokens,
         float $estimatedCost,
         string $errorClass,
+        AgentRunTerminationReason $reason,
     ): void {
         try {
-            $this->repository->finishRun(
+            $transitioned = $this->repository->finishRun(
                 $handle->runUid,
                 $status->value,
                 $iterations,
@@ -204,7 +286,18 @@ final readonly class AgentRunPersister
                 $totalTokens,
                 $estimatedCost,
                 $errorClass,
+                $reason->value,
             );
+
+            if (!$transitioned) {
+                // The run was already terminal: a duplicate or late settle. The
+                // guard kept the first outcome, which is the correct one.
+                $this->logger?->notice('AgentRun was already settled; the later outcome was discarded', [
+                    'run'    => $handle->uuid,
+                    'status' => $status->value,
+                    'reason' => $reason->value,
+                ]);
+            }
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be settled', ['exception' => $exception]);
         }

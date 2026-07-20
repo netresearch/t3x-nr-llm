@@ -10,9 +10,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -26,16 +31,19 @@ use Throwable;
 #[CoversClass(ConversationService::class)]
 final class ConversationServiceTest extends TestCase
 {
+    private const OWNER = 42;
+
     #[Test]
     public function sendPersistsBothTurnsAndReturnsTheReply(): void
     {
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::once())->method('chat')->willReturn($this->response('Hello there'));
-        $service = new ConversationService($llmManager, $repository);
+        $service = $this->service($llmManager, $repository);
 
-        $session  = $service->startSession('greeting');
-        $response = $service->send($session->uuid, 'Hi');
+        $actor    = $this->owner();
+        $session  = $service->startSession($actor, 'greeting');
+        $response = $service->send($actor, $session->uuid, 'Hi');
 
         self::assertSame('Hello there', $response->content);
 
@@ -53,6 +61,153 @@ final class ConversationServiceTest extends TestCase
     }
 
     #[Test]
+    public function aForeignBackendUserCannotContinueSomebodyElsesSession(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $service = $this->service($llmManager, $repository);
+
+        $session = $service->startSession($this->owner());
+
+        // Knowing the uuid is not authorisation.
+        $this->expectException(AccessDeniedException::class);
+        $service->send(AiActorContext::backendUser(43), $session->uuid, 'let me in');
+    }
+
+    #[Test]
+    public function anAdministratorMayContinueAnySession(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturn($this->response('ok'));
+        $service = $this->service($llmManager, $repository);
+
+        $session  = $service->startSession($this->owner());
+        $response = $service->send(AiActorContext::backendUser(1, isAdmin: true), $session->uuid, 'audit');
+
+        self::assertSame('ok', $response->content);
+    }
+
+    #[Test]
+    public function aServiceAccountMayContinueASessionOnTheSystemsBehalf(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturn($this->response('ok'));
+        $service = $this->service($llmManager, $repository);
+
+        $session  = $service->startSession($this->owner());
+        $response = $service->send(AiActorContext::serviceAccount('nrllm-worker'), $session->uuid, 'resume');
+
+        self::assertSame('ok', $response->content);
+    }
+
+    #[Test]
+    public function anAnonymousCallerCanNeitherOpenNorContinueASession(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $service = $this->service($llmManager, $repository);
+
+        $session = $service->startSession($this->owner());
+
+        try {
+            $service->startSession(AiActorContext::anonymous());
+            self::fail('An unauthenticated caller must not open a session.');
+        } catch (AccessDeniedException) {
+            // expected
+        }
+
+        $this->expectException(AccessDeniedException::class);
+        $service->send(AiActorContext::anonymous(), $session->uuid, 'hi');
+    }
+
+    #[Test]
+    public function aTurnRunsAgainstTheConfigurationTheSessionWasOpenedWith(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::once())
+            ->method('chatForConfiguration')
+            ->with(self::anything(), self::identicalTo($configuration), self::anything())
+            ->willReturn($this->response('bound'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration));
+        $actor   = $this->owner();
+
+        $session  = $service->startSession($actor, '', $configuration);
+        $response = $service->send($actor, $session->uuid, 'write a teaser');
+
+        self::assertSame('bound', $response->content);
+    }
+
+    #[Test]
+    public function aSessionWhoseConfigurationWasDeactivatedStopsInsteadOfFallingBackToTheDefault(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
+
+        $configuration->setIsActive(false);
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration));
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+
+        $this->expectException(AccessDeniedException::class);
+        $service->send($actor, $session->uuid, 'continue');
+    }
+
+    #[Test]
+    public function theTurnIsAttributedToTheActorSoPerUserBudgetsApply(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $captured   = null;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturnCallback(function (array $messages, ?ChatOptions $options) use (&$captured): CompletionResponse {
+            $captured = $options;
+
+            return $this->response('ok');
+        });
+        $service = $this->service($llmManager, $repository);
+
+        $actor   = $this->owner();
+        $session = $service->startSession($actor);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertInstanceOf(ChatOptions::class, $captured);
+        self::assertSame(self::OWNER, $captured->getBeUserUid());
+    }
+
+    #[Test]
+    public function anExplicitBeUserUidOnTheOptionsIsNotOverwritten(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $captured   = null;
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chat')->willReturnCallback(function (array $messages, ?ChatOptions $options) use (&$captured): CompletionResponse {
+            $captured = $options;
+
+            return $this->response('ok');
+        });
+        $service = $this->service($llmManager, $repository);
+
+        $actor   = $this->owner();
+        $session = $service->startSession($actor);
+        $service->send($actor, $session->uuid, 'hi', (new ChatOptions())->withBeUserUid(7));
+
+        self::assertInstanceOf(ChatOptions::class, $captured);
+        self::assertSame(7, $captured->getBeUserUid());
+    }
+
+    #[Test]
     public function sendReplaysPriorTurnsToTheProvider(): void
     {
         $repository = new RecordingAiSessionRepository();
@@ -63,11 +218,12 @@ final class ConversationServiceTest extends TestCase
 
             return $this->response('reply');
         });
-        $service = new ConversationService($llmManager, $repository);
+        $service = $this->service($llmManager, $repository);
 
-        $session = $service->startSession();
-        $service->send($session->uuid, 'first');
-        $service->send($session->uuid, 'second');
+        $actor   = $this->owner();
+        $session = $service->startSession($actor);
+        $service->send($actor, $session->uuid, 'first');
+        $service->send($actor, $session->uuid, 'second');
 
         // The second call replays the prior turns before the new user message:
         // user 'first', assistant 'reply', then user 'second'.
@@ -91,12 +247,13 @@ final class ConversationServiceTest extends TestCase
 
             return $this->response('reply');
         });
-        $service = new ConversationService($llmManager, $repository);
+        $service = $this->service($llmManager, $repository);
         $options = (new ChatOptions())->withSystemPrompt('You are terse.');
 
-        $session = $service->startSession();
-        $service->send($session->uuid, 'first', $options);
-        $service->send($session->uuid, 'second', $options);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor);
+        $service->send($actor, $session->uuid, 'first', $options);
+        $service->send($actor, $session->uuid, 'second', $options);
 
         // Both turns lead with the system prompt — it is never persisted in the
         // history, so it must be re-added every turn or it is lost from turn 2.
@@ -131,15 +288,16 @@ final class ConversationServiceTest extends TestCase
 
             return $this->response('ok');
         });
-        $service = new ConversationService($llmManager, $repository);
-        $session = $service->startSession();
+        $service = $this->service($llmManager, $repository);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor);
 
         try {
-            $service->send($session->uuid, 'first');
+            $service->send($actor, $session->uuid, 'first');
         } catch (Throwable) {
             // The first provider call fails; the user turn is already recorded.
         }
-        $service->send($session->uuid, 'second');
+        $service->send($actor, $session->uuid, 'second');
 
         // No two turns share a sequence number, even across the failed attempt.
         $sequences = array_map(static fn($m): int => $m->sequence, $repository->findMessages($session->uid));
@@ -152,23 +310,52 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::never())->method('chat');
-        $service = new ConversationService($llmManager, $repository);
+        $service = $this->service($llmManager, $repository);
 
         $this->expectException(InvalidArgumentException::class);
-        $service->send('00000000-0000-0000-0000-000000000000', 'hi');
+        $service->send($this->owner(), '00000000-0000-0000-0000-000000000000', 'hi');
     }
 
     #[Test]
-    public function startSessionStampsTitleAndZeroOwnerWithoutAResolver(): void
+    public function startSessionStampsTitleAndTheActorAsOwner(): void
     {
-        $repository = new RecordingAiSessionRepository();
-        $service    = new ConversationService($this->createMock(LlmServiceManagerInterface::class), $repository);
+        $service = $this->service($this->createMock(LlmServiceManagerInterface::class), new RecordingAiSessionRepository());
 
-        $session = $service->startSession('my chat');
+        $session = $service->startSession($this->owner(), 'my chat');
 
         self::assertSame('my chat', $session->title);
-        self::assertSame(0, $session->beUser);
+        self::assertSame(self::OWNER, $session->beUser);
         self::assertNotSame('', $session->uuid);
+    }
+
+    private function owner(): AiActorContext
+    {
+        return AiActorContext::backendUser(self::OWNER);
+    }
+
+    private function service(LlmServiceManagerInterface $llmManager, RecordingAiSessionRepository $repository): ConversationService
+    {
+        return new ConversationService($llmManager, $repository, new ConfigurationResolver());
+    }
+
+    /**
+     * A real resolver over a stubbed repository, so the access and activity
+     * guards under test are the production ones.
+     */
+    private function resolverReturning(LlmConfiguration $configuration): ConfigurationResolver
+    {
+        $repository = $this->createMock(LlmConfigurationRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn($configuration);
+
+        return new ConfigurationResolver($repository);
+    }
+
+    private function configuration(string $identifier): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier($identifier);
+
+        return $configuration;
     }
 
     private function response(string $content): CompletionResponse

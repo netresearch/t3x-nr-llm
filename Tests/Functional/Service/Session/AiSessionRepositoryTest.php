@@ -69,6 +69,57 @@ final class AiSessionRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function appendMessageAtNextSequenceAllocatesConsecutiveSlots(): void
+    {
+        $uuid = '33333333-3333-3333-3333-333333333333';
+        $uid  = $this->repository->startSession($uuid, 1, '', '');
+
+        $first  = $this->repository->appendMessageAtNextSequence($uid, 'user', 'one', '', 0, 0, 0);
+        $second = $this->repository->appendMessageAtNextSequence($uid, 'assistant', 'two', 'model-x', 1, 2, 3);
+        $third  = $this->repository->appendMessageAtNextSequence($uid, 'user', 'three', '', 0, 0, 0);
+
+        self::assertSame([0, 1, 2], [$first, $second, $third]);
+        self::assertSame(
+            ['one', 'two', 'three'],
+            array_map(static fn(AiSessionMessage $m): string => $m->content, $this->repository->findMessages($uid)),
+        );
+    }
+
+    #[Test]
+    public function aTakenSequenceIsNotOverwrittenButRetriedOnTheNextFreeSlot(): void
+    {
+        $uuid = '44444444-4444-4444-4444-444444444444';
+        $uid  = $this->repository->startSession($uuid, 1, '', '');
+
+        // Simulates the race: another turn already claimed slot 0 through the
+        // explicit-sequence path. The unique key must force the allocator on.
+        $this->repository->appendMessage($uid, 0, 'user', 'claimed', '', 0, 0, 0);
+
+        $sequence = $this->repository->appendMessageAtNextSequence($uid, 'user', 'racing', '', 0, 0, 0);
+
+        self::assertSame(1, $sequence);
+        self::assertCount(2, $this->repository->findMessages($uid));
+        self::assertSame('claimed', $this->repository->findMessages($uid)[0]->content, 'The earlier turn must survive.');
+    }
+
+    #[Test]
+    public function touchNeverLowersTheMessageCount(): void
+    {
+        $uuid = '55555555-5555-5555-5555-555555555555';
+        $uid  = $this->repository->startSession($uuid, 1, '', '');
+
+        $this->repository->touch($uid, 4);
+        // A slower concurrent turn settling afterwards with its own smaller view
+        // of the count must not undo the faster one.
+        $this->repository->touch($uid, 2);
+
+        $reloaded = $this->repository->findByUuid($uuid);
+        self::assertNotNull($reloaded);
+        self::assertSame(4, $reloaded->messageCount);
+        self::assertGreaterThan(0, $reloaded->lastActivity);
+    }
+
+    #[Test]
     public function purgeInactiveSinceRemovesSessionsAndTheirMessages(): void
     {
         $uuid = '22222222-2222-2222-2222-222222222222';

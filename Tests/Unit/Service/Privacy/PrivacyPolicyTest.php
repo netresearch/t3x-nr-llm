@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Privacy;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
@@ -86,6 +87,52 @@ final class PrivacyPolicyTest extends TestCase
 
         self::assertIsString($out);
         self::assertStringNotContainsString('john@example.com', $out);
+    }
+
+    #[Test]
+    public function retentionDaysForFallsBackToTheGlobalWindowWithoutAnOverride(): void
+    {
+        $policy = $this->policy(['privacy' => ['retentionDays' => '45']]);
+
+        foreach (PrivacyDataCategory::cases() as $category) {
+            self::assertSame(45, $policy->retentionDaysFor($category));
+        }
+    }
+
+    #[Test]
+    public function retentionDaysForAppliesAPerCategoryOverride(): void
+    {
+        $policy = $this->policy(['privacy' => [
+            'retentionDays' => '45',
+            'retention'     => ['conversation' => '7', 'approval' => '180'],
+        ]]);
+
+        self::assertSame(7, $policy->retentionDaysFor(PrivacyDataCategory::CONVERSATION));
+        self::assertSame(180, $policy->retentionDaysFor(PrivacyDataCategory::APPROVAL));
+        self::assertSame(45, $policy->retentionDaysFor(PrivacyDataCategory::TELEMETRY));
+    }
+
+    #[Test]
+    public function retentionDaysForTreatsZeroAndGarbageAsNoOverride(): void
+    {
+        $policy = $this->policy(['privacy' => [
+            'retentionDays' => '45',
+            'retention'     => ['conversation' => '0', 'agentRun' => 'soon', 'telemetry' => '-5'],
+        ]]);
+
+        // A zero, negative or non-numeric override must never mean "delete
+        // everything immediately" — it means "no override".
+        self::assertSame(45, $policy->retentionDaysFor(PrivacyDataCategory::CONVERSATION));
+        self::assertSame(45, $policy->retentionDaysFor(PrivacyDataCategory::AGENT_RUN));
+        self::assertSame(45, $policy->retentionDaysFor(PrivacyDataCategory::TELEMETRY));
+    }
+
+    #[Test]
+    public function retentionDaysForIgnoresAMalformedRetentionBlock(): void
+    {
+        $policy = $this->policy(['privacy' => ['retentionDays' => '12', 'retention' => 'nonsense']]);
+
+        self::assertSame(12, $policy->retentionDaysFor(PrivacyDataCategory::CONVERSATION));
     }
 
     /**

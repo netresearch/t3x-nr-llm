@@ -102,6 +102,20 @@ interface LlmServiceManagerInterface
     public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse;
 
     /**
+     * Chat against a specific configuration from a ChatOptions object.
+     *
+     * The message-list counterpart of {@see self::completeForConfiguration()}:
+     * it injects the configuration's skills and threads the per-user budget and
+     * idempotency metadata, but against the caller's chosen configuration
+     * instead of the resolved instance default. A pinned provider on the
+     * options is irrelevant on the configuration path and is dropped, matching
+     * {@see self::chat()}.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse;
+
+    /**
      * Stream chat completion using a specific LLM configuration.
      *
      * Routed through the streaming lifecycle (ADR-062): budget pre-flight before

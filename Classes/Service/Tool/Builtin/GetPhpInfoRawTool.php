@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 
 /**
@@ -24,7 +26,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
  * {@see isEnabledByDefault()} = false, so an admin must deliberately enable it
  * in the Tool Playground module. Prefer the curated {@see GetPhpInfoTool}.
  */
-final readonly class GetPhpInfoRawTool implements ToolInterface
+final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassInterface
 {
     public function getSpec(): ToolSpec
     {
@@ -78,5 +80,13 @@ final readonly class GetPhpInfoRawTool implements ToolInterface
     public function getGroup(): string
     {
         return 'system';
+    }
+
+    /**
+     * phpinfo() prints the full environment, including credentials passed as variables.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

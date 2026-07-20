@@ -6,6 +6,130 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Tool egress is governed by a data classification instead of denylists alone:
+  every tool has a `ToolDataClass` (from `publicContent` up to
+  `secretAdjacent`), every provider declares a `TrustZone` (`local`,
+  `privateHosted`, `externalEu`, `externalGlobal`) implying a ceiling, and the
+  new public `ToolCallPolicyInterface` decides — registered, enabled, permitted,
+  within the configuration's groups, within the ceiling — returning a typed
+  reason instead of a silent absence (ADR-094).
+  **Ships in observe mode**: `tools.dataClassEnforcement = observe` logs what
+  enforcement would do without removing anything. Run the
+  "Declare a trust zone for existing LLM providers" upgrade wizard and perform a
+  database compare after upgrading; an un-stamped provider resolves to the
+  strictest zone.
+- `AgentRunTerminationReason` records **why** an agent run ended — completed,
+  iteration cap, exhausted budget, policy denial, denied approval, provider
+  failure or cancellation — in a new `termination_reason` column. A budget stop
+  and an iteration cap were previously indistinguishable: both are completed
+  and truncated (ADR-092).
+- `nrllm:agent:cancel <uuid>` retires a run that is stuck queued, running or
+  awaiting a decision. `CANCELLED` is now a state runs actually reach.
+- `AiActorContext` — an explicit caller identity (backend user, service account
+  or anonymous) for the stateful entry points, so a queue worker can act for the
+  user who queued the work instead of inheriting the ambient backend user
+  (ADR-091).
+- `LlmServiceManagerInterface::chatForConfiguration()`, the message-list
+  counterpart of `completeForConfiguration()`.
+- `ConfigurationResolver::getActiveByIdentifierForActor()` evaluates activity
+  and BE-group restrictions against a passed actor instead of
+  `$GLOBALS['BE_USER']`.
+- `AiSessionRepositoryInterface::appendMessageAtNextSequence()` allocates a
+  message sequence race-free.
+- Per-category data retention: `privacy.retention.conversation`,
+  `.agentRun`, `.approval`, `.telemetry`, `.evaluation` and `.skillAudit`
+  override the global `privacy.retentionDays` window, so conversation
+  transcripts can expire long before telemetry does (ADR-064).
+- `nrllm:privacy:purge` now covers **every** content-bearing table:
+  conversation sessions (`tx_nrllm_ai_session`,
+  `tx_nrllm_ai_session_message`) and agent runs (`tx_nrllm_agentrun`,
+  `tx_nrllm_agentrun_event`) join evaluation results, the skill audit and
+  telemetry. It reports the window and the row count per category.
+- `AgentRunRepositoryInterface::purgeUnfinishedOlderThan()` reaps runs that
+  never reached a terminal status on the separate, longer `approval` window.
+- Administration guide "Data retention & purge"
+  (`Documentation/Administration/DataRetention.rst`).
+
+### Changed
+
+- **Breaking (tool contract):** the per-configuration tool gate — the skills'
+  declared allow-list intersected with `allowed_tool_groups` — is applied inside
+  `ToolLoopService` instead of in the tool playground. Every consumer of the
+  published `ToolLoopServiceInterface` is now subject to it; previously only the
+  playground was, so a downstream caller received the full globally-enabled set
+  (ADR-093). The playground's own behaviour is unchanged.
+- `get_tca` routes its table access through the shared `TableReadAccessService`
+  like its sibling `get_full_tca`, and therefore no longer describes the
+  extension's own or `nr_vault`'s tables — to anyone, administrators included.
+  It previously checked `tables_select` directly, which every admin passes.
+- The `rag` tool group declares a `configured_endpoint` egress scope and
+  `SolrSearchBackend` validates its assembled URL against the configured host
+  (http(s) only, no credentials in the URL, exact host:port). The policy
+  previously claimed the group could not egress at all while the backend was
+  issuing HTTP requests — an audit gate, not a new confidentiality boundary,
+  since the host was always operator-supplied (ADR-093).
+- A guardrail stop is recorded as a policy outcome (`policy_denied`, or
+  `approval_denied` when an approval was required and never obtained) instead
+  of as a provider failure, so a denial can no longer be mistaken for an outage
+  in the run table (ADR-092).
+- An agent run can no longer be settled twice: `finishRun()` transitions only
+  non-terminal runs and reports whether it did. A late settle — for instance
+  the streamed path's `finally` block after a client disconnect — previously
+  overwrote a finished run's totals and error class.
+- The playground now fails a run whose approval state could not be stored
+  instead of answering "awaiting approval". An approval-gated tool is
+  side-effecting; promising a resume that cannot happen is worse than an error.
+- **Breaking:** `ConversationServiceInterface::startSession()` and `send()` take
+  a leading `AiActorContext`. A session uuid is no longer sufficient to continue
+  a conversation: the actor must own the session, be an administrator, or be a
+  service account (ADR-091). Previously any caller holding a uuid could read and
+  continue another backend user's conversation.
+- A conversation turn now runs against the configuration the session was opened
+  with, resolved fresh on every turn. Previously the stored identifier was never
+  read and every turn silently used the installation default — a different
+  model, budget and guardrail set than the session started with. A deactivated
+  or newly restricted configuration now stops the session instead of falling
+  back.
+- Conversation turns are attributed to the acting backend user, so per-user
+  budgets apply to conversations as they do to one-shot completions.
+- **Schema:** `tx_nrllm_ai_session_message` gets a UNIQUE key on
+  `(session, sequence)` and `tx_nrllm_ai_session` a UNIQUE key on `uuid`. An
+  installation that already produced colliding rows through the sequence race
+  must resolve those duplicates before the database analyzer can apply the
+  index.
+
+- Persisted agent-run steps follow the central privacy level. At the default
+  metadata level the stored payload keeps timings, tokens, cost, tool names and
+  sizes but no prompts, tool arguments, tool results or raw provider bodies;
+  `redacted` masks them; `full` stores them verbatim. The live playground trace
+  is unaffected — it renders from memory.
+- `AgentRunRepositoryInterface::purgeOlderThan()` deletes only **terminal**
+  runs. Previously a purge by age could delete a run suspended for a human
+  approval, destroying work in flight together with its resumable state.
+- `nrllm:session:purge` and `nrllm:telemetry:purge` take their default window
+  from the central privacy policy instead of a hardcoded 30 days.
+- Session and agent-run purges delete in chunks of 500 instead of building one
+  unbounded `IN()` list on a long-neglected installation.
+
+### Fixed
+
+- `DeepLTranslator` now runs a budget pre-flight on `translate()` and
+  `translateBatch()`. It was the last paid external call with no cap at all;
+  `TranslationService` threads `plannedCost` and `configuration` through to it
+  alongside the already-threaded `beUserUid` (ADR-078, amended).
+- `FalImageService` passes the caller's configuration identifier into its budget
+  check, so per-configuration caps apply to it and not only the per-user cap —
+  it previously passed `null` and only the user cap could ever fire.
+- Corrected the middleware ordering documented in four middleware docblocks
+  (`BudgetMiddleware` claimed a "Guardrail outermost at 115" that does not
+  exist; `Fallback`, `Usage` and `Cache` omitted Guardrail and Idempotency
+  entirely) and removed the stale note in `GuardrailInterface` calling input
+  guardrails an unimplemented follow-up — they shipped in ADR-087.
+- Restored the missing `[0.23.0]` changelog link definition; `[Unreleased]` now
+  compares against `v0.23.0` instead of `v0.22.0`.
+
 ## [0.23.0] - 2026-07-20
 
 Adds a content-policy guardrail pipeline, human-in-the-loop tool approval,
@@ -1268,7 +1392,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.19.0...v0.20.0

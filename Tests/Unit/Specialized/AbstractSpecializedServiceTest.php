@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -82,14 +83,15 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function enforceBudgetIsNoOpWhenNoBudgetServiceIsWired(): void
+    public function enforceBudgetAlwaysConsultsTheBudgetService(): void
     {
-        $subject = $this->createSubject();
+        $budget = $this->createMock(BudgetServiceInterface::class);
+        // The dependency is required since the fail-open optional parameter was
+        // removed: there is no longer a construction in which the gate silently
+        // does not run.
+        $budget->expects(self::once())->method('check')->willReturn(BudgetCheckResult::allowed());
 
-        // Fail-open: an unconfigured deployment (no budget service) is never gated.
-        $subject->callEnforceBudget(42, 0.5, null);
-
-        $this->addToAssertionCount(1);
+        $this->createSubject(budgetService: $budget)->callEnforceBudget(42, 0.5, null);
     }
 
     #[Test]
@@ -306,6 +308,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
         );
 
         $subject->callSendJsonRequest('endpoint', []);
@@ -528,6 +531,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -598,6 +602,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -1124,9 +1129,9 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: $budgetService ?? new AllowingBudgetService(),
             modelRepository: $modelRepository,
             configurationRepository: $configurationRepository,
-            budgetService: $budgetService,
         );
 
         // Inject the plain test client through the test seam; this bypasses the
@@ -1184,6 +1189,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
         );
     }
 

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -93,6 +94,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $service->setHttpClient($httpClient);
 
@@ -123,6 +125,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->loggerStub,
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
             $modelRepository,
         );
 

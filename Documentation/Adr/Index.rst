@@ -388,3 +388,7 @@ Tools
    Adr088StreamingRedaction
    Adr089GuardrailBoundaryCompleteness
    Adr090SingleExtensionUntil10
+   Adr091ConversationActorContext
+   Adr092AgentRunTerminationReason
+   Adr093ToolGateChokepoint
+   Adr094ToolDataClassTrustZone

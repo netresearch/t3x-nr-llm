@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -74,6 +75,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // the existing lean test wiring keep working unchanged.
         private ?SkillInjectionService $skillInjection = null,
         private ?PromptSnippetComposer $snippetComposer = null,
+        // The per-configuration skill and tool-group gate. Optional so the lean
+        // test wiring keeps working; absent it the run is gated by the global
+        // enablement and admin filters alone, exactly as before.
+        private ?AllowedToolsResolver $allowedTools = null,
+        // The composite gate (ADR-094). When wired it is the single authority;
+        // absent it the loop falls back to the gates it applied before, which
+        // is what the lean unit-test wiring exercises.
+        private ?ToolCallPolicyInterface $toolPolicy = null,
     ) {}
 
     /**
@@ -129,7 +138,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
         }
 
-        $effective = $this->resolveOfferedNames($allowedToolNames);
+        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration);
         $specs     = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
@@ -251,13 +260,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations,
                 true,
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                AgentRunTerminationReason::MAX_ITERATIONS,
             );
         } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
-            // trace is consistent. Surface what ran rather than aborting — but
-            // log the denial (with the tripped bucket) so operators can tell a
-            // budget stop from an iteration cap, since both surface as
-            // truncated=true with an empty final answer.
+            // trace is consistent. Surface what ran rather than aborting, and
+            // carry the reason on the result so a budget stop is distinguishable
+            // from an iteration cap — both truncate (ADR-092).
             $this->logger?->warning(
                 'Tool loop stopped: budget pre-flight denied the call.',
                 ['exception' => $e],
@@ -269,6 +278,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations,
                 true,
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
+                AgentRunTerminationReason::BUDGET_EXHAUSTED,
             );
         }
     }
@@ -306,7 +316,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
-        $offered = $this->resolveOfferedNames($state->allowedToolNames);
+        $offered = $this->resolveOfferedNames($state->allowedToolNames, $configuration);
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
@@ -427,8 +437,24 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @return list<string>
      */
-    private function resolveOfferedNames(?array $allowedToolNames): array
+    private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration): array
     {
+        if ($this->toolPolicy !== null) {
+            $user = $this->actingBackendUser();
+
+            foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
+                if (!$decision->allowed || $decision->observedOnly) {
+                    $this->logger?->info('Tool gate: ' . $decision->message(), [
+                        'tool'   => $decision->toolName,
+                        'reason' => $decision->reason->value,
+                        'zone'   => $decision->zone->value,
+                    ]);
+                }
+            }
+
+            return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user);
+        }
+
         // Fail-closed global gate: the effective allow-set is always intersected
         // with the globally-enabled tools. A null caller list means "no per-run
         // restriction" and collapses to the enabled set (NOT every registered
@@ -450,6 +476,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $effective,
                 fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
             ));
+        }
+
+        // Fail-closed per-configuration gate: the skills' declared allow-list
+        // intersected with the configuration's allowed_tool_groups. This lived
+        // in the tool playground until ADR-093, which meant every other consumer
+        // of the now-public ToolLoopServiceInterface — a scheduler task, a
+        // downstream extension — bypassed the configuration's own restriction
+        // entirely. The caller's list is a request; this is the grant.
+        $configurationAllowed = $this->allowedTools?->resolve($configuration);
+        if ($configurationAllowed !== null) {
+            $effective = array_values(array_intersect($effective, $configurationAllowed));
         }
 
         return $effective;

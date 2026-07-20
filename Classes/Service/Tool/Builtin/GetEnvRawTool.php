@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -25,7 +27,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  * in the Tool Playground module before it can ever run. Prefer the redacted
  * {@see GetEnvTool} unless raw values are genuinely required.
  */
-final readonly class GetEnvRawTool implements ToolInterface
+final readonly class GetEnvRawTool implements ToolInterface, ToolDataClassInterface
 {
     use CollectsEnvironmentTrait;
     use SafeCastTrait;
@@ -73,5 +75,13 @@ final readonly class GetEnvRawTool implements ToolInterface
     public function getGroup(): string
     {
         return 'system';
+    }
+
+    /**
+     * Environment variables routinely carry database passwords, API keys and vault credentials.
+     */
+    public function getDataClass(): ToolDataClass
+    {
+        return ToolDataClass::SECRET_ADJACENT;
     }
 }

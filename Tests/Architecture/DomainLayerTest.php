@@ -127,6 +127,11 @@ final class DomainLayerTest
                 Selector::inNamespace(self::DOMAIN_MODEL_NS),
                 // Domain DTOs (typed value objects — REC #6: ProviderOptions)
                 Selector::inNamespace('Netresearch\NrLlm\Domain\DTO'),
+                // Domain enums — the model's own vocabulary (TrustZone, ADR-094).
+                // AdapterType was already reachable because it happens to live
+                // in Domain\Model; the intent of this rule is to keep services
+                // and controllers out, not to keep the domain out of itself.
+                Selector::inNamespace('Netresearch\NrLlm\Domain\Enum'),
                 // Vault service (required for API key handling via nr-vault)
                 Selector::inNamespace('Netresearch\NrVault\Service'),
                 // Vault identifier rules (single source of truth for what
