@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Generator;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -33,8 +32,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
 
         $result = $middleware->handle(
             new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            new LlmConfiguration(),
-            function (LlmConfiguration $c) use (&$calls): string {
+            function () use (&$calls): string {
                 $calls++;
 
                 return 'fresh';
@@ -54,14 +52,14 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $response->answer = 'generated once';
 
         $calls = 0;
-        $next  = function (LlmConfiguration $c) use (&$calls, $response): stdClass {
+        $next  = function () use (&$calls, $response): stdClass {
             $calls++;
 
             return $response;
         };
 
-        $first  = $middleware->handle($context, new LlmConfiguration(), $next);
-        $second = $middleware->handle($context, new LlmConfiguration(), $next);
+        $first  = $middleware->handle($context, $next);
+        $second = $middleware->handle($context, $next);
 
         self::assertSame($response, $first);
         self::assertSame($response, $second, 'The repeat must return the stored result');
@@ -74,14 +72,14 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $middleware = $this->middleware();
 
         $calls = 0;
-        $next  = function (LlmConfiguration $c) use (&$calls): string {
+        $next  = function () use (&$calls): string {
             $calls++;
 
             return 'result-' . $calls;
         };
 
-        $middleware->handle($this->contextWithKey('key-a'), new LlmConfiguration(), $next);
-        $middleware->handle($this->contextWithKey('key-b'), new LlmConfiguration(), $next);
+        $middleware->handle($this->contextWithKey('key-a'), $next);
+        $middleware->handle($this->contextWithKey('key-b'), $next);
 
         self::assertSame(2, $calls, 'A different key is a miss and must reach the provider');
     }
@@ -99,14 +97,14 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
             yield 'chunk';
         };
         $calls = 0;
-        $next  = function (LlmConfiguration $c) use (&$calls, $makeGenerator): Generator {
+        $next  = function () use (&$calls, $makeGenerator): Generator {
             $calls++;
 
             return $makeGenerator();
         };
 
-        $middleware->handle($context, new LlmConfiguration(), $next);
-        $middleware->handle($context, new LlmConfiguration(), $next);
+        $middleware->handle($context, $next);
+        $middleware->handle($context, $next);
 
         // A generator cannot be stored, so the second call is a miss and re-runs.
         self::assertSame(2, $calls);
@@ -119,7 +117,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         $context    = $this->contextWithKey('will-fail');
 
         $calls = 0;
-        $next  = function (LlmConfiguration $c) use (&$calls): never {
+        $next  = function () use (&$calls): never {
             $calls++;
 
             throw new RuntimeException('boom', 1);
@@ -127,7 +125,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
 
         for ($i = 0; $i < 2; $i++) {
             try {
-                $middleware->handle($context, new LlmConfiguration(), $next);
+                $middleware->handle($context, $next);
                 self::fail('Expected the failure to propagate');
             } catch (RuntimeException) {
                 // expected
@@ -152,7 +150,7 @@ final class IdempotencyMiddlewareTest extends AbstractUnitTestCase
         return new ProviderCallContext(
             ProviderOperation::Chat,
             'corr',
-            [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
+            metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
         );
     }
 

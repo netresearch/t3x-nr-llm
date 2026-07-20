@@ -2649,9 +2649,11 @@ final class RecordingMiddleware implements ProviderMiddlewareInterface
 
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
+        $configuration = $context->configuration;
+        assert($configuration !== null);
+
         $this->calls[] = [
             'operation'          => $context->operation,
             'identifier'         => $configuration->getIdentifier(),
@@ -2660,7 +2662,7 @@ final class RecordingMiddleware implements ProviderMiddlewareInterface
             'metadata'           => $context->metadata,
         ];
 
-        return $next($configuration);
+        return $next($context);
     }
 }
 

@@ -24,4 +24,15 @@ enum ProviderOperation: string
     case Vision = 'vision';
     case Tools = 'tools';
     case Stream = 'stream';
+
+    // Specialized-service operations (ADR-096): image, speech and translation
+    // calls that reach the pipeline through a service context rather than an
+    // LlmConfiguration entity. Kept in the same enum so telemetry, usage and the
+    // failure classifier label every AI call from one vocabulary.
+    case ImageGeneration = 'image';
+    case ImageEdit = 'image_edit';
+    case ImageVariation = 'image_variation';
+    case Transcription = 'transcribe';
+    case SpeechSynthesis = 'speech';
+    case Translation = 'translate';
 }

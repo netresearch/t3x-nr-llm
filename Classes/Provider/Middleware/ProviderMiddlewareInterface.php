@@ -42,11 +42,15 @@ interface ProviderMiddlewareInterface
     public const TAG_NAME = 'nr_llm.provider_middleware';
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * Handle one call, delegating to `$next` to run the inner layers (ADR-096).
+     * The configuration, when present, lives on `$context->configuration`; a
+     * middleware that swaps it re-derives the context via
+     * {@see ProviderCallContext::withConfiguration()} before calling `$next`.
+     *
+     * @param callable(ProviderCallContext): mixed $next
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed;
 }

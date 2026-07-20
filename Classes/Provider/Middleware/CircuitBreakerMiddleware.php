@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitBreakerConfig;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitBreakerStoreInterface;
 use Netresearch\NrLlm\Provider\CircuitBreaker\CircuitState;
@@ -45,7 +44,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  *  1. INSIDE FallbackMiddleware. An open circuit throws
  *     {@see CircuitOpenException}, which FallbackMiddleware treats as retryable.
  *     Because the circuit sits *inside* the fallback loop, that exception is
- *     raised from within `$next($configuration)` on each attempt, so Fallback
+ *     raised from within `$next($context)` on each attempt, so Fallback
  *     catches it and advances to the next configuration/provider. Placing the
  *     breaker OUTSIDE Fallback (e.g. between Budget and Fallback) would instead
  *     make an open primary circuit abort the whole call before Fallback ever
@@ -86,24 +85,23 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      *
      * @throws CircuitOpenException when the provider's circuit is open
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
         $config = $this->config();
         if (!$config->enabled) {
-            return $next($configuration);
+            return $next($context);
         }
 
-        $provider = $this->circuitKey($configuration);
+        $provider = $this->circuitKey($context);
         if ($provider === '') {
             // Nothing stable to key a circuit on — do not guard.
-            return $next($configuration);
+            return $next($context);
         }
 
         $cooldown = $config->cooldownSeconds;
@@ -129,7 +127,7 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         }
 
         try {
-            $result = $next($configuration);
+            $result = $next($context);
         } catch (Throwable $e) {
             if ($this->isTrippingFailure($e)) {
                 $this->recordFailure($provider, $state, $now, $config);
@@ -200,11 +198,13 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
      * configurations on the same provider share one circuit — the provider is
      * what is unhealthy, not the configuration.
      */
-    private function circuitKey(LlmConfiguration $configuration): string
+    private function circuitKey(ProviderCallContext $context): string
     {
-        $provider = $configuration->getProviderType();
+        // The provider the call reaches, whether it comes from a configuration
+        // entity or the context's own provider string (a specialized service).
+        $provider = $context->telemetryProvider();
 
-        return $provider !== '' ? $provider : $configuration->getIdentifier();
+        return $provider !== '' ? $provider : $context->telemetryConfigurationIdentifier();
     }
 
     /**

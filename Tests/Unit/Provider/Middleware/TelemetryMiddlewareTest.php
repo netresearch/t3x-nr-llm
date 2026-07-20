@@ -42,9 +42,8 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
 
         $context = new ProviderCallContext(ProviderOperation::Chat, 'corr-success');
         $result  = $this->pipeline($repository)->run(
-            $context,
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'answer',
+            $context->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'answer',
         );
 
         self::assertSame('answer', $result);
@@ -75,9 +74,8 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         $caught = false;
         try {
             $this->pipeline($repository)->run(
-                $context,
-                $this->configuration('primary'),
-                static function (LlmConfiguration $c): string {
+                $context->withConfiguration($this->configuration('primary')),
+                static function (): string {
                     throw new RuntimeException('boom', 1495872184);
                 },
             );
@@ -109,9 +107,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         $caught = false;
         try {
             $this->pipeline($repository)->run(
-                new ProviderCallContext(ProviderOperation::Chat, 'corr-guardrail'),
-                $this->configuration('primary'),
-                static fn(LlmConfiguration $c): string => throw new GuardrailViolationException('Some\\Guardrail', 'blocked'),
+                (new ProviderCallContext(ProviderOperation::Chat, 'corr-guardrail'))
+                    ->withConfiguration($this->configuration('primary')),
+                static fn(): string => throw new GuardrailViolationException('Some\\Guardrail', 'blocked'),
             );
         } catch (GuardrailViolationException) {
             $caught = true;
@@ -131,9 +129,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         $caught = false;
         try {
             $this->pipeline($repository)->run(
-                new ProviderCallContext(ProviderOperation::Chat, 'corr-approval'),
-                $this->configuration('primary'),
-                static fn(LlmConfiguration $c): string => throw new GuardrailApprovalRequiredException('Some\\Guardrail', 'needs approval'),
+                (new ProviderCallContext(ProviderOperation::Chat, 'corr-approval'))
+                    ->withConfiguration($this->configuration('primary')),
+                static fn(): string => throw new GuardrailApprovalRequiredException('Some\\Guardrail', 'needs approval'),
             );
         } catch (GuardrailApprovalRequiredException) {
             $caught = true;
@@ -150,13 +148,13 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     {
         $repository = $this->recordingRepository();
 
-        $context = new ProviderCallContext(ProviderOperation::Embedding, 'corr');
+        $context = (new ProviderCallContext(ProviderOperation::Embedding, 'corr'))
+            ->withConfiguration($this->configuration('primary'));
         $context->telemetrySignals->recordCacheHit();
 
         $this->pipeline($repository)->run(
             $context,
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'x',
+            static fn(): string => 'x',
         );
 
         self::assertTrue($repository->records[0]->cacheHit);
@@ -167,14 +165,14 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     {
         $repository = $this->recordingRepository();
 
-        $context = new ProviderCallContext(ProviderOperation::Chat, 'corr');
+        $context = (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+            ->withConfiguration($this->configuration('primary'));
         $context->telemetrySignals->recordFallbackAttempt();
         $context->telemetrySignals->recordFallbackAttempt();
 
         $this->pipeline($repository)->run(
             $context,
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'x',
+            static fn(): string => 'x',
         );
 
         self::assertSame(2, $repository->records[0]->fallbackAttempts);
@@ -186,9 +184,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         $repository = $this->recordingRepository();
 
         $result = $this->pipeline($repository, enabled: false)->run(
-            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'answer',
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'answer',
         );
 
         self::assertSame('answer', $result, 'The terminal must still run when telemetry is disabled.');
@@ -212,9 +210,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         );
 
         $result = (new MiddlewarePipeline([$middleware]))->run(
-            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'answer',
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'answer',
         );
 
         self::assertSame('answer', $result);
@@ -241,9 +239,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         );
 
         $result = (new MiddlewarePipeline([$middleware]))->run(
-            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'answer',
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'answer',
         );
 
         self::assertSame('answer', $result);
@@ -257,13 +255,12 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         $context = new ProviderCallContext(
             ProviderOperation::Chat,
             'corr',
-            [BudgetMiddleware::METADATA_BE_USER_UID => 42],
+            metadata: [BudgetMiddleware::METADATA_BE_USER_UID => 42],
         );
 
         $this->pipeline($repository)->run(
-            $context,
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'x',
+            $context->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
         );
 
         self::assertSame(42, $repository->records[0]->beUser);
@@ -282,9 +279,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         );
 
         (new MiddlewarePipeline([$middleware]))->run(
-            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'x',
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
         );
 
         self::assertSame(7, $repository->records[0]->beUser);
@@ -306,9 +303,9 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         );
 
         (new MiddlewarePipeline([$middleware]))->run(
-            new ProviderCallContext(ProviderOperation::Chat, 'corr'),
-            $this->configuration('primary'),
-            static fn(LlmConfiguration $c): string => 'x',
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
         );
 
         self::assertSame(0, $repository->records[0]->beUser);

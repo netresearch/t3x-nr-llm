@@ -296,8 +296,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // persists `array<string, mixed>`) can round-trip through the TYPO3
         // cache frontend. The typed response is reconstructed at this layer.
         $raw = $this->pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Embedding, $metadata),
-            $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
+            ProviderCallContext::forConfiguration(
+                ProviderOperation::Embedding,
+                $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
+                $metadata,
+            ),
             function () use ($input, $optionsArray, $providerKey): array {
                 $provider = $this->getProvider($providerKey);
                 if (!$provider->supportsFeature('embeddings')) {
@@ -521,7 +524,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Tools,
-            function (LlmConfiguration $config) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
+            function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
+                $config   = $this->requireConfiguration($ctx);
                 $llmModel = $this->resolveModelForConfiguration($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
@@ -608,9 +612,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // persists `array<string, mixed>`) can round-trip through the TYPO3
         // cache frontend. The typed response is reconstructed at this layer.
         $raw = $this->pipeline->run(
-            ProviderCallContext::for(ProviderOperation::Embedding, $metadata),
-            $configuration,
-            function (LlmConfiguration $config) use ($input, $optionOverrides): array {
+            ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration, $metadata),
+            function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
+                $config   = $this->requireConfiguration($ctx);
                 $llmModel = $this->resolveModelForConfiguration($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
@@ -776,7 +780,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (LlmConfiguration $config) use ($normalisedMessages, $optionOverrides): CompletionResponse {
+            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides): CompletionResponse {
+                $config   = $this->requireConfiguration($ctx);
                 $llmModel = $this->resolveModelForConfiguration($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
@@ -801,7 +806,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Completion,
-            function (LlmConfiguration $config) use ($prompt, $optionOverrides): CompletionResponse {
+            function (ProviderCallContext $ctx) use ($prompt, $optionOverrides): CompletionResponse {
+                $config   = $this->requireConfiguration($ctx);
                 $llmModel = $this->resolveModelForConfiguration($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
@@ -890,10 +896,26 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         array $metadata = [],
     ): mixed {
         return $this->pipeline->run(
-            ProviderCallContext::for($operation, $metadata),
-            $configuration,
+            ProviderCallContext::forConfiguration($operation, $configuration, $metadata),
             $terminal,
         );
+    }
+
+    /**
+     * The configuration the pipeline threaded onto the context — never null on
+     * the configuration-driven paths, which always enter through
+     * {@see ProviderCallContext::forConfiguration()} and whose fallback swaps
+     * carry a non-null sibling. The guard makes that invariant explicit for the
+     * type checker; it never fires in practice.
+     */
+    private function requireConfiguration(ProviderCallContext $context): LlmConfiguration
+    {
+        $configuration = $context->configuration;
+        if ($configuration === null) {
+            throw new ProviderException('The pipeline context carried no configuration on a configuration-driven call.', 1784600700);
+        }
+
+        return $configuration;
     }
 
     /**

@@ -60,13 +60,12 @@ final class GuardrailIdempotencyLeakTest extends AbstractFunctionalTestCase
         $context = new ProviderCallContext(
             ProviderOperation::Chat,
             'corr-leak',
-            [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
+            metadata: [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $key],
         );
 
         $result = $pipeline->run(
-            $context,
-            new LlmConfiguration(),
-            static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+            $context->withConfiguration(new LlmConfiguration()),
+            static fn(): CompletionResponse => new CompletionResponse(
                 content: 'your token is ' . $secret . ' keep it safe',
                 model: 'test-model',
                 usage: UsageStatistics::fromTokens(1, 1),

@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
@@ -81,15 +80,14 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
         if (!$this->isEnabled()) {
-            return $next($configuration);
+            return $next($context);
         }
 
         $start      = hrtime(true);
@@ -97,7 +95,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
         $errorClass = '';
 
         try {
-            $result  = $next($configuration);
+            $result  = $next($context);
             $success = true;
 
             return $result;
@@ -115,7 +113,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
 
             throw $e;
         } finally {
-            $this->safeRecord($context, $configuration, $success, $errorClass, $this->elapsedMs($start));
+            $this->safeRecord($context, $success, $errorClass, $this->elapsedMs($start));
         }
     }
 
@@ -130,7 +128,6 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
 
     private function safeRecord(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         bool $success,
         string $errorClass,
         int $latencyMs,
@@ -139,9 +136,9 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
             $this->repository->record(new TelemetryRecord(
                 correlationId: $context->correlationId,
                 operation: $context->operation->value,
-                provider: $configuration->getProviderType(),
-                model: $configuration->getModelId(),
-                configurationIdentifier: $configuration->getIdentifier(),
+                provider: $context->telemetryProvider(),
+                model: $context->telemetryModel(),
+                configurationIdentifier: $context->telemetryConfigurationIdentifier(),
                 beUser: $this->resolveBeUser($context),
                 success: $success,
                 errorClass: $errorClass,

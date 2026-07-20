@@ -44,8 +44,8 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
 
         $called = false;
         $result = $this->pipeline()->run(
-            context: $this->contextFor(beUserUid: 42, plannedCost: 0.5),
-            configuration: $this->configuration(),
+            context: $this->contextFor(beUserUid: 42, plannedCost: 0.5)
+                ->withConfiguration($this->configuration()),
             terminal: static function () use (&$called): string {
                 $called = true;
 
@@ -71,8 +71,8 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
 
         try {
             $this->pipeline()->run(
-                context: $this->contextFor(beUserUid: 42, plannedCost: 1.0),
-                configuration: $this->configuration(),
+                context: $this->contextFor(beUserUid: 42, plannedCost: 1.0)
+                    ->withConfiguration($this->configuration()),
                 terminal: static function () use (&$terminalWasCalled): string {
                     $terminalWasCalled = true;
 
@@ -98,9 +98,9 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $configuration,
-            terminal: static fn(LlmConfiguration $c): string => 'ok',
+            context: ProviderCallContext::for(ProviderOperation::Chat)
+                ->withConfiguration($configuration),
+            terminal: static fn(): string => 'ok',
         );
     }
 
@@ -114,9 +114,9 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
-            context: $this->contextFor(beUserUid: 7, plannedCost: 3), // int, not float
-            configuration: $configuration,
-            terminal: static fn(LlmConfiguration $c): string => 'ok',
+            context: $this->contextFor(beUserUid: 7, plannedCost: 3) // int, not float
+                ->withConfiguration($configuration),
+            terminal: static fn(): string => 'ok',
         );
     }
 
@@ -141,9 +141,8 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: $context,
-            configuration: $configuration,
-            terminal: static fn(LlmConfiguration $c): string => 'ok',
+            context: $context->withConfiguration($configuration),
+            terminal: static fn(): string => 'ok',
         );
     }
 
@@ -161,9 +160,9 @@ final class BudgetMiddlewareTest extends AbstractUnitTestCase
             ->willReturn(BudgetCheckResult::allowed());
 
         $this->pipeline()->run(
-            context: $this->contextFor(beUserUid: -1, plannedCost: 0.0),
-            configuration: $configuration,
-            terminal: static fn(LlmConfiguration $c): string => 'ok',
+            context: $this->contextFor(beUserUid: -1, plannedCost: 0.0)
+                ->withConfiguration($configuration),
+            terminal: static fn(): string => 'ok',
         );
     }
 

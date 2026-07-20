@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
@@ -86,16 +85,15 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
         $key = $this->readKey($context);
         if ($key === null) {
-            return $next($configuration);
+            return $next($context);
         }
 
         $cached = $this->cache->get($key);
@@ -108,7 +106,7 @@ final readonly class CacheMiddleware implements ProviderMiddlewareInterface
             return $cached;
         }
 
-        $result = $next($configuration);
+        $result = $next($context);
 
         if (\is_array($result)) {
             /** @var array<string, mixed> $result */

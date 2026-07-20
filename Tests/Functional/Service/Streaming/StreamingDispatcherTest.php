@@ -68,7 +68,7 @@ final class StreamingDispatcherTest extends AbstractFunctionalTestCase
         $context = new ProviderCallContext(
             ProviderOperation::Stream,
             'func-stream-corr',
-            [
+            metadata: [
                 BudgetMiddleware::METADATA_BE_USER_UID     => 5,
                 StreamingDispatcher::METADATA_PROVIDER      => 'openai',
                 StreamingDispatcher::METADATA_PROMPT_CHARS  => 8,

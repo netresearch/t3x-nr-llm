@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
@@ -57,25 +56,28 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
     ) {}
 
     /**
-     * @param callable(LlmConfiguration): mixed $next
+     * @param callable(ProviderCallContext): mixed $next
      *
      * @throws FallbackChainExhaustedException when primary and all fallbacks fail
      * @throws Throwable                       on the first non-retryable failure
      */
     public function handle(
         ProviderCallContext $context,
-        LlmConfiguration $configuration,
         callable $next,
     ): mixed {
-        if ($configuration->getFallbackChainDTO()->isEmpty()) {
-            return $next($configuration);
+        // A call with no configuration entity (a specialized service) has no
+        // fallback chain — there is nothing to swap to, so pass it straight
+        // through, exactly as an empty chain does.
+        $configuration = $context->configuration;
+        if ($configuration === null || $configuration->getFallbackChainDTO()->isEmpty()) {
+            return $next($context);
         }
 
         /** @var list<array{configuration: string, error: Throwable}> $attempts */
         $attempts = [];
 
         try {
-            return $next($configuration);
+            return $next($context);
         } catch (Throwable $e) {
             if (!$this->isRetryable($e)) {
                 throw $e;
@@ -151,7 +153,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
             $context->telemetrySignals->recordFallbackAttempt();
 
             try {
-                $result = $next($fallback);
+                $result = $next($context->withConfiguration($fallback));
                 $this->logger->info(
                     'LLM fallback configuration succeeded',
                     [

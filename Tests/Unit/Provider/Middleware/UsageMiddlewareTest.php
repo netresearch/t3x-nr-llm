@@ -68,9 +68,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $result = $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(uid: 7),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
+            terminal: static fn(): CompletionResponse => $response,
         );
 
         self::assertSame($response, $result);
@@ -99,9 +98,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration(), // uid = null (not persisted)
-            terminal: static fn(LlmConfiguration $c): EmbeddingResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()), // uid = null (not persisted)
+            terminal: static fn(): EmbeddingResponse => $response,
         );
     }
 
@@ -128,9 +126,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Vision),
-            configuration: $this->configuration(uid: 12),
-            terminal: static fn(LlmConfiguration $c): VisionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Vision, $this->configuration(uid: 12)),
+            terminal: static fn(): VisionResponse => $response,
         );
     }
 
@@ -157,9 +154,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
+            terminal: static fn(): CompletionResponse => $response,
         );
     }
 
@@ -169,9 +165,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->tracker->expects(self::never())->method('trackUsage');
 
         $result = $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): string => 'raw-string-response',
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
+            terminal: static fn(): string => 'raw-string-response',
         );
 
         self::assertSame('raw-string-response', $result);
@@ -186,8 +181,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('boom');
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(),
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
             terminal: static function (): never {
                 throw new LogicException('boom', 1504818594);
             },
@@ -216,9 +210,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->setUid($config, 0);
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $config,
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config),
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(1, 1, 2),
@@ -261,9 +254,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         ];
 
         $result = $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): array => $payload,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
+            terminal: static fn(): array => $payload,
         );
 
         self::assertSame($payload, $result);
@@ -285,9 +277,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): array => [
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
+            terminal: static fn(): array => [
                 'provider' => '',
                 'usage'    => ['totalTokens' => 5],
             ],
@@ -300,9 +291,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->tracker->expects(self::never())->method('trackUsage');
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): array => [
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
+            terminal: static fn(): array => [
                 'embeddings' => [[0.1]],
                 'provider'   => 'openai',
                 // no 'usage' key — nothing reliable to record
@@ -316,9 +306,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->tracker->expects(self::never())->method('trackUsage');
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Embedding),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): array => [
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration()),
+            terminal: static fn(): array => [
                 'provider' => ['not', 'a', 'string'],
                 'usage'    => ['totalTokens' => 5],
             ],
@@ -358,9 +347,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configurationWithModel($model, uid: 7),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configurationWithModel($model, uid: 7)),
+            terminal: static fn(): CompletionResponse => $response,
         );
     }
 
@@ -395,9 +383,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configurationWithModel($model, uid: 7),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configurationWithModel($model, uid: 7)),
+            terminal: static fn(): CompletionResponse => $response,
         );
     }
 
@@ -417,9 +404,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat, [UsageMiddleware::METADATA_TASK_UID => 42]),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(), [UsageMiddleware::METADATA_TASK_UID => 42]),
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -445,9 +431,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat, [BudgetMiddleware::METADATA_BE_USER_UID => 99]),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(), [BudgetMiddleware::METADATA_BE_USER_UID => 99]),
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -476,9 +461,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             );
 
         $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => new CompletionResponse(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
                 content: 'x',
                 model: 'm',
                 usage: new UsageStatistics(5, 5, 10),
@@ -510,9 +494,8 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->logger->expects(self::once())->method('warning');
 
         $result = $this->pipeline()->run(
-            context: ProviderCallContext::for(ProviderOperation::Chat),
-            configuration: $this->configuration(uid: 7),
-            terminal: static fn(LlmConfiguration $c): CompletionResponse => $response,
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
+            terminal: static fn(): CompletionResponse => $response,
         );
 
         self::assertSame($response, $result);
