@@ -81,9 +81,11 @@ final readonly class LlmTranslator implements TranslatorInterface
         // middleware pipeline) and the translation-level tracking row alike.
         $beUserUid = $this->extractBeUserUid($options);
 
-        // Detect source language if not provided
+        // Detect source language if not provided. As an internal step of the
+        // translation it must not count as a separate request (#473) — the
+        // 'translation' row below is the single request of record.
         if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguageAttributed($text, $beUserUid);
+            $sourceLanguage = $this->detectLanguageAttributed($text, $beUserUid, false);
         }
 
         // Build translation prompt
@@ -182,17 +184,24 @@ final readonly class LlmTranslator implements TranslatorInterface
     {
         // Public TranslatorInterface signature carries no options, so a
         // direct call stays ambient; translate() routes through
-        // detectLanguageAttributed() with the caller's uid instead.
-        return $this->detectLanguageAttributed($text, null);
+        // detectLanguageAttributed() with the caller's uid instead. A
+        // standalone detection is a request in its own right, so it counts.
+        return $this->detectLanguageAttributed($text, null, true);
     }
 
     /**
      * Detect the language of a text, attributing the underlying chat call
-     * to the given backend user (ADR-052). The detection call is billed
-     * like any other chat request — without the uid it lands in the
-     * ambient bucket even when the translation itself is attributed.
+     * to the given backend user (ADR-052).
+     *
+     * @param bool $countsAsRequest false when detection runs as the internal
+     *                              first step of translate() — the translation
+     *                              records the single request-of-record, so the
+     *                              detection sub-call must not increment the
+     *                              request counter too (#473). true for a
+     *                              standalone detectLanguage() call, which is a
+     *                              request in its own right.
      */
-    private function detectLanguageAttributed(string $text, ?int $beUserUid): string
+    private function detectLanguageAttributed(string $text, ?int $beUserUid, bool $countsAsRequest): string
     {
         $messages = [
             [
@@ -205,13 +214,13 @@ final readonly class LlmTranslator implements TranslatorInterface
             ],
         ];
 
-        // Language detection is a sub-step of the translation, not a separate
-        // request (issue #473 double-count).
+        // Suppress the request count only when detection is a sub-step of a
+        // translation; a standalone detectLanguage() call counts (#473).
         $chatOptions = (new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
             beUserUid: $beUserUid,
-        ))->withSuppressRequestCount(true);
+        ))->withSuppressRequestCount(!$countsAsRequest);
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
