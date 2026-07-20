@@ -51,7 +51,7 @@ use Throwable;
  * Token usage is summed across every round-trip (including the synthesis call);
  * per-iteration monetary cost is recorded downstream by the middleware pipeline.
  */
-final readonly class ToolLoopService
+final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
     use ResolvesActingBackendUserTrait;
 
