@@ -126,6 +126,47 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function translateSuppressesRequestCountOnTheUnderlyingChatCall(): void
+    {
+        // Regression for #473: the translator records its own 'translation' request
+        // row, so the underlying chat call must not be counted as a second request.
+        $capturedOptions = [];
+
+        $managerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $managerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$capturedOptions): CompletionResponse {
+                    $capturedOptions[] = $options;
+
+                    return new CompletionResponse(
+                        content: 'Hallo',
+                        model: 'gpt-5.2',
+                        usage: new UsageStatistics(100, 50, 150),
+                        finishReason: 'stop',
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $translator = new LlmTranslator(
+            $managerMock,
+            self::createStub(UsageTrackerServiceInterface::class),
+        );
+
+        // Explicit source language avoids the auto-detection sub-call, isolating
+        // the translation chat call under assertion.
+        $translator->translate('Hello', 'de', 'en', ['provider' => 'openai']);
+
+        self::assertNotEmpty($capturedOptions);
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions[0]);
+        self::assertTrue(
+            $capturedOptions[0]->getSuppressRequestCount(),
+            'The underlying chat call of a translation must not be counted as a request.',
+        );
+    }
+
+    #[Test]
     public function isAvailableReturnsTrueWhenProviderAvailable(): void
     {
         self::assertTrue($this->subject->isAvailable());

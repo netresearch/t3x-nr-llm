@@ -241,20 +241,37 @@ final readonly class TranslationService implements TranslationServiceInterface
      */
     public function detectLanguage(string $text, ?TranslationOptions $options = null): string
     {
-        $options ??= new TranslationOptions();
+        // Standalone detection is a request in its own right, so it counts.
+        return $this->runLanguageDetection($text, $options ?? new TranslationOptions(), true);
+    }
+
+    /**
+     * Shared language-detection implementation.
+     *
+     * @param bool $countsAsRequest false when detection runs as the internal
+     *                              first step of a translate() call — the
+     *                              translation records the single request-of-
+     *                              record, so the detection sub-call must not
+     *                              increment the request counter too (issue #473
+     *                              double-count). true for a standalone call.
+     *
+     * @return string Language code (ISO 639-1)
+     */
+    private function runLanguageDetection(string $text, TranslationOptions $options, bool $countsAsRequest): string
+    {
         $messages = [
             ChatMessage::system('You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.'),
             ChatMessage::user("Detect the language of this text:\n\n" . $text),
         ];
 
-        $chatOptions = new ChatOptions(
+        $chatOptions = (new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
             model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
-        );
+        ))->withSuppressRequestCount(!$countsAsRequest);
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
@@ -513,9 +530,11 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         $this->validateLanguageCode($targetLanguage);
 
-        // Auto-detect source language if not provided
+        // Auto-detect source language if not provided. This detection is an
+        // internal step of the translation, so it records its tokens/cost but
+        // does not count as a separate request (issue #473 double-count).
         if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguage($text, $options);
+            $sourceLanguage = $this->runLanguageDetection($text, $options, false);
         } else {
             $this->validateLanguageCode($sourceLanguage);
         }

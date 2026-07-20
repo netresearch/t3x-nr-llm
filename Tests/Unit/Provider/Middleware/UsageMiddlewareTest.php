@@ -76,6 +76,75 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function skipRequestCountMetadataRecordsMetricsButNotTheRequest(): void
+    {
+        // #473: when the manager flags a sub-call via METADATA_SKIP_REQUEST_COUNT,
+        // the metrics are still recorded but trackUsage() is told not to count the
+        // request (countsAsRequest = false, the 9th argument).
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                false,
+            );
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o-mini',
+            usage: new UsageStatistics(100, 50, 150, 0.0012),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::forConfiguration(
+                ProviderOperation::Chat,
+                $this->configuration(uid: 7),
+                [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true],
+            ),
+            terminal: static fn(): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function requestIsCountedByDefaultWithoutSkipMetadata(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                true,
+            );
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o-mini',
+            usage: new UsageStatistics(100, 50, 150, 0.0012),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration(uid: 7)),
+            terminal: static fn(): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
     public function tracksEmbeddingResponseWithOperationAsServiceType(): void
     {
         $this->tracker->expects(self::once())

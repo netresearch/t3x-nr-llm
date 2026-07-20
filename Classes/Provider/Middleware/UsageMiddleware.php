@@ -83,6 +83,16 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_TASK_UID = 'task_uid';
 
+    /**
+     * Pipeline-metadata key: when set to `true`, this call records its metrics
+     * (tokens/cost) but does NOT increment the request counter. LlmServiceManager
+     * sets it from `ChatOptions::getSuppressRequestCount()` for provider sub-calls
+     * that belong to a higher-level operation which records its own single request
+     * row (e.g. the language-detection step of a translation), preventing the
+     * "one translation counted as two requests" double-count.
+     */
+    public const METADATA_SKIP_REQUEST_COUNT = 'skip_request_count';
+
     public function __construct(
         private UsageTrackerServiceInterface $usageTracker,
         private LoggerInterface $logger,
@@ -174,6 +184,11 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             ? $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID]
             : null;
 
+        // A sub-call flagged by the manager (e.g. a translation's language
+        // detection) still records its tokens/cost here, but the request is
+        // counted only once — on the parent operation's own row.
+        $countsAsRequest = ($context->metadata[self::METADATA_SKIP_REQUEST_COUNT] ?? null) !== true;
+
         $this->usageTracker->trackUsage(
             serviceType: $context->operation->value,
             provider: $provider !== '' ? $provider : 'unknown',
@@ -183,6 +198,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             modelId: $modelId,
             taskUid: $taskUid,
             beUserUid: $beUserUid,
+            countsAsRequest: $countsAsRequest,
         );
     }
 

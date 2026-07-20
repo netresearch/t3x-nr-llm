@@ -139,6 +139,85 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function translateSuppressesRequestCountOnTheAutoDetectionSubCall(): void
+    {
+        // Regression for #473: a translate() without a source language makes two
+        // provider calls (detect + translate). Counting both inflated the backend
+        // "requests" KPI to 2 per translation. The detection sub-call must not
+        // count; the translation itself is the single request of record.
+        $capturedOptions = [];
+        $responses = [
+            $this->createChatResponse('en'),     // language detection
+            $this->createChatResponse('Hallo'),  // translation
+        ];
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->expects(self::exactly(2))
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$capturedOptions, &$responses): CompletionResponse {
+                    $capturedOptions[] = $options;
+                    $next = array_shift($responses);
+                    self::assertInstanceOf(CompletionResponse::class, $next);
+
+                    return $next;
+                },
+            );
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->translate('Hello', 'de');
+
+        self::assertCount(2, $capturedOptions);
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions[0]);
+        self::assertTrue(
+            $capturedOptions[0]->getSuppressRequestCount(),
+            'The language-detection sub-call must not be counted as a request.',
+        );
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions[1]);
+        self::assertFalse(
+            $capturedOptions[1]->getSuppressRequestCount(),
+            'The translation itself is the single request of record.',
+        );
+    }
+
+    #[Test]
+    public function detectLanguageStandaloneCountsAsARequest(): void
+    {
+        // Standalone detection is a request in its own right and still counts.
+        $captured = null;
+
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock
+            ->method('chat')
+            ->willReturnCallback(
+                function (array $messages, ?ChatOptions $options = null) use (&$captured): CompletionResponse {
+                    $captured = $options;
+
+                    return $this->createChatResponse('en');
+                },
+            );
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->detectLanguage('Hello World');
+
+        self::assertInstanceOf(ChatOptions::class, $captured);
+        self::assertFalse($captured->getSuppressRequestCount());
+    }
+
+    #[Test]
     public function translateCalculatesConfidenceFromFinishReason(): void
     {
         $this->llmManagerStub

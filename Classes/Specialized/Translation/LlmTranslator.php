@@ -107,13 +107,16 @@ final readonly class LlmTranslator implements TranslatorInterface
         // BudgetMiddleware enforces the caller's budget and UsageMiddleware
         // attributes the chat row to the same be_user as the translation row
         // (previously the chat row always landed in the ambient bucket).
-        $chatOptions = new ChatOptions(
+        // The 'translation' row below is the single request-of-record; the
+        // underlying chat row keeps its tokens/cost but must not also count as
+        // a request (issue #473 double-count).
+        $chatOptions = (new ChatOptions(
             temperature: $temperature,
             maxTokens: $maxTokens,
             provider: $provider,
             model: $model,
             beUserUid: $beUserUid,
-        );
+        ))->withSuppressRequestCount(true);
 
         $response = $this->llmManager->chat($prompt['messages'], $chatOptions);
 
@@ -202,11 +205,13 @@ final readonly class LlmTranslator implements TranslatorInterface
             ],
         ];
 
-        $chatOptions = new ChatOptions(
+        // Language detection is a sub-step of the translation, not a separate
+        // request (issue #473 double-count).
+        $chatOptions = (new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
             beUserUid: $beUserUid,
-        );
+        ))->withSuppressRequestCount(true);
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 

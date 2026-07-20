@@ -43,6 +43,11 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         $this->validate();
     }
 
+    // Set via withSuppressRequestCount() rather than the constructor: ChatOptions
+    // is @phpstan-consistent-constructor and ToolOptions extends it, so a new
+    // constructor parameter would collide with the subclass's own parameters.
+    private ?bool $suppressRequestCount = null;
+
     // ========================================
     // Factory Presets
     // ========================================
@@ -197,6 +202,18 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         return $clone;
     }
 
+    /**
+     * Mark the call as a sub-call of a larger operation: it still records its
+     * tokens/cost but is not counted as a separate request.
+     * See {@see self::getSuppressRequestCount()}.
+     */
+    public function withSuppressRequestCount(bool $suppressRequestCount): static
+    {
+        $clone = clone $this;
+        $clone->suppressRequestCount = $suppressRequestCount;
+        return $clone;
+    }
+
     // Budget pre-flight setters (`withBeUserUid()`, `withPlannedCost()`)
     // are provided by `BudgetFieldsTrait`. See REC #4 for the full
     // contract — `0` is "anonymous / skip the check"; positive uid =
@@ -218,6 +235,22 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     public function getThink(): ?bool
     {
         return $this->think;
+    }
+
+    /**
+     * Whether the underlying provider call should be recorded WITHOUT
+     * incrementing the request counter. Set on the sub-calls of a larger
+     * operation (a translation's language detection, the LLM translator's
+     * chat call) so that operation is counted as a single request rather
+     * than once per internal provider call.
+     *
+     * Metadata-only: deliberately excluded from toArray() so it never reaches
+     * the provider payload — LlmServiceManager reads it and forwards it as
+     * pipeline metadata, exactly like beUserUid / plannedCost.
+     */
+    public function getSuppressRequestCount(): bool
+    {
+        return $this->suppressRequestCount === true;
     }
 
     public function getMaxTokens(): ?int
