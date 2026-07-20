@@ -6,6 +6,55 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-07-20
+
+Adds a content-policy guardrail pipeline, human-in-the-loop tool approval,
+persistent AI sessions and agent runs, schema-validated structured outputs, and
+typed provider exceptions, alongside broad tool-egress hardening and a bilingual
+documentation site.
+
+### Added
+
+- Content-policy guardrail pipeline screening outgoing prompts and responses,
+  with end-of-stream auditing and live streaming redaction via a holdback buffer
+  (ADR-085, ADR-087, ADR-088, ADR-089).
+- Human-in-the-loop tool approval: the agent loop can suspend for a human
+  decision and resume the run (ADR-084).
+- Persistent AI sessions with memory (ADR-083) and durable agent-run persistence
+  with a queryable event stream (ADR-081).
+- Schema-validated structured outputs with automatic repair (ADR-082).
+- Typed `ProviderAuthenticationException` (HTTP 401) and
+  `ProviderRateLimitException` (HTTP 429) provider exceptions (ADR-080).
+- `ToolLoopServiceInterface` so downstream extensions can inject and test-double
+  the tool loop (`runLoop()` / `resume()`) without depending on the final
+  `ToolLoopService`.
+- Bilingual GitHub Pages documentation site with ADRs, search, developer
+  feature deep-dives (streaming/tools, RAG, providers), and on-device AI answers
+  rendered as Markdown.
+
+### Changed
+
+- On resume, the tool loop restores the suspended run's original allow-list and
+  options and re-applies the tool gate (permission, global enablement, RBAC) to
+  the pending calls, fail-closed (ADR-084).
+- Keep the system prompt on every turn and advance the run sequence on a failed
+  turn.
+
+### Fixed
+
+- Harden provider response parsing against malformed and hostile upstreams,
+  including typed guards for the DALL-E and DeepL response shapes.
+- Null-guard site-config key normalization; clamp `maxRetries` to its TCA upper
+  bound.
+- Purge agent-run events by run id.
+
+### Security
+
+- Tool egress hardening: enforce FAL file-mount boundaries and backend language
+  access in read tools, exclude workspace-draft references, and broaden the
+  credential egress denylist (digit-suffix and concatenated secret columns,
+  `apitoken`, `sk-proj-` keys, and Composer `auth.json` in `read_source`).
+
 ## [0.22.0] - 2026-07-17
 
 Pulls the retrieval/document capabilities forward that the 0.21.0 revisit issues
