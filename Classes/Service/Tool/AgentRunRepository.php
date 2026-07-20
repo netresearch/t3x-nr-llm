@@ -104,18 +104,18 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $affected = $builder
             ->update(self::TABLE_RUN)
             ->set('status', $status)
-            ->set('iterations', (string)$iterations, false, Connection::PARAM_INT)
-            ->set('truncated', $truncated ? '1' : '0', false, Connection::PARAM_INT)
-            ->set('total_prompt_tokens', (string)$promptTokens, false, Connection::PARAM_INT)
-            ->set('total_completion_tokens', (string)$completionTokens, false, Connection::PARAM_INT)
-            ->set('total_tokens', (string)$totalTokens, false, Connection::PARAM_INT)
-            ->set('estimated_cost', (string)$estimatedCost, false, Connection::PARAM_STR)
+            ->set('iterations', $builder->createNamedParameter($iterations, Connection::PARAM_INT), false)
+            ->set('truncated', $builder->createNamedParameter($truncated ? 1 : 0, Connection::PARAM_INT), false)
+            ->set('total_prompt_tokens', $builder->createNamedParameter($promptTokens, Connection::PARAM_INT), false)
+            ->set('total_completion_tokens', $builder->createNamedParameter($completionTokens, Connection::PARAM_INT), false)
+            ->set('total_tokens', $builder->createNamedParameter($totalTokens, Connection::PARAM_INT), false)
+            ->set('estimated_cost', $builder->createNamedParameter((string)$estimatedCost, Connection::PARAM_STR), false)
             ->set('error_class', $errorClass)
             ->set('termination_reason', $terminationReason)
             // A terminal run is no longer suspended.
             ->set('suspended_state', '')
-            ->set('finished_at', (string)$now, false, Connection::PARAM_INT)
-            ->set('tstamp', (string)$now, false, Connection::PARAM_INT)
+            ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->where(
                 $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
                 $builder->expr()->in(

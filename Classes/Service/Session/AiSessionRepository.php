@@ -130,15 +130,15 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         $builder = $connection->createQueryBuilder();
         $builder
             ->update(self::TABLE_SESSION)
-            ->set('last_activity', (string)$now, false, Connection::PARAM_INT)
-            ->set('tstamp', (string)$now, false, Connection::PARAM_INT)
+            ->set('last_activity', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->where($builder->expr()->eq('uid', $builder->createNamedParameter($sessionUid, Connection::PARAM_INT)))
             ->executeStatement();
 
         $countBuilder = $connection->createQueryBuilder();
         $countBuilder
             ->update(self::TABLE_SESSION)
-            ->set('message_count', (string)$messageCount, false, Connection::PARAM_INT)
+            ->set('message_count', $countBuilder->createNamedParameter($messageCount, Connection::PARAM_INT), false)
             ->where(
                 $countBuilder->expr()->eq('uid', $countBuilder->createNamedParameter($sessionUid, Connection::PARAM_INT)),
                 $countBuilder->expr()->lt('message_count', $countBuilder->createNamedParameter($messageCount, Connection::PARAM_INT)),
