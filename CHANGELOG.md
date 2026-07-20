@@ -115,6 +115,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `DeepLTranslator` now runs a budget pre-flight on `translate()` and
+  `translateBatch()`. It was the last paid external call with no cap at all;
+  `TranslationService` threads `plannedCost` and `configuration` through to it
+  alongside the already-threaded `beUserUid` (ADR-078, amended).
+- `FalImageService` passes the caller's configuration identifier into its budget
+  check, so per-configuration caps apply to it and not only the per-user cap —
+  it previously passed `null` and only the user cap could ever fire.
+- Corrected the middleware ordering documented in four middleware docblocks
+  (`BudgetMiddleware` claimed a "Guardrail outermost at 115" that does not
+  exist; `Fallback`, `Usage` and `Cache` omitted Guardrail and Idempotency
+  entirely) and removed the stale note in `GuardrailInterface` calling input
+  guardrails an unimplemented follow-up — they shipped in ADR-087.
 - Restored the missing `[0.23.0]` changelog link definition; `[Unreleased]` now
   compares against `v0.23.0` instead of `v0.22.0`.
 

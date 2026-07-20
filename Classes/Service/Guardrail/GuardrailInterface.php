@@ -22,10 +22,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * {@see GuardrailResult} verdict: allow, redact, deny, retry, or require-approval.
  *
  * Only the OUTPUT (the model's response) is screened here — it is the untrusted
- * content. Input-side guardrails (screening the prompt) are a separate step: the
- * prompt payload is captured in the pipeline's terminal closure, not on the
- * provider-call context, so screening it requires threading the messages through
- * the context first (a documented follow-up in ADR-085).
+ * content. Input-side screening is a separate contract with its own interface
+ * ({@see InputGuardrailInterface}, run by {@see InputGuardrailScreener}) rather
+ * than a stage of this pipeline: the pipeline context deliberately carries no
+ * payload (ADR-026), so the prompt is screened at the call site before the
+ * pipeline is entered (ADR-087).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface GuardrailInterface

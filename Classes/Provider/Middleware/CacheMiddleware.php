@@ -58,13 +58,15 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * pinned via the tag priority below (highest priority = first in the autowired
  * iterator = outermost in the pipeline):
  *
- *   TelemetryMiddleware      <-- outermost; observation only        (priority 110)
- *     CacheMiddleware        <-- short-circuits on hit              (priority 100)
- *       BudgetMiddleware     <-- pre-flight only on miss            (priority 75)
- *         FallbackMiddleware <-- swaps config on retryable failure  (priority 50)
- *           UsageMiddleware  <-- records the call that actually ran (priority 25)
- *             CircuitBreaker <-- guards the provider call           (priority 20)
- *               <terminal>
+ *   TelemetryMiddleware        <-- outermost; observation only      (priority 110)
+ *     IdempotencyMiddleware    <-- replays a stored result by key    (priority 105)
+ *       CacheMiddleware        <-- short-circuits on hit             (priority 100)
+ *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
+ *           BudgetMiddleware   <-- pre-flight only on miss           (priority 75)
+ *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
+ *               UsageMiddleware  <-- records the call that actually ran (priority 25)
+ *                 CircuitBreaker <-- guards the provider call        (priority 20)
+ *                   <terminal>
  *
  * Callers who want cache accounting (count hits against budget / usage)
  * should assemble a custom pipeline with Cache *inside* those layers — it is

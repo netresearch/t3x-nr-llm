@@ -59,8 +59,14 @@ and input validation, before building its request:
   ``extractPlannedCost()`` mirrors the existing ``extractBeUserUid()``; the
   payload builder drops both, so neither reaches the FAL API).
 
-``DeepLTranslator`` also extends the base but its options carry no budget
-fields — it is intentionally **not** gated.
+``DeepLTranslator`` was initially left out because its options carried no
+budget fields. That exception did not survive review: a paid external call
+no cap can stop is not defensible, whatever the shape of its options.
+``TranslationService`` now threads ``plannedCost`` and ``configuration``
+through alongside the already-threaded ``beUserUid``, and both ``translate()``
+and ``translateBatch()`` run the same pre-flight as the image and speech
+services. (Amended 2026-07-20; the original decision is kept above so the
+change of mind is visible rather than rewritten away.)
 
 **Fail-open by construction.** The gate hangs on a new *optional* trailing
 constructor parameter ``?BudgetServiceInterface $budgetService = null``. It
