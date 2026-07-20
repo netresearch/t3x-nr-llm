@@ -396,3 +396,4 @@ Tools
    Adr096PipelineCallContext
    Adr097SpecializedServicesOnPipeline
    Adr098SpecializedInputGuardrailScreening
+   Adr099SpecializedFailClosedDispatch

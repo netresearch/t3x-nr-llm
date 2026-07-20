@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -89,6 +91,17 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $this->expectException(GuardrailViolationException::class);
         $subject->callScreenPrompt('anything');
+    }
+
+    #[Test]
+    public function aProviderRequestOutsideALifecycleFailsClosed(): void
+    {
+        // ADR-099: an HTTP dispatch that skips runLifecycle() would bypass
+        // telemetry, the circuit breaker and usage, so it throws instead.
+        $subject = $this->createSubject();
+
+        $this->expectException(LogicException::class);
+        $subject->callSendJsonRequestWithoutLifecycle('endpoint', []);
     }
 
     #[Test]
@@ -1332,7 +1345,25 @@ final class TestableSpecializedService extends AbstractSpecializedService
      */
     public function callSendJsonRequest(string $endpoint, array $payload, string $method = 'POST'): array
     {
-        return $this->sendJsonRequest($endpoint, $payload, $method);
+        // Mirror production: the HTTP dispatch runs inside a lifecycle so the
+        // fail-closed egress guard (ADR-099) is satisfied.
+        return $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::Chat, 'test-provider', 'test-model'),
+            fn(): array => $this->sendJsonRequest($endpoint, $payload, $method),
+        );
+    }
+
+    /**
+     * Dispatch WITHOUT a lifecycle — used only to assert the fail-closed egress
+     * guard throws (ADR-099).
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    public function callSendJsonRequestWithoutLifecycle(string $endpoint, array $payload): array
+    {
+        return $this->sendJsonRequest($endpoint, $payload);
     }
 
     /**

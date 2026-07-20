@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized;
 
 use JsonException;
+use LogicException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -89,6 +90,14 @@ abstract class AbstractSpecializedService
      */
     private ?ClientInterface $configuredHttpClient = null;
 
+    /**
+     * True only while a {@see runLifecycle()} dispatch is executing. The HTTP
+     * egress ({@see assertWithinLifecycle()}) fails closed when it is false, so a
+     * provider call that forgets to wrap its dispatch in the pipeline throws
+     * rather than silently spending unmetered and unobserved (ADR-099).
+     */
+    private bool $withinLifecycle = false;
+
     public function __construct(
         protected readonly VaultServiceInterface $vault,
         protected readonly RequestFactoryInterface $requestFactory,
@@ -135,7 +144,35 @@ abstract class AbstractSpecializedService
      */
     protected function runLifecycle(ProviderCallContext $context, callable $call): mixed
     {
-        return $this->pipeline->run($context, static fn(ProviderCallContext $context): mixed => $call());
+        return $this->pipeline->run($context, function (ProviderCallContext $context) use ($call): mixed {
+            $previous = $this->withinLifecycle;
+            $this->withinLifecycle = true;
+            try {
+                return $call();
+            } finally {
+                $this->withinLifecycle = $previous;
+            }
+        });
+    }
+
+    /**
+     * Guard the HTTP egress: a specialized provider call must run inside a
+     * {@see runLifecycle()} dispatch so it gets a telemetry row, a correlation id
+     * and the circuit breaker (ADR-099). Called before every provider request;
+     * throwing here means a service method dispatched without wrapping — a
+     * programmer error, not a runtime fault, hence {@see \LogicException}.
+     *
+     * @throws LogicException when no lifecycle dispatch is active
+     */
+    protected function assertWithinLifecycle(): void
+    {
+        if (!$this->withinLifecycle) {
+            throw new LogicException(sprintf(
+                '%s attempted a provider HTTP request outside runLifecycle(): the call would bypass telemetry, '
+                . 'the circuit breaker and usage. Wrap the dispatch in runLifecycle().',
+                static::class,
+            ));
+        }
     }
 
     /**
@@ -700,6 +737,10 @@ abstract class AbstractSpecializedService
      */
     protected function executeRequest(RequestInterface $request): array
     {
+        // Fail closed before the try so the guard is not masked by the
+        // Throwable->ServiceUnavailableException wrapping below (ADR-099).
+        $this->assertWithinLifecycle();
+
         try {
             $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();

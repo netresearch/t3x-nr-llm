@@ -398,6 +398,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         }
         $request = $request->withBody($this->streamFactory->createStream($body));
 
+        // Fail closed before the try (see AbstractSpecializedService, ADR-099).
+        $this->assertWithinLifecycle();
+
         try {
             $response = $this->getSecureClient()->sendRequest($request);
             $statusCode = $response->getStatusCode();
