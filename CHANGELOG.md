@@ -42,6 +42,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Breaking (tool contract):** the per-configuration tool gate — the skills'
+  declared allow-list intersected with `allowed_tool_groups` — is applied inside
+  `ToolLoopService` instead of in the tool playground. Every consumer of the
+  published `ToolLoopServiceInterface` is now subject to it; previously only the
+  playground was, so a downstream caller received the full globally-enabled set
+  (ADR-093). The playground's own behaviour is unchanged.
+- `get_tca` routes its table access through the shared `TableReadAccessService`
+  like its sibling `get_full_tca`, and therefore no longer describes the
+  extension's own or `nr_vault`'s tables — to anyone, administrators included.
+  It previously checked `tables_select` directly, which every admin passes.
+- The `rag` tool group declares a `configured_endpoint` egress scope and
+  `SolrSearchBackend` validates its assembled URL against the configured host
+  (http(s) only, no credentials in the URL, exact host:port). The policy
+  previously claimed the group could not egress at all while the backend was
+  issuing HTTP requests — an audit gate, not a new confidentiality boundary,
+  since the host was always operator-supplied (ADR-093).
 - A guardrail stop is recorded as a policy outcome (`policy_denied`, or
   `approval_denied` when an approval was required and never obtained) instead
   of as a provider failure, so a denial can no longer be mistaken for an outage

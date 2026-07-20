@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
@@ -878,16 +880,51 @@ final class ToolLoopServiceTest extends TestCase
         };
     }
 
+    #[Test]
+    public function theConfigurationsToolGroupGateAppliesInsideTheLoopNotOnlyInThePlayground(): void
+    {
+        // Until ADR-093 this gate lived in ToolPlaygroundController, so every
+        // other consumer of the public ToolLoopServiceInterface — a scheduler
+        // task, a downstream extension — bypassed the configuration's own
+        // restriction entirely. The caller's list is a request, not a grant.
+        $registry = new ToolRegistry([new FakeTool('content_tool', 'OK', true, false, 'content'), new FakeTool('system_tool', 'OK', true, false, 'system')]);
+
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (array $messages, array $tools) use (&$captured): CompletionResponse {
+                $captured = array_map(static fn(ToolSpec $spec): string => $spec->name, $tools);
+
+                return $this->response('done');
+            },
+        );
+
+        $configuration = new LlmConfiguration();
+        $configuration->setAllowedToolGroups('content');
+
+        $service = $this->service($mgr, $registry, null, new AllowedToolsResolver(new SkillComposer(), $registry));
+
+        // The caller explicitly asks for both, and both are globally enabled.
+        $service->runLoop([$this->userTurn('go')], $configuration, ['content_tool', 'system_tool']);
+
+        self::assertSame(['content_tool'], $captured, 'A tool outside the configuration\'s groups must never be offered.');
+    }
+
     private function service(
         LlmServiceManagerInterface $mgr,
         ToolRegistry $registry,
         ?LoggerInterface $logger = null,
+        ?AllowedToolsResolver $allowedTools = null,
     ): ToolLoopService {
         return new ToolLoopService(
             $mgr,
             $registry,
             new FakeToolAvailability($registry->names()),
             $logger,
+            5,
+            null,
+            null,
+            $allowedTools,
         );
     }
 

@@ -29,7 +29,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -94,7 +93,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly PageRenderer $pageRenderer,
         private readonly ToolLoopService $toolLoopService,
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
-        private readonly AllowedToolsResolver $allowedToolsResolver,
         private readonly SkillRepository $skillRepository,
         private readonly PromptSnippetRepository $promptSnippetRepository,
         // Optional and last so the existing direct constructions in the
@@ -188,14 +186,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // regardless (a disabled tool stays off).
         $selected = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
 
-        // Stay faithful to production (ADR-038 §5): if the configuration's skills
-        // declare an allowed-tools allow-list, intersect the admin's selection
-        // with it so the playground offers only what the config would actually
-        // permit. null = no declaring skill ⇒ no skill-imposed restriction.
-        $skillAllowed = $this->allowedToolsResolver->resolve($config);
-        $allowed      = $skillAllowed !== null
-            ? array_values(array_intersect($selected, $skillAllowed))
-            : $selected;
+        // The selection is a request, not a grant: the configuration's skill
+        // allow-list and allowed_tool_groups are applied inside the loop since
+        // ADR-093, so every consumer of ToolLoopServiceInterface gets the same
+        // gate — not just this controller.
+        $allowed = $selected;
 
         $augmentation = new RunAugmentation(
             forcedSkills: $this->resolveForcedSkills($this->uidListFromBody($body, 'forcedSkills')),

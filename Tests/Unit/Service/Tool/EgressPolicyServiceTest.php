@@ -52,7 +52,7 @@ final class EgressPolicyServiceTest extends TestCase
     #[Test]
     public function everyUndeclaredGroupFailsClosedToNone(): void
     {
-        foreach (['content', 'structure', 'configuration', 'code', 'files', 'accounts', 'rag', 'third_party_ext', ''] as $group) {
+        foreach (['content', 'structure', 'configuration', 'code', 'files', 'accounts', 'third_party_ext', ''] as $group) {
             self::assertSame(
                 ToolEgressScope::NONE,
                 $this->policy->scopeFor($group),
@@ -101,5 +101,54 @@ final class EgressPolicyServiceTest extends TestCase
         self::assertNull($policy->resolveAllowedUrl('system', 'https://www.example.com:8443/'));
         // Undeclared group stays denied even with sites present.
         self::assertNull($policy->resolveAllowedUrl('content', 'https://www.example.com/team'));
+    }
+
+    #[Test]
+    public function theRagGroupDeclaresAConfiguredEndpointScope(): void
+    {
+        // The class docblock used to claim rag was egress-free while its search
+        // backend was issuing HTTP requests. The scope now says what is true.
+        self::assertSame(ToolEgressScope::CONFIGURED_ENDPOINT, $this->policy->scopeFor('rag'));
+        self::assertSame(ToolEgressScope::NONE, $this->policy->scopeFor('content'));
+    }
+
+    #[Test]
+    public function aConfiguredEndpointMustMatchTheDeclarationExactly(): void
+    {
+        $declared = ['solr.internal:8983'];
+
+        self::assertSame(
+            'http://solr.internal:8983/solr/core_en/select',
+            $this->policy->resolveConfiguredEndpoint('rag', 'http://solr.internal:8983/solr/core_en/select', $declared),
+        );
+
+        // Right host, wrong port; foreign host; non-http scheme; empty host.
+        self::assertNull($this->policy->resolveConfiguredEndpoint('rag', 'http://solr.internal:6379/solr/x/select', $declared));
+        self::assertNull($this->policy->resolveConfiguredEndpoint('rag', 'http://evil.example.org:8983/solr/x/select', $declared));
+        self::assertNull($this->policy->resolveConfiguredEndpoint('rag', 'file:///etc/passwd', $declared));
+        self::assertNull($this->policy->resolveConfiguredEndpoint('rag', 'http:///solr/x/select', $declared));
+
+        // Credentials in the URL are refused: the value can be echoed into tool
+        // output and logs.
+        self::assertNull($this->policy->resolveConfiguredEndpoint(
+            'rag',
+            'http://user:pass@solr.internal:8983/solr/x/select',
+            $declared,
+        ));
+
+        // A group without the scope cannot use this path at all.
+        self::assertNull($this->policy->resolveConfiguredEndpoint('system', 'http://solr.internal:8983/solr/x/select', $declared));
+    }
+
+    #[Test]
+    public function aDeclaredHostWithoutAPortDefaultsFromTheScheme(): void
+    {
+        self::assertSame(
+            'https://search.example.com/solr/core/select',
+            $this->policy->resolveConfiguredEndpoint('rag', 'https://search.example.com/solr/core/select', ['search.example.com']),
+        );
+        self::assertNull(
+            $this->policy->resolveConfiguredEndpoint('rag', 'http://search.example.com/solr/core/select', ['search.example.com:443']),
+        );
     }
 }

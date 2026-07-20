@@ -32,7 +32,6 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
-use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
@@ -109,7 +108,6 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $pageRenderer,
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
             $availability,
-            $this->get(AllowedToolsResolver::class),
             $skillRepository,
             $promptSnippetRepository,
         );
@@ -814,7 +812,6 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $pageRenderer,
             $toolLoopService,
             $this->availabilityFor($toolRegistry),
-            $this->get(AllowedToolsResolver::class),
             $skillRepository,
             $promptSnippetRepository,
             $agentRunPersister,

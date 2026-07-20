@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Retrieval;
 
+use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 use TYPO3\CMS\Core\Site\Entity\Site;
@@ -48,6 +49,9 @@ final class SolrSearchBackend implements SearchBackendInterface
     public function __construct(
         private readonly SiteFinder $siteFinder,
         private readonly SolrHttpClientInterface $httpClient,
+        // Optional so the existing lean test wiring keeps working; absent it the
+        // assembled URL is used unchecked, exactly as before ADR-093.
+        private readonly ?EgressPolicyService $egressPolicy = null,
     ) {}
 
     public function getIdentifier(): string
@@ -350,7 +354,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             $path = rtrim(substr($path, 0, -4), '/');
         }
 
-        return sprintf(
+        $url = sprintf(
             '%s://%s:%d%s/solr/%s/select',
             $scheme,
             $host,
@@ -358,6 +362,20 @@ final class SolrSearchBackend implements SearchBackendInterface
             $path === '' ? '' : '/' . $path,
             $core,
         );
+
+        // The `rag` group declares CONFIGURED_ENDPOINT egress, so the request
+        // this backend assembles is validated against the endpoint the operator
+        // configured — the same http(s)-only, no-userinfo, exact host:port rules
+        // probe_url is held to. Host and port come from the site configuration,
+        // never from the query, so this catches a malformed or credential-
+        // carrying configuration rather than model input (ADR-093). A denial
+        // returns null, the method's established "not configured" path, which
+        // RetrievalService treats as an unavailable backend and skips.
+        if ($this->egressPolicy === null) {
+            return $url;
+        }
+
+        return $this->egressPolicy->resolveConfiguredEndpoint('rag', $url, [$host . ':' . $port]);
     }
 
     /**

@@ -390,3 +390,4 @@ Tools
    Adr090SingleExtensionUntil10
    Adr091ConversationActorContext
    Adr092AgentRunTerminationReason
+   Adr093ToolGateChokepoint

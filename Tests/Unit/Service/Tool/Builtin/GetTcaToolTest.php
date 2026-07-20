@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
+use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -73,7 +74,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function getSpecDeclaresGetTcaFunctionWithOptionalTable(): void
     {
-        $spec = (new GetTcaTool())->getSpec();
+        $spec = (new GetTcaTool(new TableReadAccessService()))->getSpec();
 
         self::assertSame('get_tca', $spec->name);
         self::assertSame('object', $spec->parameters['type'] ?? null);
@@ -85,7 +86,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withoutTableArgumentListsSortedTableNames(): void
     {
-        $output = (new GetTcaTool())->execute([]);
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute([]);
 
         self::assertStringContainsString('TCA tables (2):', $output);
         // Sorted: pages before tt_content.
@@ -95,7 +96,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withTableArgumentReturnsColumnNamesAndTypes(): void
     {
-        $output = (new GetTcaTool())->execute(['table' => 'pages']);
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'pages']);
 
         self::assertStringContainsString('TCA columns for pages:', $output);
         self::assertStringContainsString('title: input', $output);
@@ -107,6 +108,24 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function unknownTableReturnsNeutralString(): void
     {
-        self::assertSame('Unknown TCA table.', (new GetTcaTool())->execute(['table' => 'no_such_table']));
+        self::assertSame('Unknown TCA table.', (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'no_such_table']));
+    }
+
+    #[Test]
+    public function theExtensionsOwnTablesAreNotDescribedEvenToAnAdmin(): void
+    {
+        // BackendUserAuthentication::check() returns true for every table for an
+        // admin, so the raw permission check happily described the extension's
+        // own vault-key-bearing configuration tables. The shared table policy —
+        // which its sibling get_full_tca always used — denies them for everyone
+        // (ADR-093). The neutral string never confirms the table exists.
+        $GLOBALS['TCA']['tx_nrllm_provider'] = ['columns' => ['api_key' => ['config' => ['type' => 'input']]]];
+
+        $tool = new GetTcaTool(new TableReadAccessService());
+
+        self::assertSame('Unknown TCA table.', $tool->execute(['table' => 'tx_nrllm_provider']));
+        self::assertStringNotContainsString('tx_nrllm_provider', $tool->execute([]));
+        // A normal table is still described in full — the gate must not over-block.
+        self::assertStringContainsString('title', $tool->execute(['table' => 'pages']));
     }
 }
