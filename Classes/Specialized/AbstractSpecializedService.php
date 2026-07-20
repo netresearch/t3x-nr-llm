@@ -130,7 +130,7 @@ abstract class AbstractSpecializedService
      */
     protected function runLifecycle(ProviderCallContext $context, callable $call): mixed
     {
-        return $this->pipeline->run($context, static fn(): mixed => $call());
+        return $this->pipeline->run($context, static fn(ProviderCallContext $context): mixed => $call());
     }
 
     /**

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
+use Closure;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -92,15 +93,17 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     public function aGenerationIsRoutedThroughThePipelineWithAnImageServiceContext(): void
     {
         $captured   = null;
-        $middleware = new class ($captured) implements ProviderMiddlewareInterface {
+        $middleware = new class (static function (ProviderCallContext $context) use (&$captured): void {
+            $captured = $context;
+        }) implements ProviderMiddlewareInterface {
             /**
-             * @param ProviderCallContext|null $captured
+             * @param Closure(ProviderCallContext): void $onHandle
              */
-            public function __construct(private mixed &$captured) {}
+            public function __construct(private readonly Closure $onHandle) {}
 
             public function handle(ProviderCallContext $context, callable $next): mixed
             {
-                $this->captured = $context;
+                ($this->onHandle)($context);
 
                 return $next($context);
             }
@@ -133,6 +136,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         self::assertNotSame('', $captured->correlationId);
     }
 
+    /**
+     * @param array{model?: ModelRepository|null, configuration?: LlmConfigurationRepository|null, budget?: BudgetServiceInterface|null, pipeline?: MiddlewarePipeline} $repositories
+     */
     private function buildService(
         ClientInterface $httpClient,
         RequestFactoryInterface $requestFactory,
