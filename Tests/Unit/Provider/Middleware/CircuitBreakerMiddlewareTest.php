@@ -133,6 +133,44 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aServerErrorCountsTowardsTripping(): void
+    {
+        // New with ADR-095: a 5xx is a provider-side fault and now counts
+        // towards opening the circuit. Before, only connection and 429 did, so
+        // a provider returning 500 repeatedly never tripped.
+        $store = new InMemoryCircuitBreakerStore();
+
+        try {
+            $this->middleware($store, threshold: 3)->handle(
+                $this->context(),
+                $this->config(self::PROVIDER),
+                static fn(LlmConfiguration $c): never => throw new ProviderResponseException('boom', 500),
+            );
+        } catch (ProviderResponseException) {
+        }
+
+        self::assertSame(1, $store->load(self::PROVIDER)->consecutiveFailures);
+    }
+
+    #[Test]
+    public function aClientErrorDoesNotCountTowardsTripping(): void
+    {
+        // A 4xx is our fault, not the provider's — it must not open the circuit.
+        $store = new InMemoryCircuitBreakerStore();
+
+        try {
+            $this->middleware($store, threshold: 3)->handle(
+                $this->context(),
+                $this->config(self::PROVIDER),
+                static fn(LlmConfiguration $c): never => throw new ProviderResponseException('bad request', 400),
+            );
+        } catch (ProviderResponseException) {
+        }
+
+        self::assertSame(0, $store->load(self::PROVIDER)->consecutiveFailures);
+    }
+
+    #[Test]
     public function openCircuitFailsFastWithoutCallingProvider(): void
     {
         $store = new InMemoryCircuitBreakerStore();

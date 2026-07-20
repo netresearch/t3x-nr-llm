@@ -38,6 +38,22 @@ abstract class SpecializedServiceException extends RuntimeException
     }
 
     /**
+     * The upstream HTTP status this failure carries, when the mapper recorded
+     * one under the `statusCode` context key (0 for a transport failure that
+     * never reached the provider); null when unknown (ADR-095).
+     *
+     * Lets a failure classifier tell a rate limit from an outage from a
+     * client error on the specialized path, the way the provider exceptions
+     * expose it through `getCode()`.
+     */
+    public function getStatusCode(): ?int
+    {
+        $status = $this->context['statusCode'] ?? null;
+
+        return is_int($status) ? $status : null;
+    }
+
+    /**
      * Get a formatted error message including service context.
      */
     public function getDetailedMessage(): string

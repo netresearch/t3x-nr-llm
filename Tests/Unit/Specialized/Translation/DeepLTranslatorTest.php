@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 use LogicException;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
@@ -772,8 +773,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createJsonResponseMock(['message' => 'Rate limit exceeded'], 429),
         );
 
-        $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('rate limit');
+        $this->expectException(ServiceQuotaExceededException::class);
+        $this->expectExceptionMessage('Rate limit exceeded');
 
         $subject->translate('Hello', 'de');
     }

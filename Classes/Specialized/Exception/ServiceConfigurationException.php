@@ -26,15 +26,17 @@ final class ServiceConfigurationException extends SpecializedServiceException
      * @param string $service  The service identifier
      * @param string $provider The provider name
      */
-    public static function invalidApiKey(string $service, string $provider): self
+    public static function invalidApiKey(string $service, string $provider, ?int $statusCode = null): self
     {
+        $context = ['reason' => 'invalid_api_key', 'provider' => $provider];
+        if ($statusCode !== null) {
+            $context['statusCode'] = $statusCode;
+        }
+
         return new self(
             sprintf('%s API authentication failed - please verify your API key', ucfirst($provider)),
             $service,
-            [
-                'reason' => 'invalid_api_key',
-                'provider' => $provider,
-            ],
+            $context,
         );
     }
 

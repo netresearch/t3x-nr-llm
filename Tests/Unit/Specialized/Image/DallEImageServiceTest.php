@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\DallEImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
@@ -1238,7 +1239,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject();
         $this->setupFailedRequest(429, 'Rate limit exceeded');
 
-        $this->expectException(ServiceUnavailableException::class);
+        $this->expectException(ServiceQuotaExceededException::class);
 
         $subject->generate('A cat');
     }

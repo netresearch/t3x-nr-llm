@@ -21,7 +21,9 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
+use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
+use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
@@ -439,6 +441,27 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function theMappedExceptionCarriesTheUpstreamStatusCodeForEveryBranch(): void
+    {
+        // getStatusCode() must work for the typed 401/403 and 429 exceptions,
+        // not only the generic 5xx one — that is the seam a failure classifier
+        // reads on the specialized path (ADR-095).
+        foreach ([401 => 401, 403 => 403, 429 => 429, 503 => 503] as $status => $expected) {
+            $httpClient = $this->createMock(ClientInterface::class);
+            $httpClient->method('sendRequest')
+                ->willReturn($this->createJsonResponseMock(['error' => ['message' => 'x']], $status));
+            $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+            try {
+                $subject->callSendJsonRequest('endpoint', []);
+                self::fail(sprintf('Expected a SpecializedServiceException for status %d', $status));
+            } catch (SpecializedServiceException $e) {
+                self::assertSame($expected, $e->getStatusCode(), sprintf('status %d', $status));
+            }
+        }
+    }
+
+    #[Test]
     public function executeRequestThrowsRateLimitOn429(): void
     {
         $httpClient = $this->createMock(ClientInterface::class);
@@ -450,9 +473,11 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         try {
             $subject->callSendJsonRequest('endpoint', []);
-            self::fail('Expected ServiceUnavailableException');
-        } catch (ServiceUnavailableException $e) {
-            self::assertStringContainsString('rate limit', $e->getMessage());
+            self::fail('Expected ServiceQuotaExceededException');
+        } catch (ServiceQuotaExceededException $e) {
+            // 429 now maps to its own typed exception (ADR-095), not the generic
+            // unavailable one, so a rate limit is distinguishable from an outage.
+            self::assertStringContainsStringIgnoringCase('rate limit', $e->getMessage());
         }
     }
 
