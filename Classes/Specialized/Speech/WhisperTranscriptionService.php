@@ -84,7 +84,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
             fn(): array|string => $this->sendTranscriptionRequest($audioPath, $options),
         );
 
@@ -126,7 +126,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
             fn(): array|string => $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options),
         );
 
@@ -158,7 +158,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), 'whisper-1'),
+            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
             fn(): array|string => $this->sendTranslationRequest($audioPath, $options),
         );
 
