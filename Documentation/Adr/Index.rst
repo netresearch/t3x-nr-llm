@@ -394,3 +394,4 @@ Tools
    Adr094ToolDataClassTrustZone
    Adr095FailureTaxonomy
    Adr096PipelineCallContext
+   Adr097SpecializedServicesOnPipeline

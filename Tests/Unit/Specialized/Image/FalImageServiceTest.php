@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Image;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -96,6 +97,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $logger,
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $service->setHttpClient($httpClient);
 
@@ -127,6 +129,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $this->loggerStub,
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
             $modelRepository,
         );
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
@@ -51,6 +52,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
 
         // Inject a client that returns a successful empty-detect response so the
@@ -84,6 +86,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($httpClient);
 
@@ -532,6 +535,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($httpClientMock);
 

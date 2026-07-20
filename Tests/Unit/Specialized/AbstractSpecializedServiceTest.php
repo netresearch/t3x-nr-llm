@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
@@ -311,6 +312,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
         );
 
         $subject->callSendJsonRequest('endpoint', []);
@@ -557,6 +559,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -628,6 +631,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -1155,6 +1159,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: $budgetService ?? new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
             modelRepository: $modelRepository,
             configurationRepository: $configurationRepository,
         );
@@ -1215,6 +1220,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
         );
     }
 

@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Specialized\Image;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
@@ -101,8 +103,14 @@ final class DallEImageService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
-        $this->setAuditContext(sprintf('%s, generate', $model));
-        $response = $this->sendJsonRequest('generations', $payload);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            function () use ($payload, $model): array {
+                $this->setAuditContext(sprintf('%s, generate', $model));
+
+                return $this->sendJsonRequest('generations', $payload);
+            },
+        );
 
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
@@ -171,8 +179,14 @@ final class DallEImageService extends AbstractSpecializedService
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $payload['n'] = $count;
 
-        $this->setAuditContext(sprintf('%s, generate', $model));
-        $response = $this->sendJsonRequest('generations', $payload);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            function () use ($payload, $model): array {
+                $this->setAuditContext(sprintf('%s, generate', $model));
+
+                return $this->sendJsonRequest('generations', $payload);
+            },
+        );
 
         $results = [];
         /** @var array<int, mixed> $responseData */
@@ -227,12 +241,18 @@ final class DallEImageService extends AbstractSpecializedService
 
         $count = min(max($count, 1), 10);
 
-        $this->setAuditContext('dall-e-2, variations');
-        $response = $this->sendImageMultipart('variations', $imagePath, null, [
-            'n' => (string)$count,
-            'size' => $size,
-            'response_format' => 'url',
-        ]);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::ImageVariation, $this->getServiceProvider(), 'dall-e-2'),
+            function () use ($imagePath, $count, $size): array {
+                $this->setAuditContext('dall-e-2, variations');
+
+                return $this->sendImageMultipart('variations', $imagePath, null, [
+                    'n' => (string)$count,
+                    'size' => $size,
+                    'response_format' => 'url',
+                ]);
+            },
+        );
 
         $results = [];
         /** @var array<int, mixed> $responseData */
@@ -287,12 +307,18 @@ final class DallEImageService extends AbstractSpecializedService
         }
         $this->enforceBudget($beUserUid, null, null);
 
-        $this->setAuditContext('dall-e-2, edit');
-        $response = $this->sendImageMultipart('edits', $imagePath, $maskPath, [
-            'prompt' => $prompt,
-            'size' => $size,
-            'response_format' => 'url',
-        ]);
+        $response = $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::ImageEdit, $this->getServiceProvider(), 'dall-e-2'),
+            function () use ($imagePath, $maskPath, $prompt, $size): array {
+                $this->setAuditContext('dall-e-2, edit');
+
+                return $this->sendImageMultipart('edits', $imagePath, $maskPath, [
+                    'prompt' => $prompt,
+                    'size' => $size,
+                    'response_format' => 'url',
+                ]);
+            },
+        );
 
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use Exception;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -68,6 +69,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
 
         // Inject a client that returns a successful empty-detect response so the
@@ -95,6 +97,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($httpClient);
 
@@ -482,6 +485,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($httpClientMock);
 
@@ -733,6 +737,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
         );
         $translator->setHttpClient($this->createHttpClientMock());
 
