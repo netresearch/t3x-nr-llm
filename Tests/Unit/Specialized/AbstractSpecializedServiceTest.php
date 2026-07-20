@@ -17,8 +17,10 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -28,6 +30,8 @@ use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
+use Netresearch\NrLlm\Tests\Fixture\DenyingInputGuardrail;
+use Netresearch\NrLlm\Tests\Fixture\RedactingInputGuardrail;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -62,6 +66,29 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubject(apiKeyIdentifier: 'test-key');
 
         self::assertTrue($subject->isAvailable());
+    }
+
+    #[Test]
+    public function screenPromptRedactsThroughTheInjectedScreener(): void
+    {
+        $screener = new InputGuardrailScreener([
+            new RedactingInputGuardrail('secret', '***'),
+        ]);
+        $subject = $this->createSubject(inputGuardrailScreener: $screener);
+
+        self::assertSame('a *** value', $subject->callScreenPrompt('a secret value'));
+    }
+
+    #[Test]
+    public function screenPromptThrowsWhenAGuardrailDeniesThePrompt(): void
+    {
+        $screener = new InputGuardrailScreener([
+            new DenyingInputGuardrail('policy says no'),
+        ]);
+        $subject = $this->createSubject(inputGuardrailScreener: $screener);
+
+        $this->expectException(GuardrailViolationException::class);
+        $subject->callScreenPrompt('anything');
     }
 
     #[Test]
@@ -313,6 +340,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
         );
 
         $subject->callSendJsonRequest('endpoint', []);
@@ -560,6 +588,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -632,6 +661,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
         );
 
         self::assertFalse($subject->isAvailable());
@@ -1146,6 +1176,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         ?ModelRepository $modelRepository = null,
         ?LlmConfigurationRepository $configurationRepository = null,
         ?BudgetServiceInterface $budgetService = null,
+        ?InputGuardrailScreener $inputGuardrailScreener = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -1160,6 +1191,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: $budgetService ?? new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: $inputGuardrailScreener ?? new InputGuardrailScreener([]),
             modelRepository: $modelRepository,
             configurationRepository: $configurationRepository,
         );
@@ -1221,6 +1253,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
         );
     }
 
@@ -1270,6 +1303,11 @@ final class TestableSpecializedService extends AbstractSpecializedService
     public function callEnforceBudget(?int $beUserUid, ?float $plannedCost, ?string $configurationIdentifier = null): void
     {
         $this->enforceBudget($beUserUid, $plannedCost, $configurationIdentifier);
+    }
+
+    public function callScreenPrompt(string $prompt): string
+    {
+        return $this->screenPrompt($prompt);
     }
 
     public function callBuildEndpointUrl(string $endpoint): string

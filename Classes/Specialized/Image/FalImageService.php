@@ -89,6 +89,7 @@ final class FalImageService extends AbstractSpecializedService
         array $options = [],
     ): ImageGenerationResult {
         $this->ensureAvailable();
+        $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget(
             $this->extractBeUserUid($options),
             $this->extractPlannedCost($options),
@@ -147,6 +148,7 @@ final class FalImageService extends AbstractSpecializedService
         $count = min(max($count, 1), 4);
         $options['num_images'] = $count;
 
+        $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget(
             $this->extractBeUserUid($options),
             $this->extractPlannedCost($options),

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
@@ -122,6 +123,7 @@ final class DeepLTranslatorBudgetTest extends TestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             $budgetService,
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $translator->setHttpClient($httpClient);
 

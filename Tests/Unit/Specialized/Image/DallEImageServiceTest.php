@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -158,6 +159,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $this->costCalculator,
             $repositories['budget'] ?? new AllowingBudgetService(),
             $repositories['pipeline'] ?? new MiddlewarePipeline([]),
+            $repositories['screener'] ?? new InputGuardrailScreener([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
         );

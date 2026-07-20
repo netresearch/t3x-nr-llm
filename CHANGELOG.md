@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The specialized services now screen their prompt through the input guardrails
+  before it leaves the process (ADR-098): DALL·E (`generate` /
+  `generateMultiple` / `edit`), FAL (`generate` / `generateMultiple`), TTS
+  (`synthesize`) and DeepL (`translate` / `translateBatch`) run the same
+  screening a chat prompt gets — a REDACT verdict rewrites the text that is sent,
+  a DENY / REQUIRE_APPROVAL throws before any spend. `InputGuardrailScreener`
+  gained `screenText(string)` for the single-string send path. Whisper is out of
+  scope (its payload is audio, not a prompt). `AbstractSpecializedService` gained
+  a required `InputGuardrailScreener` constructor parameter (**breaking** for a
+  subclass or manual construction). With no input guardrails configured this is a
+  pass-through — no behaviour change.
 - `FailureClass` and `FailureClassifier` (ADR-095): one shared taxonomy behind
   the retry, circuit-breaker and streaming-retry decisions, which had each kept
   a private `instanceof` ladder that drifted. A 5xx is now classified as a

@@ -101,6 +101,9 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         array $options = [],
     ): TranslatorResult {
         $this->ensureAvailable();
+        // Screen the prompt before the budget pre-flight so a denied prompt
+        // aborts without the budget aggregation queries.
+        $text = $this->screenPrompt($text);
         // Budget pre-flight before any dispatch. DeepL was excluded from
         // ADR-078 while it was the only specialized service without one; a paid
         // external call that no cap can stop is not a defensible exception.
@@ -163,6 +166,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         $this->ensureAvailable();
+        // Screen every element before the budget pre-flight (see translate()).
+        $texts = array_map($this->screenPrompt(...), $texts);
         $this->enforceBudget(
             $this->extractBeUserUid($options),
             $this->extractPlannedCost($options),

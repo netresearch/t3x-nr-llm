@@ -100,6 +100,7 @@ final class DallEImageService extends AbstractSpecializedService
         $style = is_string($optionsArray['style'] ?? null) ? $optionsArray['style'] : 'vivid';
 
         $this->validatePrompt($prompt, $model);
+        $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
@@ -174,6 +175,7 @@ final class DallEImageService extends AbstractSpecializedService
         $count = min($count, 10);
 
         $this->validatePrompt($prompt, $model);
+        $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
@@ -305,6 +307,7 @@ final class DallEImageService extends AbstractSpecializedService
         if ($maskPath !== null) {
             $this->validateImageFile($maskPath);
         }
+        $prompt = $this->screenPrompt($prompt);
         $this->enforceBudget($beUserUid, null, null);
 
         $response = $this->runLifecycle(

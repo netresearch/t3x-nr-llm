@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -104,6 +105,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             $pipeline ?? new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $service->setHttpClient($httpClient);
 
@@ -136,6 +138,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
             $modelRepository,
         );
 

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use LogicException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -21,6 +23,7 @@ use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
+use Netresearch\NrLlm\Tests\Fixture\DenyingInputGuardrail;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -81,6 +84,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     private function createSubjectWithResponse(
         ResponseInterface $response,
         ?MiddlewarePipeline $pipeline = null,
+        ?InputGuardrailScreener $screener = null,
     ): DeepLTranslator {
         /** @var ClientInterface&MockObject $httpClientStub */
         $httpClientStub = self::createStub(ClientInterface::class);
@@ -96,6 +100,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             $pipeline ?? new MiddlewarePipeline([]),
+            $screener ?? new InputGuardrailScreener([]),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -120,6 +125,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $translator->setHttpClient($httpClient);
 
@@ -153,6 +159,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $translator->setHttpClient($httpClientStub);
 
@@ -290,6 +297,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
 
         $reflection = new ReflectionClass($translator);
@@ -507,6 +515,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -554,6 +563,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -600,6 +610,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -977,6 +988,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -1154,6 +1166,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
             new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
 
@@ -1353,5 +1366,20 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $subject->translate('Hallo', 'en');
 
         $this->assertRoutedThroughPipeline($capture, ProviderOperation::Translation);
+    }
+
+    #[Test]
+    public function translateScreensThePromptAndAbortsWhenAGuardrailDeniesIt(): void
+    {
+        // ADR-098: the source text is screened on the send path before dispatch,
+        // so a DENY verdict throws before any HTTP request is made.
+        $subject = $this->createSubjectWithResponse(
+            $this->createJsonResponseMock(['translations' => [['text' => 'Hello']]]),
+            null,
+            new InputGuardrailScreener([new DenyingInputGuardrail('blocked')]),
+        );
+
+        $this->expectException(GuardrailViolationException::class);
+        $subject->translate('a secret to translate', 'en');
     }
 }
