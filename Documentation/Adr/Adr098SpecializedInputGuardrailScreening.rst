@@ -72,8 +72,11 @@ Consequences
 - A specialized prompt is now screened identically to a chat prompt: a REDACT
   verdict rewrites the text that is sent (and, where the service echoes the
   prompt back in its result, what it echoes), and a DENY / REQUIRE_APPROVAL
-  throws the same typed exception before any spend — screening runs before
-  ``enforceBudget()`` reaches the dispatch, so a denied prompt costs nothing.
+  throws the same typed exception before any spend — every service screens the
+  prompt before its budget pre-flight, so a denied prompt costs nothing: no
+  budget-aggregation queries, no dispatch. A REDACT verdict that carries no
+  replacement text fails closed (throws) rather than passing the original
+  through, on the specialized and the chat path alike.
 - Production wiring is unchanged: DI autowires the concrete
   ``InputGuardrailScreener`` into every specialized service. With no input
   guardrails tagged, ``screenText()`` is a pass-through and behaviour is

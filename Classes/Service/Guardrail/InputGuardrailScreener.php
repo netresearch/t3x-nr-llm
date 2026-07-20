@@ -113,7 +113,15 @@ final readonly class InputGuardrailScreener
                 // RETRY re-asks the provider; no provider call has happened yet on
                 // the input side, so it is a pass here (like ALLOW).
                 GuardrailVerdict::ALLOW, GuardrailVerdict::RETRY => $redacted,
-                GuardrailVerdict::REDACT => $result->redactedContent ?? $redacted,
+                // A REDACT verdict with no replacement text must fail closed: the
+                // GuardrailResult::redact() factory always supplies it, but the
+                // public constructor permits null, and passing the original
+                // (unredacted) content through would leak exactly what the
+                // guardrail asked to remove.
+                GuardrailVerdict::REDACT => $result->redactedContent ?? throw new GuardrailViolationException(
+                    $guardrail::class,
+                    $result->reason !== '' ? $result->reason : 'A guardrail returned a REDACT verdict without redacted content.',
+                ),
                 GuardrailVerdict::DENY => throw new GuardrailViolationException(
                     $guardrail::class,
                     $result->reason !== '' ? $result->reason : 'A guardrail denied the prompt.',

@@ -307,8 +307,8 @@ final class DallEImageService extends AbstractSpecializedService
         if ($maskPath !== null) {
             $this->validateImageFile($maskPath);
         }
-        $this->enforceBudget($beUserUid, null, null);
         $prompt = $this->screenPrompt($prompt);
+        $this->enforceBudget($beUserUid, null, null);
 
         $response = $this->runLifecycle(
             ProviderCallContext::forService(ProviderOperation::ImageEdit, $this->getServiceProvider(), 'dall-e-2'),
