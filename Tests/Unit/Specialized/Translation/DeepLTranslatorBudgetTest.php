@@ -119,8 +119,6 @@ final class DeepLTranslatorBudgetTest extends TestCase
             self::createStub(UsageTrackerServiceInterface::class),
             new NullLogger(),
             self::createStub(SpecializedCostCalculatorInterface::class),
-            null,
-            null,
             $budgetService,
         );
         $translator->setHttpClient($httpClient);

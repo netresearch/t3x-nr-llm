@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -101,9 +102,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $usageTracker,
             $logger,
             $this->costCalculator,
+            $repositories['budget'] ?? new AllowingBudgetService(),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
-            $repositories['budget'] ?? null,
         );
         $service->setHttpClient($httpClient);
 
@@ -717,7 +718,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $configuration->_setProperty('uid', 23);
 
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
-        $configurationRepository->expects(self::once())->method('findOneByIdentifier')
+        // Called twice now: once by the budget pre-flight, once for the usage
+        // row's configuration link. The count is not what this test is about.
+        $configurationRepository->method('findOneByIdentifier')
             ->with('alt-text-images')
             ->willReturn($configuration);
 

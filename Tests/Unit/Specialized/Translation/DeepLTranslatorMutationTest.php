@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
+use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -66,6 +67,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
 
         // Inject a client that returns a successful empty-detect response so the
@@ -92,6 +94,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClient);
 
@@ -478,6 +481,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $usageTrackerMock,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($httpClientMock);
 
@@ -728,6 +732,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->usageTrackerStub,
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
         );
         $translator->setHttpClient($this->createHttpClientMock());
 
