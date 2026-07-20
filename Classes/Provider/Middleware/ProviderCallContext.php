@@ -151,7 +151,12 @@ final readonly class ProviderCallContext
      */
     public function telemetryProvider(): string
     {
-        return $this->configuration?->getProviderType() ?? $this->provider;
+        // A configuration entity can carry an empty provider (a transient/ad-hoc
+        // config), so fall through to the context string when it is empty, not
+        // only when the whole entity is absent.
+        $fromConfiguration = $this->configuration?->getProviderType() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->provider;
     }
 
     /**
@@ -160,7 +165,9 @@ final readonly class ProviderCallContext
      */
     public function telemetryModel(): string
     {
-        return $this->configuration?->getModelId() ?? $this->model;
+        $fromConfiguration = $this->configuration?->getModelId() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->model;
     }
 
     /**
@@ -169,6 +176,8 @@ final readonly class ProviderCallContext
      */
     public function telemetryConfigurationIdentifier(): string
     {
-        return $this->configuration?->getIdentifier() ?? $this->configurationIdentifier;
+        $fromConfiguration = $this->configuration?->getIdentifier() ?? '';
+
+        return $fromConfiguration !== '' ? $fromConfiguration : $this->configurationIdentifier;
     }
 }

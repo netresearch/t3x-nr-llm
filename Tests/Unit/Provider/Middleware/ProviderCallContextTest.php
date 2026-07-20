@@ -121,4 +121,25 @@ final class ProviderCallContextTest extends TestCase
         self::assertSame($base->telemetrySignals, $swapped->telemetrySignals);
         self::assertSame(1, $swapped->telemetrySignals->fallbackAttempts);
     }
+
+    #[Test]
+    public function telemetryFallsThroughToTheContextStringWhenTheConfigurationsValueIsEmpty(): void
+    {
+        // A transient/ad-hoc configuration can carry empty provider/model/id.
+        // The context strings must then win, not the empty entity values.
+        $emptyConfig = new LlmConfiguration();
+
+        $context = new ProviderCallContext(
+            ProviderOperation::ImageGeneration,
+            'corr',
+            configuration: $emptyConfig,
+            provider: 'ctx-provider',
+            model: 'ctx-model',
+            configurationIdentifier: 'ctx-id',
+        );
+
+        self::assertSame('ctx-provider', $context->telemetryProvider());
+        self::assertSame('ctx-model', $context->telemetryModel());
+        self::assertSame('ctx-id', $context->telemetryConfigurationIdentifier());
+    }
 }

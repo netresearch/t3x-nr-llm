@@ -133,7 +133,10 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // model, so getModelId() is ''. Fall back to the model the provider
         // actually reported on the response so per-model analytics attribute
         // the usage instead of dropping it into an empty-model bucket.
-        $modelId = $configuration?->getModelId() ?? $context->model;
+        // An empty model id on a present config (a transient/ad-hoc config) must
+        // still fall through to the context's model string, then to the model the
+        // provider reported — `?:` treats '' and null alike.
+        $modelId = ($configuration?->getModelId() ?: $context->model);
         if ($modelId === '' && $responseModel !== '') {
             $modelId = $responseModel;
         }
