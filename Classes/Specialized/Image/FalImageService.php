@@ -95,21 +95,7 @@ final class FalImageService extends AbstractSpecializedService
             $this->extractConfigurationIdentifier($options),
         );
 
-        $modelEndpoint = $this->resolveModelEndpoint($model);
-
-        $payload = $this->buildGeneratePayload($prompt, $options);
-
-        $usesQueue = $this->modelUsesQueue($model);
-        $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
-            function () use ($model, $usesQueue, $modelEndpoint, $payload): array {
-                $this->setAuditContext(sprintf('%s, generate', $model));
-
-                return $usesQueue
-                    ? $this->sendQueueRequest($modelEndpoint, $payload)
-                    : $this->sendJsonRequest($modelEndpoint, $payload);
-            },
-        );
+        $response = $this->dispatchGeneration($prompt, $model, $options);
 
         $images = $response['images'] ?? [];
         /** @var array<string, mixed> $image */
@@ -167,20 +153,7 @@ final class FalImageService extends AbstractSpecializedService
             $this->extractConfigurationIdentifier($options),
         );
 
-        $modelEndpoint = $this->resolveModelEndpoint($model);
-        $payload = $this->buildGeneratePayload($prompt, $options);
-
-        $usesQueue = $this->modelUsesQueue($model);
-        $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
-            function () use ($model, $usesQueue, $modelEndpoint, $payload): array {
-                $this->setAuditContext(sprintf('%s, generate', $model));
-
-                return $usesQueue
-                    ? $this->sendQueueRequest($modelEndpoint, $payload)
-                    : $this->sendJsonRequest($modelEndpoint, $payload);
-            },
-        );
+        $response = $this->dispatchGeneration($prompt, $model, $options);
 
         $results = [];
         $responseImages = $response['images'] ?? [];
@@ -413,6 +386,33 @@ final class FalImageService extends AbstractSpecializedService
             );
         }
         return parent::mapErrorStatus($statusCode, $errorMessage);
+    }
+
+    /**
+     * Resolve the endpoint, build the payload and dispatch a generation request
+     * through the middleware pipeline. Shared by {@see generate()} and
+     * {@see generateMultiple()} so the pipeline wiring lives in one place.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed> the decoded FAL response
+     */
+    private function dispatchGeneration(string $prompt, string $model, array $options): array
+    {
+        $modelEndpoint = $this->resolveModelEndpoint($model);
+        $payload       = $this->buildGeneratePayload($prompt, $options);
+        $usesQueue     = $this->modelUsesQueue($model);
+
+        return $this->runLifecycle(
+            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            function () use ($model, $usesQueue, $modelEndpoint, $payload): array {
+                $this->setAuditContext(sprintf('%s, generate', $model));
+
+                return $usesQueue
+                    ? $this->sendQueueRequest($modelEndpoint, $payload)
+                    : $this->sendJsonRequest($modelEndpoint, $payload);
+            },
+        );
     }
 
     /**
