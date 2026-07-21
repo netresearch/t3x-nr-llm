@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Cooperative cancellation (ADR-103): `nrllm:agent:cancel` (and any
+  `AgentRuntimeInterface::cancel()` caller) now also stops an in-flight loop at
+  its next step boundary — after the current provider response or tool
+  execution, before the next one — instead of letting it run to completion
+  with a discarded outcome. The boundary step stays on the audit stream; the
+  run surfaces as the new `AgentRunOutcome::CANCELLED` (playground:
+  `status: 'cancelled'` / `cancelled` stream event). The tool loop itself
+  stays persistence-unaware; the probe lives in the runtime's trace hook.
 - Queued agent runs (ADR-102): `AgentRuntimeInterface::enqueue()` persists a
   QUEUED run carrying its serialised request and dispatches a wake-up message
   on the TYPO3 message bus; `runQueued()` — behind the new

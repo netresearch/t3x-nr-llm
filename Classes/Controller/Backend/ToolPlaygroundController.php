@@ -264,6 +264,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 // only, sanitized) diagnosis.
                 return $this->respondJson(['success' => false, 'error' => $this->diagnoseRunFailure($result->error)], 500);
 
+            case AgentRunOutcome::CANCELLED:
+                // ADR-103: an operator cancelled the run mid-flight and the
+                // loop stopped cooperatively — a decision, not a server error.
+                return $this->respondJson([
+                    'success' => false,
+                    'status'  => 'cancelled',
+                    'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.cancelled', 'The run was cancelled.'),
+                    'steps'   => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+                ]);
+
             case AgentRunOutcome::COMPLETED:
                 break;
 
@@ -440,6 +450,18 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 // Logged by the runtime; only the sanitized diagnosis is shaped
                 // here.
                 $emit(['event' => 'error', 'success' => false, 'error' => $this->diagnoseRunFailure($result->error)]);
+
+                return;
+
+            case AgentRunOutcome::CANCELLED:
+                // ADR-103: a distinct terminal event — the operator stopped the
+                // run; not a failure.
+                $emit([
+                    'event'   => 'cancelled',
+                    'success' => false,
+                    'status'  => 'cancelled',
+                    'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.cancelled', 'The run was cancelled.'),
+                ]);
 
                 return;
 

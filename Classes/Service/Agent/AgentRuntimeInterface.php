@@ -102,8 +102,13 @@ interface AgentRuntimeInterface
      * Cancel a run that is still queued, running or awaiting a decision. True
      * when this call cancelled it; false when the run is unknown or already
      * terminal (the guarded transition decides, so two concurrent cancels
-     * cannot both win). Cancellation is a persistence-level fence: an
-     * in-flight loop is not interrupted, its late settle is discarded.
+     * cannot both win). Cancellation is a persistence-level fence — a late
+     * settle from an in-flight loop is discarded — AND cooperative (ADR-103):
+     * a loop running under this runtime notices the cancelled row at its next
+     * step boundary and stops before the next provider call or tool execution,
+     * surfacing {@see \Netresearch\NrLlm\Domain\Enum\AgentRunOutcome::CANCELLED}
+     * to whoever drove the run. A step already in flight (a provider call, a
+     * tool) runs to its boundary — cancellation is not a signal.
      */
     public function cancel(string $runUuid): bool;
 

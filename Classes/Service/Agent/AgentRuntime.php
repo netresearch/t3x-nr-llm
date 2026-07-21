@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
@@ -498,7 +499,17 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      * The trace every segment runs under: each recorded step reaches the live
      * observer FIRST (preserving the streaming path's emit-before-persist
      * order — a step is shown even when its persist fails), then the persisted
-     * event stream.
+     * event stream — and then the cancellation probe runs (ADR-103).
+     *
+     * The probe is what makes {@see cancel()} cooperative: the loop itself
+     * stays persistence-unaware (ADR-081), but every step boundary — after a
+     * provider response, after each tool execution, before the next round —
+     * records a step, and the probe checks the run row there. A run cancelled
+     * mid-flight therefore stops before the NEXT provider call or tool
+     * execution instead of running to completion with its outcome discarded.
+     * The step that just happened is still emitted and persisted: the audit
+     * stream stays complete up to the abort point. One indexed row read per
+     * step; steps are provider-call-slow, so the cost is negligible.
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
@@ -516,6 +527,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 }
                 if ($handle !== null) {
                     $this->persister->recordStep($handle, $step);
+
+                    // findRun is fail-soft (null on a store hiccup), so a read
+                    // failure can never fabricate a cancellation.
+                    if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
+                        throw RunCancellationRequestedException::forRun($handle->uuid);
+                    }
                 }
             },
         );
@@ -553,6 +570,20 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 runUuid: $runUuid,
                 steps: $trace->getSteps(),
                 loopResult: $result,
+            );
+        } catch (RunCancellationRequestedException $cancelled) {
+            // ADR-103: the operator's cancel already won the guarded terminal
+            // transition — the row IS CANCELLED and its late settle would be
+            // discarded anyway, so none is attempted. Control flow, not
+            // failure: the loop stopped cooperatively at a step boundary.
+            $settled = true;
+            $this->logger?->info('Agent run stopped cooperatively after being cancelled', ['run' => $runUuid]);
+
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::CANCELLED,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                error: $cancelled,
             );
         } catch (ToolApprovalRequiredException $approval) {
             // ADR-084: a called tool requires human approval — control flow,
