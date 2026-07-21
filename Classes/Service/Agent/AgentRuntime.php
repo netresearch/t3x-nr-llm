@@ -258,9 +258,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      */
     private function rehydrateRequest(AgentRun $run): AgentRunRequest
     {
+        // The same typed absence approve() reports — here it is caught by
+        // runQueued()'s rehydration guard, which settles the run FAILED with a
+        // meaningful error class instead of letting it escape.
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
         if ($configuration === null) {
-            throw new RuntimeException(sprintf('The configuration (uid %d) of queued run %s no longer exists', $run->configurationUid, $run->uuid), 2040727569);
+            throw RunConfigurationGoneException::forRun($run->uuid);
         }
 
         $data = json_decode($run->queuedRequest ?? '', true);
