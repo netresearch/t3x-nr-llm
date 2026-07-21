@@ -196,7 +196,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->hydrateRun($row);
     }
 
-    public function findEvents(int $runUid): array
+    public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
         $queryBuilder->getRestrictions()->removeAll();
@@ -204,7 +204,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $rows = $queryBuilder
             ->select('*')
             ->from(self::TABLE_EVENT)
-            ->where($queryBuilder->expr()->eq('run', $queryBuilder->createNamedParameter($runUid, Connection::PARAM_INT)))
+            ->where(
+                $queryBuilder->expr()->eq('run', $queryBuilder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gt('sequence', $queryBuilder->createNamedParameter($afterSequence, Connection::PARAM_INT)),
+            )
             ->orderBy('sequence', 'ASC')
             ->executeQuery()
             ->fetchAllAssociative();

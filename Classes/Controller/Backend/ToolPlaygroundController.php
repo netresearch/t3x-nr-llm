@@ -265,6 +265,15 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 return $this->respondJson(['success' => false, 'error' => $this->diagnoseRunFailure($result->error)], 500);
 
             case AgentRunOutcome::COMPLETED:
+                break;
+
+            default:
+                // A future outcome from a newer runtime (the enum may grow in
+                // minor releases) must not fall through to the completed
+                // payload.
+                $this->logger?->error('Unhandled agent run outcome', ['outcome' => $result->outcome->value]);
+
+                return $this->respondJson(['success' => false, 'error' => 'The run ended with an unhandled outcome.'], 500);
         }
 
         $loop = $result->loopResult;
@@ -435,6 +444,15 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 return;
 
             case AgentRunOutcome::COMPLETED:
+                break;
+
+            default:
+                // A future outcome from a newer runtime must not fall through
+                // to the done event.
+                $this->logger?->error('Unhandled agent run outcome', ['outcome' => $result->outcome->value]);
+                $emit(['event' => 'error', 'success' => false, 'error' => 'The run ended with an unhandled outcome.']);
+
+                return;
         }
 
         $loop = $result->loopResult;

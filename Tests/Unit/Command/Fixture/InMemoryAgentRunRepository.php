@@ -70,7 +70,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return null;
     }
 
-    public function findEvents(int $runUid): array
+    public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return [];
     }

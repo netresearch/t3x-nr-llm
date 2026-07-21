@@ -73,9 +73,14 @@ interface AgentRunRepositoryInterface
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**
+     * @param int $afterSequence only events with sequence > this value; -1
+     *                           (the default) returns the full stream. Filtered
+     *                           in SQL so a poller does not re-hydrate the whole
+     *                           history on every page (ADR-101).
+     *
      * @return list<AgentRunEvent> Events for a run, ordered by sequence ascending.
      */
-    public function findEvents(int $runUid): array;
+    public function findEvents(int $runUid, int $afterSequence = -1): array;
 
     /**
      * The highest event sequence recorded for a run, or -1 when the run has no

@@ -170,10 +170,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             return [];
         }
 
-        return array_values(array_filter(
-            $this->persister->findEvents($run->uid),
-            static fn($event): bool => $event->sequence > $afterSequence,
-        ));
+        // Filtered in SQL — a poller pages without re-hydrating the history.
+        return $this->persister->findEvents($run->uid, $afterSequence);
     }
 
     public function status(string $runUuid): ?AgentRun

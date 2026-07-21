@@ -156,9 +156,13 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var list<AgentRunEvent> */
     public array $eventsToReturn = [];
 
-    public function findEvents(int $runUid): array
+    public function findEvents(int $runUid, int $afterSequence = -1): array
     {
-        return $this->eventsToReturn;
+        // Mirrors the SQL predicate: only events past the requested position.
+        return array_values(array_filter(
+            $this->eventsToReturn,
+            static fn(AgentRunEvent $event): bool => $event->sequence > $afterSequence,
+        ));
     }
 
     public bool $throwOnMaxSequence = false;

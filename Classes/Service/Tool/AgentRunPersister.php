@@ -311,14 +311,16 @@ final readonly class AgentRunPersister
 
     /**
      * The persisted event stream of a run, ordered by sequence — the read side
-     * of the ADR-101 `events()` API. Empty on error or for an unknown run.
+     * of the ADR-101 `events()` API. Only events with sequence > $afterSequence
+     * (filtered in SQL, so a poller pages cheaply). Empty on error or for an
+     * unknown run.
      *
      * @return list<AgentRunEvent>
      */
-    public function findEvents(int $runUid): array
+    public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         try {
-            return $this->repository->findEvents($runUid);
+            return $this->repository->findEvents($runUid, $afterSequence);
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun events could not be loaded', ['exception' => $exception]);
 
