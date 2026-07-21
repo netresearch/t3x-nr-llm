@@ -5,11 +5,48 @@
 
 /**
  * Setup Wizard Styles
+ *
+ * Colour is carried by local tokens (house pattern, see Overview.css) so the
+ * wizard reads in both TYPO3 v13/v14 backend light and dark colour schemes:
+ * light defaults below, dark values via prefers-color-scheme AND the explicit
+ * [data-color-scheme="dark"] backend toggle.
  */
 
 .setup-wizard {
+    --sw-neutral: #e0e0e0;
+    --sw-muted: #666;
+    --sw-primary: var(--typo3-primary-color, #0078d4);
+    --sw-active-text: #005a9e;
+    --sw-success: #28a745;
+    --sw-success-text: #1e7e34;
+    --sw-surface-muted: #f0f0f0;
+    --sw-shadow: rgba(0, 0, 0, .1);
     max-width: 900px;
     margin: 0 auto;
+}
+
+@media (prefers-color-scheme: dark) {
+    .setup-wizard {
+        --sw-neutral: #3a3d43;
+        --sw-muted: #9aa0a8;
+        --sw-active-text: #8fcdf0;
+        --sw-success: #2f7d3d;
+        --sw-success-text: #8fd07a;
+        --sw-surface-muted: #2c2e33;
+        --sw-shadow: rgba(0, 0, 0, .4);
+    }
+}
+
+/* TYPO3 backend explicit dark scheme (overrides system preference). */
+:root[data-color-scheme="dark"] .setup-wizard,
+[data-color-scheme="dark"] .setup-wizard {
+    --sw-neutral: #3a3d43;
+    --sw-muted: #9aa0a8;
+    --sw-active-text: #8fcdf0;
+    --sw-success: #2f7d3d;
+    --sw-success-text: #8fd07a;
+    --sw-surface-muted: #2c2e33;
+    --sw-shadow: rgba(0, 0, 0, .4);
 }
 
 /* Progress Steps */
@@ -34,7 +71,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #e0e0e0;
+    background: var(--sw-neutral);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -44,8 +81,8 @@
 }
 
 .wizard-step.active .step-icon {
-    background: var(--typo3-primary-color, #0078d4);
-    border-color: var(--typo3-primary-color, #0078d4);
+    background: var(--sw-primary);
+    border-color: var(--sw-primary);
 }
 
 .wizard-step.active .step-icon .icon {
@@ -53,8 +90,8 @@
 }
 
 .wizard-step.completed .step-icon {
-    background: #28a745;
-    border-color: #28a745;
+    background: var(--sw-success);
+    border-color: var(--sw-success);
 }
 
 .wizard-step.completed .step-icon .icon {
@@ -63,25 +100,25 @@
 
 .wizard-step .step-label {
     font-size: 12px;
-    color: #666;
+    color: var(--sw-muted);
     text-align: center;
 }
 
 .wizard-step.active .step-label {
-    /* Use darker shade for WCAG AA contrast (6:1 ratio on white) */
-    color: #005a9e;
+    /* Darker/lighter shade per scheme for WCAG AA contrast (6:1 on white) */
+    color: var(--sw-active-text);
     font-weight: 600;
 }
 
 .wizard-step.completed .step-label {
-    /* Use darker shade for WCAG AA contrast (4.9:1 ratio on white) */
-    color: #1e7e34;
+    /* Darker/lighter shade per scheme for WCAG AA contrast (4.9:1 on white) */
+    color: var(--sw-success-text);
 }
 
 /* Progress Bar */
 .wizard-progress-bar {
     height: 4px;
-    background: #e0e0e0;
+    background: var(--sw-neutral);
     border-radius: 2px;
     margin-top: -28px;
     margin-bottom: 20px;
@@ -89,7 +126,7 @@
 
 .wizard-progress-fill {
     height: 100%;
-    background: var(--typo3-primary-color, #0078d4);
+    background: var(--sw-primary);
     border-radius: 2px;
     transition: width 0.3s ease;
 }
@@ -119,12 +156,12 @@
 }
 
 .config-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px var(--sw-shadow);
 }
 
 .config-card.selected {
-    border-color: var(--typo3-primary-color, #0078d4);
-    background: rgba(0, 120, 212, 0.05);
+    border-color: var(--sw-primary);
+    background: color-mix(in srgb, var(--sw-primary) 8%, transparent);
 }
 
 .config-card .card-header {
@@ -144,7 +181,7 @@
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #666;
+    color: var(--sw-muted);
 }
 
 /* Model table */
@@ -200,7 +237,7 @@
 #review-provider .provider-icon {
     width: 48px;
     height: 48px;
-    background: #f0f0f0;
+    background: var(--sw-surface-muted);
     border-radius: 8px;
     display: flex;
     align-items: center;
