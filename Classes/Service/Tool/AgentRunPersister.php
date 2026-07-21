@@ -79,6 +79,49 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Open a new run in the QUEUED state, carrying its serialised request for a
+     * worker to claim and execute (ADR-102). Returns null when the row could
+     * not be stored — the caller must fail closed: unlike a live run, a queued
+     * run without a persisted row simply does not exist.
+     */
+    public function enqueue(?LlmConfiguration $configuration, int $beUser, string $requestJson): ?AgentRunHandle
+    {
+        try {
+            $uuid   = Uuid::v4()->toRfc4122();
+            $runUid = $this->repository->enqueueRun(
+                $uuid,
+                $configuration?->getUid() ?? 0,
+                $configuration?->getIdentifier() ?? '',
+                $beUser,
+                $requestJson,
+            );
+
+            return new AgentRunHandle($runUid, $uuid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be enqueued', ['exception' => $exception]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Atomically claim a queued run for execution (ADR-102). Fail-closed like
+     * {@see self::claimResume()}: false — refusing the claim — when it is lost
+     * to another worker, the run was cancelled while queued, or the store
+     * errors, so a queued run is never executed twice.
+     */
+    public function claimQueued(AgentRun $run, string $claimedBy, int $leaseExpires): bool
+    {
+        try {
+            return $this->repository->claimQueued($run->uid, $claimedBy, $leaseExpires);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be claimed for execution', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Persist one recorded step as the next event in the run's stream.
      */
     public function recordStep(AgentRunHandle $handle, RunStep $step): void

@@ -399,3 +399,4 @@ Tools
    Adr099SpecializedFailClosedDispatch
    Adr100SpecializedUsageExtractors
    Adr101AgentRuntime
+   Adr102QueuedAgentRuns

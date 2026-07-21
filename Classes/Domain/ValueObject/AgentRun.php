@@ -42,14 +42,23 @@ final readonly class AgentRun
         // Serialised SuspendedRunState JSON while status = waiting_for_approval
         // (ADR-084); null once the run is running or terminal.
         public ?string $suspendedState = null,
+        // Serialised AgentRunRequest JSON from enqueue() (ADR-102); kept while
+        // the run is queued or executing (a requeue can reuse it) and cleared
+        // by the guarded terminal settle, like suspended_state.
+        public ?string $queuedRequest = null,
+        // Worker lease (ADR-102): who claimed the queued run and until when the
+        // claim is presumed live; ''/0 = not claimed.
+        public string $claimedBy = '',
+        public int $leaseExpires = 0,
     ) {}
 
     /**
-     * A copy without the suspended-state transcript, for status exposure
-     * (ADR-101). The suspended state is stored VERBATIM for resume — it bypasses
-     * the {@see \Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter} that
-     * every persisted event goes through (ADR-064) — so a status projection
-     * handed to a runtime consumer must not carry it.
+     * A copy without the raw payload carriers, for status exposure (ADR-101).
+     * The suspended state and the queued request are stored VERBATIM for
+     * resume/execution — they bypass the
+     * {@see \Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter} that every
+     * persisted event goes through (ADR-064) — so a status projection handed to
+     * a runtime consumer must not carry them.
      */
     public function withoutSuspendedState(): self
     {
@@ -72,6 +81,9 @@ final readonly class AgentRun
             finishedAt: $this->finishedAt,
             crdate: $this->crdate,
             suspendedState: null,
+            queuedRequest: null,
+            claimedBy: $this->claimedBy,
+            leaseExpires: $this->leaseExpires,
         );
     }
 

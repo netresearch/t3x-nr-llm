@@ -70,6 +70,23 @@ interface AgentRunRepositoryInterface
      */
     public function claimForResume(int $runUid): bool;
 
+    /**
+     * Insert a QUEUED run carrying its serialised request, so a worker in
+     * another process can claim, rehydrate and execute it (ADR-102).
+     * started_at stays 0 until the claim.
+     *
+     * @return int The new run's uid.
+     */
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int;
+
+    /**
+     * Atomically claim a QUEUED run for execution (move it to RUNNING, stamp
+     * started_at and the worker lease); true for the winning worker, false when
+     * another worker already claimed it or the run was cancelled while queued
+     * (ADR-102).
+     */
+    public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool;
+
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**

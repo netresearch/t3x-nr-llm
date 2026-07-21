@@ -60,6 +60,18 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    {
+        // Not needed by the command tests.
+        return 0;
+    }
+
+    public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        // Not needed by the command tests.
+        return false;
+    }
+
     public function claimForResume(int $runUid): bool
     {
         return false;

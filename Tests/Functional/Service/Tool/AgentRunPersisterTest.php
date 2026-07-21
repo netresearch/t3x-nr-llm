@@ -116,6 +116,84 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aQueuedRunIsClaimedExactlyOnceAndSettlingClearsTheQueueFields(): void
+    {
+        // ADR-102: enqueue stores the serialised request on a QUEUED row;
+        // exactly one worker wins the guarded QUEUED -> RUNNING claim; the
+        // terminal settle clears the request payload and the worker lease.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('queued', $run->status);
+        self::assertSame('{"messages":[]}', $run->queuedRequest);
+        self::assertSame(0, $run->startedAt);
+
+        // First worker wins, second loses — the same optimistic idiom as the
+        // approval claim.
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+        self::assertFalse($this->persister->claimQueued($run, 'worker-b:2', time() + 60));
+
+        $claimed = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($claimed);
+        self::assertSame('running', $claimed->status);
+        self::assertSame('worker-a:1', $claimed->claimedBy);
+        self::assertGreaterThan(0, $claimed->leaseExpires);
+        self::assertGreaterThan(0, $claimed->startedAt);
+
+        $this->persister->settleCompleted($handle, new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(3, 2)));
+        $settled = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($settled);
+        self::assertSame('completed', $settled->status);
+        self::assertNull($settled->queuedRequest);
+        self::assertSame('', $settled->claimedBy);
+        self::assertSame(0, $settled->leaseExpires);
+    }
+
+    #[Test]
+    public function aSuspensionClearsTheWorkerLease(): void
+    {
+        // ADR-102: the lease means "presumed executing until" — a run suspended
+        // for a human decision has no live worker claim, and the later resume
+        // executes in the approving process, so a dead worker's identity must
+        // never linger on a non-terminal row (it would mislead the reaper).
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0);
+        self::assertTrue($this->persister->suspend($handle, $state));
+
+        $suspended = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($suspended);
+        self::assertSame('waiting_for_approval', $suspended->status);
+        self::assertSame('', $suspended->claimedBy);
+        self::assertSame(0, $suspended->leaseExpires);
+    }
+
+    #[Test]
+    public function aCancelledQueuedRunCannotBeClaimed(): void
+    {
+        // Cancel-while-queued (ADR-102): the guarded terminal transition wins
+        // and the later claim finds no QUEUED row to move.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->cancel($handle->uuid));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertFalse($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+        self::assertSame('cancelled', $run->status);
+        // The request payload is already gone with the cancel.
+        $cancelled = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($cancelled);
+        self::assertNull($cancelled->queuedRequest);
+    }
+
+    #[Test]
     public function aSettledRunCannotBeSettledAgain(): void
     {
         $handle = $this->persister->begin(null, 0);

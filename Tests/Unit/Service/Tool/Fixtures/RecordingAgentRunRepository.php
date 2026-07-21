@@ -126,6 +126,48 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    public bool $throwOnEnqueue = false;
+
+    /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, requestJson: string}> */
+    public array $enqueuedRuns = [];
+
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    {
+        if ($this->throwOnEnqueue) {
+            throw new RuntimeException('enqueueRun failed', 1784700010);
+        }
+        $this->enqueuedRuns[] = [
+            'uuid'                    => $uuid,
+            'configurationUid'        => $configurationUid,
+            'configurationIdentifier' => $configurationIdentifier,
+            'beUser'                  => $beUser,
+            'requestJson'             => $requestJson,
+        ];
+
+        return $this->nextUid++;
+    }
+
+    public bool $throwOnClaimQueued = false;
+
+    /** Simulates a queued run already claimed by another worker (or cancelled). */
+    public bool $refuseClaimQueued = false;
+
+    /** @var array{runUid: int, claimedBy: string, leaseExpires: int}|null */
+    public ?array $queuedClaim = null;
+
+    public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        if ($this->throwOnClaimQueued) {
+            throw new RuntimeException('claimQueued failed', 1784700011);
+        }
+        if ($this->refuseClaimQueued) {
+            return false;
+        }
+        $this->queuedClaim = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
+
+        return true;
+    }
+
     public bool $throwOnClaim = false;
 
     /** Number of resume claims that were granted; false is returned after the first. */
