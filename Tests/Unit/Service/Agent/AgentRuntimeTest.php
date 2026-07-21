@@ -1,0 +1,550 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
+
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
+use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
+use Throwable;
+
+#[CoversClass(AgentRuntime::class)]
+final class AgentRuntimeTest extends AbstractUnitTestCase
+{
+    private RecordingAgentRunRepository $repository;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->repository = new RecordingAgentRunRepository();
+    }
+
+    #[Test]
+    public function aCompletedRunSettlesCompletedAndCarriesTheLoopResult(): void
+    {
+        $loopResult = $this->loopResult('done');
+        $runtime    = $this->runtime($this->loopReturning($loopResult));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertSame($loopResult, $result->loopResult);
+        self::assertNotSame('', $result->runUuid);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::COMPLETED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function aSuspendedRunIsPersistedAndReturnedAsAwaitingApproval(): void
+    {
+        $state   = $this->suspendedState();
+        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($state)));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $result->outcome);
+        self::assertSame($state, $result->suspendedState);
+        self::assertNotNull($this->repository->suspended);
+        // The run stays WAITING_FOR_APPROVAL: the finally-guard must NOT settle
+        // a successfully-suspended run into FAILED — that would destroy the
+        // resumable state (the run-destroying case the design review flagged).
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function aFailedSuspensionFailsClosedAsSuspendFailed(): void
+    {
+        $this->repository->throwOnSuspend = true;
+        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+
+        $result = $runtime->run($this->request());
+
+        // ADR-092: no stored state means no resume — the run is failed, never
+        // announced as awaiting approval.
+        self::assertSame(AgentRunOutcome::SUSPEND_FAILED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function aSuspensionArrivingAfterACancelIsDiscardedAndFailsClosed(): void
+    {
+        // The guarded suspendRun refuses because the run is no longer RUNNING
+        // (a concurrent cancel won the row): the suspension must not resurrect
+        // the cancelled run into an approval queue (ADR-101).
+        $this->repository->refuseSuspend = true;
+        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::SUSPEND_FAILED, $result->outcome);
+        self::assertNull($this->repository->suspended);
+    }
+
+    #[Test]
+    public function anUnpersistedRunThatSuspendsFailsClosed(): void
+    {
+        // No handle (persistence down at begin) means no stored state and no
+        // resume — announcing awaiting-approval would strand the client behind
+        // an approve() that can only ever 400 (ADR-092).
+        $this->repository->throwOnStart = true;
+        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($this->suspendedState())));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::SUSPEND_FAILED, $result->outcome);
+        self::assertSame('', $result->runUuid);
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function aGuardrailDenialSettlesPolicyStopped(): void
+    {
+        $runtime = $this->runtime($this->loopThrowing(new GuardrailViolationException('GuardrailFqcn', 'blocked')));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::GUARDRAIL_BLOCKED, $result->outcome);
+        self::assertSame('GuardrailFqcn', $result->guardrailClass);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunTerminationReason::POLICY_DENIED->value, $this->repository->finished['terminationReason']);
+    }
+
+    #[Test]
+    public function aGuardrailApprovalRequirementIsDistinctFromADenial(): void
+    {
+        $runtime = $this->runtime($this->loopThrowing(new GuardrailApprovalRequiredException('GuardrailFqcn', 'needs a human')));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+        // ADR-092: required-but-never-obtained is not recorded as a denial.
+        self::assertSame(AgentRunTerminationReason::APPROVAL_DENIED->value, $this->repository->finished['terminationReason']);
+    }
+
+    #[Test]
+    public function anUnexpectedThrowableSettlesFailedAndIsReturnedNotRethrown(): void
+    {
+        $error   = new RuntimeException('provider exploded', 1784700001);
+        $runtime = $this->runtime($this->loopThrowing($error));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertSame($error, $result->error);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function stepsReachTheObserverBeforePersistenceAndTheResult(): void
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $observed = [];
+        $runtime  = $this->runtime($loop);
+        $result   = $runtime->run($this->request(), function (RunStep $s) use (&$observed): void {
+            $observed[] = $s->kind;
+        });
+
+        self::assertSame([RunStep::KIND_REQUEST], $observed);
+        self::assertCount(1, $result->steps);
+        // The same step also reached the persisted event stream.
+        self::assertCount(1, $this->repository->events);
+        self::assertSame(RunStep::KIND_REQUEST, $this->repository->events[0]['kind']);
+    }
+
+    #[Test]
+    public function anObserverThrowMidRunSettlesTheRunFailed(): void
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                // A recorded step reaches the observer, which dies (client
+                // disconnect on the stream) — the throw propagates through the
+                // loop into the ladder.
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('never reached');
+            },
+        );
+
+        $runtime = $this->runtime($loop);
+        $result  = $runtime->run($this->request(), static function (): void {
+            throw new RuntimeException('client gone', 1784700002);
+        });
+
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function anExplicitIterationCapIsClampedToTheCeilingButNullPassesThrough(): void
+    {
+        $seen = [];
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
+                $seen[] = $max;
+
+                return $this->loopResult('ok');
+            },
+        );
+        $runtime = $this->runtime($loop);
+
+        $runtime->run($this->request(maxIterations: 50));
+        $runtime->run($this->request(maxIterations: 3));
+        // null must NOT be coerced to the ceiling: the loop's own (lower)
+        // default applies — a naive clamp would quadruple the default cost.
+        $runtime->run($this->request());
+
+        self::assertSame([AgentRuntime::MAX_ITERATIONS, 3, null], $seen);
+    }
+
+    #[Test]
+    public function approveClaimsRecordsTheDecisionAndResumes(): void
+    {
+        $this->repository->findResult  = $this->suspendedRun();
+        $this->repository->maxSequence = 4;
+        $loopResult = $this->loopResult('continued');
+
+        $seenBeUser = null;
+        $loop       = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(
+            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ?int $max, ?RunTrace $trace, ?int $beUserUid) use (&$seenBeUser, $loopResult): ToolLoopResult {
+                $seenBeUser = $beUserUid;
+
+                return $loopResult;
+            },
+        );
+
+        $result = $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(true, 42));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertSame($loopResult, $result->loopResult);
+        // The approver's uid budget-checks the continuation (ADR-084).
+        self::assertSame(42, $seenBeUser);
+        // The decision is the first event of the resumed segment, at the next
+        // sequence after the stored stream (MAX 4 -> 5).
+        self::assertNotSame([], $this->repository->events);
+        $approval = $this->repository->events[0];
+        self::assertSame('approval', $approval['kind']);
+        self::assertSame(5, $approval['sequence']);
+        $payload = json_decode($approval['payloadJson'], true);
+        self::assertSame(['approved' => true, 'decidedBy' => 42], $payload);
+    }
+
+    #[Test]
+    public function approveResolvesTheEventPositionAgainAfterWinningTheClaim(): void
+    {
+        // A request that stalled between its pre-claim probe and the claim may
+        // hold a stale position from before another approval's continuation
+        // appended events; the post-claim resolve must win so sequences are
+        // never duplicated (ADR-101). Probe sees MAX 4; after the claim the
+        // stream has grown to MAX 9 — the approval event lands at 10.
+        $this->repository->findResult         = $this->suspendedRun();
+        $this->repository->maxSequenceReturns = [4, 9];
+
+        $this->runtime($this->loopReturning($this->loopResult('continued')))
+            ->approve('run-uuid-1', new ApprovalDecision(true, 1));
+
+        self::assertNotSame([], $this->repository->events);
+        self::assertSame(10, $this->repository->events[0]['sequence']);
+    }
+
+    #[Test]
+    public function approveThrowsWhenNoRunIsAwaitingApproval(): void
+    {
+        $this->repository->findResult = null;
+
+        $this->expectException(RunNotAwaitingApprovalException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('unknown', new ApprovalDecision(true, 1));
+    }
+
+    #[Test]
+    public function approveThrowsWhenTheRunIsNotSuspended(): void
+    {
+        $this->repository->findResult = $this->suspendedRun(status: 'completed');
+
+        $this->expectException(RunNotAwaitingApprovalException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+    }
+
+    #[Test]
+    public function approveThrowsWhenTheConfigurationIsGone(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        $this->expectException(RunConfigurationGoneException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve('run-uuid-1', new ApprovalDecision(true, 1));
+    }
+
+    #[Test]
+    public function approveThrowsOnCorruptSuspendedState(): void
+    {
+        $this->repository->findResult = $this->suspendedRun(stateJson: 'not-json{');
+
+        $this->expectException(CorruptSuspendedStateException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+    }
+
+    #[Test]
+    public function approveRefusesBeforeClaimingWhenTheEventPositionIsUnavailable(): void
+    {
+        $this->repository->findResult         = $this->suspendedRun();
+        $this->repository->throwOnMaxSequence = true;
+
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+            self::fail('Expected RunStateUnavailableException');
+        } catch (RunStateUnavailableException) {
+            // Fail-closed BEFORE the claim: the run is still suspended, so the
+            // approval can simply be retried — nothing was claimed or executed.
+            self::assertSame(0, $this->repository->claimsGranted);
+        }
+    }
+
+    #[Test]
+    public function approveThrowsWhenTheClaimIsLostToAConcurrentApproval(): void
+    {
+        $this->repository->findResult    = $this->suspendedRun();
+        $this->repository->claimsGranted = 1; // the next claim loses
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        // The gated tool must never execute on the losing request.
+        $loop->method('resume')->willReturnCallback(static function (): ToolLoopResult {
+            throw new RuntimeException('resume must not be reached', 1784700003);
+        });
+
+        $this->expectException(RunAlreadyResumingException::class);
+        $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(true, 1));
+    }
+
+    #[Test]
+    public function aDeniedApprovalStillResumesWithApprovedFalse(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        $seenApproved = null;
+        $loop         = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(
+            function (SuspendedRunState $state, bool $approved) use (&$seenApproved): ToolLoopResult {
+                $seenApproved = $approved;
+
+                return $this->loopResult('refused and continued');
+            },
+        );
+
+        $result = $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(false, 7));
+
+        // A denial does not terminate the run: the loop continues from the
+        // refusal message (ADR-084) — and the denial is on the audit stream.
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertFalse($seenApproved);
+        $payload = json_decode($this->repository->events[0]['payloadJson'], true);
+        self::assertSame(['approved' => false, 'decidedBy' => 7], $payload);
+    }
+
+    #[Test]
+    public function aResumedRunMaySuspendAgain(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+        $again = $this->suspendedState();
+
+        $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($again), onResume: true));
+        $result  = $runtime->approve('run-uuid-1', new ApprovalDecision(true, 1));
+
+        self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $result->outcome);
+        self::assertSame($again, $result->suspendedState);
+        self::assertNotNull($this->repository->suspended);
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function cancelDelegatesToTheGuardedTransition(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        self::assertTrue($this->runtime($this->loopReturning($this->loopResult('x')))->cancel('run-uuid-1'));
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::CANCELLED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function eventsFiltersBySequenceAndIsEmptyForAnUnknownRun(): void
+    {
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        self::assertSame([], $runtime->events('unknown'));
+
+        $this->repository->findResult     = $this->suspendedRun();
+        $this->repository->eventsToReturn = [
+            new AgentRunEvent(1, 1, 0, 'request', 1, 0.0, [], 0),
+            new AgentRunEvent(2, 1, 1, 'llm', 1, 0.0, [], 0),
+            new AgentRunEvent(3, 1, 2, 'tool', 1, 0.0, [], 0),
+        ];
+
+        self::assertCount(3, $runtime->events('run-uuid-1'));
+        $paged = $runtime->events('run-uuid-1', 0);
+        self::assertCount(2, $paged);
+        self::assertSame(1, $paged[0]->sequence);
+    }
+
+    #[Test]
+    public function statusStripsTheSuspendedStateTranscript(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+        $runtime                      = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        $status = $runtime->status('run-uuid-1');
+
+        self::assertNotNull($status);
+        self::assertSame('run-uuid-1', $status->uuid);
+        // The raw transcript bypasses the privacy filter — never on the status
+        // surface (design-review MAJOR 1).
+        self::assertNull($status->suspendedState);
+    }
+
+    #[Test]
+    public function anUnpersistedRunStillExecutesWithAnEmptyRunUuid(): void
+    {
+        $this->repository->throwOnStart = true;
+        $loopResult = $this->loopResult('ran without persistence');
+
+        $result = $this->runtime($this->loopReturning($loopResult))->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertSame('', $result->runUuid);
+        self::assertSame($loopResult, $result->loopResult);
+        self::assertNull($this->repository->finished);
+    }
+
+    // ------------------------------------------------------------------ //
+
+    private function runtime(ToolLoopServiceInterface $loop, ?LlmConfiguration $configuration = new LlmConfiguration()): AgentRuntime
+    {
+        $configurationRepository = self::createStub(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($configuration);
+
+        return new AgentRuntime(
+            $loop,
+            new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
+            $configurationRepository,
+        );
+    }
+
+    private function request(?int $maxIterations = null): AgentRunRequest
+    {
+        return new AgentRunRequest(
+            configuration: new LlmConfiguration(),
+            messages: [ChatMessage::user('go')],
+            maxIterations: $maxIterations,
+            beUserUid: 9,
+        );
+    }
+
+    private function loopResult(string $content): ToolLoopResult
+    {
+        return new ToolLoopResult($content, [], 1, false, UsageStatistics::fromTokens(3, 2));
+    }
+
+    private function loopReturning(ToolLoopResult $result): ToolLoopServiceInterface
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturn($result);
+        $loop->method('resume')->willReturn($result);
+
+        return $loop;
+    }
+
+    private function loopThrowing(Throwable $throwable, bool $onResume = false): ToolLoopServiceInterface
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method($onResume ? 'resume' : 'runLoop')->willThrowException($throwable);
+
+        return $loop;
+    }
+
+    private function suspendedState(): SuspendedRunState
+    {
+        return new SuspendedRunState(
+            [['role' => 'user', 'content' => 'delete it']],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            1,
+            5,
+            2,
+        );
+    }
+
+    private function suspendedRun(string $status = 'waiting_for_approval', ?string $stateJson = null): AgentRun
+    {
+        $encoded = $stateJson ?? json_encode($this->suspendedState()->toArray());
+        \assert(is_string($encoded));
+
+        return new AgentRun(
+            uid: 1,
+            uuid: 'run-uuid-1',
+            status: $status,
+            configurationUid: 1,
+            configurationIdentifier: 'cfg',
+            beUser: 9,
+            iterations: 1,
+            truncated: false,
+            totalPromptTokens: 5,
+            totalCompletionTokens: 2,
+            totalTokens: 7,
+            estimatedCost: 0.0,
+            errorClass: '',
+            terminationReason: '',
+            startedAt: 0,
+            finishedAt: 0,
+            crdate: 0,
+            suspendedState: $status === 'waiting_for_approval' ? $encoded : null,
+        );
+    }
+}

@@ -128,19 +128,28 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected > 0;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): void
+    public function suspendRun(int $runUid, string $stateJson): bool
     {
         // Non-terminal transition (ADR-084): store the resumable state and move
-        // the run to WAITING_FOR_APPROVAL without setting finished_at.
-        $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+        // the run to WAITING_FOR_APPROVAL without setting finished_at. Guarded
+        // on the run still being RUNNING (ADR-101): a concurrent cancel wins the
+        // terminal transition first, and an unguarded suspend would resurrect
+        // the CANCELLED row to WAITING_FOR_APPROVAL — offering an approval flow
+        // for a run the operator was told was stopped.
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
             [
                 'status'          => AgentRunStatus::WAITING_FOR_APPROVAL->value,
                 'suspended_state' => $stateJson,
                 'tstamp'          => time(),
             ],
-            ['uid' => $runUid],
+            [
+                'uid'    => $runUid,
+                'status' => AgentRunStatus::RUNNING->value,
+            ],
         );
+
+        return $affected === 1;
     }
 
     /**
@@ -201,6 +210,22 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->fetchAllAssociative();
 
         return array_map($this->hydrateEvent(...), $rows);
+    }
+
+    public function maxEventSequence(int $runUid): int
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $max = $queryBuilder
+            ->selectLiteral('MAX(sequence) AS max_sequence')
+            ->from(self::TABLE_EVENT)
+            ->where($queryBuilder->expr()->eq('run', $queryBuilder->createNamedParameter($runUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        // MAX() over zero rows is NULL — a run with no events yet.
+        return is_numeric($max) ? (int)$max : -1;
     }
 
     public function purgeOlderThan(int $timestamp): int

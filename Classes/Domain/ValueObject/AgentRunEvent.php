@@ -15,15 +15,19 @@ use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
  * One persisted event of an agent run, read back from `tx_nrllm_agentrun_event`
  * (ADR-081).
  *
- * Each event is the durable form of a {@see RunStep}: the replayable stream a
- * consumer UI can render after the fact. The full step payload is preserved in
- * {@see self::$payload} (the {@see RunStep::toArray()} shape); the promoted
+ * Most events are the durable form of a {@see RunStep}: the replayable stream a
+ * consumer UI can render after the fact, with the full step payload preserved
+ * in {@see self::$payload} (the {@see RunStep::toArray()} shape). An
+ * {@see AgentEventKind::APPROVAL} event (ADR-101) instead carries the
+ * operator's decision as ``{approved: bool, decidedBy: int}`` — consumers must
+ * discriminate the payload shape by {@see self::kindEnum()}. The promoted
  * columns (kind, round, duration) exist for querying and ordering.
  */
 final readonly class AgentRunEvent
 {
     /**
-     * @param array<string, mixed> $payload The decoded {@see RunStep::toArray()} snapshot.
+     * @param array<string, mixed> $payload The decoded {@see RunStep::toArray()} snapshot,
+     *                                      or the approval-decision shape for an APPROVAL event.
      */
     public function __construct(
         public int $uid,
@@ -38,9 +42,12 @@ final readonly class AgentRunEvent
 
     /**
      * The kind as a typed enum, or null when the stored string is unknown.
+     * Hydrates every valid stored kind — including APPROVAL, which is not a
+     * RunStep kind and therefore not resolvable via
+     * {@see AgentEventKind::fromRunStepKind()}.
      */
     public function kindEnum(): ?AgentEventKind
     {
-        return AgentEventKind::fromRunStepKind($this->kind);
+        return AgentEventKind::tryFrom($this->kind);
     }
 }

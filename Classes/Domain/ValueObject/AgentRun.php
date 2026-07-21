@@ -45,6 +45,37 @@ final readonly class AgentRun
     ) {}
 
     /**
+     * A copy without the suspended-state transcript, for status exposure
+     * (ADR-101). The suspended state is stored VERBATIM for resume — it bypasses
+     * the {@see \Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter} that
+     * every persisted event goes through (ADR-064) — so a status projection
+     * handed to a runtime consumer must not carry it.
+     */
+    public function withoutSuspendedState(): self
+    {
+        return new self(
+            uid: $this->uid,
+            uuid: $this->uuid,
+            status: $this->status,
+            configurationUid: $this->configurationUid,
+            configurationIdentifier: $this->configurationIdentifier,
+            beUser: $this->beUser,
+            iterations: $this->iterations,
+            truncated: $this->truncated,
+            totalPromptTokens: $this->totalPromptTokens,
+            totalCompletionTokens: $this->totalCompletionTokens,
+            totalTokens: $this->totalTokens,
+            estimatedCost: $this->estimatedCost,
+            errorClass: $this->errorClass,
+            terminationReason: $this->terminationReason,
+            startedAt: $this->startedAt,
+            finishedAt: $this->finishedAt,
+            crdate: $this->crdate,
+            suspendedState: null,
+        );
+    }
+
+    /**
      * The status as a typed enum, or null when the stored string is unknown
      * (a forward-compatibility guard — an unrecognised status is not coerced).
      */

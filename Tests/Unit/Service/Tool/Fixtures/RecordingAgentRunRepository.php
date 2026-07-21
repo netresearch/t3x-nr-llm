@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use RuntimeException;
 
@@ -109,12 +110,20 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnSuspend = false;
 
-    public function suspendRun(int $runUid, string $stateJson): void
+    /** Simulates a run no longer RUNNING (cancelled/settled), so the guarded suspend matches no row. */
+    public bool $refuseSuspend = false;
+
+    public function suspendRun(int $runUid, string $stateJson): bool
     {
         if ($this->throwOnSuspend) {
             throw new RuntimeException('suspendRun failed', 1784600401);
         }
+        if ($this->refuseSuspend) {
+            return false;
+        }
         $this->suspended = ['runUid' => $runUid, 'stateJson' => $stateJson];
+
+        return true;
     }
 
     public bool $throwOnClaim = false;
@@ -144,9 +153,38 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return $this->findResult;
     }
 
+    /** @var list<AgentRunEvent> */
+    public array $eventsToReturn = [];
+
     public function findEvents(int $runUid): array
     {
-        return [];
+        return $this->eventsToReturn;
+    }
+
+    public bool $throwOnMaxSequence = false;
+
+    /** Highest stored event sequence reported to resumeHandle() (-1 = none). */
+    public int $maxSequence = -1;
+
+    /**
+     * When non-empty, each maxEventSequence() call shifts the next value —
+     * models a stream that grows between two position resolutions (the
+     * probe-before-claim vs. resolve-after-claim ordering, ADR-101).
+     *
+     * @var list<int>
+     */
+    public array $maxSequenceReturns = [];
+
+    public function maxEventSequence(int $runUid): int
+    {
+        if ($this->throwOnMaxSequence) {
+            throw new RuntimeException('maxEventSequence failed', 1784600403);
+        }
+        if ($this->maxSequenceReturns !== []) {
+            return array_shift($this->maxSequenceReturns);
+        }
+
+        return $this->maxSequence;
     }
 
     public function purgeOlderThan(int $timestamp): int
