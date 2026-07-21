@@ -698,7 +698,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         // Called twice now: once by the budget pre-flight, once for the usage
         // row's configuration link. The count is not what this test is about.
-        $configurationRepository->method('findOneByIdentifier')
+        $configurationRepository->expects(self::atLeastOnce())->method('findOneByIdentifier')
             ->with('podcast-narration')
             ->willReturn($configuration);
 
