@@ -14,11 +14,14 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 /**
  * Kind of a persisted agent-run event (ADR-081).
  *
- * These map one-to-one onto the four {@see RunStep} kinds the tool loop emits
- * through {@see \Netresearch\NrLlm\Service\Tool\RunTrace}. The enum is
- * intentionally limited to what the loop actually produces today; richer kinds
- * (approval requests, artifacts, streamed text deltas) are added by the epics
- * that emit them, not speculatively here.
+ * REQUEST / LLM / TOOL / ASSEMBLED map one-to-one onto the four {@see RunStep}
+ * kinds the tool loop emits through
+ * {@see \Netresearch\NrLlm\Service\Tool\RunTrace}; their payload is the decoded
+ * {@see RunStep::toArray()} snapshot. APPROVAL (ADR-101) is emitted by the
+ * AgentRuntime when an operator decides a suspended run, with the payload
+ * ``{approved: bool, decidedBy: int}`` — it is NOT a RunStep kind. The enum
+ * stays limited to what is actually emitted; richer kinds (artifacts, streamed
+ * text deltas) are added by the epics that emit them, not speculatively here.
  */
 enum AgentEventKind: string
 {
@@ -26,6 +29,7 @@ enum AgentEventKind: string
     case LLM = 'llm';
     case TOOL = 'tool';
     case ASSEMBLED = 'assembled';
+    case APPROVAL = 'approval';
 
     /**
      * @return list<string>
@@ -43,10 +47,15 @@ enum AgentEventKind: string
     /**
      * Map a {@see RunStep} kind constant onto its event kind. Returns null for an
      * unknown value so a future RunStep kind cannot silently masquerade as a
-     * known one.
+     * known one. Deliberately restricted to the four RunStep kinds: APPROVAL is
+     * an AgentRuntime event, not a RunStep, so it must not resolve here even
+     * though it is a valid stored event kind (use {@see self::tryFrom()} to
+     * hydrate a stored kind).
      */
     public static function fromRunStepKind(string $kind): ?self
     {
-        return self::tryFrom($kind);
+        $case = self::tryFrom($kind);
+
+        return $case === self::APPROVAL ? null : $case;
     }
 }

@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -205,7 +207,14 @@ final readonly class AgentRunPersister
     {
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-            $this->repository->suspendRun($handle->runUid, $stateJson);
+            // Guarded transition (ADR-101): false when the run is no longer
+            // RUNNING — a concurrent cancel or settle won the row first, and the
+            // suspension must not resurrect it.
+            if (!$this->repository->suspendRun($handle->runUid, $stateJson)) {
+                $this->logger?->notice('AgentRun was no longer running when its suspension arrived; the suspension was discarded', ['run' => $handle->uuid]);
+
+                return false;
+            }
 
             return true;
         } catch (Throwable $exception) {
@@ -249,18 +258,74 @@ final readonly class AgentRunPersister
 
     /**
      * Rebuild a live handle for an existing (suspended) run so a resume continues
-     * its event stream at the right sequence.
+     * its event stream at the right sequence — MAX(sequence) + 1, so a gap in the
+     * stored stream can never produce a duplicate.
+     *
+     * Fail-closed exception to the fail-soft rule (like {@see self::suspend()}):
+     * null when the position cannot be determined. Restarting at 0 would insert
+     * duplicate sequence numbers and interleave the resumed segment into the
+     * middle of the stream — silently corrupting the event order the ADR-101
+     * `events()` API is defined by. The caller refuses the resume instead (the
+     * run stays suspended, the approval can be retried).
      */
-    public function resumeHandle(AgentRun $run): AgentRunHandle
+    public function resumeHandle(AgentRun $run): ?AgentRunHandle
     {
-        $handle = new AgentRunHandle($run->uid, $run->uuid);
         try {
-            $handle->sequence = count($this->repository->findEvents($run->uid));
-        } catch (Throwable $exception) {
-            $this->logger?->warning('AgentRun events could not be counted for resume; sequence restarts at 0', ['exception' => $exception]);
-        }
+            $handle           = new AgentRunHandle($run->uid, $run->uuid);
+            $handle->sequence = $this->repository->maxEventSequence($run->uid) + 1;
 
-        return $handle;
+            return $handle;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun event position could not be determined; the resume is refused', ['exception' => $exception]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Persist an operator's approval decision as the next event in the run's
+     * stream (ADR-101): kind {@see AgentEventKind::APPROVAL}, payload
+     * ``{approved, decidedBy}``. Best-effort like every event write — a failure
+     * is logged, never blocks the decided continuation.
+     */
+    public function recordApproval(AgentRunHandle $handle, bool $approved, int $decidedByBeUser): void
+    {
+        try {
+            $payload = json_encode(
+                ['approved' => $approved, 'decidedBy' => $decidedByBeUser],
+                JSON_THROW_ON_ERROR,
+            );
+            $this->repository->recordEvent(
+                $handle->runUid,
+                $handle->sequence,
+                AgentEventKind::APPROVAL->value,
+                0,
+                0.0,
+                $payload,
+            );
+            ++$handle->sequence;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun approval decision could not be persisted', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * The persisted event stream of a run, ordered by sequence — the read side
+     * of the ADR-101 `events()` API. Only events with sequence > $afterSequence
+     * (filtered in SQL, so a poller pages cheaply). Empty on error or for an
+     * unknown run.
+     *
+     * @return list<AgentRunEvent>
+     */
+    public function findEvents(int $runUid, int $afterSequence = -1): array
+    {
+        try {
+            return $this->repository->findEvents($runUid, $afterSequence);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun events could not be loaded', ['exception' => $exception]);
+
+            return [];
+        }
     }
 
     private function finish(

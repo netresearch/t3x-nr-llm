@@ -1,0 +1,36 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Domain\Enum;
+
+/**
+ * How a synchronous agent-run segment ended, as returned by the
+ * AgentRuntime (ADR-101).
+ *
+ * Distinct from {@see AgentRunStatus} (the persisted row's lifecycle state):
+ * an outcome describes what THIS run() / approve() call produced, including
+ * transient distinctions the row does not need — a guardrail denial vs. a
+ * guardrail approval requirement both persist as FAILED, and SUSPEND_FAILED
+ * persists as FAILED while telling the caller specifically that an approval
+ * was required but could not be stored (fail-closed, ADR-092), so no resume
+ * must be offered.
+ *
+ * More cases may be added in minor releases (the queue epic will add
+ * queue-related outcomes); consumers must not match exhaustively without a
+ * default arm.
+ */
+enum AgentRunOutcome: string
+{
+    case COMPLETED = 'completed';
+    case AWAITING_APPROVAL = 'awaiting_approval';
+    case SUSPEND_FAILED = 'suspend_failed';
+    case GUARDRAIL_BLOCKED = 'guardrail_blocked';
+    case GUARDRAIL_APPROVAL_REQUIRED = 'guardrail_approval_required';
+    case FAILED = 'failed';
+}

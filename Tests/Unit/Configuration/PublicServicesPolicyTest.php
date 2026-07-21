@@ -59,7 +59,10 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolLoopServiceInterface (ADR-084 tool loop, injected by downstream
      *   extensions running the agent loop), ToolCallPolicyInterface (ADR-094:
      *   the composite tool gate, asked by the backend module why a tool is
-     *   missing from a run).
+     *   missing from a run), AgentRuntimeInterface (ADR-101: the agent-run
+     *   application service — begin/approve/cancel/events/status — the
+     *   preferred consumer surface over the bare tool loop). That makes
+     *   Category B 8 since ADR-101.
      * - Category C (Concrete-only documented surface): 1 —
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
@@ -68,15 +71,15 @@ final class PublicServicesPolicyTest extends TestCase
      *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 19 + 7 + 1 + 5 + 2 = **34**.
+     * Total: 19 + 8 + 1 + 5 + 2 = **35**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in
-     * `Documentation/Adr/Adr094ToolDataClassTrustZone.rst` (the current
-     * count authority, superseding ADR-084's count) in the same PR — the
-     * diff is the audit trail.
+     * `Documentation/Adr/Adr101AgentRuntime.rst` (the current count
+     * authority, superseding ADR-094's count) in the same PR — the diff is
+     * the audit trail.
      */
-    private const EXPECTED_PUBLIC_TRUE_COUNT = 34;
+    private const EXPECTED_PUBLIC_TRUE_COUNT = 35;
 
     private const SERVICES_YAML_PATH = __DIR__ . '/../../../Configuration/Services.yaml';
 

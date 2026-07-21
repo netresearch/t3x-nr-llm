@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
-use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -37,7 +37,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 final class CancelAgentRunCommand extends Command
 {
     public function __construct(
-        private readonly AgentRunPersister $agentRuns,
+        // The runtime is the single consumer surface for run lifecycle
+        // operations (ADR-101); cancel delegates to the same guarded
+        // transition it always did.
+        private readonly AgentRuntimeInterface $agentRuntime,
     ) {
         parent::__construct();
     }
@@ -58,7 +61,7 @@ final class CancelAgentRunCommand extends Command
             return Command::INVALID;
         }
 
-        if (!$this->agentRuns->cancel($uuid)) {
+        if (!$this->agentRuntime->cancel($uuid)) {
             $io->warning(sprintf('Run "%s" was not cancelled: it is unknown or already finished.', $uuid));
 
             return Command::FAILURE;

@@ -8,6 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AgentRuntimeInterface` (ADR-101): the agent-run lifecycle — begin, execute,
+  persist, suspend for approval, approve/deny, cancel, event polling, status —
+  as one public, fail-closed application service. The tool playground is now a
+  UI adapter over it; scheduler tasks, queue workers and downstream extensions
+  get the identical tested lifecycle instead of re-assembling loop + persister.
+  Operator decisions are persisted as a new `approval` event
+  (`AgentEventKind::APPROVAL`), a resume continues the event stream at
+  `MAX(sequence)+1` (refused fail-closed when the position is unavailable), a
+  failed re-suspension now fails the run on every path instead of promising an
+  impossible resume, and `status()` never exposes the raw suspended transcript.
+  Cancellation is now a real fence: a cancelled run can no longer be
+  resurrected into the approval queue by an in-flight suspension
+  (`suspendRun` became a guarded transition).
+  **Breaking:** `ToolPlaygroundController`'s constructor takes the runtime
+  instead of `ToolLoopService`/`AgentRunPersister`;
+  `AgentRunPersister::resumeHandle()` returns `?AgentRunHandle`;
+  `AgentRunRepositoryInterface` gained `maxEventSequence()` and
+  `suspendRun()` returns `bool`.
 - Specialized usage (images, characters, audio seconds) is now recorded by the
   pipeline through tagged `UsageMetricsExtractor`s instead of each service
   writing to the usage table itself (ADR-100). A service attaches a

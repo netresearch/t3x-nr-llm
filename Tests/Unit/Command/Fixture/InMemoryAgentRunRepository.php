@@ -54,9 +54,10 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): void
+    public function suspendRun(int $runUid, string $stateJson): bool
     {
         // Not needed by the command tests.
+        return true;
     }
 
     public function claimForResume(int $runUid): bool
@@ -69,9 +70,14 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return null;
     }
 
-    public function findEvents(int $runUid): array
+    public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return [];
+    }
+
+    public function maxEventSequence(int $runUid): int
+    {
+        return -1;
     }
 
     public function purgeOlderThan(int $timestamp): int

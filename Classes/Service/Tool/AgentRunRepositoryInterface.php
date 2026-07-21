@@ -56,9 +56,12 @@ interface AgentRunRepositoryInterface
     /**
      * Suspend a run for human approval (ADR-084): persist its serialised state
      * and move it to WAITING_FOR_APPROVAL — a non-terminal transition, distinct
-     * from finishRun which sets a terminal status and finished_at.
+     * from finishRun which sets a terminal status and finished_at. Guarded on
+     * the run still being RUNNING (ADR-101): false when the transition was
+     * refused because a concurrent cancel (or settle) got there first, so a
+     * cancelled run is never resurrected into an approval queue.
      */
-    public function suspendRun(int $runUid, string $stateJson): void;
+    public function suspendRun(int $runUid, string $stateJson): bool;
 
     /**
      * Atomically claim a WAITING_FOR_APPROVAL run for resume (move it to RUNNING);
@@ -70,9 +73,21 @@ interface AgentRunRepositoryInterface
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**
+     * @param int $afterSequence only events with sequence > this value; -1
+     *                           (the default) returns the full stream. Filtered
+     *                           in SQL so a poller does not re-hydrate the whole
+     *                           history on every page (ADR-101).
+     *
      * @return list<AgentRunEvent> Events for a run, ordered by sequence ascending.
      */
-    public function findEvents(int $runUid): array;
+    public function findEvents(int $runUid, int $afterSequence = -1): array;
+
+    /**
+     * The highest event sequence recorded for a run, or -1 when the run has no
+     * events yet. A resume continues the stream at max + 1 (ADR-101) —
+     * MAX-based, not count-based, so gaps can never cause a duplicate sequence.
+     */
+    public function maxEventSequence(int $runUid): int;
 
     /**
      * Delete FINISHED runs (and their events) created before the given

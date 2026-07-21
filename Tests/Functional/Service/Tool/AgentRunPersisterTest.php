@@ -78,8 +78,11 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertIsArray($decoded);
         self::assertSame(1, $decoded['iterations']);
 
-        // resumeHandle continues the event stream after the two recorded events.
+        // resumeHandle continues the event stream after the two recorded events
+        // (MAX(sequence) + 1 since ADR-101; null only when the position cannot
+        // be determined).
         $resumed = $this->persister->resumeHandle($run);
+        self::assertNotNull($resumed);
         self::assertSame($handle->runUid, $resumed->runUid);
         self::assertSame(2, $resumed->sequence);
 
@@ -89,6 +92,27 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertNotNull($settled);
         self::assertSame('completed', $settled->status);
         self::assertNull($settled->suspendedState);
+    }
+
+    #[Test]
+    public function aSuspensionArrivingAfterACancelIsDiscarded(): void
+    {
+        // ADR-101: the guarded suspend transition suspends only a run that is
+        // still RUNNING. A concurrent cancel that already terminated the row
+        // must not be resurrected to WAITING_FOR_APPROVAL by the in-flight
+        // loop's late suspension — that would offer an approval flow (and an
+        // executable gated tool) for a run the operator was told was stopped.
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->cancel($handle->uuid));
+
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'delete it']], [], 1, 0, 0);
+        self::assertFalse($this->persister->suspend($handle, $state));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('cancelled', $run->status);
+        self::assertNull($run->suspendedState);
     }
 
     #[Test]

@@ -22,6 +22,7 @@ services:
       - '../Classes/Provider/Exception/*'
       # Newable rank-fusion math (ADR-074): consumers construct it, no DI.
       - '../Classes/Service/Retrieval/ReciprocalRankFusion.php'
+      - '../Classes/Service/Agent/Exception/*'
       - '../Classes/Service/Rerank/Exception/*'
       # Scalar-argument constructor; built exclusively by RerankerFactory.
       - '../Classes/Service/Rerank/HttpReranker.php'
@@ -55,6 +56,15 @@ services:
 
   Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
+    public: true
+
+  # The agent-run application service (ADR-101): run / approve / cancel /
+  # events / status through one fail-closed lifecycle. The preferred consumer
+  # surface — scheduler tasks, queue workers and downstream extensions use
+  # this; the bare ToolLoopServiceInterface above stays for consumers that
+  # want the loop without persistence or approval.
+  Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface:
+    alias: Netresearch\NrLlm\Service\Agent\AgentRuntime
     public: true
 
   # The composite tool gate (ADR-094): registered, enabled, permitted, within

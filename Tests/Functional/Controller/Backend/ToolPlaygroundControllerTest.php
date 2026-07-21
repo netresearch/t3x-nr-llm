@@ -26,13 +26,14 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
-use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
@@ -102,14 +103,10 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
         self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
 
-        $controller = new ToolPlaygroundController(
-            $moduleTemplateFactory,
+        $controller = $this->makeController(
             $configurationRepository,
-            $pageRenderer,
+            $toolRegistry,
             new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
-            $availability,
-            $skillRepository,
-            $promptSnippetRepository,
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -520,12 +517,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $method->invoke(
             $controller,
             $emit,
-            [ChatMessage::user('analyse the logs')],
-            $config,
-            ['fetch_logs'],
-            new ToolOptions(),
-            null,
-            new RunAugmentation(),
+            new AgentRunRequest(
+                configuration: $config,
+                messages: [ChatMessage::user('analyse the logs')],
+                allowedToolNames: ['fetch_logs'],
+                options: new ToolOptions(),
+            ),
             false,
         );
 
@@ -631,12 +628,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $method->invoke(
             $controller,
             $emit,
-            [ChatMessage::user('do it')],
-            $config,
-            ['fetch_logs'],
-            new ToolOptions(),
-            null,
-            new RunAugmentation(),
+            new AgentRunRequest(
+                configuration: $config,
+                messages: [ChatMessage::user('do it')],
+                allowedToolNames: ['fetch_logs'],
+                options: new ToolOptions(),
+            ),
             false,
         );
 
@@ -806,15 +803,25 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $promptSnippetRepository = $this->get(PromptSnippetRepository::class);
         self::assertInstanceOf(PromptSnippetRepository::class, $promptSnippetRepository);
 
+        // Since ADR-101 the controller is a UI adapter over the runtime; the
+        // runtime is wired here from the same real collaborators the container
+        // would inject (real DB-backed persister unless a test supplies one),
+        // so every behavioural assertion still exercises the full path.
+        $agentRuntime = new AgentRuntime(
+            $toolLoopService,
+            $agentRunPersister ?? new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger()),
+            $configurationRepository,
+            new NullLogger(),
+        );
+
         return new ToolPlaygroundController(
             $moduleTemplateFactory,
             $configurationRepository,
             $pageRenderer,
-            $toolLoopService,
+            $agentRuntime,
             $this->availabilityFor($toolRegistry),
             $skillRepository,
             $promptSnippetRepository,
-            $agentRunPersister,
         );
     }
 
