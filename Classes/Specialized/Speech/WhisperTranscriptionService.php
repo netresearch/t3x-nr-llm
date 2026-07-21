@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -84,7 +85,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
+            $this->transcriptionContext($options),
             fn(): array|string => $this->sendTranscriptionRequest($audioPath, $options),
         );
 
@@ -126,7 +127,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
+            $this->transcriptionContext($options),
             fn(): array|string => $this->sendTranscriptionRequestFromContent($audioContent, $filename, $options),
         );
 
@@ -158,12 +159,10 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         $this->enforceBudget($options->getBeUserUid(), $options->getPlannedCost(), $options->configuration);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $options->model ?? self::DEFAULT_MODEL),
+            $this->transcriptionContext($options),
             fn(): array|string => $this->sendTranslationRequest($audioPath, $options),
         );
 
-        // Usage is recorded once inside dispatchMultipart() — no extra
-        // tracking here, a second call would double-count the request.
         return $this->parseTranscriptionResponse($response, $options);
     }
 
@@ -407,26 +406,18 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
             $responseBody = (string)$response->getBody();
 
             if ($statusCode >= 200 && $statusCode < 300) {
-                $model = $options->model ?? self::DEFAULT_MODEL;
-
                 $format = $options->format ?? 'json';
                 if (in_array($format, ['text', 'srt', 'vtt'], true)) {
-                    // Raw-string formats expose no duration — record the
-                    // request without audio seconds (cost stays 0 rather
-                    // than guessed).
-                    $this->trackTranscriptionUsage($model, null, $options->configuration, $options->getBeUserUid());
+                    // Raw-string formats expose no duration; WhisperUsageExtractor
+                    // records the request with no audio seconds (ADR-100).
                     return $responseBody;
                 }
 
+                // `verbose_json` reports the audio duration the extractor bills;
+                // plain `json` does not — the extractor reads what the response
+                // exposes.
                 /** @var array<string, mixed> $decoded */
                 $decoded = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
-
-                // `verbose_json` reports the audio duration in seconds;
-                // plain `json` does not — track what the response exposes.
-                $duration = isset($decoded['duration']) && is_numeric($decoded['duration'])
-                    ? (float)$decoded['duration']
-                    : null;
-                $this->trackTranscriptionUsage($model, $duration, $options->configuration, $options->getBeUserUid());
 
                 return $decoded;
             }
@@ -461,36 +452,22 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     }
 
     /**
-     * Record a transcription/translation request with real units: the
-     * audio duration (when the response format exposes it), an estimated
-     * cost, and the model identifier. When the options carried an
-     * LlmConfiguration identifier, the usage row additionally links to
-     * that configuration record (resolved fail-soft) so Analytics can
-     * aggregate spend per configuration.
+     * Build the dispatch context carrying the usage intent (ADR-100): the model
+     * and attribution WhisperUsageExtractor needs. The audio duration and cost
+     * come from the response the extractor reads; a request whose format exposes
+     * no duration records no audio seconds, exactly as before.
      */
-    private function trackTranscriptionUsage(
-        string $model,
-        ?float $duration,
-        ?string $configuration,
-        ?int $beUserUid = null,
-    ): void {
-        $metrics = [];
-        if ($duration !== null && $duration > 0.0) {
-            // Floor of 1: a sub-half-second clip must not round to 0 seconds while
-            // carrying a positive cost — units and cost stay consistent in analytics.
-            $metrics['audioSeconds'] = max(1, (int)round($duration));
-            $metrics['cost'] = $this->costCalculator->estimateTranscriptionCost($model, $duration);
-        }
+    private function transcriptionContext(TranscriptionOptions $options): ProviderCallContext
+    {
+        $model = $options->model ?? self::DEFAULT_MODEL;
 
-        $this->usageTracker->trackUsage(
-            'speech',
-            $this->getServiceProvider(),
-            $metrics,
-            configurationUid: $this->resolveConfigurationUid($configuration),
-            modelUid: $this->resolveModelUid($model),
-            modelId: $model,
-            beUserUid: $beUserUid,
-        );
+        return ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $model)
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: $model,
+                modelUid: $this->resolveModelUid($model),
+                configurationUid: $this->resolveConfigurationUid($options->configuration),
+                beUserUid: $options->getBeUserUid(),
+            )]);
     }
 
     /**

@@ -14,9 +14,11 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 
 /**
@@ -93,9 +95,17 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
      */
     public const METADATA_SKIP_REQUEST_COUNT = 'skip_request_count';
 
+    /**
+     * @param iterable<UsageMetricsExtractorInterface> $extractors extractors for the
+     *                                                             specialized operations whose
+     *                                                             responses are not token-shaped
+     *                                                             (image / speech / translation)
+     */
     public function __construct(
         private UsageTrackerServiceInterface $usageTracker,
         private LoggerInterface $logger,
+        #[AutowireIterator(UsageMetricsExtractorInterface::TAG_NAME)]
+        private iterable $extractors = [],
     ) {}
 
     /**
@@ -130,6 +140,11 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
     ): void {
         [$usage, $provider, $responseModel] = $this->extractUsage($result);
         if ($usage === null) {
+            // Not a token-shaped response — a specialized operation (image /
+            // speech / translation) records through its tagged extractor instead
+            // (ADR-100).
+            $this->trackSpecialized($context, $result);
+
             return;
         }
 
@@ -200,6 +215,39 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             beUserUid: $beUserUid,
             countsAsRequest: $countsAsRequest,
         );
+    }
+
+    /**
+     * Record a specialized operation whose response is not token-shaped, by
+     * asking the first matching tagged extractor for a usage row (ADR-100). A
+     * matched extractor that returns null (an internal sub-call that records
+     * nothing) still stops the search — the call was recognised, there is simply
+     * nothing to write.
+     */
+    private function trackSpecialized(ProviderCallContext $context, mixed $result): void
+    {
+        foreach ($this->extractors as $extractor) {
+            if (!$extractor->supports($context)) {
+                continue;
+            }
+
+            $record = $extractor->extract($context, $result);
+            if ($record !== null) {
+                $this->usageTracker->trackUsage(
+                    serviceType: $record->serviceType,
+                    provider: $record->provider !== '' ? $record->provider : 'unknown',
+                    metrics: $record->metrics,
+                    configurationUid: $record->configurationUid,
+                    modelUid: $record->modelUid,
+                    modelId: $record->modelId,
+                    taskUid: $record->taskUid,
+                    beUserUid: $record->beUserUid,
+                    countsAsRequest: $record->countsAsRequest,
+                );
+            }
+
+            return;
+        }
     }
 
     /**

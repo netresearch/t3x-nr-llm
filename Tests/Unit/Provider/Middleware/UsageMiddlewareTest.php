@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord;
+use Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -73,6 +75,54 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         );
 
         self::assertSame($response, $result);
+    }
+
+    #[Test]
+    public function recordsASpecializedOperationThroughItsMatchingExtractor(): void
+    {
+        // A non-token response (a raw image array) is recorded via the tagged
+        // extractor for its operation (ADR-100).
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with('image', 'fal', ['images' => 2], null, 0, 'flux-schnell', 0, 5, true);
+
+        $record = new ProviderUsageRecord(
+            serviceType: 'image',
+            provider: 'fal',
+            metrics: ['images' => 2],
+            modelUid: 0,
+            modelId: 'flux-schnell',
+            beUserUid: 5,
+        );
+
+        $this->pipeline([$this->extractor(ProviderOperation::ImageGeneration, $record)])->run(
+            context: ProviderCallContext::forService(ProviderOperation::ImageGeneration, 'fal', 'flux-schnell'),
+            terminal: static fn(): array => ['images' => [[], []]],
+        );
+    }
+
+    #[Test]
+    public function recordsNothingWhenTheMatchingExtractorReturnsNull(): void
+    {
+        // A matched extractor that yields null models an internal sub-call
+        // (e.g. DeepL language detection) — recognised, but nothing to write.
+        $this->tracker->expects(self::never())->method('trackUsage');
+
+        $this->pipeline([$this->extractor(ProviderOperation::Translation, null)])->run(
+            context: ProviderCallContext::forService(ProviderOperation::Translation, 'deepl', ''),
+            terminal: static fn(): array => ['translations' => [['text' => 'x']]],
+        );
+    }
+
+    #[Test]
+    public function recordsNothingWhenNoExtractorMatches(): void
+    {
+        $this->tracker->expects(self::never())->method('trackUsage');
+
+        $this->pipeline([$this->extractor(ProviderOperation::SpeechSynthesis, null)])->run(
+            context: ProviderCallContext::forService(ProviderOperation::Translation, 'deepl', ''),
+            terminal: static fn(): array => ['translations' => []],
+        );
     }
 
     #[Test]
@@ -570,9 +620,36 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         self::assertSame($response, $result);
     }
 
-    private function pipeline(): MiddlewarePipeline
+    /**
+     * @param list<UsageMetricsExtractorInterface> $extractors
+     */
+    private function pipeline(array $extractors = []): MiddlewarePipeline
     {
-        return new MiddlewarePipeline([new UsageMiddleware($this->tracker, $this->logger)]);
+        return new MiddlewarePipeline([new UsageMiddleware($this->tracker, $this->logger, $extractors)]);
+    }
+
+    /**
+     * A stand-in extractor that reports it handles the operation and returns the
+     * given record (or null to model an internal sub-call that records nothing).
+     */
+    private function extractor(ProviderOperation $operation, ?ProviderUsageRecord $record): UsageMetricsExtractorInterface
+    {
+        return new class ($operation, $record) implements UsageMetricsExtractorInterface {
+            public function __construct(
+                private readonly ProviderOperation $operation,
+                private readonly ?ProviderUsageRecord $record,
+            ) {}
+
+            public function supports(ProviderCallContext $context): bool
+            {
+                return $context->operation === $this->operation;
+            }
+
+            public function extract(ProviderCallContext $context, mixed $result): ?ProviderUsageRecord
+            {
+                return $this->record;
+            }
+        };
     }
 
     private function configuration(?int $uid = null): LlmConfiguration

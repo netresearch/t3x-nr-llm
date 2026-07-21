@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized\Image;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\MultipartBodyBuilderTrait;
@@ -105,7 +106,7 @@ final class DallEImageService extends AbstractSpecializedService
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid()),
             function () use ($payload, $model): array {
                 $this->setAuditContext(sprintf('%s, generate', $model));
 
@@ -116,8 +117,6 @@ final class DallEImageService extends AbstractSpecializedService
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? null;
-
-        $this->trackImageUsage($model, $size, $quality, 1, $response, $options->configuration, $options->getBeUserUid());
 
         return new ImageGenerationResult(
             url: $this->imageString($data, 'url') ?? '',
@@ -182,7 +181,7 @@ final class DallEImageService extends AbstractSpecializedService
         $payload['n'] = $count;
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid()),
             function () use ($payload, $model): array {
                 $this->setAuditContext(sprintf('%s, generate', $model));
 
@@ -208,8 +207,6 @@ final class DallEImageService extends AbstractSpecializedService
                 ],
             );
         }
-
-        $this->trackImageUsage($model, $size, $quality, count($results), $response, $options->configuration, $options->getBeUserUid());
 
         return $results;
     }
@@ -244,7 +241,7 @@ final class DallEImageService extends AbstractSpecializedService
         $count = min(max($count, 1), 10);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageVariation, $this->getServiceProvider(), 'dall-e-2'),
+            $this->imageDispatchContext(ProviderOperation::ImageVariation, 'dall-e-2', $size, 'standard', null, $beUserUid),
             function () use ($imagePath, $count, $size): array {
                 $this->setAuditContext('dall-e-2, variations');
 
@@ -271,8 +268,6 @@ final class DallEImageService extends AbstractSpecializedService
                 metadata: ['type' => 'variation'],
             );
         }
-
-        $this->trackImageUsage('dall-e-2', $size, 'standard', count($results), $response, beUserUid: $beUserUid);
 
         return $results;
     }
@@ -311,7 +306,7 @@ final class DallEImageService extends AbstractSpecializedService
         $this->enforceBudget($beUserUid, null, null);
 
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageEdit, $this->getServiceProvider(), 'dall-e-2'),
+            $this->imageDispatchContext(ProviderOperation::ImageEdit, 'dall-e-2', $size, 'standard', null, $beUserUid),
             function () use ($imagePath, $maskPath, $prompt, $size): array {
                 $this->setAuditContext('dall-e-2, edit');
 
@@ -326,8 +321,6 @@ final class DallEImageService extends AbstractSpecializedService
         /** @var array<int, mixed> $responseData */
         $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
         $data = $responseData[0] ?? null;
-
-        $this->trackImageUsage('dall-e-2', $size, 'standard', 1, $response, beUserUid: $beUserUid);
 
         return new ImageGenerationResult(
             url: $this->imageString($data, 'url') ?? '',
@@ -478,60 +471,30 @@ final class DallEImageService extends AbstractSpecializedService
      * When the options carried an LlmConfiguration identifier, the usage
      * row additionally links to that configuration record (resolved
      * fail-soft) so Analytics can aggregate spend per configuration.
-     *
-     * @param array<string, mixed> $response decoded API response
      */
-    private function trackImageUsage(
+    /**
+     * Build the dispatch context carrying the usage intent (ADR-100): the model,
+     * size, quality and attribution the DallEUsageExtractor needs to record the
+     * image usage once the pipeline has run. The image count and any token usage
+     * come from the response the extractor reads.
+     */
+    private function imageDispatchContext(
+        ProviderOperation $operation,
         string $model,
         string $size,
         string $quality,
-        int $imageCount,
-        array $response,
-        ?string $configuration = null,
-        ?int $beUserUid = null,
-    ): void {
-        // gpt-image-* responses include a `usage` token object;
-        // dall-e-2/3 never send one — token metrics are omitted then
-        // (all-zero counts) so the cost falls back to the per-image
-        // catalog instead of a fabricated token price.
-        $usage = $response['usage'] ?? null;
-        $input = $output = $total = $imageInput = 0;
-        if (is_array($usage)) {
-            $input = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
-            $output = is_numeric($usage['output_tokens'] ?? null) ? (int)$usage['output_tokens'] : 0;
-            $total = is_numeric($usage['total_tokens'] ?? null) ? (int)$usage['total_tokens'] : $input + $output;
-            $details = $usage['input_tokens_details'] ?? null;
-            $imageInput = is_array($details) && is_numeric($details['image_tokens'] ?? null)
-                ? (int)$details['image_tokens']
-                : 0;
-        }
-
-        $metrics = ['images' => $imageCount];
-        if ($input > 0 || $output > 0 || $total > 0) {
-            $metrics['tokens'] = $total;
-            $metrics['promptTokens'] = $input;
-            $metrics['completionTokens'] = $output;
-        }
-
-        $metrics['cost'] = $this->costCalculator->estimateImageCost(
-            $model,
-            $quality,
-            $size,
-            $imageCount,
-            $input,
-            $output,
-            $imageInput,
-        );
-
-        $this->usageTracker->trackUsage(
-            'image',
-            $this->getServiceProvider(),
-            $metrics,
-            configurationUid: $this->resolveConfigurationUid($configuration),
-            modelUid: $this->resolveModelUid($model),
-            modelId: $model,
-            beUserUid: $beUserUid,
-        );
+        ?string $configuration,
+        ?int $beUserUid,
+    ): ProviderCallContext {
+        return ProviderCallContext::forService($operation, $this->getServiceProvider(), $model)
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: $model,
+                modelUid: $this->resolveModelUid($model),
+                configurationUid: $this->resolveConfigurationUid($configuration),
+                beUserUid: $beUserUid,
+                size: $size,
+                quality: $quality,
+            )]);
     }
 
     /**

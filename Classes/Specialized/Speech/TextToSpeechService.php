@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
@@ -105,27 +106,25 @@ final class TextToSpeechService extends AbstractSpecializedService
             'speed' => $speed,
         ];
 
+        // ADR-100: the input character count is the billed unit — carry it on the
+        // usage intent so TextToSpeechUsageExtractor records it once the pipeline
+        // has run.
+        $context = ProviderCallContext::forService(ProviderOperation::SpeechSynthesis, $this->getServiceProvider(), $model)
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: $model,
+                modelUid: $this->resolveModelUid($model),
+                configurationUid: $this->resolveConfigurationUid($options->configuration),
+                beUserUid: $options->getBeUserUid(),
+                characters: mb_strlen($text),
+            )]);
+
         $audioContent = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::SpeechSynthesis, $this->getServiceProvider(), $model),
+            $context,
             function () use ($model, $voice, $payload): string {
                 $this->setAuditContext(sprintf('%s, voice %s', $model, $voice));
 
                 return $this->sendBinaryRequest($payload);
             },
-        );
-
-        $characterCount = mb_strlen($text);
-        $this->usageTracker->trackUsage(
-            'speech',
-            $this->getServiceProvider(),
-            [
-                'characters' => $characterCount,
-                'cost' => $this->costCalculator->estimateSpeechSynthesisCost($model, $characterCount),
-            ],
-            configurationUid: $this->resolveConfigurationUid($options->configuration),
-            modelUid: $this->resolveModelUid($model),
-            modelId: $model,
-            beUserUid: $options->getBeUserUid(),
         );
 
         return new SpeechSynthesisResult(

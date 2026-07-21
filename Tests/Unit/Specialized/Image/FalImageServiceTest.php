@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\FalImageService;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Specialized\Usage\FalUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -104,7 +106,9 @@ class FalImageServiceTest extends AbstractUnitTestCase
             $logger,
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            $pipeline ?? new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([
+                new UsageMiddleware($usageTracker, $logger, [new FalUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $service->setHttpClient($httpClient);
