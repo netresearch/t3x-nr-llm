@@ -699,6 +699,11 @@ CREATE TABLE tx_nrllm_agentrun (
     claimed_by varchar(64) DEFAULT '' NOT NULL,
     lease_expires int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Requeue budget (ADR-104): how many times this run was requeued for a
+    -- retryable failure or a stale-lease reclaim. Capped so a deterministically
+    -- failing run cannot loop forever; 0 = never requeued.
+    requeue_count int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Time tracking
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,

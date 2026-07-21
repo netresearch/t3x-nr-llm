@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Enum\FailureClass;
 use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
+use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -68,5 +69,31 @@ final class FailureClassifierTest extends TestCase
         self::assertSame(FailureClass::UNKNOWN, $class);
         self::assertFalse($class->isRetryable());
         self::assertFalse($class->tripsCircuit());
+    }
+
+    #[Test]
+    public function classifiesAFallbackChainByItsMostRecentAttempt(): void
+    {
+        // The wrapper alone would classify UNKNOWN (not retryable); the queue
+        // retry (ADR-104) must react to the freshest provider condition, so the
+        // chain classifies by its LAST attempt's error — here a 503.
+        $chain = FallbackChainExhaustedException::fromAttempts([
+            ['configuration' => 'primary', 'error' => new ProviderConnectionException('down')],
+            ['configuration' => 'fallback', 'error' => new ProviderResponseException('gateway', 503)],
+        ]);
+
+        $class = FailureClassifier::classify($chain);
+
+        self::assertSame(FailureClass::SERVER_ERROR, $class);
+        self::assertTrue($class->isRetryable());
+    }
+
+    #[Test]
+    public function anEmptyFallbackChainIsConservativelyUnknown(): void
+    {
+        $class = FailureClassifier::classify(FallbackChainExhaustedException::fromAttempts([]));
+
+        self::assertSame(FailureClass::UNKNOWN, $class);
+        self::assertFalse($class->isRetryable());
     }
 }

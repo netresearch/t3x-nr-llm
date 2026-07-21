@@ -122,6 +122,41 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Extend the lease on a running run this worker owns (ADR-104 heartbeat).
+     * Fail-closed, unlike most methods here: a store error returns false — the
+     * worker treats it as a lost lease and stops. Better a run stalls and is
+     * reaped later than a worker keeps executing on a lease it can no longer
+     * prove it holds, risking a double-execution once the reaper reclaims it.
+     */
+    public function renewLease(AgentRunHandle $handle, string $claimedBy, int $leaseExpires): bool
+    {
+        try {
+            return $this->repository->renewLease($handle->runUid, $claimedBy, $leaseExpires);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun lease could not be renewed; the worker will treat it as lost', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Put a running run this worker owns back on the queue for a retry (ADR-104).
+     * Ownership-guarded in the repository; false when the worker no longer owned
+     * the run (reclaimed/cancelled) or the store errored — the caller must then
+     * NOT settle it as failed, since the row may belong to another worker now.
+     */
+    public function requeue(AgentRunHandle $handle, string $claimedBy): bool
+    {
+        try {
+            return $this->repository->requeue($handle->runUid, $claimedBy);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be requeued for retry', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Persist one recorded step as the next event in the run's stream.
      */
     public function recordStep(AgentRunHandle $handle, RunStep $step): void
@@ -186,6 +221,18 @@ final readonly class AgentRunPersister
      * read as a denial.
      */
     public function settlePolicyStopped(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason): void
+    {
+        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason);
+    }
+
+    /**
+     * Dead-letter a queued run that will not be retried (ADR-104): FAILED, with
+     * a reason that says why retrying stopped — RETRIES_EXHAUSTED (the requeue
+     * budget is spent) or NOT_RETRYABLE (the failure class cannot be fixed by
+     * retrying). Distinct from {@see self::settleFailed()}, whose PROVIDER_FAILED
+     * reason is retryable; a dead-letter terminus must not read as retryable.
+     */
+    public function settleDeadLettered(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason): void
     {
         $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason);
     }
@@ -368,6 +415,55 @@ final readonly class AgentRunPersister
             $this->logger?->warning('AgentRun events could not be loaded', ['exception' => $exception]);
 
             return [];
+        }
+    }
+
+    /**
+     * Running runs whose lease has expired (ADR-104 reaper). Fail-soft: an empty
+     * list on error, so a reaper tick simply does nothing that pass.
+     *
+     * @return list<AgentRun>
+     */
+    public function findStaleRunning(int $now, int $limit = 50): array
+    {
+        try {
+            return $this->repository->findStaleRunning($now, $limit);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('Stale agent runs could not be loaded', ['exception' => $exception]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Reclaim a stale running run onto the queue (ADR-104 reaper). Fail-soft:
+     * false on error or when the run was renewed between select and update, so
+     * the reaper skips it and no dispatch follows.
+     */
+    public function requeueStale(AgentRun $run, int $now): bool
+    {
+        try {
+            return $this->repository->requeueStale($run->uid, $now);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('Stale agent run could not be requeued', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Dead-letter a stale running run whose retry budget is spent (ADR-104
+     * reaper): staleness-guarded in the repository so a heartbeat renewal wins.
+     * Fail-soft: false on error or when the run was no longer stale.
+     */
+    public function settleDeadLetteredStale(AgentRun $run, int $now, AgentRunTerminationReason $reason): bool
+    {
+        try {
+            return $this->repository->deadLetterStale($run->uid, $now, $reason->value);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('Stale agent run could not be dead-lettered', ['exception' => $exception]);
+
+            return false;
         }
     }
 

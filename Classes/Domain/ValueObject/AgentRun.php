@@ -50,6 +50,10 @@ final readonly class AgentRun
         // claim is presumed live; ''/0 = not claimed.
         public string $claimedBy = '',
         public int $leaseExpires = 0,
+        // How many times the run has been requeued (ADR-104), by either a
+        // retryable-failure retry or a stale-lease reclaim; capped by
+        // AgentRuntime::MAX_REQUEUES so a deterministic crash cannot loop.
+        public int $requeueCount = 0,
     ) {}
 
     /**
@@ -84,6 +88,7 @@ final readonly class AgentRun
             queuedRequest: null,
             claimedBy: $this->claimedBy,
             leaseExpires: $this->leaseExpires,
+            requeueCount: $this->requeueCount,
         );
     }
 

@@ -87,6 +87,46 @@ interface AgentRunRepositoryInterface
      */
     public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool;
 
+    /**
+     * Extend the lease on a running run this worker owns (ADR-104 heartbeat).
+     * Guarded on status = running AND claimed_by = the caller; false means the
+     * worker no longer owns the run (reaped, cancelled or settled) and must
+     * stop before doing further work.
+     */
+    public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool;
+
+    /**
+     * Put a running run this worker owns back on the queue for a retry (ADR-104
+     * failure retry): ownership-guarded (status = running AND claimed_by = the
+     * caller), increments requeue_count, clears claim and lease, keeps
+     * queued_request. False when the worker no longer owned the run.
+     */
+    public function requeue(int $runUid, string $claimedBy): bool;
+
+    /**
+     * Running runs whose lease has expired at $now (ADR-104 reaper). Excludes
+     * interactive runs, which never take a lease.
+     *
+     * @return list<AgentRun>
+     */
+    public function findStaleRunning(int $now, int $limit = 50): array;
+
+    /**
+     * Reclaim a stale running run onto the queue (ADR-104 reaper): re-checks
+     * staleness inside the UPDATE so a concurrent heartbeat renewal wins,
+     * increments requeue_count, clears claim and lease. False when the run was
+     * no longer stale (renewed) or already moved on.
+     */
+    public function requeueStale(int $runUid, int $now): bool;
+
+    /**
+     * Dead-letter a stale running run whose requeue budget is spent (ADR-104
+     * reaper): terminal FAILED with the given reason, staleness-guarded like
+     * {@see requeueStale()} so a heartbeat renewal wins and a live run is never
+     * failed. False when the run was no longer stale or already terminal.
+     */
+    public function deadLetterStale(int $runUid, int $now, string $terminationReason): bool;
+
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**

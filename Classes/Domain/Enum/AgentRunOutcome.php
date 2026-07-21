@@ -39,4 +39,14 @@ enum AgentRunOutcome: string
     // terminal CANCELLED (the cancel won the guarded transition); this outcome
     // tells the caller their in-flight call ended because of it.
     case CANCELLED = 'cancelled';
+
+    // A queued run failed with a retryable provider error and was put back on
+    // the queue for another attempt within its requeue budget (ADR-104). The
+    // row is QUEUED again; a delayed message will re-execute it.
+    case REQUEUED = 'requeued';
+
+    // A worker executing a queued run lost its lease — the stale-run reaper
+    // reclaimed it and another worker owns it now (ADR-104). This worker stops
+    // WITHOUT settling; the run belongs to the new owner.
+    case LEASE_LOST = 'lease_lost';
 }

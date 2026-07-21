@@ -353,4 +353,153 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertNull($this->repository->findByUuid($handle->uuid));
         self::assertSame([], $this->repository->findEvents($handle->runUid));
     }
+
+    #[Test]
+    public function renewLeaseIsGuardedByWorkerOwnership(): void
+    {
+        // ADR-104 heartbeat: only the worker that holds the claim can extend the
+        // lease; a stranger's renewal (a zombie worker after a reaper reclaim)
+        // matches no row.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        self::assertFalse($this->persister->renewLease($handle, 'worker-b:2', time() + 999));
+        self::assertTrue($this->persister->renewLease($handle, 'worker-a:1', time() + 999));
+
+        $renewed = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($renewed);
+        self::assertGreaterThan(time() + 900, $renewed->leaseExpires);
+    }
+
+    #[Test]
+    public function requeueIsOwnershipGuardedIncrementsTheCountAndKeepsTheRequest(): void
+    {
+        // ADR-104 failure retry (review MAJOR): a zombie worker cannot requeue a
+        // run another worker owns; the owner's requeue bumps requeue_count,
+        // clears the claim/lease and preserves the stored request.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        self::assertFalse($this->persister->requeue($handle, 'worker-b:2'));
+        self::assertTrue($this->persister->requeue($handle, 'worker-a:1'));
+
+        $requeued = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($requeued);
+        self::assertSame('queued', $requeued->status);
+        self::assertSame(1, $requeued->requeueCount);
+        self::assertSame('', $requeued->claimedBy);
+        self::assertSame(0, $requeued->leaseExpires);
+        self::assertSame('{"messages":[]}', $requeued->queuedRequest);
+    }
+
+    #[Test]
+    public function aReclaimedRunResumesItsEventStreamAtMaxSequencePlusOne(): void
+    {
+        // ADR-104 D3: a requeued run carries its prior attempt's events, so the
+        // next claim continues the stream at MAX(sequence) + 1, never 0.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        $this->persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'a'));
+        $this->persister->recordStep($handle, new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0, content: 'b'));
+        self::assertSame(1, $this->repository->maxEventSequence($handle->runUid));
+
+        self::assertTrue($this->persister->requeue($handle, 'worker-a:1'));
+        $reclaimed = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($reclaimed);
+
+        $resumed = $this->persister->resumeHandle($reclaimed);
+        self::assertNotNull($resumed);
+        self::assertSame(2, $resumed->sequence);
+    }
+
+    #[Test]
+    public function findStaleRunningReturnsExpiredWorkerLeasesOnly(): void
+    {
+        // A worker run with an expired lease is stale; a fresh lease and an
+        // interactive run (no lease) are not.
+        $stale = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        $fresh = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($stale);
+        self::assertNotNull($fresh);
+        $staleRun = $this->repository->findByUuid($stale->uuid);
+        $freshRun = $this->repository->findByUuid($fresh->uuid);
+        self::assertNotNull($staleRun);
+        self::assertNotNull($freshRun);
+        self::assertTrue($this->persister->claimQueued($staleRun, 'worker-a:1', time() - 100));
+        self::assertTrue($this->persister->claimQueued($freshRun, 'worker-b:2', time() + 600));
+
+        // An interactive run is RUNNING with no lease — never reaped.
+        $interactive = $this->persister->begin(null, 7);
+        self::assertNotNull($interactive);
+
+        $found = $this->repository->findStaleRunning(time());
+
+        $uuids = array_map(static fn($r): string => $r->uuid, $found);
+        self::assertContains($stale->uuid, $uuids);
+        self::assertNotContains($fresh->uuid, $uuids);
+        self::assertNotContains($interactive->uuid, $uuids);
+    }
+
+    #[Test]
+    public function requeueStaleReclaimsAnExpiredRunButLosesToAHeartbeatRenewal(): void
+    {
+        // ADR-104 reaper: the staleness re-check inside the UPDATE means a lease
+        // that was renewed after the reaper's SELECT is not reclaimed.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() - 100));
+
+        // A concurrent heartbeat renews the lease into the future.
+        self::assertTrue($this->persister->renewLease($handle, 'worker-a:1', time() + 600));
+        self::assertFalse($this->repository->requeueStale($handle->runUid, time()));
+
+        // Once the (renewed) lease expires again, the reclaim succeeds.
+        self::assertTrue($this->persister->renewLease($handle, 'worker-a:1', time() - 5));
+        self::assertTrue($this->repository->requeueStale($handle->runUid, time()));
+
+        $requeued = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($requeued);
+        self::assertSame('queued', $requeued->status);
+        self::assertSame(1, $requeued->requeueCount);
+    }
+
+    #[Test]
+    public function deadLetterStaleFailsAnExpiredRunButSparesAFreshOne(): void
+    {
+        // ADR-104 reaper dead-letter: staleness-guarded like requeueStale — a
+        // still-live (freshly leased) run is never flipped to FAILED.
+        $fresh = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($fresh);
+        $freshRun = $this->repository->findByUuid($fresh->uuid);
+        self::assertNotNull($freshRun);
+        self::assertTrue($this->persister->claimQueued($freshRun, 'worker-a:1', time() + 600));
+        self::assertFalse($this->repository->deadLetterStale($fresh->runUid, time(), AgentRunTerminationReason::RETRIES_EXHAUSTED->value));
+
+        $stale = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($stale);
+        $staleRun = $this->repository->findByUuid($stale->uuid);
+        self::assertNotNull($staleRun);
+        self::assertTrue($this->persister->claimQueued($staleRun, 'worker-b:2', time() - 100));
+        self::assertTrue($this->repository->deadLetterStale($stale->runUid, time(), AgentRunTerminationReason::RETRIES_EXHAUSTED->value));
+
+        $failed = $this->repository->findByUuid($stale->uuid);
+        self::assertNotNull($failed);
+        self::assertSame('failed', $failed->status);
+        self::assertSame(AgentRunTerminationReason::RETRIES_EXHAUSTED->value, $failed->terminationReason);
+        self::assertSame('', $failed->claimedBy);
+        self::assertSame(0, $failed->leaseExpires);
+        self::assertNull($failed->queuedRequest);
+    }
 }

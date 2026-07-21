@@ -77,6 +77,58 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
+    public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        // Not needed by the command tests.
+        return true;
+    }
+
+    public function requeue(int $runUid, string $claimedBy): bool
+    {
+        // Not needed by the command tests.
+        return true;
+    }
+
+    /** @var list<AgentRun> Stale runs the reaper command will iterate. */
+    public array $staleRunning = [];
+
+    /** @var list<array{runUid: int, now: int}> requeueStale() calls the reaper made. */
+    public array $staleRequeues = [];
+
+    /** uids for which requeueStale() reports the run was already renewed/moved on. */
+    public bool $refuseRequeueStale = false;
+
+    public function findStaleRunning(int $now, int $limit = 50): array
+    {
+        return $this->staleRunning;
+    }
+
+    public function requeueStale(int $runUid, int $now): bool
+    {
+        if ($this->refuseRequeueStale) {
+            return false;
+        }
+        $this->staleRequeues[] = ['runUid' => $runUid, 'now' => $now];
+
+        return true;
+    }
+
+    /** @var list<array{runUid: int, now: int, reason: string}> deadLetterStale() calls the reaper made. */
+    public array $staleDeadLetters = [];
+
+    /** requeueStale/deadLetterStale report the run was already renewed/moved on. */
+    public bool $refuseDeadLetterStale = false;
+
+    public function deadLetterStale(int $runUid, int $now, string $terminationReason): bool
+    {
+        if ($this->refuseDeadLetterStale) {
+            return false;
+        }
+        $this->staleDeadLetters[] = ['runUid' => $runUid, 'now' => $now, 'reason' => $terminationReason];
+
+        return true;
+    }
+
     public function findByUuid(string $uuid): ?AgentRun
     {
         return null;

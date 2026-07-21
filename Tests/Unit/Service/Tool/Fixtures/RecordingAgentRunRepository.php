@@ -233,6 +233,87 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return $this->maxSequence;
     }
 
+    public bool $throwOnRenewLease = false;
+
+    /** Simulates a lost lease (reaped/cancelled/settled): renewLease matches no row. */
+    public bool $refuseRenewLease = false;
+
+    /** @var list<array{runUid: int, claimedBy: string, leaseExpires: int}> */
+    public array $leaseRenewals = [];
+
+    public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        if ($this->throwOnRenewLease) {
+            throw new RuntimeException('renewLease failed', 1784700020);
+        }
+        if ($this->refuseRenewLease) {
+            return false;
+        }
+        $this->leaseRenewals[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
+
+        return true;
+    }
+
+    public bool $throwOnRequeue = false;
+
+    /** Simulates a run this worker no longer owns: requeue matches no row. */
+    public bool $refuseRequeue = false;
+
+    /** @var list<array{runUid: int, claimedBy: string}> */
+    public array $requeues = [];
+
+    public function requeue(int $runUid, string $claimedBy): bool
+    {
+        if ($this->throwOnRequeue) {
+            throw new RuntimeException('requeue failed', 1784700021);
+        }
+        if ($this->refuseRequeue) {
+            return false;
+        }
+        $this->requeues[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy];
+
+        return true;
+    }
+
+    /** @var list<AgentRun> */
+    public array $staleRunning = [];
+
+    public function findStaleRunning(int $now, int $limit = 50): array
+    {
+        return $this->staleRunning;
+    }
+
+    /** Simulates a run reclaimed by a heartbeat between SELECT and UPDATE. */
+    public bool $refuseRequeueStale = false;
+
+    /** @var list<array{runUid: int, now: int}> */
+    public array $staleRequeues = [];
+
+    public function requeueStale(int $runUid, int $now): bool
+    {
+        if ($this->refuseRequeueStale) {
+            return false;
+        }
+        $this->staleRequeues[] = ['runUid' => $runUid, 'now' => $now];
+
+        return true;
+    }
+
+    /** @var list<array{runUid: int, now: int, reason: string}> */
+    public array $staleDeadLetters = [];
+
+    public bool $refuseDeadLetterStale = false;
+
+    public function deadLetterStale(int $runUid, int $now, string $terminationReason): bool
+    {
+        if ($this->refuseDeadLetterStale) {
+            return false;
+        }
+        $this->staleDeadLetters[] = ['runUid' => $runUid, 'now' => $now, 'reason' => $terminationReason];
+
+        return true;
+    }
+
     public function purgeOlderThan(int $timestamp): int
     {
         return 0;
