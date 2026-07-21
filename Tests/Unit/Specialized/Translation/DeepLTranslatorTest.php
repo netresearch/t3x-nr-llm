@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
+use Netresearch\NrLlm\Specialized\Usage\DeepLUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Fixture\DenyingInputGuardrail;
@@ -474,6 +476,41 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function detectLanguageRecordsNoUsage(): void
+    {
+        // ADR-100: detectLanguage() is an internal sub-call — it sets no usage
+        // intent, so DeepLUsageExtractor records nothing and the language check
+        // is not double-counted as a translation.
+        $httpClientStub = self::createStub(ClientInterface::class);
+        $httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock([
+                'translations' => [['text' => 'Hello', 'detected_source_language' => 'DE']],
+            ]));
+
+        $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
+        $usageTrackerMock->expects(self::never())->method('trackUsage');
+
+        $subject = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock($this->defaultConfig),
+            $usageTrackerMock,
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
+            new InputGuardrailScreener([]),
+        );
+        $subject->setHttpClient($httpClientStub);
+
+        self::assertSame('de', $subject->detectLanguage('Hallo'));
+    }
+
+    #[Test]
     public function translateTracksUsage(): void
     {
         $text = 'Hello World';
@@ -514,7 +551,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
@@ -562,7 +601,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
@@ -609,7 +650,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
@@ -987,7 +1030,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);
@@ -1165,7 +1210,9 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $subject->setHttpClient($httpClientStub);

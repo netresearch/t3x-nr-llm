@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult;
 use Netresearch\NrLlm\Specialized\Speech\TextToSpeechService;
+use Netresearch\NrLlm\Specialized\Usage\TextToSpeechUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Fixture\CapturingMiddleware;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -108,7 +110,9 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             new AllowingBudgetService(),
-            $pipeline ?? new MiddlewarePipeline([]),
+            $pipeline ?? new MiddlewarePipeline([
+                new UsageMiddleware($usageTracker, $logger, [new TextToSpeechUsageExtractor($this->costCalculator)]),
+            ]),
             new InputGuardrailScreener([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,

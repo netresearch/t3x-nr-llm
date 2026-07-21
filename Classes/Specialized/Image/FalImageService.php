@@ -13,6 +13,7 @@ use JsonException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -102,13 +103,6 @@ final class FalImageService extends AbstractSpecializedService
         /** @var array<string, mixed> $image */
         $image = is_array($images) && isset($images[0]) && is_array($images[0]) ? $images[0] : [];
 
-        // FAL publishes no static price list (billing varies per hosted
-        // model), so no cost is recorded — never guess (see
-        // SpecializedCostCalculatorInterface).
-        $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
-            'images' => 1,
-        ], modelUid: $this->resolveModelUid($model), modelId: $model, beUserUid: $this->extractBeUserUid($options));
-
         $imageUrl = isset($image['url']) && is_string($image['url']) ? $image['url'] : '';
 
         return new ImageGenerationResult(
@@ -180,10 +174,6 @@ final class FalImageService extends AbstractSpecializedService
                 );
             }
         }
-
-        $this->usageTracker->trackUsage('image', $this->getServiceProvider(), [
-            'images' => count($results),
-        ], modelUid: $this->resolveModelUid($model), modelId: $model, beUserUid: $this->extractBeUserUid($options));
 
         return $results;
     }
@@ -405,8 +395,17 @@ final class FalImageService extends AbstractSpecializedService
         $payload       = $this->buildGeneratePayload($prompt, $options);
         $usesQueue     = $this->modelUsesQueue($model);
 
+        // ADR-100: carry the usage intent so FalUsageExtractor records the image
+        // count from the response once the pipeline has run.
+        $context = ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model)
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: $model,
+                modelUid: $this->resolveModelUid($model),
+                beUserUid: $this->extractBeUserUid($options),
+            )]);
+
         return $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::ImageGeneration, $this->getServiceProvider(), $model),
+            $context,
             function () use ($model, $usesQueue, $modelEndpoint, $payload): array {
                 $this->setAuditContext(sprintf('%s, generate', $model));
 

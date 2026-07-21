@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Specialized usage (images, characters, audio seconds) is now recorded by the
+  pipeline through tagged `UsageMetricsExtractor`s instead of each service
+  writing to the usage table itself (ADR-100). A service attaches a
+  `SpecializedUsageIntent` before dispatch; the matching extractor (one per
+  service, matched on operation and provider) reads it with the raw response and
+  `UsageMiddleware` writes the row — one recorder for every AI call. The recorded
+  rows are unchanged. DeepL's language-detection sub-call and the metadata calls
+  set no intent and so record nothing (the double-count guard is now structural).
 - The specialized HTTP egress fails closed (ADR-099): a provider call that
   dispatches without wrapping in `runLifecycle()` now throws a `LogicException`
   instead of silently spending against the provider with no telemetry, circuit

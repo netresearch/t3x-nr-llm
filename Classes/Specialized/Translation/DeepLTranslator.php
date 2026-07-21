@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized\Translation;
 use Netresearch\NrLlm\Attribute\AsTranslator;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\Usage\SpecializedUsageIntent;
 use Netresearch\NrLlm\Specialized\AbstractSpecializedService;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
@@ -120,8 +121,17 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $payload = $this->buildTranslatePayload($text, $targetLanguage, $sourceLanguage, $options);
 
+        // ADR-100: the input character count is the billed unit — DeepLUsageExtractor
+        // records it from the intent once the pipeline has run.
+        $context = ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), '')
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: '',
+                beUserUid: $this->extractBeUserUid($options),
+                characters: mb_strlen($text),
+            )]);
+
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
+            $context,
             fn(): array => $this->sendDeeplRequest('translate', $payload),
         );
 
@@ -137,10 +147,6 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $translation = $translations[0];
         $translatedText = $this->extractTranslatedText($translation);
         $detectedSourceLanguage = $this->extractDetectedSourceLanguage($translation, $sourceLanguage);
-
-        $this->usageTracker->trackUsage('translation', 'deepl', [
-            'characters' => mb_strlen($text),
-        ], beUserUid: $this->extractBeUserUid($options));
 
         return new TranslatorResult(
             translatedText: $translatedText,
@@ -181,8 +187,18 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
         $payload = $this->buildBatchPayload($texts, $targetLanguage, $sourceLanguage, $options);
 
+        // ADR-100: total input characters plus the batch size are the billed
+        // units — carried on the intent for DeepLUsageExtractor.
+        $context = ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), '')
+            ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
+                modelId: '',
+                beUserUid: $this->extractBeUserUid($options),
+                characters: array_sum(array_map(mb_strlen(...), $texts)),
+                batchSize: count($texts),
+            )]);
+
         $response = $this->runLifecycle(
-            ProviderCallContext::forService(ProviderOperation::Translation, $this->getServiceProvider(), ''),
+            $context,
             fn(): array => $this->sendDeeplRequest('translate', $payload),
         );
 
@@ -212,12 +228,6 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 ],
             );
         }
-
-        $totalCharacters = array_sum(array_map(mb_strlen(...), $texts));
-        $this->usageTracker->trackUsage('translation', 'deepl', [
-            'characters' => $totalCharacters,
-            'batch_size' => count($texts),
-        ], beUserUid: $this->extractBeUserUid($options));
 
         return $results;
     }

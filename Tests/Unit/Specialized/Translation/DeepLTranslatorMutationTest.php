@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Translation;
 
 use Exception;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
@@ -18,6 +19,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Option\DeepLOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
 use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
+use Netresearch\NrLlm\Specialized\Usage\DeepLUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -488,7 +490,9 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             $this->createLoggerMock(),
             self::createStub(SpecializedCostCalculatorInterface::class),
             new AllowingBudgetService(),
-            new MiddlewarePipeline([]),
+            new MiddlewarePipeline([
+                new UsageMiddleware($usageTrackerMock, $this->createLoggerMock(), [new DeepLUsageExtractor()]),
+            ]),
             new InputGuardrailScreener([]),
         );
         $translator->setHttpClient($httpClientMock);

@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -31,6 +32,7 @@ use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Specialized\Usage\DallEUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
@@ -158,7 +160,9 @@ class DallEImageServiceTest extends AbstractUnitTestCase
             $logger,
             $this->costCalculator,
             $repositories['budget'] ?? new AllowingBudgetService(),
-            $repositories['pipeline'] ?? new MiddlewarePipeline([]),
+            $repositories['pipeline'] ?? new MiddlewarePipeline([
+                new UsageMiddleware($usageTracker, $logger, [new DallEUsageExtractor($this->costCalculator)]),
+            ]),
             $repositories['screener'] ?? new InputGuardrailScreener([]),
             $repositories['model'] ?? null,
             $repositories['configuration'] ?? null,
