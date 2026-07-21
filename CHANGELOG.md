@@ -8,6 +8,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Queued agent runs (ADR-102): `AgentRuntimeInterface::enqueue()` persists a
+  QUEUED run carrying its serialised request and dispatches a wake-up message
+  on the TYPO3 message bus; `runQueued()` — behind the new
+  `AgentRunQueuedMessage` handler — atomically claims the row (exactly one
+  worker wins; a run cancelled while queued is unclaimable), rehydrates the
+  request and drives the same fail-closed lifecycle as `run()`. On the default
+  synchronous transport the run executes in-process; routing the message to the
+  core doctrine transport plus `messenger:consume` makes it genuinely
+  asynchronous — batch runs, review queues and scheduled agent work poll via
+  `status()`/`events()`. Fail-closed on every seam: no orphaned QUEUED rows
+  (a failed dispatch settles the row), no stranded RUNNING rows (rehydration
+  failures settle the claimed run). Schema: `queued_request` (privacy-stripped
+  from `status()` like the suspended state), `claimed_by`, `lease_expires`
+  (worker lease, groundwork for the stale-run reaper).
+  `AgentRunRepositoryInterface` gained `enqueueRun()` and `claimQueued()`.
 - `AgentRuntimeInterface` (ADR-101): the agent-run lifecycle — begin, execute,
   persist, suspend for approval, approve/deny, cancel, event polling, status —
   as one public, fail-closed application service. The tool playground is now a

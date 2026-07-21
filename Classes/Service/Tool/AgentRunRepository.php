@@ -68,6 +68,64 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return (int)$connection->lastInsertId();
     }
 
+    public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
+    {
+        $now        = time();
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $connection->insert(self::TABLE_RUN, [
+            'pid'                      => 0,
+            'uuid'                     => $uuid,
+            // QUEUED, not RUNNING: the run waits for a worker's atomic claim
+            // (ADR-102). started_at stays 0 until the claim.
+            'status'                   => AgentRunStatus::QUEUED->value,
+            'configuration_uid'        => $configurationUid,
+            'configuration_identifier' => $configurationIdentifier,
+            'be_user'                  => $beUser,
+            'iterations'               => 0,
+            'truncated'                => 0,
+            'total_prompt_tokens'      => 0,
+            'total_completion_tokens'  => 0,
+            'total_tokens'             => 0,
+            'estimated_cost'           => 0.0,
+            'error_class'              => '',
+            'termination_reason'       => '',
+            'queued_request'           => $requestJson,
+            'started_at'               => 0,
+            'finished_at'              => 0,
+            'tstamp'                   => $now,
+            'crdate'                   => $now,
+        ]);
+
+        return (int)$connection->lastInsertId();
+    }
+
+    /**
+     * Atomically claim a queued run for execution (ADR-102): move it off QUEUED
+     * to RUNNING only if it is still queued, in a single conditional UPDATE —
+     * the same optimistic idiom as {@see claimForResume()}. Returns true for
+     * the worker that won; false when another worker already claimed it or the
+     * run was cancelled while waiting.
+     */
+    public function claimQueued(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'status'        => AgentRunStatus::RUNNING->value,
+                'claimed_by'    => $claimedBy,
+                'lease_expires' => $leaseExpires,
+                'started_at'    => time(),
+                'tstamp'        => time(),
+            ],
+            [
+                'uid'    => $runUid,
+                'status' => AgentRunStatus::QUEUED->value,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
     {
         $this->connectionPool->getConnectionForTable(self::TABLE_EVENT)->insert(self::TABLE_EVENT, [
@@ -112,8 +170,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->set('estimated_cost', $builder->createNamedParameter((string)$estimatedCost, Connection::PARAM_STR), false)
             ->set('error_class', $errorClass)
             ->set('termination_reason', $terminationReason)
-            // A terminal run is no longer suspended.
+            // A terminal run is no longer suspended, queued or leased.
             ->set('suspended_state', '')
+            ->set('queued_request', '')
+            ->set('claimed_by', '')
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
             ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->where(
@@ -141,6 +202,11 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             [
                 'status'          => AgentRunStatus::WAITING_FOR_APPROVAL->value,
                 'suspended_state' => $stateJson,
+                // A suspended run has no live worker claim (ADR-102): the lease
+                // means "presumed executing until", which a run waiting on a
+                // human is not.
+                'claimed_by'      => '',
+                'lease_expires'   => 0,
                 'tstamp'          => time(),
             ],
             [
@@ -164,8 +230,13 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
             [
-                'status' => AgentRunStatus::RUNNING->value,
-                'tstamp' => time(),
+                'status'        => AgentRunStatus::RUNNING->value,
+                // The resume executes in the approving process, not under a
+                // queue worker's lease — never leave a dead worker's identity
+                // on the row (ADR-102).
+                'claimed_by'    => '',
+                'lease_expires' => 0,
+                'tstamp'        => time(),
             ],
             [
                 'uid'    => $runUid,
@@ -319,12 +390,15 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             finishedAt: self::toInt($row['finished_at'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
             suspendedState: $this->suspendedStateOf($row['suspended_state'] ?? null),
+            queuedRequest: $this->suspendedStateOf($row['queued_request'] ?? null),
+            claimedBy: self::toStr($row['claimed_by'] ?? ''),
+            leaseExpires: self::toInt($row['lease_expires'] ?? 0),
         );
     }
 
     /**
-     * The stored suspended-state JSON, or null when the run is not suspended
-     * (empty column) — distinct from a genuine payload.
+     * The stored payload JSON (suspended state / queued request), or null when
+     * the column is empty — distinct from a genuine payload.
      */
     private function suspendedStateOf(mixed $value): ?string
     {

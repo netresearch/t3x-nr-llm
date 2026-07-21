@@ -30,8 +30,11 @@ use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -42,6 +45,8 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunReposito
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 
 #[CoversClass(AgentRuntime::class)]
@@ -406,6 +411,176 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function enqueuePersistsAQueuedRowAndDispatchesTheWakeUpMessage(): void
+    {
+        $dispatched = [];
+        $runtime    = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched));
+
+        $uuid = $runtime->enqueue($this->request(maxIterations: 7));
+
+        self::assertNotSame('', $uuid);
+        self::assertCount(1, $this->repository->enqueuedRuns);
+        $row = $this->repository->enqueuedRuns[0];
+        self::assertSame($uuid, $row['uuid']);
+        self::assertSame(9, $row['beUser']);
+        $payload = json_decode($row['requestJson'], true);
+        self::assertIsArray($payload);
+        self::assertSame(7, $payload['maxIterations']);
+        self::assertCount(1, $dispatched);
+        self::assertInstanceOf(AgentRunQueuedMessage::class, $dispatched[0]);
+        self::assertSame($uuid, $dispatched[0]->runUuid);
+    }
+
+    #[Test]
+    public function enqueueFailsClosedWhenTheRowCannotBeStored(): void
+    {
+        $this->repository->throwOnEnqueue = true;
+        $dispatched = [];
+        $runtime    = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched));
+
+        try {
+            $runtime->enqueue($this->request());
+            self::fail('Expected RunEnqueueFailedException');
+        } catch (RunEnqueueFailedException) {
+            // No row, and crucially no wake-up for a run that does not exist.
+            self::assertSame([], $dispatched);
+        }
+    }
+
+    #[Test]
+    public function enqueueSettlesTheRowFailedWhenTheDispatchFails(): void
+    {
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willThrowException(new RuntimeException('transport down', 1784700020));
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $bus);
+
+        try {
+            $runtime->enqueue($this->request());
+            self::fail('Expected RunEnqueueFailedException');
+        } catch (RunEnqueueFailedException) {
+            // The stored row must not stay QUEUED forever with no message ever
+            // arriving — it is settled failed (fail-closed, no orphan).
+            self::assertNotNull($this->repository->finished);
+            self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+        }
+    }
+
+    #[Test]
+    public function enqueueFailsClosedWithoutAMessageBus(): void
+    {
+        $this->expectException(RunEnqueueFailedException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))->enqueue($this->request());
+    }
+
+    #[Test]
+    public function runQueuedClaimsRehydratesAndExecutesTheStoredRequest(): void
+    {
+        // Full round-trip: enqueue() serialises the request, runQueued() claims
+        // the row and rehydrates — the loop must receive equivalent inputs.
+        $dispatched = [];
+        $runtime0   = $this->runtime($this->loopReturning($this->loopResult('x')), bus: $this->recordingBus($dispatched));
+        $uuid       = $runtime0->enqueue(new AgentRunRequest(
+            configuration: new LlmConfiguration(),
+            messages: [ChatMessage::user('do the queued thing')],
+            allowedToolNames: ['fetch_logs'],
+            options: (new ToolOptions(temperature: 0.5, plannedCost: 1.25))->withIdempotencyKey('idem-1'),
+            maxIterations: 50,
+            captureRaw: true,
+            beUserUid: 9,
+        ));
+
+        $this->repository->findResult = $this->queuedRun($uuid, $this->repository->enqueuedRuns[0]['requestJson']);
+
+        $seen = [];
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, mixed $trace, mixed $augmentation) use (&$seen): ToolLoopResult {
+                $seen = ['messages' => $messages, 'allowed' => $allowed, 'options' => $options, 'max' => $max, 'augmentation' => $augmentation];
+
+                return $this->loopResult('queued done');
+            },
+        );
+
+        $result = $this->runtime($loop)->runQueued($uuid);
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        // The claim was atomic and stamped the worker lease.
+        self::assertNotNull($this->repository->queuedClaim);
+        self::assertNotSame('', $this->repository->queuedClaim['claimedBy']);
+        self::assertGreaterThan(time(), $this->repository->queuedClaim['leaseExpires']);
+        // Rehydrated inputs reached the loop: the message content, the
+        // allow-list, the ceiling-clamped round cap, the initiator's budget uid.
+        self::assertSame('do the queued thing', $seen['messages'][0]['content'] ?? null);
+        self::assertSame(['fetch_logs'], $seen['allowed']);
+        self::assertSame(AgentRuntime::MAX_ITERATIONS, $seen['max']);
+        self::assertInstanceOf(ToolOptions::class, $seen['options']);
+        self::assertSame(0.5, $seen['options']->getTemperature());
+        self::assertSame(9, $seen['options']->getBeUserUid());
+        // The out-of-band budget/idempotency fields survive the round-trip: a
+        // queued run's budget pre-flight is as strict as the direct path's.
+        self::assertSame(1.25, $seen['options']->getPlannedCost());
+        self::assertSame('idem-1', $seen['options']->getIdempotencyKey());
+        // A null augmentation stays null — a fabricated empty RunAugmentation
+        // would flip the loop into its prompt-baking assembly branch and
+        // silently change the prompt composition vs. the identical run().
+        self::assertNull($seen['augmentation']);
+        // And the run settled completed.
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::COMPLETED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function runQueuedReturnsNullForAnUnknownOrNonQueuedRun(): void
+    {
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        self::assertNull($runtime->runQueued('unknown'));
+
+        $this->repository->findResult = $this->suspendedRun();
+        self::assertNull($runtime->runQueued('run-uuid-1'));
+    }
+
+    #[Test]
+    public function runQueuedReturnsNullWhenTheClaimIsLost(): void
+    {
+        $this->repository->findResult        = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->refuseClaimQueued = true;
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(static function (): ToolLoopResult {
+            throw new RuntimeException('the loop must not run on the losing worker', 1784700021);
+        });
+
+        self::assertNull($this->runtime($loop)->runQueued('run-uuid-q'));
+    }
+
+    #[Test]
+    public function runQueuedSettlesTheRunFailedWhenTheStoredRequestIsCorrupt(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', 'not-json{');
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function runQueuedSettlesTheRunFailedWhenTheConfigurationIsGone(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+    }
+
+    #[Test]
     public function cancelDelegatesToTheGuardedTransition(): void
     {
         $this->repository->findResult = $this->suspendedRun();
@@ -466,8 +641,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
     // ------------------------------------------------------------------ //
 
-    private function runtime(ToolLoopServiceInterface $loop, ?LlmConfiguration $configuration = new LlmConfiguration()): AgentRuntime
-    {
+    private function runtime(
+        ToolLoopServiceInterface $loop,
+        ?LlmConfiguration $configuration = new LlmConfiguration(),
+        ?MessageBusInterface $bus = null,
+    ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
 
@@ -475,6 +653,52 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             $loop,
             new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
             $configurationRepository,
+            null,
+            $bus,
+        );
+    }
+
+    /**
+     * A bus double recording every dispatched message into $sink.
+     *
+     * @param list<object> $sink
+     */
+    private function recordingBus(array &$sink): MessageBusInterface
+    {
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(
+            static function (object $message) use (&$sink): Envelope {
+                $sink[] = $message;
+
+                return new Envelope($message);
+            },
+        );
+
+        return $bus;
+    }
+
+    private function queuedRun(string $uuid, string $requestJson): AgentRun
+    {
+        return new AgentRun(
+            uid: 1,
+            uuid: $uuid,
+            status: 'queued',
+            configurationUid: 1,
+            configurationIdentifier: 'cfg',
+            beUser: 9,
+            iterations: 0,
+            truncated: false,
+            totalPromptTokens: 0,
+            totalCompletionTokens: 0,
+            totalTokens: 0,
+            estimatedCost: 0.0,
+            errorClass: '',
+            terminationReason: '',
+            startedAt: 0,
+            finishedAt: 0,
+            crdate: 0,
+            suspendedState: null,
+            queuedRequest: $requestJson,
         );
     }
 

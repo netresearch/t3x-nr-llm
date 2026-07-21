@@ -687,6 +687,18 @@ CREATE TABLE tx_nrllm_agentrun (
     -- status = waiting_for_approval; empty otherwise.
     suspended_state mediumtext,
 
+    -- Queued execution (ADR-102): the serialised AgentRunRequest while
+    -- status = queued, so a worker in another process can rehydrate and run it.
+    -- Cleared by the guarded terminal settle, like suspended_state.
+    queued_request mediumtext,
+
+    -- Worker lease (ADR-102): who claimed the queued run and until when the
+    -- claim is presumed live. ''/0 = not claimed — the fail-safe default, so an
+    -- un-migrated row can never look leased. Written by the atomic
+    -- QUEUED -> RUNNING claim; the stale-run reaper epic reads lease_expires.
+    claimed_by varchar(64) DEFAULT '' NOT NULL,
+    lease_expires int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Time tracking
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,
