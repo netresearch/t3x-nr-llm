@@ -10,9 +10,17 @@
  * (cost + requests on dual axes) plus three breakdown bar charts. Chart.js is
  * provided as a global `window.Chart` by the vendored UMD build loaded via
  * PageRenderer::addJsFile (the UMD build auto-registers all chart types).
+ *
+ * Colours are not hardcoded: they are read at render time from the
+ * `--nrllm-chart-*` custom properties defined in Analytics.css, which carry
+ * light/dark values for both the OS preference and the explicit TYPO3
+ * [data-color-scheme] backend toggle. On a scheme change the charts are
+ * destroyed and re-rendered with the then-current palette.
  */
 class Analytics {
     constructor() {
+        this.charts = [];
+        this.data = {};
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -27,18 +35,68 @@ class Analytics {
             return;
         }
 
-        let data;
         try {
-            data = JSON.parse(el.textContent || '{}');
+            this.data = JSON.parse(el.textContent || '{}');
         } catch (e) {
             console.error('[nrllm-analytics] failed to parse data', e);
             return;
         }
 
-        this.renderTrend(data.trend || []);
-        this.renderBreakdown('nrllm-provider-chart', data.byProvider || []);
-        this.renderBreakdown('nrllm-model-chart', data.byModel || []);
-        this.renderBreakdown('nrllm-service-chart', data.byService || []);
+        this.render();
+        this.observeSchemeChanges();
+    }
+
+    render() {
+        for (const chart of this.charts) {
+            chart.destroy();
+        }
+        this.charts = [];
+
+        this.colors = this.readColors();
+        this.renderTrend(this.data.trend || []);
+        this.renderBreakdown('nrllm-provider-chart', this.data.byProvider || []);
+        this.renderBreakdown('nrllm-model-chart', this.data.byModel || []);
+        this.renderBreakdown('nrllm-service-chart', this.data.byService || []);
+    }
+
+    /**
+     * Resolve the scheme-dependent chart palette from the CSS custom
+     * properties on the module wrapper (fallbacks mirror the light values
+     * in Analytics.css).
+     */
+    readColors() {
+        const scope = document.querySelector('.nrllm-analytics') || document.body;
+        const style = globalThis.getComputedStyle(scope);
+        const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+
+        return {
+            series1: read('--nrllm-chart-series-1', '#2f99a4'),
+            series1Fill: read('--nrllm-chart-series-1-fill', 'rgba(47,153,164,0.15)'),
+            series2: read('--nrllm-chart-series-2', '#e8a33d'),
+            text: read('--nrllm-chart-text', '#495057'),
+            grid: read('--nrllm-chart-grid', 'rgba(0,0,0,0.1)'),
+        };
+    }
+
+    /**
+     * Re-render when the backend colour scheme flips: either the explicit
+     * TYPO3 toggle (data-color-scheme attribute) or the OS preference.
+     */
+    observeSchemeChanges() {
+        const observer = new MutationObserver(() => this.render());
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-color-scheme'],
+        });
+        globalThis.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', () => this.render());
+    }
+
+    axisOptions() {
+        return {
+            ticks: { color: this.colors.text },
+            grid: { color: this.colors.grid },
+        };
     }
 
     renderTrend(trend) {
@@ -46,7 +104,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        new globalThis.Chart(canvas, {
+        this.charts.push(new globalThis.Chart(canvas, {
             type: 'line',
             data: {
                 labels: trend.map((r) => r.date),
@@ -54,8 +112,8 @@ class Analytics {
                     {
                         label: 'Est. cost ($)',
                         data: trend.map((r) => r.cost),
-                        borderColor: '#2f99a4',
-                        backgroundColor: 'rgba(47,153,164,0.15)',
+                        borderColor: this.colors.series1,
+                        backgroundColor: this.colors.series1Fill,
                         yAxisID: 'yCost',
                         tension: 0.25,
                         fill: true,
@@ -63,7 +121,7 @@ class Analytics {
                     {
                         label: 'Requests',
                         data: trend.map((r) => r.requests),
-                        borderColor: '#e8a33d',
+                        borderColor: this.colors.series2,
                         yAxisID: 'yReq',
                         tension: 0.25,
                     },
@@ -73,12 +131,25 @@ class Analytics {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: this.colors.text } } },
                 scales: {
-                    yCost: { type: 'linear', position: 'left', title: { display: true, text: 'Cost ($)' } },
-                    yReq: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Requests' } },
+                    x: this.axisOptions(),
+                    yCost: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: 'Cost ($)', color: this.colors.text },
+                        ...this.axisOptions(),
+                    },
+                    yReq: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: 'Requests', color: this.colors.text },
+                        ticks: { color: this.colors.text },
+                        grid: { drawOnChartArea: false, color: this.colors.grid },
+                    },
                 },
             },
-        });
+        }));
     }
 
     renderBreakdown(canvasId, rows) {
@@ -86,7 +157,7 @@ class Analytics {
         if (!canvas) {
             return;
         }
-        new globalThis.Chart(canvas, {
+        this.charts.push(new globalThis.Chart(canvas, {
             type: 'bar',
             data: {
                 labels: rows.map((r) => r.label),
@@ -94,7 +165,7 @@ class Analytics {
                     {
                         label: 'Est. cost ($)',
                         data: rows.map((r) => r.cost),
-                        backgroundColor: '#2f99a4',
+                        backgroundColor: this.colors.series1,
                     },
                 ],
             },
@@ -103,8 +174,12 @@ class Analytics {
                 maintainAspectRatio: false,
                 indexAxis: 'y',
                 plugins: { legend: { display: false } },
+                scales: {
+                    x: this.axisOptions(),
+                    y: this.axisOptions(),
+                },
             },
-        });
+        }));
     }
 }
 

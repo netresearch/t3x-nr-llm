@@ -43,6 +43,24 @@
     }
 }
 
+/* TYPO3 backend explicit dark scheme (overrides system preference). */
+:root[data-color-scheme="dark"] .nrllm-pg,
+[data-color-scheme="dark"] .nrllm-pg {
+    --pg-surface: #26282c;
+    --pg-surface-2: #2c2e33;
+    --pg-border: #3a3d43;
+    --pg-border-soft: #33363b;
+    --pg-text: #e7e9ec;
+    --pg-muted: #a7adb5;
+    --pg-primary: #4aa8e0;
+    --pg-teal: #58bcc6;
+    --pg-brand: #ff9e33;
+    --pg-ok: #8fd07a;
+    --pg-warn: #e5c072;
+    --pg-danger: #ed9a90;
+    --pg-code-bg: #1c2024;
+}
+
 /* ---- overrides panel ---- */
 .nrllm-pg-ov {
     border: 1px solid var(--pg-border-soft);

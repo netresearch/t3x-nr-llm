@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Lightning bolt for quick action -->
-    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="currentColor" d="M36 12 18 36h11l-2 16 19-24H33Z"/><g opacity=".4"><path fill="currentColor" d="M17 46a3 3 0 1 0 0 6 3 3 0 1 0 0-6Z"/></g><path fill="var(--nr-icon-accent, #2F99A4)" d="M46 10.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z"/></svg>

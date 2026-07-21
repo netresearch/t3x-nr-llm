@@ -58,9 +58,10 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 | `WizardFormLoading.js` | Wizard loading states |
 
 ### Icons (`Public/Icons/`)
-- `Extension.svg` — Netresearch symbol-only logo (extension icon)
-- `Provider.svg`, `Model.svg` — Entity icons
-- `provider-*.svg` — Provider-specific icons (OpenAI, Claude, etc.)
+- `Extension.svg` — Branded teal tile with white chip motif + orange accent (extension icon, also TCA iconfile)
+- `Provider.svg`, `Model.svg` — Entity icons (v14 three-color style: currentColor + `--nr-icon-accent` teal)
+- `*.legacy.svg` — v13 full-bleed teal-tile variants, selected via `Typo3Version` in `Configuration/Icons.php`
+- `provider-*.svg` — Provider-specific icons (OpenAI, Claude, etc.), currentColor only
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
@@ -69,7 +70,7 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 - SVG format for all icons
 - JavaScript: ES modules via `@typo3/` imports
 - CSS: TYPO3 backend variables for consistency
-- Extension.svg must be Netresearch symbol-only logo
+- Extension.svg must stay a full-color branded teal tile (plain fills, no `<style>`/`<text>`); module/record icons follow the TYPO3 v14 three-color spec (currentColor + `var(--nr-icon-accent, #2F99A4)`) with `.legacy.svg` teal-tile twins for v13
 <!-- AGENTS-GENERATED:END code-style -->
 
 <!-- AGENTS-GENERATED:START patterns -->

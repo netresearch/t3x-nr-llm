@@ -1,14 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Magic wand -->
-    <path d="M15 4V2"/>
-    <path d="M15 16v-2"/>
-    <path d="M8 9h2"/>
-    <path d="M20 9h2"/>
-    <path d="M17.8 11.8L19 13"/>
-    <path d="M15 9h0"/>
-    <path d="M17.8 6.2L19 5"/>
-    <path d="M3 21l9-9"/>
-    <path d="M12.2 6.2L11 5"/>
-    <!-- Sparkles -->
-    <circle cx="15" cy="9" r="1" fill="currentColor"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="currentColor" d="M16 44 38 22l4 4-22 22Z"/><g opacity=".4"><path fill="currentColor" d="m24 16 1.5 2.5L28 20l-2.5 1.5L24 24l-1.5-2.5L20 20l2.5-1.5Z"/></g><path fill="var(--nr-icon-accent, #2F99A4)" d="m44 10 2.5 5.5L52 18l-5.5 2.5L44 26l-2.5-5.5L36 18l5.5-2.5Z"/></svg>

@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 2a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-    <line x1="12" y1="19" x2="12" y2="22"/>
-    <circle cx="12" cy="5" r="1" fill="currentColor"/>
-    <path d="M8 22h8"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="currentColor" fill-rule="evenodd" d="M18 24h28a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V28a4 4 0 0 1 4-4Zm2 4h24a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V30a2 2 0 0 1 2-2Z"/><path fill="currentColor" d="M24 35a2 2 0 0 1 4 0v2a2 2 0 0 1-4 0Zm12 0a2 2 0 0 1 4 0v2a2 2 0 0 1-4 0ZM30 18h4v6h-4Z"/><g opacity=".4"><path fill="currentColor" d="M27.5 41.5h9a1.5 1.5 0 0 1 0 3h-9a1.5 1.5 0 0 1 0-3Z"/></g><path fill="var(--nr-icon-accent, #2F99A4)" d="M32 12a4 4 0 1 0 0 8 4 4 0 1 0 0-8Z"/></svg>

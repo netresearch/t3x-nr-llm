@@ -8,44 +8,50 @@
 declare(strict_types=1);
 
 use TYPO3\CMS\Core\Imaging\IconProvider\SvgIconProvider;
+use TYPO3\CMS\Core\Information\Typo3Version;
+
+// TYPO3 v14 ships a redesigned backend with light/dark mode: use the flat,
+// three-color icons that adapt via currentColor. v13 uses the full-bleed
+// teal-tile variants that match the classic module menu.
+$legacySuffix = (new Typo3Version())->getMajorVersion() >= 14 ? '' : '.legacy';
 
 return [
     // Module icons
     'module-nrllm' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm' . $legacySuffix . '.svg',
     ],
     'module-nrllm-provider' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Provider.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Provider' . $legacySuffix . '.svg',
     ],
     'module-nrllm-model' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Model.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Model' . $legacySuffix . '.svg',
     ],
     'module-nrllm-wizard' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Wizard.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Wizard' . $legacySuffix . '.svg',
     ],
     'module-nrllm-task' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Task.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Task' . $legacySuffix . '.svg',
     ],
     'module-nrllm-snippet' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Snippet.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Snippet' . $legacySuffix . '.svg',
     ],
     'module-nrllm-analytics' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics' . $legacySuffix . '.svg',
     ],
     'module-nrllm-skill' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/Skill.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Skill' . $legacySuffix . '.svg',
     ],
     'module-nrllm-tool' => [
         'provider' => SvgIconProvider::class,
-        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm-tool.svg',
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/module-nrllm-tool' . $legacySuffix . '.svg',
     ],
 
     // Provider type icons
