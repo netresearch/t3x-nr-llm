@@ -33,4 +33,10 @@ enum AgentRunOutcome: string
     case GUARDRAIL_BLOCKED = 'guardrail_blocked';
     case GUARDRAIL_APPROVAL_REQUIRED = 'guardrail_approval_required';
     case FAILED = 'failed';
+
+    // The run was cancelled while executing and the loop stopped
+    // cooperatively at the next step boundary (ADR-103). The row is already
+    // terminal CANCELLED (the cancel won the guarded transition); this outcome
+    // tells the caller their in-flight call ended because of it.
+    case CANCELLED = 'cancelled';
 }

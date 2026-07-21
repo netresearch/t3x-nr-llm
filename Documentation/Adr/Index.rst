@@ -400,3 +400,4 @@ Tools
    Adr100SpecializedUsageExtractors
    Adr101AgentRuntime
    Adr102QueuedAgentRuns
+   Adr103CooperativeCancellation

@@ -139,6 +139,59 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aCancelledRunStopsCooperativelyAtTheNextStepBoundary(): void
+    {
+        // ADR-103: the operator cancelled while the loop was executing (the row
+        // is already terminal CANCELLED). The probe at the step boundary stops
+        // the loop BEFORE any further provider call or tool execution.
+        $this->repository->findResult = $this->suspendedRun(status: 'cancelled');
+
+        $reachedSecondRound = false;
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use (&$reachedSecondRound): ToolLoopResult {
+                // First step boundary: the probe fires here and aborts.
+                $trace?->recordRequest(1, [], []);
+                // Anything after the boundary must never run for a cancelled run.
+                $reachedSecondRound = true;
+
+                return $this->loopResult('must not complete');
+            },
+        );
+
+        $result = $this->runtime($loop)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::CANCELLED, $result->outcome);
+        self::assertFalse($reachedSecondRound);
+        // The boundary step itself is still on the audit stream…
+        self::assertCount(1, $this->repository->events);
+        // …and the already-terminal row is NOT settled again (no discarded
+        // double settle, no FAILED overwrite attempt).
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function aRunningRunIsNotDisturbedByTheCancellationProbe(): void
+    {
+        // The probe reads the row at every step boundary; a run that is simply
+        // RUNNING must complete normally.
+        $this->repository->findResult = $this->suspendedRun(status: 'running');
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
     public function aGuardrailDenialSettlesPolicyStopped(): void
     {
         $runtime = $this->runtime($this->loopThrowing(new GuardrailViolationException('GuardrailFqcn', 'blocked')));
