@@ -83,14 +83,13 @@ final readonly class ToolCall implements JsonSerializable
      * variation is what makes calling code today so noisy — this
      * factory normalises it once.
      *
-     * @param array{
-     *     id?: string,
-     *     type?: string,
-     *     function?: array{
-     *         name?: string,
-     *         arguments?: string|array<string, mixed>,
-     *     },
-     * } $data
+     * Expected wire shape: `id` (string), `type` (string), and `function`
+     * with `name` (string) and `arguments` (JSON string OR decoded map). Every
+     * field is validated defensively below, so the declared input is the widest
+     * untrusted map — a nonconforming entry degrades to empty strings rather
+     * than a type error.
+     *
+     * @param array<string, mixed> $data
      */
     public static function fromArray(array $data): self
     {

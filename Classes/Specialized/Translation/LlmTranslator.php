@@ -262,7 +262,7 @@ final readonly class LlmTranslator implements TranslatorInterface
      *
      * @param array<string, mixed> $options
      *
-     * @return array{messages: array<int, array{role: string, content: string}>}
+     * @return array{messages: list<array{role: string, content: string}>}
      */
     private function buildPrompt(
         string $text,

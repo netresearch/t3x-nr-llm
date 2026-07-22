@@ -85,7 +85,10 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         // public path (ADR-093), so when the transcript has no leading system
         // message its size must still be counted against the wire.
         $systemPromptTokens = $this->missingSystemPromptTokens($messages, $configuration);
-        $estimate           = fn(array $msgs): int => $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $systemPromptTokens;
+        $estimate = function (array $msgs) use ($toolSpecs, $systemPromptTokens): int {
+            /** @var list<ChatMessage|array<string, mixed>> $msgs the caller always passes the partitioned transcript */
+            return $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $systemPromptTokens;
+        };
 
         [$head, $turns] = $this->partition($messages);
 

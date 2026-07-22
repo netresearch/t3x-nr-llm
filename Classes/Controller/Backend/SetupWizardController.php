@@ -218,11 +218,12 @@ final class SetupWizardController extends ActionController
             endpoint: $endpoint,
         );
 
-        // `fromDiscoveredModels()` reindexes via `array_values(array_map(...))`
-        // internally, so passing the raw discover() result here is fine.
+        // `discover()` is typed `array<DiscoveredModel>`; `array_values()`
+        // narrows it to the `list<DiscoveredModel>` the response DTO expects
+        // (the factory reindexes internally anyway, so this is behaviour-neutral).
         return new JsonResponse(
             DiscoveredModelsResponse::fromDiscoveredModels(
-                $this->modelDiscovery->discover($detected, $apiKey),
+                array_values($this->modelDiscovery->discover($detected, $apiKey)),
             )->jsonSerialize(),
         );
     }
@@ -261,13 +262,13 @@ final class SetupWizardController extends ActionController
         // Convert model data to DTOs
         $models = $this->buildDiscoveredModels($modelsData);
 
-        // `fromSuggestedConfigurations()` reindexes via
-        // `array_values(array_map(...))` internally — the redundant
-        // `array_values()` wrapper here was a leftover from the
-        // pre-DTO inline-array shape.
+        // `generate()` is typed `array<SuggestedConfiguration>`; `array_values()`
+        // narrows it to the `list<SuggestedConfiguration>` the response DTO
+        // expects (the factory reindexes internally anyway, so this is
+        // behaviour-neutral).
         return new JsonResponse(
             GeneratedConfigurationsResponse::fromSuggestedConfigurations(
-                $this->configurationGenerator->generate($detected, $apiKey, $models),
+                array_values($this->configurationGenerator->generate($detected, $apiKey, $models)),
             )->jsonSerialize(),
         );
     }
@@ -593,7 +594,9 @@ final class SetupWizardController extends ActionController
             }
         }
 
-        /** @var array<string, mixed>|null $body */
+        // At this point $body is `array{}|object|null` (a non-empty array
+        // returned early above); the guard yields the empty-array/null the
+        // declared `array<string, mixed>|null` return type accepts.
         return is_array($body) ? $body : null;
     }
 

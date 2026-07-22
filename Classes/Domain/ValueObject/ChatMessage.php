@@ -240,6 +240,7 @@ final readonly class ChatMessage implements JsonSerializable
                         1752400007,
                     );
                 }
+                /** @var array{id?: string, type?: string, function?: array{name?: string, arguments?: string|array<string, mixed>}} $call */
                 $toolCalls[] = ToolCall::fromArray($call);
             }
         }

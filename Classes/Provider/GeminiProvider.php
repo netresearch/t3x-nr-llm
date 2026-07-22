@@ -684,7 +684,7 @@ final class GeminiProvider extends AbstractProvider implements
         if (is_array($content)) {
             return [
                 'role' => $geminiRole,
-                'parts' => $this->convertMultimodalToParts($content),
+                'parts' => $this->convertMultimodalToParts(array_values($content)),
             ];
         }
 

@@ -55,7 +55,11 @@ final readonly class SchemaInputCoercer
 
         foreach ($properties as $name => $propSchema) {
             $name = (string)$name;
-            $type = is_array($propSchema) ? $this->classifier->classify($propSchema) : SchemaPropertyClassifier::TEXT;
+            $type = SchemaPropertyClassifier::TEXT;
+            if (is_array($propSchema)) {
+                /** @var array<string, mixed> $propSchema a JSON-Schema property object is keyed by string */
+                $type = $this->classifier->classify($propSchema);
+            }
             $isRequired = in_array($name, $required, true);
             $posted     = $rawInput[$name] ?? null;
 

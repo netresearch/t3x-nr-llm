@@ -342,8 +342,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
 
         $normalisedContent = array_values(array_map(
-            static fn(VisionContent|array $item): VisionContent
-                => $item instanceof VisionContent ? $item : VisionContent::fromArray($item),
+            static function (VisionContent|array $item): VisionContent {
+                if ($item instanceof VisionContent) {
+                    return $item;
+                }
+                /** @var array{type?: string, text?: string, image_url?: array{url?: string}|string} $item */
+                return VisionContent::fromArray($item);
+            },
             $content,
         ));
 
@@ -466,7 +471,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
-            static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
+            static function (ToolSpec|array $tool): ToolSpec {
+                if ($tool instanceof ToolSpec) {
+                    return $tool;
+                }
+                /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
+                return ToolSpec::fromArray($tool);
+            },
             $tools,
         ));
 
@@ -518,7 +529,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
         $normalisedTools    = array_values(array_map(
-            static fn(ToolSpec|array $tool): ToolSpec => $tool instanceof ToolSpec ? $tool : ToolSpec::fromArray($tool),
+            static function (ToolSpec|array $tool): ToolSpec {
+                if ($tool instanceof ToolSpec) {
+                    return $tool;
+                }
+                /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
+                return ToolSpec::fromArray($tool);
+            },
             $tools,
         ));
 
@@ -885,8 +902,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @template T
      *
-     * @param callable(LlmConfiguration): T $terminal
-     * @param array<string, mixed>          $metadata
+     * @param callable(ProviderCallContext): T $terminal
+     * @param array<string, mixed>             $metadata
      *
      * @return T
      */

@@ -1,2 +1,157 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$array of function array_intersect expects an array of values castable to string, list given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Parameter \#2 \$arrays of function array_intersect expects an array of values castable to string, list given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Functional/Controller/Backend/MultiProviderWorkflowTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Fuzzy/Domain/ModelFuzzyTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Fuzzy/Domain/ProviderFuzzyTest.php
+
+		-
+			message: '#^Parameter \#2 \$stamps of class Symfony\\Component\\Messenger\\Envelope constructor expects array\<Symfony\\Component\\Messenger\\Stamp\\StampInterface\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Command/ReapStaleAgentRunsCommandTest.php
+
+		-
+			message: '#^Parameter \$toolCalls of class Netresearch\\NrLlm\\Domain\\Model\\CompletionResponse constructor expects list\<Netresearch\\NrLlm\\Domain\\ValueObject\\ToolCall\>\|null, array\{array\{id\: ''call_1'', type\: ''function'', function\: array\{name\: ''get_weather'', arguments\: ''\{\}''\}\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Domain/Model/CompletionResponseTest.php
+
+		-
+			message: '#^Parameter \#2 \$vectorB of static method Netresearch\\NrLlm\\Domain\\Model\\EmbeddingResponse\:\:cosineSimilarity\(\) expects array\<int, float\>, array\<string, float\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Domain/Model/EmbeddingResponseTest.php
+
+		-
+			message: '#^Parameter \#1 \$beGroups of method Netresearch\\NrLlm\\Domain\\Model\\LlmConfiguration\:\:setBeGroups\(\) expects TYPO3\\CMS\\Extbase\\Persistence\\ObjectStorage\<Netresearch\\NrLlm\\Domain\\Model\\BackendUserGroup\>\|null, TYPO3\\CMS\\Extbase\\Persistence\\ObjectStorage\<object\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Domain/Model/LlmConfigurationTest.php
+
+		-
+			message: '#^Parameter \#1 \$data of static method Netresearch\\NrLlm\\Domain\\ValueObject\\ToolSpec\:\:fromArray\(\) expects array\{type\?\: string, function\: array\{name\: string, description\?\: string, parameters\?\: array\<string, mixed\>\}\}, array\{\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Exception/NrLlmExceptionInterfaceTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Provider/OpenRouterProviderTest.php
+
+		-
+			message: '#^Parameter \#2 \$stamps of class Symfony\\Component\\Messenger\\Envelope constructor expects array\<Symfony\\Component\\Messenger\\Stamp\\StampInterface\>, array given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../Tests/Unit/Service/Agent/AgentRuntimeTest.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(array\<string, mixed\>\|Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage\)\: mixed\)\|null, Closure\(Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Context/ContextWindowManagerTest.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Context\\ContextWindowManagerTest\:\:contentOf\(\) expects Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage, array\<string, mixed\>\|Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Context/ContextWindowManagerTest.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\Context\\ContextWindowManagerTest\:\:roleOf\(\) expects Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage, array\<string, mixed\>\|Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage given\.$#'
+			identifier: argument.type
+			count: 4
+			path: ../Tests/Unit/Service/Context/ContextWindowManagerTest.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, Closure\(Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage\)\: string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: ../Tests/Unit/Service/LlmServiceManagerTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/LlmServiceManagerTest.php
+
+		-
+			message: '#^Parameter \#2 \$string of static method PHPUnit\\Framework\\Assert\:\:assertMatchesRegularExpression\(\) expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/LlmServiceManagerTest.php
+
+		-
+			message: '#^Parameter \#1 \$messages of method Netresearch\\NrLlm\\Service\\MessageShaper\:\:normalise\(\) expects list\<array\<string, mixed\>\|Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage\>, array\{5\: array\{role\: ''user'', content\: ''Hi''\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/MessageShaperTest.php
+
+		-
+			message: '#^Parameter \#1 \$identifier of class Netresearch\\NrLlm\\Service\\Preset\\ConfigurationPreset constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Preset/ConfigurationPresetTest.php
+
+		-
+			message: '#^Parameter \#1 \$captured of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\SetupWizard\\ModelDiscoveryTest\:\:configureCapturingRequestFactory\(\) expects array\{method\: string\|null, uri\: string\|null, headers\: array\<string, string\>\}, array\{\} given\.$#'
+			identifier: argument.type
+			count: 8
+			path: ../Tests/Unit/Service/SetupWizard/ModelDiscoveryTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function implode expects array\<string\>, array\<mixed, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/SetupWizard/ModelDiscoveryTest.php
+
+		-
+			message: '#^Parameter \#1 \$storage of static method Netresearch\\NrLlm\\Service\\Skill\\SkillInjectionService\:\:toList\(\) expects TYPO3\\CMS\\Extbase\\Persistence\\ObjectStorage\<Netresearch\\NrLlm\\Domain\\Model\\Skill\>, TYPO3\\CMS\\Extbase\\Persistence\\ObjectStorage\<object\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Skill/SkillInjectionServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Netresearch\\NrLlm\\Tests\\Unit\\Service\\SkillConfigInjectionTest\:\:content\(\) expects array\<string, mixed\>\|Netresearch\\NrLlm\\Domain\\ValueObject\\ChatMessage, mixed given\.$#'
+			identifier: argument.type
+			count: 3
+			path: ../Tests/Unit/Service/SkillConfigInjectionTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of static method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Tool/Builtin/SchemaToolsSpecTest.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(mixed\)\: mixed\)\|null, Closure\(Netresearch\\NrLlm\\Domain\\ValueObject\\ToolSpec\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Service/Tool/ToolLoopServiceTest.php
+
+		-
+			message: '#^Parameter \#2 \$uri of class Netresearch\\NrLlm\\Tests\\Unit\\Specialized\\TestableRequest constructor expects string, mixed given\.$#'
+			identifier: argument.type
+			count: 1
+			path: ../Tests/Unit/Specialized/AbstractSpecializedServiceTest.php

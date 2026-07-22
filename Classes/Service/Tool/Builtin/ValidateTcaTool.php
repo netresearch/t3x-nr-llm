@@ -135,6 +135,7 @@ final readonly class ValidateTcaTool implements ToolInterface
      */
     private function validateTable(string $table, array $tca, array $allTca): array
     {
+        /** @var array<string, mixed> $ctrl */
         $ctrl     = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
         $columns  = is_array($tca['columns'] ?? null) ? $tca['columns'] : [];
         $palettes = is_array($tca['palettes'] ?? null) ? $tca['palettes'] : [];

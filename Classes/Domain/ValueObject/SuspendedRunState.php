@@ -112,6 +112,7 @@ final readonly class SuspendedRunState
     {
         $calls = [];
         foreach ($this->pendingCalls as $call) {
+            /** @var array{id?: string, type?: string, function?: array{name?: string, arguments?: array<string, mixed>|string}} $call */
             $calls[] = ToolCall::fromArray($call);
         }
 

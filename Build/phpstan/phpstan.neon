@@ -124,13 +124,6 @@ parameters:
     -
       message: '#should be contravariant with parameter#'
       reportUnmatched: false
-    # --- Type strictness (level 10) ---
-    -
-      identifier: varTag.nativeType
-      reportUnmatched: false
-    -
-      identifier: argument.type
-      reportUnmatched: false
     -
       identifier: phpunit.dynamicCallOnStaticMethod
       reportUnmatched: false

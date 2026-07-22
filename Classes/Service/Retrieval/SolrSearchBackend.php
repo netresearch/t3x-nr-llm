@@ -323,6 +323,7 @@ final class SolrSearchBackend implements SearchBackendInterface
      */
     private function selectUrl(Site $site, int $languageId): ?string
     {
+        /** @var array<string, mixed> $siteConfig */
         $siteConfig = $site->getConfiguration();
         $languageConfig = [];
         foreach ($this->configuredLanguages($siteConfig) as $language) {
