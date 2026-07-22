@@ -27,6 +27,15 @@ final class AgentRunStatusTest extends TestCase
     }
 
     #[Test]
+    public function awaitingValuesAreExactlyTheTwoHumanWaitingStatuses(): void
+    {
+        self::assertSame(
+            ['waiting_for_approval', 'waiting_for_input'],
+            AgentRunStatus::awaitingValues(),
+        );
+    }
+
+    #[Test]
     public function isValidIsTrueForKnownAndFalseForUnknown(): void
     {
         self::assertTrue(AgentRunStatus::isValid('running'));

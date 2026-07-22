@@ -46,7 +46,6 @@ use ReflectionClass;
 use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\NullResponse;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Page\PageRenderer;
@@ -74,6 +73,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     use LoggerAwareTrait;
     use ErrorMessageSanitizerTrait;
     use DefensiveLocalizationTrait;
+    use BackendUserUidTrait;
 
     /**
      * Minimum byte length of each streamed NDJSON line. A TYPO3 backend AJAX
@@ -655,23 +655,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $response->getBody()->rewind();
 
         return $response;
-    }
-
-    /**
-     * Resolve the current backend user's uid for run attribution and the budget
-     * pre-flight (0 when no real BE user is present — the budget check then
-     * treats it as anonymous).
-     */
-    private function currentBackendUserUid(): int
-    {
-        $backendUser = $GLOBALS['BE_USER'] ?? null;
-        if (!$backendUser instanceof BackendUserAuthentication) {
-            return 0;
-        }
-        // BackendUserAuthentication::$user is untyped and may be null before a
-        // session is fully loaded (CLI/testing), so guard with is_array().
-        $uid = is_array($backendUser->user) ? ($backendUser->user['uid'] ?? 0) : 0;
-        return is_numeric($uid) ? (int)$uid : 0;
     }
 
     private function intFromBody(mixed $body, string $key): int

@@ -444,6 +444,54 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->hydrateRun($row);
     }
 
+    public function findAwaiting(int $limit = 100): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->in(
+                    'status',
+                    $queryBuilder->createNamedParameter(AgentRunStatus::awaitingValues(), Connection::PARAM_STR_ARRAY),
+                ),
+            )
+            // Oldest first: act on the longest-waiting run first. The
+            // status_lookup(status, crdate) index serves the status filter;
+            // ordering across the two waiting values is a cheap filesort at this
+            // limit.
+            ->orderBy('crdate', 'ASC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    public function findRecentTerminal(int $limit = 20): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->in(
+                    'status',
+                    $queryBuilder->createNamedParameter(AgentRunStatus::terminalValues(), Connection::PARAM_STR_ARRAY),
+                ),
+            )
+            ->orderBy('crdate', 'DESC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);

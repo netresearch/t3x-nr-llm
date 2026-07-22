@@ -317,9 +317,25 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var list<AgentRun> */
     public array $staleRunning = [];
 
+    /** @var list<AgentRun> */
+    public array $awaiting = [];
+
+    /** @var list<AgentRun> */
+    public array $recentTerminal = [];
+
     public function findStaleRunning(int $now, int $limit = 50): array
     {
         return $this->staleRunning;
+    }
+
+    public function findAwaiting(int $limit = 100): array
+    {
+        return $this->awaiting;
+    }
+
+    public function findRecentTerminal(int $limit = 20): array
+    {
+        return $this->recentTerminal;
     }
 
     /** Simulates a run reclaimed by a heartbeat between SELECT and UPDATE. */

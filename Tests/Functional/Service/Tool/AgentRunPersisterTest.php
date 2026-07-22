@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -501,5 +502,75 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertSame('', $failed->claimedBy);
         self::assertSame(0, $failed->leaseExpires);
         self::assertNull($failed->queuedRequest);
+    }
+
+    #[Test]
+    public function findAwaitingRunsReturnsOnlyWaitingRunsCarryingSuspendedState(): void
+    {
+        $approval = $this->persister->begin(null, 1);
+        self::assertNotNull($approval);
+        self::assertTrue($this->persister->suspend(
+            $approval,
+            new SuspendedRunState([], [ToolCall::function('c1', 'delete_thing', ['uid' => 1])->toArray()], 1, 0, 0),
+        ));
+
+        $input = $this->persister->begin(null, 1);
+        self::assertNotNull($input);
+        self::assertTrue($this->persister->suspendForInput(
+            $input,
+            new SuspendedRunState([], [ToolCall::function('c2', 'ask', [])->toArray()], 1, 0, 0, null, [], 'ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]),
+        ));
+
+        $running = $this->persister->begin(null, 1); // stays RUNNING
+        self::assertNotNull($running);
+
+        $done = $this->persister->begin(null, 1);
+        self::assertNotNull($done);
+        $this->persister->settleCompleted($done, new ToolLoopResult('x', [], 1, false, UsageStatistics::fromTokens(1, 1)));
+
+        $awaiting = $this->persister->findAwaitingRuns();
+        self::assertNotNull($awaiting);
+        $uuids = array_map(static fn($run): string => $run->uuid, $awaiting);
+        self::assertContains($approval->uuid, $uuids);
+        self::assertContains($input->uuid, $uuids);
+        self::assertNotContains($running->uuid, $uuids);
+        self::assertNotContains($done->uuid, $uuids);
+
+        // suspended_state must ride along so the inbox can render the pending call.
+        foreach ($awaiting as $run) {
+            self::assertIsString($run->suspendedState);
+            self::assertNotSame('', $run->suspendedState);
+        }
+    }
+
+    #[Test]
+    public function findRecentTerminalRunsReturnsOnlyTerminalRuns(): void
+    {
+        $done = $this->persister->begin(null, 1);
+        self::assertNotNull($done);
+        $this->persister->settleCompleted($done, new ToolLoopResult('x', [], 1, false, UsageStatistics::fromTokens(1, 1)));
+
+        $failed = $this->persister->begin(null, 1);
+        self::assertNotNull($failed);
+        $this->persister->settleFailed($failed, new RuntimeException('boom', 1));
+
+        $cancelled = $this->persister->begin(null, 1);
+        self::assertNotNull($cancelled);
+        $this->persister->settleCancelled($cancelled);
+
+        $waiting = $this->persister->begin(null, 1);
+        self::assertNotNull($waiting);
+        $this->persister->suspend($waiting, new SuspendedRunState([], [ToolCall::function('c', 't', [])->toArray()], 1, 0, 0));
+
+        $terminal = $this->persister->findRecentTerminalRuns();
+        self::assertNotNull($terminal);
+        foreach ($terminal as $run) {
+            self::assertContains($run->status, ['completed', 'failed', 'cancelled']);
+        }
+        $uuids = array_map(static fn($run): string => $run->uuid, $terminal);
+        self::assertContains($done->uuid, $uuids);
+        self::assertContains($failed->uuid, $uuids);
+        self::assertContains($cancelled->uuid, $uuids);
+        self::assertNotContains($waiting->uuid, $uuids);
     }
 }

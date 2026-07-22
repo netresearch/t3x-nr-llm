@@ -1,0 +1,27 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<article id="run-{run.runUuid}" class="card mb-3" tabindex="-1">
+    <div class="card-body">
+        <h3 class="card-title h5"><code>{run.configLabel}</code></h3>
+        <p class="text-body-secondary mb-2">
+            <f:switch expression="{run.mode}">
+                <f:case value="approval"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.why.approval" default="Waiting for approval of a tool call" /></f:case>
+                <f:case value="input"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.why.input" default="Waiting for typed input" /></f:case>
+                <f:defaultCase><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable" default="This run's state could not be read; no action is available." /></f:defaultCase>
+            </f:switch>
+            <br /><small class="font-monospace">{run.runUuid}</small>
+        </p>
+
+        <f:switch expression="{run.mode}">
+            <f:case value="approval"><f:render partial="Backend/AgentRun/ApprovalControls" arguments="{run: run}" /></f:case>
+            <f:case value="input"><f:render partial="Backend/AgentRun/InputForm" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, errorSummary: errorSummary}" /></f:case>
+            <f:defaultCase>
+                <f:be.infobox state="1">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.unreadable" default="This run's state could not be read; no action is available." /></p>
+                </f:be.infobox>
+            </f:defaultCase>
+        </f:switch>
+    </div>
+</article>

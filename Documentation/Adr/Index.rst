@@ -406,3 +406,4 @@ Tools
    Adr106PerConfigurationGuardrailPolicy
    Adr107ContextWindowManagement
    Adr108TypedToolResultWithArtifacts
+   Adr109AgentRunsApprovalsInbox

@@ -1,0 +1,45 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mod_runs.title" default="Agent Runs" /></h1>
+
+        <f:be.infobox state="-1">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
+        </f:be.infobox>
+
+        <f:if condition="{dataLoadError}">
+            <f:be.infobox state="2" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.dataLoadError', default: 'Runs could not be loaded. Some waiting runs may be hidden.')}">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.dataLoadError" default="Runs could not be loaded. Some waiting runs may be hidden." /></p>
+            </f:be.infobox>
+        </f:if>
+
+        <section aria-labelledby="waiting-heading">
+            <h2 id="waiting-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.waiting" default="Awaiting your decision" /></h2>
+            <f:if condition="{waiting}">
+                <f:then>
+                    <f:for each="{waiting}" as="run">
+                        <f:render partial="Backend/AgentRun/WaitingCard" arguments="{run: run, errorRunUuid: errorRunUuid, rawInput: rawInput, errorSummary: errorSummary}" />
+                    </f:for>
+                </f:then>
+                <f:else>
+                    <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.empty" default="No runs are waiting for a decision." /></p>
+                </f:else>
+            </f:if>
+        </section>
+
+        <section aria-labelledby="terminal-heading" class="mt-4">
+            <h2 id="terminal-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.terminal" default="Recent runs" /></h2>
+            <f:render partial="Backend/AgentRun/TerminalTable" arguments="{terminal: terminal}" />
+        </section>
+    </div>
+</f:section>
+</html>

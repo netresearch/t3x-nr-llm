@@ -87,4 +87,17 @@ enum AgentRunStatus: string
             array_filter(self::cases(), static fn(self $case): bool => !$case->isTerminal()),
         ));
     }
+
+    /**
+     * The statuses that need a human decision, as raw values for an SQL
+     * predicate: a run suspended waiting for tool-call approval (ADR-084) or for
+     * typed user input (ADR-105). The Agent Runs approvals inbox lists exactly
+     * these.
+     *
+     * @return list<string>
+     */
+    public static function awaitingValues(): array
+    {
+        return [self::WAITING_FOR_APPROVAL->value, self::WAITING_FOR_INPUT->value];
+    }
 }

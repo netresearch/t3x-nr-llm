@@ -45,6 +45,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Analytics' . $legacySuffix . '.svg',
     ],
+    'module-nrllm-runs' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/Runs' . $legacySuffix . '.svg',
+    ],
     'module-nrllm-skill' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/Skill' . $legacySuffix . '.svg',

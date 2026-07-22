@@ -1,0 +1,13 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * One boolean field, extracted so its id-bearing control lives in a file of its
+ * own (the textual control keeps its own id in InputForm) — every id appears at
+ * most once per file.
+-->
+<div class="form-check">
+    <f:form.checkbox class="form-check-input" id="{fid}" name="input[{field.name}]" value="1" additionalAttributes="{aria-describedby: '{did}'}" />
+    <label class="form-check-label" for="{fid}">{field.label}<f:if condition="{field.required}"><span aria-hidden="true"> *</span></f:if></label>
+</div>
+<small id="{did}" class="form-text text-body-secondary d-block">{field.description}</small>
