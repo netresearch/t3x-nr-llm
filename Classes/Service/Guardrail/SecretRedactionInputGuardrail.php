@@ -25,6 +25,18 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 final readonly class SecretRedactionInputGuardrail implements InputGuardrailInterface
 {
     use RedactsSecretsTrait;
+    public function getIdentifier(): string
+    {
+        return 'secret-redaction';
+    }
+
+    // Security-critical and shares the output side's identifier: a per-config
+    // policy governs the concept, not one class, and can never disable it
+    // (ADR-106).
+    public function isMandatory(): bool
+    {
+        return true;
+    }
 
     public function checkInput(string $text): GuardrailResult
     {

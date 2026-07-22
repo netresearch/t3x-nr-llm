@@ -24,6 +24,19 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
  */
 final readonly class ProviderContentFilterGuardrail implements GuardrailInterface
 {
+    public function getIdentifier(): string
+    {
+        return 'provider-content-filter';
+    }
+
+    // Optional (ADR-106): this enforces the provider's own policy block
+    // (finishReason=content_filter -> DENY), not secret leakage, so a
+    // configuration may select it out. Secret redaction stays mandatory.
+    public function isMandatory(): bool
+    {
+        return false;
+    }
+
     public function checkOutput(CompletionResponse $response): GuardrailResult
     {
         if ($response->wasFiltered()) {

@@ -228,6 +228,12 @@
             <trans-unit id="tx_nrllm_configuration.allowed_tool_groups.description">
                 <source>Restrict agent runs with this configuration to tools of the selected groups. Empty = all groups allowed. Globally disabled tools or groups stay disabled regardless.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_guardrails">
+                <source>Optional guardrails</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.allowed_guardrails.description">
+                <source>Which optional guardrails apply to runs with this configuration. Empty = all apply. Security-critical guardrails (secret redaction) always run and are not listed here.</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>

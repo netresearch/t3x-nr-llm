@@ -66,6 +66,14 @@ class LlmConfiguration extends AbstractEntity
      * See {@see getAllowedToolGroupsList()} and AllowedToolsResolver.
      */
     protected string $allowedToolGroups = '';
+
+    /**
+     * Comma list of enabled OPTIONAL guardrail identifiers (ADR-106); empty =
+     * all applicable guardrails run. Mandatory guardrails (secret redaction)
+     * always run and are never represented here.
+     * See {@see getAllowedGuardrailsList()} and GuardrailPolicyResolver.
+     */
+    protected string $allowedGuardrails = '';
     protected int $maxRequestsPerDay = 0;
     protected int $maxTokensPerDay = 0;
     protected float $maxCostPerDay = 0.0;
@@ -789,6 +797,45 @@ class LlmConfiguration extends AbstractEntity
             $group = trim($group);
             if ($group !== '') {
                 $list[] = $group;
+            }
+        }
+
+        return $list;
+    }
+
+    public function getAllowedGuardrails(): string
+    {
+        return $this->allowedGuardrails;
+    }
+
+    public function setAllowedGuardrails(string $allowedGuardrails): void
+    {
+        $this->allowedGuardrails = $allowedGuardrails;
+    }
+
+    /**
+     * The enabled OPTIONAL guardrail identifiers as a trimmed list; empty list =
+     * no restriction (all applicable guardrails run). Mandatory guardrails run
+     * regardless and are never represented here.
+     *
+     * A non-empty selection is an allow-list over OPTIONAL guardrails only: any
+     * optional guardrail not named — including when every token is an unknown id
+     * (e.g. a stale '0') — is not run; mandatory guardrails always run. This is
+     * the same restrictive semantics as {@see getAllowedToolGroupsList()}.
+     *
+     * @return list<string>
+     */
+    public function getAllowedGuardrailsList(): array
+    {
+        if (trim($this->allowedGuardrails) === '') {
+            return [];
+        }
+
+        $list = [];
+        foreach (explode(',', $this->allowedGuardrails) as $id) {
+            $id = trim($id);
+            if ($id !== '') {
+                $list[] = $id;
             }
         }
 

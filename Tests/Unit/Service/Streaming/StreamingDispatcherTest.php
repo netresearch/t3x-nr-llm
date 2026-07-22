@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionGuardrail;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
@@ -74,6 +75,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     public function auditsTheAssembledStreamedResponseAgainstGuardrailsAfterDelivery(): void
     {
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return str_contains($response->content, 'sk-secret')
@@ -105,6 +107,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     public function doesNotRecordAGuardrailAuditForACleanStream(): void
     {
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::allow();
@@ -335,6 +338,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         // A DENY guardrail is NOT StreamRedactable, so it must not pull the stream
         // onto the buffered path — chunks pass through 1:1, no re-chunking.
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('policy');
@@ -1006,7 +1010,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->logger,
             $this->contextWithAmbientUser(0),
             $extensionConfiguration ?? $this->extensionConfiguration(true),
-            $guardrails,
+            guardrails: $guardrails,
         );
     }
 

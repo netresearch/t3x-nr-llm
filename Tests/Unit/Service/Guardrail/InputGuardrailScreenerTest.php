@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -175,6 +176,7 @@ final class InputGuardrailScreenerTest extends TestCase
     private function allowing(): InputGuardrailInterface
     {
         return new class implements InputGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkInput(string $text): GuardrailResult
             {
                 return GuardrailResult::allow();
@@ -185,6 +187,7 @@ final class InputGuardrailScreenerTest extends TestCase
     private function redacting(string $needle, string $replacement): InputGuardrailInterface
     {
         return new class ($needle, $replacement) implements InputGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function __construct(private readonly string $needle, private readonly string $replacement) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -201,6 +204,7 @@ final class InputGuardrailScreenerTest extends TestCase
     private function denying(string $reason): InputGuardrailInterface
     {
         return new class ($reason) implements InputGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function __construct(private readonly string $reason) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -213,6 +217,7 @@ final class InputGuardrailScreenerTest extends TestCase
     private function requireApproval(string $reason): InputGuardrailInterface
     {
         return new class ($reason) implements InputGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function __construct(private readonly string $reason) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -225,6 +230,7 @@ final class InputGuardrailScreenerTest extends TestCase
     private function retrying(): InputGuardrailInterface
     {
         return new class implements InputGuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkInput(string $text): GuardrailResult
             {
                 return GuardrailResult::retry('later');

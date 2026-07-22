@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface;
  */
 final readonly class DenyingInputGuardrail implements InputGuardrailInterface
 {
+    use GuardrailIdentityDoubleTrait;
+
     public function __construct(private string $reason = 'denied by policy') {}
 
     public function checkInput(string $text): GuardrailResult
