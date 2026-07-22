@@ -147,6 +147,35 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     #[Test]
+    public function numberFieldEnumOptionsAndLabelFallbackAreDerivedFromTheSchema(): void
+    {
+        $schema = [
+            'type'       => 'object',
+            'properties' => [
+                // No title -> the label falls back to the humanised property name.
+                'max_temperature' => ['type' => 'number'],
+                // An enum becomes selectable options, every value string-coerced.
+                'severity'        => ['type' => 'string', 'enum' => ['low', 'high', 3]],
+            ],
+        ];
+        $view = $this->factory()->buildWaiting([$this->makeRun('a', $this->inputState('ask', $schema))])[0];
+
+        self::assertSame(WaitingRunView::MODE_INPUT, $view->mode);
+
+        $number = $view->inputFields[0];
+        self::assertSame('number', $number->controlType);
+        // fieldLabel() fallback: ucfirst(str_replace('_', ' ', $name)).
+        self::assertSame('Max temperature', $number->label);
+        self::assertSame('number', $number->htmlType);
+        self::assertSame('any', $number->step);
+        self::assertSame('decimal', $number->inputMode);
+        self::assertSame([], $number->options);
+
+        $enum = $view->inputFields[1];
+        self::assertSame(['low', 'high', '3'], $enum->options);
+    }
+
+    #[Test]
     public function turnDigestForRunRecomputesTheSameDigestTheViewCarried(): void
     {
         $state   = $this->approvalState('delete_thing', ['uid' => 42]);

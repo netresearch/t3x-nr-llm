@@ -134,6 +134,24 @@ final class ContextWindowManagerTest extends TestCase
         self::assertGreaterThan($first->estimatedTokens, $second->estimatedTokens);
     }
 
+    #[Test]
+    public function nonPositiveBudgetDefersTheWholeTranscriptToTheProvider(): void
+    {
+        // A misconfiguration where the reserved output room (max output tokens)
+        // is larger than the entire context window leaves no room to prune
+        // into. Rather than compute a negative budget and drop everything, the
+        // manager passes the transcript through untouched and lets the provider
+        // enforce its own limit.
+        $messages = [ChatMessage::system('sys'), ChatMessage::user('hi'), ...$this->turn('call_1', 'small')];
+
+        $result = (new ContextWindowManager())->fit($messages, $this->config(1000, 2000), null, null);
+
+        self::assertFalse($result->pruned);
+        self::assertFalse($result->overflowAtFloor);
+        self::assertSame(0, $result->droppedTurns);
+        self::assertSame($messages, $result->messages);
+    }
+
     /**
      * @return list<ChatMessage>
      */

@@ -113,15 +113,25 @@ final class ReapStaleAgentRunsCommand extends Command
                 continue;
             }
 
-            // The row is QUEUED again: wake a worker. A dispatch failure leaves a
-            // QUEUED row a later tick (or a still-live consumer) picks up, so it
-            // is counted as reclaimed, logged, and not treated as fatal.
+            // The row is QUEUED again: wake a worker. Fail-closed like
+            // AgentRuntime::enqueue() — on an async transport a failed dispatch
+            // would strand the row QUEUED forever: the reaper only re-finds
+            // stale RUNNING rows (never QUEUED), and no message will arrive, so
+            // nothing would ever pick it up. Settle it FAILED instead of leaving
+            // an orphan. (On the sync transport the handler settles its own
+            // outcome and never throws here, so a throw is genuinely the
+            // transport failing.)
             try {
                 $this->messageBus->dispatch(new AgentRunQueuedMessage($run->uuid));
+                ++$requeued;
             } catch (Throwable $exception) {
-                $io->warning(sprintf('Run "%s" was reclaimed but its wake-up could not be dispatched: %s', $run->uuid, $exception->getMessage()));
+                $handle = $this->persister->resumeHandle($run);
+                if ($handle !== null) {
+                    $this->persister->settleFailed($handle, $exception);
+                }
+                $io->warning(sprintf('Run "%s" was reclaimed but its wake-up could not be dispatched; settled failed to avoid an orphan: %s', $run->uuid, $exception->getMessage()));
+                ++$deadLetter;
             }
-            ++$requeued;
         }
 
         $io->success(sprintf(
