@@ -20,7 +20,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -91,6 +93,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // it. Absent it, resumeWithInput() skips its defence-in-depth
         // re-validation (the runtime already validated before the claim).
         private ?JsonSchemaValidator $schemaValidator = null,
+        // Bounds the growing transcript against the model's context window
+        // (ADR-107). Optional so the lean test wiring is unchanged; absent it the
+        // loop sends the full transcript exactly as before, and every
+        // enforcement site below is a no-op.
+        private ?ContextWindowManagerInterface $contextWindow = null,
     ) {}
 
     /**
@@ -153,6 +160,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // request with an empty `tools` array makes some providers (OpenAI) 400.
         // The design (§4.3) maps "no tools" to a single plain completion.
         if ($specs === []) {
+            // Bound the transcript against the context window (ADR-107). A resume
+            // continuation with no offered tools can still be over-long. No tools
+            // go on this wire, so pass toolSpecs = [].
+            try {
+                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, []);
+            } catch (ContextTruncatedException $e) {
+                $this->logger?->warning('Agent loop stopped: transcript exceeds the context window even at its floor.', ['exception' => $e]);
+
+                return $this->contextTruncatedResult([], $seedIterations + 1, $seedPromptTokens, $seedCompletionTokens);
+            }
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
@@ -182,16 +199,23 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $promptTokens     = $seedPromptTokens;
         $completionTokens = $seedCompletionTokens;
         $iterations       = $seedIterations;
+        // The previous call's usage, fed back to calibrate the token estimator
+        // (ADR-107); null before the first call.
+        $lastUsage = null;
 
         try {
             for ($i = 0; $i < $max; $i++) {
                 $iterations++;
+                // Bound the growing transcript against the context window BEFORE
+                // the send (ADR-107); tools are on this wire, so pass $specs.
+                $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations, $specs);
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0   = hrtime(true);
                 $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
                 $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $resp);
+                $lastUsage         = $resp->usage;
                 $promptTokens     += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
 
@@ -284,6 +308,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // Record the synthesis as its own round (after the last tool round)
             // so the inspector's step list does not show two steps sharing a
             // round number.
+            // The synthesis is a plain completion (no tools on the wire), so
+            // bound it with toolSpecs = [] (ADR-107) — counting phantom schema
+            // bytes here, on the run's largest transcript, could otherwise
+            // discard a real final answer as a spurious overflow.
+            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, []);
             $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0    = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
@@ -303,6 +332,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 UsageStatistics::fromTokens($promptTokens, $completionTokens),
                 AgentRunTerminationReason::MAX_ITERATIONS,
             );
+        } catch (ContextTruncatedException $e) {
+            // ADR-107: even the pruned floor exceeds the context window, so no
+            // provider call was made. Stop legibly with the partial trace rather
+            // than sending an oversized request and eating a raw provider 4xx.
+            $this->logger?->warning(
+                'Tool loop stopped: transcript exceeds the context window even at its floor.',
+                ['exception' => $e],
+            );
+
+            return $this->contextTruncatedResult($trace, $iterations, $promptTokens, $completionTokens);
         } catch (BudgetExceededException $e) {
             // Budget fires pre-flight and tools are read-only, so the partial
             // trace is consistent. Surface what ran rather than aborting, and
@@ -322,6 +361,69 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 AgentRunTerminationReason::BUDGET_EXHAUSTED,
             );
         }
+    }
+
+    /**
+     * Enforce the model context window on the outgoing transcript (ADR-107). A
+     * no-op when the manager is absent (unchanged from before this feature).
+     * Returns the possibly-pruned messages; throws when even the floor overflows.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<array<string, mixed>>             $toolSpecs the tool schemas on THIS wire; [] for a plain completion
+     *
+     * @throws ContextTruncatedException when the pruned floor still exceeds the window
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function enforceContextWindow(
+        array $messages,
+        LlmConfiguration $configuration,
+        ?ToolOptions $options,
+        ?UsageStatistics $lastUsage,
+        int $iteration,
+        array $toolSpecs,
+    ): array {
+        if ($this->contextWindow === null) {
+            return $messages;
+        }
+
+        $fit = $this->contextWindow->fit($messages, $configuration, $options, $lastUsage, $toolSpecs);
+
+        if ($fit->overflowAtFloor) {
+            throw ContextTruncatedException::fromFit($fit);
+        }
+
+        if ($fit->pruned) {
+            // Observability: distinguishes "trimmed history, run fine" from a
+            // failure. A dedicated inspector RunStep is a follow-up (ADR-107).
+            $this->logger?->info('Agent loop transcript pruned to fit the context window', [
+                'iteration'       => $iteration,
+                'droppedTurns'    => $fit->droppedTurns,
+                'keptTurns'       => $fit->keptTurns,
+                'estimatedTokens' => $fit->estimatedTokens,
+                'budget'          => $fit->budget,
+                'calibration'     => $fit->calibration,
+            ]);
+
+            return $fit->messages;
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @param list<ToolInvocation> $trace
+     */
+    private function contextTruncatedResult(array $trace, int $iterations, int $promptTokens, int $completionTokens): ToolLoopResult
+    {
+        return new ToolLoopResult(
+            '',
+            $trace,
+            $iterations,
+            true,
+            UsageStatistics::fromTokens($promptTokens, $completionTokens),
+            AgentRunTerminationReason::CONTEXT_TRUNCATED,
+        );
     }
 
     /**

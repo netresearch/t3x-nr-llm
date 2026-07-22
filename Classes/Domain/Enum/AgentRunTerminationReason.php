@@ -74,6 +74,15 @@ enum AgentRunTerminationReason: string
     case NOT_RETRYABLE = 'not_retryable';
 
     /**
+     * Even after pruning the transcript to its floor (the leading system/task
+     * messages plus the most recent turn) the request still exceeds the model's
+     * context window, so no provider call was made (ADR-107). Retrying re-sends
+     * the same oversized floor and overflows again; the run stops legibly rather
+     * than eating a raw provider 4xx.
+     */
+    case CONTEXT_TRUNCATED = 'context_truncated';
+
+    /**
      * @return list<string>
      */
     public static function values(): array
