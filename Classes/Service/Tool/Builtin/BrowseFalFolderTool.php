@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -63,17 +64,17 @@ final readonly class BrowseFalFolderTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user      = $this->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $storageUid = self::toInt($arguments['storage'] ?? ($effective[0] ?? 0));
         if (!in_array($storageUid, $effective, true)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $folderId = trim(self::toStr($arguments['folder'] ?? '/'));
@@ -84,7 +85,7 @@ final readonly class BrowseFalFolderTool implements ToolInterface
         try {
             $storage = $this->storageRepository->findByUid($storageUid);
             if ($storage === null || !$storage->isOnline()) {
-                return self::NOT_PERMITTED;
+                return ToolResult::text(self::NOT_PERMITTED);
             }
             // Folder-level enforcement on top of the storage gate: with
             // evaluatePermissions the read calls below check the acting
@@ -128,11 +129,11 @@ final readonly class BrowseFalFolderTool implements ToolInterface
         } catch (Throwable) {
             // Neutral by design: a missing folder, a folder outside the
             // storage and a driver error are indistinguishable to the model.
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         if ($lines === []) {
-            return sprintf('Folder %s of storage %d is empty.', $folder->getIdentifier(), $storageUid);
+            return ToolResult::text(sprintf('Folder %s of storage %d is empty.', $folder->getIdentifier(), $storageUid));
         }
 
         $header = sprintf(
@@ -143,7 +144,7 @@ final readonly class BrowseFalFolderTool implements ToolInterface
             $skipped > 0 ? sprintf(', %d more not shown', $skipped) : '',
         );
 
-        return $header . "\n" . implode("\n", $lines);
+        return ToolResult::text($header . "\n" . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

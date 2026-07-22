@@ -52,7 +52,7 @@ final class DiagnosticsToolsFunctionalTest extends AbstractFunctionalTestCase
     #[Test]
     public function systemStatusReportsVersionsWithoutPaths(): void
     {
-        $output = $this->tool('get_system_status')->execute([]);
+        $output = $this->tool('get_system_status')->execute([])->content;
 
         self::assertStringContainsString('TYPO3: ' . (new Typo3Version())->getVersion(), $output);
         self::assertStringContainsString('PHP: ' . PHP_VERSION, $output);
@@ -67,7 +67,7 @@ final class DiagnosticsToolsFunctionalTest extends AbstractFunctionalTestCase
     public function schedulerAbsenceDegradesGracefully(): void
     {
         // EXT:scheduler is not part of the test instance.
-        self::assertSame('Scheduler is not installed.', $this->tool('list_scheduler_tasks')->execute([]));
+        self::assertSame('Scheduler is not installed.', $this->tool('list_scheduler_tasks')->execute([])->content);
     }
 
     #[Test]
@@ -82,7 +82,7 @@ final class DiagnosticsToolsFunctionalTest extends AbstractFunctionalTestCase
             'Tue, 08 Jul 2026 12:00:02 +0000 [NOTICE] request="a3" component="TYPO3.CMS.deprecations": Class deprecated in ' . $projectFile,
         ]) . "\n");
 
-        $output = (new ListDeprecationsTool($logDir))->execute([]);
+        $output = (new ListDeprecationsTool($logDir))->execute([])->content;
 
         self::assertStringContainsString('Method foo() is deprecated (×2)', $output);
         self::assertStringContainsString('vendor/acme/thing/Classes/Old.php', $output);
@@ -97,14 +97,14 @@ final class DiagnosticsToolsFunctionalTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'No deprecation log found (the deprecation channel may be disabled).',
-            (new ListDeprecationsTool($emptyDir))->execute([]),
+            (new ListDeprecationsTool($emptyDir))->execute([])->content,
         );
     }
 
     #[Test]
     public function middlewareStackListsBackendMiddlewares(): void
     {
-        $output = $this->tool('list_middlewares')->execute(['stack' => 'backend']);
+        $output = $this->tool('list_middlewares')->execute(['stack' => 'backend'])->content;
 
         self::assertStringContainsString('PSR-15 backend middleware stack (', $output);
         self::assertStringContainsString('typo3/cms-core/normalized-params-attribute', $output);
@@ -116,7 +116,7 @@ final class DiagnosticsToolsFunctionalTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString(
             'Unknown stack',
-            $this->tool('list_middlewares')->execute(['stack' => 'cli']),
+            $this->tool('list_middlewares')->execute(['stack' => 'cli'])->content,
         );
     }
 }

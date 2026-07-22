@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -63,19 +64,19 @@ final readonly class ListDeprecationsTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
         $file = $this->newestLogFile();
         if ($file === null) {
-            return self::NO_LOG;
+            return ToolResult::text(self::NO_LOG);
         }
 
         $tail = $this->tail($file);
         if ($tail === '') {
-            return self::NO_LOG;
+            return ToolResult::text(self::NO_LOG);
         }
 
         // Newest last in the file → iterate reversed so "newest first" wins.
@@ -88,7 +89,7 @@ final readonly class ListDeprecationsTool implements ToolInterface
             $counts[$message] = ($counts[$message] ?? 0) + 1;
         }
         if ($counts === []) {
-            return self::NO_LOG;
+            return ToolResult::text(self::NO_LOG);
         }
 
         $total  = count($counts);
@@ -99,11 +100,11 @@ final readonly class ListDeprecationsTool implements ToolInterface
             $lines[] = sprintf('- %s%s', $message, $count > 1 ? sprintf(' (×%d)', $count) : '');
         }
 
-        return sprintf(
+        return ToolResult::text(sprintf(
             "Deprecations (%d distinct%s, newest first):\n",
             $total,
             $total > $limit ? sprintf(', showing %d', $limit) : '',
-        ) . implode("\n", $lines);
+        ) . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

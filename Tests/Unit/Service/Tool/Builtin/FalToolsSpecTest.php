@@ -100,11 +100,11 @@ final class FalToolsSpecTest extends TestCase
         // no storages and every tool answers with its neutral denial.
         self::assertSame(
             'Asset not found or not permitted.',
-            self::bare(GetFalReferencesTool::class)->execute(['uid' => 0]),
+            self::bare(GetFalReferencesTool::class)->execute(['uid' => 0])->content,
         );
         self::assertSame(
             'Error: "query" is required.',
-            self::bare(SearchFalFilesTool::class)->execute([]),
+            self::bare(SearchFalFilesTool::class)->execute([])->content,
         );
     }
 }

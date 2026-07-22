@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
@@ -57,28 +58,28 @@ final readonly class SiteFetchSourceTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return 'Not permitted.';
+            return ToolResult::text('Not permitted.');
         }
 
         $reference = SourceReference::parse(trim(self::toStr($arguments['source_id'] ?? '')));
         if ($reference === null) {
-            return 'Invalid source_id.';
+            return ToolResult::text('Invalid source_id.');
         }
 
         $text = $this->retrievalService->fetchSource($reference, AccessContext::forBackendUser($user));
         if ($text === null || trim($text) === '') {
-            return 'Source not found or not permitted.';
+            return ToolResult::text('Source not found or not permitted.');
         }
 
         if (mb_strlen($text) > self::MAX_OUTPUT_CHARS) {
             $text = mb_substr($text, 0, self::MAX_OUTPUT_CHARS) . '…';
         }
 
-        return $text;
+        return ToolResult::text($text);
     }
 
     public function isEnabledByDefault(): bool

@@ -82,7 +82,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function nonSecretValueIsShownButSecretValueIsRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([]);
+        $output = (new GetEnvTool())->execute([])->content;
 
         self::assertStringContainsString(self::PLAIN_KEY . '=' . self::PLAIN_VALUE, $output);
         // The secret variable appears, but its value is masked.
@@ -93,7 +93,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function pwdStyleSecretNameIsRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([]);
+        $output = (new GetEnvTool())->execute([])->content;
 
         // MYSQL_PWD uses PWD, not PASS — it must still be caught.
         self::assertStringContainsString(self::PWD_KEY . '=***redacted***', $output);
@@ -103,7 +103,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function inlineUrlCredentialsAreRedactedWhileHostRemains(): void
     {
-        $output = (new GetEnvTool())->execute([]);
+        $output = (new GetEnvTool())->execute([])->content;
 
         // The variable NAME is not secret-looking, but its VALUE embeds
         // credentials: the userinfo is stripped, the host/port kept for context.
@@ -115,7 +115,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function inlineUrlCredentialsWithEmptyUsernameAreRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([]);
+        $output = (new GetEnvTool())->execute([])->content;
 
         // redis://:password@host has no username — the password must still be
         // stripped rather than leaking to the provider.

@@ -405,3 +405,4 @@ Tools
    Adr105TypedInputSuspension
    Adr106PerConfigurationGuardrailPolicy
    Adr107ContextWindowManagement
+   Adr108TypedToolResultWithArtifacts

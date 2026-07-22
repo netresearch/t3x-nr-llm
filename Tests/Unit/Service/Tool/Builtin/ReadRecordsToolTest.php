@@ -178,7 +178,7 @@ final class ReadRecordsToolTest extends TestCase
         $output = $tool->execute([
             'table'  => '  tt_content  ',
             'fields' => ['uid', 'header'],
-        ]);
+        ])->content;
 
         self::assertSame(['tt_content'], $this->requestedTables);
         self::assertSame([['uid', 'pid', 'header']], $this->selectCalls);
@@ -205,7 +205,7 @@ final class ReadRecordsToolTest extends TestCase
             ['uid' => 7, 'pid' => 1, 'header' => 'A', 'bodytext' => 'B'],
         ]);
 
-        $output = $tool->execute(['table' => 'tt_content']);
+        $output = $tool->execute(['table' => 'tt_content'])->content;
 
         // label "header" plus label_alt "bodytext" (trimmed); "no_such_col"
         // (not a TCA column) and "password_field" (credential-ish) are dropped.
@@ -233,7 +233,7 @@ final class ReadRecordsToolTest extends TestCase
         ];
         $tool = $this->tool([['uid' => 9, 'pid' => 4, 'header' => 'H']]);
 
-        $output = $tool->execute(['table' => 'tt_content']);
+        $output = $tool->execute(['table' => 'tt_content'])->content;
 
         // "ghost_col" is a ctrl label without a column definition: it must
         // not be selected; only the label_alt column survives.
@@ -260,7 +260,7 @@ final class ReadRecordsToolTest extends TestCase
                 'sorting'  => 3,
                 'layout'   => 1,
             ],
-        ]);
+        ])->content;
 
         // uid first, then pid (0 is valid: the root page), then the five
         // where_equals columns in argument order with the key trimmed.
@@ -316,7 +316,7 @@ final class ReadRecordsToolTest extends TestCase
                 'sorting'  => 2,
                 'layout'   => 3,
             ],
-        ]);
+        ])->content;
 
         self::assertSame(
             'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.',
@@ -336,7 +336,7 @@ final class ReadRecordsToolTest extends TestCase
             'fields' => ['header'],
             'uid'    => 0,
             'pid'    => -3,
-        ]);
+        ])->content;
 
         // A present-but-negative pid and a zero uid are no filters at all.
         self::assertSame(0, $this->andWhereCalls);

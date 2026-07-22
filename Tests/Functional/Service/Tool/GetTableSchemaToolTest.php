@@ -51,7 +51,7 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tx_demo_thing']);
+        $output = $this->tool->execute(['table' => 'tx_demo_thing'])->content;
 
         self::assertStringContainsString('Table: tx_demo_thing', $output);
         self::assertStringContainsString('name: input', $output);
@@ -66,7 +66,7 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content']);
+        $output = $this->tool->execute(['table' => 'tt_content'])->content;
 
         self::assertStringContainsString('Table: tt_content', $output);
         self::assertStringContainsString('Fields:', $output);
@@ -78,13 +78,13 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'be_users']));
+        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'be_users'])->content);
     }
 
     #[Test]
     public function deniesWithoutBackendUser(): void
     {
-        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'tt_content']));
+        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'tt_content'])->content);
     }
 
     #[Test]
@@ -103,7 +103,7 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
             'columns' => ['name' => ['config' => ['type' => 'input']]],
         ];
 
-        $output = $this->tool->execute(['table' => 'tx_demo_ver']);
+        $output = $this->tool->execute(['table' => 'tx_demo_ver'])->content;
 
         self::assertStringContainsString('Title: Description', $output);
         self::assertStringNotContainsString('LLL:', $output);

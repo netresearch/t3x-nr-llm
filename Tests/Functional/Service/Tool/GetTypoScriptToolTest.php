@@ -79,7 +79,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function setupTopLevelKeysListWithoutPath(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1]);
+        $output = $this->tool->execute(['pageUid' => 1])->content;
 
         self::assertStringContainsString('TypoScript setup for page 1', $output);
         self::assertStringContainsString('page = PAGE', $output);
@@ -89,7 +89,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function pathDrillsIntoSetupSubtreeAndRedactsSecrets(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo']);
+        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'])->content;
 
         self::assertStringContainsString('endpoint = https://api.example.org', $output);
         self::assertStringContainsString('apiKey = [redacted]', $output);
@@ -99,7 +99,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function constantsResolveFlatAndRedactSecrets(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'type' => 'constants']);
+        $output = $this->tool->execute(['pageUid' => 1, 'type' => 'constants'])->content;
 
         self::assertStringContainsString('myConst.plain = visible-value', $output);
         self::assertStringContainsString('myConst.apiKey = [redacted]', $output);
@@ -109,7 +109,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function pageWithoutSiteReturnsNeutralString(): void
     {
-        $output = $this->tool->execute(['pageUid' => 999]);
+        $output = $this->tool->execute(['pageUid' => 999])->content;
 
         self::assertSame('Page not found or no TypoScript template.', $output);
     }

@@ -62,7 +62,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsAllSitesWithoutIdentifier(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Configured sites (', $output);
         self::assertStringContainsString('- diag (base http://localhost:59999/, root page 1)', $output);
@@ -71,7 +71,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function flattensConfigurationAndRedactsCredentialKeys(): void
     {
-        $output = $this->tool->execute(['identifier' => 'diag']);
+        $output = $this->tool->execute(['identifier' => 'diag'])->content;
 
         self::assertStringContainsString('rootPageId: 1', $output);
         self::assertStringContainsString('languages.0.locale: en_US.UTF-8', $output);
@@ -92,7 +92,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString(
             'No site "nope"',
-            $this->tool->execute(['identifier' => 'nope']),
+            $this->tool->execute(['identifier' => 'nope'])->content,
         );
     }
 }

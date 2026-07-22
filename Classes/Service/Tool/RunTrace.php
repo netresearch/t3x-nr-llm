@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 
 /**
@@ -127,6 +128,7 @@ final class RunTrace
      * Record one executed tool call.
      *
      * @param array<string, mixed> $arguments
+     * @param list<ToolArtifact>   $artifacts run-only structured artifacts (NEVER provider-facing)
      */
     public function recordToolExecution(
         int $round,
@@ -135,6 +137,7 @@ final class RunTrace
         array $arguments,
         string $result,
         bool $isError,
+        array $artifacts = [],
     ): void {
         $this->add(new RunStep(
             kind: RunStep::KIND_TOOL,
@@ -144,6 +147,7 @@ final class RunTrace
             toolArguments: $arguments,
             toolResult: $result,
             toolIsError: $isError,
+            toolArtifacts: $artifacts === [] ? null : $artifacts,
         ));
     }
 

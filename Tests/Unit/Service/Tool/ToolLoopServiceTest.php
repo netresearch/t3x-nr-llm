@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -19,7 +20,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
@@ -96,6 +99,132 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function artifactsRideTheTraceButNeverTheProviderWire(): void
+    {
+        // ADR-108 security centrepiece: an artifact's structured data reaches the
+        // trace/inspector but MUST NOT egress to the provider wire, which carries
+        // only the content string.
+        $tool = new FakeTool('fetch_records', 'PUBLIC content', true, false, 'test', [
+            new ToolArtifact(ArtifactType::TABLE, 'rows', [
+                'columns' => ['secret_col'],
+                'rows'    => [['TOPSECRET-value']],
+            ]),
+        ]);
+
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'fetch_records', [])]),
+            $this->response('done'),
+        ], $captured));
+
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+
+        // The second provider call carries the tool-result turn: content only.
+        self::assertArrayHasKey(1, $captured);
+        $wire = json_encode(
+            array_map(static fn(mixed $m): mixed => $m instanceof ChatMessage ? $m->toArray() : $m, $captured[1]),
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertStringContainsString('PUBLIC content', $wire);
+        self::assertStringNotContainsString('TOPSECRET-value', $wire);
+
+        // The trace DOES carry the artifact for the inspector/audit.
+        self::assertCount(1, $result->trace[0]->artifacts);
+        self::assertSame(ArtifactType::TABLE, $result->trace[0]->artifacts[0]->type);
+        self::assertStringContainsString('TOPSECRET-value', json_encode($result->trace[0]->artifacts[0]->data, JSON_THROW_ON_ERROR));
+    }
+
+    #[Test]
+    public function artifactStringLeavesAreCoercedToValidUtf8BeforeEgress(): void
+    {
+        $tool = new FakeTool('t', 'ok', true, false, 'test', [
+            new ToolArtifact(ArtifactType::TEXT, "bad\xFFlabel", ['text' => "bad\xFFleaf"]),
+        ]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('c', 't', [])]),
+            $this->response('done'),
+        ]));
+
+        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+        $artifact = $result->trace[0]->artifacts[0];
+
+        // The label and every nested string leaf are valid UTF-8, and the raw
+        // invalid byte is gone (the exact substitute char is an mbstring detail).
+        self::assertTrue(mb_check_encoding($artifact->label, 'UTF-8'));
+        self::assertStringNotContainsString("\xFF", $artifact->label);
+        $leaf = self::str($artifact->data['text'] ?? null);
+        self::assertTrue(mb_check_encoding($leaf, 'UTF-8'));
+        self::assertStringNotContainsString("\xFF", $leaf);
+    }
+
+    #[Test]
+    public function oversizeArtifactsCollapseToASingleFailClosedMarker(): void
+    {
+        $tool = new FakeTool('t', 'ok', true, false, 'test', [
+            new ToolArtifact(ArtifactType::TEXT, 'big', ['text' => str_repeat('a', 60000)]),
+        ]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('c', 't', [])]),
+            $this->response('done'),
+        ]));
+
+        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+        $artifacts = $result->trace[0]->artifacts;
+
+        self::assertCount(1, $artifacts);
+        self::assertSame(ArtifactType::TEXT, $artifacts[0]->type);
+        self::assertSame('Artifacts omitted', $artifacts[0]->label);
+        self::assertStringContainsString('exceeded', self::str($artifacts[0]->data['text'] ?? ''));
+    }
+
+    #[Test]
+    public function unencodableArtifactCollapsesToTheFailClosedMarker(): void
+    {
+        // A non-finite float cannot be JSON-encoded; boundArtifacts must fail
+        // closed to the marker rather than let the JsonException reach a sink.
+        $tool = new FakeTool('t', 'ok', true, false, 'test', [
+            new ToolArtifact(ArtifactType::TABLE, 'bad', ['columns' => ['x'], 'rows' => [[INF]]]),
+        ]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('c', 't', [])]),
+            $this->response('done'),
+        ]));
+
+        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+        $artifacts = $result->trace[0]->artifacts;
+
+        self::assertCount(1, $artifacts);
+        self::assertSame('Artifacts omitted', $artifacts[0]->label);
+        self::assertStringContainsString('could not be encoded', self::str($artifacts[0]->data['text'] ?? ''));
+    }
+
+    #[Test]
+    public function aValidTableArtifactPassesThroughUnchanged(): void
+    {
+        $data = ['columns' => ['uid', 'title'], 'rows' => [['1', 'Home']]];
+        $tool = new FakeTool('t', 'ok', true, false, 'test', [
+            new ToolArtifact(ArtifactType::TABLE, 'pages', $data),
+        ]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('c', 't', [])]),
+            $this->response('done'),
+        ]));
+
+        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), null);
+        $artifact = $result->trace[0]->artifacts[0];
+
+        self::assertSame(ArtifactType::TABLE, $artifact->type);
+        self::assertSame('pages', $artifact->label);
+        self::assertSame($data, $artifact->data);
+    }
+
+    #[Test]
     public function unknownToolYieldsErrorResultNotCrash(): void
     {
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -131,7 +260,7 @@ final class ToolLoopServiceTest extends TestCase
             /**
              * @param array<string, mixed> $arguments
              */
-            public function execute(array $arguments): string
+            public function execute(array $arguments): ToolResult
             {
                 throw new RuntimeException('boom https://x?key=secret', 1782700101);
             }
@@ -185,7 +314,7 @@ final class ToolLoopServiceTest extends TestCase
             /**
              * @param array<string, mixed> $arguments
              */
-            public function execute(array $arguments): string
+            public function execute(array $arguments): ToolResult
             {
                 throw new RuntimeException('boom https://x?key=secret', 1782700101);
             }
@@ -516,11 +645,11 @@ final class ToolLoopServiceTest extends TestCase
             /**
              * @param array<string, mixed> $arguments
              */
-            public function execute(array $arguments): string
+            public function execute(array $arguments): ToolResult
             {
                 $this->executed = true;
 
-                return 'META';
+                return ToolResult::text('META');
             }
 
             public function isEnabledByDefault(): bool
@@ -864,9 +993,9 @@ final class ToolLoopServiceTest extends TestCase
             /**
              * @param array<string, mixed> $arguments
              */
-            public function execute(array $arguments): string
+            public function execute(array $arguments): ToolResult
             {
-                return 'DELETED';
+                return ToolResult::text('DELETED');
             }
 
             public function isEnabledByDefault(): bool
@@ -1243,6 +1372,17 @@ final class ToolLoopServiceTest extends TestCase
     private static function arr(mixed $value): array
     {
         self::assertIsArray($value);
+
+        return $value;
+    }
+
+    /**
+     * Assert a mixed value is a string and return it narrowed (PHPStan-clean
+     * access into artifact `data` leaves).
+     */
+    private static function str(mixed $value): string
+    {
+        self::assertIsString($value);
 
         return $value;
     }

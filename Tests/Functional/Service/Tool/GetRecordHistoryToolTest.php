@@ -84,7 +84,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content;
 
         self::assertStringContainsString('Change history for tt_content:5 (3 entries, newest first):', $output);
         self::assertStringContainsString("header: 'Old headline' → 'New headline'", $output);
@@ -103,7 +103,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content;
 
         self::assertStringContainsString('secret_token: [changed — detail withheld]', $output);
         self::assertStringNotContainsString('oldtoken123', $output);
@@ -115,7 +115,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5, 'field' => 'header']);
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5, 'field' => 'header'])->content;
 
         self::assertStringContainsString('filtered to "header"', $output);
         self::assertStringContainsString("header: 'Old headline' → 'New headline'", $output);
@@ -130,7 +130,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'No change history for tt_content:999.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 999]),
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 999])->content,
         );
     }
 
@@ -141,7 +141,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users', 'uid' => 1]),
+            $this->tool->execute(['table' => 'be_users', 'uid' => 1])->content,
         );
     }
 
@@ -150,7 +150,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 5]),
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content,
         );
     }
 
@@ -166,7 +166,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 40]),
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 40])->content,
         );
     }
 
@@ -178,7 +178,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         $this->insertPageWithContentAndHistory(9, Permission::PAGE_SHOW, 40);
         $this->setUpBackendUser(2);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 40]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 40])->content;
 
         self::assertStringContainsString('Change history for tt_content:40', $output);
         self::assertStringContainsString("header: 'A' → 'B'", $output);

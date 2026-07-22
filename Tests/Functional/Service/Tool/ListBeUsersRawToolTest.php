@@ -65,7 +65,7 @@ final class ListBeUsersRawToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeEmitsWideColumnSet(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Backend users (1):', $output);
         self::assertStringContainsString('[20]', $output);
@@ -78,7 +78,7 @@ final class ListBeUsersRawToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeStripsCredentialColumnsEvenWithSelectStar(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringNotContainsString(self::SECRET_HASH, $output);
         self::assertStringNotContainsString(self::SECRET_MFA, $output);

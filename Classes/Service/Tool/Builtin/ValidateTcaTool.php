@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -67,11 +68,11 @@ final readonly class ValidateTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $allTca = $GLOBALS['TCA'] ?? null;
         if (!is_array($allTca) || $allTca === []) {
-            return 'No TCA available.';
+            return ToolResult::text('No TCA available.');
         }
 
         $user  = $this->actingBackendUser();
@@ -79,15 +80,15 @@ final readonly class ValidateTcaTool implements ToolInterface
 
         if ($table !== '') {
             if (!$this->tableAccess->canReadTable($user, $table) || !is_array($allTca[$table] ?? null)) {
-                return self::NOT_PERMITTED;
+                return ToolResult::text(self::NOT_PERMITTED);
             }
 
             $findings = $this->validateTable($table, $allTca[$table], $allTca);
             if ($findings === []) {
-                return sprintf('No TCA issues found in table "%s".', $table);
+                return ToolResult::text(sprintf('No TCA issues found in table "%s".', $table));
             }
 
-            return $this->render($findings, 1);
+            return ToolResult::text($this->render($findings, 1));
         }
 
         $findings = [];
@@ -104,10 +105,10 @@ final readonly class ValidateTcaTool implements ToolInterface
         }
 
         if ($findings === []) {
-            return sprintf('No TCA issues found in %d checked tables.', $checked);
+            return ToolResult::text(sprintf('No TCA issues found in %d checked tables.', $checked));
         }
 
-        return $this->render($findings, $checked);
+        return ToolResult::text($this->render($findings, $checked));
     }
 
     public function isEnabledByDefault(): bool

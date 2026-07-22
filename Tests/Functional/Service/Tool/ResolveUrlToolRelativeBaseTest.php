@@ -72,7 +72,7 @@ final class ResolveUrlToolRelativeBaseTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['url' => '/imprint']);
+        $output = $this->tool->execute(['url' => '/imprint'])->content;
 
         self::assertStringContainsString('Page: [2] Imprint', $output);
         self::assertStringContainsString('slug /imprint', $output);

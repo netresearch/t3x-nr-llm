@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -84,16 +85,16 @@ final readonly class GetPageContentTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $language = self::toInt($arguments['language'] ?? 0);
@@ -106,7 +107,7 @@ final readonly class GetPageContentTool implements ToolInterface
         // Non-admins may only read content in languages they are permitted;
         // otherwise a language restriction is a no-op against this tool.
         if (!$isAdmin && !$user->checkLanguageAccess($language)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         // Non-admins must hold PAGE_SHOW on the page itself; a missing page and
@@ -114,13 +115,13 @@ final readonly class GetPageContentTool implements ToolInterface
         if (!$isAdmin) {
             $permsClause = self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW));
             if (!is_array(BackendUtility::readPageAccess($uid, $permsClause))) {
-                return self::NOT_PERMITTED;
+                return ToolResult::text(self::NOT_PERMITTED);
             }
         }
 
         $page = $this->fetchPage($uid, $isAdmin);
         if ($page === null) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $lines   = [];
@@ -137,7 +138,7 @@ final readonly class GetPageContentTool implements ToolInterface
         if ($rows === []) {
             $lines[] = sprintf('No content elements (language %d).', $language);
 
-            return implode("\n", $lines);
+            return ToolResult::text(implode("\n", $lines));
         }
 
         $lines[] = sprintf('Content elements (%d, language %d):', count($rows), $language);
@@ -158,7 +159,7 @@ final readonly class GetPageContentTool implements ToolInterface
             }
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

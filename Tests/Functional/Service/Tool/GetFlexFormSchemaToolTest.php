@@ -73,7 +73,7 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString(
             'is not a FlexForm field',
-            $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'title']),
+            $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'title'])->content,
         );
     }
 
@@ -82,7 +82,7 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'multi_ff']);
+        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'multi_ff'])->content;
 
         self::assertStringContainsString('multiple data structures', $output);
         self::assertStringContainsString('- alpha', $output);
@@ -94,7 +94,7 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'single_ff']);
+        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'single_ff'])->content;
 
         self::assertStringContainsString('FlexForm schema for tx_demo_flex.single_ff', $output);
         self::assertStringContainsString('Sheet:', $output);
@@ -108,7 +108,7 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users', 'field' => 'anything']),
+            $this->tool->execute(['table' => 'be_users', 'field' => 'anything'])->content,
         );
     }
 }

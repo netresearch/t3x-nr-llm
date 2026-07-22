@@ -482,11 +482,16 @@ class ToolPlayground {
 
         if (step.kind === 'tool') {
             detail.appendChild(this.detailHeader(`Tool · ${step.toolName || ''}`, this.ms(step.durationMs), step.toolIsError ? 'error' : 'ok'));
-            const tabs = this.tabBox([
+            const tabs = [
                 ['Arguments', () => this.pre(this.json(step.toolArguments))],
                 ['Result', () => this.pre(typeof step.toolResult === 'string' ? step.toolResult : '')],
-            ]);
-            detail.appendChild(tabs);
+            ];
+            // ADR-108: run-only artifacts, shown only when present. Never
+            // provider-facing; hardcoded label matches the sibling tab literals.
+            if (Array.isArray(step.toolArtifacts) && step.toolArtifacts.length > 0) {
+                tabs.push(['Artifacts', () => this.artifacts(step.toolArtifacts)]);
+            }
+            detail.appendChild(this.tabBox(tabs));
             return;
         }
 
@@ -526,6 +531,60 @@ class ToolPlayground {
             ['Thinking', () => step.thinking?.trim() ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
         ];
         detail.appendChild(this.tabBox(tabs));
+    }
+
+    /**
+     * Render a step's run-only artifacts (ADR-108). NEVER provider-facing; every
+     * value is written via textContent (never innerHTML) since artifacts carry
+     * attacker-influenceable tool bytes. An unknown type (a newer backend, or a
+     * REDACTED-masked discriminator) degrades to a JSON dump.
+     */
+    artifacts(list) {
+        const wrap = document.createElement('div');
+        (Array.isArray(list) ? list : []).forEach((a) => {
+            const box = document.createElement('div');
+            box.className = 'nrllm-pg-artifact';
+            const label = document.createElement('div');
+            label.className = 'nrllm-pg-artifact-label';
+            label.textContent = (a && typeof a.label === 'string') ? a.label : 'Artifact';
+            box.appendChild(label);
+            const data = (a && a.data && typeof a.data === 'object') ? a.data : {};
+            if (a && a.type === 'table' && Array.isArray(data.columns) && Array.isArray(data.rows)) {
+                box.appendChild(this.artifactTable(data.columns, data.rows));
+            } else if (a && a.type === 'text') {
+                box.appendChild(this.pre(typeof data.text === 'string' ? data.text : ''));
+            } else {
+                box.appendChild(this.pre(this.json(a)));
+            }
+            wrap.appendChild(box);
+        });
+        return wrap;
+    }
+
+    artifactTable(columns, rows) {
+        const table = document.createElement('table');
+        table.className = 'nrllm-pg-artifact-table';
+        const thead = document.createElement('thead');
+        const htr = document.createElement('tr');
+        columns.forEach((col) => {
+            const th = document.createElement('th');
+            th.textContent = typeof col === 'string' ? col : String(col);
+            htr.appendChild(th);
+        });
+        thead.appendChild(htr);
+        table.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        (Array.isArray(rows) ? rows : []).forEach((row) => {
+            const tr = document.createElement('tr');
+            (Array.isArray(row) ? row : []).forEach((cell) => {
+                const td = document.createElement('td');
+                td.textContent = typeof cell === 'string' ? cell : String(cell);
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
     }
 
     /**

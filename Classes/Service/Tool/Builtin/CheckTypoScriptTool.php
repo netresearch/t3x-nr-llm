@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -84,11 +85,11 @@ final readonly class CheckTypoScriptTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
         if ($pageUid < 1) {
-            return self::NEUTRAL_ERROR;
+            return ToolResult::text(self::NEUTRAL_ERROR);
         }
 
         try {
@@ -101,7 +102,7 @@ final readonly class CheckTypoScriptTool implements ToolInterface
             // itself (site sets / site-defined TS, v13+) — the tree builder
             // includes those; only bail out when NEITHER source exists.
             if ($sysTemplateRows === [] && !$site->isTypoScriptRoot()) {
-                return self::NEUTRAL_ERROR;
+                return ToolResult::text(self::NEUTRAL_ERROR);
             }
 
             $errors = [];
@@ -121,7 +122,7 @@ final readonly class CheckTypoScriptTool implements ToolInterface
         } catch (Throwable) {
             // Deliberately neutral: rootline/site/template resolution failures
             // must not leak exception internals into the provider egress.
-            return self::NEUTRAL_ERROR;
+            return ToolResult::text(self::NEUTRAL_ERROR);
         }
 
         $errors = array_values(array_unique($errors));
@@ -138,11 +139,11 @@ final readonly class CheckTypoScriptTool implements ToolInterface
                 $sources[] = 'site-set TypoScript';
             }
 
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'No TypoScript syntax errors on page %d (constants and setup of %s checked).',
                 $pageUid,
                 implode(' + ', $sources),
-            );
+            ));
         }
 
         $total = count($errors);
@@ -151,8 +152,8 @@ final readonly class CheckTypoScriptTool implements ToolInterface
             $errors[] = sprintf('… %d more errors not shown', $total - self::MAX_ERRORS);
         }
 
-        return sprintf("TypoScript syntax errors on page %d (%d):\n", $pageUid, $total)
-            . '- ' . implode("\n- ", $errors);
+        return ToolResult::text(sprintf("TypoScript syntax errors on page %d (%d):\n", $pageUid, $total)
+            . '- ' . implode("\n- ", $errors));
     }
 
     public function isEnabledByDefault(): bool

@@ -83,19 +83,19 @@ final class HistoryValidationToolsSpecTest extends TestCase
         // No $GLOBALS['BE_USER'] in unit context → fail-closed paths.
         self::assertSame(
             'Table not found or not permitted.',
-            self::bare(GetRecordHistoryTool::class)->execute(['table' => '', 'uid' => 0]),
+            self::bare(GetRecordHistoryTool::class)->execute(['table' => '', 'uid' => 0])->content,
         );
         self::assertSame(
             'Page not found or no TypoScript template.',
-            self::bare(CheckTypoScriptTool::class)->execute(['pageUid' => 0]),
+            self::bare(CheckTypoScriptTool::class)->execute(['pageUid' => 0])->content,
         );
         self::assertSame(
             'Error: "url" is required.',
-            self::bare(ResolveUrlTool::class)->execute([]),
+            self::bare(ResolveUrlTool::class)->execute([])->content,
         );
         self::assertSame(
             'Page not found or not permitted.',
-            self::bare(ResolveUrlTool::class)->execute(['url' => '/x']),
+            self::bare(ResolveUrlTool::class)->execute(['url' => '/x'])->content,
         );
     }
 }

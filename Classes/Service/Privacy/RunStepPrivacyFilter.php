@@ -48,6 +48,7 @@ final readonly class RunStepPrivacyFilter
         'raw',
         'toolArguments',
         'toolResult',
+        'toolArtifacts',
     ];
 
     public function __construct(
@@ -101,6 +102,18 @@ final readonly class RunStepPrivacyFilter
 
         if (is_string($payload['toolResult'] ?? null)) {
             $out['toolResultLength'] = mb_strlen($payload['toolResult']);
+        }
+
+        $artifacts = $payload['toolArtifacts'] ?? null;
+        if (is_array($artifacts)) {
+            $out['toolArtifactsCount'] = count($artifacts);
+            $types = [];
+            foreach ($artifacts as $artifact) {
+                if (is_array($artifact) && is_string($artifact['type'] ?? null)) {
+                    $types[] = $artifact['type'];
+                }
+            }
+            $out['toolArtifactTypes'] = $types;
         }
 
         $requested = $payload['requestedToolCalls'] ?? null;

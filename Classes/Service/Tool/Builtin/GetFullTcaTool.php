@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -63,16 +64,16 @@ final readonly class GetFullTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $allTca = $GLOBALS['TCA'] ?? null;
         if (!is_array($allTca) || $allTca === []) {
-            return 'No TCA available.';
+            return ToolResult::text('No TCA available.');
         }
 
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return 'Accessible tables (0).';
+            return ToolResult::text('Accessible tables (0).');
         }
 
         $filter    = mb_strtolower(trim(self::toStr($arguments['filter'] ?? '')));
@@ -118,7 +119,7 @@ final readonly class GetFullTcaTool implements ToolInterface
         }
 
         if ($lines === []) {
-            return 'Accessible tables (0). Nothing matched the filter, or you may not read any matching table.';
+            return ToolResult::text('Accessible tables (0). Nothing matched the filter, or you may not read any matching table.');
         }
 
         $header = sprintf(
@@ -127,7 +128,7 @@ final readonly class GetFullTcaTool implements ToolInterface
             $skipped > 0 ? sprintf(', %d more not shown', $skipped) : '',
         );
 
-        return $header . "\n" . implode("\n", $lines);
+        return ToolResult::text($header . "\n" . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\LogExceptionEntry;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
@@ -72,7 +73,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $index  = max(0, self::toInt($arguments['index'] ?? 0));
         $search = trim(self::toStr($arguments['search'] ?? ''));
@@ -81,10 +82,10 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         $entry   = $entries[$index] ?? null;
 
         if (!$entry instanceof LogExceptionEntry) {
-            return $entries === []
+            return ToolResult::text($entries === []
                 ? 'No error-level entries found in the TYPO3 file logs. '
                   . 'For database-logged events try the fetch_logs tool (sys_log).'
-                : sprintf('Only %d matching error(s) available — index %d is out of range.', count($entries), $index);
+                : sprintf('Only %d matching error(s) available — index %d is out of range.', count($entries), $index));
         }
 
         $lines   = [];
@@ -108,7 +109,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         if ($entry->frames === []) {
             $lines[] = 'No stack trace recorded for this entry.';
 
-            return implode("\n", $lines);
+            return ToolResult::text(implode("\n", $lines));
         }
 
         $lines[]  = 'Stack trace:';
@@ -144,7 +145,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
             }
         }
 
-        return implode("\n", array_slice($lines, 0, self::MAX_OUTPUT_LINES));
+        return ToolResult::text(implode("\n", array_slice($lines, 0, self::MAX_OUTPUT_LINES)));
     }
 
     public function isEnabledByDefault(): bool

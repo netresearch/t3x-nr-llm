@@ -59,7 +59,7 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
         $this->importFixture('sys_file_tools.csv');
         $this->importFixture('sys_file_metadata_tools.csv');
 
-        $output = $this->tool->execute(['uid' => 1]);
+        $output = $this->tool->execute(['uid' => 1])->content;
 
         self::assertStringContainsString('logo.png', $output);
         self::assertStringContainsString('image/png', $output);
@@ -73,7 +73,7 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_file_tools.csv');
 
-        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 2]));
+        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 2])->content);
     }
 
     #[Test]
@@ -81,6 +81,6 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_file_tools.csv');
 
-        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 999999]));
+        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 999999])->content);
     }
 }

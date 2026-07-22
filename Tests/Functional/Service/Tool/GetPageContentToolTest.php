@@ -71,7 +71,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 1]);
+        $output = $this->tool->execute(['uid' => 1])->content;
 
         self::assertStringContainsString('Page [1] Home (doktype 1, slug /)', $output);
         // colPos 0 before colPos 1; hidden element present and marked.
@@ -103,7 +103,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
 
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 1]);
+        $output = $this->tool->execute(['uid' => 1])->content;
 
         self::assertStringNotContainsString('DraftOnlyMarker', $output);
         self::assertStringContainsString('Intro', $output);
@@ -114,7 +114,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(2); // editor, no rights on page 1
 
-        $output = $this->tool->execute(['uid' => 1]);
+        $output = $this->tool->execute(['uid' => 1])->content;
 
         self::assertSame('Page not found or not permitted.', $output);
     }
@@ -124,7 +124,7 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 999]);
+        $output = $this->tool->execute(['uid' => 999])->content;
 
         self::assertSame('Page not found or not permitted.', $output);
     }
@@ -152,12 +152,12 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         // Language 0 is permitted -> the page resolves past the language gate.
         self::assertStringContainsString(
             'Page [5] Public',
-            $this->tool->execute(['uid' => 5, 'language' => 0]),
+            $this->tool->execute(['uid' => 5, 'language' => 0])->content,
         );
         // Language 1 is not permitted -> neutral denial at the language gate.
         self::assertSame(
             'Page not found or not permitted.',
-            $this->tool->execute(['uid' => 5, 'language' => 1]),
+            $this->tool->execute(['uid' => 5, 'language' => 1])->content,
         );
     }
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,19 +69,19 @@ final readonly class FindMissingFilesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user      = $this->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
-            return 'No accessible file storages.';
+            return ToolResult::text('No accessible file storages.');
         }
 
         $storageFilter = self::toInt($arguments['storage'] ?? 0);
         if ($storageFilter > 0) {
             $effective = in_array($storageFilter, $effective, true) ? [$storageFilter] : [];
             if ($effective === []) {
-                return 'No accessible file storages.';
+                return ToolResult::text('No accessible file storages.');
             }
         }
 
@@ -105,7 +106,7 @@ final readonly class FindMissingFilesTool implements ToolInterface
             ->fetchOne());
 
         if ($total === 0) {
-            return 'No missing files in the accessible storages.';
+            return ToolResult::text('No missing files in the accessible storages.');
         }
 
         $listQuery = $this->connectionPool->getQueryBuilderForTable('sys_file');
@@ -142,7 +143,7 @@ final readonly class FindMissingFilesTool implements ToolInterface
         }
 
         if ($rows === []) {
-            return 'No missing files in the accessible storages.';
+            return ToolResult::text('No missing files in the accessible storages.');
         }
 
         // The storage-wide $total is only meaningful (and non-leaking) for an
@@ -160,7 +161,7 @@ final readonly class FindMissingFilesTool implements ToolInterface
             );
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

@@ -139,7 +139,7 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     {
         $this->loginEditorInBackendRequest();
 
-        $output = $this->tool('search_fal_files')->execute(['query' => 'txt']);
+        $output = $this->tool('search_fal_files')->execute(['query' => 'txt'])->content;
 
         self::assertStringContainsString('docs/manual.txt', $output);
         self::assertStringNotContainsString('top-secret.txt', $output);
@@ -150,7 +150,7 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     {
         $this->loginEditorInBackendRequest();
 
-        $output = $this->tool('find_missing_files')->execute([]);
+        $output = $this->tool('find_missing_files')->execute([])->content;
 
         self::assertStringContainsString('docs/gone-inside.txt', $output);
         self::assertStringNotContainsString('gone-outside.txt', $output);
@@ -162,7 +162,7 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
         $this->loginEditorInBackendRequest();
 
         // File 11 (root, out of the /docs/ mount) must not reveal its usages.
-        $output = $this->tool('get_fal_references')->execute(['uid' => 11]);
+        $output = $this->tool('get_fal_references')->execute(['uid' => 11])->content;
 
         self::assertSame('Asset not found or not permitted.', $output);
     }
@@ -174,7 +174,7 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
 
         // File 10 (/docs/, in mount) is reachable — no references seeded, so the
         // neutral "no references" answer (not the permission denial) is returned.
-        $output = $this->tool('get_fal_references')->execute(['uid' => 10]);
+        $output = $this->tool('get_fal_references')->execute(['uid' => 10])->content;
 
         self::assertStringContainsString('No references to manual.txt', $output);
     }

@@ -33,7 +33,7 @@ final class GetPhpInfoRawToolTest extends TestCase
     #[Test]
     public function capturesFullPhpInfoOutput(): void
     {
-        $output = (new GetPhpInfoRawTool())->execute([]);
+        $output = (new GetPhpInfoRawTool())->execute([])->content;
 
         // phpinfo() always emits the PHP version line in its capture; in CLI it
         // is plain text ("PHP Version => x.y.z").

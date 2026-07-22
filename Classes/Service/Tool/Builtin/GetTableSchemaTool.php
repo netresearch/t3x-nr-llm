@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -62,24 +63,24 @@ final readonly class GetTableSchemaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $table = trim(self::toStr($arguments['table'] ?? ''));
         if ($table === '') {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $user = $this->actingBackendUser();
         if (!$this->tableAccess->canReadTable($user, $table)) {
             // Same neutral string whether unknown, denylisted or unpermitted —
             // the tool never confirms a table's existence to the unauthorised.
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $allTca = $GLOBALS['TCA'] ?? null;
         $tca    = is_array($allTca) ? ($allTca[$table] ?? null) : null;
         if (!is_array($tca) || !is_array($tca['columns'] ?? null)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $ctrl  = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
@@ -103,7 +104,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
             ++$count;
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

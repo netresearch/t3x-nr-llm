@@ -36,7 +36,7 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('pages', $output);
         self::assertStringContainsString('tt_content', $output);
@@ -51,7 +51,7 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['filter' => 'tt_content']);
+        $output = $this->tool->execute(['filter' => 'tt_content'])->content;
 
         self::assertStringContainsString('tt_content', $output);
         self::assertStringNotContainsString("\npages —", $output);
@@ -60,7 +60,7 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function noBackendUserYieldsEmptyIndex(): void
     {
-        self::assertStringContainsString('(0)', $this->tool->execute([]));
+        self::assertStringContainsString('(0)', $this->tool->execute([])->content);
     }
 
     #[Test]
@@ -68,7 +68,7 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         // Drop the header line; every remaining line starts with a table name.
         $lines = explode("\n", $output);

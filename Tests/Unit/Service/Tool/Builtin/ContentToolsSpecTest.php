@@ -89,7 +89,7 @@ final class ContentToolsSpecTest extends TestCase
     #[Test]
     public function searchFailsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Not permitted.', $this->searchTool()->execute(['query' => 'foo']));
+        self::assertSame('Not permitted.', $this->searchTool()->execute(['query' => 'foo'])->content);
     }
 
     #[Test]
@@ -99,7 +99,7 @@ final class ContentToolsSpecTest extends TestCase
 
         self::assertSame(
             'Query too short (minimum 2 characters).',
-            $this->searchTool()->execute(['query' => 'x']),
+            $this->searchTool()->execute(['query' => 'x'])->content,
         );
     }
 
@@ -108,7 +108,7 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Page not found or not permitted.',
-            $this->pageContentTool()->execute(['uid' => 1]),
+            $this->pageContentTool()->execute(['uid' => 1])->content,
         );
     }
 
@@ -119,7 +119,7 @@ final class ContentToolsSpecTest extends TestCase
 
         self::assertSame(
             'Page not found or not permitted.',
-            $this->pageContentTool()->execute(['uid' => 0]),
+            $this->pageContentTool()->execute(['uid' => 0])->content,
         );
     }
 
@@ -128,7 +128,7 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Table not found or not permitted.',
-            $this->readRecordsTool()->execute(['table' => 'tt_content']),
+            $this->readRecordsTool()->execute(['table' => 'tt_content'])->content,
         );
     }
 
@@ -140,7 +140,7 @@ final class ContentToolsSpecTest extends TestCase
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->readRecordsTool()->execute(['table' => 'be_users']),
+            $this->readRecordsTool()->execute(['table' => 'be_users'])->content,
         );
     }
 
@@ -154,7 +154,7 @@ final class ContentToolsSpecTest extends TestCase
             $this->readRecordsTool()->execute([
                 'table'        => 'tt_content',
                 'where_equals' => ['no_such_column' => 'x'],
-            ]),
+            ])->content,
         );
     }
 
@@ -169,7 +169,7 @@ final class ContentToolsSpecTest extends TestCase
             $this->readRecordsTool()->execute([
                 'table'        => 'tt_content',
                 'where_equals' => ['api_key' => 'x'],
-            ]),
+            ])->content,
         );
     }
 
@@ -178,14 +178,14 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->typoScriptTool()->execute(['pageUid' => 0]),
+            $this->typoScriptTool()->execute(['pageUid' => 0])->content,
         );
     }
 
     #[Test]
     public function tsConfigRejectsInvalidPageUid(): void
     {
-        self::assertSame('Page not found.', $this->tsConfigTool()->execute(['pageUid' => 0]));
+        self::assertSame('Page not found.', $this->tsConfigTool()->execute(['pageUid' => 0])->content);
     }
 
     private function adminUser(): BackendUserAuthentication

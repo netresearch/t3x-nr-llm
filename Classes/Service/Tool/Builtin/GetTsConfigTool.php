@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -66,11 +67,11 @@ final readonly class GetTsConfigTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
         if ($pageUid < 1 || !$this->pageExists($pageUid)) {
-            return self::NOT_FOUND;
+            return ToolResult::text(self::NOT_FOUND);
         }
 
         $path = trim(self::toStr($arguments['path'] ?? ''));
@@ -79,11 +80,11 @@ final readonly class GetTsConfigTool implements ToolInterface
             $tsConfig = BackendUtility::getPagesTSconfig($pageUid);
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
-            return self::NOT_FOUND;
+            return ToolResult::text(self::NOT_FOUND);
         }
 
         if ($tsConfig === []) {
-            return sprintf('No Page TSconfig for page %d.', $pageUid);
+            return ToolResult::text(sprintf('No Page TSconfig for page %d.', $pageUid));
         }
 
         if ($path === '') {
@@ -94,12 +95,12 @@ final readonly class GetTsConfigTool implements ToolInterface
                 count($tsConfig),
             ));
 
-            return implode("\n", $lines);
+            return ToolResult::text(implode("\n", $lines));
         }
 
         [$value, $subtree] = $this->drillPath($tsConfig, $path);
         if ($value === null && $subtree === null) {
-            return sprintf('No Page TSconfig at path "%s".', $path);
+            return ToolResult::text(sprintf('No Page TSconfig at path "%s".', $path));
         }
 
         $lines = [sprintf('Page TSconfig for page %d at "%s":', $pageUid, $path)];
@@ -111,7 +112,7 @@ final readonly class GetTsConfigTool implements ToolInterface
             $this->renderTree($subtree, $lines, 0);
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

@@ -53,7 +53,9 @@ Tool calls returned in :php:`CompletionResponse::$toolCalls`:
 - A typed ``list<ToolCall>`` (nullable) of :php:`ToolCall` value objects —
   each with the tool ``id``, ``name`` and its arguments as an already
   **JSON-decoded** associative array (not an encoded string). A full
-  tool-execution runtime was added later in :ref:`ADR-038 <adr-038>`.
+  tool-execution runtime was added later in :ref:`ADR-038 <adr-038>`, and the
+  PHP tool return type evolved from a plain string to a typed ``ToolResult``
+  (provider-facing content plus run-only artifacts) in :ref:`ADR-108 <adr-108>`.
 
 .. _adr-010-consequences:
 

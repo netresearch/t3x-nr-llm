@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -69,7 +70,7 @@ final readonly class FetchLogsTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         if ($limit < 1) {
@@ -98,7 +99,7 @@ final readonly class FetchLogsTool implements ToolInterface
         $rows = $queryBuilder->executeQuery()->fetchAllAssociative();
 
         if ($rows === []) {
-            return 'No log entries.';
+            return ToolResult::text('No log entries.');
         }
 
         $lines = [sprintf('Recent sys_log entries (showing %d):', count($rows))];
@@ -113,7 +114,7 @@ final readonly class FetchLogsTool implements ToolInterface
             );
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

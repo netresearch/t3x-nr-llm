@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -93,16 +94,16 @@ final readonly class SearchRecordsTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return 'Not permitted.';
+            return ToolResult::text('Not permitted.');
         }
 
         $query = trim(self::toStr($arguments['query'] ?? ''));
         if (mb_strlen($query) < self::MIN_QUERY_LENGTH) {
-            return 'Query too short (minimum 2 characters).';
+            return ToolResult::text('Query too short (minimum 2 characters).');
         }
         $query = mb_substr($query, 0, self::MAX_QUERY_LENGTH);
 
@@ -115,9 +116,9 @@ final readonly class SearchRecordsTool implements ToolInterface
         $restrictTable = trim(self::toStr($arguments['table'] ?? ''));
         $tables        = $this->searchableTables($restrictTable);
         if ($tables === []) {
-            return $restrictTable !== ''
+            return ToolResult::text($restrictTable !== ''
                 ? 'Table not found or not permitted.'
-                : 'No searchable tables available.';
+                : 'No searchable tables available.');
         }
 
         $isAdmin     = $user->isAdmin();
@@ -146,12 +147,12 @@ final readonly class SearchRecordsTool implements ToolInterface
         }
 
         if ($lines === []) {
-            return 'No matches.';
+            return ToolResult::text('No matches.');
         }
 
         array_unshift($lines, sprintf('Matches for "%s" (%d):', $query, count($lines)));
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

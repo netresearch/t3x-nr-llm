@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -52,7 +53,7 @@ final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInte
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
@@ -69,7 +70,7 @@ final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInte
             ->fetchAllAssociative();
 
         if ($rows === []) {
-            return 'No backend users.';
+            return ToolResult::text('No backend users.');
         }
 
         $lines = [sprintf('Backend users (%d):', count($rows))];
@@ -87,7 +88,7 @@ final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInte
             );
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

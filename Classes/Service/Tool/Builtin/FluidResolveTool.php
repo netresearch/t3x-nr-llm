@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -67,16 +68,16 @@ final readonly class FluidResolveTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $name = trim(self::toStr($arguments['name'] ?? ''));
         if ($name === '') {
-            return 'Provide a template/partial/layout name.';
+            return ToolResult::text('Provide a template/partial/layout name.');
         }
         // Reject path traversal outright — names address files under the
         // extension's private folder, never elsewhere.
         if (str_contains($name, '..')) {
-            return 'Invalid name.';
+            return ToolResult::text('Invalid name.');
         }
         $name = preg_replace('/\.html$/i', '', $name) ?? $name;
 
@@ -87,10 +88,10 @@ final readonly class FluidResolveTool implements ToolInterface
 
         $extension = trim(self::toStr($arguments['extension'] ?? ''));
         if ($extension === '') {
-            return 'Provide the "extension" key so the Fluid root paths can be resolved.';
+            return ToolResult::text('Provide the "extension" key so the Fluid root paths can be resolved.');
         }
         if (preg_match('/^[a-z0-9_]+$/', $extension) !== 1) {
-            return 'Invalid extension key.';
+            return ToolResult::text('Invalid extension key.');
         }
 
         $subfolder = self::SUBFOLDER[$type];
@@ -98,7 +99,7 @@ final readonly class FluidResolveTool implements ToolInterface
         $absolute  = GeneralUtility::getFileAbsFileName($candidate);
 
         if ($absolute === '') {
-            return sprintf('Extension "%s" is not resolvable (not installed?).', $extension);
+            return ToolResult::text(sprintf('Extension "%s" is not resolvable (not installed?).', $extension));
         }
 
         $exists   = is_file($absolute);
@@ -118,7 +119,7 @@ final readonly class FluidResolveTool implements ToolInterface
         $lines[] = '';
         $lines[] = 'Note: TypoScript-configured override root paths are not included (they need a live rendering context).';
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

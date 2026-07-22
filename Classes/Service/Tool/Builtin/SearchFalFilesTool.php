@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -74,24 +75,24 @@ final readonly class SearchFalFilesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $query = trim(self::toStr($arguments['query'] ?? ''));
         if ($query === '') {
-            return 'Error: "query" is required.';
+            return ToolResult::text('Error: "query" is required.');
         }
 
         $user      = $this->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
-            return 'No accessible file storages.';
+            return ToolResult::text('No accessible file storages.');
         }
 
         $storageFilter = self::toInt($arguments['storage'] ?? 0);
         if ($storageFilter > 0) {
             $effective = in_array($storageFilter, $effective, true) ? [$storageFilter] : [];
             if ($effective === []) {
-                return 'No accessible file storages.';
+                return ToolResult::text('No accessible file storages.');
             }
         }
 
@@ -149,7 +150,7 @@ final readonly class SearchFalFilesTool implements ToolInterface
         }
 
         if ($rows === []) {
-            return sprintf('No files match "%s" in the accessible storages.', $query);
+            return ToolResult::text(sprintf('No files match "%s" in the accessible storages.', $query));
         }
 
         $lines = [sprintf('Files matching "%s" (%d, capped at %d):', $query, count($rows), $limit)];
@@ -165,7 +166,7 @@ final readonly class SearchFalFilesTool implements ToolInterface
         }
         $lines[] = 'Use read_fal_asset_meta(uid) for title/alternative detail.';
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

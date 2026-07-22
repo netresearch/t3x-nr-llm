@@ -69,7 +69,7 @@ final class CheckTypoScriptToolSiteSetTest extends AbstractFunctionalTestCase
     #[Test]
     public function scansSiteProvidedTypoScriptWithoutSysTemplateRow(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1]);
+        $output = $this->tool->execute(['pageUid' => 1])->content;
 
         self::assertStringContainsString('TypoScript syntax errors on page 1', $output);
         self::assertStringContainsString('missing closing "}"', $output);

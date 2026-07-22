@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -67,11 +68,11 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         // sys_file / sys_file_metadata are FAL system tables without enable
@@ -92,7 +93,7 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
             ->fetchAssociative();
 
         if (!is_array($file) || !in_array(self::toInt($file['storage'] ?? 0), $this->allowedStorages, true)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $lines = [
@@ -129,7 +130,7 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
             }
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

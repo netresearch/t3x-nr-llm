@@ -75,7 +75,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesForeignHostWithoutRequesting(): void
     {
-        $output = $this->tool->execute(['url' => 'https://evil.example.com/steal']);
+        $output = $this->tool->execute(['url' => 'https://evil.example.com/steal'])->content;
 
         self::assertStringContainsString('Denied', $output);
         self::assertStringContainsString('localhost:59999', $output);
@@ -84,8 +84,8 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesNonHttpScheme(): void
     {
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'file:///etc/passwd']));
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'gopher://localhost:59999/x']));
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'file:///etc/passwd'])->content);
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'gopher://localhost:59999/x'])->content);
     }
 
     #[Test]
@@ -94,7 +94,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
         // The site declares a staging baseVariant on an internal host; its
         // condition is inactive in the test context, so it is NOT the served
         // base — probe_url must not reach it (only the active base is trusted).
-        $output = $this->tool->execute(['url' => 'http://staging.internal:8080/']);
+        $output = $this->tool->execute(['url' => 'http://staging.internal:8080/'])->content;
 
         self::assertStringContainsString('Denied', $output);
     }
@@ -104,15 +104,15 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     {
         // Same host, different port than the site (59999) — must NOT pass the
         // gate, or an attacker could probe localhost:6379 (Redis), :3306, …
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost:6379/']));
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost:6379/'])->content);
         // Bare host defaults to port 80, also != 59999.
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost/']));
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost/'])->content);
     }
 
     #[Test]
     public function deniesUserinfoAndDoesNotEchoCredentials(): void
     {
-        $output = $this->tool->execute(['url' => 'http://user:s3cr3t@localhost:59999/']);
+        $output = $this->tool->execute(['url' => 'http://user:s3cr3t@localhost:59999/'])->content;
 
         self::assertStringContainsString('Denied', $output);
         self::assertStringNotContainsString('s3cr3t', $output);
@@ -121,7 +121,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function ownHostPassesTheGate(): void
     {
-        $output = $this->tool->execute(['url' => 'http://localhost:59999/some/page']);
+        $output = $this->tool->execute(['url' => 'http://localhost:59999/some/page'])->content;
 
         // The request is ATTEMPTED (gate passed) and fails at transport
         // level because nothing listens on the closed port.
@@ -131,7 +131,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function relativePathResolvesAgainstTheFirstSite(): void
     {
-        $output = $this->tool->execute(['url' => '/imprint']);
+        $output = $this->tool->execute(['url' => '/imprint'])->content;
 
         self::assertStringContainsString('FAILED transport-level', $output);
         self::assertStringContainsString('http://localhost:59999/imprint', $output);
@@ -140,6 +140,6 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function emptyUrlIsRejected(): void
     {
-        self::assertStringContainsString('"url" is required', $this->tool->execute([]));
+        self::assertStringContainsString('"url" is required', $this->tool->execute([])->content);
     }
 }

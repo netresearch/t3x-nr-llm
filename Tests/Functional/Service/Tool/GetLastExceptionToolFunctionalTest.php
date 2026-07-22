@@ -69,7 +69,7 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
     #[Test]
     public function parsesSeededLogAndExpandsSourceContext(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('DomainException', $output);
         self::assertStringContainsString('functional failure', $output);
@@ -79,13 +79,13 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
     #[Test]
     public function searchFilterNarrowsToTheSeededEntry(): void
     {
-        $output = $this->tool->execute(['search' => 'functional kaboom or nothing']);
+        $output = $this->tool->execute(['search' => 'functional kaboom or nothing'])->content;
 
         // A non-matching search yields the no-entries message…
         self::assertStringContainsString('No error-level entries', $output);
 
         // …while a matching one finds the seeded record.
-        self::assertStringContainsString('DomainException', $this->tool->execute(['search' => 'DomainException']));
+        self::assertStringContainsString('DomainException', $this->tool->execute(['search' => 'DomainException'])->content);
     }
 
     protected function tearDown(): void

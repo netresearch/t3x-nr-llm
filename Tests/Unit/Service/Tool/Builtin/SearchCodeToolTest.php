@@ -86,7 +86,7 @@ final class SearchCodeToolTest extends TestCase
     #[Test]
     public function findsLiteralHitsOnlyInAllowedSourceFiles(): void
     {
-        $output = $this->tool->execute(['pattern' => 'findMeHere']);
+        $output = $this->tool->execute(['pattern' => 'findMeHere'])->content;
 
         self::assertStringContainsString('Classes/Alpha.php:2:', $output);
         // Relative path is root-stripped with no leading slash and not the full/offset pathname:
@@ -110,18 +110,18 @@ final class SearchCodeToolTest extends TestCase
     {
         self::assertStringContainsString(
             'invalid regular expression',
-            $this->tool->execute(['pattern' => '([unclosed', 'regex' => true]),
+            $this->tool->execute(['pattern' => '([unclosed', 'regex' => true])->content,
         );
         self::assertStringContainsString(
             'Classes/Alpha.php:2:',
-            $this->tool->execute(['pattern' => 'findMe\w+\(\)', 'regex' => true]),
+            $this->tool->execute(['pattern' => 'findMe\w+\(\)', 'regex' => true])->content,
         );
     }
 
     #[Test]
     public function capsResults(): void
     {
-        $output = $this->tool->execute(['pattern' => 'findMeHere', 'max_results' => 1]);
+        $output = $this->tool->execute(['pattern' => 'findMeHere', 'max_results' => 1])->content;
 
         self::assertStringContainsString('1 match(es)', $output);
         self::assertStringContainsString('(capped)', $output);
@@ -134,14 +134,14 @@ final class SearchCodeToolTest extends TestCase
         // so pin the exact denial message.
         self::assertSame(
             'Denied or not found: search path "..".',
-            $this->tool->execute(['pattern' => 'x', 'path' => '../']),
+            $this->tool->execute(['pattern' => 'x', 'path' => '../'])->content,
         );
     }
 
     #[Test]
     public function reportsNoMatches(): void
     {
-        self::assertStringContainsString('No matches', $this->tool->execute(['pattern' => 'zzz-not-there']));
+        self::assertStringContainsString('No matches', $this->tool->execute(['pattern' => 'zzz-not-there'])->content);
     }
 
     #[Test]
@@ -149,7 +149,7 @@ final class SearchCodeToolTest extends TestCase
     {
         // "findMe." is absent as a literal but, as a regex, matches "findMeH".
         // Without regex=true the tool must treat it literally -> no match.
-        self::assertStringContainsString('No matches', $this->tool->execute(['pattern' => 'findMe.']));
+        self::assertStringContainsString('No matches', $this->tool->execute(['pattern' => 'findMe.'])->content);
     }
 
     #[Test]
@@ -159,7 +159,7 @@ final class SearchCodeToolTest extends TestCase
 
         // "~" is the delimiter; it must be escaped in the pattern body, otherwise
         // "~a~b~" reads "b" as a modifier and the pattern is rejected as invalid.
-        $output = $this->tool->execute(['pattern' => 'a~b', 'regex' => true]);
+        $output = $this->tool->execute(['pattern' => 'a~b', 'regex' => true])->content;
 
         self::assertStringContainsString('Classes/Tilde.php:2:', $output);
         self::assertStringNotContainsString('invalid regular expression', $output);
@@ -173,7 +173,7 @@ final class SearchCodeToolTest extends TestCase
         // `find.{2}Here` appear nowhere in the fixture, so if the pre-filter
         // were (wrongly) applied in regex mode it would skip the file and this
         // assertion would fail.
-        $output = $this->tool->execute(['pattern' => 'find.{2}Here', 'regex' => true]);
+        $output = $this->tool->execute(['pattern' => 'find.{2}Here', 'regex' => true])->content;
 
         self::assertStringContainsString('Classes/Alpha.php:2:', $output);
     }
@@ -182,7 +182,7 @@ final class SearchCodeToolTest extends TestCase
     public function searchesWithinValidSubPath(): void
     {
         // A valid subdirectory resolves under the root and scopes the walk to it.
-        $output = $this->tool->execute(['pattern' => 'findMeHere', 'path' => 'Classes']);
+        $output = $this->tool->execute(['pattern' => 'findMeHere', 'path' => 'Classes'])->content;
 
         self::assertStringContainsString('Classes/Alpha.php:2:', $output);
         self::assertStringNotContainsString('Denied', $output);
@@ -193,7 +193,7 @@ final class SearchCodeToolTest extends TestCase
     public function searchesWholeRootWithDotPath(): void
     {
         // path="." resolves to the root itself; containment must accept root == candidate.
-        $output = $this->tool->execute(['pattern' => 'findMeHere', 'path' => '.']);
+        $output = $this->tool->execute(['pattern' => 'findMeHere', 'path' => '.'])->content;
 
         self::assertStringContainsString('Classes/Alpha.php:2:', $output);
         self::assertStringContainsString('Resources/notes.md:1:', $output);
@@ -205,7 +205,7 @@ final class SearchCodeToolTest extends TestCase
         // A file (not a directory) must be rejected by the is_dir() guard.
         self::assertStringContainsString(
             'Denied or not found',
-            $this->tool->execute(['pattern' => 'findMeHere', 'path' => 'Classes/Alpha.php']),
+            $this->tool->execute(['pattern' => 'findMeHere', 'path' => 'Classes/Alpha.php'])->content,
         );
     }
 
@@ -222,7 +222,7 @@ final class SearchCodeToolTest extends TestCase
             $output = $this->tool->execute([
                 'pattern' => 'findMeHere',
                 'path'    => '../' . basename($this->root) . 'x',
-            ]);
+            ])->content;
 
             self::assertStringContainsString('Denied or not found', $output);
             self::assertStringNotContainsString('Sib.php', $output);
@@ -236,7 +236,7 @@ final class SearchCodeToolTest extends TestCase
     {
         file_put_contents($this->root . '/Classes/Indent.php', "<?php\n    findMeHere indented\n");
 
-        $output = $this->tool->execute(['pattern' => 'findMeHere']);
+        $output = $this->tool->execute(['pattern' => 'findMeHere'])->content;
 
         // The leading indentation is trimmed: exactly ": findMeHere indented" follows the line number.
         self::assertStringContainsString('Classes/Indent.php:2: findMeHere indented', $output);
@@ -252,7 +252,7 @@ final class SearchCodeToolTest extends TestCase
         file_put_contents($this->root . '/Classes/Exact.php', $exact . "\n");
         file_put_contents($this->root . '/Classes/Multibyte.php', $multibyte . "\n");
 
-        $output = $this->tool->execute(['pattern' => 'findMeHere']);
+        $output = $this->tool->execute(['pattern' => 'findMeHere'])->content;
 
         self::assertStringContainsString('Classes/Exact.php:1: ' . $exact, $output);
         self::assertStringNotContainsString($exact . '…', $output);

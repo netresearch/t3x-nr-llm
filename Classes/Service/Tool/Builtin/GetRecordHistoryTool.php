@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -86,25 +87,25 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $table = trim(self::toStr($arguments['table'] ?? ''));
         $uid   = self::toInt($arguments['uid'] ?? 0);
         if ($table === '' || $uid < 1) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $user = $this->actingBackendUser();
         if (!$this->tableAccess->canReadTable($user, $table)) {
             // Same neutral string whether unknown, denylisted or unpermitted.
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         // Non-admins must hold PAGE_SHOW on the record's page (same gate as
         // read_records) — history values must not leak from unreadable pages.
         // Fail-closed: an unresolvable record (e.g. hard-deleted) denies too.
         if ($user !== null && !$user->isAdmin() && !$this->recordPageIsReadable($user, $table, $uid)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $fieldFilter = trim(self::toStr($arguments['field'] ?? ''));
@@ -113,7 +114,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
 
         $rows = $this->fetchHistory($table, $uid, $limit);
         if ($rows === []) {
-            return sprintf('No change history for %s:%d.', $table, $uid);
+            return ToolResult::text(sprintf('No change history for %s:%d.', $table, $uid));
         }
 
         $usernames = $this->resolveUsernames($rows);
@@ -138,13 +139,13 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         }
 
         if ($entries === []) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'No changes touching "%s" in the last %d history entries of %s:%d.',
                 $fieldFilter,
                 count($rows),
                 $table,
                 $uid,
-            );
+            ));
         }
 
         $header = sprintf(
@@ -159,7 +160,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
             $entries[] = sprintf('(%d entries not touching "%s" skipped.)', $skipped, $fieldFilter);
         }
 
-        return $header . "\n" . implode("\n", $entries);
+        return ToolResult::text($header . "\n" . implode("\n", $entries));
     }
 
     public function isEnabledByDefault(): bool

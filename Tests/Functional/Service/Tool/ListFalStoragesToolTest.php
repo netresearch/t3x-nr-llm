@@ -48,7 +48,7 @@ final class ListFalStoragesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Accessible file storages (1):', $output);
         self::assertStringContainsString('[1] Main storage (driver Local', $output);
@@ -60,6 +60,6 @@ final class ListFalStoragesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('No accessible file storages.', $this->tool->execute([]));
+        self::assertSame('No accessible file storages.', $this->tool->execute([])->content);
     }
 }

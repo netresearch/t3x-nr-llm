@@ -97,7 +97,7 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tx_demo_broken']);
+        $output = $this->tool->execute(['table' => 'tx_demo_broken'])->content;
 
         self::assertStringContainsString('ctrl.label "missing_label_column" is not a defined column', $output);
         self::assertStringContainsString('foreign_table "tx_does_not_exist" is not a TCA table', $output);
@@ -113,7 +113,7 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'No TCA issues found in table "tx_demo_clean".',
-            $this->tool->execute(['table' => 'tx_demo_clean']),
+            $this->tool->execute(['table' => 'tx_demo_clean'])->content,
         );
     }
 
@@ -124,7 +124,7 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'No TCA issues found in table "tx_demo_ctrlfields".',
-            $this->tool->execute(['table' => 'tx_demo_ctrlfields']),
+            $this->tool->execute(['table' => 'tx_demo_ctrlfields'])->content,
         );
     }
 
@@ -133,7 +133,7 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('tx_demo_broken: ctrl.label "missing_label_column"', $output);
         self::assertStringContainsString('Checked', $output);
@@ -146,7 +146,7 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users']),
+            $this->tool->execute(['table' => 'be_users'])->content,
         );
     }
 }

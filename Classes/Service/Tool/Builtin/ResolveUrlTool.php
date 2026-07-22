@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -75,56 +76,56 @@ final readonly class ResolveUrlTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $input = trim(self::toStr($arguments['url'] ?? ''));
         if ($input === '') {
-            return 'Error: "url" is required.';
+            return ToolResult::text('Error: "url" is required.');
         }
 
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $url = $this->absoluteUrl($input);
         if ($url === null) {
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
 
         try {
             $request     = new ServerRequest($url, 'GET');
             $routeResult = $this->siteMatcher->matchRequest($request);
         } catch (Throwable) {
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
 
         if (!$routeResult instanceof SiteRouteResult) {
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
         $site = $routeResult->getSite();
         if (!$site instanceof Site) {
             // NullSite: the host/path prefix belongs to no configured site.
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
 
         try {
             $pageArguments = $site->getRouter()->matchRequest($request, $routeResult);
         } catch (RouteNotFoundException) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'No page route matches "%s" on site "%s" — the slug may not exist, or the page is hidden/not translated.',
                 $this->pathOf($url),
                 $site->getIdentifier(),
-            );
+            ));
         } catch (Throwable) {
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
 
         if (!$pageArguments instanceof PageArguments) {
-            return self::NO_SITE;
+            return ToolResult::text(self::NO_SITE);
         }
 
-        return $this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin());
+        return ToolResult::text($this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin()));
     }
 
     public function isEnabledByDefault(): bool
