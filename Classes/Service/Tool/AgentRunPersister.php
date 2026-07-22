@@ -315,6 +315,32 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Suspend a run for typed user input (ADR-105): the input sibling of
+     * {@see self::suspend()}. Persists the transcript, pending calls and the
+     * tool's declared input schema (all inside $state) and moves the run to
+     * WAITING_FOR_INPUT. Fail-closed like suspend(): false when the state could
+     * not be stored (store error or a concurrent cancel won) — the caller then
+     * settles the run failed rather than promising a resume that cannot happen.
+     */
+    public function suspendForInput(AgentRunHandle $handle, SuspendedRunState $state): bool
+    {
+        try {
+            $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            if (!$this->repository->suspendRunForInput($handle->runUid, $stateJson)) {
+                $this->logger?->notice('AgentRun was no longer running when its input suspension arrived; it was discarded', ['run' => $handle->uuid]);
+
+                return false;
+            }
+
+            return true;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be suspended for input', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Load a persisted run by uuid. Exposed on the persister (a service) so a
      * controller can reach a run without depending on the repository directly
      * (the layered-architecture rule). Null when unknown or unavailable.
@@ -341,6 +367,23 @@ final readonly class AgentRunPersister
             return $this->repository->claimForResume($run->uid);
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be claimed for resume', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Atomically claim a WAITING_FOR_INPUT run before resuming it (ADR-105): the
+     * input sibling of {@see self::claimResume()}. Fail-closed — false if the
+     * claim is lost to a concurrent submission or the store errors — so the
+     * pending turn is never executed twice.
+     */
+    public function claimResumeFromInput(AgentRun $run): bool
+    {
+        try {
+            return $this->repository->claimForResumeFromInput($run->uid);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun could not be claimed for input resume', ['exception' => $exception]);
 
             return false;
         }
@@ -396,6 +439,34 @@ final readonly class AgentRunPersister
             ++$handle->sequence;
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun approval decision could not be persisted', ['exception' => $exception]);
+        }
+    }
+
+    /**
+     * Persist a user's input submission as the next event in the run's stream
+     * (ADR-105): kind {@see AgentEventKind::INPUT}, payload ``{submittedBy}``
+     * ONLY — never the submitted values, which are privacy-filtered content
+     * (ADR-064), mirroring {@see self::recordApproval()}'s who/when-not-what
+     * rule. Best-effort — a failure is logged, never blocks the continuation.
+     */
+    public function recordInput(AgentRunHandle $handle, int $submittedByBeUser): void
+    {
+        try {
+            $payload = json_encode(
+                ['submittedBy' => $submittedByBeUser],
+                JSON_THROW_ON_ERROR,
+            );
+            $this->repository->recordEvent(
+                $handle->runUid,
+                $handle->sequence,
+                AgentEventKind::INPUT->value,
+                0,
+                0.0,
+                $payload,
+            );
+            ++$handle->sequence;
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun input submission could not be persisted', ['exception' => $exception]);
         }
     }
 

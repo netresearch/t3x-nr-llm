@@ -21,7 +21,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'approval'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'approval', 'input'], AgentEventKind::values());
     }
 
     #[Test]
@@ -45,9 +45,11 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function fromRunStepKindReturnsNullForNonRunStepKinds(): void
     {
-        // 'approval' is a valid EVENT kind (ADR-101) but not a RunStep kind —
-        // it must not masquerade as one; hydrate stored kinds via tryFrom().
+        // 'approval' (ADR-101) and 'input' (ADR-105) are valid EVENT kinds but
+        // not RunStep kinds — they must not masquerade as one; hydrate stored
+        // kinds via tryFrom().
         self::assertNull(AgentEventKind::fromRunStepKind('approval'));
+        self::assertNull(AgentEventKind::fromRunStepKind('input'));
         self::assertNull(AgentEventKind::fromRunStepKind('artifact'));
     }
 }

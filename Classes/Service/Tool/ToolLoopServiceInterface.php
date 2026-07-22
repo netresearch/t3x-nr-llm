@@ -67,4 +67,25 @@ interface ToolLoopServiceInterface
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
     ): ToolLoopResult;
+
+    /**
+     * Resume a run suspended for typed user input (ADR-105) — the input sibling
+     * of {@see self::resume()}.
+     *
+     * Executes the pending turn's calls with the user's validated $inputData
+     * overlaid (bounded to the schema-declared keys) onto the input-requiring
+     * target; refuses a disabled sibling and any second input-requiring call.
+     * The gate is re-applied at resume time and the pre-suspend counters are
+     * folded into the returned totals, as approval resume does.
+     *
+     * @param array<string, mixed> $inputData validated against the tool's schema before this call
+     */
+    public function resumeWithInput(
+        SuspendedRunState $state,
+        array $inputData,
+        LlmConfiguration $configuration,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+        ?int $beUserUid = null,
+    ): ToolLoopResult;
 }

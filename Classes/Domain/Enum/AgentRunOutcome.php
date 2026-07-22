@@ -29,6 +29,11 @@ enum AgentRunOutcome: string
 {
     case COMPLETED = 'completed';
     case AWAITING_APPROVAL = 'awaiting_approval';
+    // A called tool suspended the run to request TYPED INPUT from the user
+    // (ADR-105). The row is WAITING_FOR_INPUT carrying the declared input schema;
+    // a later submitInput() validates the submission and resumes. Distinct from
+    // AWAITING_APPROVAL (approve/deny) — this collects data, not a verdict.
+    case AWAITING_INPUT = 'awaiting_input';
     case SUSPEND_FAILED = 'suspend_failed';
     case GUARDRAIL_BLOCKED = 'guardrail_blocked';
     case GUARDRAIL_APPROVAL_REQUIRED = 'guardrail_approval_required';

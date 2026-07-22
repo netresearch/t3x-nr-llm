@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -23,9 +24,11 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -83,6 +86,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // absent it the loop falls back to the gates it applied before, which
         // is what the lean unit-test wiring exercises.
         private ?ToolCallPolicyInterface $toolPolicy = null,
+        // Validates a user's typed input against a tool's declared schema
+        // (ADR-105). Optional for the lean test wiring; production always wires
+        // it. Absent it, resumeWithInput() skips its defence-in-depth
+        // re-validation (the runtime already validated before the claim).
+        private ?JsonSchemaValidator $schemaValidator = null,
     ) {}
 
     /**
@@ -227,6 +235,39 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     }
                 }
 
+                // Typed-input-in-the-loop (ADR-105): the input sibling of the
+                // approval scan above. Approval keeps strict precedence (its
+                // scan runs first); both suspend BEFORE any of the turn's calls
+                // execute, so a multi-call turn stays consistent. Fail-closed
+                // like the approval scan: only an OFFERED input tool pauses.
+                foreach ($resp->toolCalls ?? [] as $call) {
+                    $inputTool = $this->registry->get($call->name);
+                    if (in_array($call->name, $allowedNames, true)
+                        && $inputTool instanceof RequiresInputInterface) {
+                        $schema = $inputTool->getInputSchema();
+                        // Capture-time gate (ADR-105 M2): a RequiresInputInterface
+                        // tool with a degenerate schema is a programming error;
+                        // never persist a suspend that would rehydrate fail-open.
+                        if (!InputSchema::isUsable($schema)) {
+                            throw new LogicException(
+                                sprintf('Tool "%s" implements RequiresInputInterface but returned a degenerate input schema.', $call->name),
+                                1784600105,
+                            );
+                        }
+                        throw ToolInputRequiredException::fromState(new SuspendedRunState(
+                            array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
+                            array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
+                            $iterations,
+                            $promptTokens,
+                            $completionTokens,
+                            $allowedToolNames,
+                            $options?->toArray() ?? [],
+                            inputToolName: $call->name,
+                            inputSchema: $schema,
+                        ));
+                    }
+                }
+
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0                = hrtime(true);
                     [$result, $isError] = $this->invoke($call, $allowedNames);
@@ -325,6 +366,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             } elseif (!in_array($call->name, $offered, true)) {
                 $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
+                // ADR-105 M1 defence in depth: the approval-resume path carries no
+                // user input. An input-requiring pending call must NOT fail-open
+                // execute here without its data — refuse it, forcing the model to
+                // re-request via a fresh turn, which then hits the input scan and
+                // suspends for a proper submitInput(). (The dual approval+input
+                // marker is already banned at registration; this guards the case
+                // regardless.)
+                $result = sprintf('Error: tool "%s" requires user input that was not provided.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
                 $tt0                = hrtime(true);
                 [$result, $isError] = $this->invoke($call, $offered);
@@ -349,6 +400,102 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $state->promptTokens,
             $state->completionTokens,
         );
+    }
+
+    /**
+     * Resume a run suspended for typed user input (ADR-105) — the input sibling
+     * of {@see self::resume()}.
+     *
+     * Restores the run's allow-list and options, then executes the pending
+     * turn's calls: the input-requiring target ($state->inputToolName) runs with
+     * the human's validated data overlaid onto its arguments; a sibling call
+     * that has since been disabled is refused; a SECOND input-requiring call in
+     * the same turn is fail-closed-refused (one submission cannot satisfy two);
+     * any other (read-only) call runs normally. Then re-enters
+     * {@see self::runLoop()} with assembly skipped and the pre-suspend counters
+     * seeded, exactly as approval resume does — so multi-suspend cycles
+     * accumulate their totals.
+     *
+     * $inputData is validated by the caller (AgentRuntime, before the claim);
+     * it is re-validated here as defence in depth when a validator is wired.
+     *
+     * @param array<string, mixed> $inputData
+     */
+    public function resumeWithInput(
+        SuspendedRunState $state,
+        array $inputData,
+        LlmConfiguration $configuration,
+        ?int $maxIterations = null,
+        ?RunTrace $runTrace = null,
+        ?int $beUserUid = null,
+    ): ToolLoopResult {
+        // Defence in depth: do not trust the caller's "already validated" claim.
+        if ($this->schemaValidator !== null && !$this->schemaValidator->validate($inputData, $state->inputSchema)) {
+            throw new LogicException('resumeWithInput received input that does not match the declared schema.', 1784600106);
+        }
+
+        $messages     = $state->messages;
+        $pendingCalls = $state->toolCalls();
+        $options      = ToolOptions::fromArray($state->options, $beUserUid);
+        $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration);
+
+        foreach ($pendingCalls as $call) {
+            if (!in_array($call->name, $offered, true)) {
+                $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } elseif ($call->name === $state->inputToolName) {
+                $tt0                = hrtime(true);
+                [$result, $isError] = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered);
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+            } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
+                // A second input-requiring call in the same turn got no data —
+                // one submission satisfies one tool. Fail-closed refusal.
+                $result = sprintf('Error: tool "%s" requires input that was not provided.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } else {
+                $tt0                = hrtime(true);
+                [$result, $isError] = $this->invoke($call, $offered);
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+            }
+            $messages[] = ChatMessage::toolResult($call->id, $result);
+        }
+
+        return $this->runLoop(
+            $messages,
+            $configuration,
+            $state->allowedToolNames,
+            $options,
+            $maxIterations,
+            $runTrace,
+            null,
+            true,
+            $state->iterations,
+            $state->promptTokens,
+            $state->completionTokens,
+        );
+    }
+
+    /**
+     * Overlay the user's validated input onto the target tool call's arguments,
+     * bounded to the schema-declared keys (ADR-105 security): the model's own
+     * values for human-controlled keys are stripped, then ONLY schema-declared
+     * keys from the human are merged in. The model cannot smuggle a value into a
+     * human-controlled field, and the human cannot smuggle an undeclared
+     * argument into the call.
+     *
+     * @param array<string, mixed> $schema
+     * @param array<string, mixed> $inputData
+     */
+    private function withInput(ToolCall $call, array $schema, array $inputData): ToolCall
+    {
+        $properties = $schema['properties'] ?? [];
+        $declared   = is_array($properties) ? array_keys($properties) : [];
+        $keyMap     = array_flip(array_map(static fn(int|string $k): string => (string)$k, $declared));
+
+        $base  = array_diff_key($call->arguments, $keyMap);
+        $human = array_intersect_key($inputData, $keyMap);
+
+        return new ToolCall($call->id, $call->name, [...$base, ...$human], $call->type);
     }
 
     /**

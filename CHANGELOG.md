@@ -8,6 +8,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Typed user-input suspension (ADR-105): a tool may implement the new
+  `RequiresInputInterface` marker to declare an input schema and suspend the
+  agent run WAITING_FOR_INPUT until the user supplies typed data — the input
+  sibling of the ADR-084 approval flow. `AgentRuntimeInterface::submitInput()`
+  validates the submission against the tool's schema BEFORE claiming the run
+  (an invalid submission is rejected without consuming the claim, so it stays
+  resubmittable), records an `INPUT` audit event, overlays the validated values
+  onto the target tool's arguments (bounded to the schema-declared keys so
+  neither the model nor the user can smuggle a value into the other's field),
+  and resumes the loop. The playground exposes it at
+  `POST /nrllm/tool/submit-input` (admin-gated; invalid input → 422 while
+  re-signalling `awaiting_input`). Fail-closed throughout: a degenerate schema
+  is treated as corruption (never "accept anything"), a tool may not be both
+  approval- and input-gated (rejected at registration), and an unstorable
+  suspension fails as `SUSPEND_FAILED`. `AgentRunOutcome` gained
+  `AWAITING_INPUT`, `AgentEventKind` gained `INPUT`,
+  `AgentRunRepositoryInterface` gained `suspendRunForInput()` and
+  `claimForResumeFromInput()`, and `ToolLoopServiceInterface` gained
+  `resumeWithInput()`. No schema change — the input schema rides inside the
+  existing `suspended_state`.
 - Worker heartbeat, stale-run reaper, retry and dead-letter (ADR-104): a queue
   worker now renews its lease at every step boundary; if the renewal fails
   (the run was reclaimed) it stops without settling — the run belongs to its

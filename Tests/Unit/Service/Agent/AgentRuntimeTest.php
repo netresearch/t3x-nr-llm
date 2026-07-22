@@ -29,15 +29,19 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
@@ -822,6 +826,114 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aToolRequiringInputSuspendsTheRunAsAwaitingInput(): void
+    {
+        // ADR-105: a called tool raised ToolInputRequiredException — the run
+        // suspends WAITING_FOR_INPUT carrying the declared schema, not FAILED.
+        $runtime = $this->runtime($this->loopThrowing(ToolInputRequiredException::fromState($this->inputState())));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::AWAITING_INPUT, $result->outcome);
+        self::assertSame('ask_user', $result->suspendedState?->inputToolName);
+        self::assertNotNull($this->repository->suspendedForInput);
+        // A successful input suspension is non-terminal: the finally-guard must
+        // NOT flip it to FAILED.
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function aFailedInputSuspensionFailsClosedAsSuspendFailed(): void
+    {
+        $this->repository->refuseSuspendForInput = true;
+        $runtime = $this->runtime($this->loopThrowing(ToolInputRequiredException::fromState($this->inputState())));
+
+        $result = $runtime->run($this->request());
+
+        // No stored state means no resume — fail closed, never announce awaiting.
+        self::assertSame(AgentRunOutcome::SUSPEND_FAILED, $result->outcome);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function submitInputValidatesClaimsRecordsAndResumes(): void
+    {
+        $this->repository->findResult = $this->inputRun();
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('answered')))
+            ->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        // The claim was consumed exactly once and an INPUT audit event recorded.
+        self::assertSame(1, $this->repository->inputClaimsGranted);
+        self::assertSame('input', $this->repository->events[0]['kind'] ?? null);
+        self::assertNotNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function submitInputRejectsInvalidInputWithoutConsumingTheClaim(): void
+    {
+        // The required 'city' is missing → schema validation fails BEFORE the
+        // claim, so the run stays WAITING_FOR_INPUT and can be resubmitted.
+        $this->repository->findResult = $this->inputRun();
+
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        try {
+            $runtime->submitInput('run-uuid-i', new InputSubmission([], 7));
+            self::fail('Expected InvalidInputSubmissionException');
+        } catch (InvalidInputSubmissionException) {
+            // expected
+        }
+
+        self::assertSame(0, $this->repository->inputClaimsGranted);
+        self::assertSame([], $this->repository->events);
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function submitInputThrowsWhenTheRunIsNotAwaitingInput(): void
+    {
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        // Unknown run.
+        $this->expectException(RunNotAwaitingInputException::class);
+        $runtime->submitInput('unknown', new InputSubmission(['city' => 'Berlin'], 7));
+    }
+
+    #[Test]
+    public function submitInputThrowsCorruptStateForADegenerateSchema(): void
+    {
+        // A rehydrated input state with an empty schema must NOT validate against
+        // [] (accept-all) — it is corruption, fail closed (ADR-105 M2).
+        $state = new SuspendedRunState([['role' => 'user', 'content' => 'x']], [], 1, 0, 0, ['ask_user'], [], 'ask_user', []);
+        $encoded = json_encode($state->toArray());
+        \assert(is_string($encoded));
+        $this->repository->findResult = $this->inputRun($encoded);
+
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
+
+        $this->expectException(CorruptSuspendedStateException::class);
+        $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+    }
+
+    #[Test]
+    public function aSecondConcurrentSubmitInputLosesTheClaim(): void
+    {
+        $this->repository->findResult = $this->inputRun();
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
+
+        // First submission wins the atomic claim and resumes.
+        $first = $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+        self::assertSame(AgentRunOutcome::COMPLETED, $first->outcome);
+
+        // A second submission (the fixture grants only the first claim) is refused.
+        $this->expectException(RunAlreadyResumingException::class);
+        $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Hamburg'], 7));
+    }
+
+    #[Test]
     public function cancelDelegatesToTheGuardedTransition(): void
     {
         $this->repository->findResult = $this->suspendedRun();
@@ -1014,6 +1126,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturn($result);
         $loop->method('resume')->willReturn($result);
+        $loop->method('resumeWithInput')->willReturn($result);
 
         return $loop;
     }
@@ -1034,6 +1147,56 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             1,
             5,
             2,
+        );
+    }
+
+    /**
+     * @return array<string, mixed> the input schema used by the input-pause fixtures
+     */
+    private function inputSchema(): array
+    {
+        return ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']];
+    }
+
+    private function inputState(): SuspendedRunState
+    {
+        return new SuspendedRunState(
+            [['role' => 'user', 'content' => 'weather?']],
+            [['id' => 'call_1', 'name' => 'ask_user', 'arguments' => []]],
+            1,
+            5,
+            2,
+            ['ask_user'],
+            [],
+            'ask_user',
+            $this->inputSchema(),
+        );
+    }
+
+    private function inputRun(?string $stateJson = null): AgentRun
+    {
+        $encoded = $stateJson ?? json_encode($this->inputState()->toArray());
+        \assert(is_string($encoded));
+
+        return new AgentRun(
+            uid: 1,
+            uuid: 'run-uuid-i',
+            status: 'waiting_for_input',
+            configurationUid: 1,
+            configurationIdentifier: 'cfg',
+            beUser: 9,
+            iterations: 1,
+            truncated: false,
+            totalPromptTokens: 5,
+            totalCompletionTokens: 2,
+            totalTokens: 7,
+            estimatedCost: 0.0,
+            errorClass: '',
+            terminationReason: '',
+            startedAt: 0,
+            finishedAt: 0,
+            crdate: 0,
+            suspendedState: $encoded,
         );
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -23,15 +24,18 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -908,6 +912,185 @@ final class ToolLoopServiceTest extends TestCase
         $service->runLoop([$this->userTurn('go')], $configuration, ['content_tool', 'system_tool']);
 
         self::assertSame(['content_tool'], $captured, 'A tool outside the configuration\'s groups must never be offered.');
+    }
+
+    #[Test]
+    public function suspendsForInputWhenAnOfferedInputToolIsCalled(): void
+    {
+        // ADR-105: the model called an input-requiring tool — the loop suspends
+        // carrying that tool's name and its declared schema.
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'ask_user', [])]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user')]));
+
+        $state = null;
+        try {
+            $service->runLoop([$this->userTurn('weather?')], new LlmConfiguration(), ['ask_user']);
+            self::fail('Expected the run to suspend for input.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertSame('ask_user', $state->inputToolName);
+        self::assertArrayHasKey('properties', $state->inputSchema);
+    }
+
+    #[Test]
+    public function aDegenerateInputSchemaThrowsAtCaptureTime(): void
+    {
+        // ADR-105 M2: a RequiresInputInterface tool with an empty schema is a
+        // programming error — never persist a suspend that would rehydrate
+        // fail-open (validating against []).
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'ask_user', [])]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user', [])]));
+
+        $this->expectException(LogicException::class);
+        $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['ask_user']);
+    }
+
+    #[Test]
+    public function doesNotSuspendForARegisteredInputToolThatIsNotOffered(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'ask_user', [])]),
+            $this->response('handled'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user'), new FakeTool('safe_tool')]));
+
+        // ask_user is registered but NOT offered: a model naming it is refused by
+        // the gate, not turned into a spurious input suspension.
+        $result = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ['safe_tool']);
+
+        self::assertSame('handled', $result->finalContent);
+        self::assertTrue($result->trace[0]->isError);
+    }
+
+    #[Test]
+    public function resumeWithInputOverlaysHumanDataBoundedToDeclaredKeys(): void
+    {
+        $tool = new FakeInputTool('ask_user');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        // After the pending call runs, the follow-up turn has no tool calls.
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        // The model guessed 'city' AND passed an undeclared 'note'.
+        $state = new SuspendedRunState(
+            [$this->userTurn('weather?'), ['role' => 'assistant', 'content' => '', 'tool_calls' => [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{"city":"ModelGuess","note":"keep"}']]]]],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{"city":"ModelGuess","note":"keep"}']]],
+            1,
+            5,
+            2,
+            ['ask_user'],
+            [],
+            'ask_user',
+            ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']],
+        );
+
+        // The human supplies the declared 'city' and an undeclared 'evil'.
+        $service->resumeWithInput($state, ['city' => 'Berlin', 'evil' => 'x'], new LlmConfiguration());
+
+        // 'city' comes from the human (model's guess stripped); 'note' (model,
+        // undeclared) is kept; 'evil' (human, undeclared) is dropped.
+        self::assertSame(['note' => 'keep', 'city' => 'Berlin'], $tool->capturedArguments);
+    }
+
+    #[Test]
+    public function resumeWithInputRefusesASecondInputToolInTheSameTurn(): void
+    {
+        $first  = new FakeInputTool('ask_user');
+        $second = new FakeInputTool('ask_more');
+        $mgr    = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $service = $this->service($mgr, new ToolRegistry([$first, $second]));
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('go')],
+            [
+                ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']],
+                ['id' => 'call_2', 'type' => 'function', 'function' => ['name' => 'ask_more', 'arguments' => '{}']],
+            ],
+            1,
+            0,
+            0,
+            ['ask_user', 'ask_more'],
+            [],
+            'ask_user',
+            ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]],
+        );
+
+        $trace = new RunTrace();
+        $service->resumeWithInput($state, ['city' => 'Berlin'], new LlmConfiguration(), null, $trace);
+
+        // The second input tool got no data — fail-closed refusal, never executed.
+        self::assertNull($second->capturedArguments);
+        $refused = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolIsError));
+        self::assertNotSame([], $refused);
+    }
+
+    #[Test]
+    public function approvalResumeRefusesAnInputRequiringPendingCall(): void
+    {
+        // ADR-105 M1 defence in depth: the approval-resume path carries no input;
+        // an input-requiring pending call must be refused, never fail-open run.
+        $tool = new FakeInputTool('ask_user');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('go')],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']]],
+            1,
+            0,
+            0,
+            ['ask_user'],
+            [],
+        );
+
+        $service->resume($state, true, new LlmConfiguration());
+
+        self::assertNull($tool->capturedArguments);
+    }
+
+    #[Test]
+    public function resumeWithInputRejectsCallerUnvalidatedData(): void
+    {
+        // Defence in depth: with a validator wired, resumeWithInput re-checks the
+        // input and refuses data that does not match the declared schema.
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $service = new ToolLoopService(
+            $mgr,
+            new ToolRegistry([new FakeInputTool('ask_user')]),
+            new FakeToolAvailability(['ask_user']),
+            null,
+            5,
+            null,
+            null,
+            null,
+            null,
+            new JsonSchemaValidator(),
+        );
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('go')],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']]],
+            1,
+            0,
+            0,
+            ['ask_user'],
+            [],
+            'ask_user',
+            ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']],
+        );
+
+        $this->expectException(LogicException::class);
+        // Missing the required 'city'.
+        $service->resumeWithInput($state, [], new LlmConfiguration());
     }
 
     private function service(

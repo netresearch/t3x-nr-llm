@@ -99,6 +99,32 @@ interface AgentRuntimeInterface
     public function approve(string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult;
 
     /**
+     * Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105) and
+     * synchronously continue it. The input sibling of {@see self::approve()}:
+     * the submission is validated against the tool's declared schema BEFORE the
+     * run is claimed, so an invalid submission is rejected without consuming the
+     * claim and the user can resubmit while the run stays WAITING_FOR_INPUT.
+     * A valid submission is claimed atomically (two concurrent submissions
+     * cannot both resume), persisted as an INPUT event, overlaid onto the target
+     * tool's arguments (bounded to the schema-declared keys), and the loop
+     * re-entered — coming back as a settled result like {@see self::run()}.
+     *
+     * Trust boundary: the submitted values are UNTRUSTED content that flow into
+     * the tool's arguments and back into the model context; the submit entry
+     * point is admin-gated, which is the injection mitigation (structure-only
+     * schema validation does not sanitise content).
+     *
+     * @param (Closure(RunStep): void)|null $onStep as in {@see self::run()}
+     *
+     * @throws AgentRuntimeException when the request is invalid before any
+     *                               execution: RunNotAwaitingInput,
+     *                               RunConfigurationGone, CorruptSuspendedState,
+     *                               InvalidInputSubmission, RunStateUnavailable,
+     *                               RunAlreadyResuming
+     */
+    public function submitInput(string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult;
+
+    /**
      * Cancel a run that is still queued, running or awaiting a decision. True
      * when this call cancelled it; false when the run is unknown or already
      * terminal (the guarded transition decides, so two concurrent cancels

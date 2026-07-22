@@ -172,6 +172,11 @@ return [
         'path' => '/nrllm/tool/resume',
         'target' => ToolPlaygroundController::class . '::resumeAction',
     ],
+    // Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105)
+    'nrllm_tool_submit_input' => [
+        'path' => '/nrllm/tool/submit-input',
+        'target' => ToolPlaygroundController::class . '::submitInputAction',
+    ],
     // Tool management route (global enable/disable)
     'nrllm_tool_toggle' => [
         'path' => '/nrllm/tool/toggle',

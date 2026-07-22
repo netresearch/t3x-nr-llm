@@ -30,6 +30,11 @@ enum AgentEventKind: string
     case TOOL = 'tool';
     case ASSEMBLED = 'assembled';
     case APPROVAL = 'approval';
+    // Emitted by the AgentRuntime when an operator submits typed input for a run
+    // suspended WAITING_FOR_INPUT (ADR-105), payload ``{submittedBy: int}`` — the
+    // who/when, never the submitted values (ADR-064). Like APPROVAL it is NOT a
+    // RunStep kind.
+    case INPUT = 'input';
 
     /**
      * @return list<string>
@@ -50,12 +55,12 @@ enum AgentEventKind: string
      * known one. Deliberately restricted to the four RunStep kinds: APPROVAL is
      * an AgentRuntime event, not a RunStep, so it must not resolve here even
      * though it is a valid stored event kind (use {@see self::tryFrom()} to
-     * hydrate a stored kind).
+     * hydrate a stored kind). INPUT (ADR-105) is excluded for the same reason.
      */
     public static function fromRunStepKind(string $kind): ?self
     {
         $case = self::tryFrom($kind);
 
-        return $case === self::APPROVAL ? null : $case;
+        return in_array($case, [self::APPROVAL, self::INPUT], true) ? null : $case;
     }
 }

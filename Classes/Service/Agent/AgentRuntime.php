@@ -27,18 +27,23 @@ use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
@@ -108,6 +113,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         private ?MessageBusInterface $messageBus = null,
         private ?SkillRepository $skillRepository = null,
         private ?PromptSnippetRepository $promptSnippetRepository = null,
+        // Validates a submitted input against a tool's declared schema (ADR-105).
+        // Optional in the ctor only so the lean test wiring and the positional
+        // construction sites keep working; submitInput() always validates,
+        // falling back to a fresh stateless validator when none was injected.
+        private ?JsonSchemaValidator $schemaValidator = null,
     ) {}
 
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult
@@ -617,6 +627,81 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         );
     }
 
+    public function submitInput(string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
+            throw RunNotAwaitingInputException::forRun($runUuid);
+        }
+
+        $configuration = $this->configurationRepository->findByUid($run->configurationUid);
+        if ($configuration === null) {
+            throw RunConfigurationGoneException::forRun($runUuid);
+        }
+
+        $decoded = json_decode($run->suspendedState, true);
+        if (!is_array($decoded)) {
+            throw CorruptSuspendedStateException::forRun($runUuid);
+        }
+        $state = SuspendedRunState::fromArray($decoded);
+
+        // Well-formedness gate (ADR-105 M2): an input suspension with no target
+        // tool or a degenerate schema is corruption, never "accept anything".
+        // validate($data, []) returns true, so this path must be unreachable
+        // before the validation below — a corrupt row is a 500, not resumable.
+        if ($state->inputToolName === null || $state->inputToolName === '' || !InputSchema::isUsable($state->inputSchema)) {
+            throw CorruptSuspendedStateException::forRun($runUuid);
+        }
+
+        // DIVERGENCE from approve() (ADR-105): validate the submission BEFORE
+        // probing or claiming. A rejection leaves the run WAITING_FOR_INPUT with
+        // nothing claimed and no event recorded, so the user can simply resubmit.
+        $validator = $this->schemaValidator ?? new JsonSchemaValidator();
+        if (!$validator->validate($submission->data, $state->inputSchema)) {
+            throw InvalidInputSubmissionException::forRun($runUuid);
+        }
+
+        // From here the flow is identical to approve(): probe-before-claim,
+        // atomic claim, re-resolve the stream position from a fresh row.
+        if ($this->persister->resumeHandle($run) === null) {
+            throw RunStateUnavailableException::forRun($runUuid);
+        }
+
+        if (!$this->persister->claimResumeFromInput($run)) {
+            throw RunAlreadyResumingException::forRun($runUuid);
+        }
+
+        $claimed = $this->persister->findRun($runUuid);
+        $handle  = $claimed !== null ? $this->persister->resumeHandle($claimed) : null;
+        if ($handle === null) {
+            $this->persister->settleFailed(
+                new AgentRunHandle($run->uid, $run->uuid),
+                new RuntimeException('The event-stream position could not be determined after the resume claim'),
+            );
+
+            throw RunStateUnavailableException::forRun($runUuid);
+        }
+
+        // The submission is part of the run's audit stream (best-effort): who
+        // submitted, before the continuation's own events — never the values.
+        $this->persister->recordInput($handle, $submission->submittedByBeUser);
+
+        $trace = $this->trace($handle, $onStep, false);
+
+        return $this->execute(
+            $handle,
+            $trace,
+            fn(): ToolLoopResult => $this->toolLoop->resumeWithInput(
+                $state,
+                $submission->data,
+                $configuration,
+                null,
+                $trace,
+                $submission->submittedByBeUser,
+            ),
+        );
+    }
+
     public function cancel(string $runUuid): bool
     {
         return $this->persister->cancel($runUuid);
@@ -799,6 +884,40 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 steps: $trace->getSteps(),
                 error: $approval,
             );
+        } catch (ToolInputRequiredException $input) {
+            // ADR-105: a called tool requires typed user input — control flow,
+            // not failure (the input sibling of the approval arm above). Must be
+            // caught before the guardrail pair and the generic Throwable so a
+            // suspension is never recorded as a failed run. Both branches settle
+            // the run's fate, so $settled=true keeps the finally-guard off — a
+            // successfully-suspended WAITING_FOR_INPUT row is non-terminal and
+            // must not be flipped to FAILED.
+            $settled = true;
+
+            if ($handle !== null && $this->persister->suspendForInput($handle, $input->state)) {
+                return new AgentRunResult(
+                    outcome: AgentRunOutcome::AWAITING_INPUT,
+                    runUuid: $runUuid,
+                    steps: $trace->getSteps(),
+                    suspendedState: $input->state,
+                );
+            }
+
+            // Fail-closed (ADR-092/105): without stored state — the store
+            // refused or errored, a concurrent cancel terminated the row, or the
+            // run was never persisted (null handle) — there is nothing to resume,
+            // so promising an input flow would strand the client.
+            if ($handle !== null) {
+                $this->persister->settleFailed($handle, $input);
+            }
+            $this->logger?->error('Agent run could not be suspended for input; no resume is possible', ['run' => $runUuid]);
+
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::SUSPEND_FAILED,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                error: $input,
+            );
         } catch (GuardrailViolationException|GuardrailApprovalRequiredException $guardrail) {
             // ADR-085/086: a guardrail verdict is a policy outcome, not a
             // failure — and an approval that was required but never obtained
@@ -869,8 +988,8 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // abandon the run before any branch settles it; mark it failed so
             // no run is left stuck RUNNING. Mirrors StreamingDispatcher's
             // finally-block settle. Guarded by $settled: a suspended run is
-            // WAITING_FOR_APPROVAL — non-terminal — and settling it here would
-            // destroy its resumable state.
+            // WAITING_FOR_APPROVAL or WAITING_FOR_INPUT — both non-terminal — and
+            // settling it here would destroy its resumable state.
             if ($handle !== null && !$settled) {
                 $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'));
             }
