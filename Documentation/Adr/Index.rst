@@ -404,3 +404,4 @@ Tools
    Adr104StaleRunReaperAndRetry
    Adr105TypedInputSuspension
    Adr106PerConfigurationGuardrailPolicy
+   Adr107ContextWindowManagement

@@ -16,12 +16,14 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
@@ -1091,6 +1093,75 @@ final class ToolLoopServiceTest extends TestCase
         $this->expectException(LogicException::class);
         // Missing the required 'city'.
         $service->resumeWithInput($state, [], new LlmConfiguration());
+    }
+
+    #[Test]
+    public function theContextWindowManagerPrunedTranscriptIsWhatGetsSent(): void
+    {
+        // ADR-107: the loop sends the manager's pruned array, not the original.
+        $captured = [];
+        $mgr      = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (array $messages) use (&$captured): CompletionResponse {
+                $captured = $messages;
+
+                return $this->response('done');
+            },
+        );
+
+        $pruned  = [$this->userTurn('PRUNED')];
+        $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
+            new ContextFitResult($pruned, true, 2, 1, 10, 100, false, 1.15),
+        ));
+
+        $service->runLoop([$this->userTurn('a'), $this->userTurn('b')], new LlmConfiguration(), null);
+
+        self::assertSame($pruned, $captured);
+    }
+
+    #[Test]
+    public function overflowAtFloorTerminatesContextTruncatedWithoutAProviderCall(): void
+    {
+        // ADR-107: even the floor overflows -> no provider call, legible stop.
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+        $mgr->expects(self::never())->method('chatWithConfiguration');
+
+        $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
+            new ContextFitResult([], false, 0, 1, 999999, 100, true, 1.15),
+        ));
+
+        $result = $service->runLoop([$this->userTurn('x')], new LlmConfiguration(), null);
+
+        self::assertSame(AgentRunTerminationReason::CONTEXT_TRUNCATED, $result->terminationReason);
+        self::assertTrue($result->truncated);
+    }
+
+    private function fakeContextWindow(ContextFitResult $result): ContextWindowManagerInterface
+    {
+        $manager = self::createStub(ContextWindowManagerInterface::class);
+        $manager->method('fit')->willReturn($result);
+
+        return $manager;
+    }
+
+    private function serviceWithContextWindow(LlmServiceManagerInterface $mgr, ContextWindowManagerInterface $contextWindow): ToolLoopService
+    {
+        $registry = new ToolRegistry([new FakeTool('noop')]);
+
+        return new ToolLoopService(
+            $mgr,
+            $registry,
+            new FakeToolAvailability($registry->names()),
+            null,
+            5,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $contextWindow,
+        );
     }
 
     private function service(

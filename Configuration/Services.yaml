@@ -50,6 +50,12 @@ services:
   Netresearch\NrLlm\Service\TestPromptResolverInterface:
     alias: Netresearch\NrLlm\Service\TestPromptResolverService
 
+  # Agent-loop context-window management (ADR-107). Aliased so ToolLoopService's
+  # optional collaborator autowires; the manager is stateful per run and
+  # self-resets on each loop's first send.
+  Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface:
+    alias: Netresearch\NrLlm\Service\Context\ContextWindowManager
+
   Netresearch\NrLlm\Service\UsageTrackerServiceInterface:
     alias: Netresearch\NrLlm\Service\UsageTrackerService
     public: true

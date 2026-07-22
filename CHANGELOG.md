@@ -19,6 +19,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Agent-loop context-window management (ADR-107): an optional
+  `ContextWindowManager` keeps the tool loop's growing transcript within the
+  model's context window by dropping the oldest whole tool-call turns —
+  preserving the tool-call/tool-result pairing, the leading system/task
+  messages and the newest turn — before each provider send. The token estimate
+  errs high (a content-class-aware char heuristic that counts dense JSON/tool
+  payloads more heavily, calibrated up against real usage), so it never
+  under-prunes into an overflow. When even the pruned floor exceeds the window
+  no request is sent: the run ends on the new non-retryable
+  `AgentRunTerminationReason::CONTEXT_TRUNCATED` instead of a misclassified
+  provider 4xx. Absent the collaborator (lean wiring) the loop is unchanged.
+  Streaming is out of scope.
 - Per-configuration guardrail policies (ADR-106): an `LlmConfiguration` can now
   select which OPTIONAL guardrails apply via a new `allowed_guardrails` field;
   MANDATORY guardrails (secret redaction) always run and are never selectable.
