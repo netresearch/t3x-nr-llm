@@ -1,0 +1,30 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<f:for each="{run.pendingCalls}" as="call">
+    <div class="mb-2">
+        <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.pendingCall" default="Pending tool call" />:</strong>
+        <code>{call.name}</code>
+        <f:if condition="{call.toolStillRegistered} == false">
+            <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
+        </f:if>
+        <details class="mt-1">
+            <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.arguments" default="Arguments" /></summary>
+            <pre class="mt-1 mb-0"><code>{call.argumentsJson}</code></pre>
+        </details>
+    </div>
+</f:for>
+
+<f:form action="approve" method="post">
+    <f:form.hidden name="runUuid" value="{run.runUuid}" />
+    <f:form.hidden name="turnDigest" value="{run.turnDigest}" />
+    <div class="btn-group" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.decisionGroup', arguments: {0: run.configLabel})}">
+        <button type="submit" name="approve" value="1" class="btn btn-primary">
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.approve" default="Approve" />
+        </button>
+        <button type="submit" name="approve" value="0" class="btn btn-default">
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.deny" default="Deny" />
+        </button>
+    </div>
+</f:form>

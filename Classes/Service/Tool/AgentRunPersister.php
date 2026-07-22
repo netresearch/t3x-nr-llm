@@ -357,6 +357,44 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Runs awaiting a human decision, for the approvals inbox (ADR-084/105).
+     * Fail-soft but HONEST: `null` strictly on a store error (so the controller
+     * shows a visible load error instead of a silent empty inbox that could hide
+     * waiting runs behind a DB hiccup), an empty list when there genuinely are
+     * none. Exposed on the persister so the controller does not depend on the
+     * repository directly (the layered-architecture rule).
+     *
+     * @return list<AgentRun>|null null on a load error, else the (possibly empty) list
+     */
+    public function findAwaitingRuns(int $limit = 100): ?array
+    {
+        try {
+            return $this->repository->findAwaiting($limit);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('Awaiting agent runs could not be loaded', ['exception' => $exception]);
+
+            return null;
+        }
+    }
+
+    /**
+     * The most recent terminal runs for the inbox's read-only context. Fail-soft
+     * and honest like {@see findAwaitingRuns()}: `null` on error, else the list.
+     *
+     * @return list<AgentRun>|null null on a load error, else the (possibly empty) list
+     */
+    public function findRecentTerminalRuns(int $limit = 20): ?array
+    {
+        try {
+            return $this->repository->findRecentTerminal($limit);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('Recent terminal agent runs could not be loaded', ['exception' => $exception]);
+
+            return null;
+        }
+    }
+
+    /**
      * Atomically claim a suspended run before resuming it (ADR-084). Fail-closed:
      * returns false — refusing the resume — if the claim is lost to a concurrent
      * approval or the store errors, so the gated tool is never double-executed.

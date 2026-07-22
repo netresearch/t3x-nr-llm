@@ -1,0 +1,40 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<f:if condition="{terminal}">
+    <f:then>
+        <div class="table-fit">
+            <table class="table table-striped">
+                <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.heading.terminal" default="Recent runs" /></caption>
+                <thead>
+                    <tr>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.config" default="Configuration" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.status" default="Status" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.created" default="Created" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.finished" default="Finished" /></th>
+                        <th scope="col" class="text-end"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <f:for each="{terminal}" as="run">
+                        <tr>
+                            <td><code>{run.configLabel}</code></td>
+                            <td>{run.status}</td>
+                            <td><f:format.date date="@{run.createdAt}" format="Y-m-d H:i" /></td>
+                            <td>
+                                <f:if condition="{run.finishedAt} > 0"><f:format.date date="@{run.finishedAt}" format="Y-m-d H:i" /></f:if>
+                            </td>
+                            <td class="text-end">
+                                <f:if condition="{run.formattedCost}">{run.formattedCost}</f:if>
+                            </td>
+                        </tr>
+                    </f:for>
+                </tbody>
+            </table>
+        </div>
+    </f:then>
+    <f:else>
+        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.empty" default="No recent runs." /></p>
+    </f:else>
+</f:if>

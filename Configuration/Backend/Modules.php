@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
@@ -234,6 +235,26 @@ return [
         'controllerActions' => [
             ToolPlaygroundController::class => [
                 'list',
+            ],
+        ],
+    ],
+    // Agent Runs approvals inbox - child of main module (ADR-109)
+    // Admin-only: surfaces runs suspended WAITING_FOR_APPROVAL (ADR-084) or
+    // WAITING_FOR_INPUT (ADR-105) and lets an admin approve/deny or submit the
+    // required typed input. Native <form> PRG, no AjaxRoutes; access => admin is
+    // the sole authorization gate for all three actions.
+    'nrllm_runs' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-runs',
+        'path' => '/module/nrllm/runs',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            AgentRunController::class => [
+                'list',
+                'approve',
+                'submitInput',
             ],
         ],
     ],

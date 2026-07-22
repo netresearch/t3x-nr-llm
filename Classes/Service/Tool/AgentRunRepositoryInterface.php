@@ -146,6 +146,24 @@ interface AgentRunRepositoryInterface
     public function findByUuid(string $uuid): ?AgentRun;
 
     /**
+     * Runs awaiting a human decision — WAITING_FOR_APPROVAL or WAITING_FOR_INPUT
+     * (ADR-084/105) — oldest first (FIFO), carrying suspended_state so the
+     * approvals inbox can surface the pending tool call / input schema.
+     *
+     * @return list<AgentRun>
+     */
+    public function findAwaiting(int $limit = 100): array;
+
+    /**
+     * The most recent terminal runs (completed, failed, cancelled), newest
+     * first — read-only context for the approvals inbox. suspended_state is not
+     * needed here and is deliberately not surfaced (ADR-064).
+     *
+     * @return list<AgentRun>
+     */
+    public function findRecentTerminal(int $limit = 20): array;
+
+    /**
      * @param int $afterSequence only events with sequence > this value; -1
      *                           (the default) returns the full stream. Filtered
      *                           in SQL so a poller does not re-hydrate the whole

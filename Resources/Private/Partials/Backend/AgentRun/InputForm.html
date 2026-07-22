@@ -1,0 +1,45 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<f:if condition="{errorRunUuid} == {run.runUuid}">
+    <div id="input-errors-{run.runUuid}" tabindex="-1" autofocus="autofocus" class="callout callout-danger mb-3">
+        <h4 class="h6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.error.summaryHeading" default="Your input could not be submitted" /></h4>
+        <p class="mb-0">{errorSummary}</p>
+    </div>
+</f:if>
+
+<f:form action="submitInput" method="post">
+    <f:form.hidden name="runUuid" value="{run.runUuid}" />
+    <fieldset>
+        <legend class="h6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.why.input" default="Waiting for typed input" /></legend>
+
+        <f:for each="{run.inputFields}" as="field">
+            <f:variable name="fid">f-{run.runUuid}-{field.name}</f:variable>
+            <f:variable name="did">d-{run.runUuid}-{field.name}</f:variable>
+            <div class="form-group mb-3">
+                <f:if condition="{field.controlType} == 'checkbox'">
+                    <f:then>
+                        <f:render partial="Backend/AgentRun/FieldCheckbox" arguments="{field: field, fid: fid, did: did}" />
+                    </f:then>
+                    <f:else>
+                        <f:if condition="{field.controlType} == 'unsupported'">
+                            <f:then>
+                                <label class="form-label">{field.label}</label>
+                                <p class="text-body-secondary mb-0"><em><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.field.unsupported" default="This field type is not supported in this form." /></em></p>
+                            </f:then>
+                            <f:else>
+                                <label class="form-label" for="{fid}">{field.label}<f:if condition="{field.required}"><span aria-hidden="true"> *</span></f:if></label>
+                                <f:form.textfield class="form-control" id="{fid}" name="input[{field.name}]" type="{field.htmlType}" required="{field.required}" value="{rawInput.{field.name}}" additionalAttributes="{step: '{field.step}', inputmode: '{field.inputMode}', aria-describedby: '{did}'}" />
+                                <small id="{did}" class="form-text text-body-secondary">{field.description}</small>
+                            </f:else>
+                        </f:if>
+                    </f:else>
+                </f:if>
+            </div>
+        </f:for>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.submit" default="Submit input" />
+    </button>
+</f:form>

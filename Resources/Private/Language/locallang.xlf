@@ -1925,6 +1925,98 @@
             <trans-unit id="overview.dev.description">
                 <source>Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring.</source>
             </trans-unit>
+
+            <!-- Agent Runs approvals inbox (ADR-109) -->
+            <trans-unit id="runs.heading.waiting">
+                <source>Awaiting your decision</source>
+            </trans-unit>
+            <trans-unit id="runs.heading.terminal">
+                <source>Recent runs</source>
+            </trans-unit>
+            <trans-unit id="runs.empty">
+                <source>No runs are waiting for a decision.</source>
+            </trans-unit>
+            <trans-unit id="runs.dataLoadError">
+                <source>Runs could not be loaded. Some waiting runs may be hidden.</source>
+            </trans-unit>
+            <trans-unit id="runs.why.approval">
+                <source>Waiting for approval of a tool call</source>
+            </trans-unit>
+            <trans-unit id="runs.why.input">
+                <source>Waiting for typed input</source>
+            </trans-unit>
+            <trans-unit id="runs.pendingCall">
+                <source>Pending tool call</source>
+            </trans-unit>
+            <trans-unit id="runs.arguments">
+                <source>Arguments</source>
+            </trans-unit>
+            <trans-unit id="runs.approve">
+                <source>Approve</source>
+            </trans-unit>
+            <trans-unit id="runs.deny">
+                <source>Deny</source>
+            </trans-unit>
+            <trans-unit id="runs.decisionGroup">
+                <source>Decision for run %s</source>
+            </trans-unit>
+            <trans-unit id="runs.submit">
+                <source>Submit input</source>
+            </trans-unit>
+            <trans-unit id="runs.unreadable">
+                <source>This run's state could not be read; no action is available.</source>
+            </trans-unit>
+            <trans-unit id="runs.toolGone">
+                <source>The tool for this call is no longer registered.</source>
+            </trans-unit>
+            <trans-unit id="runs.field.unsupported">
+                <source>This field type is not supported in this form.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.summaryHeading">
+                <source>Your input could not be submitted</source>
+            </trans-unit>
+            <trans-unit id="runs.error.schemaMismatch">
+                <source>The submitted input did not match the required schema.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.staleReview">
+                <source>The pending action changed since you viewed it — please re-review.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.approved">
+                <source>Approval recorded; the run continued.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.denied">
+                <source>Denial recorded.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.waitingAgain">
+                <source>The run is waiting again.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.configGone">
+                <source>The run configuration no longer exists.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.alreadyResuming">
+                <source>This run is already being processed.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.error">
+                <source>The run could not be resumed.</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.config">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.status">
+                <source>Status</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.created">
+                <source>Created</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.finished">
+                <source>Finished</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.cost">
+                <source>Cost</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.empty">
+                <source>No recent runs.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
