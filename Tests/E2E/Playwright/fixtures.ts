@@ -126,6 +126,13 @@ async function navigateToTasks(page: Page): Promise<FrameLocator> {
 }
 
 /**
+ * Navigate to the Agent Runs approvals inbox sub-module (ADR-109).
+ */
+async function navigateToRuns(page: Page): Promise<FrameLocator> {
+  return navigateToSubModule(page, '/typo3/module/nrllm/runs', 'Agent Runs');
+}
+
+/**
  * Navigate to Setup Wizard sub-module.
  */
 async function navigateToSetupWizard(page: Page): Promise<FrameLocator> {
@@ -178,6 +185,7 @@ export {
   navigateToModels,
   navigateToConfigurations,
   navigateToTasks,
+  navigateToRuns,
   navigateToSetupWizard,
   navigateToConfigWizard,
   navigateToTaskWizard,

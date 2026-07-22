@@ -1,4 +1,4 @@
-import { test, expect, navigateToLlmModule, navigateToProviders, navigateToModels, navigateToConfigurations, getModuleFrame } from './fixtures';
+import { test, expect, navigateToLlmModule, navigateToProviders, navigateToModels, navigateToConfigurations, navigateToRuns, getModuleFrame } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -353,6 +353,54 @@ test.describe('Accessibility Tests @accessibility', () => {
       );
 
       expect(criticalLandmarkIssues).toEqual([]);
+    });
+  });
+
+  test.describe('Agent Runs Module', () => {
+    test('should have no critical accessibility violations @accessibility', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+
+      await page.goto('/typo3/module/nrllm/runs');
+      await page.waitForLoadState('networkidle');
+
+      const results = await runAxeAnalysis(page, 'Agent Runs');
+
+      const criticalViolations = results.violations.filter(
+        (v) => v.impact === 'critical' || v.impact === 'serious'
+      );
+
+      expect(criticalViolations).toEqual([]);
+    });
+
+    test('should have an h1 plus the two section landmarks @accessibility', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToRuns(page);
+
+      // ADR-109 heading hierarchy: h1 "Agent Runs" -> h2 "Awaiting your
+      // decision" (waiting section) + h2 "Recent runs" (terminal section).
+      await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('Agent Runs');
+      await expect(moduleFrame.getByRole('heading', { level: 2, name: 'Awaiting your decision' })).toBeVisible();
+      await expect(moduleFrame.getByRole('heading', { level: 2, name: 'Recent runs' })).toBeVisible();
+
+      // Both sections expose a labelled region (aria-labelledby on <section>).
+      const regions = moduleFrame.getByRole('region');
+      expect(await regions.count()).toBeGreaterThanOrEqual(2);
+    });
+
+    test('should render the recent-runs table with header cells when present @accessibility', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToRuns(page);
+
+      // The terminal-runs table is a real <table> with a <caption>, <thead> and
+      // scoped <th>s; on a fresh instance it may show the empty-state text
+      // instead — either is accessible.
+      const table = moduleFrame.locator('table');
+      const hasTable = await table.first().isVisible().catch(() => false);
+
+      if (hasTable) {
+        await expect(table.first().locator('thead')).toBeVisible();
+        expect(await table.first().locator('th[scope="col"]').count()).toBeGreaterThan(0);
+      }
     });
   });
 });
