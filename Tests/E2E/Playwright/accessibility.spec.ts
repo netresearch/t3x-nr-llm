@@ -402,5 +402,43 @@ test.describe('Accessibility Tests @accessibility', () => {
         expect(await table.first().locator('th[scope="col"]').count()).toBeGreaterThan(0);
       }
     });
+
+    // These two exercise the actual approve/deny and schema-input FORMS. They
+    // rely on the two waiting runs seeded before the suite runs (CI:
+    // Tests/E2E/seed-and-test.sh). The axe scan above covers them too once
+    // present; here we assert the semantics and keyboard operability directly.
+    test('should expose accessible approve/deny controls for a waiting run @accessibility', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToRuns(page);
+
+      const approve = moduleFrame.getByRole('button', { name: 'Approve' }).first();
+      const deny = moduleFrame.getByRole('button', { name: 'Deny' }).first();
+      await expect(approve).toBeVisible();
+      await expect(deny).toBeVisible();
+
+      // Native <button>s are keyboard-operable and carry an accessible name.
+      await approve.focus();
+      await expect(approve).toBeFocused();
+
+      // Approve/Deny sit in a labelled decision group (role=group + aria-label).
+      await expect(moduleFrame.getByRole('group', { name: /Decision for run/ }).first()).toBeVisible();
+    });
+
+    test('should render an accessible schema input form for a waiting run @accessibility', async ({ authenticatedPage }) => {
+      const page = authenticatedPage;
+      const moduleFrame = await navigateToRuns(page);
+
+      // The input run renders a <fieldset> with a <legend> and per-field <label>s.
+      await expect(moduleFrame.locator('fieldset').first()).toBeVisible();
+
+      // Every schema field is reachable by its native <label for> association.
+      const reason = moduleFrame.getByLabel('Reason', { exact: false }).first();
+      await expect(reason).toBeVisible();
+      await reason.focus();
+      await expect(reason).toBeFocused();
+
+      await expect(moduleFrame.getByLabel('Confirm', { exact: false }).first()).toBeVisible();
+      await expect(moduleFrame.getByRole('button', { name: 'Submit input' }).first()).toBeVisible();
+    });
   });
 });
