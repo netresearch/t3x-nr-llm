@@ -29,6 +29,11 @@ jobs:
     with:
       php-version: '8.5'
       db-image: 'mariadb:12.2'
+      # Seed WAITING_FOR_APPROVAL/INPUT runs before Playwright so the a11y
+      # suite can exercise the approve/deny + schema-input forms (ADR-109).
+      # Default-mode override: the workflow sets up TYPO3 and starts the
+      # server, then runs this instead of the default `npm run test:e2e`.
+      test-command: 'bash Tests/E2E/seed-and-test.sh'
       artifact-path: |
         Tests/E2E/Playwright/reports/
         Tests/E2E/Playwright/test-results/
