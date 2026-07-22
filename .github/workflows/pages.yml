@@ -17,6 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Build stays here: it is repo-specific (uv + landingpage/build/build.py)
+  # and needs the Pages base_path/origin at build time. The deploy trio
+  # (configure-pages + upload-pages-artifact + deploy-pages) is delegated to
+  # the shared reusable below, which also hardens the deploy runner.
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -40,21 +44,17 @@ jobs:
           NRLLM_ORIGIN: ${{ steps.pages.outputs.origin }}
         run: uv run landingpage/build/build.py
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - name: Upload built site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          name: github-pages-site
           path: landingpage/public
+          if-no-files-found: error
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    uses: netresearch/.github/.github/workflows/pages-deploy.yml@main
     permissions:
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+      contents: read
