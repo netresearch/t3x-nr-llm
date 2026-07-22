@@ -74,6 +74,7 @@ final readonly class EmbeddingResponse
         if (!\is_array($usageData)) {
             $usageData = [];
         }
+        /** @var array<string, mixed> $usageData The serialized usage shape is a JSON object (string keys). */
 
         return new self(
             embeddings: $embeddings,

@@ -87,7 +87,8 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         $tableTca  = $this->tableTca($table);
         $columns   = is_array($tableTca['columns'] ?? null) ? $tableTca['columns'] : [];
         $columnTca = is_array($columns[$field] ?? null) ? $columns[$field] : [];
-        $conf      = is_array($columnTca['config'] ?? null) ? $columnTca['config'] : null;
+        /** @var array<string, mixed>|null $conf */
+        $conf = is_array($columnTca['config'] ?? null) ? $columnTca['config'] : null;
         if (!is_array($conf)) {
             return ToolResult::text(sprintf('Field %s.%s not found.', $table, $field));
         }
@@ -120,12 +121,14 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
                 // v14+: the resolver requires the table TCA as the $schema
                 // argument — with null it throws instead of reading a global.
                 $identifier = $flexFormTools->getDataStructureIdentifier($columnTca, $table, $field, $row, $tableTca);
-                $structure  = $flexFormTools->parseDataStructureByIdentifier($identifier, $tableTca);
+                /** @var array<string, mixed> $structure */
+                $structure = $flexFormTools->parseDataStructureByIdentifier($identifier, $tableTca);
             } else {
                 // 13.4: 4-/1-parameter signatures; the resolver reads
                 // $GLOBALS['TCA'] itself.
                 $identifier = $flexFormTools->getDataStructureIdentifier($columnTca, $table, $field, $row);
-                $structure  = $flexFormTools->parseDataStructureByIdentifier($identifier);
+                /** @var array<string, mixed> $structure */
+                $structure = $flexFormTools->parseDataStructureByIdentifier($identifier);
             }
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.

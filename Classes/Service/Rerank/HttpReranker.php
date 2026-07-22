@@ -52,7 +52,7 @@ final readonly class HttpReranker implements RerankerInterface
     }
 
     /**
-     * @param list<array{id: string, text: string}> $candidates
+     * @param list<array{id: int|string, text: string}> $candidates
      *
      * @return list<array{id: string, score: float}>
      */

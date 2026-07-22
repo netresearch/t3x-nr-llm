@@ -83,6 +83,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
+        /** @var array<string, mixed> $ctrl */
         $ctrl  = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
         $lines = [sprintf('Table: %s', $table)];
 

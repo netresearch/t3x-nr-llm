@@ -674,7 +674,7 @@ final class ClaudeProvider extends AbstractProvider implements
 
         // Multimodal content array: convert to Claude format
         if (is_array($content)) {
-            return ['role' => $role, 'content' => $this->convertMultimodalContent($content)];
+            return ['role' => $role, 'content' => $this->convertMultimodalContent(array_values($content))];
         }
 
         // Plain text message: pass through

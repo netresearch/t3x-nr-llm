@@ -48,6 +48,7 @@ final class ModelIdElement extends AbstractFormElement
 
         // The provider_uid field name follows TYPO3's naming convention
         $tableName = is_string($data['tableName'] ?? null) ? $data['tableName'] : 'tx_nrllm_model';
+        /** @var array<string, mixed> $databaseRow */
         $databaseRow = is_array($data['databaseRow'] ?? null) ? $data['databaseRow'] : [];
         $currentProviderUid = $this->resolveCurrentProviderUid($databaseRow);
 

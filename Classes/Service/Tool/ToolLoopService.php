@@ -222,7 +222,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $iterations++;
                 // Bound the growing transcript against the context window BEFORE
                 // the send (ADR-107); tools are on this wire, so pass $specs.
-                $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations, $specs);
+                $messages = $this->enforceContextWindow(
+                    $messages,
+                    $configuration,
+                    $options,
+                    $lastUsage,
+                    $iterations,
+                    array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                );
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);

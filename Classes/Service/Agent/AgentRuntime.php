@@ -228,8 +228,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         // The heartbeat renews the lease under this worker's identity, and the
         // recover closure decides retry-vs-dead-letter for a failure (ADR-104).
-        $recover = fn(Throwable $e, array $steps): AgentRunResult
-            => $this->recoverQueuedFailure($handle, $runUuid, $workerIdentity, $e, $steps);
+        $recover = function (Throwable $e, array $steps) use ($handle, $runUuid, $workerIdentity): AgentRunResult {
+            /** @var list<RunStep> $steps the ladder always passes the accumulated step list */
+            return $this->recoverQueuedFailure($handle, $runUuid, $workerIdentity, $e, $steps);
+        };
 
         return $this->executeRequest($request, $handle, $onStep, $workerIdentity, $recover);
     }
@@ -576,6 +578,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         if (!is_array($decoded)) {
             throw CorruptSuspendedStateException::forRun($runUuid);
         }
+        /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
 
         // Probe the event-stream position BEFORE the claim: a failure here
@@ -645,6 +648,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         if (!is_array($decoded)) {
             throw CorruptSuspendedStateException::forRun($runUuid);
         }
+        /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
 
         // Well-formedness gate (ADR-105 M2): an input suspension with no target

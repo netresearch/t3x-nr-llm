@@ -208,6 +208,7 @@ final readonly class WaitingRunViewFactory
             if (!is_array($propSchema)) {
                 continue;
             }
+            /** @var array<string, mixed> $propSchema */
             $name        = (string)$name;
             $controlType = $this->classifier->classify($propSchema);
             $fields[]    = new InputFieldView(

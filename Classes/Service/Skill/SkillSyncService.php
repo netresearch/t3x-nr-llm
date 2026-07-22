@@ -140,14 +140,11 @@ final class SkillSyncService
                     static fn(string $path): string => $sourcePrefix . $path,
                     $collected['discovered'],
                 );
-                $prefixIds = static fn(?array $prefixes): ?array => $prefixes === null
-                    ? null
-                    : array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
                 $orphaned = $this->orphanRemoved(
                     $source,
                     $discoveredIds,
-                    $prefixIds($collected['reachedPrefixes']),
-                    $prefixIds($collected['listedPrefixes']),
+                    $this->prefixIdentifiers($collected['reachedPrefixes'], $sourcePrefix),
+                    $this->prefixIdentifiers($collected['listedPrefixes'], $sourcePrefix),
                 );
 
                 $status = $errors === [] ? SyncStatus::OK : SyncStatus::PARTIAL;
@@ -476,11 +473,11 @@ final class SkillSyncService
         $checksum = hash('sha256', $parsed->body);
         $scan     = $this->scanner?->scan($parsed->body);
         $highConf = $scan?->hasHighConfidence() ?? false;
-        $existing = $this->skillRepository->findBySourceAndIdentifier($source->getUid(), $identifier);
+        $existing = $this->skillRepository->findBySourceAndIdentifier($source->getUid() ?? 0, $identifier);
 
         if ($existing === null) {
             $skill = new Skill();
-            $skill->setSource($source->getUid());
+            $skill->setSource($source->getUid() ?? 0);
             $skill->setIdentifier($identifier);
             $this->apply($skill, $parsed, $sha, $checksum);
             $this->applyIsolationMetadata($skill, $source, $scan);
@@ -587,6 +584,22 @@ final class SkillSyncService
     }
 
     /**
+     * Prefix every entry with the per-source identifier prefix, preserving the
+     * null passthrough (null means "not a marketplace source").
+     *
+     * @param list<string>|null $prefixes
+     *
+     * @return list<string>|null
+     */
+    private function prefixIdentifiers(?array $prefixes, string $sourcePrefix): ?array
+    {
+        if ($prefixes === null) {
+            return null;
+        }
+        return array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
+    }
+
+    /**
      * Orphan DB skills that are absent from the discovered (upstream-present) set.
      *
      * @param list<string>  $discovered      Full identifiers present upstream this run.
@@ -602,7 +615,7 @@ final class SkillSyncService
         // so array_flip is a faithful hash set.
         $discoveredSet = array_flip($discovered);
         $count = 0;
-        foreach ($this->skillRepository->findBySource($source->getUid()) as $skill) {
+        foreach ($this->skillRepository->findBySource($source->getUid() ?? 0) as $skill) {
             $identifier = $skill->getIdentifier();
             if (isset($discoveredSet[$identifier])) {
                 continue;
