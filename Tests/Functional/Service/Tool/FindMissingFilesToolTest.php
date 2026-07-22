@@ -63,7 +63,7 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('1 missing file (showing 1):', $output);
         self::assertStringContainsString('- [30] 1:/lost.pdf (last known size 1234 bytes)', $output);
@@ -76,12 +76,12 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        self::assertSame('No accessible file storages.', $this->tool->execute(['storage' => 2]));
+        self::assertSame('No accessible file storages.', $this->tool->execute(['storage' => 2])->content);
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('No accessible file storages.', $this->tool->execute([]));
+        self::assertSame('No accessible file storages.', $this->tool->execute([])->content);
     }
 }

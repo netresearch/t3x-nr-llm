@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -41,14 +42,14 @@ final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassIn
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         ob_start();
         phpinfo(INFO_ALL);
         $info = ob_get_clean();
 
         if (!is_string($info) || $info === '') {
-            return 'phpinfo unavailable.';
+            return ToolResult::text('phpinfo unavailable.');
         }
 
         // In a web SAPI (the TYPO3 backend) phpinfo() emits HTML, not the CLI's
@@ -63,7 +64,7 @@ final readonly class GetPhpInfoRawTool implements ToolInterface, ToolDataClassIn
             $info = trim($info);
         }
 
-        return $info !== '' ? $info : 'phpinfo unavailable.';
+        return ToolResult::text($info !== '' ? $info : 'phpinfo unavailable.');
     }
 
     public function isEnabledByDefault(): bool

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -56,19 +57,19 @@ final readonly class GetTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $tca = $GLOBALS['TCA'] ?? [];
         if (!is_array($tca) || $tca === []) {
-            return 'No TCA available.';
+            return ToolResult::text('No TCA available.');
         }
 
         $table = self::toStr($arguments['table'] ?? '');
         if ($table === '') {
-            return $this->listTables($tca);
+            return ToolResult::text($this->listTables($tca));
         }
 
-        return $this->describeTable($tca, $table);
+        return ToolResult::text($this->describeTable($tca, $table));
     }
 
     public function isEnabledByDefault(): bool

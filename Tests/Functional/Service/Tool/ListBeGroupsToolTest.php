@@ -52,7 +52,7 @@ final class ListBeGroupsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeListsLiveGroupsTitleOrdered(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Backend groups (2):', $output);
         // Title ASC: Administrators before Editors.
@@ -66,7 +66,7 @@ final class ListBeGroupsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeExcludesSoftDeletedGroupsAndPermissionMasks(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringNotContainsString('Deleted Group', $output);
         // Only uid + title are emitted — never authorization columns.

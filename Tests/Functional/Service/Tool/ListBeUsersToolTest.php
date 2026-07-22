@@ -78,7 +78,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeListsLiveUsersWithProfileColumns(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Backend users (2):', $output);
         self::assertStringContainsString('[10] alice | Alice Admin <alice@example.com> | admin=1 disabled=0', $output);
@@ -90,7 +90,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeExcludesSoftDeletedUsers(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringNotContainsString('carol', $output);
     }
@@ -98,7 +98,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeNeverLeaksPasswordHashOrMfaSecret(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringNotContainsString(self::SECRET_HASH, $output);
         self::assertStringNotContainsString(self::SECRET_MFA, $output);

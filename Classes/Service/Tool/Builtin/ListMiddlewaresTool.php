@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -57,11 +58,11 @@ final readonly class ListMiddlewaresTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $stack = trim(self::toStr($arguments['stack'] ?? 'frontend'));
         if (!in_array($stack, self::STACKS, true)) {
-            return sprintf('Unknown stack — use one of: %s.', implode(', ', self::STACKS));
+            return ToolResult::text(sprintf('Unknown stack — use one of: %s.', implode(', ', self::STACKS)));
         }
 
         $lines = [];
@@ -79,15 +80,15 @@ final readonly class ListMiddlewaresTool implements ToolInterface
                 $lines[] = sprintf('%2d. %s (%s)', $shown, (string)$identifier, self::toStr($className));
             }
         } catch (Throwable) {
-            return 'Could not resolve the middleware stack.';
+            return ToolResult::text('Could not resolve the middleware stack.');
         }
 
         if ($shown === 0) {
-            return sprintf('The %s middleware stack is empty.', $stack);
+            return ToolResult::text(sprintf('The %s middleware stack is empty.', $stack));
         }
 
-        return sprintf("PSR-15 %s middleware stack (%d, execution order):\n", $stack, $shown)
-            . implode("\n", $lines);
+        return ToolResult::text(sprintf("PSR-15 %s middleware stack (%d, execution order):\n", $stack, $shown)
+            . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

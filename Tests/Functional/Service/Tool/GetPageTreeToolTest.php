@@ -66,7 +66,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function returnsDepthIndentedLiveTree(): void
     {
-        $output = $this->tool->execute(['rootUid' => 0, 'depth' => 3]);
+        $output = $this->tool->execute(['rootUid' => 0, 'depth' => 3])->content;
 
         self::assertStringContainsString('[1] Home (doktype 1)', $output);
         // About is one level below Home, Team two levels below.
@@ -77,7 +77,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function excludesHiddenAndDeletedPages(): void
     {
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3]);
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3])->content;
 
         self::assertStringNotContainsString('Hidden Branch', $output);
         self::assertStringNotContainsString('Deleted Branch', $output);
@@ -95,7 +95,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 2, 't3ver_state' => 0,
         ]);
 
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3]);
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3])->content;
 
         self::assertStringNotContainsString('Draft Branch', $output);
         self::assertStringContainsString('[2] About', $output);
@@ -104,7 +104,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function depthOneStopsAtImmediateChildren(): void
     {
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 1]);
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 1])->content;
 
         self::assertStringContainsString('[2] About', $output);
         // Team is a grandchild — beyond depth 1.

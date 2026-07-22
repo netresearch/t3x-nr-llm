@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -64,11 +65,11 @@ final readonly class ReadSourceTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $path = trim(self::toStr($arguments['path'] ?? ''));
         if ($path === '') {
-            return 'Error: "path" is required.';
+            return ToolResult::text('Error: "path" is required.');
         }
 
         $fromLine = max(1, self::toInt($arguments['from_line'] ?? 1));
@@ -80,12 +81,12 @@ final readonly class ReadSourceTool implements ToolInterface
 
         $read = $this->guard->readLines($path, $fromLine, $lines);
         if ($read === null) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'Denied or not found: "%s". Paths must resolve inside the project root; dotfiles, '
                 . 'var/* (except var/log), config/system, settings/additional.php, key material and '
                 . 'credential paths are not readable.',
                 $path,
-            );
+            ));
         }
 
         $out   = [];
@@ -98,7 +99,7 @@ final readonly class ReadSourceTool implements ToolInterface
             $out[] = '(range is beyond the end of the file)';
         }
 
-        return implode("\n", $out);
+        return ToolResult::text(implode("\n", $out));
     }
 
     public function isEnabledByDefault(): bool

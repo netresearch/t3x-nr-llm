@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -68,7 +69,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
             'table'        => 'tt_content',
             'where_equals' => ['CType' => 'textmedia'],
             'fields'       => ['header', 'CType'],
-        ]);
+        ])->content;
 
         self::assertStringContainsString('tt_content:31', $output);
         self::assertStringContainsString('header: Beta', $output);
@@ -80,7 +81,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 30]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 30])->content;
 
         self::assertStringContainsString('tt_content:30', $output);
         self::assertStringContainsString('header: Alpha', $output);
@@ -91,10 +92,48 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'limit' => 1]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'limit' => 1])->content;
 
         self::assertStringContainsString('tt_content:30', $output);
         self::assertStringNotContainsString('tt_content:31', $output);
+    }
+
+    #[Test]
+    public function emitsATableArtifactFromTheSameFieldsAndCellsAsTheText(): void
+    {
+        // ADR-108: the run-only TABLE artifact is projected from the SAME
+        // TCA-validated field set the text egress uses (uid + pid + requested),
+        // so it can never re-expose a column the text path withheld.
+        $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute([
+            'table'  => 'tt_content',
+            'fields' => ['header'],
+        ]);
+
+        self::assertCount(1, $result->artifacts);
+        $artifact = $result->artifacts[0];
+        self::assertSame(ArtifactType::TABLE, $artifact->type);
+
+        // Columns are exactly uid, pid and the requested field — nothing else.
+        self::assertSame(['uid', 'pid', 'header'], $artifact->data['columns']);
+
+        // Rows carry the same formatted cells the text lines show.
+        $rows = $artifact->data['rows'];
+        self::assertIsArray($rows);
+
+        $headers = [];
+        foreach ($rows as $row) {
+            self::assertIsArray($row);
+            foreach ($row as $cell) {
+                self::assertIsString($cell);
+                // Parity: no cell re-exposes a value absent from the text egress.
+                self::assertStringContainsString($cell, $result->content);
+            }
+            $headers[] = $row[2] ?? null;
+        }
+        self::assertContains('Alpha', $headers);
+        self::assertContains('Beta', $headers);
     }
 
     #[Test]
@@ -111,7 +150,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
 
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content']);
+        $output = $this->tool->execute(['table' => 'tt_content'])->content;
 
         self::assertStringNotContainsString('DraftSecret', $output);
         self::assertStringNotContainsString('tt_content:99', $output);
@@ -123,7 +162,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(2); // editor without any group rights
 
-        $output = $this->tool->execute(['table' => 'tt_content']);
+        $output = $this->tool->execute(['table' => 'tt_content'])->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -143,7 +182,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'table'        => 'tt_content',
             'where_equals' => ['sys_language_uid' => 1],
-        ]);
+        ])->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -180,7 +219,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         // No language filter given: the language-0 row is returned, the
         // language-1 row (on the same, accessible page) is dropped and its
         // content never egresses.
-        $output = $this->tool->execute(['table' => 'tt_content', 'where_equals' => ['pid' => 7]]);
+        $output = $this->tool->execute(['table' => 'tt_content', 'where_equals' => ['pid' => 7]])->content;
 
         self::assertStringContainsString('tt_content:40', $output);
         self::assertStringNotContainsString('tt_content:41', $output);

@@ -35,7 +35,7 @@ final class FluidResolveToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'name'      => 'Backend/Playground/List',
             'extension' => 'nr_llm',
-        ]);
+        ])->content;
 
         self::assertStringContainsString('[x]', $output);
         self::assertStringContainsString('Backend/Playground/List.html', $output);
@@ -49,7 +49,7 @@ final class FluidResolveToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'name'      => 'Backend/DoesNotExistAnywhere',
             'extension' => 'nr_llm',
-        ]);
+        ])->content;
 
         self::assertStringContainsString('[ ]', $output);
         self::assertStringContainsString('Resolved: (none', $output);

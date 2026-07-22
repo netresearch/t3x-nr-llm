@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
@@ -68,11 +69,11 @@ final readonly class GetFalReferencesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $user = $this->actingBackendUser();
@@ -94,7 +95,7 @@ final readonly class GetFalReferencesTool implements ToolInterface
             self::toInt($file['storage'] ?? 0),
             self::toStr($file['identifier'] ?? ''),
         )) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $refQuery = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
@@ -144,10 +145,10 @@ final readonly class GetFalReferencesTool implements ToolInterface
         }
 
         if ($lines === []) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'No references to %s — the file appears unused (soft references and inline RTE links are not tracked here).',
                 self::toStr($file['name'] ?? ''),
-            );
+            ));
         }
 
         $header = sprintf(
@@ -157,7 +158,7 @@ final readonly class GetFalReferencesTool implements ToolInterface
             $skipped > 0 ? sprintf(', %d more not shown', $skipped) : '',
         );
 
-        return $header . "\n" . implode("\n", $lines);
+        return ToolResult::text($header . "\n" . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

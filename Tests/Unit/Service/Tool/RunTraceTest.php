@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -112,6 +114,20 @@ final class RunTraceTest extends TestCase
         self::assertNotNull($assembled->messagesSent);
         self::assertCount(2, $assembled->messagesSent);
         self::assertSame('system', $assembled->messagesSent[0]['role']);
+
+        // No artifacts passed → the step carries null, so toArray() drops the key.
+        self::assertNull($tool->toolArtifacts);
+    }
+
+    #[Test]
+    public function recordsToolExecutionArtifactsOnTheStep(): void
+    {
+        $artifact = new ToolArtifact(ArtifactType::TABLE, 'pages', ['columns' => ['uid'], 'rows' => [['1']]]);
+        $trace    = new RunTrace();
+        $trace->recordToolExecution(1, 3.5, 'read_records', [], 'ok', false, [$artifact]);
+
+        $step = $trace->getSteps()[0];
+        self::assertSame([$artifact], $step->toolArtifacts);
     }
 
     #[Test]

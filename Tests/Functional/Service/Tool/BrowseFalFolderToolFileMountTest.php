@@ -106,11 +106,11 @@ final class BrowseFalFolderToolFileMountTest extends AbstractFunctionalTestCase
 
         // The storage root lies outside the /docs/ mount — denied, and the
         // root file's name never egresses.
-        $rootOutput = $this->tool->execute(['folder' => '/']);
+        $rootOutput = $this->tool->execute(['folder' => '/'])->content;
         self::assertSame('Folder not found or not permitted.', $rootOutput);
 
         // The mounted folder lists.
-        $output = $this->tool->execute(['folder' => '/docs/']);
+        $output = $this->tool->execute(['folder' => '/docs/'])->content;
         self::assertStringContainsString('- manual.txt (text/plain, 10 B)', $output);
         self::assertStringNotContainsString('top-secret', $output);
     }

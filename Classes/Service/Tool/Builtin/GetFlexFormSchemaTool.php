@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -70,17 +71,17 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $table = trim(self::toStr($arguments['table'] ?? ''));
         $field = trim(self::toStr($arguments['field'] ?? ''));
         if ($table === '' || $field === '') {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $user = $this->actingBackendUser();
         if (!$this->tableAccess->canReadTable($user, $table)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $tableTca  = $this->tableTca($table);
@@ -88,10 +89,10 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         $columnTca = is_array($columns[$field] ?? null) ? $columns[$field] : [];
         $conf      = is_array($columnTca['config'] ?? null) ? $columnTca['config'] : null;
         if (!is_array($conf)) {
-            return sprintf('Field %s.%s not found.', $table, $field);
+            return ToolResult::text(sprintf('Field %s.%s not found.', $table, $field));
         }
         if (self::toStr($conf['type'] ?? '') !== 'flex') {
-            return sprintf('Field %s.%s is not a FlexForm field (type=%s).', $table, $field, self::toStr($conf['type'] ?? '?'));
+            return ToolResult::text(sprintf('Field %s.%s is not a FlexForm field (type=%s).', $table, $field, self::toStr($conf['type'] ?? '?')));
         }
 
         $pointer = trim(self::toStr($arguments['ds_pointer'] ?? ''));
@@ -104,12 +105,12 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
             static fn(string $k): bool => $k !== 'default',
         ));
         if ($pointer === '' && $variantKeys !== []) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 "FlexForm field %s.%s has multiple data structures. Re-call with ds_pointer set to one of:\n%s",
                 $table,
                 $field,
                 implode("\n", array_map(static fn(string $k): string => '- ' . $k, $variantKeys)),
-            );
+            ));
         }
 
         try {
@@ -128,10 +129,10 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
             }
         } catch (Throwable) {
             // Neutral by design — resolution internals must not egress.
-            return sprintf('Could not resolve the FlexForm data structure for %s.%s%s.', $table, $field, $pointer !== '' ? sprintf(' (ds_pointer "%s")', $pointer) : '');
+            return ToolResult::text(sprintf('Could not resolve the FlexForm data structure for %s.%s%s.', $table, $field, $pointer !== '' ? sprintf(' (ds_pointer "%s")', $pointer) : ''));
         }
 
-        return $this->renderStructure($table, $field, $pointer, $structure);
+        return ToolResult::text($this->renderStructure($table, $field, $pointer, $structure));
     }
 
     public function isEnabledByDefault(): bool

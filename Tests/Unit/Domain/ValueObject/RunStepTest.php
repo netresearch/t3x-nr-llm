@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -41,6 +43,31 @@ final class RunStepTest extends TestCase
         self::assertArrayNotHasKey('content', $array);
         self::assertArrayNotHasKey('promptTokens', $array);
         self::assertArrayNotHasKey('messagesSent', $array);
+        // No artifacts on this step: the key is dropped entirely (ADR-108).
+        self::assertArrayNotHasKey('toolArtifacts', $array);
+    }
+
+    #[Test]
+    public function toArraySerialisesToolArtifactsAsPlainArrayList(): void
+    {
+        $step = new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: 1,
+            durationMs: 5.0,
+            toolName: 'read_records',
+            toolResult: 'ok',
+            toolIsError: false,
+            toolArtifacts: [
+                new ToolArtifact(ArtifactType::TABLE, 'pages', ['columns' => ['uid'], 'rows' => [['1']]]),
+            ],
+        );
+
+        $array = $step->toArray();
+
+        self::assertSame(
+            [['type' => 'table', 'label' => 'pages', 'data' => ['columns' => ['uid'], 'rows' => [['1']]]]],
+            $array['toolArtifacts'],
+        );
     }
 
     #[Test]

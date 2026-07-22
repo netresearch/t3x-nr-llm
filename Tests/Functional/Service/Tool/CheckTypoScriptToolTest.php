@@ -78,7 +78,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
             'config' => "page = PAGE\npage {\n  10 = TEXT\n  10.value = secret-value-99\n",
         ]);
 
-        $output = $this->tool->execute(['pageUid' => 1]);
+        $output = $this->tool->execute(['pageUid' => 1])->content;
 
         self::assertStringContainsString('TypoScript syntax errors on page 1', $output);
         self::assertStringContainsString('missing closing "}"', $output);
@@ -96,7 +96,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
             'config' => "page = PAGE\npage.10 = TEXT\npage.10.value = Hello\n",
         ]);
 
-        $output = $this->tool->execute(['pageUid' => 1]);
+        $output = $this->tool->execute(['pageUid' => 1])->content;
 
         self::assertStringContainsString('No TypoScript syntax errors on page 1', $output);
     }
@@ -106,11 +106,11 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->tool->execute(['pageUid' => 1]),
+            $this->tool->execute(['pageUid' => 1])->content,
         );
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->tool->execute(['pageUid' => 12345]),
+            $this->tool->execute(['pageUid' => 12345])->content,
         );
     }
 }

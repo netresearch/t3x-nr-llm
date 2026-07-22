@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -106,28 +109,28 @@ final readonly class ReadRecordsTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $table = trim(self::toStr($arguments['table'] ?? ''));
         if (!$this->tableAccess->canReadTable($user, $table)) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $columns = $this->tcaColumns($table);
 
         $fields = $this->resolveFields($table, $columns, $arguments['fields'] ?? null);
         if ($fields === []) {
-            return 'No readable fields.';
+            return ToolResult::text('No readable fields.');
         }
 
         $filters = $this->resolveFilters($columns, $arguments);
         if ($filters === null) {
-            return 'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.';
+            return ToolResult::text('Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.');
         }
 
         // A non-admin explicitly filtering by a language they may not access
@@ -136,7 +139,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             && isset($filters['sys_language_uid'])
             && !$user->checkLanguageAccess((int)$filters['sys_language_uid'])
         ) {
-            return self::NOT_PERMITTED;
+            return ToolResult::text(self::NOT_PERMITTED);
         }
 
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
@@ -172,22 +175,35 @@ final readonly class ReadRecordsTool implements ToolInterface
         }
 
         if ($rows === []) {
-            return sprintf('No records in %s for the given filters.', $table);
+            return ToolResult::text(sprintf('No records in %s for the given filters.', $table));
         }
 
-        $lines = [sprintf('Records in %s (%d, offset %d):', $table, count($rows), $offset)];
+        // Build the human-readable text and the structured TABLE artifact in ONE
+        // pass from the SAME redacted/formatted cells, so the artifact can never
+        // drift from — or re-expose more than — the text egress (ADR-108). The
+        // artifact is run-only; only the text `content` reaches the provider.
+        $lines        = [sprintf('Records in %s (%d, offset %d):', $table, count($rows), $offset)];
+        $artifactRows = [];
         foreach ($rows as $row) {
-            $lines[] = sprintf('- %s:%d', $table, self::toInt($row['uid'] ?? 0));
+            $lines[]     = sprintf('- %s:%d', $table, self::toInt($row['uid'] ?? 0));
+            $artifactRow = [];
             foreach ($fields as $field) {
-                if ($field === 'uid') {
-                    continue;
+                $value         = $this->formatValue($row[$field] ?? null);
+                $artifactRow[] = $value;
+                if ($field !== 'uid') {
+                    $lines[] = sprintf('  %s: %s', $field, $value);
                 }
-                $value   = $this->formatValue($row[$field] ?? null);
-                $lines[] = sprintf('  %s: %s', $field, $value);
             }
+            $artifactRows[] = $artifactRow;
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(
+            implode("\n", $lines),
+            new ToolArtifact(ArtifactType::TABLE, sprintf('%s records', $table), [
+                'columns' => $fields,
+                'rows'    => $artifactRows,
+            ]),
+        );
     }
 
     public function isEnabledByDefault(): bool

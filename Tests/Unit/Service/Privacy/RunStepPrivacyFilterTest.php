@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Privacy;
 
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -108,6 +110,51 @@ final class RunStepPrivacyFilterTest extends TestCase
 
         self::assertArrayNotHasKey('content', $filtered);
         self::assertTrue($filtered['contentRedacted']);
+    }
+
+    #[Test]
+    public function metadataLevelDropsArtifactDataButSummarisesCountAndTypes(): void
+    {
+        // ADR-108: artifact `data` is content and must never persist at the
+        // default level, but a shape/count summary keeps the audit useful.
+        $step = new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: 1,
+            durationMs: 4.0,
+            toolName: 'read_records',
+            toolResult: 'pages: Impressum',
+            toolIsError: false,
+            toolArtifacts: [
+                new ToolArtifact(ArtifactType::TABLE, 'pages', ['columns' => ['secret'], 'rows' => [['sk-abcdefghijklmnop']]]),
+            ],
+        );
+
+        $filtered = FixedPrivacyPolicy::filterAt(PrivacyLevel::METADATA)->filter($step->toArray());
+
+        self::assertArrayNotHasKey('toolArtifacts', $filtered);
+        self::assertStringNotContainsString('sk-abcdefghijklmnop', json_encode($filtered, JSON_THROW_ON_ERROR));
+        self::assertSame(1, $filtered['toolArtifactsCount']);
+        self::assertSame(['table'], $filtered['toolArtifactTypes']);
+    }
+
+    #[Test]
+    public function redactedLevelMasksSecretsInsideArtifactDataLeaves(): void
+    {
+        $step = new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: 1,
+            durationMs: 4.0,
+            toolName: 'read_records',
+            toolResult: 'ok',
+            toolArtifacts: [
+                new ToolArtifact(ArtifactType::TABLE, 'creds', ['columns' => ['token'], 'rows' => [['sk-abcdefghijklmnopqrstuvwxyz']]]),
+            ],
+        );
+
+        $filtered = FixedPrivacyPolicy::filterAt(PrivacyLevel::REDACTED)->filter($step->toArray());
+
+        self::assertArrayHasKey('toolArtifacts', $filtered);
+        self::assertStringNotContainsString('sk-abcdefghijklmnopqrstuvwxyz', json_encode($filtered['toolArtifacts'], JSON_THROW_ON_ERROR));
     }
 
     private function llmStep(): RunStep

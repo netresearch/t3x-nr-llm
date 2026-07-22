@@ -9,23 +9,28 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
  * A PHP "tool" the model may call mid-generation during the agent loop.
  *
- * Implementations are admin-curated, read-only, and return a plain string.
- * They are discovered via the `nr_llm.tool` DI tag (auto-applied by
- * AutoconfigureTag, mirroring ProviderMiddlewareInterface) and collected by
- * ToolRegistry through a tagged iterator.
+ * Implementations are admin-curated, read-only, and return a typed
+ * {@see ToolResult}. They are discovered via the `nr_llm.tool` DI tag
+ * (auto-applied by AutoconfigureTag, mirroring ProviderMiddlewareInterface) and
+ * collected by ToolRegistry through a tagged iterator.
  *
  * Security contract: a tool's array `$arguments` are model-chosen and
  * therefore attacker-influenceable (the model is steerable by injected,
- * externally-authored skill prose), and its return value egresses both to
- * the external provider AND the rendered backend DOM. Implementations MUST
- * treat `$arguments` as untrusted: validate and scope them, and never expose
- * secrets.
+ * externally-authored skill prose). The result's `content` egresses to BOTH
+ * the external provider AND the rendered backend DOM. Any `artifacts` egress
+ * to the backend DOM and the persisted audit stream ONLY — the runtime never
+ * places them on the provider wire. Implementations MUST treat `$arguments`
+ * as untrusted (validate and scope them, never expose secrets) and MUST apply
+ * the SAME redaction to an artifact's structured `data` that they apply to
+ * `content` — an artifact must never re-expose a field the text path
+ * deliberately withheld.
  *
  * Authorization is enforced at TWO levels (see {@see requiresAdmin()}):
  * a coarse admin-only tier checked by the runtime ({@see ToolLoopService}
@@ -47,12 +52,16 @@ interface ToolInterface
     public function getSpec(): ToolSpec;
 
     /**
-     * Execute the tool with the model-provided arguments and return a string
-     * result that is fed back into the conversation as a tool turn.
+     * Execute the tool with the model-provided arguments and return a typed
+     * {@see ToolResult}: a provider-facing `content` string, an error flag, and
+     * an optional list of run-only {@see \Netresearch\NrLlm\Domain\ValueObject\ToolArtifact}s
+     * for richer backend rendering. The content is fed back into the
+     * conversation as a tool turn; the artifacts never reach the provider (see
+     * the security contract above).
      *
      * @param array<string, mixed> $arguments
      */
-    public function execute(array $arguments): string;
+    public function execute(array $arguments): ToolResult;
 
     /**
      * Whether this tool is offered by default when an admin has not set an

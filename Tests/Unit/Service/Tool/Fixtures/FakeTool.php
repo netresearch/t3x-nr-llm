@@ -9,24 +9,31 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 
 /**
  * Minimal in-memory ToolInterface double used by the ToolRegistry unit tests.
  *
- * Carries a configurable name (the registry index key) and a canned result so
- * a test can assert both the lookup-by-name path and the execute() contract
- * without touching the database or a real provider.
+ * Carries a configurable name (the registry index key), a canned result and an
+ * optional list of run-only artifacts so a test can assert both the
+ * lookup-by-name path and the execute() contract (including the artifact
+ * channel) without touching the database or a real provider.
  */
 final readonly class FakeTool implements ToolInterface
 {
+    /**
+     * @param list<ToolArtifact> $artifacts
+     */
     public function __construct(
         private string $name,
         private string $result = 'ok',
         private bool $enabledByDefault = true,
         private bool $requiresAdmin = false,
         private string $group = 'test',
+        private array $artifacts = [],
     ) {}
 
     public function getSpec(): ToolSpec
@@ -41,9 +48,9 @@ final readonly class FakeTool implements ToolInterface
     /**
      * @param array<string, mixed> $arguments
      */
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
-        return $this->result;
+        return ToolResult::text($this->result, ...$this->artifacts);
     }
 
     public function isEnabledByDefault(): bool

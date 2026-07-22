@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -45,11 +46,11 @@ final readonly class GetEnvRawTool implements ToolInterface, ToolDataClassInterf
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $env = $this->collectEnvironment();
         if ($env === []) {
-            return 'No environment variables.';
+            return ToolResult::text('No environment variables.');
         }
 
         ksort($env);
@@ -58,7 +59,7 @@ final readonly class GetEnvRawTool implements ToolInterface, ToolDataClassInterf
             $lines[] = $name . '=' . $value;
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

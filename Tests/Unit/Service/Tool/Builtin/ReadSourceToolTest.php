@@ -54,7 +54,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function readsARangeWithLineNumbers(): void
     {
-        $output = $this->tool->execute(['path' => 'Classes/Demo.php', 'from_line' => 3, 'lines' => 2]);
+        $output = $this->tool->execute(['path' => 'Classes/Demo.php', 'from_line' => 3, 'lines' => 2])->content;
 
         self::assertStringContainsString('Classes/Demo.php (lines 3-4 of 10):', $output);
         self::assertStringContainsString('    3 | // line 3', $output);
@@ -65,7 +65,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function deniesSettingsPhp(): void
     {
-        $output = $this->tool->execute(['path' => 'config/system/settings.php']);
+        $output = $this->tool->execute(['path' => 'config/system/settings.php'])->content;
 
         self::assertStringContainsString('Denied or not found', $output);
         self::assertStringNotContainsString('secret', $output);
@@ -74,7 +74,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function requiresAPath(): void
     {
-        self::assertStringContainsString('"path" is required', $this->tool->execute([]));
+        self::assertStringContainsString('"path" is required', $this->tool->execute([])->content);
     }
 
     protected function tearDown(): void

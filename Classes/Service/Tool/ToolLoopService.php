@@ -9,15 +9,19 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use JsonException;
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
@@ -67,6 +71,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * provider payload limit, bypass the token budget and pressure memory.
      */
     private const MAX_TOOL_RESULT_BYTES = 50000;
+
+    /**
+     * Hard cap on the total serialised bytes of a single tool call's artifacts.
+     * Independent of {@see self::MAX_TOOL_RESULT_BYTES}: content and artifacts
+     * are separate egress channels, so each is bounded on its own so a large one
+     * cannot mask an over-budget other. The rationale is crash-safety and
+     * DOM/persistence size, NOT provider-context starvation — artifacts have no
+     * provider path, so they can never starve model-visible content.
+     */
+    private const MAX_TOOL_ARTIFACT_BYTES = 50000;
 
     public function __construct(
         private LlmServiceManagerInterface $mgr,
@@ -293,11 +307,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 }
 
                 foreach ($resp->toolCalls ?? [] as $call) {
-                    $tt0                = hrtime(true);
-                    [$result, $isError] = $this->invoke($call, $allowedNames);
-                    $messages[]         = ChatMessage::toolResult($call->id, $result);
-                    $trace[] = new ToolInvocation($call->name, $call->arguments, $result, $isError);
-                    $runTrace?->recordToolExecution($iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+                    $tt0 = hrtime(true);
+                    $tr  = $this->invoke($call, $allowedNames);
+                    // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
+                    $messages[] = ChatMessage::toolResult($call->id, $tr->content);
+                    $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                    $runTrace?->recordToolExecution($iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
                 }
             }
 
@@ -479,9 +494,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $result = sprintf('Error: tool "%s" requires user input that was not provided.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
-                $tt0                = hrtime(true);
-                [$result, $isError] = $this->invoke($call, $offered);
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+                $tt0    = hrtime(true);
+                $tr     = $this->invoke($call, $offered);
+                $result = $tr->content;
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
@@ -546,18 +562,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } elseif ($call->name === $state->inputToolName) {
-                $tt0                = hrtime(true);
-                [$result, $isError] = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered);
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+                $tt0    = hrtime(true);
+                $tr     = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered);
+                $result = $tr->content;
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // A second input-requiring call in the same turn got no data —
                 // one submission satisfies one tool. Fail-closed refusal.
                 $result = sprintf('Error: tool "%s" requires input that was not provided.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
-                $tt0                = hrtime(true);
-                [$result, $isError] = $this->invoke($call, $offered);
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $result, $isError);
+                $tt0    = hrtime(true);
+                $tr     = $this->invoke($call, $offered);
+                $result = $tr->content;
+                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
@@ -670,8 +688,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * X@host') that URL-sanitising would not strip, so it must never reach the
      * provider.
      *
-     *
-     * @return array{0: string, 1: bool} [result, isError]
+     * @return ToolResult
      */
     /**
      * Resolve the tool names offered for a run: the caller's per-run allow-list
@@ -742,22 +759,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * @param list<string> $allowedNames
+     * Resolve and execute a single tool call, returning a typed {@see ToolResult}.
+     * A missing tool, a tool not in the offered allow-list, or a thrown exception
+     * becomes a fail-closed error result (`isError = true`, NO artifacts) so the
+     * loop can continue instead of aborting or leaking internals.
      *
-     * @return array{string, bool} the tool result and whether it is an error
+     * Both channels are bounded here — the single seam every executed call passes
+     * through — before any ToolResult leaves the process: `content` via
+     * {@see self::capResult()}, `artifacts` via {@see self::boundArtifacts()}.
+     *
+     * @param list<string> $allowedNames
      */
-    private function invoke(ToolCall $call, array $allowedNames): array
+    private function invoke(ToolCall $call, array $allowedNames): ToolResult
     {
         $tool = $this->registry->get($call->name);
         if ($tool === null) {
-            return [sprintf('Error: unknown tool "%s"', $call->name), true];
+            return ToolResult::error(sprintf('Error: unknown tool "%s"', $call->name));
         }
         if (!in_array($call->name, $allowedNames, true)) {
-            return [sprintf('Error: tool "%s" not permitted', $call->name), true];
+            return ToolResult::error(sprintf('Error: tool "%s" not permitted', $call->name));
         }
 
         try {
-            return [$this->capResult($tool->execute($call->arguments)), false];
+            $result = $tool->execute($call->arguments);
         } catch (Throwable $e) {
             // Keep the logged summary generic — the exception body may embed
             // DBAL/PDO credentials that URL-sanitising would not strip. The full
@@ -768,8 +792,102 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 ['exception' => $e],
             );
 
-            return [sprintf('Error: tool "%s" failed.', $call->name), true];
+            return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name));
         }
+
+        return $result->isError
+            ? ToolResult::error($this->capResult($result->content))
+            : ToolResult::text(
+                $this->capResult($result->content),
+                ...$this->boundArtifacts($result->artifacts),
+            );
+    }
+
+    /**
+     * Bound and sanitise a tool's artifacts before they enter the trace /
+     * inspector / persisted stream. UTF-8-coerces every string leaf (reusing the
+     * same seam that makes untrusted tool bytes JSON-safe for `content`), then
+     * validates the whole list with the EXACT json_encode flags AND a depth cap
+     * the downstream sinks use ({@see \Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController}
+     * and {@see AgentRunPersister::recordStep()} all encode with
+     * JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE). Anything that survives
+     * here therefore CANNOT throw at those sinks — crash-safety by construction,
+     * not by a lenient superset.
+     *
+     * Fail-closed: on a JsonException (non-finite float, unencodable type,
+     * over-depth from a corrupt/cyclic structure) or an over-budget encode, the
+     * WHOLE list is replaced by one TEXT marker — never a mid-structure
+     * truncation.
+     *
+     * @param list<ToolArtifact> $artifacts
+     *
+     * @return list<ToolArtifact>
+     */
+    private function boundArtifacts(array $artifacts): array
+    {
+        if ($artifacts === []) {
+            return [];
+        }
+
+        $coerced = array_map(
+            fn(ToolArtifact $a): ToolArtifact => new ToolArtifact(
+                $a->type,
+                $this->toValidUtf8($a->label),
+                $this->coerceLeaves($a->data),
+            ),
+            $artifacts,
+        );
+
+        try {
+            // Depth 64 leaves ample headroom below json_encode's default 512 so
+            // an artifact that encodes here also encodes when the sink nests it a
+            // few levels deeper inside the RunStep payload. A legitimate TABLE
+            // nests ~4 deep; a malicious deep structure trips the fail-closed
+            // marker.
+            $json = json_encode(
+                array_map(static fn(ToolArtifact $a): array => $a->toArray(), $coerced),
+                JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
+                64,
+            );
+        } catch (JsonException) {
+            return [$this->artifactsOmitted('could not be encoded')];
+        }
+
+        if (strlen($json) > self::MAX_TOOL_ARTIFACT_BYTES) {
+            return [$this->artifactsOmitted('exceeded ' . self::MAX_TOOL_ARTIFACT_BYTES . ' bytes')];
+        }
+
+        return array_values($coerced);
+    }
+
+    /**
+     * Recursively coerce every string leaf of an artifact payload to valid UTF-8,
+     * reusing {@see self::toValidUtf8()}. `array<array-key, mixed>` (not
+     * `array<string, mixed>`): a TABLE's `rows` are int-keyed sub-arrays.
+     *
+     * @param array<array-key, mixed> $data
+     *
+     * @return array<array-key, mixed>
+     */
+    private function coerceLeaves(array $data): array
+    {
+        $out = [];
+        foreach ($data as $key => $value) {
+            if (is_string($value)) {
+                $out[$key] = $this->toValidUtf8($value);
+            } elseif (is_array($value)) {
+                $out[$key] = $this->coerceLeaves($value);
+            } else {
+                $out[$key] = $value;
+            }
+        }
+
+        return $out;
+    }
+
+    private function artifactsOmitted(string $reason): ToolArtifact
+    {
+        return new ToolArtifact(ArtifactType::TEXT, 'Artifacts omitted', ['text' => $reason]);
     }
 
     /**

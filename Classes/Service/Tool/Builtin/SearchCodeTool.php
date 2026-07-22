@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use FilesystemIterator;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -78,11 +79,11 @@ final readonly class SearchCodeTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $pattern = self::toStr($arguments['pattern'] ?? '');
         if ($pattern === '') {
-            return 'Error: "pattern" is required.';
+            return ToolResult::text('Error: "pattern" is required.');
         }
 
         $isRegex = (bool)($arguments['regex'] ?? false);
@@ -98,7 +99,7 @@ final readonly class SearchCodeTool implements ToolInterface
                 restore_error_handler();
             }
             if (!$patternIsValid) {
-                return sprintf('Error: invalid regular expression "%s".', $pattern);
+                return ToolResult::text(sprintf('Error: invalid regular expression "%s".', $pattern));
             }
         }
 
@@ -110,7 +111,7 @@ final readonly class SearchCodeTool implements ToolInterface
 
         $root = $this->guard->rootPath();
         if ($root === null) {
-            return 'Error: project root not resolvable.';
+            return ToolResult::text('Error: project root not resolvable.');
         }
 
         $base    = $root;
@@ -118,10 +119,10 @@ final readonly class SearchCodeTool implements ToolInterface
         if ($subPath !== '') {
             $candidate = realpath($root . '/' . $subPath);
             if ($candidate === false || !is_dir($candidate) || !str_starts_with($candidate . '/', $root . '/')) {
-                return sprintf('Denied or not found: search path "%s".', $subPath);
+                return ToolResult::text(sprintf('Denied or not found: search path "%s".', $subPath));
             }
             if ($this->guard->isDeniedRelativePath(substr($candidate, strlen($root) + 1) . '/x')) {
-                return sprintf('Denied: search path "%s".', $subPath);
+                return ToolResult::text(sprintf('Denied: search path "%s".', $subPath));
             }
             $base = $candidate;
         }
@@ -179,9 +180,9 @@ final readonly class SearchCodeTool implements ToolInterface
         }
 
         if ($hits === []) {
-            return $truncated !== ''
+            return ToolResult::text($truncated !== ''
                 ? "No matches found before the budget ran out.\n" . $truncated
-                : sprintf('No matches for "%s".', $pattern);
+                : sprintf('No matches for "%s".', $pattern));
         }
 
         $header = sprintf('%d match(es) for "%s"%s:', count($hits), $pattern, count($hits) >= $maxResults ? ' (capped)' : '');
@@ -190,7 +191,7 @@ final readonly class SearchCodeTool implements ToolInterface
             $out[] = $truncated;
         }
 
-        return implode("\n", $out);
+        return ToolResult::text(implode("\n", $out));
     }
 
     public function isEnabledByDefault(): bool

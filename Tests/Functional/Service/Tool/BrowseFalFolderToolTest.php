@@ -53,7 +53,7 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Folder / of storage 1', $output);
         self::assertStringContainsString('- docs/ (1 files)', $output);
@@ -65,7 +65,7 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['folder' => '/docs/']);
+        $output = $this->tool->execute(['folder' => '/docs/'])->content;
 
         self::assertStringContainsString('- manual.txt (text/plain, 10 B)', $output);
         self::assertStringNotContainsString('hello.txt', $output);
@@ -78,7 +78,7 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Folder not found or not permitted.',
-            $this->tool->execute(['folder' => '/does-not-exist/']),
+            $this->tool->execute(['folder' => '/does-not-exist/'])->content,
         );
     }
 
@@ -89,13 +89,13 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Folder not found or not permitted.',
-            $this->tool->execute(['storage' => 99]),
+            $this->tool->execute(['storage' => 99])->content,
         );
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Folder not found or not permitted.', $this->tool->execute([]));
+        self::assertSame('Folder not found or not permitted.', $this->tool->execute([])->content);
     }
 }

@@ -61,7 +61,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['limit' => 2]);
+        $output = $this->tool->execute(['limit' => 2])->content;
 
         self::assertStringContainsString('Cache cleared', $output);
         self::assertStringContainsString('Login failed', $output);
@@ -75,7 +75,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['limit' => 10]);
+        $output = $this->tool->execute(['limit' => 10])->content;
 
         self::assertStringNotContainsString(self::RAW_IP, $output);
         self::assertStringNotContainsString(self::USER_ID, $output);
@@ -87,7 +87,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['level' => 'error']);
+        $output = $this->tool->execute(['level' => 'error'])->content;
 
         self::assertStringContainsString('Login failed', $output);
         self::assertStringNotContainsString('Cache cleared', $output);
@@ -113,7 +113,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
             ]);
         }
 
-        $output = $this->tool->execute(['limit' => 9999]);
+        $output = $this->tool->execute(['limit' => 9999])->content;
 
         self::assertCount(50, $this->entryLines($output));
     }
@@ -121,7 +121,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function returnsPlaceholderWhenNoEntriesMatch(): void
     {
-        $output = $this->tool->execute(['level' => 'no-such-level']);
+        $output = $this->tool->execute(['level' => 'no-such-level'])->content;
 
         self::assertSame('No log entries.', $output);
     }

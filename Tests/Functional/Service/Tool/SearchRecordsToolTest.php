@@ -63,7 +63,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function findsSeededContentThroughSearchFieldsWithExcerpt(): void
     {
-        $output = $this->tool->execute(['query' => 'Netresearch']);
+        $output = $this->tool->execute(['query' => 'Netresearch'])->content;
 
         self::assertStringContainsString('tt_content:10', $output);
         self::assertStringContainsString('About Netresearch', $output);
@@ -73,7 +73,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function hiddenRowsNeverReachTheOutput(): void
     {
-        $output = $this->tool->execute(['query' => 'hidden gem']);
+        $output = $this->tool->execute(['query' => 'hidden gem'])->content;
 
         self::assertSame('No matches.', $output);
     }
@@ -81,7 +81,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function tableRestrictionLimitsTheSearch(): void
     {
-        $output = $this->tool->execute(['query' => 'Netresearch', 'table' => 'pages']);
+        $output = $this->tool->execute(['query' => 'Netresearch', 'table' => 'pages'])->content;
 
         self::assertStringNotContainsString('tt_content:', $output);
     }
@@ -89,7 +89,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function sensitiveTableIsDeniedEvenForAdmin(): void
     {
-        $output = $this->tool->execute(['query' => 'admin', 'table' => 'be_users']);
+        $output = $this->tool->execute(['query' => 'admin', 'table' => 'be_users'])->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -106,7 +106,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
         ]);
 
-        $output = $this->tool->execute(['query' => 'workspacedraftmarker']);
+        $output = $this->tool->execute(['query' => 'workspacedraftmarker'])->content;
 
         self::assertSame('No matches.', $output);
     }

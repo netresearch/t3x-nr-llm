@@ -72,7 +72,7 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 20]);
+        $output = $this->tool->execute(['uid' => 20])->content;
 
         self::assertStringContainsString('References to logo.svg (2):', $output);
         self::assertStringContainsString('- tt_content:5 (field image)', $output);
@@ -94,7 +94,7 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
 
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 20]);
+        $output = $this->tool->execute(['uid' => 20])->content;
 
         self::assertStringNotContainsString('tt_content:77', $output);
         self::assertStringContainsString('References to logo.svg (2):', $output);
@@ -114,7 +114,7 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
             'name' => 'unused.png', 'mime_type' => 'image/png', 'size' => 10, 'missing' => 0,
         ]);
 
-        $output = $this->tool->execute(['uid' => 22]);
+        $output = $this->tool->execute(['uid' => 22])->content;
 
         self::assertStringContainsString('No references to unused.png', $output);
         self::assertStringContainsString('soft references', $output);
@@ -125,12 +125,12 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 21]));
+        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 21])->content);
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 20]));
+        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 20])->content);
     }
 }

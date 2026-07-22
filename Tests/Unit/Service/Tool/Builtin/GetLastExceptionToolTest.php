@@ -73,7 +73,7 @@ final class GetLastExceptionToolTest extends TestCase
     #[Test]
     public function rendersExceptionWithSourceContextAroundProjectFrames(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('RuntimeException', $output);
         self::assertStringContainsString('it broke', $output);
@@ -87,7 +87,7 @@ final class GetLastExceptionToolTest extends TestCase
     #[Test]
     public function indexOutOfRangeIsExplained(): void
     {
-        self::assertStringContainsString('out of range', $this->tool->execute(['index' => 5]));
+        self::assertStringContainsString('out of range', $this->tool->execute(['index' => 5])->content);
     }
 
     #[Test]
@@ -97,7 +97,7 @@ final class GetLastExceptionToolTest extends TestCase
         mkdir($empty, 0o777, true);
         $tool = new GetLastExceptionTool(new LogExceptionReader($empty), new SourcePathGuard($this->base . '/project'));
 
-        $output = $tool->execute([]);
+        $output = $tool->execute([])->content;
 
         self::assertStringContainsString('No error-level entries', $output);
         self::assertStringContainsString('fetch_logs', $output);

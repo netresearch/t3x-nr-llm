@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\EvidenceList;
@@ -76,11 +77,11 @@ final readonly class SiteRagQueryTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user = $this->actingBackendUser();
         if ($user === null) {
-            return 'Not permitted.';
+            return ToolResult::text('Not permitted.');
         }
 
         $question = trim(self::toStr($arguments['question'] ?? ''));
@@ -88,7 +89,7 @@ final readonly class SiteRagQueryTool implements ToolInterface
         // whitespace and shrink the trimmed length below the minimum.
         $question = trim(mb_substr($question, 0, RetrievalQuery::MAX_QUERY_LENGTH));
         if (mb_strlen($question) < RetrievalQuery::MIN_QUERY_LENGTH) {
-            return 'Question too short (minimum 2 characters).';
+            return ToolResult::text('Question too short (minimum 2 characters).');
         }
 
         $maxSources = self::toInt($arguments['max_sources'] ?? self::DEFAULT_SOURCES);
@@ -105,7 +106,7 @@ final readonly class SiteRagQueryTool implements ToolInterface
             AccessContext::forBackendUser($user),
         );
 
-        return $this->format($question, $result);
+        return ToolResult::text($this->format($question, $result));
     }
 
     public function isEnabledByDefault(): bool

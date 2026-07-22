@@ -50,7 +50,7 @@ final class GetEnvRawToolTest extends TestCase
     #[Test]
     public function returnsSecretValueUnredacted(): void
     {
-        $output = (new GetEnvRawTool())->execute([]);
+        $output = (new GetEnvRawTool())->execute([])->content;
 
         self::assertStringContainsString(self::SECRET_KEY . '=' . self::SECRET_VALUE, $output);
     }

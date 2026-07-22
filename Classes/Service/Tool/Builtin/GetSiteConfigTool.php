@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
@@ -65,7 +66,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $identifier = trim(self::toStr($arguments['identifier'] ?? ''));
 
@@ -80,20 +81,20 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
                 );
             }
             if ($lines === []) {
-                return 'No sites configured.';
+                return ToolResult::text('No sites configured.');
             }
             sort($lines);
 
-            return sprintf(
+            return ToolResult::text(sprintf(
                 "Configured sites (%d) — pass \"identifier\" for a site's configuration:\n",
                 count($lines),
-            ) . implode("\n", $lines);
+            ) . implode("\n", $lines));
         }
 
         $sites = $this->siteFinder->getAllSites();
         $site  = $sites[$identifier] ?? null;
         if ($site === null) {
-            return sprintf('No site "%s". Call without arguments to list the identifiers.', $identifier);
+            return ToolResult::text(sprintf('No site "%s". Call without arguments to list the identifiers.', $identifier));
         }
 
         $lines = [];
@@ -105,8 +106,8 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
             $lines[] = sprintf('… %d more lines not shown', $total - self::MAX_LINES);
         }
 
-        return sprintf("Site \"%s\" configuration (%d entries):\n", $identifier, $total)
-            . implode("\n", $lines);
+        return ToolResult::text(sprintf("Site \"%s\" configuration (%d entries):\n", $identifier, $total)
+            . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

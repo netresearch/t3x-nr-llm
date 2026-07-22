@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -83,11 +84,11 @@ final readonly class GetTypoScriptTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $pageUid = self::toInt($arguments['pageUid'] ?? 0);
         if ($pageUid < 1) {
-            return 'Page not found or no TypoScript template.';
+            return ToolResult::text('Page not found or no TypoScript template.');
         }
 
         $type = self::toStr($arguments['type'] ?? self::TYPE_SETUP);
@@ -99,14 +100,14 @@ final readonly class GetTypoScriptTool implements ToolInterface
 
         try {
             if ($type === self::TYPE_CONSTANTS) {
-                return $this->renderConstants($this->resolveFlatConstants($pageUid), $pageUid, $path);
+                return ToolResult::text($this->renderConstants($this->resolveFlatConstants($pageUid), $pageUid, $path));
             }
 
-            return $this->renderSetup($this->resolveSetup($pageUid), $pageUid, $path);
+            return ToolResult::text($this->renderSetup($this->resolveSetup($pageUid), $pageUid, $path));
         } catch (Throwable) {
             // Deliberately neutral: rootline/site/template resolution failures
             // must not leak exception internals into the provider egress.
-            return 'Page not found or no TypoScript template.';
+            return ToolResult::text('Page not found or no TypoScript template.');
         }
     }
 

@@ -71,7 +71,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['url' => '/imprint']);
+        $output = $this->tool->execute(['url' => '/imprint'])->content;
 
         self::assertStringContainsString('Site: resolver (base http://localhost:59999/)', $output);
         self::assertStringContainsString('Page: [2] Imprint', $output);
@@ -84,7 +84,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['url' => 'http://localhost:59999/']);
+        $output = $this->tool->execute(['url' => 'http://localhost:59999/'])->content;
 
         self::assertStringContainsString('Page: [1] Home', $output);
         self::assertStringContainsString('Language: 0', $output);
@@ -95,7 +95,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['url' => 'imprint']);
+        $output = $this->tool->execute(['url' => 'imprint'])->content;
 
         self::assertStringContainsString('Page: [2] Imprint', $output);
     }
@@ -107,7 +107,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Not a URL of this instance (no site matches).',
-            $this->tool->execute(['url' => '//evil.example.com/x']),
+            $this->tool->execute(['url' => '//evil.example.com/x'])->content,
         );
     }
 
@@ -118,7 +118,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'Not a URL of this instance (no site matches).',
-            $this->tool->execute(['url' => 'https://evil.example.com/x']),
+            $this->tool->execute(['url' => 'https://evil.example.com/x'])->content,
         );
     }
 
@@ -127,7 +127,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['url' => '/nope']);
+        $output = $this->tool->execute(['url' => '/nope'])->content;
 
         self::assertStringContainsString('No page route matches "/nope" on site "resolver"', $output);
     }
@@ -137,7 +137,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Page not found or not permitted.',
-            $this->tool->execute(['url' => '/imprint']),
+            $this->tool->execute(['url' => '/imprint'])->content,
         );
     }
 }

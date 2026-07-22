@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +69,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $queryBuilder->getRestrictions()->removeAll();
@@ -84,7 +85,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
             ->fetchAllAssociative();
 
         if ($rows === []) {
-            return 'No backend users.';
+            return ToolResult::text('No backend users.');
         }
 
         $blocks = [];
@@ -100,7 +101,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
             $blocks[] = sprintf('[%d]', self::toInt($row['uid'] ?? 0)) . "\n" . implode("\n", $pairs);
         }
 
-        return sprintf("Backend users (%d):\n", count($rows)) . implode("\n", $blocks);
+        return ToolResult::text(sprintf("Backend users (%d):\n", count($rows)) . implode("\n", $blocks));
     }
 
     public function isEnabledByDefault(): bool

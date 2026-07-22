@@ -34,7 +34,7 @@ final class GetPhpInfoToolTest extends TestCase
     #[Test]
     public function returnsCuratedRuntimeSubset(): void
     {
-        $output = (new GetPhpInfoTool())->execute([]);
+        $output = (new GetPhpInfoTool())->execute([])->content;
 
         self::assertStringContainsString('PHP version: ' . PHP_VERSION, $output);
         self::assertStringContainsString('Loaded extensions (', $output);

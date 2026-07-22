@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
@@ -82,21 +83,21 @@ final readonly class ProbeUrlTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $input = trim(self::toStr($arguments['url'] ?? ''));
         if ($input === '') {
-            return 'Error: "url" is required.';
+            return ToolResult::text('Error: "url" is required.');
         }
 
         $url = $this->egressPolicy->resolveAllowedUrl($this->getGroup(), $input);
         if ($url === null) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'Denied: "%s" is not a URL of this instance. Allowed hosts: %s. '
                 . 'Relative paths like "/imprint" are resolved against the first site.',
                 $this->displayUrl($input),
                 implode(', ', $this->egressPolicy->allowedHosts()) ?: '(no site configured)',
-            );
+            ));
         }
 
         $started   = microtime(true);
@@ -109,12 +110,12 @@ final readonly class ProbeUrlTool implements ToolInterface
                 'http_errors'     => false,
             ]);
         } catch (Throwable $e) {
-            return sprintf(
+            return ToolResult::text(sprintf(
                 'Probe of %s FAILED transport-level after %.0f ms: %s',
                 $url,
                 (microtime(true) - $started) * 1000,
                 $this->sanitizeErrorMessage($e->getMessage()),
-            );
+            ));
         }
 
         $elapsedMs = (microtime(true) - $started) * 1000;
@@ -145,7 +146,7 @@ final readonly class ProbeUrlTool implements ToolInterface
             $lines[] = $this->correlateLogs($probeTime);
         }
 
-        return implode("\n", $lines);
+        return ToolResult::text(implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

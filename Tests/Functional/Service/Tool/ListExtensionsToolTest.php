@@ -41,7 +41,7 @@ final class ListExtensionsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsActivePackagesWithVersions(): void
     {
-        $output = $this->tool->execute([]);
+        $output = $this->tool->execute([])->content;
 
         self::assertStringContainsString('Active extensions (', $output);
         self::assertStringContainsString('- nr_llm ', $output);

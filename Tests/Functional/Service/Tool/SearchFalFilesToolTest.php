@@ -73,7 +73,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['query' => 'brochure']);
+        $output = $this->tool->execute(['query' => 'brochure'])->content;
 
         // Name match (uid 10) and metadata-title match (uid 11).
         self::assertStringContainsString('[10] 1:/brochure-2026.pdf', $output);
@@ -90,7 +90,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString(
             'No files match "%"',
-            $this->tool->execute(['query' => '%']),
+            $this->tool->execute(['query' => '%'])->content,
         );
     }
 
@@ -101,7 +101,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(
             'No accessible file storages.',
-            $this->tool->execute(['query' => 'brochure', 'storage' => 2]),
+            $this->tool->execute(['query' => 'brochure', 'storage' => 2])->content,
         );
     }
 
@@ -110,7 +110,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'No accessible file storages.',
-            $this->tool->execute(['query' => 'brochure']),
+            $this->tool->execute(['query' => 'brochure'])->content,
         );
     }
     #[Test]
@@ -120,11 +120,11 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
 
         // Fixture name is lowercase 'brochure-2026.pdf'; DB collations with
         // case-sensitive LIKE (e.g. PostgreSQL) must still match.
-        $output = $this->tool->execute(['query' => 'BROCHURE']);
+        $output = $this->tool->execute(['query' => 'BROCHURE'])->content;
 
         self::assertStringContainsString('brochure-2026.pdf', $output);
         // Uppercase name matched by lowercase query, too.
-        $output = $this->tool->execute(['query' => 'dsc01']);
+        $output = $this->tool->execute(['query' => 'dsc01'])->content;
         self::assertStringContainsString('DSC01.jpg', $output);
     }
 }

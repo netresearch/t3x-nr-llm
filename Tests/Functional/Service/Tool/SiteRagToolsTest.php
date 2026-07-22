@@ -97,7 +97,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->queryTool->execute(['question' => 'aikido']);
+        $output = $this->queryTool->execute(['question' => 'aikido'])->content;
 
         self::assertStringContainsString('backend: database', $output);
         self::assertStringContainsString('database:2:0', $output);
@@ -111,7 +111,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        $output = $this->fetchTool->execute(['source_id' => 'database:2:0']);
+        $output = $this->fetchTool->execute(['source_id' => 'database:2:0'])->content;
 
         self::assertStringContainsString('# Aikido Migration Services', $output);
         self::assertStringContainsString('Aikido migrations done right.', $output);
@@ -122,12 +122,12 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(1);
 
-        self::assertSame('Question too short (minimum 2 characters).', $this->queryTool->execute(['question' => 'x']));
-        self::assertSame('Invalid source_id.', $this->fetchTool->execute(['source_id' => "db:1' OR '1"]));
-        self::assertSame('Source not found or not permitted.', $this->fetchTool->execute(['source_id' => 'database:999:0']));
+        self::assertSame('Question too short (minimum 2 characters).', $this->queryTool->execute(['question' => 'x'])->content);
+        self::assertSame('Invalid source_id.', $this->fetchTool->execute(['source_id' => "db:1' OR '1"])->content);
+        self::assertSame('Source not found or not permitted.', $this->fetchTool->execute(['source_id' => 'database:999:0'])->content);
         self::assertSame(
             'No evidence found for "zzz-not-present" (backend: database).',
-            $this->queryTool->execute(['question' => 'zzz-not-present']),
+            $this->queryTool->execute(['question' => 'zzz-not-present'])->content,
         );
     }
 
@@ -139,18 +139,18 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
         // Each of these once mapped to a RetrievalQuery::create() guard —
         // the tool must clamp them, not surface an exception (temperature=5
         // bug class).
-        $overCap = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 999]);
+        $overCap = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 999])->content;
         self::assertStringContainsString('database:2:0', $overCap);
 
-        $zero = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 0]);
+        $zero = $this->queryTool->execute(['question' => 'aikido', 'max_sources' => 0])->content;
         self::assertStringContainsString('database:2:0', $zero);
 
-        $negativeLanguage = $this->queryTool->execute(['question' => 'aikido', 'language' => -3]);
+        $negativeLanguage = $this->queryTool->execute(['question' => 'aikido', 'language' => -3])->content;
         self::assertStringContainsString('database:2:0', $negativeLanguage);
 
         // 350 chars in, truncated to 200 and answered cleanly — the echoed
         // question ends mid-word instead of raising a VO exception.
-        $longQuestion = $this->queryTool->execute(['question' => str_repeat('aikido ', 50)]);
+        $longQuestion = $this->queryTool->execute(['question' => str_repeat('aikido ', 50)])->content;
         self::assertStringStartsWith('Evidence for "aikido ', $longQuestion);
         self::assertStringContainsString('aiki" (backend:', $longQuestion);
         self::assertStringContainsString('database:2:0', $longQuestion);
@@ -170,7 +170,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
             'header' => 'Long chapter', 'bodytext' => str_repeat('aikido wisdom ', 1000),
         ]);
 
-        $output = $this->fetchTool->execute(['source_id' => 'database:2:0']);
+        $output = $this->fetchTool->execute(['source_id' => 'database:2:0'])->content;
 
         self::assertSame(8001, mb_strlen($output));
         self::assertStringEndsWith('…', $output);
@@ -179,7 +179,7 @@ final class SiteRagToolsTest extends AbstractFunctionalTestCase
     #[Test]
     public function bothToolsFailClosedWithoutBackendUser(): void
     {
-        self::assertSame('Not permitted.', $this->queryTool->execute(['question' => 'aikido']));
-        self::assertSame('Not permitted.', $this->fetchTool->execute(['source_id' => 'database:2:0']));
+        self::assertSame('Not permitted.', $this->queryTool->execute(['question' => 'aikido'])->content);
+        self::assertSame('Not permitted.', $this->fetchTool->execute(['source_id' => 'database:2:0'])->content);
     }
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -59,16 +60,16 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         try {
             $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
             $available  = array_keys($connection->createSchemaManager()->listTableColumns(self::TABLE));
         } catch (Throwable) {
-            return self::NOT_INSTALLED;
+            return ToolResult::text(self::NOT_INSTALLED);
         }
         if ($available === []) {
-            return self::NOT_INSTALLED;
+            return ToolResult::text(self::NOT_INSTALLED);
         }
 
         $select = array_values(array_intersect(
@@ -87,11 +88,11 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
                 ->executeQuery()
                 ->fetchAllAssociative();
         } catch (Throwable) {
-            return self::NOT_INSTALLED;
+            return ToolResult::text(self::NOT_INSTALLED);
         }
 
         if ($rows === []) {
-            return 'No scheduler tasks configured.';
+            return ToolResult::text('No scheduler tasks configured.');
         }
 
         $lines = [];
@@ -123,8 +124,8 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
             $lines[] = sprintf('- [%d] %s (%s)', self::toInt($row['uid'] ?? 0), $label, implode(', ', $flags));
         }
 
-        return sprintf("Scheduler tasks (%d, capped at %d):\n", count($lines), self::MAX_TASKS)
-            . implode("\n", $lines);
+        return ToolResult::text(sprintf("Scheduler tasks (%d, capped at %d):\n", count($lines), self::MAX_TASKS)
+            . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -47,7 +48,7 @@ final readonly class ListFalStoragesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): string
+    public function execute(array $arguments): ToolResult
     {
         $user  = $this->actingBackendUser();
         $lines = [];
@@ -80,10 +81,10 @@ final readonly class ListFalStoragesTool implements ToolInterface
         }
 
         if ($lines === []) {
-            return 'No accessible file storages.';
+            return ToolResult::text('No accessible file storages.');
         }
 
-        return sprintf("Accessible file storages (%d):\n", count($lines)) . implode("\n", $lines);
+        return ToolResult::text(sprintf("Accessible file storages (%d):\n", count($lines)) . implode("\n", $lines));
     }
 
     public function isEnabledByDefault(): bool

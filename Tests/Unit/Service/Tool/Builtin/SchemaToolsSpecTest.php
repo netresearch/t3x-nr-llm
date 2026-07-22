@@ -51,9 +51,9 @@ final class SchemaToolsSpecTest extends TestCase
     {
         $tool = new FluidResolveTool();
 
-        self::assertSame('Provide a template/partial/layout name.', $tool->execute(['name' => '']));
-        self::assertSame('Invalid name.', $tool->execute(['name' => '../../etc/passwd']));
-        self::assertStringContainsString('Provide the "extension"', $tool->execute(['name' => 'Foo']));
-        self::assertSame('Invalid extension key.', $tool->execute(['name' => 'Foo', 'extension' => 'Bad Key!']));
+        self::assertSame('Provide a template/partial/layout name.', $tool->execute(['name' => ''])->content);
+        self::assertSame('Invalid name.', $tool->execute(['name' => '../../etc/passwd'])->content);
+        self::assertStringContainsString('Provide the "extension"', $tool->execute(['name' => 'Foo'])->content);
+        self::assertSame('Invalid extension key.', $tool->execute(['name' => 'Foo', 'extension' => 'Bad Key!'])->content);
     }
 }

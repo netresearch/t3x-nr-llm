@@ -86,7 +86,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withoutTableArgumentListsSortedTableNames(): void
     {
-        $output = (new GetTcaTool(new TableReadAccessService()))->execute([]);
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute([])->content;
 
         self::assertStringContainsString('TCA tables (2):', $output);
         // Sorted: pages before tt_content.
@@ -96,7 +96,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withTableArgumentReturnsColumnNamesAndTypes(): void
     {
-        $output = (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'pages']);
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'pages'])->content;
 
         self::assertStringContainsString('TCA columns for pages:', $output);
         self::assertStringContainsString('title: input', $output);
@@ -108,7 +108,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function unknownTableReturnsNeutralString(): void
     {
-        self::assertSame('Unknown TCA table.', (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'no_such_table']));
+        self::assertSame('Unknown TCA table.', (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'no_such_table'])->content);
     }
 
     #[Test]
@@ -123,9 +123,9 @@ final class GetTcaToolTest extends TestCase
 
         $tool = new GetTcaTool(new TableReadAccessService());
 
-        self::assertSame('Unknown TCA table.', $tool->execute(['table' => 'tx_nrllm_provider']));
-        self::assertStringNotContainsString('tx_nrllm_provider', $tool->execute([]));
+        self::assertSame('Unknown TCA table.', $tool->execute(['table' => 'tx_nrllm_provider'])->content);
+        self::assertStringNotContainsString('tx_nrllm_provider', $tool->execute([])->content);
         // A normal table is still described in full — the gate must not over-block.
-        self::assertStringContainsString('title', $tool->execute(['table' => 'pages']));
+        self::assertStringContainsString('title', $tool->execute(['table' => 'pages'])->content);
     }
 }

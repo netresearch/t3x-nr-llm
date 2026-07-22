@@ -24,7 +24,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  *   provider reported it) and — only when raw capture was requested — the
  *   decoded provider response body.
  * - {@see self::KIND_TOOL}: one executed tool call — its name, arguments, the
- *   returned string, an error flag and the execution timing.
+ *   returned string, an error flag, the execution timing and any run-only
+ *   structured artifacts.
  * - {@see self::KIND_ASSEMBLED}: a dry run — the fully assembled message list
  *   (system + snippets + skills + user) that WOULD have been sent, with no
  *   provider call made.
@@ -48,6 +49,7 @@ final readonly class RunStep
      * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).
      * @param array<string, mixed>|null                                                   $raw                Decoded raw provider response — only when capture was requested (LLM).
      * @param array<string, mixed>|null                                                   $toolArguments      Arguments the model supplied for a tool call (TOOL).
+     * @param list<ToolArtifact>|null                                                     $toolArtifacts      Run-only structured artifacts a tool attached (TOOL); NEVER provider-facing.
      */
     public function __construct(
         public string $kind,
@@ -68,6 +70,7 @@ final readonly class RunStep
         public ?array $toolArguments = null,
         public ?string $toolResult = null,
         public ?bool $toolIsError = null,
+        public ?array $toolArtifacts = null,
     ) {}
 
     /**
@@ -100,6 +103,9 @@ final readonly class RunStep
             'toolArguments'      => $this->toolArguments,
             'toolResult'         => $this->toolResult,
             'toolIsError'        => $this->toolIsError,
+            'toolArtifacts'      => $this->toolArtifacts === null
+                ? null
+                : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
         ];
 
         foreach ($optional as $key => $value) {
