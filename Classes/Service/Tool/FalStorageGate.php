@@ -109,7 +109,12 @@ final readonly class FalStorageGate
             $previous = $storage->getEvaluatePermissions();
             $storage->setEvaluatePermissions(true);
             try {
-                return $storage->checkFileActionPermission('read', $storage->getFile($identifier));
+                $file = $storage->getFile($identifier);
+                if ($file === null) {
+                    return false;
+                }
+
+                return $storage->checkFileActionPermission('read', $file);
             } finally {
                 $storage->setEvaluatePermissions($previous);
             }

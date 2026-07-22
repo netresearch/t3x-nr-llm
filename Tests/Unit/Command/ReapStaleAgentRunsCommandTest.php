@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\Envelope;
@@ -117,6 +118,28 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
         return new ReapStaleAgentRunsCommand($persister, $this->recordingBus());
     }
 
+    #[Test]
+    public function failsAReclaimedRunWhoseWakeUpCannotBeDispatchedToAvoidAnOrphan(): void
+    {
+        $this->repository->staleRunning = [$this->staleRun('run-d', requeueCount: 0)];
+
+        $persister = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $tester    = new CommandTester(new ReapStaleAgentRunsCommand($persister, $this->throwingBus()));
+        $exit      = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exit);
+        // The run was reclaimed (RUNNING -> QUEUED) but the wake-up dispatch
+        // failed. Fail-closed: settle it FAILED instead of leaving an orphaned
+        // QUEUED row nothing would ever pick up (the reaper only re-finds stale
+        // RUNNING rows, and no message will arrive).
+        self::assertCount(1, $this->repository->staleRequeues);
+        self::assertCount(1, $this->repository->finished);
+        self::assertSame('failed', $this->repository->finished[0]['status']);
+        self::assertCount(0, $this->dispatched);
+        self::assertStringContainsString('0 requeued', $tester->getDisplay());
+        self::assertStringContainsString('1 dead-lettered', $tester->getDisplay());
+    }
+
     private function recordingBus(): MessageBusInterface
     {
         $bus = self::createStub(MessageBusInterface::class);
@@ -127,6 +150,14 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
                 return new Envelope($message, $stamps);
             },
         );
+
+        return $bus;
+    }
+
+    private function throwingBus(): MessageBusInterface
+    {
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willThrowException(new RuntimeException('transport down', 1));
 
         return $bus;
     }
