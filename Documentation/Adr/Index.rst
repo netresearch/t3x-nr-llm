@@ -401,3 +401,4 @@ Tools
    Adr101AgentRuntime
    Adr102QueuedAgentRuns
    Adr103CooperativeCancellation
+   Adr104StaleRunReaperAndRetry

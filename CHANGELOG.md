@@ -8,6 +8,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Worker heartbeat, stale-run reaper, retry and dead-letter (ADR-104): a queue
+  worker now renews its lease at every step boundary; if the renewal fails
+  (the run was reclaimed) it stops without settling — the run belongs to its
+  new owner (`AgentRunOutcome::LEASE_LOST`). The new schedulable
+  `nrllm:agent:reap` command finds RUNNING runs whose lease has expired (a
+  dead worker) and either requeues them for another worker or, once the requeue
+  budget is spent, dead-letters them; both mutations re-check staleness inside
+  the UPDATE so a merely slow worker is left alone. A queued run that fails is
+  classified through the `FailureClassifier` (extended so an exhausted fallback
+  chain classifies by its most recent attempt): a non-retryable class
+  dead-letters immediately (`AgentRunTerminationReason::NOT_RETRYABLE`), a
+  retryable one is requeued with an exponential backoff `DelayStamp`
+  (`AgentRunOutcome::REQUEUED`) until the budget is spent
+  (`RETRIES_EXHAUSTED`). Dead-lettering stays on the existing FAILED status +
+  reason axis — no new status, purge/retention untouched. Real backoff needs
+  the doctrine transport (which honours the delay); the sync transport retries
+  in-process, bounded by `AgentRuntime::MAX_REQUEUES` (3). Schema:
+  `requeue_count`. `AgentRunRepositoryInterface` gained `renewLease()`,
+  `requeue()`, `findStaleRunning()`, `requeueStale()` and `deadLetterStale()`.
 - Cooperative cancellation (ADR-103): `nrllm:agent:cancel` (and any
   `AgentRuntimeInterface::cancel()` caller) now also stops an in-flight loop at
   its next step boundary — after the current provider response or tool

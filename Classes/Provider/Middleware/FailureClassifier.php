@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Enum\FailureClass;
 use Netresearch\NrLlm\Provider\Exception\CircuitOpenException;
+use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -36,12 +37,38 @@ final readonly class FailureClassifier
     {
         return match (true) {
             $e instanceof CircuitOpenException => FailureClass::CIRCUIT_OPEN,
+            $e instanceof FallbackChainExhaustedException => self::fromChain($e),
             $e instanceof ProviderConnectionException,
             $e instanceof NetworkExceptionInterface => FailureClass::CONNECTION,
             $e instanceof ProviderConfigurationException => FailureClass::CONFIGURATION,
             $e instanceof ProviderResponseException => self::fromStatus($e->getCode()),
             default => FailureClass::UNKNOWN,
         };
+    }
+
+    /**
+     * A fallback chain only wraps retryable per-attempt errors (ADR-026), so the
+     * wrapper itself is retryable. Classify it by its most recent attempt — the
+     * freshest provider condition — so a queue retry (ADR-104) reacts to what
+     * actually failed last rather than to the opaque wrapper (which alone would
+     * classify UNKNOWN, i.e. not retryable). An empty attempt list cannot occur
+     * for a real chain but is treated conservatively as UNKNOWN.
+     */
+    private static function fromChain(FallbackChainExhaustedException $e): FailureClass
+    {
+        $attempts = $e->getAttemptErrors();
+        if ($attempts === []) {
+            return FailureClass::UNKNOWN;
+        }
+
+        $lastError = $attempts[array_key_last($attempts)]['error'];
+
+        // Guard against a pathological nested wrapper: recurse, never loop.
+        if ($lastError instanceof FallbackChainExhaustedException) {
+            return self::fromChain($lastError);
+        }
+
+        return self::classify($lastError);
     }
 
     private static function fromStatus(int $status): FailureClass

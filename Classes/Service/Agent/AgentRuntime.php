@@ -25,11 +25,13 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
@@ -43,6 +45,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
 
 /**
@@ -71,10 +74,31 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
     /**
      * How long a worker's claim on a queued run is presumed live (ADR-102).
-     * Written at claim time; the stale-run reaper epic acts on expiry —
-     * until then the lease is diagnostic.
+     * Written at claim time and renewed at every step boundary while the worker
+     * runs (ADR-104 heartbeat); the stale-run reaper reclaims a run whose lease
+     * has expired.
      */
     public const LEASE_SECONDS = 900;
+
+    /**
+     * How many times a queued run may be requeued before it dead-letters
+     * (ADR-104). A shared budget for both requeue sources — a retryable failure
+     * and a stale-lease reclaim — so a deterministically crashing run cannot
+     * loop forever through the queue.
+     */
+    public const MAX_REQUEUES = 3;
+
+    /**
+     * Base backoff before a requeued run is retried, in milliseconds (ADR-104).
+     * The delay grows exponentially with the requeue count, capped by
+     * {@see self::REQUEUE_BACKOFF_CAP_MS}. Honoured by the doctrine transport
+     * (available_at); the sync transport ignores it and retries in-process,
+     * bounded by {@see self::MAX_REQUEUES}.
+     */
+    public const REQUEUE_BACKOFF_MS = 30_000;
+
+    /** Ceiling on the exponential requeue backoff, in milliseconds (ADR-104). */
+    public const REQUEUE_BACKOFF_CAP_MS = 600_000;
 
     public function __construct(
         private ToolLoopServiceInterface $toolLoop,
@@ -149,13 +173,34 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         // Exactly one worker wins the guarded QUEUED -> RUNNING transition; a
         // run cancelled while waiting is terminal and unclaimable (ADR-102).
-        if (!$this->persister->claimQueued($run, $this->workerIdentity(), time() + self::LEASE_SECONDS)) {
+        $workerIdentity = $this->workerIdentity();
+        if (!$this->persister->claimQueued($run, $workerIdentity, time() + self::LEASE_SECONDS)) {
             return null;
         }
 
-        // The claim is won: from here every failure settles the run rather
-        // than leaving it stuck RUNNING.
-        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        // Resolve the event-stream position from a FRESH row AFTER the claim.
+        // A first execution has no events (MAX = -1 -> sequence 0, identical to
+        // before ADR-104); a REQUEUED run carries the prior attempt's events, so
+        // starting at 0 would reuse sequences and corrupt the stream. Fail-closed
+        // like approve(): a null position settles the run FAILED rather than
+        // stranding it RUNNING (the claim is already won).
+        $claimed = $this->persister->findRun($runUuid);
+        $handle  = $claimed !== null ? $this->persister->resumeHandle($claimed) : null;
+        if ($handle === null) {
+            $fallback = new AgentRunHandle($run->uid, $run->uuid);
+            $this->persister->settleFailed(
+                $fallback,
+                new RuntimeException(sprintf('The event-stream position of queued run %s could not be determined after the claim', $runUuid), 1784900002),
+            );
+            $this->logger?->error('Queued agent run position could not be resolved after the claim; the run was failed', ['run' => $runUuid]);
+
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::FAILED,
+                runUuid: $runUuid,
+                steps: [],
+                error: new RuntimeException('The event-stream position could not be determined after the queue claim', 1784900002),
+            );
+        }
 
         try {
             $request = $this->rehydrateRequest($run);
@@ -171,22 +216,121 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             );
         }
 
-        return $this->executeRequest($request, $handle, $onStep);
+        // The heartbeat renews the lease under this worker's identity, and the
+        // recover closure decides retry-vs-dead-letter for a failure (ADR-104).
+        $recover = fn(Throwable $e, array $steps): AgentRunResult
+            => $this->recoverQueuedFailure($handle, $runUuid, $workerIdentity, $e, $steps);
+
+        return $this->executeRequest($request, $handle, $onStep, $workerIdentity, $recover);
+    }
+
+    /**
+     * Decide the fate of a FAILED queued run (ADR-104), invoked from the ladder
+     * BEFORE the default settleFailed. Returns the outcome that replaces the
+     * generic FAILED — for a queued run every branch settles the row itself, so
+     * the ladder never falls through to PROVIDER_FAILED. Fully fail-soft: it
+     * must never throw — {@see runQueued()} does not throw once the claim is
+     * won — so a failure of the recovery machinery itself dead-letters the run.
+     *
+     * @param list<RunStep> $steps
+     */
+    private function recoverQueuedFailure(AgentRunHandle $handle, string $runUuid, string $workerIdentity, Throwable $e, array $steps): AgentRunResult
+    {
+        try {
+            $class = FailureClassifier::classify($e);
+
+            // A class retrying cannot fix (auth, config, a 4xx client error):
+            // dead-letter immediately, distinct from PROVIDER_FAILED so it never
+            // reads as retryable.
+            if (!$class->isRetryable()) {
+                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE);
+                $this->logger?->warning('Queued agent run failed with a non-retryable error; dead-lettered', ['run' => $runUuid, 'class' => $class->value]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
+            }
+
+            // Retryable in principle — but is the requeue budget spent? Re-read
+            // the row; a null read (-1) forces the fail-closed dead-letter.
+            $currentRun = $this->persister->findRun($runUuid);
+            $count      = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
+            if ($count < 0 || $count >= self::MAX_REQUEUES) {
+                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED);
+                $this->logger?->warning('Queued agent run exhausted its retry budget; dead-lettered', ['run' => $runUuid, 'requeueCount' => $count]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
+            }
+
+            // Requeue under an ownership guard. false => this worker no longer
+            // owns the run (the reaper reclaimed it, another worker holds it, or
+            // a concurrent cancel won). Do NOT settle: the row belongs to its
+            // current owner and settling it would destroy that owner's state.
+            if (!$this->persister->requeue($handle, $workerIdentity)) {
+                $this->logger?->notice('Queued agent run could not be requeued (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
+            }
+
+            // The row is QUEUED again: wake a worker for the retry, backing off.
+            // A dispatch failure would strand the QUEUED row (async transport),
+            // so the outer catch dead-letters it (finishRun's guard covers
+            // QUEUED). The sync transport ignores the delay and re-executes
+            // in-process, bounded by MAX_REQUEUES.
+            $this->dispatchRequeue($handle->uuid, $count);
+
+            return new AgentRunResult(outcome: AgentRunOutcome::REQUEUED, runUuid: $runUuid, steps: $steps, error: $e);
+        } catch (Throwable $internal) {
+            $this->logger?->error('Queued agent run recovery failed; dead-lettering', ['run' => $runUuid, 'exception' => $internal]);
+            try {
+                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED);
+            } catch (Throwable) {
+                // The persister is itself fail-soft; nothing more can be done.
+            }
+
+            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
+        }
+    }
+
+    /**
+     * Dispatch a delayed wake-up for a requeued run (ADR-104). Throws when no
+     * bus is wired — unreachable in practice (a queued run only exists when
+     * enqueue() dispatched, which requires the bus) but surfaced so the caller
+     * dead-letters rather than stranding a QUEUED row.
+     */
+    private function dispatchRequeue(string $uuid, int $priorRequeueCount): void
+    {
+        if ($this->messageBus === null) {
+            throw RunEnqueueFailedException::forRun($uuid);
+        }
+
+        $delayMs = min(self::REQUEUE_BACKOFF_MS * (2 ** $priorRequeueCount), self::REQUEUE_BACKOFF_CAP_MS);
+        $this->messageBus->dispatch(new AgentRunQueuedMessage($uuid), [new DelayStamp($delayMs)]);
     }
 
     /**
      * The shared execution path behind {@see run()} and {@see runQueued()}:
      * clamp the round cap, build the trace, drive the ladder.
      *
-     * @param (Closure(RunStep): void)|null $onStep
+     * A queued run passes its worker identity as $leaseOwner (so each step
+     * boundary renews the lease and detects a reaper reclaim, ADR-104) and a
+     * $recover closure that decides retry-vs-dead-letter for a failure. An
+     * interactive run() passes neither: it holds no lease and surfaces failures
+     * to its caller unchanged.
+     *
+     * @param (Closure(RunStep): void)|null                             $onStep
+     * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
      */
-    private function executeRequest(AgentRunRequest $request, ?AgentRunHandle $handle, ?Closure $onStep): AgentRunResult
-    {
+    private function executeRequest(
+        AgentRunRequest $request,
+        ?AgentRunHandle $handle,
+        ?Closure $onStep,
+        ?string $leaseOwner = null,
+        ?Closure $recover = null,
+    ): AgentRunResult {
         $maxIterations = $request->maxIterations !== null
             ? min($request->maxIterations, self::MAX_ITERATIONS)
             : null;
 
-        $trace = $this->trace($handle, $onStep, $request->captureRaw);
+        $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
 
         return $this->execute(
             $handle,
@@ -200,6 +344,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 $trace,
                 $request->augmentation,
             ),
+            $recover,
         );
     }
 
@@ -511,9 +656,17 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      * stream stays complete up to the abort point. One indexed row read per
      * step; steps are provider-call-slow, so the cost is negligible.
      *
+     * For a queued run $leaseOwner is this worker's identity (ADR-104): after
+     * the cancellation check, the lease is renewed under an ownership guard
+     * BEFORE the step is persisted. If the renewal affects no row the worker no
+     * longer owns the run — the reaper reclaimed it and another worker may hold
+     * it now — so it stops WITHOUT writing the step, which would otherwise
+     * collide with the new owner's stream. Interactive runs pass null and never
+     * renew (they hold no lease).
+     *
      * @param (Closure(RunStep): void)|null $onStep
      */
-    private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw): RunTrace
+    private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null): RunTrace
     {
         if ($handle === null && $onStep === null) {
             return new RunTrace(captureRaw: $captureRaw);
@@ -521,19 +674,40 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         return new RunTrace(
             captureRaw: $captureRaw,
-            onRecord: function (RunStep $step) use ($handle, $onStep): void {
+            onRecord: function (RunStep $step) use ($handle, $onStep, $leaseOwner): void {
+                // The live observer sees the step FIRST (emit-before-persist),
+                // so a step is shown even when its persistence or the checks
+                // below abort the loop.
                 if ($onStep !== null) {
                     $onStep($step);
                 }
-                if ($handle !== null) {
+                if ($handle === null) {
+                    return;
+                }
+
+                // A single indexed read drives the cancellation probe (ADR-103).
+                // findRun is fail-soft (null on a store hiccup), so a read
+                // failure can never fabricate a cancellation.
+                if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
+                    // Persist the step that already happened, then stop: the
+                    // audit stream stays complete up to the abort point.
                     $this->persister->recordStep($handle, $step);
 
-                    // findRun is fail-soft (null on a store hiccup), so a read
-                    // failure can never fabricate a cancellation.
-                    if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
-                        throw RunCancellationRequestedException::forRun($handle->uuid);
-                    }
+                    throw RunCancellationRequestedException::forRun($handle->uuid);
                 }
+
+                // Heartbeat + lease-lost guard for a worker run (ADR-104). The
+                // renewal's ownership guard is the atomic check: 0 rows means
+                // the run was reclaimed/re-claimed/terminated — stop WITHOUT
+                // recording the step, so a zombie worker cannot append an event
+                // whose sequence collides with the new owner's stream.
+                if ($leaseOwner !== null
+                    && !$this->persister->renewLease($handle, $leaseOwner, time() + self::LEASE_SECONDS)
+                ) {
+                    throw RunLeaseLostException::forRun($handle->uuid);
+                }
+
+                $this->persister->recordStep($handle, $step);
             },
         );
     }
@@ -550,9 +724,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      * observer dying mid-run, mirroring StreamingDispatcher) and costs the
      * settled paths nothing.
      *
-     * @param Closure(): ToolLoopResult $loopCall
+     * A queued run passes a $recover closure (ADR-104): in the generic failure
+     * arm, before the default settleFailed, it decides retry-vs-dead-letter and,
+     * when it handles the failure, returns the outcome that replaces FAILED.
+     *
+     * @param Closure(): ToolLoopResult                                 $loopCall
+     * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
      */
-    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall): AgentRunResult
+    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null): AgentRunResult
     {
         $runUuid = $handle !== null ? $handle->uuid : '';
         $settled = false;
@@ -645,7 +824,34 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 guardrailClass: $guardrail->guardrail,
                 error: $guardrail,
             );
+        } catch (RunLeaseLostException $leaseLost) {
+            // ADR-104: the reaper reclaimed this run (or a cancel/settle won) and
+            // it belongs to another worker now. Stop WITHOUT settling — any
+            // settle here could destroy the new owner's in-flight state. Not a
+            // failure of the run; a loss of ownership by this worker.
+            $settled = true;
+            $this->logger?->info('Agent run worker lost its lease; stopping without settling', ['run' => $runUuid]);
+
+            return new AgentRunResult(
+                outcome: AgentRunOutcome::LEASE_LOST,
+                runUuid: $runUuid,
+                steps: $trace->getSteps(),
+                error: $leaseLost,
+            );
         } catch (Throwable $e) {
+            // A queued run's recover closure decides retry-vs-dead-letter and,
+            // when it handles the failure, settles the row itself and returns
+            // the replacement outcome. Only an interactive run (no recover) or a
+            // recover that declines (null) falls through to the default settle.
+            if ($recover !== null) {
+                $recovery = $recover($e, $trace->getSteps());
+                if ($recovery instanceof AgentRunResult) {
+                    $settled = true;
+
+                    return $recovery;
+                }
+            }
+
             if ($handle !== null) {
                 $this->persister->settleFailed($handle, $e);
             }

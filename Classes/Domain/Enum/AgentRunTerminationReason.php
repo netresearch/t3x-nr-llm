@@ -57,6 +57,23 @@ enum AgentRunTerminationReason: string
     case CANCELLED = 'cancelled';
 
     /**
+     * A queued run failed with a retryable provider error, was requeued the
+     * maximum number of times, and still did not succeed (ADR-104). The failure
+     * class was transient in principle, but the requeue budget is spent — this
+     * is the dead-letter terminus for a run that could be retried but no longer
+     * may be.
+     */
+    case RETRIES_EXHAUSTED = 'retries_exhausted';
+
+    /**
+     * A queued run failed with a failure class that retrying cannot fix
+     * (authentication, configuration, a 4xx client error, ADR-104). No requeue
+     * is attempted; the run dead-letters immediately. Distinct from
+     * PROVIDER_FAILED, whose isRetryable() is true.
+     */
+    case NOT_RETRYABLE = 'not_retryable';
+
+    /**
      * @return list<string>
      */
     public static function values(): array

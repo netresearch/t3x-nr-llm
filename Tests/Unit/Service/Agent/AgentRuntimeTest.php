@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -47,6 +48,7 @@ use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
 
 #[CoversClass(AgentRuntime::class)]
@@ -634,6 +636,192 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aQueuedRunRenewsItsLeaseAtEachStepBoundary(): void
+    {
+        // ADR-104 heartbeat: a worker-claimed run renews its lease at every step
+        // boundary, under its own worker identity.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertCount(1, $this->repository->leaseRenewals);
+        self::assertSame($this->repository->queuedClaim['claimedBy'] ?? null, $this->repository->leaseRenewals[0]['claimedBy']);
+        self::assertGreaterThan(time(), $this->repository->leaseRenewals[0]['leaseExpires']);
+    }
+
+    #[Test]
+    public function aQueuedRunThatLosesItsLeaseStopsWithoutSettling(): void
+    {
+        // ADR-104: the reaper reclaimed the run (renewLease affects no row). The
+        // worker stops at the step boundary WITHOUT recording the step and
+        // WITHOUT settling — the row belongs to its new owner.
+        $this->repository->findResult        = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->refuseRenewLease = true;
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('must not complete');
+            },
+        );
+
+        $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::LEASE_LOST, $result->outcome);
+        // No settle: the run is not this worker's to terminate.
+        self::assertNull($this->repository->finished);
+        // The step was NOT persisted — the abort precedes the recordStep.
+        self::assertCount(0, $this->repository->events);
+    }
+
+    #[Test]
+    public function aQueuedRunFailingRetryablyIsRequeuedAndReDispatchedWithBackoff(): void
+    {
+        // ADR-104 failure retry: a retryable provider error requeues the run
+        // (ownership-guarded) and re-dispatches it with an exponential backoff.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $dispatched = [];
+        $runtime    = $this->runtime(
+            $this->loopRecordingThenThrowing(new ProviderConnectionException('provider unreachable', 1784900010)),
+            bus: $this->stampRecordingBus($dispatched),
+        );
+
+        $result = $runtime->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::REQUEUED, $result->outcome);
+        // Requeued under this worker's identity, not settled.
+        self::assertCount(1, $this->repository->requeues);
+        self::assertSame($this->repository->queuedClaim['claimedBy'] ?? null, $this->repository->requeues[0]['claimedBy']);
+        self::assertNull($this->repository->finished);
+        // Re-dispatched with a DelayStamp of the base backoff (2^0).
+        self::assertCount(1, $dispatched);
+        self::assertInstanceOf(AgentRunQueuedMessage::class, $dispatched[0]['message']);
+        self::assertCount(1, $dispatched[0]['stamps']);
+        self::assertInstanceOf(DelayStamp::class, $dispatched[0]['stamps'][0]);
+        self::assertSame(AgentRuntime::REQUEUE_BACKOFF_MS, $dispatched[0]['stamps'][0]->getDelay());
+    }
+
+    #[Test]
+    public function aQueuedRunFailingNonRetryablyIsDeadLetteredAsNotRetryable(): void
+    {
+        // ADR-104: a failure class retrying cannot fix (here UNKNOWN, from a
+        // plain error) dead-letters immediately with NOT_RETRYABLE — never the
+        // retryable PROVIDER_FAILED reason.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(new RuntimeException('deterministic bug', 1784900011)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertNull($this->repository->requeues[0] ?? null);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+        self::assertSame(AgentRunTerminationReason::NOT_RETRYABLE->value, $this->repository->finished['terminationReason']);
+    }
+
+    #[Test]
+    public function aQueuedRunOutOfRetryBudgetIsDeadLetteredAsRetriesExhausted(): void
+    {
+        // ADR-104: retryable in principle, but the requeue budget is spent — the
+        // run dead-letters with RETRIES_EXHAUSTED and is NOT requeued again.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', AgentRuntime::MAX_REQUEUES);
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(new ProviderConnectionException('still failing', 1784900012)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertNull($this->repository->requeues[0] ?? null);
+        self::assertNotNull($this->repository->finished);
+        self::assertSame(AgentRunTerminationReason::RETRIES_EXHAUSTED->value, $this->repository->finished['terminationReason']);
+    }
+
+    #[Test]
+    public function aQueuedRunLosingOwnershipDuringRequeueIsNotSettled(): void
+    {
+        // ADR-104 (review MAJOR): requeue returns false — a concurrent reaper
+        // reclaim or cancel won. The worker must NOT settle the run: it may
+        // belong to another worker now.
+        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->refuseRequeue = true;
+
+        $result = $this->runtime(
+            $this->loopRecordingThenThrowing(new ProviderConnectionException('provider unreachable', 1784900013)),
+            bus: $this->discardingBus(),
+        )->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::LEASE_LOST, $result->outcome);
+        self::assertNull($this->repository->finished);
+    }
+
+    #[Test]
+    public function aRequeuedRunResumesItsEventStreamAtMaxSequencePlusOne(): void
+    {
+        // ADR-104 D3: a requeued run carries the prior attempt's events, so the
+        // claim resolves the stream position to MAX(sequence) + 1 rather than 0.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', 1);
+        $this->repository->maxSequence = 5;
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertCount(1, $this->repository->events);
+        self::assertSame(6, $this->repository->events[0]['sequence']);
+    }
+
+    #[Test]
+    public function anInteractiveRunNeverRenewsALease(): void
+    {
+        // ADR-104: run()/approve() hold no lease (leaseOwner is null), so the
+        // heartbeat never fires — only queue workers renew.
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertCount(0, $this->repository->leaseRenewals);
+    }
+
+    #[Test]
     public function cancelDelegatesToTheGuardedTransition(): void
     {
         $this->repository->findResult = $this->suspendedRun();
@@ -730,7 +918,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         return $bus;
     }
 
-    private function queuedRun(string $uuid, string $requestJson): AgentRun
+    private function queuedRun(string $uuid, string $requestJson, int $requeueCount = 0): AgentRun
     {
         return new AgentRun(
             uid: 1,
@@ -752,7 +940,58 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             crdate: 0,
             suspendedState: null,
             queuedRequest: $requestJson,
+            requeueCount: $requeueCount,
         );
+    }
+
+    /**
+     * A bus double recording each dispatched message and its stamps into $sink.
+     *
+     * @param list<array{message: object, stamps: list<object>}> $sink
+     */
+    private function stampRecordingBus(array &$sink): MessageBusInterface
+    {
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(
+            static function (object $message, array $stamps = []) use (&$sink): Envelope {
+                $sink[] = ['message' => $message, 'stamps' => array_values($stamps)];
+
+                return new Envelope($message, $stamps);
+            },
+        );
+
+        return $bus;
+    }
+
+    /**
+     * A bus double that accepts any dispatch and records nothing.
+     */
+    private function discardingBus(): MessageBusInterface
+    {
+        $bus = self::createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willReturnCallback(
+            static fn(object $message, array $stamps = []): Envelope => new Envelope($message, $stamps),
+        );
+
+        return $bus;
+    }
+
+    /**
+     * A loop that drives one step boundary (so the heartbeat/cancellation probe
+     * fires) and then throws — the queued-run failure path.
+     */
+    private function loopRecordingThenThrowing(Throwable $throwable): ToolLoopServiceInterface
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            static function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use ($throwable): ToolLoopResult {
+                $trace?->recordRequest(1, [], []);
+
+                throw $throwable;
+            },
+        );
+
+        return $loop;
     }
 
     private function request(?int $maxIterations = null): AgentRunRequest

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -247,6 +248,157 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected === 1;
     }
 
+    /**
+     * Extend the lease on a running run this worker owns (ADR-104 heartbeat).
+     * Guarded on both status = running AND claimed_by = the caller: a run the
+     * reaper reclaimed (claimed_by cleared, or another worker's identity) or a
+     * cancel/settle terminated updates zero rows, which is the worker's signal
+     * that it has lost ownership and must stop before executing further.
+     */
+    public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'lease_expires' => $leaseExpires,
+                'tstamp'        => time(),
+            ],
+            [
+                'uid'        => $runUid,
+                'status'     => AgentRunStatus::RUNNING->value,
+                'claimed_by' => $claimedBy,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
+    /**
+     * Put a running run this worker owns back on the queue for a retry (ADR-104
+     * failure retry). Ownership-guarded (status = running AND claimed_by = the
+     * caller) so a zombie worker cannot requeue — and thereby double-execute — a
+     * run another worker already owns. Increments requeue_count, clears the
+     * claim and lease; queued_request stays on the row for re-execution. Returns
+     * true when this worker still owned the run and the requeue took effect.
+     */
+    public function requeue(int $runUid, string $claimedBy): bool
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $builder    = $connection->createQueryBuilder();
+
+        $affected = $this
+            ->applyRequeueSet($builder)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('status', $builder->createNamedParameter(AgentRunStatus::RUNNING->value)),
+                $builder->expr()->eq('claimed_by', $builder->createNamedParameter($claimedBy)),
+            )
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
+    /**
+     * Running runs whose lease has expired (ADR-104 stale-run reaper). The
+     * lease_expires > 0 predicate excludes interactive run()/approve() runs,
+     * which never take a lease (claimed_by/lease stay empty) — the reaper only
+     * reclaims abandoned queue workers, never a live foreground call.
+     *
+     * @return list<AgentRun>
+     */
+    public function findStaleRunning(int $now, int $limit = 50): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('*')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter(AgentRunStatus::RUNNING->value)),
+                $queryBuilder->expr()->gt('lease_expires', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->lt('lease_expires', $queryBuilder->createNamedParameter($now, Connection::PARAM_INT)),
+            )
+            ->orderBy('lease_expires', 'ASC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map($this->hydrateRun(...), $rows);
+    }
+
+    /**
+     * Reclaim a stale running run back onto the queue (ADR-104 reaper). Unlike
+     * {@see requeue()} this is not ownership-guarded — the reaper reclaims on
+     * behalf of no worker — but it re-checks staleness inside the UPDATE
+     * (lease_expires still > 0 and < now): a heartbeat renewal that lands
+     * between the reaper's SELECT and this UPDATE moves lease_expires forward,
+     * the predicate no longer matches, zero rows change and the reaper skips it.
+     * Increments requeue_count, clears the claim and lease.
+     */
+    public function requeueStale(int $runUid, int $now): bool
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $builder    = $connection->createQueryBuilder();
+
+        $affected = $this
+            ->applyRequeueSet($builder)
+            ->where(...$this->stalePredicates($builder, $runUid, $now))
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
+    /**
+     * Dead-letter a stale running run whose requeue budget is spent (ADR-104
+     * reaper): a terminal FAILED with the given reason. Staleness-guarded like
+     * {@see requeueStale()} — the same lease_expires re-check inside the UPDATE,
+     * so a heartbeat renewal that lands between the reaper's SELECT and this
+     * write moves the lease forward, the predicate no longer matches, and a
+     * still-live run is never flipped to FAILED. Totals are zeroed, matching the
+     * failure convention of {@see finishRun()}.
+     */
+    public function deadLetterStale(int $runUid, int $now, string $terminationReason): bool
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $builder    = $connection->createQueryBuilder();
+        $timestamp  = time();
+
+        $affected = $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', $builder->createNamedParameter(AgentRunStatus::FAILED->value), false)
+            ->set('termination_reason', $builder->createNamedParameter($terminationReason), false)
+            ->set('error_class', $builder->createNamedParameter(''), false)
+            ->set('suspended_state', $builder->createNamedParameter(''), false)
+            ->set('queued_request', $builder->createNamedParameter(''), false)
+            ->set('claimed_by', $builder->createNamedParameter(''), false)
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            ->set('finished_at', $builder->createNamedParameter($timestamp, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($timestamp, Connection::PARAM_INT), false)
+            ->where(...$this->stalePredicates($builder, $runUid, $now))
+            ->executeStatement();
+
+        return $affected > 0;
+    }
+
+    /**
+     * The WHERE guard both reaper mutations share (ADR-104): a specific run that
+     * is RUNNING and whose lease has expired (lease_expires > 0 excludes
+     * interactive runs, < now is the staleness re-check). Returned as an
+     * expression list so the caller spreads it into ->where().
+     *
+     * @return list<string>
+     */
+    private function stalePredicates(QueryBuilder $builder, int $runUid, int $now): array
+    {
+        return [
+            $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+            $builder->expr()->eq('status', $builder->createNamedParameter(AgentRunStatus::RUNNING->value)),
+            $builder->expr()->gt('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT)),
+            $builder->expr()->lt('lease_expires', $builder->createNamedParameter($now, Connection::PARAM_INT)),
+        ];
+    }
+
     public function findByUuid(string $uuid): ?AgentRun
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
@@ -367,6 +519,27 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     }
 
     /**
+     * The SET clause shared by both requeue paths (ADR-104): back to QUEUED,
+     * requeue_count incremented, claim and lease cleared, tstamp bumped. The
+     * caller adds the WHERE guard that distinguishes an ownership requeue
+     * ({@see requeue()}) from a staleness reclaim ({@see requeueStale()}).
+     * queued_request is deliberately left untouched — the stored request is what
+     * the re-dispatched worker re-executes.
+     */
+    private function applyRequeueSet(QueryBuilder $builder): QueryBuilder
+    {
+        $now = time();
+
+        return $builder
+            ->update(self::TABLE_RUN)
+            ->set('status', $builder->createNamedParameter(AgentRunStatus::QUEUED->value), false)
+            ->set('requeue_count', 'requeue_count + 1', false)
+            ->set('claimed_by', $builder->createNamedParameter(''), false)
+            ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false);
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     private function hydrateRun(array $row): AgentRun
@@ -393,6 +566,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             queuedRequest: $this->suspendedStateOf($row['queued_request'] ?? null),
             claimedBy: self::toStr($row['claimed_by'] ?? ''),
             leaseExpires: self::toInt($row['lease_expires'] ?? 0),
+            requeueCount: self::toInt($row['requeue_count'] ?? 0),
         );
     }
 
