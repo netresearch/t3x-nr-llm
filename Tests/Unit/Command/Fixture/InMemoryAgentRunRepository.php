@@ -60,6 +60,12 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    {
+        // Not needed by the command tests.
+        return true;
+    }
+
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
     {
         // Not needed by the command tests.
@@ -73,6 +79,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
     }
 
     public function claimForResume(int $runUid): bool
+    {
+        return false;
+    }
+
+    public function claimForResumeFromInput(int $runUid): bool
     {
         return false;
     }

@@ -126,6 +126,27 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    /** @var array{runUid: int, stateJson: string}|null */
+    public ?array $suspendedForInput = null;
+
+    public bool $throwOnSuspendForInput = false;
+
+    /** Simulates a run no longer RUNNING, so the guarded input-suspend matches no row. */
+    public bool $refuseSuspendForInput = false;
+
+    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    {
+        if ($this->throwOnSuspendForInput) {
+            throw new RuntimeException('suspendRunForInput failed', 1784600402);
+        }
+        if ($this->refuseSuspendForInput) {
+            return false;
+        }
+        $this->suspendedForInput = ['runUid' => $runUid, 'stateJson' => $stateJson];
+
+        return true;
+    }
+
     public bool $throwOnEnqueue = false;
 
     /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, requestJson: string}> */
@@ -183,6 +204,24 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             return false;
         }
         ++$this->claimsGranted;
+
+        return true;
+    }
+
+    public bool $throwOnClaimInput = false;
+
+    /** Number of input-resume claims granted; false after the first (double-submit loses). */
+    public int $inputClaimsGranted = 0;
+
+    public function claimForResumeFromInput(int $runUid): bool
+    {
+        if ($this->throwOnClaimInput) {
+            throw new RuntimeException('claimForResumeFromInput failed', 1784600403);
+        }
+        if ($this->inputClaimsGranted > 0) {
+            return false;
+        }
+        ++$this->inputClaimsGranted;
 
         return true;
     }

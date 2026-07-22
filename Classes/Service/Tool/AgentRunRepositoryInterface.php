@@ -64,11 +64,27 @@ interface AgentRunRepositoryInterface
     public function suspendRun(int $runUid, string $stateJson): bool;
 
     /**
+     * Suspend a run for typed user input (ADR-105): the input sibling of
+     * {@see suspendRun()} — persist the serialised state (carrying the tool's
+     * declared input schema) and move RUNNING -> WAITING_FOR_INPUT, same
+     * anti-resurrection guard. False when a concurrent cancel/settle won first.
+     */
+    public function suspendRunForInput(int $runUid, string $stateJson): bool;
+
+    /**
      * Atomically claim a WAITING_FOR_APPROVAL run for resume (move it to RUNNING);
      * true for the winner, false if already claimed. Prevents two concurrent
      * approvals from double-executing the gated tool (ADR-084).
      */
     public function claimForResume(int $runUid): bool;
+
+    /**
+     * Atomically claim a WAITING_FOR_INPUT run for resume (ADR-105): the input
+     * sibling of {@see claimForResume()}. True for the winner, false if another
+     * submitInput already claimed it — so two concurrent submissions cannot both
+     * resume the run.
+     */
+    public function claimForResumeFromInput(int $runUid): bool;
 
     /**
      * Insert a QUEUED run carrying its serialised request, so a worker in

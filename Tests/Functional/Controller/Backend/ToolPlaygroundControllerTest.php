@@ -698,6 +698,95 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertFalse($payload['success']);
     }
 
+    #[Test]
+    public function submitInputActionRejectsInvalidInputWith422AndKeepsTheRunWaiting(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        // A run waiting for input whose tool requires a 'city'; the submission
+        // omits it → validation fails BEFORE any claim, so the provider is never
+        // touched and the client is told to resubmit (ADR-105).
+        $schema  = ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']];
+        $state   = new SuspendedRunState([['role' => 'user', 'content' => 'weather?']], [], 1, 5, 2, ['ask_user'], [], 'ask_user', $schema);
+        $encoded = json_encode($state->toArray());
+        self::assertIsString($encoded);
+        $run = new AgentRun(1, 'run-uuid-1', 'waiting_for_input', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', '', 0, 0, 0, $encoded);
+
+        $repo             = new RecordingAgentRunRepository();
+        $repo->findResult = $run;
+        $persister        = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+        $manager->expects(self::never())->method('chatWithConfiguration');
+
+        $registry        = new ToolRegistry([new FakeTool('ask_user')]);
+        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
+
+        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+            ->withParsedBody(['runUuid' => 'run-uuid-1', 'input' => []]);
+        $response = $controller->submitInputAction($request);
+
+        self::assertSame(422, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        // Re-signals awaiting_input so the client keeps the form open.
+        self::assertSame('awaiting_input', $payload['status']);
+        // The claim was never consumed — the run is still resubmittable.
+        self::assertSame(0, $repo->inputClaimsGranted);
+    }
+
+    #[Test]
+    public function submitInputActionRejectsASecondConcurrentSubmission(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        // Valid input, but the atomic claim is LOST to a concurrent submission:
+        // findByUuid still returns it WAITING, claimForResumeFromInput returns
+        // false → 409, and the provider is never reached.
+        $schema  = ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']];
+        $state   = new SuspendedRunState([['role' => 'user', 'content' => 'weather?']], [], 1, 5, 2, ['ask_user'], [], 'ask_user', $schema);
+        $encoded = json_encode($state->toArray());
+        self::assertIsString($encoded);
+        $run = new AgentRun(1, 'run-uuid-1', 'waiting_for_input', 1, 'cfg', 1, 1, false, 5, 2, 7, 0.0, '', '', 0, 0, 0, $encoded);
+
+        $repo                     = new RecordingAgentRunRepository();
+        $repo->findResult         = $run;
+        $repo->inputClaimsGranted = 1; // the next input claim loses
+        $persister                = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+        $manager->expects(self::never())->method('chatWithConfiguration');
+
+        $registry        = new ToolRegistry([new FakeTool('ask_user')]);
+        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
+
+        $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+            ->withParsedBody(['runUuid' => 'run-uuid-1', 'input' => ['city' => 'Berlin']]);
+        $response = $controller->submitInputAction($request);
+
+        self::assertSame(409, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+    }
+
     /**
      * Build a controller wired to the scripted tool adapter (one tool call, then
      * a plain answer) over an in-memory configuration.

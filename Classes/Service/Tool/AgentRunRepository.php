@@ -192,20 +192,48 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function suspendRun(int $runUid, string $stateJson): bool
     {
-        // Non-terminal transition (ADR-084): store the resumable state and move
-        // the run to WAITING_FOR_APPROVAL without setting finished_at. Guarded
-        // on the run still being RUNNING (ADR-101): a concurrent cancel wins the
-        // terminal transition first, and an unguarded suspend would resurrect
-        // the CANCELLED row to WAITING_FOR_APPROVAL — offering an approval flow
-        // for a run the operator was told was stopped.
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_APPROVAL);
+    }
+
+    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    {
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
+    }
+
+    /**
+     * Atomically claim a suspended run for resume (ADR-084): move it off
+     * WAITING_FOR_APPROVAL to RUNNING only if it is still awaiting approval, in a
+     * single conditional UPDATE. Returns true for the caller that won the claim,
+     * false if another resume already claimed it — so two concurrent Approve
+     * requests cannot both execute the gated (destructive) tool.
+     */
+    public function claimForResume(int $runUid): bool
+    {
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_APPROVAL);
+    }
+
+    public function claimForResumeFromInput(int $runUid): bool
+    {
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_INPUT);
+    }
+
+    /**
+     * Shared body for the suspend transitions (ADR-084 approval / ADR-105 input):
+     * store the resumable state and move the run RUNNING -> $target without
+     * setting finished_at. Guarded on the run still being RUNNING (ADR-101): a
+     * concurrent cancel wins the terminal transition first, and an unguarded
+     * suspend would resurrect the CANCELLED row into a waiting state — offering a
+     * resume for a run the operator was told was stopped. The lease is cleared:
+     * a run waiting on a human is not "presumed executing" (ADR-102), so the
+     * reaper must not see it.
+     */
+    private function conditionalSuspend(int $runUid, string $stateJson, AgentRunStatus $target): bool
+    {
         $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
             [
-                'status'          => AgentRunStatus::WAITING_FOR_APPROVAL->value,
+                'status'          => $target->value,
                 'suspended_state' => $stateJson,
-                // A suspended run has no live worker claim (ADR-102): the lease
-                // means "presumed executing until", which a run waiting on a
-                // human is not.
                 'claimed_by'      => '',
                 'lease_expires'   => 0,
                 'tstamp'          => time(),
@@ -220,28 +248,25 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     }
 
     /**
-     * Atomically claim a suspended run for resume (ADR-084): move it off
-     * WAITING_FOR_APPROVAL to RUNNING only if it is still awaiting approval, in a
-     * single conditional UPDATE. Returns true for the caller that won the claim,
-     * false if another resume already claimed it — so two concurrent Approve
-     * requests cannot both execute the gated (destructive) tool.
+     * Shared body for the resume claims (ADR-084 approval / ADR-105 input): move
+     * the run $from -> RUNNING only if it is still in $from, in a single
+     * conditional UPDATE — the atomic mutual-exclusion gate so two concurrent
+     * resume requests cannot both execute the pending turn. The lease is left
+     * clear: the resume runs in the acting process, not under a worker lease.
      */
-    public function claimForResume(int $runUid): bool
+    private function conditionalClaim(int $runUid, AgentRunStatus $from): bool
     {
         $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
             [
                 'status'        => AgentRunStatus::RUNNING->value,
-                // The resume executes in the approving process, not under a
-                // queue worker's lease — never leave a dead worker's identity
-                // on the row (ADR-102).
                 'claimed_by'    => '',
                 'lease_expires' => 0,
                 'tstamp'        => time(),
             ],
             [
                 'uid'    => $runUid,
-                'status' => AgentRunStatus::WAITING_FOR_APPROVAL->value,
+                'status' => $from->value,
             ],
         );
 

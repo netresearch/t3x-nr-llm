@@ -11,6 +11,9 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use LogicException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -48,5 +51,52 @@ final class ToolRegistryTest extends TestCase
     {
         $this->expectException(LogicException::class);
         self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([new FakeTool('dup'), new FakeTool('dup')]));
+    }
+
+    #[Test]
+    public function aToolThatIsBothApprovalAndInputGatedIsRejected(): void
+    {
+        // ADR-105 M1: the combination is unsupported — the approval-resume path
+        // carries no user input and would silently drop the mandatory data.
+        $dualMarker = new class implements ToolInterface, RequiresApprovalInterface, RequiresInputInterface {
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('dual', 'both markers', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments): string
+            {
+                return 'ok';
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function getInputSchema(): array
+            {
+                return ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]];
+            }
+        };
+
+        $this->expectException(LogicException::class);
+        self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([$dualMarker]));
     }
 }

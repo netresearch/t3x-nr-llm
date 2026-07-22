@@ -46,6 +46,19 @@ final class ToolRegistry
                     1782700001,
                 );
             }
+            // ADR-105 M1: a tool may not be both approval- and input-gated. The
+            // approval-resume path carries no user input and would silently drop
+            // the mandatory data; the combination is unsupported, so reject it
+            // at registration rather than fail open at resume.
+            if ($tool instanceof RequiresApprovalInterface && $tool instanceof RequiresInputInterface) {
+                throw new LogicException(
+                    sprintf(
+                        'Tool "%s" may not implement both RequiresApprovalInterface and RequiresInputInterface; combined approval+input pauses are unsupported (ADR-105).',
+                        $name,
+                    ),
+                    1784600104,
+                );
+            }
             $this->byName[$name] = $tool;
         }
     }

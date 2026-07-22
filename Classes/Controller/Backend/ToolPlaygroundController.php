@@ -27,10 +27,13 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -240,6 +243,51 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     }
 
     /**
+     * Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105) and
+     * continue it. The input sibling of {@see resumeAction()}: admin-gated (the
+     * injection mitigation for the untrusted submitted values), it maps
+     * {@see AgentRuntimeInterface::submitInput()}'s typed request-validation
+     * exceptions onto the module's HTTP statuses. An invalid submission returns
+     * 422 while re-signalling ``awaiting_input`` so the client keeps the form
+     * open for a resubmission (the run is untouched, nothing was claimed).
+     */
+    public function submitInputAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) !== null) {
+            return $deny;
+        }
+
+        $body    = $request->getParsedBody();
+        $runUuid = trim($this->stringFromBody($body, 'runUuid'));
+
+        try {
+            $result = $this->agentRuntime->submitInput(
+                $runUuid,
+                new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid()),
+            );
+        } catch (RunNotAwaitingInputException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
+        } catch (RunConfigurationGoneException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400);
+        } catch (InvalidInputSubmissionException) {
+            // Retryable: the run stays WAITING_FOR_INPUT, nothing was claimed.
+            // Re-signal awaiting_input so the client keeps the form open.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_input',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.inputSchemaMismatch', 'The submitted input did not match the required schema.'),
+            ], 422);
+        } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
+        } catch (RunAlreadyResumingException) {
+            return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.alreadyResuming', 'This run is already being processed.')], 409);
+        }
+
+        return $this->respondToResult($result, false);
+    }
+
+    /**
      * Map a settled {@see AgentRunResult} onto the module's batch JSON shapes
      * — the ADR-041 contract the functional tests assert.
      */
@@ -248,6 +296,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         switch ($result->outcome) {
             case AgentRunOutcome::AWAITING_APPROVAL:
                 return $this->respondJson($this->awaitingApprovalPayload($result));
+
+            case AgentRunOutcome::AWAITING_INPUT:
+                return $this->respondJson($this->awaitingInputPayload($result));
 
             case AgentRunOutcome::SUSPEND_FAILED:
                 return $this->respondJson(['success' => false, 'error' => self::SUSPEND_FAILED_MESSAGE], 500);
@@ -339,6 +390,50 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     }
 
     /**
+     * The JSON body for a run that suspended for typed input (ADR-105): the
+     * target tool and its declared input schema the client renders a form from,
+     * plus the steps recorded up to the pause.
+     *
+     * @return array<string, mixed>
+     */
+    private function awaitingInputPayload(AgentRunResult $result): array
+    {
+        $state = $result->suspendedState;
+
+        return [
+            'success'      => true,
+            'status'       => 'awaiting_input',
+            'runUuid'      => $result->runUuid,
+            'inputRequest' => [
+                'tool'   => $state !== null ? ($state->inputToolName ?? '') : '',
+                'schema' => $state !== null ? $state->inputSchema : [],
+            ],
+            'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
+        ];
+    }
+
+    /**
+     * Read the submitted input object (the `input` body field) as a
+     * string-keyed map. Non-object payloads degrade to an empty map, which the
+     * schema validation then rejects — never trusted through.
+     *
+     * @return array<string, mixed>
+     */
+    private function inputDataFromBody(mixed $body): array
+    {
+        if (!is_array($body) || !isset($body['input']) || !is_array($body['input'])) {
+            return [];
+        }
+
+        $data = [];
+        foreach ($body['input'] as $key => $value) {
+            $data[(string)$key] = $value;
+        }
+
+        return $data;
+    }
+
+    /**
      * The JSON body for a run a guardrail blocked (ADR-086): the status
      * (denied vs flagged for approval), the deciding guardrail FQCN and its
      * reason, plus the steps recorded up to the block.
@@ -420,6 +515,22 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'success'      => true,
                     'runUuid'      => $result->runUuid,
                     'pendingTools' => $this->pendingTools($result),
+                ]);
+
+                return;
+
+            case AgentRunOutcome::AWAITING_INPUT:
+                // ADR-105: a called tool requires typed input — the run
+                // suspended for a submitInput() instead of failing.
+                $inputState = $result->suspendedState;
+                $emit([
+                    'event'        => 'awaiting_input',
+                    'success'      => true,
+                    'runUuid'      => $result->runUuid,
+                    'inputRequest' => [
+                        'tool'   => $inputState !== null ? ($inputState->inputToolName ?? '') : '',
+                        'schema' => $inputState !== null ? $inputState->inputSchema : [],
+                    ],
                 ]);
 
                 return;

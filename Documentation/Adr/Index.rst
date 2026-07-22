@@ -402,3 +402,4 @@ Tools
    Adr102QueuedAgentRuns
    Adr103CooperativeCancellation
    Adr104StaleRunReaperAndRetry
+   Adr105TypedInputSuspension
