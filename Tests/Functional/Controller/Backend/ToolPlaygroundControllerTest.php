@@ -40,6 +40,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -558,6 +559,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(1);
 
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('blocked by test policy');
@@ -586,6 +588,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(1);
 
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::requireApproval('needs a human');
@@ -612,6 +615,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(1);
 
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('blocked by test policy');

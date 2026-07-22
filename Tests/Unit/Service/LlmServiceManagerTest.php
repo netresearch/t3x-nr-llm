@@ -54,6 +54,7 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
@@ -1003,6 +1004,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         return new InputGuardrailScreener([
             new class ($reason) implements InputGuardrailInterface {
+                use GuardrailIdentityDoubleTrait;
                 public function __construct(private readonly string $reason) {}
 
                 public function checkInput(string $text): GuardrailResult

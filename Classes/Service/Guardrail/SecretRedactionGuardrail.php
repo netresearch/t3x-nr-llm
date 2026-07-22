@@ -26,6 +26,18 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 final readonly class SecretRedactionGuardrail implements GuardrailInterface, StreamRedactableInterface
 {
     use RedactsSecretsTrait;
+    public function getIdentifier(): string
+    {
+        return 'secret-redaction';
+    }
+
+    // Security-critical: no configuration may switch off secret redaction
+    // (ADR-106). The input twin must agree — GuardrailRegistry fails closed if
+    // they disagree.
+    public function isMandatory(): bool
+    {
+        return true;
+    }
 
     public function checkOutput(CompletionResponse $response): GuardrailResult
     {

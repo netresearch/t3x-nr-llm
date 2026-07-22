@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -58,6 +60,10 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     public function __construct(
         #[AutowireIterator(GuardrailInterface::TAG_NAME)]
         private iterable $guardrails,
+        // Autowired in production; the no-op default keeps the lean test wiring
+        // working (a null/empty selection runs all guardrails, unchanged from
+        // before ADR-106).
+        private GuardrailPolicyResolver $policyResolver = new GuardrailPolicyResolver(new GuardrailRegistry([], [])),
     ) {}
 
     public function handle(
@@ -65,11 +71,15 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         callable $next,
     ): mixed {
         $result = $next($context);
+        // Narrow the global collection to the configuration's policy ONCE per
+        // call (ADR-106); the mandatory floor is preserved regardless. The
+        // configuration already rides on the context (ADR-096) — no re-plumbing.
+        $guardrails = $this->policyResolver->filter($this->guardrails, $context->configuration);
         if ($result instanceof CompletionResponse) {
-            return $this->screen($result, $context, $next, false);
+            return $this->screen($result, $context, $next, false, $guardrails);
         }
         if ($result instanceof VisionResponse) {
-            return $this->screenVision($result);
+            return $this->screenVision($result, $guardrails);
         }
 
         return $result;
@@ -82,10 +92,13 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
      * through the pipeline, so a RETRY (the response was deemed deficient) fails
      * CLOSED — throwing rather than silently returning the unscreened response.
      */
-    private function screenVision(VisionResponse $vision): VisionResponse
+    /**
+     * @param list<GuardrailInterface> $guardrails the config-filtered output guardrails
+     */
+    private function screenVision(VisionResponse $vision, array $guardrails): VisionResponse
     {
         $screened = $vision->description;
-        foreach ($this->guardrails as $guardrail) {
+        foreach ($guardrails as $guardrail) {
             $result  = $guardrail->checkOutput(new CompletionResponse($screened, $vision->model, $vision->usage, provider: $vision->provider));
             $verdict = $result->verdict;
             if ($verdict === GuardrailVerdict::RETRY) {
@@ -125,21 +138,23 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 
     /**
      * @param callable(ProviderCallContext): mixed $next
+     * @param list<GuardrailInterface>             $guardrails the config-filtered output guardrails
      */
     private function screen(
         CompletionResponse $response,
         ProviderCallContext $context,
         callable $next,
         bool $retried,
+        array $guardrails,
     ): CompletionResponse {
-        foreach ($this->guardrails as $guardrail) {
+        foreach ($guardrails as $guardrail) {
             $result  = $guardrail->checkOutput($response);
             $verdict = $result->verdict;
 
             // RETRY short-circuits the loop (it re-runs the pipeline and re-screens
             // the fresh response from scratch), so it is handled before the match.
             if ($verdict === GuardrailVerdict::RETRY) {
-                return $this->retryOnce($response, $context, $next, $retried, $guardrail, $result);
+                return $this->retryOnce($response, $context, $next, $retried, $guardrail, $result, $guardrails);
             }
 
             // match (no default) is exhaustive over the remaining verdicts: a new
@@ -168,6 +183,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 
     /**
      * @param callable(ProviderCallContext): mixed $next
+     * @param list<GuardrailInterface>             $guardrails the config-filtered output guardrails
      */
     private function retryOnce(
         CompletionResponse $response,
@@ -176,6 +192,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         bool $retried,
         GuardrailInterface $guardrail,
         GuardrailResult $result,
+        array $guardrails,
     ): CompletionResponse {
         if ($retried) {
             throw new GuardrailViolationException(
@@ -193,7 +210,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             return $response;
         }
 
-        return $this->screen($fresh, $context, $next, true);
+        return $this->screen($fresh, $context, $next, true, $guardrails);
     }
 
     private function withContent(CompletionResponse $response, string $content, ?string $thinking): CompletionResponse

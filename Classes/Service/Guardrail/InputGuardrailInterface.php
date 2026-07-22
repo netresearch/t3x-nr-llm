@@ -30,7 +30,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * before a provider call and is ignored.
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
-interface InputGuardrailInterface
+interface InputGuardrailInterface extends GuardrailIdentity
 {
     public const TAG_NAME = 'nr_llm.input_guardrail';
 

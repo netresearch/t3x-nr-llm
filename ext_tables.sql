@@ -153,6 +153,7 @@ CREATE TABLE tx_nrllm_configuration (
 
     -- Comma list of permitted tool groups (empty = all groups allowed)
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
+    allowed_guardrails varchar(255) DEFAULT '' NOT NULL,
 
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,

@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Form\Tca\GuardrailItems;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 
 return [
@@ -47,6 +48,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.access,
                     allowed_groups,
                     allowed_tool_groups,
+                    allowed_guardrails,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden,
                     --palette--;;status
@@ -403,6 +405,16 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectCheckBox',
                 'itemsProcFunc' => ToolGroupItems::class . '->addItems',
+                'default' => '',
+            ],
+        ],
+        'allowed_guardrails' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_guardrails',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.allowed_guardrails.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectCheckBox',
+                'itemsProcFunc' => GuardrailItems::class . '->addItems',
                 'default' => '',
             ],
         ],

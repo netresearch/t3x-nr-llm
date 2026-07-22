@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface;
  */
 final readonly class RedactingInputGuardrail implements InputGuardrailInterface
 {
+    use GuardrailIdentityDoubleTrait;
+
     public function __construct(
         private string $needle,
         private string $replacement,

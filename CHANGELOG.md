@@ -6,7 +6,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING** — Per-configuration guardrail policies (ADR-106): `GuardrailInterface`
+  and `InputGuardrailInterface` (the public `nr_llm.guardrail` /
+  `nr_llm.input_guardrail` extension points) gained two methods via a shared
+  `GuardrailIdentity` parent — `getIdentifier()` (a stable slug) and
+  `isMandatory()`. An out-of-tree guardrail must implement both; input and
+  output classes sharing a concept must return the same identifier and the same
+  `isMandatory()` value (the container fails closed on disagreement). See the
+  ADR-106 *Upgrading* note.
+
 ### Added
+
+- Per-configuration guardrail policies (ADR-106): an `LlmConfiguration` can now
+  select which OPTIONAL guardrails apply via a new `allowed_guardrails` field;
+  MANDATORY guardrails (secret redaction) always run and are never selectable.
+  The selection is honoured consistently on the output (`GuardrailMiddleware`),
+  input (`InputGuardrailScreener`) and streaming (`StreamingDispatcher` — live
+  redaction and end-of-stream audit) paths. Default-secure: an untouched
+  configuration (empty selection) runs all guardrails exactly as before, and no
+  selection value — empty, partial, unknown, or all-unknown — can drop a
+  mandatory guardrail on any axis. The `provider-content-filter` guardrail is
+  optional (it enforces the provider's own policy block, not secret leakage);
+  secret redaction is mandatory. The TCA picker lists only optional guardrails,
+  discovered from the registry. Schema: `allowed_guardrails` (additive,
+  defaulted). New `GuardrailIdentity`, `GuardrailRegistry` (public, fail-closed
+  on cross-side mandatory disagreement) and `GuardrailPolicyResolver`.
 
 - Typed user-input suspension (ADR-105): a tool may implement the new
   `RequiresInputInterface` marker to declare an input schema and suspend the

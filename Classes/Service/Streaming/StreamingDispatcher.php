@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
+use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Netresearch\NrLlm\Service\Guardrail\StreamRedactableInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
@@ -103,15 +105,15 @@ final readonly class StreamingDispatcher
      */
     private const MAX_GUARDRAIL_BUFFER_BYTES = 50000;
 
-    /** @var list<GuardrailInterface> */
-    private array $guardrails;
-
     /**
-     * The subset of guardrails that opt into live-stream redaction (ADR-088).
+     * The unfiltered baseline (ADR-106): the per-call filtered live-redactor and
+     * audit lists are derived as locals in {@see self::drain()} so nothing is
+     * written back to instance state — a second stream() in the same request
+     * cannot see a stale narrower filter.
      *
-     * @var list<GuardrailInterface&StreamRedactableInterface>
+     * @var list<GuardrailInterface>
      */
-    private array $streamRedactors;
+    private array $guardrails;
 
     /**
      * @param iterable<GuardrailInterface> $guardrails
@@ -124,17 +126,16 @@ final readonly class StreamingDispatcher
         private LoggerInterface $logger,
         private Context $context,
         private ExtensionConfiguration $extensionConfiguration,
+        // Autowired in production; the no-op default keeps the lean test wiring
+        // working (a null/empty selection runs all guardrails, unchanged from
+        // before ADR-106).
+        private GuardrailPolicyResolver $policyResolver = new GuardrailPolicyResolver(new GuardrailRegistry([], [])),
         #[AutowireIterator(GuardrailInterface::TAG_NAME)]
         iterable $guardrails = [],
     ) {
-        // Materialise once: the full set is walked for the end-of-stream audit;
-        // only the redaction-capable subset drives the live holdback path, so a
-        // policy-only (DENY) guardrail adds no streaming buffer or latency.
-        $this->guardrails      = array_values($guardrails instanceof Traversable ? iterator_to_array($guardrails) : $guardrails);
-        $this->streamRedactors = array_values(array_filter(
-            $this->guardrails,
-            static fn(GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
-        ));
+        // Materialise the unfiltered baseline once; drain() derives the per-call
+        // live-redactor and audit lists from it via the policy resolver (ADR-106).
+        $this->guardrails = array_values($guardrails instanceof Traversable ? iterator_to_array($guardrails) : $guardrails);
     }
 
     /**
@@ -177,14 +178,23 @@ final readonly class StreamingDispatcher
         $firstTokenNs    = null;
         $completionBytes = 0;
         $completion      = '';
-        $redacts         = $this->streamRedactors !== [];
+        // Live redactors keyed on the REQUESTED config (the window must exist
+        // before openWithFallback picks $served). They are always mandatory
+        // (secret-redaction is the sole StreamRedactableInterface), so the
+        // per-config filter never drops one and the requested-vs-served
+        // distinction is moot for them (ADR-106).
+        $streamRedactors = array_values(array_filter(
+            $this->policyResolver->filter($this->guardrails, $configuration),
+            static fn(GuardrailInterface $g): bool => $g instanceof StreamRedactableInterface,
+        ));
+        $redacts         = $streamRedactors !== [];
         // Live redaction (ADR-088): a bounded, self-certifying sliding window that
         // masks secrets — including one split across chunk boundaries or positioned
         // arbitrarily far into a long stream — with bounded memory and no O(n^2)
         // rescan, and never passes a raw secret byte through. null when no
         // redaction-capable guardrail is registered (verbatim pass-through).
         $window          = $redacts
-            ? new StreamRedactionWindow(fn(string $s): string => $this->redactStream($s))
+            ? new StreamRedactionWindow(fn(string $s): string => $this->redactStream($streamRedactors, $s))
             : null;
         $served          = $configuration;
         $success         = false;
@@ -226,7 +236,11 @@ final readonly class StreamingDispatcher
             }
 
             $success = true;
-            $this->screenStreamedOutput($context, $served, $completion);
+            // End-of-stream audit keyed on the SERVED config (that produced the
+            // content), filtered per stream (ADR-106): a fallback swap can change
+            // which optional audit guardrails apply.
+            $auditGuardrails = $this->policyResolver->filter($this->guardrails, $served);
+            $this->screenStreamedOutput($context, $served, $completion, $auditGuardrails);
         } catch (Throwable $e) {
             $errorClass = $e::class;
 
@@ -438,10 +452,14 @@ final readonly class StreamingDispatcher
      * this never throws (a broken guardrail must not turn a delivered response
      * into an error).
      */
+    /**
+     * @param list<GuardrailInterface> $guardrails the config-filtered audit guardrails
+     */
     private function screenStreamedOutput(
         ProviderCallContext $context,
         LlmConfiguration $served,
         string $completion,
+        array $guardrails,
     ): void {
         if ($completion === '') {
             return;
@@ -454,7 +472,7 @@ final readonly class StreamingDispatcher
                 usage: UsageStatistics::fromTokens(0, 0),
             );
 
-            foreach ($this->guardrails as $guardrail) {
+            foreach ($guardrails as $guardrail) {
                 $verdict = $guardrail->checkOutput($response);
                 if ($verdict->verdict === GuardrailVerdict::ALLOW) {
                     continue;
@@ -496,9 +514,12 @@ final readonly class StreamingDispatcher
      * guardrail that throws leaves the fragment unchanged rather than breaking the
      * stream.
      */
-    private function redactStream(string $text): string
+    /**
+     * @param list<GuardrailInterface&StreamRedactableInterface> $redactors the config-filtered live redactors
+     */
+    private function redactStream(array $redactors, string $text): string
     {
-        foreach ($this->streamRedactors as $guardrail) {
+        foreach ($redactors as $guardrail) {
             try {
                 $verdict = $guardrail->checkOutput(new CompletionResponse($text, '', UsageStatistics::fromTokens(0, 0)));
             } catch (Throwable) {

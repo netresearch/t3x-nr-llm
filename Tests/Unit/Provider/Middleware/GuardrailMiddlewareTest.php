@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
+use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -45,6 +46,7 @@ final class GuardrailMiddlewareTest extends TestCase
             $this->guardrail(GuardrailResult::redact('[redacted]', 'secret')),
             // A second guardrail sees the redacted content and allows it.
             new class implements GuardrailInterface {
+                use GuardrailIdentityDoubleTrait;
                 public function checkOutput(CompletionResponse $response): GuardrailResult
                 {
                     return $response->content === '[redacted]'
@@ -117,6 +119,7 @@ final class GuardrailMiddlewareTest extends TestCase
         };
         // Retry while the content is 'first'; allow the fresh 'second'.
         $guardrail = new class implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return $response->content === 'first'
@@ -201,6 +204,24 @@ final class GuardrailMiddlewareTest extends TestCase
         $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('desc', 'm', UsageStatistics::fromTokens(1, 1)));
     }
 
+    #[Test]
+    public function aConfigurationSelectionSkipsAnUnselectedOptionalGuardrail(): void
+    {
+        // ADR-106: the double is an OPTIONAL guardrail (id 'test-guardrail' via
+        // the trait). A configuration whose non-empty selection does not name it
+        // filters it out — so its DENY never runs and the response passes through.
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))]);
+
+        $config = new LlmConfiguration();
+        $config->setAllowedGuardrails('some-other-guardrail');
+        $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config);
+
+        $result = $middleware->handle($context, fn(): CompletionResponse => $this->response('hello'));
+
+        self::assertInstanceOf(CompletionResponse::class, $result);
+        self::assertSame('hello', $result->content);
+    }
+
     /**
      * @param callable(): mixed $terminal
      */
@@ -212,6 +233,7 @@ final class GuardrailMiddlewareTest extends TestCase
     private function guardrail(GuardrailResult $result): GuardrailInterface
     {
         return new class ($result) implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
             public function __construct(private readonly GuardrailResult $result) {}
 
             public function checkOutput(CompletionResponse $response): GuardrailResult

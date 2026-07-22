@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Guardrail;
 
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
@@ -41,6 +42,10 @@ final readonly class InputGuardrailScreener
     public function __construct(
         #[AutowireIterator(InputGuardrailInterface::TAG_NAME)]
         private iterable $guardrails,
+        // Autowired in production; the no-op default keeps the lean test wiring
+        // and the LlmServiceManager fallback screener working (a null/empty
+        // selection runs all guardrails, unchanged from before ADR-106).
+        private GuardrailPolicyResolver $policyResolver = new GuardrailPolicyResolver(new GuardrailRegistry([], [])),
     ) {}
 
     /**
@@ -48,11 +53,17 @@ final readonly class InputGuardrailScreener
      *
      * @return list<ChatMessage|array<string, mixed>>
      */
-    public function screen(array $messages): array
+    public function screen(array $messages, ?LlmConfiguration $configuration = null): array
     {
+        // Filter to the configuration's policy ONCE per call (ADR-106) and
+        // thread the pre-filtered list down — not per message, which would
+        // rebuild it O(messages) times. A null configuration or empty selection
+        // runs all guardrails; the mandatory floor is preserved regardless.
+        $guardrails = $this->policyResolver->filter($this->guardrails, $configuration);
+
         $screened = [];
         foreach ($messages as $message) {
-            $screened[] = $this->screenMessage($message);
+            $screened[] = $this->screenMessage($message, $guardrails);
         }
 
         return $screened;
@@ -66,28 +77,29 @@ final readonly class InputGuardrailScreener
      * rewrites the returned text, a DENY / REQUIRE_APPROVAL throws the typed
      * exception.
      */
-    public function screenText(string $text): string
+    public function screenText(string $text, ?LlmConfiguration $configuration = null): string
     {
         if ($text === '') {
             return $text;
         }
 
-        return $this->screenContent($text);
+        return $this->screenContent($text, $this->policyResolver->filter($this->guardrails, $configuration));
     }
 
     /**
      * @param ChatMessage|array<string, mixed> $message
+     * @param list<InputGuardrailInterface>    $guardrails the config-filtered input guardrails
      *
      * @return ChatMessage|array<string, mixed>
      */
-    private function screenMessage(ChatMessage|array $message): ChatMessage|array
+    private function screenMessage(ChatMessage|array $message, array $guardrails): ChatMessage|array
     {
         $content = $this->contentOf($message);
         if ($content === '') {
             return $message;
         }
 
-        $redacted = $this->screenContent($content);
+        $redacted = $this->screenContent($content, $guardrails);
         if ($redacted === $content) {
             return $message;
         }
@@ -96,14 +108,16 @@ final readonly class InputGuardrailScreener
     }
 
     /**
-     * Run every input guardrail over one content string and return the
+     * Run the given input guardrails over one content string and return the
      * possibly-redacted result. Shared by {@see screenMessage()} (chat path) and
      * {@see screenText()} (specialized path) so both apply identical verdicts.
+     *
+     * @param list<InputGuardrailInterface> $guardrails the config-filtered input guardrails
      */
-    private function screenContent(string $content): string
+    private function screenContent(string $content, array $guardrails): string
     {
         $redacted = $content;
-        foreach ($this->guardrails as $guardrail) {
+        foreach ($guardrails as $guardrail) {
             $result = $guardrail->checkInput($redacted);
             // match (no default) is exhaustive over GuardrailVerdict: adding a new
             // verdict without handling it here is a compile-time PHPStan error and

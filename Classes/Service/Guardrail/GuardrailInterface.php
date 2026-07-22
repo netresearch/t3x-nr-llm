@@ -29,7 +29,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * pipeline is entered (ADR-087).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
-interface GuardrailInterface
+interface GuardrailInterface extends GuardrailIdentity
 {
     public const TAG_NAME = 'nr_llm.guardrail';
 
