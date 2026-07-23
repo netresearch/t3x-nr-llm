@@ -407,3 +407,4 @@ Tools
    Adr107ContextWindowManagement
    Adr108TypedToolResultWithArtifacts
    Adr109AgentRunsApprovalsInbox
+   Adr110ServiceAccountScopes
