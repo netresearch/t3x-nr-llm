@@ -6,8 +6,44 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-07-23
+
+A focused hardening release for the Agent Runtime: identity and authorization,
+queue delivery idempotency, fail-closed tool enforcement, and encryption of
+queued/suspended state at rest.
+
+### Security
+
+- Agent-run identity and authorization (ADR-083/091/110): every stateful agent
+  entry point now carries an explicit `AiActorContext` instead of reading the
+  ambient `$GLOBALS['BE_USER']`, and authorizes it fail-closed — a run UUID or
+  session UUID alone never suffices. Tools authorize against an explicit
+  `ToolExecutionContext` resolved to the acting backend user, so a run authorizes
+  identically synchronously and in a queue worker. Service accounts are limited
+  to declared scopes and fail closed with none.
+- Queue delivery idempotency (ADR-111/112): tools declare a `ToolEffect`
+  (read-only / idempotent-write / non-idempotent-write). A writing tool's audit
+  step is fail-closed, and a run reaped or failed mid non-idempotent-write is
+  dead-lettered rather than retried — so an at-least-once retry never repeats a
+  write that already ran once.
+- Tool data-class enforcement is fail-closed and on by default (ADR-113/115): the
+  trust-zone tool gate observes only on an explicit `observe`; a missing,
+  malformed or unreadable setting now enforces. New installs enforce by default;
+  existing installs are pinned to `observe` by an upgrade wizard so the change
+  does not silently strip tools from a working setup.
+- Agent run state encrypted at rest (ADR-114): the queued request and suspended
+  transcript in `tx_nrllm_agentrun` are encrypted via nr-vault's managed-key
+  envelope encryption (rotatable master key, per-column AAD). Rows written before
+  this landed still rehydrate (no data migration).
+
 ### Changed
 
+- **BREAKING** — Actor-context runtime surface (ADR-083): `AgentRuntimeInterface`
+  `approve()`, `submitInput()`, `cancel()`, `status()` and `events()` take a
+  required `AiActorContext` first parameter; `ToolInterface::execute()` takes a
+  required `ToolExecutionContext`; `AgentRunPersister::recordStep()` returns
+  `bool` (was `void`). In-tree callers are updated; out-of-tree consumers of
+  these public surfaces must adapt.
 - **BREAKING** — Per-configuration guardrail policies (ADR-106): `GuardrailInterface`
   and `InputGuardrailInterface` (the public `nr_llm.guardrail` /
   `nr_llm.input_guardrail` extension points) gained two methods via a shared
