@@ -39,7 +39,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function __construct(
         private ConnectionPool $connectionPool,
-        private AgentStateCodec $stateCodec = new AgentStateCodec(),
+        private AgentStateCodec $stateCodec,
     ) {}
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
@@ -91,7 +91,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'estimated_cost'           => 0.0,
             'error_class'              => '',
             'termination_reason'       => '',
-            'queued_request'           => $this->stateCodec->encode($requestJson),
+            'queued_request'           => $this->stateCodec->encode($requestJson, AgentStateCodec::PURPOSE_QUEUED_REQUEST),
             'started_at'               => 0,
             'finished_at'              => 0,
             'tstamp'                   => $now,
@@ -245,7 +245,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             self::TABLE_RUN,
             [
                 'status'          => $target->value,
-                'suspended_state' => $this->stateCodec->encode($stateJson),
+                'suspended_state' => $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
                 'claimed_by'      => '',
                 'lease_expires'   => 0,
                 'tstamp'          => time(),
@@ -720,8 +720,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             startedAt: self::toInt($row['started_at'] ?? 0),
             finishedAt: self::toInt($row['finished_at'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
-            suspendedState: $this->suspendedStateOf($row['suspended_state'] ?? null),
-            queuedRequest: $this->suspendedStateOf($row['queued_request'] ?? null),
+            suspendedState: $this->suspendedStateOf($row['suspended_state'] ?? null, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
+            queuedRequest: $this->suspendedStateOf($row['queued_request'] ?? null, AgentStateCodec::PURPOSE_QUEUED_REQUEST),
             claimedBy: self::toStr($row['claimed_by'] ?? ''),
             leaseExpires: self::toInt($row['lease_expires'] ?? 0),
             requeueCount: self::toInt($row['requeue_count'] ?? 0),
@@ -733,7 +733,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * The stored payload JSON (suspended state / queued request), or null when
      * the column is empty — distinct from a genuine payload.
      */
-    private function suspendedStateOf(mixed $value): ?string
+    private function suspendedStateOf(mixed $value, string $identifier): ?string
     {
         if (!is_string($value) || $value === '') {
             return null;
@@ -742,7 +742,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         // Decrypt at the read boundary (ADR-114). A tampered or unreadable
         // payload throws {@see AgentStateDecryptionException}; the fail-soft
         // read path treats it as an unresumable run rather than a forged state.
-        $decoded = $this->stateCodec->decode($value);
+        $decoded = $this->stateCodec->decode($value, $identifier);
 
         return $decoded !== '' ? $decoded : null;
     }

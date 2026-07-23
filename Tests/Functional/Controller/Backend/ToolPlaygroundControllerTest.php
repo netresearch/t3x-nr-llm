@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
@@ -298,7 +299,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         // Wire the real persister (ADR-081): the batch runAction path must open a
         // run, record each step, and settle it COMPLETED.
-        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $persister  = new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService, $persister);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -905,7 +906,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         // so every behavioural assertion still exercises the full path.
         $agentRuntime = new AgentRuntime(
             $toolLoopService,
-            $agentRunPersister ?? new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool()), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger()),
+            $agentRunPersister ?? new AgentRunPersister(new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)), FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger()),
             $configurationRepository,
             new NullLogger(),
         );

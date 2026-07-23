@@ -35,21 +35,28 @@ Encrypt both columns at rest with an :php:`AgentStateCodec`.
 Primitive
 ---------
 
-libsodium XChaCha20-Poly1305 AEAD — authenticated encryption, bundled with PHP,
-no userland crypto. The library owns the dangerous parts: a fresh random 24-byte
-nonce per encryption (so identical state never yields identical ciphertext, and
-there is no equality oracle across rows) and an authentication tag verified on
-decrypt (so a tampered, truncated, or foreign-key row fails to decrypt rather
-than yielding a forged plaintext). The key is derived from the instance
-``encryptionKey`` via HKDF-SHA256 with a fixed context, so it is
-instance-specific and never the raw site secret.
+Delegate to nr-vault's :php:`Netresearch\NrVault\Crypto\EncryptionServiceInterface`
+— the same managed-key envelope AEAD the vault uses for secrets — rather than
+hand-rolling crypto. nr-vault is already a hard dependency (API-key storage), so
+this is one crypto implementation to audit, not two, and the key management is
+the vault's, not ours: a per-value data key (DEK) is wrapped by a **rotatable
+master key** (:php:`MasterKeyProviderInterface`, with a rotate command and a
+``MasterKeyRotatedEvent``), so the master can be rotated without re-encrypting
+every row. Each envelope is authenticated (a tampered or truncated row fails to
+decrypt rather than yielding a forged plaintext) and a fresh DEK/nonce per
+encryption means identical state never yields identical ciphertext.
+
+The per-column **identifier is passed as additional authenticated data (AAD)** —
+``nrllm:agent-state:queued-request`` vs ``…:suspended-state`` — so a ciphertext
+authenticates only against the column it was written for: moving a queued-request
+envelope into the suspended-state column fails authentication.
 
 Format and versioning
 ---------------------
 
-Stored as ``v1:`` + base64( nonce ‖ ciphertext‖tag ). The version prefix makes a
-later scheme (a rotated key, a different cipher) distinguishable at read time
-rather than guessed.
+Stored as ``v2:`` + base64( json of :php:`EncryptedData::toArray()` — the wrapped
+DEK, both nonces, the value checksum, and the version/algorithm markers ). The
+version prefix distinguishes the envelope from the legacy cleartext it replaces.
 
 Seam
 ----
@@ -63,18 +70,19 @@ keep handling plaintext JSON and nothing above the repository changes.
 Consequences
 ============
 
-- **Backwards compatible.** ``decode()`` returns any value WITHOUT the ``v1:``
+- **Backwards compatible.** ``decode()`` returns any value WITHOUT the ``v2:``
   marker verbatim, so a row written before this landed (plaintext JSON) still
   rehydrates. New writes are always encrypted; an upgrade needs no data
   migration.
-- **Fail-closed.** With no ``encryptionKey`` the codec refuses to encrypt rather
-  than silently storing cleartext, and a payload that fails authentication
-  throws — the fail-soft read path then treats the run as unreadable rather than
+- **Fail-closed.** When the master key is unavailable nr-vault refuses to encrypt
+  (the fail-soft persister then does not store a QUEUED/suspended row) rather
+  than silently storing cleartext, and a payload that fails authentication throws
+  — the fail-soft read path then treats the run as unreadable rather than
   resuming a forged or corrupt state.
-- The columns stay ``mediumtext``; base64 ciphertext is larger than the JSON but
-  well within the 16 MB bound.
-- Key ROTATION beyond the single ``v1`` key (a key id in the prefix, a
-  re-encrypt pass) is future work; the version tag reserves room for it. The
+- The columns stay ``mediumtext``; the base64 JSON envelope is larger than the
+  plaintext but well within the 16 MB bound.
+- **Key rotation is the vault's**, not a reserved future slot: rotating the
+  master key re-wraps the DEKs without touching the row ciphertext. The
   privacy-retention policy (:ref:`ADR-064 <adr-064>`) still governs how long
   state is kept — encryption protects it while it exists, it does not extend its
   life.

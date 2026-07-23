@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -49,7 +50,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
-        $this->repository = new AgentRunRepository($connectionPool);
+        $this->repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
         $this->persister  = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
     }
 
@@ -162,7 +163,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertNotNull($handle);
 
         $stored = $this->rawColumn($handle->uuid, 'queued_request');
-        self::assertStringStartsWith('v1:', $stored, 'stored at rest as ciphertext');
+        self::assertStringStartsWith('v2:', $stored, 'stored at rest as ciphertext');
         self::assertStringNotContainsString('private prompt', $stored);
 
         $run = $this->repository->findByUuid($handle->uuid);

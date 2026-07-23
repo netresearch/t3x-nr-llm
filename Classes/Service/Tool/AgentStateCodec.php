@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Exception\AgentStateDecryptionException;
+use Netresearch\NrVault\Crypto\EncryptionServiceInterface;
+use Netresearch\NrVault\Exception\EncryptionException;
 use SensitiveParameter;
+use Throwable;
 
 /**
  * Authenticated encryption for an agent run's state at rest (ADR-114).
@@ -21,112 +24,131 @@ use SensitiveParameter;
  * content in cleartext — readable by anyone with database access. This codec
  * encrypts them so the row carries ciphertext, not the conversation.
  *
- * Format (version-tagged so a later scheme is distinguishable):
- * ``v1:`` + base64( nonce ‖ ciphertext‖tag ), using libsodium's XChaCha20-Poly1305
- * AEAD — authenticated, so a tampered or truncated row fails to decrypt rather
- * than yielding garbage. A fresh random nonce per encryption means the same
- * plaintext never encrypts to the same bytes. The key is derived from the
- * instance's ``encryptionKey`` via HKDF with a fixed context, so it is
- * instance-specific and never the raw site secret.
+ * It delegates to nr-vault's {@see EncryptionServiceInterface} — the same
+ * managed-key envelope AEAD the vault uses — rather than hand-rolling crypto:
+ * a per-value data key wrapped by a rotatable master key (so the master can be
+ * rotated without re-encrypting every row), authenticated so a tampered row
+ * fails to decrypt, and bound to a per-column ``identifier`` used as additional
+ * authenticated data so a ciphertext cannot be moved between the two columns.
  *
- * Backwards compatible: {@see decode()} returns any value WITHOUT the ``v1:``
- * marker verbatim, so rows written before this landed (plaintext JSON) still
- * rehydrate. New writes are always encrypted.
+ * Stored form: ``v2:`` + base64( json({@see EncryptedData::toArray()}) ). The
+ * version prefix distinguishes the envelope from the legacy cleartext it
+ * replaces.
+ *
+ * Backwards compatible: {@see decode()} returns any value WITHOUT the ``v2:``
+ * marker verbatim, so rows written before encryption landed (plaintext JSON)
+ * still rehydrate. New writes are always encrypted.
  */
 final readonly class AgentStateCodec
 {
-    private const VERSION_PREFIX = 'v1:';
+    private const VERSION_PREFIX = 'v2:';
 
-    /**
-     * HKDF context binding the derived key to this purpose, so the same
-     * ``encryptionKey`` used elsewhere never yields the same key.
-     */
-    private const KDF_CONTEXT = 'nr_llm:agent-state:v1';
+    /** AAD identifier for the queued request payload (ADR-114). */
+    public const PURPOSE_QUEUED_REQUEST = 'nrllm:agent-state:queued-request';
 
-    /**
-     * @param string|null $encryptionKey the instance master secret; null reads
-     *                                   the TYPO3 site ``encryptionKey`` (the
-     *                                   production path). Injected explicitly
-     *                                   only by tests.
-     */
+    /** AAD identifier for the suspended run state payload (ADR-114). */
+    public const PURPOSE_SUSPENDED_STATE = 'nrllm:agent-state:suspended-state';
+
     public function __construct(
-        #[SensitiveParameter]
-        private ?string $encryptionKey = null,
+        private EncryptionServiceInterface $encryption,
     ) {}
 
     /**
-     * Encrypt a plaintext state payload for storage. An empty string stores as
-     * empty (the "no state" sentinel the columns already use), never as a
-     * ciphertext of the empty string.
+     * Encrypt a plaintext state payload for storage under the given per-column
+     * identifier (used as AAD). An empty string stores as empty (the "no state"
+     * sentinel the columns already use), never as a ciphertext of the empty
+     * string.
      */
-    public function encode(string $plaintext): string
+    public function encode(#[SensitiveParameter] string $plaintext, string $identifier): string
     {
         if ($plaintext === '') {
             return '';
         }
 
-        $nonce      = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
-        $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plaintext, '', $nonce, $this->key());
+        $encrypted = $this->encryption->encrypt($plaintext, $identifier);
 
-        return self::VERSION_PREFIX . base64_encode($nonce . $ciphertext);
+        return self::VERSION_PREFIX . base64_encode(
+            json_encode($encrypted->toArray(), JSON_THROW_ON_ERROR),
+        );
     }
 
     /**
      * Decrypt a stored state payload. A value without the version marker is
      * treated as legacy cleartext and returned verbatim (upgrade path); an empty
      * value returns empty. A version-tagged value that fails authentication —
-     * tampered, truncated, or written under a different key — throws rather than
-     * returning a forged plaintext.
+     * tampered, truncated, moved to the wrong column, or written under a
+     * different key — throws rather than returning a forged plaintext.
      *
      * @throws AgentStateDecryptionException
      */
-    public function decode(string $stored): string
+    public function decode(string $stored, string $identifier): string
     {
         if ($stored === '' || !str_starts_with($stored, self::VERSION_PREFIX)) {
             return $stored;
         }
 
-        $raw = base64_decode(substr($stored, strlen(self::VERSION_PREFIX)), true);
-        if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES) {
+        $envelope = $this->parseEnvelope(substr($stored, strlen(self::VERSION_PREFIX)));
+
+        try {
+            return $this->encryption->decrypt(
+                $envelope['encrypted_value'],
+                $envelope['encrypted_dek'],
+                $envelope['dek_nonce'],
+                $envelope['value_nonce'],
+                $identifier,
+                $envelope['encryption_version'],
+                $envelope['encryption_algorithm'],
+            );
+        } catch (EncryptionException $exception) {
+            throw AgentStateDecryptionException::authenticationFailed($exception);
+        }
+    }
+
+    /**
+     * Decode and validate the stored envelope fields.
+     *
+     *
+     * @throws AgentStateDecryptionException
+     *
+     * @return array{encrypted_value: string, encrypted_dek: string, dek_nonce: string, value_nonce: string, encryption_version: int, encryption_algorithm: string}
+     */
+    private function parseEnvelope(string $base64): array
+    {
+        $json = base64_decode($base64, true);
+        if ($json === false) {
             throw AgentStateDecryptionException::corrupted();
         }
 
-        $nonce      = substr($raw, 0, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
-        $ciphertext = substr($raw, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
-
-        $plaintext = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($ciphertext, '', $nonce, $this->key());
-        if ($plaintext === false) {
-            throw AgentStateDecryptionException::authenticationFailed();
+        try {
+            $decoded = json_decode($json, true, 8, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            throw AgentStateDecryptionException::corrupted();
         }
 
-        return $plaintext;
-    }
-
-    /**
-     * The 32-byte AEAD key, derived from the instance secret. Fail-closed: with
-     * no ``encryptionKey`` there is no safe key, so encryption refuses rather
-     * than falling back to storing cleartext.
-     */
-    private function key(): string
-    {
-        $master = $this->encryptionKey ?? self::instanceEncryptionKey();
-        if ($master === '') {
-            throw AgentStateDecryptionException::noEncryptionKey();
+        if (!is_array($decoded)) {
+            throw AgentStateDecryptionException::corrupted();
         }
 
-        return hash_hkdf('sha256', $master, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES, self::KDF_CONTEXT);
-    }
+        $value     = $decoded['encrypted_value'] ?? null;
+        $dek       = $decoded['encrypted_dek'] ?? null;
+        $dekNonce  = $decoded['dek_nonce'] ?? null;
+        $valNonce  = $decoded['value_nonce'] ?? null;
+        $version   = $decoded['encryption_version'] ?? null;
+        $algorithm = $decoded['encryption_algorithm'] ?? null;
 
-    /**
-     * The TYPO3 site ``encryptionKey``, or '' when absent (narrowed step by step
-     * because the ``$GLOBALS`` shape is untyped).
-     */
-    private static function instanceEncryptionKey(): string
-    {
-        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
-        $sys      = is_array($confVars) ? ($confVars['SYS'] ?? null) : null;
-        $key      = is_array($sys) ? ($sys['encryptionKey'] ?? '') : '';
+        if (!is_string($value) || !is_string($dek) || !is_string($dekNonce)
+            || !is_string($valNonce) || !is_int($version) || !is_string($algorithm)
+        ) {
+            throw AgentStateDecryptionException::corrupted();
+        }
 
-        return is_string($key) ? $key : '';
+        return [
+            'encrypted_value'      => $value,
+            'encrypted_dek'        => $dek,
+            'dek_nonce'            => $dekNonce,
+            'value_nonce'          => $valNonce,
+            'encryption_version'   => $version,
+            'encryption_algorithm' => $algorithm,
+        ];
     }
 }
