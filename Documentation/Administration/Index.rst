@@ -42,7 +42,7 @@ All AI management happens in
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The module has eleven sections accessible from the
+The module has twelve sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and
@@ -56,6 +56,7 @@ left-hand navigation:
 - **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
 - **Tools** — enable or disable the agent tools (admin-only)
 - **Playground** — run the agent tool loop interactively (admin-only)
+- **Agent runs** — review and decide runs paused for approval or input (admin-only)
 - **Analytics** — usage and cost dashboard (admin-only)
 
 .. toctree::
@@ -71,4 +72,5 @@ left-hand navigation:
    Wizards
    UserBudgets
    Analytics
+   AgentRuns
    DataRetention
