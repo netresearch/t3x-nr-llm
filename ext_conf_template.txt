@@ -118,8 +118,8 @@ telemetry.enabled = 1
 # Tool egress policy (ADR-094)
 # =============================================================================
 
-# cat=tools; type=options[Observe (log only)=observe,Enforce=enforce]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Observe is the default so an upgrade cannot silently strip tools from working setups; check the run log, then switch to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
-tools.dataClassEnforcement = observe
+# cat=tools; type=options[Enforce=enforce,Observe (log only)=observe]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Enforce is the default so a new install is safe by default (ADR-113); the read is fail-closed, so a missing or mistyped value also enforces. An install upgraded from an older version is pinned to Observe by an upgrade wizard so the change does not silently strip tools from a working setup — review the run log there, then switch back to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
+tools.dataClassEnforcement = enforce
 
 # =============================================================================
 # Privacy & data retention (ADR-064)
