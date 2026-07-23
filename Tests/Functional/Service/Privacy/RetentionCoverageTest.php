@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Service\Session\AiSessionRepository;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -135,7 +136,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         $connection->insert('tx_nrllm_agentrun', $this->runRow('waiting-run', AgentRunStatus::WAITING_FOR_APPROVAL, $old));
         $connection->insert('tx_nrllm_agentrun', $this->runRow('running-run', AgentRunStatus::RUNNING, $old));
 
-        $repository = new AgentRunRepository($connectionPool);
+        $repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
         $deleted    = $repository->purgeOlderThan(time() - (5 * 86400));
 
         self::assertSame(2, $deleted, 'Only the two terminal runs are eligible.');
@@ -157,7 +158,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         $runUid = (int)$connection->lastInsertId();
         $eventConnection->insert('tx_nrllm_agentrun_event', $this->eventRow($runUid, $old));
 
-        $repository = new AgentRunRepository($connectionPool);
+        $repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
         $deleted    = $repository->purgeUnfinishedOlderThan(time() - (180 * 86400));
 
         self::assertSame(1, $deleted);

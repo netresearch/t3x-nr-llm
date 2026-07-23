@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -152,7 +153,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
 
-        return new AgentRunRepository($connectionPool);
+        return new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
     }
 
     private function makeController(ToolRegistry $registry, AgentRuntimeInterface $runtime): AgentRunController
