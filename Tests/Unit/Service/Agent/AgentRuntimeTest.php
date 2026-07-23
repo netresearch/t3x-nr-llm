@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -30,6 +31,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
@@ -47,10 +49,13 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -698,6 +703,63 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aWritingToolWhoseAuditCannotBePersistedFailsTheRunAndIsNotRetried(): void
+    {
+        // ADR-111: a WRITING tool executed but its audit event could not be
+        // stored. The run must fail rather than continue over an unrecorded
+        // mutation — and must NOT be requeued (the write already ran once).
+        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->throwOnRecord = true;
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordToolExecution(1, 0.0, 'send_mail', [], 'sent', false);
+
+                return $this->loopResult('unreachable');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertInstanceOf(AuditPersistenceFailedException::class, $result->error);
+        // Dead-lettered as non-retryable — the queue never re-dispatched it.
+        self::assertSame([], $this->repository->requeues);
+    }
+
+    #[Test]
+    public function aReadOnlyToolWhoseAuditCannotBePersistedLeavesTheRunUnaffected(): void
+    {
+        // The fail-soft path is preserved for reads: a store hiccup on a
+        // read-only tool's audit step is swallowed and the run completes, so a
+        // transient database blip does not fail an observe-only run.
+        $this->repository->findResult   = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->throwOnRecord = true;
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordToolExecution(1, 0.0, 'list_pages', [], 'p1, p2', false);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
     public function aQueuedRunFailingRetryablyIsRequeuedAndReDispatchedWithBackoff(): void
     {
         // ADR-104 failure retry: a retryable provider error requeues the run
@@ -1003,6 +1065,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         ToolLoopServiceInterface $loop,
         ?LlmConfiguration $configuration = new LlmConfiguration(),
         ?MessageBusInterface $bus = null,
+        ?ToolEffectResolver $effectResolver = null,
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -1018,6 +1081,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             // setBeUserByUid(). Tool authorization from a live user is covered by
             // the functional ActingBackendUserResolver and tool tests.
             actingBackendUserResolver: self::createStub(ActingBackendUserResolverInterface::class),
+            toolEffectResolver: $effectResolver,
         );
     }
 

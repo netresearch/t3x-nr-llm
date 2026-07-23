@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
+use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
@@ -51,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -129,6 +132,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // test wiring; production autowires the real resolver, and a null falls
         // back to a fresh default instance.
         private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
+        // Classifies a tool's side effect so a WRITING tool's audit step is
+        // fail-closed (ADR-111). Optional only for the positional test wiring;
+        // production autowires it. A null resolver treats every tool as
+        // read-only — safe today (no builtin writes) and only reachable in bare
+        // test construction, never in the autowired runtime.
+        private ?ToolEffectResolver $toolEffectResolver = null,
     ) {}
 
     /**
@@ -867,8 +876,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 // failure can never fabricate a cancellation.
                 if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
                     // Persist the step that already happened, then stop: the
-                    // audit stream stays complete up to the abort point.
-                    $this->persister->recordStep($handle, $step);
+                    // audit stream stays complete up to the abort point. A
+                    // writing tool whose audit cannot be stored fails the run
+                    // (ADR-111) even mid-cancel — an unrecorded mutation is the
+                    // more serious condition than the cancellation.
+                    $this->recordStepFailClosedForWrites($handle, $step);
 
                     throw RunCancellationRequestedException::forRun($handle->uuid);
                 }
@@ -884,9 +896,41 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
 
-                $this->persister->recordStep($handle, $step);
+                $this->recordStepFailClosedForWrites($handle, $step);
             },
         );
+    }
+
+    /**
+     * Persist a step, failing the run when a WRITING tool's audit event could
+     * not be stored (ADR-111). Read-only and non-tool steps stay fail-soft: a
+     * store hiccup is logged inside {@see AgentRunPersister::recordStep()} and
+     * the run continues. A write is different — an unrecorded mutation must not
+     * be waved through, so it throws {@see AuditPersistenceFailedException}
+     * (non-retryable: the write already ran once).
+     */
+    private function recordStepFailClosedForWrites(AgentRunHandle $handle, RunStep $step): void
+    {
+        $persisted = $this->persister->recordStep($handle, $step);
+        if (!$persisted && $this->stepEffect($step)->isWrite()) {
+            throw AuditPersistenceFailedException::forRun($handle->uuid, $step->toolName ?? '');
+        }
+    }
+
+    /**
+     * The side effect of the tool a step recorded (ADR-111). Only KIND_TOOL
+     * steps carry an effect; everything else is read-only. A tool name that no
+     * longer resolves is treated as the strictest effect (fail-closed), and a
+     * runtime built without the resolver (bare positional test wiring only)
+     * treats every tool as read-only.
+     */
+    private function stepEffect(RunStep $step): ToolEffect
+    {
+        if ($step->kind !== RunStep::KIND_TOOL || $this->toolEffectResolver === null) {
+            return ToolEffect::READ_ONLY;
+        }
+
+        return $this->toolEffectResolver->effectFor($step->toolName ?? '');
     }
 
     /**

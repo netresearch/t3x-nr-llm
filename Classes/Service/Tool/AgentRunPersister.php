@@ -34,7 +34,9 @@ use Throwable;
  * Every method is fail-soft: a persistence error is logged and swallowed so a
  * database hiccup can never break an otherwise-successful run. {@see self::begin()}
  * returns null on failure, which the caller treats as "do not record" — exactly
- * as a null {@see RunTrace} callback would.
+ * as a null {@see RunTrace} callback would. {@see self::recordStep()} still never
+ * throws, but returns whether it persisted so the runtime can fail-close a
+ * WRITING tool's audit step (ADR-111) while leaving read-only steps fail-soft.
  *
  * What a step actually stores is governed by the central privacy level via
  * {@see RunStepPrivacyFilter}: metadata-only by default, so persistence does not
@@ -158,8 +160,16 @@ final readonly class AgentRunPersister
 
     /**
      * Persist one recorded step as the next event in the run's stream.
+     *
+     * Returns whether the step was durably persisted. The store hiccup is still
+     * logged and swallowed here (this method never throws), but the boolean lets
+     * the caller enforce a stricter policy for an audit-critical step: the
+     * runtime fails a run whose WRITING tool executed but whose audit event
+     * could not be stored (ADR-111), rather than continuing as if the write were
+     * recorded. A read-only step's caller ignores the result, preserving the
+     * fail-soft behaviour of the rest of this class.
      */
-    public function recordStep(AgentRunHandle $handle, RunStep $step): void
+    public function recordStep(AgentRunHandle $handle, RunStep $step): bool
     {
         try {
             // The persisted copy follows the central privacy level; the live
@@ -177,8 +187,12 @@ final readonly class AgentRunPersister
                 $payload,
             );
             ++$handle->sequence;
+
+            return true;
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun step could not be persisted', ['exception' => $exception]);
+
+            return false;
         }
     }
 
