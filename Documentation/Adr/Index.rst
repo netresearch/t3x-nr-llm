@@ -408,3 +408,5 @@ Tools
    Adr108TypedToolResultWithArtifacts
    Adr109AgentRunsApprovalsInbox
    Adr110ServiceAccountScopes
+   Adr111ToolEffectAndWriteAudit
+   Adr112LeaseBeforeOpWriteFence

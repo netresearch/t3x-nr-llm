@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
+use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
@@ -51,6 +53,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -129,6 +132,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // test wiring; production autowires the real resolver, and a null falls
         // back to a fresh default instance.
         private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
+        // Classifies a tool's side effect so a WRITING tool's audit step is
+        // fail-closed (ADR-111). Optional only for the positional test wiring;
+        // production autowires it. A null resolver treats every tool as
+        // read-only — safe today (no builtin writes) and only reachable in bare
+        // test construction, never in the autowired runtime.
+        private ?ToolEffectResolver $toolEffectResolver = null,
     ) {}
 
     /**
@@ -295,7 +304,21 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // Retryable in principle — but is the requeue budget spent? Re-read
             // the row; a null read (-1) forces the fail-closed dead-letter.
             $currentRun = $this->persister->findRun($runUuid);
-            $count      = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
+
+            // A non-idempotent write was in flight when this failed (ADR-111): its
+            // side effect may already have landed, so a retry could double it.
+            // Dead-letter regardless of the retry budget — a retryable error class
+            // does not make a repeated write safe.
+            if ($currentRun instanceof AgentRun && !self::mayRetryAfterFence($currentRun->pendingEffect)) {
+                if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE, $workerIdentity)) {
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
+                }
+                $this->logger?->warning('Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)', ['run' => $runUuid]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
+            }
+
+            $count = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
             if ($count < 0 || $count >= self::MAX_REQUEUES) {
                 if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity)) {
                     $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
@@ -867,8 +890,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 // failure can never fabricate a cancellation.
                 if ($this->persister->findRun($handle->uuid)?->statusEnum() === AgentRunStatus::CANCELLED) {
                     // Persist the step that already happened, then stop: the
-                    // audit stream stays complete up to the abort point.
-                    $this->persister->recordStep($handle, $step);
+                    // audit stream stays complete up to the abort point. A
+                    // writing tool whose audit cannot be stored fails the run
+                    // (ADR-111) even mid-cancel — an unrecorded mutation is the
+                    // more serious condition than the cancellation.
+                    $this->recordStepFailClosedForWrites($handle, $step);
 
                     throw RunCancellationRequestedException::forRun($handle->uuid);
                 }
@@ -877,16 +903,88 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 // renewal's ownership guard is the atomic check: 0 rows means
                 // the run was reclaimed/re-claimed/terminated — stop WITHOUT
                 // recording the step, so a zombie worker cannot append an event
-                // whose sequence collides with the new owner's stream.
-                if ($leaseOwner !== null
-                    && !$this->persister->renewLease($handle, $leaseOwner, time() + self::LEASE_SECONDS)
-                ) {
+                // whose sequence collides with the new owner's stream. A completed
+                // WRITE step also CLEARS the in-flight fence set before it ran
+                // (ADR-111) in the same guarded write.
+                if ($leaseOwner !== null && !$this->renewOrClearFence($handle, $leaseOwner, $step)) {
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
 
-                $this->persister->recordStep($handle, $step);
+                $this->recordStepFailClosedForWrites($handle, $step);
+            },
+            onBeforeTool: $leaseOwner === null || $handle === null ? null : function (string $toolName) use ($handle, $leaseOwner): void {
+                // Fence a WRITE before it runs (ADR-111): stamp its effect and
+                // renew the lease so a reap mid non-idempotent-write dead-letters
+                // instead of retrying. Read-only tools need no fence — repeating
+                // them is always safe. A lost lease stops the worker before the
+                // side effect, exactly like the heartbeat guard.
+                $effect = $this->toolEffectResolver?->effectFor($toolName) ?? ToolEffect::READ_ONLY;
+                if ($effect->isWrite()
+                    && !$this->persister->markPendingEffect($handle, $leaseOwner, $effect->value, time() + self::LEASE_SECONDS)
+                ) {
+                    throw RunLeaseLostException::forRun($handle->uuid);
+                }
             },
         );
+    }
+
+    /**
+     * Renew the lease at a step boundary and, for a completed WRITE step, clear
+     * the in-flight fence its {@see RunTrace::beforeToolExecution()} set — both in
+     * one ownership-guarded write (ADR-111). Returns false when the worker has
+     * lost the run, so the caller stops before recording the step.
+     */
+    private function renewOrClearFence(AgentRunHandle $handle, string $leaseOwner, RunStep $step): bool
+    {
+        $leaseExpires = time() + self::LEASE_SECONDS;
+        if ($this->stepEffect($step)->isWrite()) {
+            return $this->persister->markPendingEffect($handle, $leaseOwner, '', $leaseExpires);
+        }
+
+        return $this->persister->renewLease($handle, $leaseOwner, $leaseExpires);
+    }
+
+    /**
+     * Whether a run may be retried given the effect fence in flight when it
+     * failed (ADR-111). Empty (no tool fenced) or an unrecognised value is safe;
+     * only a fenced NON_IDEMPOTENT_WRITE — a side effect that must not repeat —
+     * blocks the retry. Shared by the in-process recover path and the reaper.
+     */
+    public static function mayRetryAfterFence(string $pendingEffect): bool
+    {
+        return ToolEffect::tryFrom($pendingEffect)?->isSafeToRetry() ?? true;
+    }
+
+    /**
+     * Persist a step, failing the run when a WRITING tool's audit event could
+     * not be stored (ADR-111). Read-only and non-tool steps stay fail-soft: a
+     * store hiccup is logged inside {@see AgentRunPersister::recordStep()} and
+     * the run continues. A write is different — an unrecorded mutation must not
+     * be waved through, so it throws {@see AuditPersistenceFailedException}
+     * (non-retryable: the write already ran once).
+     */
+    private function recordStepFailClosedForWrites(AgentRunHandle $handle, RunStep $step): void
+    {
+        $persisted = $this->persister->recordStep($handle, $step);
+        if (!$persisted && $this->stepEffect($step)->isWrite()) {
+            throw AuditPersistenceFailedException::forRun($handle->uuid, $step->toolName ?? '');
+        }
+    }
+
+    /**
+     * The side effect of the tool a step recorded (ADR-111). Only KIND_TOOL
+     * steps carry an effect; everything else is read-only. A tool name that no
+     * longer resolves is treated as the strictest effect (fail-closed), and a
+     * runtime built without the resolver (bare positional test wiring only)
+     * treats every tool as read-only.
+     */
+    private function stepEffect(RunStep $step): ToolEffect
+    {
+        if ($step->kind !== RunStep::KIND_TOOL || $this->toolEffectResolver === null) {
+            return ToolEffect::READ_ONLY;
+        }
+
+        return $this->toolEffectResolver->effectFor($step->toolName ?? '');
     }
 
     /**

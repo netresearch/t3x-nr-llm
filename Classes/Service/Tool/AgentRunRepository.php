@@ -321,6 +321,36 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
     }
 
     /**
+     * Stamp the effect of the tool about to run (or '' to clear it once done) and
+     * renew the lease in the same guarded write (ADR-111 lease-before-op). Guarded
+     * exactly like {@see renewLease()}: zero matched rows means this worker lost
+     * the run, and — because a repeated identical stamp is a MySQL no-op — the
+     * same ownership re-check distinguishes "nothing changed" from "lost lease".
+     */
+    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
+    {
+        $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
+            self::TABLE_RUN,
+            [
+                'pending_effect' => $effect,
+                'lease_expires'  => $leaseExpires,
+                'tstamp'         => time(),
+            ],
+            [
+                'uid'        => $runUid,
+                'status'     => AgentRunStatus::RUNNING->value,
+                'claimed_by' => $claimedBy,
+            ],
+        );
+
+        if ($affected >= 1) {
+            return true;
+        }
+
+        return $this->ownsRunningRun($runUid, $claimedBy);
+    }
+
+    /**
      * Whether the run still exists RUNNING under this worker's claim — the
      * ownership predicate {@see renewLease()} uses to tell a no-op UPDATE
      * (nothing changed) apart from a lost lease (nothing matched). The reaper
@@ -694,6 +724,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             claimedBy: self::toStr($row['claimed_by'] ?? ''),
             leaseExpires: self::toInt($row['lease_expires'] ?? 0),
             requeueCount: self::toInt($row['requeue_count'] ?? 0),
+            pendingEffect: self::toStr($row['pending_effect'] ?? ''),
         );
     }
 

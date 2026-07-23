@@ -295,6 +295,22 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    /** @var list<array{runUid: int, claimedBy: string, effect: string, leaseExpires: int}> */
+    public array $pendingEffects = [];
+
+    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
+    {
+        if ($this->throwOnRenewLease) {
+            throw new RuntimeException('markPendingEffect failed', 1785000020);
+        }
+        if ($this->refuseRenewLease) {
+            return false;
+        }
+        $this->pendingEffects[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'effect' => $effect, 'leaseExpires' => $leaseExpires];
+
+        return true;
+    }
+
     public bool $throwOnRequeue = false;
 
     /** Simulates a run this worker no longer owns: requeue matches no row. */

@@ -100,6 +100,12 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return true;
     }
 
+    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
+    {
+        // Not needed by the command tests.
+        return true;
+    }
+
     public function requeue(int $runUid, string $claimedBy): bool
     {
         // Not needed by the command tests.

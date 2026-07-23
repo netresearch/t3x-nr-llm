@@ -54,6 +54,10 @@ final readonly class AgentRun
         // retryable-failure retry or a stale-lease reclaim; capped by
         // AgentRuntime::MAX_REQUEUES so a deterministic crash cannot loop.
         public int $requeueCount = 0,
+        // Side effect of the tool currently in flight (ADR-111), stamped before a
+        // tool runs and cleared when it completes; '' = none. A run reaped while
+        // this is a non-idempotent write is dead-lettered, not retried.
+        public string $pendingEffect = '',
     ) {}
 
     /**
@@ -89,6 +93,7 @@ final readonly class AgentRun
             claimedBy: $this->claimedBy,
             leaseExpires: $this->leaseExpires,
             requeueCount: $this->requeueCount,
+            pendingEffect: $this->pendingEffect,
         );
     }
 

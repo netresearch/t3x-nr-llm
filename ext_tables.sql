@@ -705,6 +705,13 @@ CREATE TABLE tx_nrllm_agentrun (
     -- failing run cannot loop forever; 0 = never requeued.
     requeue_count int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Side effect of the tool currently executing (ADR-111), stamped just BEFORE
+    -- a tool runs on the queued path and cleared once it completes. '' = no tool
+    -- in flight. The reaper reads it: a run reaped mid non-idempotent-write is
+    -- dead-lettered instead of requeued, so an at-least-once retry never repeats
+    -- a write that already ran once. Empty is the fail-safe default.
+    pending_effect varchar(32) DEFAULT '' NOT NULL,
+
     -- Time tracking
     started_at int(11) unsigned DEFAULT '0' NOT NULL,
     finished_at int(11) unsigned DEFAULT '0' NOT NULL,

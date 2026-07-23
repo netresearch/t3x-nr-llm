@@ -38,21 +38,39 @@ final class RunTrace
     private array $steps = [];
 
     /**
-     * @param bool                          $captureRaw When true the loop asks the provider to retain
-     *                                                  the decoded raw response so it can be inspected.
-     *                                                  Off by default so production runs never keep it.
-     * @param (Closure(RunStep): void)|null $onRecord   Fired the moment each step is recorded, so a
-     *                                                  caller can stream steps live as the loop runs.
-     *                                                  Null (every production/test caller) ⇒ collect only.
+     * @param bool                          $captureRaw   When true the loop asks the provider to retain
+     *                                                    the decoded raw response so it can be inspected.
+     *                                                    Off by default so production runs never keep it.
+     * @param (Closure(RunStep): void)|null $onRecord     Fired the moment each step is recorded, so a
+     *                                                    caller can stream steps live as the loop runs.
+     *                                                    Null (every production/test caller) ⇒ collect only.
+     * @param (Closure(string): void)|null  $onBeforeTool Fired with a tool's name immediately BEFORE it
+     *                                                    executes (ADR-111), so the runtime can fence the
+     *                                                    in-flight write and renew the lease before the op.
+     *                                                    Null ⇒ no fence (synchronous/interactive runs).
      */
     public function __construct(
         private readonly bool $captureRaw = false,
         private readonly ?Closure $onRecord = null,
+        private readonly ?Closure $onBeforeTool = null,
     ) {}
 
     public function capturesRaw(): bool
     {
         return $this->captureRaw;
+    }
+
+    /**
+     * Signal that the named tool is about to execute (ADR-111). Fired by the
+     * loop right before it invokes the tool, so a listener can durably fence the
+     * operation (record its effect, extend the lease) before any side effect
+     * happens. A no-op when no listener was wired.
+     */
+    public function beforeToolExecution(string $toolName): void
+    {
+        if ($this->onBeforeTool !== null) {
+            ($this->onBeforeTool)($toolName);
+        }
     }
 
     /**
