@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
@@ -40,7 +41,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class SearchRecordsTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const DEFAULT_LIMIT = 20;
@@ -94,9 +94,9 @@ final readonly class SearchRecordsTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return ToolResult::text('Not permitted.');
         }
@@ -114,7 +114,7 @@ final readonly class SearchRecordsTool implements ToolInterface
         $limit = min($limit, self::MAX_LIMIT);
 
         $restrictTable = trim(self::toStr($arguments['table'] ?? ''));
-        $tables        = $this->searchableTables($restrictTable);
+        $tables        = $this->searchableTables($restrictTable, $context);
         if ($tables === []) {
             return ToolResult::text($restrictTable !== ''
                 ? 'Table not found or not permitted.'
@@ -174,9 +174,9 @@ final readonly class SearchRecordsTool implements ToolInterface
      *
      * @return array<string, list<string>>
      */
-    private function searchableTables(string $restrictTable): array
+    private function searchableTables(string $restrictTable, ToolExecutionContext $context): array
     {
-        $user   = $this->actingBackendUser();
+        $user   = $context->actingBackendUser();
         $tca    = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
         $result = [];
 

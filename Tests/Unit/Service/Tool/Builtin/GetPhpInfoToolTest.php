@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,7 @@ final class GetPhpInfoToolTest extends TestCase
     #[Test]
     public function returnsCuratedRuntimeSubset(): void
     {
-        $output = (new GetPhpInfoTool())->execute([])->content;
+        $output = (new GetPhpInfoTool())->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('PHP version: ' . PHP_VERSION, $output);
         self::assertStringContainsString('Loaded extensions (', $output);

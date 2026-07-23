@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -61,7 +62,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['limit' => 2])->content;
+        $output = $this->tool->execute(['limit' => 2], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Cache cleared', $output);
         self::assertStringContainsString('Login failed', $output);
@@ -75,7 +76,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['limit' => 10])->content;
+        $output = $this->tool->execute(['limit' => 10], ToolExecutionContext::none())->content;
 
         self::assertStringNotContainsString(self::RAW_IP, $output);
         self::assertStringNotContainsString(self::USER_ID, $output);
@@ -87,7 +88,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_log_tools.csv');
 
-        $output = $this->tool->execute(['level' => 'error'])->content;
+        $output = $this->tool->execute(['level' => 'error'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Login failed', $output);
         self::assertStringNotContainsString('Cache cleared', $output);
@@ -113,7 +114,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
             ]);
         }
 
-        $output = $this->tool->execute(['limit' => 9999])->content;
+        $output = $this->tool->execute(['limit' => 9999], ToolExecutionContext::none())->content;
 
         self::assertCount(50, $this->entryLines($output));
     }
@@ -121,7 +122,7 @@ final class FetchLogsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function returnsPlaceholderWhenNoEntriesMatch(): void
     {
-        $output = $this->tool->execute(['level' => 'no-such-level'])->content;
+        $output = $this->tool->execute(['level' => 'no-such-level'], ToolExecutionContext::none())->content;
 
         self::assertSame('No log entries.', $output);
     }

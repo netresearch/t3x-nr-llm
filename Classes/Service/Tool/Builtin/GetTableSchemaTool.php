@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -31,7 +32,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class GetTableSchemaTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 
@@ -63,14 +63,14 @@ final readonly class GetTableSchemaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $table = trim(self::toStr($arguments['table'] ?? ''));
         if ($table === '') {
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if (!$this->tableAccess->canReadTable($user, $table)) {
             // Same neutral string whether unknown, denylisted or unpermitted —
             // the tool never confirms a table's existence to the unauthorised.

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\EvidenceList;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -34,7 +35,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class SiteRagQueryTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const DEFAULT_SOURCES = 8;
@@ -77,9 +77,9 @@ final readonly class SiteRagQueryTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return ToolResult::text('Not permitted.');
         }

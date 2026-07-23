@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -44,6 +45,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $result = $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'hi']],
             new LlmConfiguration(),
+            ToolExecutionContext::none(),
             null,
             null,
             null,
@@ -75,6 +77,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'translate this']],
             new LlmConfiguration(),
+            ToolExecutionContext::none(),
             null,
             null,
             null,
@@ -106,6 +109,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $result = $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'hi']],
             new LlmConfiguration(),
+            ToolExecutionContext::none(),
             null,
             null,
             null,
@@ -160,6 +164,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $result = $service->runLoop(
             [['role' => 'user', 'content' => 'go']],
             new LlmConfiguration(),
+            ToolExecutionContext::none(),
             ['bad'],
             null,
             null,

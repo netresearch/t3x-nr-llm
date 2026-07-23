@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\LogExceptionReader;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -73,7 +74,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $index  = max(0, self::toInt($arguments['index'] ?? 0));
         $search = trim(self::toStr($arguments['search'] ?? ''));
@@ -121,13 +122,13 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
                 continue;
             }
 
-            $context = $this->sourceContext($frame['file'], $frame['line']);
-            if ($context === []) {
+            $sourceLines = $this->sourceContext($frame['file'], $frame['line']);
+            if ($sourceLines === []) {
                 continue;
             }
             $expanded++;
-            foreach ($context as $contextLine) {
-                $lines[] = $contextLine;
+            foreach ($sourceLines as $sourceLine) {
+                $lines[] = $sourceLine;
             }
 
             if (count($lines) >= self::MAX_OUTPUT_LINES) {
@@ -139,9 +140,9 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         // Fallback: nothing was project-local — expand the throw site anyway
         // so the model at least sees where it blew up.
         if ($expanded === 0 && isset($entry->frames[0])) {
-            $context = $this->sourceContext($entry->frames[0]['file'], $entry->frames[0]['line']);
-            foreach ($context as $contextLine) {
-                $lines[] = $contextLine;
+            $sourceLines = $this->sourceContext($entry->frames[0]['file'], $entry->frames[0]['line']);
+            foreach ($sourceLines as $sourceLine) {
+                $lines[] = $sourceLine;
             }
         }
 

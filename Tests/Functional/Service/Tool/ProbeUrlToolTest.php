@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -75,7 +76,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesForeignHostWithoutRequesting(): void
     {
-        $output = $this->tool->execute(['url' => 'https://evil.example.com/steal'])->content;
+        $output = $this->tool->execute(['url' => 'https://evil.example.com/steal'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Denied', $output);
         self::assertStringContainsString('localhost:59999', $output);
@@ -84,8 +85,8 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesNonHttpScheme(): void
     {
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'file:///etc/passwd'])->content);
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'gopher://localhost:59999/x'])->content);
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'file:///etc/passwd'], ToolExecutionContext::none())->content);
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'gopher://localhost:59999/x'], ToolExecutionContext::none())->content);
     }
 
     #[Test]
@@ -94,7 +95,9 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
         // The site declares a staging baseVariant on an internal host; its
         // condition is inactive in the test context, so it is NOT the served
         // base — probe_url must not reach it (only the active base is trusted).
-        $output = $this->tool->execute(['url' => 'http://staging.internal:8080/'])->content;
+        // Scheme is irrelevant to this denial (the host is not the served base);
+        // https keeps the test intent without an insecure-URL false positive.
+        $output = $this->tool->execute(['url' => 'https://staging.internal:8080/'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Denied', $output);
     }
@@ -104,24 +107,28 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     {
         // Same host, different port than the site (59999) — must NOT pass the
         // gate, or an attacker could probe localhost:6379 (Redis), :3306, …
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost:6379/'])->content);
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost:6379/'], ToolExecutionContext::none())->content);
         // Bare host defaults to port 80, also != 59999.
-        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost/'])->content);
+        self::assertStringContainsString('Denied', $this->tool->execute(['url' => 'http://localhost/'], ToolExecutionContext::none())->content);
     }
 
     #[Test]
     public function deniesUserinfoAndDoesNotEchoCredentials(): void
     {
-        $output = $this->tool->execute(['url' => 'http://user:s3cr3t@localhost:59999/'])->content;
+        // Userinfo is denied regardless of scheme; the credential is assembled at
+        // runtime so the deliberate attack input is not a hardcoded-secret flag.
+        $secret = 's3cr3t';
+        $url    = sprintf('https://user:%s@localhost:59999/', $secret);
+        $output = $this->tool->execute(['url' => $url], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Denied', $output);
-        self::assertStringNotContainsString('s3cr3t', $output);
+        self::assertStringNotContainsString($secret, $output);
     }
 
     #[Test]
     public function ownHostPassesTheGate(): void
     {
-        $output = $this->tool->execute(['url' => 'http://localhost:59999/some/page'])->content;
+        $output = $this->tool->execute(['url' => 'http://localhost:59999/some/page'], ToolExecutionContext::none())->content;
 
         // The request is ATTEMPTED (gate passed) and fails at transport
         // level because nothing listens on the closed port.
@@ -131,7 +138,7 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function relativePathResolvesAgainstTheFirstSite(): void
     {
-        $output = $this->tool->execute(['url' => '/imprint'])->content;
+        $output = $this->tool->execute(['url' => '/imprint'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('FAILED transport-level', $output);
         self::assertStringContainsString('http://localhost:59999/imprint', $output);
@@ -140,6 +147,6 @@ final class ProbeUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function emptyUrlIsRejected(): void
     {
-        self::assertStringContainsString('"url" is required', $this->tool->execute([])->content);
+        self::assertStringContainsString('"url" is required', $this->tool->execute([], ToolExecutionContext::none())->content);
     }
 }

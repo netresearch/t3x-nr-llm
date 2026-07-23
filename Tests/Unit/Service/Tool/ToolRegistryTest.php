@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use LogicException;
+
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -68,7 +70,7 @@ final class ToolRegistryTest extends TestCase
             /**
              * @param array<string, mixed> $arguments
              */
-            public function execute(array $arguments): ToolResult
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
             {
                 return ToolResult::text('ok');
             }

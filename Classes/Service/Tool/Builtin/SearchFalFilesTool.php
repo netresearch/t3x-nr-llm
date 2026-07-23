@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -28,7 +29,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class SearchFalFilesTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const DEFAULT_LIMIT = 20;
@@ -75,14 +75,14 @@ final readonly class SearchFalFilesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $query = trim(self::toStr($arguments['query'] ?? ''));
         if ($query === '') {
             return ToolResult::text('Error: "query" is required.');
         }
 
-        $user      = $this->actingBackendUser();
+        $user      = $context->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
             return ToolResult::text('No accessible file storages.');

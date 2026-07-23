@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetRecordHistoryTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -83,19 +84,19 @@ final class HistoryValidationToolsSpecTest extends TestCase
         // No $GLOBALS['BE_USER'] in unit context → fail-closed paths.
         self::assertSame(
             'Table not found or not permitted.',
-            self::bare(GetRecordHistoryTool::class)->execute(['table' => '', 'uid' => 0])->content,
+            self::bare(GetRecordHistoryTool::class)->execute(['table' => '', 'uid' => 0], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Page not found or no TypoScript template.',
-            self::bare(CheckTypoScriptTool::class)->execute(['pageUid' => 0])->content,
+            self::bare(CheckTypoScriptTool::class)->execute(['pageUid' => 0], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Error: "url" is required.',
-            self::bare(ResolveUrlTool::class)->execute([])->content,
+            self::bare(ResolveUrlTool::class)->execute([], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Page not found or not permitted.',
-            self::bare(ResolveUrlTool::class)->execute(['url' => '/x'])->content,
+            self::bare(ResolveUrlTool::class)->execute(['url' => '/x'], ToolExecutionContext::none())->content,
         );
     }
 }

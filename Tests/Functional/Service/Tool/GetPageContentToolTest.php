@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageContentTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -69,9 +70,9 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function adminSeesElementsInColumnAndSortingOrderIncludingMarkedHidden(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 1])->content;
+        $output = $this->tool->execute(['uid' => 1], $this->contextFor($user))->content;
 
         self::assertStringContainsString('Page [1] Home (doktype 1, slug /)', $output);
         // colPos 0 before colPos 1; hidden element present and marked.
@@ -101,9 +102,9 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 21, 't3ver_state' => 0,
         ]);
 
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 1])->content;
+        $output = $this->tool->execute(['uid' => 1], $this->contextFor($user))->content;
 
         self::assertStringNotContainsString('DraftOnlyMarker', $output);
         self::assertStringContainsString('Intro', $output);
@@ -112,9 +113,9 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function nonAdminWithoutPagePermissionIsDenied(): void
     {
-        $this->setUpBackendUser(2); // editor, no rights on page 1
+        $user = $this->setUpBackendUser(2); // editor, no rights on page 1
 
-        $output = $this->tool->execute(['uid' => 1])->content;
+        $output = $this->tool->execute(['uid' => 1], $this->contextFor($user))->content;
 
         self::assertSame('Page not found or not permitted.', $output);
     }
@@ -122,9 +123,9 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function missingPageReturnsTheSameNeutralString(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['uid' => 999])->content;
+        $output = $this->tool->execute(['uid' => 999], $this->contextFor($user))->content;
 
         self::assertSame('Page not found or not permitted.', $output);
     }
@@ -149,15 +150,26 @@ final class GetPageContentToolTest extends AbstractFunctionalTestCase
         $beUser->groupData['webmounts']         = '5';
         $beUser->groupData['allowed_languages'] = '0';
 
+        $context = $this->contextFor($beUser);
+
         // Language 0 is permitted -> the page resolves past the language gate.
         self::assertStringContainsString(
             'Page [5] Public',
-            $this->tool->execute(['uid' => 5, 'language' => 0])->content,
+            $this->tool->execute(['uid' => 5, 'language' => 0], $context)->content,
         );
         // Language 1 is not permitted -> neutral denial at the language gate.
         self::assertSame(
             'Page not found or not permitted.',
-            $this->tool->execute(['uid' => 5, 'language' => 1])->content,
+            $this->tool->execute(['uid' => 5, 'language' => 1], $context)->content,
         );
+    }
+
+    /**
+     * Authorise a tool run exactly as the ambient `$GLOBALS['BE_USER']` used to,
+     * reading permission scope from THIS acting backend user (ADR-083).
+     */
+    private function contextFor(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 }

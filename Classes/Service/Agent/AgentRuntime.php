@@ -40,6 +40,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
@@ -47,6 +49,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -119,7 +122,25 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // construction sites keep working; submitInput() always validates,
         // falling back to a fresh stateless validator when none was injected.
         private ?JsonSchemaValidator $schemaValidator = null,
+        // Resolves the run's actor to a live acting backend user for tool
+        // authorization (ADR-083). Optional in the ctor only for the positional
+        // test wiring; production autowires the real resolver, and a null falls
+        // back to a fresh default instance.
+        private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
     ) {}
+
+    /**
+     * Build the tool-execution context for a run from its explicit actor: the
+     * one place the actor becomes a live acting backend user, identically on the
+     * synchronous and worker paths (ADR-083), so no tool reads the ambient
+     * `$GLOBALS['BE_USER']`.
+     */
+    private function toolContext(AiActorContext $actor): ToolExecutionContext
+    {
+        $resolver = $this->actingBackendUserResolver ?? new ActingBackendUserResolver();
+
+        return new ToolExecutionContext($actor, $resolver->resolve($actor));
+    }
 
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult
     {
@@ -357,6 +378,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             : null;
 
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
+        // Resolve the run's explicit actor to a live acting backend user ONCE,
+        // identically whether this runs synchronously or in a worker (ADR-083).
+        $context = $this->toolContext($request->actor);
 
         return $this->execute(
             $handle,
@@ -364,6 +388,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             fn(): ToolLoopResult => $this->toolLoop->runLoop(
                 $request->messages,
                 $request->configuration,
+                $context,
                 $request->allowedToolNames,
                 $request->options,
                 $maxIterations,
@@ -647,6 +672,12 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         $this->persister->recordApproval($handle, $decision->approved, $decision->decidedByBeUser);
 
         $trace = $this->trace($handle, $onStep, false);
+        // Tools resume under the RUN OWNER's identity (ADR-083), not whoever is
+        // approving: the owner is who the queued work acts for. Reconstructed
+        // from the run row's initiating uid — the same fallback rehydrateRequest()
+        // uses — and resolved to a live user, so authorization is identical to
+        // the original synchronous/worker execution.
+        $context = $this->toolContext(AiActorContext::backendUser($run->beUser));
 
         return $this->execute(
             $handle,
@@ -655,6 +686,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 $state,
                 $decision->approved,
                 $configuration,
+                $context,
                 null,
                 $trace,
                 $decision->decidedByBeUser,
@@ -723,6 +755,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         $this->persister->recordInput($handle, $submission->submittedByBeUser);
 
         $trace = $this->trace($handle, $onStep, false);
+        // Tools resume under the RUN OWNER's identity (ADR-083), not the
+        // submitter — same rule as approve().
+        $context = $this->toolContext(AiActorContext::backendUser($run->beUser));
 
         return $this->execute(
             $handle,
@@ -731,6 +766,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 $state,
                 $submission->data,
                 $configuration,
+                $context,
                 null,
                 $trace,
                 $submission->submittedByBeUser,

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -51,9 +52,10 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsSubfoldersAndFilesOfTheRoot(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], $context)->content;
 
         self::assertStringContainsString('Folder / of storage 1', $output);
         self::assertStringContainsString('- docs/ (1 files)', $output);
@@ -63,9 +65,10 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsASubfolderByIdentifier(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['folder' => '/docs/'])->content;
+        $output = $this->tool->execute(['folder' => '/docs/'], $context)->content;
 
         self::assertStringContainsString('- manual.txt (text/plain, 10 B)', $output);
         self::assertStringNotContainsString('hello.txt', $output);
@@ -74,28 +77,33 @@ final class BrowseFalFolderToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function unknownFolderIsDeniedNeutrally(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
         self::assertSame(
             'Folder not found or not permitted.',
-            $this->tool->execute(['folder' => '/does-not-exist/'])->content,
+            $this->tool->execute(['folder' => '/does-not-exist/'], $context)->content,
         );
     }
 
     #[Test]
     public function unknownStorageIsDeniedNeutrally(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
         self::assertSame(
             'Folder not found or not permitted.',
-            $this->tool->execute(['storage' => 99])->content,
+            $this->tool->execute(['storage' => 99], $context)->content,
         );
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Folder not found or not permitted.', $this->tool->execute([])->content);
+        self::assertSame(
+            'Folder not found or not permitted.',
+            $this->tool->execute([], ToolExecutionContext::none())->content,
+        );
     }
 }

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -69,7 +70,7 @@ final class CheckTypoScriptToolSiteSetTest extends AbstractFunctionalTestCase
     #[Test]
     public function scansSiteProvidedTypoScriptWithoutSysTemplateRow(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1])->content;
+        $output = $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('TypoScript syntax errors on page 1', $output);
         self::assertStringContainsString('missing closing "}"', $output);

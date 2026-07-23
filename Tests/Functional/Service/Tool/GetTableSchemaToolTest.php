@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -49,9 +50,12 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function describesFieldsAndSurfacesRelationsAndWithholdsSecrets(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tx_demo_thing'])->content;
+        $output = $this->tool->execute(
+            ['table' => 'tx_demo_thing'],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         self::assertStringContainsString('Table: tx_demo_thing', $output);
         self::assertStringContainsString('name: input', $output);
@@ -64,9 +68,12 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function describesRealCoreTable(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content'])->content;
+        $output = $this->tool->execute(
+            ['table' => 'tt_content'],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         self::assertStringContainsString('Table: tt_content', $output);
         self::assertStringContainsString('Fields:', $output);
@@ -76,21 +83,27 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesSensitiveTableEvenForAdmin(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'be_users'])->content);
+        self::assertSame('Table not found or not permitted.', $this->tool->execute(
+            ['table' => 'be_users'],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content);
     }
 
     #[Test]
     public function deniesWithoutBackendUser(): void
     {
-        self::assertSame('Table not found or not permitted.', $this->tool->execute(['table' => 'tt_content'])->content);
+        self::assertSame('Table not found or not permitted.', $this->tool->execute(
+            ['table' => 'tt_content'],
+            ToolExecutionContext::none(),
+        )->content);
     }
 
     #[Test]
     public function resolvesLllTitleAndReportsIntegerVersioning(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
         $GLOBALS['LANG'] = GeneralUtility::makeInstance(LanguageServiceFactory::class)->create('default');
 
         self::assertIsArray($GLOBALS['TCA']);
@@ -103,7 +116,10 @@ final class GetTableSchemaToolTest extends AbstractFunctionalTestCase
             'columns' => ['name' => ['config' => ['type' => 'input']]],
         ];
 
-        $output = $this->tool->execute(['table' => 'tx_demo_ver'])->content;
+        $output = $this->tool->execute(
+            ['table' => 'tx_demo_ver'],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         self::assertStringContainsString('Title: Description', $output);
         self::assertStringNotContainsString('LLL:', $output);

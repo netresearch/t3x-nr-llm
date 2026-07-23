@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -82,7 +83,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function nonSecretValueIsShownButSecretValueIsRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([])->content;
+        $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString(self::PLAIN_KEY . '=' . self::PLAIN_VALUE, $output);
         // The secret variable appears, but its value is masked.
@@ -93,7 +94,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function pwdStyleSecretNameIsRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([])->content;
+        $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
 
         // MYSQL_PWD uses PWD, not PASS — it must still be caught.
         self::assertStringContainsString(self::PWD_KEY . '=***redacted***', $output);
@@ -103,7 +104,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function inlineUrlCredentialsAreRedactedWhileHostRemains(): void
     {
-        $output = (new GetEnvTool())->execute([])->content;
+        $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
 
         // The variable NAME is not secret-looking, but its VALUE embeds
         // credentials: the userinfo is stripped, the host/port kept for context.
@@ -115,7 +116,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function inlineUrlCredentialsWithEmptyUsernameAreRedacted(): void
     {
-        $output = (new GetEnvTool())->execute([])->content;
+        $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
 
         // redis://:password@host has no username — the password must still be
         // stripped rather than leaking to the provider.

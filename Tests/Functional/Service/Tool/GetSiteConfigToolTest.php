@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetSiteConfigTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -62,7 +63,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsAllSitesWithoutIdentifier(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Configured sites (', $output);
         self::assertStringContainsString('- diag (base http://localhost:59999/, root page 1)', $output);
@@ -71,7 +72,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function flattensConfigurationAndRedactsCredentialKeys(): void
     {
-        $output = $this->tool->execute(['identifier' => 'diag'])->content;
+        $output = $this->tool->execute(['identifier' => 'diag'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('rootPageId: 1', $output);
         self::assertStringContainsString('languages.0.locale: en_US.UTF-8', $output);
@@ -92,7 +93,7 @@ final class GetSiteConfigToolTest extends AbstractFunctionalTestCase
     {
         self::assertStringContainsString(
             'No site "nope"',
-            $this->tool->execute(['identifier' => 'nope'])->content,
+            $this->tool->execute(['identifier' => 'nope'], ToolExecutionContext::none())->content,
         );
     }
 }

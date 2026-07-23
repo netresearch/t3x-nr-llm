@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -29,7 +30,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class GetTcaTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     /** Upper bound on listed tables / columns to keep the egress bounded. */
@@ -57,7 +57,7 @@ final readonly class GetTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $tca = $GLOBALS['TCA'] ?? [];
         if (!is_array($tca) || $tca === []) {
@@ -66,10 +66,10 @@ final readonly class GetTcaTool implements ToolInterface
 
         $table = self::toStr($arguments['table'] ?? '');
         if ($table === '') {
-            return ToolResult::text($this->listTables($tca));
+            return ToolResult::text($this->listTables($tca, $context));
         }
 
-        return ToolResult::text($this->describeTable($tca, $table));
+        return ToolResult::text($this->describeTable($tca, $table, $context));
     }
 
     public function isEnabledByDefault(): bool
@@ -86,13 +86,13 @@ final readonly class GetTcaTool implements ToolInterface
     /**
      * @param array<array-key, mixed> $tca
      */
-    private function listTables(array $tca): string
+    private function listTables(array $tca, ToolExecutionContext $context): string
     {
         // Respect the acting user's table-select rights: a non-admin only sees
         // tables they may read in the backend (admins pass every check). No
         // backend user → no tables (fail-closed); return early so the whole TCA
         // is not mapped/filtered for nothing.
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return "TCA tables (0):\n";
         }
@@ -117,12 +117,12 @@ final readonly class GetTcaTool implements ToolInterface
     /**
      * @param array<array-key, mixed> $tca
      */
-    private function describeTable(array $tca, string $table): string
+    private function describeTable(array $tca, string $table, ToolExecutionContext $context): string
     {
         // A non-admin may only describe tables they can read; an unreadable (or
         // unknown) table returns the same neutral string so the tool never
         // confirms a table's existence to someone without access.
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null || !$this->tableAccess->canReadTable($user, $table)) {
             return 'Unknown TCA table.';
         }

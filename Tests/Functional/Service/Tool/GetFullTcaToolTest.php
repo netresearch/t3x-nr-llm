@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFullTcaTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,9 +35,12 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsCoreTablesAndOmitsSensitiveOnesForAdmin(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute(
+            [],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         self::assertStringContainsString('pages', $output);
         self::assertStringContainsString('tt_content', $output);
@@ -49,9 +53,12 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function filterNarrowsTheList(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['filter' => 'tt_content'])->content;
+        $output = $this->tool->execute(
+            ['filter' => 'tt_content'],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         self::assertStringContainsString('tt_content', $output);
         self::assertStringNotContainsString("\npages —", $output);
@@ -60,15 +67,18 @@ final class GetFullTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function noBackendUserYieldsEmptyIndex(): void
     {
-        self::assertStringContainsString('(0)', $this->tool->execute([])->content);
+        self::assertStringContainsString('(0)', $this->tool->execute([], ToolExecutionContext::none())->content);
     }
 
     #[Test]
     public function listedTablesAreSortedAlphabetically(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute(
+            [],
+            ToolExecutionContext::fromBackendUser($user),
+        )->content;
 
         // Drop the header line; every remaining line starts with a table name.
         $lines = explode("\n", $output);

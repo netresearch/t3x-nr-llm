@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadSourceTool;
 use Netresearch\NrLlm\Service\Tool\SourcePathGuard;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -54,7 +55,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function readsARangeWithLineNumbers(): void
     {
-        $output = $this->tool->execute(['path' => 'Classes/Demo.php', 'from_line' => 3, 'lines' => 2])->content;
+        $output = $this->tool->execute(['path' => 'Classes/Demo.php', 'from_line' => 3, 'lines' => 2], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Classes/Demo.php (lines 3-4 of 10):', $output);
         self::assertStringContainsString('    3 | // line 3', $output);
@@ -65,7 +66,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function deniesSettingsPhp(): void
     {
-        $output = $this->tool->execute(['path' => 'config/system/settings.php'])->content;
+        $output = $this->tool->execute(['path' => 'config/system/settings.php'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Denied or not found', $output);
         self::assertStringNotContainsString('secret', $output);
@@ -74,7 +75,7 @@ final class ReadSourceToolTest extends TestCase
     #[Test]
     public function requiresAPath(): void
     {
-        self::assertStringContainsString('"path" is required', $this->tool->execute([])->content);
+        self::assertStringContainsString('"path" is required', $this->tool->execute([], ToolExecutionContext::none())->content);
     }
 
     protected function tearDown(): void

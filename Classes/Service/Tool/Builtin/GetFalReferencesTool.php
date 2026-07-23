@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -35,7 +36,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class GetFalReferencesTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Asset not found or not permitted.';
@@ -69,14 +69,14 @@ final readonly class GetFalReferencesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $uid = self::toInt($arguments['uid'] ?? 0);
         if ($uid < 1) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
 
         $fileQuery = $this->connectionPool->getQueryBuilderForTable('sys_file');
         $fileQuery->getRestrictions()->removeAll();

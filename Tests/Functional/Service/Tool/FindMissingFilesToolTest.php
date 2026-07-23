@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -61,9 +62,10 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsOnlyMissingFilesOfTheEffectiveStorages(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], $context)->content;
 
         self::assertStringContainsString('1 missing file (showing 1):', $output);
         self::assertStringContainsString('- [30] 1:/lost.pdf (last known size 1234 bytes)', $output);
@@ -74,14 +76,15 @@ final class FindMissingFilesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function storageArgumentOutsideTheGateIsDenied(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        self::assertSame('No accessible file storages.', $this->tool->execute(['storage' => 2])->content);
+        self::assertSame('No accessible file storages.', $this->tool->execute(['storage' => 2], $context)->content);
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('No accessible file storages.', $this->tool->execute([])->content);
+        self::assertSame('No accessible file storages.', $this->tool->execute([], ToolExecutionContext::none())->content);
     }
 }

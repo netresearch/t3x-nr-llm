@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFalReferencesTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -70,9 +71,10 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsReferencesWithHiddenMarkAndWithoutDeletedOnes(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['uid' => 20])->content;
+        $output = $this->tool->execute(['uid' => 20], $context)->content;
 
         self::assertStringContainsString('References to logo.svg (2):', $output);
         self::assertStringContainsString('- tt_content:5 (field image)', $output);
@@ -92,9 +94,10 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 200, 't3ver_state' => 0,
         ]);
 
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['uid' => 20])->content;
+        $output = $this->tool->execute(['uid' => 20], $context)->content;
 
         self::assertStringNotContainsString('tt_content:77', $output);
         self::assertStringContainsString('References to logo.svg (2):', $output);
@@ -103,7 +106,8 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function unusedFileSaysSoWithTheSoftReferenceCaveat(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
@@ -114,7 +118,7 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
             'name' => 'unused.png', 'mime_type' => 'image/png', 'size' => 10, 'missing' => 0,
         ]);
 
-        $output = $this->tool->execute(['uid' => 22])->content;
+        $output = $this->tool->execute(['uid' => 22], $context)->content;
 
         self::assertStringContainsString('No references to unused.png', $output);
         self::assertStringContainsString('soft references', $output);
@@ -123,14 +127,15 @@ final class GetFalReferencesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function fileInForeignStorageIsDeniedNeutrally(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 21])->content);
+        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 21], $context)->content);
     }
 
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 20])->content);
+        self::assertSame('Asset not found or not permitted.', $this->tool->execute(['uid' => 20], ToolExecutionContext::none())->content);
     }
 }

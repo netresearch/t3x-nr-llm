@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -31,7 +32,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class GetFullTcaTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use ResolvesLanguageLabelTrait;
     use SafeCastTrait;
 
@@ -64,14 +64,14 @@ final readonly class GetFullTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $allTca = $GLOBALS['TCA'] ?? null;
         if (!is_array($allTca) || $allTca === []) {
             return ToolResult::text('No TCA available.');
         }
 
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return ToolResult::text('Accessible tables (0).');
         }

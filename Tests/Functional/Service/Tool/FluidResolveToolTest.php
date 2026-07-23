@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,7 +36,7 @@ final class FluidResolveToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'name'      => 'Backend/Playground/List',
             'extension' => 'nr_llm',
-        ])->content;
+        ], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('[x]', $output);
         self::assertStringContainsString('Backend/Playground/List.html', $output);
@@ -49,7 +50,7 @@ final class FluidResolveToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'name'      => 'Backend/DoesNotExistAnywhere',
             'extension' => 'nr_llm',
-        ])->content;
+        ], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('[ ]', $output);
         self::assertStringContainsString('Resolved: (none', $output);

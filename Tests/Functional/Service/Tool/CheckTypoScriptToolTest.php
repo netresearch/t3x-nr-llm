@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -78,7 +79,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
             'config' => "page = PAGE\npage {\n  10 = TEXT\n  10.value = secret-value-99\n",
         ]);
 
-        $output = $this->tool->execute(['pageUid' => 1])->content;
+        $output = $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('TypoScript syntax errors on page 1', $output);
         self::assertStringContainsString('missing closing "}"', $output);
@@ -96,7 +97,7 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
             'config' => "page = PAGE\npage.10 = TEXT\npage.10.value = Hello\n",
         ]);
 
-        $output = $this->tool->execute(['pageUid' => 1])->content;
+        $output = $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('No TypoScript syntax errors on page 1', $output);
     }
@@ -106,11 +107,11 @@ final class CheckTypoScriptToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->tool->execute(['pageUid' => 1])->content,
+            $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->tool->execute(['pageUid' => 12345])->content,
+            $this->tool->execute(['pageUid' => 12345], ToolExecutionContext::none())->content,
         );
     }
 }

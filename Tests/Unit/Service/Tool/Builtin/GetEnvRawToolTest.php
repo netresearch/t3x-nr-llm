@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvRawTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -50,7 +51,7 @@ final class GetEnvRawToolTest extends TestCase
     #[Test]
     public function returnsSecretValueUnredacted(): void
     {
-        $output = (new GetEnvRawTool())->execute([])->content;
+        $output = (new GetEnvRawTool())->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString(self::SECRET_KEY . '=' . self::SECRET_VALUE, $output);
     }

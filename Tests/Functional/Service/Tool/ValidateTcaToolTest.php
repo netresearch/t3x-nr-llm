@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -92,12 +93,23 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
         $this->tool = $tool;
     }
 
+    /**
+     * Set up the admin backend user and build the acting-user execution context
+     * the (user-scoped) tool now authorises from, mirroring the ambient user.
+     */
+    private function adminContext(): ToolExecutionContext
+    {
+        $user = $this->setUpBackendUser(1);
+
+        return ToolExecutionContext::fromBackendUser($user);
+    }
+
     #[Test]
     public function reportsLabelForeignTableAndShowitemFindings(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->adminContext();
 
-        $output = $this->tool->execute(['table' => 'tx_demo_broken'])->content;
+        $output = $this->tool->execute(['table' => 'tx_demo_broken'], $context)->content;
 
         self::assertStringContainsString('ctrl.label "missing_label_column" is not a defined column', $output);
         self::assertStringContainsString('foreign_table "tx_does_not_exist" is not a TCA table', $output);
@@ -109,31 +121,31 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function cleanTableReportsNoIssues(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->adminContext();
 
         self::assertSame(
             'No TCA issues found in table "tx_demo_clean".',
-            $this->tool->execute(['table' => 'tx_demo_clean'])->content,
+            $this->tool->execute(['table' => 'tx_demo_clean'], $context)->content,
         );
     }
 
     #[Test]
     public function ctrlDeclaredFieldsInShowitemAreNotFlagged(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->adminContext();
 
         self::assertSame(
             'No TCA issues found in table "tx_demo_ctrlfields".',
-            $this->tool->execute(['table' => 'tx_demo_ctrlfields'])->content,
+            $this->tool->execute(['table' => 'tx_demo_ctrlfields'], $context)->content,
         );
     }
 
     #[Test]
     public function allTablesScanIncludesTheBrokenTable(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->adminContext();
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], $context)->content;
 
         self::assertStringContainsString('tx_demo_broken: ctrl.label "missing_label_column"', $output);
         self::assertStringContainsString('Checked', $output);
@@ -142,11 +154,11 @@ final class ValidateTcaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesSensitiveTableEvenForAdmin(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->adminContext();
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users'])->content,
+            $this->tool->execute(['table' => 'be_users'], $context)->content,
         );
     }
 }
