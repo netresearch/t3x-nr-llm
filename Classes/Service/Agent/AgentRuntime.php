@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -624,7 +625,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
             throw RunNotAwaitingApprovalException::forRun($runUuid);
         }
-        if (!$actor->mayActOnRun($run)) {
+        if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
 
@@ -704,7 +705,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
             throw RunNotAwaitingInputException::forRun($runUuid);
         }
-        if (!$actor->mayActOnRun($run)) {
+        if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
 
@@ -786,7 +787,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Authorised like approve/submitInput: only the run's owner, an admin or
         // a service account may cancel it (a guessed uuid is never enough).
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run)) {
+        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_CANCEL)) {
             return false;
         }
 
@@ -796,7 +797,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run)) {
+        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return [];
         }
 
@@ -807,7 +808,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function status(AiActorContext $actor, string $runUuid): ?AgentRun
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run)) {
+        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return null;
         }
 

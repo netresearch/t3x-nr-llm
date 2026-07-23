@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -1146,6 +1147,50 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // Reading is scoped too: a stranger sees null, not another user's run.
         self::assertNull(
             $this->runtime($this->loopReturning($this->loopResult('x')))->status(AiActorContext::backendUser(5), 'run-uuid-1'),
+        );
+    }
+
+    #[Test]
+    public function aServiceAccountActsOnlyWithinItsDeclaredScopes(): void
+    {
+        // ADR-110: a service account owns nothing and is authorised solely by the
+        // scope each operation requires. One granted for cancellation may cancel
+        // but neither read nor approve — scopes do not leak across operations.
+        $cancelOnly = AiActorContext::serviceAccount('sweep', [ServiceAccountScope::AGENT_CANCEL]);
+
+        $this->repository->findResult = $this->suspendedRun();
+        self::assertTrue(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->cancel($cancelOnly, 'run-uuid-1'),
+            'cancel scope grants cancel',
+        );
+
+        $this->repository->findResult = $this->suspendedRun();
+        self::assertNull(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->status($cancelOnly, 'run-uuid-1'),
+            'cancel scope does NOT grant read',
+        );
+
+        $this->repository->findResult = $this->suspendedRun();
+        $this->expectException(RunAccessDeniedException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))
+            ->approve($cancelOnly, 'run-uuid-1', new ApprovalDecision(true, 5));
+    }
+
+    #[Test]
+    public function aScopelessServiceAccountMayDoNothing(): void
+    {
+        // Fail-closed: a service account that declares no scopes is as powerless
+        // as a stranger — it cannot cancel or read another principal's run.
+        $powerless = AiActorContext::serviceAccount('no-grants');
+
+        $this->repository->findResult = $this->suspendedRun();
+        self::assertFalse(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->cancel($powerless, 'run-uuid-1'),
+        );
+
+        $this->repository->findResult = $this->suspendedRun();
+        self::assertNull(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->status($powerless, 'run-uuid-1'),
         );
     }
 

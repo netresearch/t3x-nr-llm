@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -141,9 +142,10 @@ final readonly class ConfigurationResolver
      *
      * The counterpart of {@see self::getActiveByIdentifier()} for callers that
      * do have a caller identity: a group-restricted configuration resolves when
-     * the actor is an administrator, a service account, or a member of one of
-     * the configuration's backend groups. Unlike
-     * {@see \Netresearch\NrLlm\Service\LlmConfigurationService::hasAccess()},
+     * the actor is an administrator, a service account that declares the
+     * {@see \Netresearch\NrLlm\Domain\Enum\ServiceAccountScope::CONFIGURATION_USE}
+     * scope (ADR-110), or a member of one of the configuration's backend groups.
+     * Unlike {@see \Netresearch\NrLlm\Service\LlmConfigurationService::hasAccess()},
      * the check runs against the passed actor rather than the ambient
      * `$GLOBALS['BE_USER']`, so a worker can act for the user who queued the
      * work (ADR-070, ADR-083).
@@ -190,8 +192,12 @@ final readonly class ConfigurationResolver
             return true;
         }
 
-        if ($actor->isAdmin || $actor->isServiceAccount()) {
+        if ($actor->isAdmin) {
             return true;
+        }
+
+        if ($actor->isServiceAccount()) {
+            return $actor->hasScope(ServiceAccountScope::CONFIGURATION_USE);
         }
 
         $allowed = [];

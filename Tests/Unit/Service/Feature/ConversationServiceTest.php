@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -90,17 +91,34 @@ final class ConversationServiceTest extends TestCase
     }
 
     #[Test]
-    public function aServiceAccountMayContinueASessionOnTheSystemsBehalf(): void
+    public function aServiceAccountWithTheConversationScopeMayContinueASessionOnTheSystemsBehalf(): void
     {
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->method('chat')->willReturn($this->response('ok'));
         $service = $this->service($llmManager, $repository);
 
+        $worker   = AiActorContext::serviceAccount('nrllm-worker', [ServiceAccountScope::CONVERSATION_ACCESS]);
         $session  = $service->startSession($this->owner());
-        $response = $service->send(AiActorContext::serviceAccount('nrllm-worker'), $session->uuid, 'resume');
+        $response = $service->send($worker, $session->uuid, 'resume');
 
         self::assertSame('ok', $response->content);
+    }
+
+    #[Test]
+    public function aServiceAccountWithoutTheConversationScopeMayNotContinueASession(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $service = $this->service($llmManager, $repository);
+
+        $session = $service->startSession($this->owner());
+
+        $this->expectException(AccessDeniedException::class);
+        // A scopeless service account is fail-closed (ADR-110): knowing the
+        // session uuid is not enough to continue somebody else's conversation.
+        $service->send(AiActorContext::serviceAccount('nrllm-worker'), $session->uuid, 'resume');
     }
 
     #[Test]
