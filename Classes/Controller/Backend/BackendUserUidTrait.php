@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -34,5 +35,29 @@ trait BackendUserUidTrait
         $uid = is_array($backendUser->user) ? ($backendUser->user['uid'] ?? 0) : 0;
 
         return is_numeric($uid) ? (int)$uid : 0;
+    }
+
+    /**
+     * The full actor for the current backend request (ADR-083): the backend
+     * user's uid, admin flag and group uids captured HERE, at the HTTP boundary,
+     * where the authenticated BE user genuinely is the caller. This is the one
+     * sanctioned reading of the ambient BE user — everything downstream (a run
+     * request, a queue worker) carries the resulting {@see AiActorContext}
+     * explicitly instead of re-reading `$GLOBALS['BE_USER']`.
+     */
+    private function currentActor(): AiActorContext
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        $uid         = $this->currentBackendUserUid();
+        if (!$backendUser instanceof BackendUserAuthentication || $uid === 0) {
+            return AiActorContext::anonymous();
+        }
+
+        $groupIds = array_values(array_filter(
+            array_map(static fn(mixed $g): int => is_numeric($g) ? (int)$g : 0, $backendUser->userGroupsUID),
+            static fn(int $g): bool => $g > 0,
+        ));
+
+        return AiActorContext::backendUser($uid, $backendUser->isAdmin(), $groupIds);
     }
 }

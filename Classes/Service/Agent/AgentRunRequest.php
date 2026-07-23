@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
@@ -35,18 +36,24 @@ final readonly class AgentRunRequest
      *                                                                 loop default. The runtime clamps a
      *                                                                 non-null value to its ceiling
      *                                                                 ({@see AgentRuntime::MAX_ITERATIONS}).
-     * @param int                                    $beUserUid        the initiating backend user, recorded
-     *                                                                 on the run row and used for the budget
-     *                                                                 pre-flight (0 = anonymous)
+     * @param AiActorContext                         $actor            who initiated the run — the full identity
+     *                                                                 (backend user + admin flag + groups, or a
+     *                                                                 service account). Persisted with a queued
+     *                                                                 run and restored in the worker so a run
+     *                                                                 authorises identically whether it executes
+     *                                                                 synchronously or on a worker (ADR-083),
+     *                                                                 rather than inheriting the worker's absent
+     *                                                                 ambient BE user. Also drives the budget
+     *                                                                 pre-flight and the run-row attribution.
      */
     public function __construct(
         public LlmConfiguration $configuration,
         public array $messages,
+        public AiActorContext $actor,
         public ?array $allowedToolNames = null,
         public ?ToolOptions $options = null,
         public ?int $maxIterations = null,
         public ?RunAugmentation $augmentation = null,
         public bool $captureRaw = false,
-        public int $beUserUid = 0,
     ) {}
 }

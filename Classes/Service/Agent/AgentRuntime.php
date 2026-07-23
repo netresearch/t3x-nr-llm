@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -122,7 +123,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult
     {
-        $handle = $this->persister->begin($request->configuration, $request->beUserUid);
+        $handle = $this->persister->begin($request->configuration, $request->actor->backendUserUid);
 
         return $this->executeRequest($request, $handle, $onStep);
     }
@@ -149,7 +150,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         // Fail-closed, unlike run(): a live run can proceed unpersisted, but a
         // queued run without a stored row simply does not exist.
-        $handle = $this->persister->enqueue($request->configuration, $request->beUserUid, $requestJson);
+        $handle = $this->persister->enqueue($request->configuration, $request->actor->backendUserUid, $requestJson);
         if ($handle === null) {
             throw RunEnqueueFailedException::forRun('');
         }
@@ -391,6 +392,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
                 $request->messages,
             ),
+            // The FULL initiating actor (ADR-083), not just its backend-user id:
+            // a worker rehydrating this run must authorise with the identity that
+            // enqueued the work — admin flag, groups, service account — rather
+            // than the worker's absent ambient BE user.
+            'actor'            => $request->actor->toArray(),
             'allowedToolNames' => $request->allowedToolNames,
             'options'          => $request->options?->toArray(),
             // ToolOptions::toArray() deliberately excludes the budget fields and
@@ -487,15 +493,27 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             );
         }
 
+        // Restore the full initiating actor from the serialised request. A row
+        // queued before actors were persisted has no 'actor' key: fall back to
+        // the stored be_user id (the same single-int identity the pre-actor
+        // worker had), so an in-flight upgrade never loses or invents privilege.
+        $actorData = $data['actor'] ?? null;
+        if (is_array($actorData)) {
+            /** @var array<string, mixed> $actorData a serialised actor is a JSON object (string keys) */
+            $actor = AiActorContext::fromArray($actorData);
+        } else {
+            $actor = AiActorContext::backendUser($run->beUser);
+        }
+
         return new AgentRunRequest(
             configuration: $configuration,
             messages: $messages,
+            actor: $actor,
             allowedToolNames: $allowed,
             options: $options,
             maxIterations: is_int($data['maxIterations'] ?? null) ? $data['maxIterations'] : null,
             augmentation: $augmentation,
             captureRaw: ($data['captureRaw'] ?? false) === true,
-            beUserUid: $run->beUser,
         );
     }
 
