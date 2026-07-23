@@ -26,15 +26,18 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * and above the trust-zone ceiling reports TOOL_DISABLED, so a denial message
  * never tells a caller who was already blocked that a trust-zone axis exists.
  *
- * The zone gate ships in **observe** mode: the decision is computed and
- * reported, but the tool is still offered. An operator flips
- * `tools.dataClassEnforcement` to `enforce` once the observations look right.
- * The four pre-existing gates always enforce — the switch governs only the new
- * axis, so turning it on cannot loosen anything.
+ * The zone gate ships in **observe** mode via the `tools.dataClassEnforcement`
+ * extension setting: the decision is computed and reported, but the tool is
+ * still offered. An operator sets it to any non-`observe` value (or the setting
+ * is missing/unreadable) to enforce. The switch is fail-closed (ADR-113): only
+ * a deliberate `observe` observes; everything else enforces, so a broken or
+ * mistyped setting cannot silently disable the gate. The four pre-existing
+ * gates always enforce — the switch governs only the new axis, so turning it on
+ * (or failing closed) cannot loosen anything.
  */
 final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 {
-    private const ENFORCE = 'enforce';
+    private const OBSERVE = 'observe';
 
     public function __construct(
         private ToolRegistry $registry,
@@ -125,9 +128,15 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
     }
 
     /**
-     * Whether the trust-zone axis is enforced or merely observed. Anything other
-     * than an explicit `enforce` observes — a typo must not silently start
-     * removing tools from production runs.
+     * Whether the trust-zone axis is enforced or merely observed (ADR-113).
+     *
+     * Fail-closed: the axis observes ONLY on an explicit `observe`. Every other
+     * case enforces — an unreadable extension configuration, a malformed
+     * `tools` section, a missing value, or a typo (`observ`, `off`, ``). The
+     * gate is a security control, so an operator who cannot express a deliberate
+     * "only observe" gets the safe behaviour rather than a silently disabled
+     * gate. Turning the axis on never loosens anything (the four pre-existing
+     * gates always enforce), so failing closed here cannot over-permit.
      */
     private function enforcing(): bool
     {
@@ -135,16 +144,16 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
             /** @var array<string, mixed> $config */
             $config = $this->extensionConfiguration?->get('nr_llm') ?? [];
         } catch (Throwable) {
-            return false;
+            return true;
         }
 
         $tools = $config['tools'] ?? null;
         if (!is_array($tools)) {
-            return false;
+            return true;
         }
 
         $mode = $tools['dataClassEnforcement'] ?? null;
 
-        return is_string($mode) && strtolower(trim($mode)) === self::ENFORCE;
+        return !(is_string($mode) && strtolower(trim($mode)) === self::OBSERVE);
     }
 }

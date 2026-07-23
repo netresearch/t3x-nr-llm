@@ -410,3 +410,4 @@ Tools
    Adr110ServiceAccountScopes
    Adr111ToolEffectAndWriteAudit
    Adr112LeaseBeforeOpWriteFence
+   Adr113FailClosedToolDataClassEnforcement
