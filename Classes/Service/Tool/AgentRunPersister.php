@@ -142,6 +142,24 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Stamp the in-flight tool's effect and renew the lease before it runs, or
+     * clear the stamp ('' effect) once it completed (ADR-111 lease-before-op).
+     * Fail-closed like {@see renewLease()}: a store error returns false so the
+     * worker treats the lease as lost and stops before executing the tool, rather
+     * than running a write it could not first fence.
+     */
+    public function markPendingEffect(AgentRunHandle $handle, string $claimedBy, string $effect, int $leaseExpires): bool
+    {
+        try {
+            return $this->repository->markPendingEffect($handle->runUid, $claimedBy, $effect, $leaseExpires);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun pending-effect fence could not be written; the worker will treat the lease as lost', ['exception' => $exception]);
+
+            return false;
+        }
+    }
+
+    /**
      * Put a running run this worker owns back on the queue for a retry (ADR-104).
      * Ownership-guarded in the repository; false when the worker no longer owned
      * the run (reclaimed/cancelled) or the store errored — the caller must then

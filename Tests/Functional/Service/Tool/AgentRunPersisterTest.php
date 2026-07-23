@@ -376,6 +376,36 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function markPendingEffectStampsAndClearsTheInFlightWriteFence(): void
+    {
+        // ADR-111 lease-before-op: the in-flight write's effect is stamped (and
+        // the lease renewed) in one ownership-guarded write, then cleared once
+        // the tool completes. A stranger cannot stamp it.
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('', $run->pendingEffect, 'no fence on a fresh run');
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        // A stranger cannot fence the run.
+        self::assertFalse($this->persister->markPendingEffect($handle, 'worker-b:2', 'non_idempotent_write', time() + 999));
+
+        // The owner stamps the write fence + renews the lease.
+        self::assertTrue($this->persister->markPendingEffect($handle, 'worker-a:1', 'non_idempotent_write', time() + 999));
+        $fenced = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($fenced);
+        self::assertSame('non_idempotent_write', $fenced->pendingEffect);
+        self::assertGreaterThan(time() + 900, $fenced->leaseExpires);
+
+        // Completing the tool clears the fence.
+        self::assertTrue($this->persister->markPendingEffect($handle, 'worker-a:1', '', time() + 999));
+        $cleared = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($cleared);
+        self::assertSame('', $cleared->pendingEffect);
+    }
+
+    #[Test]
     public function renewLeaseSurvivesANoOpRenewalInTheSameSecond(): void
     {
         // ADR-104 heartbeat: two step boundaries in the same wall-clock second

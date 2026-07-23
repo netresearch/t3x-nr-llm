@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
@@ -70,9 +71,42 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
         self::assertSame([], $this->repository->staleRequeues);
         self::assertCount(1, $this->repository->staleDeadLetters);
         self::assertSame(AgentRunTerminationReason::RETRIES_EXHAUSTED->value, $this->repository->staleDeadLetters[0]['reason']);
-        // A dead-letter is terminal — no wake-up is dispatched.
-        self::assertCount(0, $this->dispatched);
-        self::assertStringContainsString('1 dead-lettered', $tester->getDisplay());
+    }
+
+    #[Test]
+    public function deadLettersARunReapedMidNonIdempotentWriteEvenUnderBudget(): void
+    {
+        // ADR-111: the write may already have landed, so reclaiming it onto the
+        // queue could double it — dead-letter regardless of the retry budget.
+        $this->repository->staleRunning = [
+            $this->staleRun('run-w', requeueCount: 0, pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value),
+        ];
+
+        $tester = new CommandTester($this->command());
+        $exit   = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exit);
+        self::assertSame([], $this->repository->staleRequeues, 'not reclaimed onto the queue');
+        self::assertSame(AgentRunTerminationReason::NOT_RETRYABLE->value, $this->repository->staleDeadLetters[0]['reason']);
+    }
+
+    #[Test]
+    public function reclaimsARunReapedMidIdempotentWrite(): void
+    {
+        // An idempotent write converges on repeat, so a stale reclaim is safe.
+        $this->repository->staleRunning = [
+            $this->staleRun('run-i', requeueCount: 0, pendingEffect: ToolEffect::IDEMPOTENT_WRITE->value),
+        ];
+
+        $tester = new CommandTester($this->command());
+        $exit   = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exit);
+        self::assertSame([], $this->repository->staleDeadLetters, 'reclaimed, not dead-lettered');
+        self::assertCount(1, $this->repository->staleRequeues);
+        // Reclaimed onto the queue -> a wake-up is dispatched.
+        self::assertCount(1, $this->dispatched);
+        self::assertStringContainsString('1 requeued', $tester->getDisplay());
     }
 
     #[Test]
@@ -162,7 +196,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
         return $bus;
     }
 
-    private function staleRun(string $uuid, int $requeueCount): AgentRun
+    private function staleRun(string $uuid, int $requeueCount, string $pendingEffect = ''): AgentRun
     {
         return new AgentRun(
             uid: 1,
@@ -187,6 +221,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
             claimedBy: 'dead-worker:1',
             leaseExpires: 1,
             requeueCount: $requeueCount,
+            pendingEffect: $pendingEffect,
         );
     }
 }

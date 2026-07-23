@@ -304,7 +304,21 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // Retryable in principle — but is the requeue budget spent? Re-read
             // the row; a null read (-1) forces the fail-closed dead-letter.
             $currentRun = $this->persister->findRun($runUuid);
-            $count      = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
+
+            // A non-idempotent write was in flight when this failed (ADR-111): its
+            // side effect may already have landed, so a retry could double it.
+            // Dead-letter regardless of the retry budget — a retryable error class
+            // does not make a repeated write safe.
+            if ($currentRun instanceof AgentRun && !self::mayRetryAfterFence($currentRun->pendingEffect)) {
+                if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE, $workerIdentity)) {
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
+                }
+                $this->logger?->warning('Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)', ['run' => $runUuid]);
+
+                return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
+            }
+
+            $count = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
             if ($count < 0 || $count >= self::MAX_REQUEUES) {
                 if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity)) {
                     $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
@@ -889,16 +903,56 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 // renewal's ownership guard is the atomic check: 0 rows means
                 // the run was reclaimed/re-claimed/terminated — stop WITHOUT
                 // recording the step, so a zombie worker cannot append an event
-                // whose sequence collides with the new owner's stream.
-                if ($leaseOwner !== null
-                    && !$this->persister->renewLease($handle, $leaseOwner, time() + self::LEASE_SECONDS)
-                ) {
+                // whose sequence collides with the new owner's stream. A completed
+                // WRITE step also CLEARS the in-flight fence set before it ran
+                // (ADR-111) in the same guarded write.
+                if ($leaseOwner !== null && !$this->renewOrClearFence($handle, $leaseOwner, $step)) {
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
 
                 $this->recordStepFailClosedForWrites($handle, $step);
             },
+            onBeforeTool: $leaseOwner === null || $handle === null ? null : function (string $toolName) use ($handle, $leaseOwner): void {
+                // Fence a WRITE before it runs (ADR-111): stamp its effect and
+                // renew the lease so a reap mid non-idempotent-write dead-letters
+                // instead of retrying. Read-only tools need no fence — repeating
+                // them is always safe. A lost lease stops the worker before the
+                // side effect, exactly like the heartbeat guard.
+                $effect = $this->toolEffectResolver?->effectFor($toolName) ?? ToolEffect::READ_ONLY;
+                if ($effect->isWrite()
+                    && !$this->persister->markPendingEffect($handle, $leaseOwner, $effect->value, time() + self::LEASE_SECONDS)
+                ) {
+                    throw RunLeaseLostException::forRun($handle->uuid);
+                }
+            },
         );
+    }
+
+    /**
+     * Renew the lease at a step boundary and, for a completed WRITE step, clear
+     * the in-flight fence its {@see RunTrace::beforeToolExecution()} set — both in
+     * one ownership-guarded write (ADR-111). Returns false when the worker has
+     * lost the run, so the caller stops before recording the step.
+     */
+    private function renewOrClearFence(AgentRunHandle $handle, string $leaseOwner, RunStep $step): bool
+    {
+        $leaseExpires = time() + self::LEASE_SECONDS;
+        if ($this->stepEffect($step)->isWrite()) {
+            return $this->persister->markPendingEffect($handle, $leaseOwner, '', $leaseExpires);
+        }
+
+        return $this->persister->renewLease($handle, $leaseOwner, $leaseExpires);
+    }
+
+    /**
+     * Whether a run may be retried given the effect fence in flight when it
+     * failed (ADR-111). Empty (no tool fenced) or an unrecognised value is safe;
+     * only a fenced NON_IDEMPOTENT_WRITE — a side effect that must not repeat —
+     * blocks the retry. Shared by the in-process recover path and the reaper.
+     */
+    public static function mayRetryAfterFence(string $pendingEffect): bool
+    {
+        return ToolEffect::tryFrom($pendingEffect)?->isSafeToRetry() ?? true;
     }
 
     /**

@@ -734,6 +734,81 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aWriteIsFencedBeforeItRunsAndTheFenceIsClearedWhenItCompletes(): void
+    {
+        // ADR-111 lease-before-op: the runtime stamps the in-flight write's
+        // effect BEFORE the tool runs (so a reap mid-write can refuse to retry)
+        // and clears the stamp once the tool's step is recorded.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->beforeToolExecution('send_mail');
+                $trace?->recordToolExecution(1, 0.0, 'send_mail', [], 'sent', false);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        $effects = array_column($this->repository->pendingEffects, 'effect');
+        // Fenced with the write's effect before the op, cleared ('') after it.
+        self::assertSame(['non_idempotent_write', ''], $effects);
+    }
+
+    #[Test]
+    public function aReadOnlyToolIsNotFenced(): void
+    {
+        // A read is always safe to repeat, so no fence write is spent on it.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->beforeToolExecution('list_pages');
+                $trace?->recordToolExecution(1, 0.0, 'list_pages', [], 'p1', false);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $this->runtime($loop, effectResolver: $resolver)->runQueued('run-uuid-q');
+
+        self::assertSame([], $this->repository->pendingEffects, 'no fence for a read-only tool');
+    }
+
+    #[Test]
+    public function aRetryableFailureMidNonIdempotentWriteIsDeadLetteredNotRequeued(): void
+    {
+        // ADR-111: even a normally-retryable error must not requeue a run whose
+        // non-idempotent write was in flight — the side effect may have landed.
+        // The re-read inside recoverQueuedFailure sees the fence still set.
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}', pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value);
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(static function (): ToolLoopResult {
+            // A retryable class (would normally requeue within budget).
+            throw new RuntimeException('transient provider blip', 1785000099);
+        });
+
+        $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertSame([], $this->repository->requeues);
+    }
+
+    #[Test]
     public function aReadOnlyToolWhoseAuditCannotBePersistedLeavesTheRunUnaffected(): void
     {
         // The fail-soft path is preserved for reads: a store hiccup on a
@@ -1104,7 +1179,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         return $bus;
     }
 
-    private function queuedRun(string $uuid, string $requestJson, int $requeueCount = 0): AgentRun
+    private function queuedRun(string $uuid, string $requestJson, int $requeueCount = 0, string $pendingEffect = ''): AgentRun
     {
         return new AgentRun(
             uid: 1,
@@ -1127,6 +1202,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             suspendedState: null,
             queuedRequest: $requestJson,
             requeueCount: $requeueCount,
+            pendingEffect: $pendingEffect,
         );
     }
 

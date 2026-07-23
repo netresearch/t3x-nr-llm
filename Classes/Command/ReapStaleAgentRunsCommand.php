@@ -94,6 +94,20 @@ final class ReapStaleAgentRunsCommand extends Command
         $skipped    = 0;
 
         foreach ($staleRuns as $run) {
+            // Reaped mid non-idempotent write (ADR-111): its side effect may
+            // already have landed, so reclaiming it onto the queue could repeat
+            // the write. Dead-letter regardless of the retry budget — the whole
+            // point of the fence is that this one must not run twice.
+            if (!AgentRuntime::mayRetryAfterFence($run->pendingEffect)) {
+                if ($this->persister->settleDeadLetteredStale($run, $now, AgentRunTerminationReason::NOT_RETRYABLE)) {
+                    ++$deadLetter;
+                } else {
+                    ++$skipped;
+                }
+
+                continue;
+            }
+
             // Budget spent -> dead-letter; otherwise reclaim onto the queue. Both
             // writes re-check staleness in the repository, so a heartbeat renewal
             // between findStaleRunning() and here wins and the run is skipped.

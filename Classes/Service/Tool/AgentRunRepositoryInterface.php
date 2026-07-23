@@ -113,6 +113,15 @@ interface AgentRunRepositoryInterface
     public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool;
 
     /**
+     * Stamp the effect of the tool about to execute (or '' to clear it once the
+     * tool completed) and renew the lease in the same guarded write (ADR-111
+     * lease-before-op). Guarded like {@see renewLease()}; false means the worker
+     * lost the run. The reaper reads pending_effect to refuse retrying a run
+     * reaped mid non-idempotent-write.
+     */
+    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool;
+
+    /**
      * Put a running run this worker owns back on the queue for a retry (ADR-104
      * failure retry): ownership-guarded (status = running AND claimed_by = the
      * caller), increments requeue_count, clears claim and lease, keeps

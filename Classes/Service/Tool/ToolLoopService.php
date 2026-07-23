@@ -313,7 +313,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0 = hrtime(true);
-                    $tr  = $this->invoke($call, $allowedNames, $context);
+                    // Fence the operation before any side effect (ADR-111): the
+                    // runtime records the tool's effect and renews the lease so a
+                    // reap mid non-idempotent-write can refuse to retry it.
+                    $runTrace?->beforeToolExecution($call->name);
+                    $tr = $this->invoke($call, $allowedNames, $context);
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
@@ -500,7 +504,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $result = sprintf('Error: tool "%s" requires user input that was not provided.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
-                $tt0    = hrtime(true);
+                $tt0 = hrtime(true);
+                $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
@@ -570,8 +575,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $result = sprintf('Error: tool "%s" is no longer permitted and was not executed.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } elseif ($call->name === $state->inputToolName) {
-                $tt0    = hrtime(true);
-                $tr     = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context);
+                $tt0 = hrtime(true);
+                $runTrace?->beforeToolExecution($call->name);
+                $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
@@ -580,7 +586,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $result = sprintf('Error: tool "%s" requires input that was not provided.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
-                $tt0    = hrtime(true);
+                $tt0 = hrtime(true);
+                $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
