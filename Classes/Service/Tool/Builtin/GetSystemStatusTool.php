@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Throwable;
 use TYPO3\CMS\Core\Core\Environment;
@@ -46,7 +47,7 @@ final readonly class GetSystemStatusTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $typo3 = new Typo3Version();
 

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeGroupsTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -52,7 +53,7 @@ final class ListBeGroupsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeListsLiveGroupsTitleOrdered(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Backend groups (2):', $output);
         // Title ASC: Administrators before Editors.
@@ -66,7 +67,7 @@ final class ListBeGroupsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeExcludesSoftDeletedGroupsAndPermissionMasks(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringNotContainsString('Deleted Group', $output);
         // Only uid + title are emitted — never authorization columns.

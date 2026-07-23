@@ -40,10 +40,12 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -156,7 +158,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $reachedSecondRound = false;
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use (&$reachedSecondRound): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use (&$reachedSecondRound): ToolLoopResult {
                 // First step boundary: the probe fires here and aborts.
                 $trace?->recordRequest(1, [], []);
                 // Anything after the boundary must never run for a cancelled run.
@@ -186,7 +188,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('done');
@@ -243,7 +245,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('ok');
@@ -268,7 +270,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 // A recorded step reaches the observer, which dies (client
                 // disconnect on the stream) — the throw propagates through the
                 // loop into the ladder.
@@ -294,7 +296,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $seen = [];
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max) use (&$seen): ToolLoopResult {
                 $seen[] = $max;
 
                 return $this->loopResult('ok');
@@ -321,7 +323,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $seenBeUser = null;
         $loop       = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('resume')->willReturnCallback(
-            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ?int $max, ?RunTrace $trace, ?int $beUserUid) use (&$seenBeUser, $loopResult): ToolLoopResult {
+            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ToolExecutionContext $context, ?int $max, ?RunTrace $trace, ?int $beUserUid) use (&$seenBeUser, $loopResult): ToolLoopResult {
                 $seenBeUser = $beUserUid;
 
                 return $loopResult;
@@ -554,7 +556,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $seen = [];
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, mixed $trace, mixed $augmentation) use (&$seen): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, mixed $trace, mixed $augmentation) use (&$seen): ToolLoopResult {
                 $seen = ['messages' => $messages, 'allowed' => $allowed, 'options' => $options, 'max' => $max, 'augmentation' => $augmentation];
 
                 return $this->loopResult('queued done');
@@ -649,7 +651,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('done');
@@ -676,7 +678,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('must not complete');
@@ -791,7 +793,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('done');
@@ -813,7 +815,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         // heartbeat never fires — only queue workers renew.
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 return $this->loopResult('done');
@@ -1009,6 +1011,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             $configurationRepository,
             null,
             $bus,
+            // A stub resolver (returns null for every actor) keeps this a pure
+            // unit test — the real resolver would hit the database via
+            // setBeUserByUid(). Tool authorization from a live user is covered by
+            // the functional ActingBackendUserResolver and tool tests.
+            actingBackendUserResolver: self::createStub(ActingBackendUserResolverInterface::class),
         );
     }
 
@@ -1097,7 +1104,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
-            static function (array $messages, LlmConfiguration $config, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use ($throwable): ToolLoopResult {
+            static function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace) use ($throwable): ToolLoopResult {
                 $trace?->recordRequest(1, [], []);
 
                 throw $throwable;

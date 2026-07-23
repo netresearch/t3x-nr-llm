@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetLastExceptionTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -69,7 +70,7 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
     #[Test]
     public function parsesSeededLogAndExpandsSourceContext(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('DomainException', $output);
         self::assertStringContainsString('functional failure', $output);
@@ -79,13 +80,13 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
     #[Test]
     public function searchFilterNarrowsToTheSeededEntry(): void
     {
-        $output = $this->tool->execute(['search' => 'functional kaboom or nothing'])->content;
+        $output = $this->tool->execute(['search' => 'functional kaboom or nothing'], ToolExecutionContext::none())->content;
 
         // A non-matching search yields the no-entries message…
         self::assertStringContainsString('No error-level entries', $output);
 
         // …while a matching one finds the seeded record.
-        self::assertStringContainsString('DomainException', $this->tool->execute(['search' => 'DomainException'])->content);
+        self::assertStringContainsString('DomainException', $this->tool->execute(['search' => 'DomainException'], ToolExecutionContext::none())->content);
     }
 
     protected function tearDown(): void

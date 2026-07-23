@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPhpInfoRawTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -33,7 +34,7 @@ final class GetPhpInfoRawToolTest extends TestCase
     #[Test]
     public function capturesFullPhpInfoOutput(): void
     {
-        $output = (new GetPhpInfoRawTool())->execute([])->content;
+        $output = (new GetPhpInfoRawTool())->execute([], ToolExecutionContext::none())->content;
 
         // phpinfo() always emits the PHP version line in its capture; in CLI it
         // is plain text ("PHP Version => x.y.z").

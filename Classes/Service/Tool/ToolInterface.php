@@ -34,11 +34,14 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *
  * Authorization is enforced at TWO levels (see {@see requiresAdmin()}):
  * a coarse admin-only tier checked by the runtime ({@see ToolLoopService}
- * resolves the acting `$GLOBALS['BE_USER']` and never offers an admin-only
- * tool to a non-admin), and — for tools that touch user-scoped data — a
- * fine-grained self-enforcement of the ACTING user's TYPO3 permissions
- * inside `execute()` (page perms / `tables_select` / accessible file
- * storages). Both fail CLOSED when no `BackendUserAuthentication` is present.
+ * reads the acting user from the run's {@see ToolExecutionContext} and never
+ * offers an admin-only tool to a non-admin), and — for tools that touch
+ * user-scoped data — a fine-grained self-enforcement of the ACTING user's
+ * TYPO3 permissions inside `execute()` (page perms / `tables_select` /
+ * accessible file storages). The acting user is passed in explicitly via the
+ * context (ADR-083), NEVER read from the ambient `$GLOBALS['BE_USER']`, so a
+ * run authorises identically synchronously and in a queue worker. Both levels
+ * fail CLOSED when the context has no `BackendUserAuthentication`.
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface ToolInterface
@@ -59,9 +62,15 @@ interface ToolInterface
      * conversation as a tool turn; the artifacts never reach the provider (see
      * the security contract above).
      *
+     * A user-scoped tool authorises against `$context->actingBackendUser()`
+     * (ADR-083) and MUST fail closed — return an error {@see ToolResult}, read
+     * nothing — when it is null (a service account, an anonymous caller, or a
+     * uid that no longer resolves). Tools that touch no user-scoped data ignore
+     * the context.
+     *
      * @param array<string, mixed> $arguments
      */
-    public function execute(array $arguments): ToolResult;
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult;
 
     /**
      * Whether this tool is offered by default when an admin has not set an
@@ -80,10 +89,10 @@ interface ToolInterface
      *
      * `true` for tools exposing system / host / cross-user data that a
      * non-admin must never reach (logs, environment, phpinfo, the backend
-     * user/group listings). {@see ToolLoopService} resolves the acting
-     * `$GLOBALS['BE_USER']` and filters every admin-only tool out of the
-     * offered set when that user is not an admin — fail-closed when no
-     * backend user is present.
+     * user/group listings). {@see ToolLoopService} reads the acting user from
+     * the run's {@see ToolExecutionContext} and filters every admin-only tool
+     * out of the offered set when that user is not an admin — fail-closed when
+     * the context has no backend user.
      *
      * `false` for tools usable by a non-admin; those that read user-scoped
      * records additionally self-enforce the acting user's own TYPO3

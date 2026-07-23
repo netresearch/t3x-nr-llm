@@ -13,6 +13,7 @@ use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -167,7 +168,8 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function trimsTableNameAndReturnsFormattedRowsForExplicitFields(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $tool               = $this->tool([
             ['uid' => 1, 'pid' => 2, 'header' => 'Hello'],
             ['uid' => 3, 'pid' => 2, 'header' => null],
@@ -178,7 +180,7 @@ final class ReadRecordsToolTest extends TestCase
         $output = $tool->execute([
             'table'  => '  tt_content  ',
             'fields' => ['uid', 'header'],
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         self::assertSame(['tt_content'], $this->requestedTables);
         self::assertSame([['uid', 'pid', 'header']], $this->selectCalls);
@@ -200,12 +202,13 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function defaultFieldsComeFromTrimmedNonSensitiveTcaLabels(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $tool               = $this->tool([
             ['uid' => 7, 'pid' => 1, 'header' => 'A', 'bodytext' => 'B'],
         ]);
 
-        $output = $tool->execute(['table' => 'tt_content'])->content;
+        $output = $tool->execute(['table' => 'tt_content'], $this->contextFor($user))->content;
 
         // label "header" plus label_alt "bodytext" (trimmed); "no_such_col"
         // (not a TCA column) and "password_field" (credential-ish) are dropped.
@@ -224,7 +227,8 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function skipsCtrlLabelThatIsNotATcaColumn(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $GLOBALS['TCA']     = [
             'tt_content' => [
                 'ctrl'    => ['label' => 'ghost_col', 'label_alt' => 'header'],
@@ -233,7 +237,7 @@ final class ReadRecordsToolTest extends TestCase
         ];
         $tool = $this->tool([['uid' => 9, 'pid' => 4, 'header' => 'H']]);
 
-        $output = $tool->execute(['table' => 'tt_content'])->content;
+        $output = $tool->execute(['table' => 'tt_content'], $this->contextFor($user))->content;
 
         // "ghost_col" is a ctrl label without a column definition: it must
         // not be selected; only the label_alt column survives.
@@ -244,7 +248,8 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function bindsUidPidAndWhereEqualsFiltersPositionally(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $tool               = $this->tool([['uid' => 5, 'pid' => 0, 'header' => 'News']]);
 
         $output = $tool->execute([
@@ -260,7 +265,7 @@ final class ReadRecordsToolTest extends TestCase
                 'sorting'  => 3,
                 'layout'   => 1,
             ],
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         // uid first, then pid (0 is valid: the root page), then the five
         // where_equals columns in argument order with the key trimmed.
@@ -303,7 +308,8 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function rejectsMoreThanFiveWhereEqualsFiltersBeforeTouchingTheDatabase(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $tool               = $this->tool([]);
 
         $output = $tool->execute([
@@ -316,7 +322,7 @@ final class ReadRecordsToolTest extends TestCase
                 'sorting'  => 2,
                 'layout'   => 3,
             ],
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         self::assertSame(
             'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.',
@@ -328,7 +334,8 @@ final class ReadRecordsToolTest extends TestCase
     #[Test]
     public function ignoresNegativePidAndZeroUidArguments(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
         $tool               = $this->tool([['uid' => 11, 'pid' => 3, 'header' => 'X']]);
 
         $output = $tool->execute([
@@ -336,7 +343,7 @@ final class ReadRecordsToolTest extends TestCase
             'fields' => ['header'],
             'uid'    => 0,
             'pid'    => -3,
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         // A present-but-negative pid and a zero uid are no filters at all.
         self::assertSame(0, $this->andWhereCalls);
@@ -348,8 +355,19 @@ final class ReadRecordsToolTest extends TestCase
     {
         $user = $this->createMock(BackendUserAuthentication::class);
         $user->method('isAdmin')->willReturn(true);
+        $user->user = ['uid' => 1];
 
         return $user;
+    }
+
+    /**
+     * The tool authorises from the explicit run context, not the ambient
+     * `$GLOBALS['BE_USER']`. Build a context whose acting backend user is the
+     * SAME object the test set up, so scoping resolves exactly as before.
+     */
+    private function contextFor(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 
     /**

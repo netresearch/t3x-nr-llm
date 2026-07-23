@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -41,7 +42,7 @@ final class ListExtensionsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsActivePackagesWithVersions(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Active extensions (', $output);
         self::assertStringContainsString('- nr_llm ', $output);

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetRecordHistoryTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -82,9 +84,9 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function rendersNewestFirstWithUsernamesAndValues(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5], $context)->content;
 
         self::assertStringContainsString('Change history for tt_content:5 (3 entries, newest first):', $output);
         self::assertStringContainsString("header: 'Old headline' → 'New headline'", $output);
@@ -101,9 +103,9 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function withholdsSensitiveFieldValues(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5], $context)->content;
 
         self::assertStringContainsString('secret_token: [changed — detail withheld]', $output);
         self::assertStringNotContainsString('oldtoken123', $output);
@@ -113,9 +115,9 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function fieldFilterSkipsUnrelatedEntries(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5, 'field' => 'header'])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 5, 'field' => 'header'], $context)->content;
 
         self::assertStringContainsString('filtered to "header"', $output);
         self::assertStringContainsString("header: 'Old headline' → 'New headline'", $output);
@@ -126,22 +128,22 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function reportsWhenNoHistoryExists(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
         self::assertSame(
             'No change history for tt_content:999.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 999])->content,
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 999], $context)->content,
         );
     }
 
     #[Test]
     public function deniesSensitiveTableEvenForAdmin(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users', 'uid' => 1])->content,
+            $this->tool->execute(['table' => 'be_users', 'uid' => 1], $context)->content,
         );
     }
 
@@ -150,7 +152,7 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 5])->content,
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 5], ToolExecutionContext::none())->content,
         );
     }
 
@@ -162,11 +164,11 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         // unreadable pages).
         $this->grantEditorTableSelect();
         $this->insertPageWithContentAndHistory(9, 0, 40);
-        $this->setUpBackendUser(2);
+        $context = $this->contextForBackendUser(2);
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'tt_content', 'uid' => 40])->content,
+            $this->tool->execute(['table' => 'tt_content', 'uid' => 40], $context)->content,
         );
     }
 
@@ -176,12 +178,27 @@ final class GetRecordHistoryToolTest extends AbstractFunctionalTestCase
         // Same editor, but page 9 grants PAGE_SHOW to everybody.
         $this->grantEditorTableSelect();
         $this->insertPageWithContentAndHistory(9, Permission::PAGE_SHOW, 40);
-        $this->setUpBackendUser(2);
+        $context = $this->contextForBackendUser(2);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 40])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 40], $context)->content;
 
         self::assertStringContainsString('Change history for tt_content:40', $output);
         self::assertStringContainsString("header: 'A' → 'B'", $output);
+    }
+
+    /**
+     * Set up the acting backend user and build the execution context the tool
+     * now authorises from (ADR-083), preserving the ambient-user scoping the
+     * tool used to read from `$GLOBALS['BE_USER']`.
+     */
+    private function contextForBackendUser(int $uid): ToolExecutionContext
+    {
+        $user = $this->setUpBackendUser($uid);
+
+        return new ToolExecutionContext(
+            AiActorContext::backendUser($uid, $user->isAdmin()),
+            $user,
+        );
     }
 
     private function grantEditorTableSelect(): void

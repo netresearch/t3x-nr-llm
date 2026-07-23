@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -49,6 +50,13 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     /** @var BackendUserAuthentication|object|null */
     private mixed $beUserBackup = null;
 
+    /**
+     * The admin backend user the tool loop authorises against in setUp; the same
+     * object is threaded into the run's {@see ToolExecutionContext} so the REAL
+     * admin gate reads it exactly as it read the ambient `$GLOBALS['BE_USER']`.
+     */
+    private BackendUserAuthentication $actingUser;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -63,6 +71,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $admin              = new BackendUserAuthentication();
         $admin->user        = ['uid' => 1, 'admin' => 1];
         $GLOBALS['BE_USER'] = $admin;
+        $this->actingUser   = $admin;
     }
 
     protected function tearDown(): void
@@ -94,7 +103,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             });
 
         $service = $this->buildService($mgr);
-        $result  = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), null);
+        $result  = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), $this->contextFor($this->actingUser), null);
 
         // The real builtin tool ran exactly once and its REAL output is in the trace.
         self::assertCount(1, $result->trace);
@@ -131,7 +140,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $service = $this->buildService($mgr);
         // The caller even explicitly allows the tool — the admin gate still wins.
-        $result = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), ['fetch_logs']);
+        $result = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), $this->contextFor($nonAdmin), ['fetch_logs']);
 
         self::assertSame('plain answer', $result->finalContent);
         self::assertSame([], $result->trace);
@@ -148,6 +157,16 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool), new ToolGroupStateRepository($this->connectionPool));
 
         return new ToolLoopService($mgr, $registry, $availability);
+    }
+
+    /**
+     * Build the run's execution context from the same live backend user the REAL
+     * admin gate authorises against, so the tool loop scopes exactly as it did
+     * when it read the ambient `$GLOBALS['BE_USER']`.
+     */
+    private function contextFor(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 
     /**

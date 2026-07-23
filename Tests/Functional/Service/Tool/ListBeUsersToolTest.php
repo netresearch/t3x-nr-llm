@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -78,7 +79,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeListsLiveUsersWithProfileColumns(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Backend users (2):', $output);
         self::assertStringContainsString('[10] alice | Alice Admin <alice@example.com> | admin=1 disabled=0', $output);
@@ -90,7 +91,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeExcludesSoftDeletedUsers(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringNotContainsString('carol', $output);
     }
@@ -98,7 +99,7 @@ final class ListBeUsersToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function executeNeverLeaksPasswordHashOrMfaSecret(): void
     {
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], ToolExecutionContext::none())->content;
 
         self::assertStringNotContainsString(self::SECRET_HASH, $output);
         self::assertStringNotContainsString(self::SECRET_MFA, $output);

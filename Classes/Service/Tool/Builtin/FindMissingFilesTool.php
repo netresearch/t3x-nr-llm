@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -27,7 +28,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class FindMissingFilesTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const DEFAULT_LIMIT = 20;
@@ -69,9 +69,9 @@ final readonly class FindMissingFilesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user      = $this->actingBackendUser();
+        $user      = $context->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
             return ToolResult::text('No accessible file storages.');

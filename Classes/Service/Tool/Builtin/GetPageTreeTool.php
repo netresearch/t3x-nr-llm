@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
@@ -34,7 +35,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final readonly class GetPageTreeTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const TABLE = 'pages';
@@ -75,7 +75,7 @@ final readonly class GetPageTreeTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $rootUid = self::toInt($arguments['rootUid'] ?? 0);
         if ($rootUid < 0) {
@@ -90,7 +90,7 @@ final readonly class GetPageTreeTool implements ToolInterface
 
         $lines = [];
         $count = 0;
-        $this->appendChildren($rootUid, 0, $depth, $lines, $count);
+        $this->appendChildren($rootUid, 0, $depth, $lines, $count, $context);
 
         if ($lines === []) {
             return ToolResult::text('No pages.');
@@ -118,7 +118,7 @@ final readonly class GetPageTreeTool implements ToolInterface
      *
      * @param list<string> $lines
      */
-    private function appendChildren(int $pid, int $level, int $maxDepth, array &$lines, int &$count): void
+    private function appendChildren(int $pid, int $level, int $maxDepth, array &$lines, int &$count, ToolExecutionContext $context): void
     {
         if ($level >= $maxDepth || $count >= self::NODE_CAP) {
             return;
@@ -126,7 +126,7 @@ final readonly class GetPageTreeTool implements ToolInterface
 
         // Respect the acting user's page permissions: a non-admin only sees
         // pages they may show. No backend user → no pages (fail-closed).
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return;
         }
@@ -175,7 +175,7 @@ final readonly class GetPageTreeTool implements ToolInterface
             );
             ++$count;
 
-            $this->appendChildren($uid, $level + 1, $maxDepth, $lines, $count);
+            $this->appendChildren($uid, $level + 1, $maxDepth, $lines, $count, $context);
         }
     }
 

@@ -39,6 +39,7 @@ interface ToolLoopServiceInterface
     public function runLoop(
         array $messages,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?array $allowedToolNames,
         ?ToolOptions $options = null,
         ?int $maxIterations = null,
@@ -63,6 +64,7 @@ interface ToolLoopServiceInterface
         SuspendedRunState $state,
         bool $approved,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
@@ -84,6 +86,7 @@ interface ToolLoopServiceInterface
         SuspendedRunState $state,
         array $inputData,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,

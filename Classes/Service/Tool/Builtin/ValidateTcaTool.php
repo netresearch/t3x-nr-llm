@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Information\Typo3Version;
@@ -34,7 +35,6 @@ use TYPO3\CMS\Core\Information\Typo3Version;
  */
 final readonly class ValidateTcaTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Table not found or not permitted.';
@@ -68,14 +68,14 @@ final readonly class ValidateTcaTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $allTca = $GLOBALS['TCA'] ?? null;
         if (!is_array($allTca) || $allTca === []) {
             return ToolResult::text('No TCA available.');
         }
 
-        $user  = $this->actingBackendUser();
+        $user  = $context->actingBackendUser();
         $table = trim(self::toStr($arguments['table'] ?? ''));
 
         if ($table !== '') {

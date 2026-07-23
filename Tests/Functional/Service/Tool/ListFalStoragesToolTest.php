@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -46,9 +47,10 @@ final class ListFalStoragesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function listsTheAccessibleStorageWithoutServerPath(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute([])->content;
+        $output = $this->tool->execute([], $context)->content;
 
         self::assertStringContainsString('Accessible file storages (1):', $output);
         self::assertStringContainsString('[1] Main storage (driver Local', $output);
@@ -60,6 +62,6 @@ final class ListFalStoragesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function failsClosedWithoutBackendUser(): void
     {
-        self::assertSame('No accessible file storages.', $this->tool->execute([])->content);
+        self::assertSame('No accessible file storages.', $this->tool->execute([], ToolExecutionContext::none())->content);
     }
 }

@@ -10,9 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageTreeTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -28,6 +30,8 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
 {
     private GetPageTreeTool $tool;
 
+    private BackendUserAuthentication $backendUser;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,7 +40,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
         // (ADR-038): set up an admin (BeUsers.csv uid 1) so getPagePermsClause
         // resolves to "show all" and the tool returns the full live tree here.
         $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1);
+        $this->backendUser = $this->setUpBackendUser(1);
 
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
@@ -66,7 +70,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function returnsDepthIndentedLiveTree(): void
     {
-        $output = $this->tool->execute(['rootUid' => 0, 'depth' => 3])->content;
+        $output = $this->tool->execute(['rootUid' => 0, 'depth' => 3], $this->executionContext())->content;
 
         self::assertStringContainsString('[1] Home (doktype 1)', $output);
         // About is one level below Home, Team two levels below.
@@ -77,7 +81,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function excludesHiddenAndDeletedPages(): void
     {
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3])->content;
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3], $this->executionContext())->content;
 
         self::assertStringNotContainsString('Hidden Branch', $output);
         self::assertStringNotContainsString('Deleted Branch', $output);
@@ -95,7 +99,7 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 2, 't3ver_state' => 0,
         ]);
 
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3])->content;
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 3], $this->executionContext())->content;
 
         self::assertStringNotContainsString('Draft Branch', $output);
         self::assertStringContainsString('[2] About', $output);
@@ -104,11 +108,20 @@ final class GetPageTreeToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function depthOneStopsAtImmediateChildren(): void
     {
-        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 1])->content;
+        $output = $this->tool->execute(['rootUid' => 1, 'depth' => 1], $this->executionContext())->content;
 
         self::assertStringContainsString('[2] About', $output);
         // Team is a grandchild — beyond depth 1.
         self::assertStringNotContainsString('Team', $output);
+    }
+
+    /**
+     * Execution context carrying the acting admin backend user, so the tool
+     * authorises exactly as it did via the former ambient $GLOBALS['BE_USER'].
+     */
+    private function executionContext(): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($this->backendUser);
     }
 
     /**

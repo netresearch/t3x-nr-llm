@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -115,13 +117,25 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
         ]);
     }
 
-    private function loginEditorInBackendRequest(): void
+    private function loginEditorInBackendRequest(): BackendUserAuthentication
     {
-        $this->setUpBackendUser(2);
+        $user = $this->setUpBackendUser(2);
         // The core StoragePermissionsAspect only attaches mounts/permissions
         // when the storage object is created inside a BACKEND request.
         $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('https://typo3-testing.local/typo3/'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
+
+        return $user;
+    }
+
+    /**
+     * The tools authorise from this explicit context (ADR-083) instead of the
+     * ambient backend user; scope it to the logged-in editor so the per-file
+     * mount check runs exactly as it did via {@see $GLOBALS['BE_USER']}.
+     */
+    private function editorContext(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 
     private function tool(string $name): ToolInterface
@@ -137,9 +151,9 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     #[Test]
     public function searchFalFilesHidesFilesOutsideTheUsersMount(): void
     {
-        $this->loginEditorInBackendRequest();
+        $user = $this->loginEditorInBackendRequest();
 
-        $output = $this->tool('search_fal_files')->execute(['query' => 'txt'])->content;
+        $output = $this->tool('search_fal_files')->execute(['query' => 'txt'], $this->editorContext($user))->content;
 
         self::assertStringContainsString('docs/manual.txt', $output);
         self::assertStringNotContainsString('top-secret.txt', $output);
@@ -148,9 +162,9 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     #[Test]
     public function findMissingFilesHidesFilesOutsideTheUsersMount(): void
     {
-        $this->loginEditorInBackendRequest();
+        $user = $this->loginEditorInBackendRequest();
 
-        $output = $this->tool('find_missing_files')->execute([])->content;
+        $output = $this->tool('find_missing_files')->execute([], $this->editorContext($user))->content;
 
         self::assertStringContainsString('docs/gone-inside.txt', $output);
         self::assertStringNotContainsString('gone-outside.txt', $output);
@@ -159,10 +173,10 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     #[Test]
     public function getFalReferencesDeniesAFileOutsideTheUsersMount(): void
     {
-        $this->loginEditorInBackendRequest();
+        $user = $this->loginEditorInBackendRequest();
 
         // File 11 (root, out of the /docs/ mount) must not reveal its usages.
-        $output = $this->tool('get_fal_references')->execute(['uid' => 11])->content;
+        $output = $this->tool('get_fal_references')->execute(['uid' => 11], $this->editorContext($user))->content;
 
         self::assertSame('Asset not found or not permitted.', $output);
     }
@@ -170,11 +184,11 @@ final class FalToolsFileMountTest extends AbstractFunctionalTestCase
     #[Test]
     public function getFalReferencesAllowsAFileInsideTheUsersMount(): void
     {
-        $this->loginEditorInBackendRequest();
+        $user = $this->loginEditorInBackendRequest();
 
         // File 10 (/docs/, in mount) is reachable — no references seeded, so the
         // neutral "no references" answer (not the permission denial) is returned.
-        $output = $this->tool('get_fal_references')->execute(['uid' => 10])->content;
+        $output = $this->tool('get_fal_references')->execute(['uid' => 10], $this->editorContext($user))->content;
 
         self::assertStringContainsString('No references to manual.txt', $output);
     }

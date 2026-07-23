@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
@@ -29,7 +30,6 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  */
 final readonly class BrowseFalFolderTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Folder not found or not permitted.';
@@ -64,9 +64,9 @@ final readonly class BrowseFalFolderTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user      = $this->actingBackendUser();
+        $user      = $context->actingBackendUser();
         $effective = $this->storageGate->effectiveStorages($user);
         if ($effective === []) {
             return ToolResult::text(self::NOT_PERMITTED);

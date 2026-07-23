@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -97,20 +98,24 @@ final class BrowseFalFolderToolFileMountTest extends AbstractFunctionalTestCase
     #[Test]
     public function nonAdminIsConfinedToTheirFileMount(): void
     {
-        $this->setUpBackendUser(2);
+        $backendUser = $this->setUpBackendUser(2);
         // The core StoragePermissionsAspect only attaches mounts/permissions
         // when the storage object is created inside a BACKEND request — set
         // the request context the real tool-loop (backend AJAX) runs in.
         $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('https://typo3-testing.local/typo3/'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
 
+        // The tool authorises from the acting backend user via the context,
+        // exactly as it did via the ambient $GLOBALS['BE_USER'].
+        $context = ToolExecutionContext::fromBackendUser($backendUser);
+
         // The storage root lies outside the /docs/ mount — denied, and the
         // root file's name never egresses.
-        $rootOutput = $this->tool->execute(['folder' => '/'])->content;
+        $rootOutput = $this->tool->execute(['folder' => '/'], $context)->content;
         self::assertSame('Folder not found or not permitted.', $rootOutput);
 
         // The mounted folder lists.
-        $output = $this->tool->execute(['folder' => '/docs/'])->content;
+        $output = $this->tool->execute(['folder' => '/docs/'], $context)->content;
         self::assertStringContainsString('- manual.txt (text/plain, 10 B)', $output);
         self::assertStringNotContainsString('top-secret', $output);
     }

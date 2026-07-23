@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,12 +31,15 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
 {
     private SearchRecordsTool $tool;
 
+    private ToolExecutionContext $context;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->importFixture('BeUsers.csv');
-        $this->setUpBackendUser(1); // admin
+        $user = $this->setUpBackendUser(1); // admin
+        $this->context = ToolExecutionContext::fromBackendUser($user);
 
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
@@ -63,7 +67,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function findsSeededContentThroughSearchFieldsWithExcerpt(): void
     {
-        $output = $this->tool->execute(['query' => 'Netresearch'])->content;
+        $output = $this->tool->execute(['query' => 'Netresearch'], $this->context)->content;
 
         self::assertStringContainsString('tt_content:10', $output);
         self::assertStringContainsString('About Netresearch', $output);
@@ -73,7 +77,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function hiddenRowsNeverReachTheOutput(): void
     {
-        $output = $this->tool->execute(['query' => 'hidden gem'])->content;
+        $output = $this->tool->execute(['query' => 'hidden gem'], $this->context)->content;
 
         self::assertSame('No matches.', $output);
     }
@@ -81,7 +85,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function tableRestrictionLimitsTheSearch(): void
     {
-        $output = $this->tool->execute(['query' => 'Netresearch', 'table' => 'pages'])->content;
+        $output = $this->tool->execute(['query' => 'Netresearch', 'table' => 'pages'], $this->context)->content;
 
         self::assertStringNotContainsString('tt_content:', $output);
     }
@@ -89,7 +93,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function sensitiveTableIsDeniedEvenForAdmin(): void
     {
-        $output = $this->tool->execute(['query' => 'admin', 'table' => 'be_users'])->content;
+        $output = $this->tool->execute(['query' => 'admin', 'table' => 'be_users'], $this->context)->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -106,7 +110,7 @@ final class SearchRecordsToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 10, 't3ver_state' => 0,
         ]);
 
-        $output = $this->tool->execute(['query' => 'workspacedraftmarker'])->content;
+        $output = $this->tool->execute(['query' => 'workspacedraftmarker'], $this->context)->content;
 
         self::assertSame('No matches.', $output);
     }

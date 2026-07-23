@@ -32,7 +32,6 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
-use Netresearch\NrLlm\Service\Tool\Builtin\ResolvesActingBackendUserTrait;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Psr\Log\LoggerInterface;
@@ -63,8 +62,6 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
-    use ResolvesActingBackendUserTrait;
-
     /**
      * Hard cap on a single tool result appended to the message list. A buggy or
      * malicious tool returning multi-megabyte output would otherwise blow the
@@ -129,6 +126,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     public function runLoop(
         array $messages,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?array $allowedToolNames,
         ?ToolOptions $options = null,
         ?int $maxIterations = null,
@@ -167,7 +165,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return new ToolLoopResult('', [], 0, false, UsageStatistics::fromTokens(0, 0));
         }
 
-        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration);
+        $effective = $this->resolveOfferedNames($allowedToolNames, $configuration, $context);
         $specs     = $this->registry->specs($effective);
 
         // No tools offered (an empty allow-list, or nothing registered): a tools
@@ -315,7 +313,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
                 foreach ($resp->toolCalls ?? [] as $call) {
                     $tt0 = hrtime(true);
-                    $tr  = $this->invoke($call, $allowedNames);
+                    $tr  = $this->invoke($call, $allowedNames, $context);
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
@@ -468,6 +466,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         SuspendedRunState $state,
         bool $approved,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
@@ -481,7 +480,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
-        $offered = $this->resolveOfferedNames($state->allowedToolNames, $configuration);
+        $offered = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
@@ -502,7 +501,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
                 $tt0    = hrtime(true);
-                $tr     = $this->invoke($call, $offered);
+                $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
@@ -515,6 +514,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         return $this->runLoop(
             $messages,
             $configuration,
+            $context,
             $state->allowedToolNames,
             $options,
             $maxIterations,
@@ -550,6 +550,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         SuspendedRunState $state,
         array $inputData,
         LlmConfiguration $configuration,
+        ToolExecutionContext $context,
         ?int $maxIterations = null,
         ?RunTrace $runTrace = null,
         ?int $beUserUid = null,
@@ -562,7 +563,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $messages     = $state->messages;
         $pendingCalls = $state->toolCalls();
         $options      = ToolOptions::fromArray($state->options, $beUserUid);
-        $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration);
+        $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $offered, true)) {
@@ -570,7 +571,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } elseif ($call->name === $state->inputToolName) {
                 $tt0    = hrtime(true);
-                $tr     = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered);
+                $tr     = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
@@ -580,7 +581,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
                 $tt0    = hrtime(true);
-                $tr     = $this->invoke($call, $offered);
+                $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
@@ -590,6 +591,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         return $this->runLoop(
             $messages,
             $configuration,
+            $context,
             $state->allowedToolNames,
             $options,
             $maxIterations,
@@ -710,10 +712,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @return list<string>
      */
-    private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration): array
+    private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration, ToolExecutionContext $context): array
     {
         if ($this->toolPolicy !== null) {
-            $user = $this->actingBackendUser();
+            $user = $context->actingBackendUser();
 
             foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
                 if (!$decision->allowed || $decision->observedOnly) {
@@ -744,7 +746,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // (admin-only) playground, so the public service cannot be invoked on a
         // non-admin's behalf to reach them. An unknown tool name is treated as
         // admin-only (fail-closed).
-        if (!$this->actingUserIsAdmin()) {
+        if (!$context->isAdmin()) {
             $effective = array_values(array_filter(
                 $effective,
                 fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
@@ -777,7 +779,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<string> $allowedNames
      */
-    private function invoke(ToolCall $call, array $allowedNames): ToolResult
+    private function invoke(ToolCall $call, array $allowedNames, ToolExecutionContext $context): ToolResult
     {
         $tool = $this->registry->get($call->name);
         if ($tool === null) {
@@ -788,7 +790,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         try {
-            $result = $tool->execute($call->arguments);
+            $result = $tool->execute($call->arguments, $context);
         } catch (Throwable $e) {
             // Keep the logged summary generic — the exception body may embed
             // DBAL/PDO credentials that URL-sanitising would not strip. The full

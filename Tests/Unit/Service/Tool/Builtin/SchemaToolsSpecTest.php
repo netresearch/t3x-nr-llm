@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetFlexFormSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFullTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -49,11 +50,12 @@ final class SchemaToolsSpecTest extends TestCase
     #[Test]
     public function fluidResolveRejectsTraversalMissingAndMalformedInput(): void
     {
-        $tool = new FluidResolveTool();
+        $tool    = new FluidResolveTool();
+        $context = ToolExecutionContext::none();
 
-        self::assertSame('Provide a template/partial/layout name.', $tool->execute(['name' => ''])->content);
-        self::assertSame('Invalid name.', $tool->execute(['name' => '../../etc/passwd'])->content);
-        self::assertStringContainsString('Provide the "extension"', $tool->execute(['name' => 'Foo'])->content);
-        self::assertSame('Invalid extension key.', $tool->execute(['name' => 'Foo', 'extension' => 'Bad Key!'])->content);
+        self::assertSame('Provide a template/partial/layout name.', $tool->execute(['name' => ''], $context)->content);
+        self::assertSame('Invalid name.', $tool->execute(['name' => '../../etc/passwd'], $context)->content);
+        self::assertStringContainsString('Provide the "extension"', $tool->execute(['name' => 'Foo'], $context)->content);
+        self::assertSame('Invalid extension key.', $tool->execute(['name' => 'Foo', 'extension' => 'Bad Key!'], $context)->content);
     }
 }

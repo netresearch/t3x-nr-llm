@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -70,9 +71,10 @@ final class ResolveUrlToolRelativeBaseTest extends AbstractFunctionalTestCase
     #[Test]
     public function resolvesPathAgainstRelativeSiteBase(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['url' => '/imprint'])->content;
+        $output = $this->tool->execute(['url' => '/imprint'], $context)->content;
 
         self::assertStringContainsString('Page: [2] Imprint', $output);
         self::assertStringContainsString('slug /imprint', $output);

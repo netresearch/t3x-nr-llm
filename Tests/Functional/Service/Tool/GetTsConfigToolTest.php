@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTsConfigTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -51,7 +52,7 @@ final class GetTsConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function topLevelKeysListWithoutPath(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1])->content;
+        $output = $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('Page TSconfig for page 1', $output);
         self::assertStringContainsString('demo (+', $output);
@@ -60,7 +61,7 @@ final class GetTsConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function dottedPathDrillsIntoTheSubtree(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'])->content;
+        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('flag = 1', $output);
         self::assertStringContainsString('nested {', $output);
@@ -70,7 +71,7 @@ final class GetTsConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function credentialValuesAreRedacted(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'vault'])->content;
+        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'vault'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('apiKey = [redacted]', $output);
         self::assertStringNotContainsString('top-secret-value', $output);
@@ -79,6 +80,6 @@ final class GetTsConfigToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function missingPageReturnsNeutralString(): void
     {
-        self::assertSame('Page not found.', $this->tool->execute(['pageUid' => 999])->content);
+        self::assertSame('Page not found.', $this->tool->execute(['pageUid' => 999], ToolExecutionContext::none())->content);
     }
 }

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -60,16 +61,26 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         ]);
     }
 
+    /**
+     * The tool now authorises from the explicit run context (ADR-083) instead of
+     * the ambient `$GLOBALS['BE_USER']`; build one that carries the same acting
+     * user, so it scopes exactly as it did via the superglobal.
+     */
+    private function contextFor(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
+    }
+
     #[Test]
     public function equalityFilterSelectsMatchingRowsOnly(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
         $output = $this->tool->execute([
             'table'        => 'tt_content',
             'where_equals' => ['CType' => 'textmedia'],
             'fields'       => ['header', 'CType'],
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         self::assertStringContainsString('tt_content:31', $output);
         self::assertStringContainsString('header: Beta', $output);
@@ -79,9 +90,9 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function uidFilterReadsASingleRecordWithDefaultLabelFields(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 30])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'uid' => 30], $this->contextFor($user))->content;
 
         self::assertStringContainsString('tt_content:30', $output);
         self::assertStringContainsString('header: Alpha', $output);
@@ -90,9 +101,9 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function limitCapsTheRowCount(): void
     {
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content', 'limit' => 1])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'limit' => 1], $this->contextFor($user))->content;
 
         self::assertStringContainsString('tt_content:30', $output);
         self::assertStringNotContainsString('tt_content:31', $output);
@@ -104,12 +115,12 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         // ADR-108: the run-only TABLE artifact is projected from the SAME
         // TCA-validated field set the text egress uses (uid + pid + requested),
         // so it can never re-expose a column the text path withheld.
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute([
             'table'  => 'tt_content',
             'fields' => ['header'],
-        ]);
+        ], $this->contextFor($user));
 
         self::assertCount(1, $result->artifacts);
         $artifact = $result->artifacts[0];
@@ -148,9 +159,9 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
             't3ver_wsid' => 1, 't3ver_oid' => 30, 't3ver_state' => 0,
         ]);
 
-        $this->setUpBackendUser(1);
+        $user = $this->setUpBackendUser(1);
 
-        $output = $this->tool->execute(['table' => 'tt_content'])->content;
+        $output = $this->tool->execute(['table' => 'tt_content'], $this->contextFor($user))->content;
 
         self::assertStringNotContainsString('DraftSecret', $output);
         self::assertStringNotContainsString('tt_content:99', $output);
@@ -160,9 +171,9 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function nonAdminWithoutTableRightsIsDenied(): void
     {
-        $this->setUpBackendUser(2); // editor without any group rights
+        $user = $this->setUpBackendUser(2); // editor without any group rights
 
-        $output = $this->tool->execute(['table' => 'tt_content'])->content;
+        $output = $this->tool->execute(['table' => 'tt_content'], $this->contextFor($user))->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -170,7 +181,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function nonAdminFilteringByForbiddenLanguageIsDenied(): void
     {
-        $this->setUpBackendUser(2); // editor
+        $user = $this->setUpBackendUser(2); // editor
         $beUser = $GLOBALS['BE_USER'] ?? null;
         self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
         // Grant table read but restrict to the default language only.
@@ -182,7 +193,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         $output = $this->tool->execute([
             'table'        => 'tt_content',
             'where_equals' => ['sys_language_uid' => 1],
-        ])->content;
+        ], $this->contextFor($user))->content;
 
         self::assertSame('Table not found or not permitted.', $output);
     }
@@ -209,7 +220,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
             'CType' => 'text', 'header' => 'LangOneRow', 'sys_language_uid' => 1,
         ]);
 
-        $this->setUpBackendUser(2);
+        $user = $this->setUpBackendUser(2);
         $beUser = $GLOBALS['BE_USER'] ?? null;
         self::assertInstanceOf(BackendUserAuthentication::class, $beUser);
         $beUser->groupData['tables_select']     = 'tt_content';
@@ -219,7 +230,7 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
         // No language filter given: the language-0 row is returned, the
         // language-1 row (on the same, accessible page) is dropped and its
         // content never egresses.
-        $output = $this->tool->execute(['table' => 'tt_content', 'where_equals' => ['pid' => 7]])->content;
+        $output = $this->tool->execute(['table' => 'tt_content', 'where_equals' => ['pid' => 7]], $this->contextFor($user))->content;
 
         self::assertStringContainsString('tt_content:40', $output);
         self::assertStringNotContainsString('tt_content:41', $output);

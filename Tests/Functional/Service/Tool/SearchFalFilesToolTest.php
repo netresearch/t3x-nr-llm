@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -68,12 +69,23 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
         $this->tool = $tool;
     }
 
+    /**
+     * Sets up the acting backend user and returns the execution context the
+     * user-scoped tool authorises from (replacing the ambient $GLOBALS['BE_USER']).
+     */
+    private function contextForBackendUser(int $userUid): ToolExecutionContext
+    {
+        $user = $this->setUpBackendUser($userUid);
+
+        return ToolExecutionContext::fromBackendUser($user);
+    }
+
     #[Test]
     public function matchesFileNameAndMetadataTitleWithinAllowedStorages(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
-        $output = $this->tool->execute(['query' => 'brochure'])->content;
+        $output = $this->tool->execute(['query' => 'brochure'], $context)->content;
 
         // Name match (uid 10) and metadata-title match (uid 11).
         self::assertStringContainsString('[10] 1:/brochure-2026.pdf', $output);
@@ -86,22 +98,22 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function likeWildcardsAreMatchedLiterally(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
         self::assertStringContainsString(
             'No files match "%"',
-            $this->tool->execute(['query' => '%'])->content,
+            $this->tool->execute(['query' => '%'], $context)->content,
         );
     }
 
     #[Test]
     public function storageArgumentOutsideTheGateIsDenied(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
         self::assertSame(
             'No accessible file storages.',
-            $this->tool->execute(['query' => 'brochure', 'storage' => 2])->content,
+            $this->tool->execute(['query' => 'brochure', 'storage' => 2], $context)->content,
         );
     }
 
@@ -110,21 +122,21 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'No accessible file storages.',
-            $this->tool->execute(['query' => 'brochure'])->content,
+            $this->tool->execute(['query' => 'brochure'], ToolExecutionContext::none())->content,
         );
     }
     #[Test]
     public function searchIsCaseInsensitive(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextForBackendUser(1);
 
         // Fixture name is lowercase 'brochure-2026.pdf'; DB collations with
         // case-sensitive LIKE (e.g. PostgreSQL) must still match.
-        $output = $this->tool->execute(['query' => 'BROCHURE'])->content;
+        $output = $this->tool->execute(['query' => 'BROCHURE'], $context)->content;
 
         self::assertStringContainsString('brochure-2026.pdf', $output);
         // Uppercase name matched by lowercase query, too.
-        $output = $this->tool->execute(['query' => 'dsc01'])->content;
+        $output = $this->tool->execute(['query' => 'dsc01'], $context)->content;
         self::assertStringContainsString('DSC01.jpg', $output);
     }
 }

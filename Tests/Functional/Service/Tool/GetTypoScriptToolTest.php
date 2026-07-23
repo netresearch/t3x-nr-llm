@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -79,7 +80,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function setupTopLevelKeysListWithoutPath(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1])->content;
+        $output = $this->tool->execute(['pageUid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('TypoScript setup for page 1', $output);
         self::assertStringContainsString('page = PAGE', $output);
@@ -89,7 +90,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function pathDrillsIntoSetupSubtreeAndRedactsSecrets(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'])->content;
+        $output = $this->tool->execute(['pageUid' => 1, 'path' => 'demo'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('endpoint = https://api.example.org', $output);
         self::assertStringContainsString('apiKey = [redacted]', $output);
@@ -99,7 +100,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function constantsResolveFlatAndRedactSecrets(): void
     {
-        $output = $this->tool->execute(['pageUid' => 1, 'type' => 'constants'])->content;
+        $output = $this->tool->execute(['pageUid' => 1, 'type' => 'constants'], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('myConst.plain = visible-value', $output);
         self::assertStringContainsString('myConst.apiKey = [redacted]', $output);
@@ -109,7 +110,7 @@ final class GetTypoScriptToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function pageWithoutSiteReturnsNeutralString(): void
     {
-        $output = $this->tool->execute(['pageUid' => 999])->content;
+        $output = $this->tool->execute(['pageUid' => 999], ToolExecutionContext::none())->content;
 
         self::assertSame('Page not found or no TypoScript template.', $output);
     }

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -69,9 +70,10 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function resolvesRelativePathToPage(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['url' => '/imprint'])->content;
+        $output = $this->tool->execute(['url' => '/imprint'], $context)->content;
 
         self::assertStringContainsString('Site: resolver (base http://localhost:59999/)', $output);
         self::assertStringContainsString('Page: [2] Imprint', $output);
@@ -82,9 +84,10 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function resolvesAbsoluteUrlToRootPage(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['url' => 'http://localhost:59999/'])->content;
+        $output = $this->tool->execute(['url' => 'http://localhost:59999/'], $context)->content;
 
         self::assertStringContainsString('Page: [1] Home', $output);
         self::assertStringContainsString('Language: 0', $output);
@@ -93,9 +96,10 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function resolvesSchemelessPathWithoutLeadingSlash(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['url' => 'imprint'])->content;
+        $output = $this->tool->execute(['url' => 'imprint'], $context)->content;
 
         self::assertStringContainsString('Page: [2] Imprint', $output);
     }
@@ -103,31 +107,34 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function rejectsProtocolRelativeUrl(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
         self::assertSame(
             'Not a URL of this instance (no site matches).',
-            $this->tool->execute(['url' => '//evil.example.com/x'])->content,
+            $this->tool->execute(['url' => '//evil.example.com/x'], $context)->content,
         );
     }
 
     #[Test]
     public function reportsForeignHostNeutrally(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
         self::assertSame(
             'Not a URL of this instance (no site matches).',
-            $this->tool->execute(['url' => 'https://evil.example.com/x'])->content,
+            $this->tool->execute(['url' => 'https://evil.example.com/x'], $context)->content,
         );
     }
 
     #[Test]
     public function reportsUnknownSlugAsNoRoute(): void
     {
-        $this->setUpBackendUser(1);
+        $user    = $this->setUpBackendUser(1);
+        $context = ToolExecutionContext::fromBackendUser($user);
 
-        $output = $this->tool->execute(['url' => '/nope'])->content;
+        $output = $this->tool->execute(['url' => '/nope'], $context)->content;
 
         self::assertStringContainsString('No page route matches "/nope" on site "resolver"', $output);
     }
@@ -137,7 +144,7 @@ final class ResolveUrlToolTest extends AbstractFunctionalTestCase
     {
         self::assertSame(
             'Page not found or not permitted.',
-            $this->tool->execute(['url' => '/imprint'])->content,
+            $this->tool->execute(['url' => '/imprint'], ToolExecutionContext::none())->content,
         );
     }
 }

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Throwable;
 use TYPO3\CMS\Core\Resource\StorageRepository;
@@ -28,8 +29,6 @@ use TYPO3\CMS\Core\Resource\StorageRepository;
  */
 final readonly class ListFalStoragesTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
-
     public function __construct(
         private StorageRepository $storageRepository,
         private FalStorageGate $storageGate,
@@ -48,9 +47,9 @@ final readonly class ListFalStoragesTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user  = $this->actingBackendUser();
+        $user  = $context->actingBackendUser();
         $lines = [];
         foreach ($this->storageGate->effectiveStorages($user) as $uid) {
             try {

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 
@@ -30,7 +31,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  */
 final readonly class SiteFetchSourceTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const MAX_OUTPUT_CHARS = 8000;
@@ -58,9 +58,9 @@ final readonly class SiteFetchSourceTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return ToolResult::text('Not permitted.');
         }

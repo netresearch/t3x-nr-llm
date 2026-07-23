@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\GetTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -89,17 +90,21 @@ final class ContentToolsSpecTest extends TestCase
     #[Test]
     public function searchFailsClosedWithoutBackendUser(): void
     {
-        self::assertSame('Not permitted.', $this->searchTool()->execute(['query' => 'foo'])->content);
+        self::assertSame(
+            'Not permitted.',
+            $this->searchTool()->execute(['query' => 'foo'], ToolExecutionContext::none())->content,
+        );
     }
 
     #[Test]
     public function searchRejectsTooShortQuery(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
 
         self::assertSame(
             'Query too short (minimum 2 characters).',
-            $this->searchTool()->execute(['query' => 'x'])->content,
+            $this->searchTool()->execute(['query' => 'x'], $this->contextForUser($user))->content,
         );
     }
 
@@ -108,18 +113,19 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Page not found or not permitted.',
-            $this->pageContentTool()->execute(['uid' => 1])->content,
+            $this->pageContentTool()->execute(['uid' => 1], ToolExecutionContext::none())->content,
         );
     }
 
     #[Test]
     public function pageContentRejectsInvalidUid(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
 
         self::assertSame(
             'Page not found or not permitted.',
-            $this->pageContentTool()->execute(['uid' => 0])->content,
+            $this->pageContentTool()->execute(['uid' => 0], $this->contextForUser($user))->content,
         );
     }
 
@@ -128,40 +134,43 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Table not found or not permitted.',
-            $this->readRecordsTool()->execute(['table' => 'tt_content'])->content,
+            $this->readRecordsTool()->execute(['table' => 'tt_content'], ToolExecutionContext::none())->content,
         );
     }
 
     #[Test]
     public function readRecordsDeniesSensitiveTableEvenForAdmins(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user                       = $this->adminUser();
+        $GLOBALS['BE_USER']         = $user;
         $GLOBALS['TCA']['be_users'] = ['ctrl' => ['label' => 'username'], 'columns' => ['username' => []]];
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->readRecordsTool()->execute(['table' => 'be_users'])->content,
+            $this->readRecordsTool()->execute(['table' => 'be_users'], $this->contextForUser($user))->content,
         );
     }
 
     #[Test]
     public function readRecordsRejectsUnknownFilterColumn(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user               = $this->adminUser();
+        $GLOBALS['BE_USER'] = $user;
 
         self::assertSame(
             'Invalid filter: only existing, non-credential TCA columns with scalar values are allowed.',
             $this->readRecordsTool()->execute([
                 'table'        => 'tt_content',
                 'where_equals' => ['no_such_column' => 'x'],
-            ])->content,
+            ], $this->contextForUser($user))->content,
         );
     }
 
     #[Test]
     public function readRecordsRejectsCredentialFilterColumn(): void
     {
-        $GLOBALS['BE_USER'] = $this->adminUser();
+        $user                                               = $this->adminUser();
+        $GLOBALS['BE_USER']                                 = $user;
         $GLOBALS['TCA']['tt_content']['columns']['api_key'] = [];
 
         self::assertSame(
@@ -169,7 +178,7 @@ final class ContentToolsSpecTest extends TestCase
             $this->readRecordsTool()->execute([
                 'table'        => 'tt_content',
                 'where_equals' => ['api_key' => 'x'],
-            ])->content,
+            ], $this->contextForUser($user))->content,
         );
     }
 
@@ -178,22 +187,36 @@ final class ContentToolsSpecTest extends TestCase
     {
         self::assertSame(
             'Page not found or no TypoScript template.',
-            $this->typoScriptTool()->execute(['pageUid' => 0])->content,
+            $this->typoScriptTool()->execute(['pageUid' => 0], ToolExecutionContext::none())->content,
         );
     }
 
     #[Test]
     public function tsConfigRejectsInvalidPageUid(): void
     {
-        self::assertSame('Page not found.', $this->tsConfigTool()->execute(['pageUid' => 0])->content);
+        self::assertSame(
+            'Page not found.',
+            $this->tsConfigTool()->execute(['pageUid' => 0], ToolExecutionContext::none())->content,
+        );
     }
 
     private function adminUser(): BackendUserAuthentication
     {
         $user = $this->createMock(BackendUserAuthentication::class);
         $user->method('isAdmin')->willReturn(true);
+        $user->user = ['uid' => 1];
 
         return $user;
+    }
+
+    /**
+     * The explicit execution context for a run acting as the given backend user
+     * (ADR-083), mirroring the identity the tool previously read from the
+     * ambient `$GLOBALS['BE_USER']`.
+     */
+    private function contextForUser(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 
     private function searchTool(): SearchRecordsTool

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
@@ -41,7 +42,6 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  */
 final readonly class ResolveUrlTool implements ToolInterface
 {
-    use ResolvesActingBackendUserTrait;
     use SafeCastTrait;
 
     private const NOT_PERMITTED = 'Page not found or not permitted.';
@@ -76,14 +76,14 @@ final readonly class ResolveUrlTool implements ToolInterface
         );
     }
 
-    public function execute(array $arguments): ToolResult
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $input = trim(self::toStr($arguments['url'] ?? ''));
         if ($input === '') {
             return ToolResult::text('Error: "url" is required.');
         }
 
-        $user = $this->actingBackendUser();
+        $user = $context->actingBackendUser();
         if ($user === null) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
@@ -125,7 +125,7 @@ final readonly class ResolveUrlTool implements ToolInterface
             return ToolResult::text(self::NO_SITE);
         }
 
-        return ToolResult::text($this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin()));
+        return ToolResult::text($this->renderResult($site, $routeResult, $pageArguments, $user->isAdmin(), $context));
     }
 
     public function isEnabledByDefault(): bool
@@ -209,13 +209,14 @@ final readonly class ResolveUrlTool implements ToolInterface
         SiteRouteResult $routeResult,
         PageArguments $pageArguments,
         bool $isAdmin,
+        ToolExecutionContext $context,
     ): string {
         $pageUid = $pageArguments->getPageId();
 
         // Non-admins must hold PAGE_SHOW on the resolved page; a missing page
         // and a denied page are indistinguishable in the reply (fail-closed).
         if (!$isAdmin) {
-            $user        = $this->actingBackendUser();
+            $user        = $context->actingBackendUser();
             $permsClause = $user !== null ? self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW)) : '1=0';
             if ($user === null || !is_array(BackendUtility::readPageAccess($pageUid, $permsClause))) {
                 return self::NOT_PERMITTED;

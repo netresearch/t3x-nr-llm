@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -59,7 +60,7 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
         $this->importFixture('sys_file_tools.csv');
         $this->importFixture('sys_file_metadata_tools.csv');
 
-        $output = $this->tool->execute(['uid' => 1])->content;
+        $output = $this->tool->execute(['uid' => 1], ToolExecutionContext::none())->content;
 
         self::assertStringContainsString('logo.png', $output);
         self::assertStringContainsString('image/png', $output);
@@ -73,7 +74,7 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_file_tools.csv');
 
-        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 2])->content);
+        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 2], ToolExecutionContext::none())->content);
     }
 
     #[Test]
@@ -81,6 +82,6 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
     {
         $this->importFixture('sys_file_tools.csv');
 
-        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 999999])->content);
+        self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 999999], ToolExecutionContext::none())->content);
     }
 }

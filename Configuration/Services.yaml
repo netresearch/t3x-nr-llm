@@ -64,6 +64,11 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
 
+  # Resolves a run's actor to a live acting backend user for tool authorization
+  # (ADR-083), so a queued run authorises identically to a synchronous one.
+  Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver
+
   # The agent-run application service (ADR-101): run / approve / cancel /
   # events / status through one fail-closed lifecycle. The preferred consumer
   # surface — scheduler tasks, queue workers and downstream extensions use

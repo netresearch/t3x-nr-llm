@@ -11,9 +11,11 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFlexFormSchemaTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Information\Typo3Version;
 
 /**
@@ -69,20 +71,29 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function reportsWhenFieldIsNotFlex(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextFor($this->setUpBackendUser(1));
 
         self::assertStringContainsString(
             'is not a FlexForm field',
-            $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'title'])->content,
+            $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'title'], $context)->content,
         );
+    }
+
+    /**
+     * Build the acting-user context so the tool authorises exactly as it did
+     * via the ambient backend user before the ToolExecutionContext contract.
+     */
+    private function contextFor(BackendUserAuthentication $user): ToolExecutionContext
+    {
+        return ToolExecutionContext::fromBackendUser($user);
     }
 
     #[Test]
     public function listsDataStructureKeysWhenAmbiguous(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextFor($this->setUpBackendUser(1));
 
-        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'multi_ff'])->content;
+        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'multi_ff'], $context)->content;
 
         self::assertStringContainsString('multiple data structures', $output);
         self::assertStringContainsString('- alpha', $output);
@@ -92,9 +103,9 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function parsesSingleDataStructureIntoSheetsAndFields(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextFor($this->setUpBackendUser(1));
 
-        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'single_ff'])->content;
+        $output = $this->tool->execute(['table' => 'tx_demo_flex', 'field' => 'single_ff'], $context)->content;
 
         self::assertStringContainsString('FlexForm schema for tx_demo_flex.single_ff', $output);
         self::assertStringContainsString('Sheet:', $output);
@@ -104,11 +115,11 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
     #[Test]
     public function deniesSensitiveTable(): void
     {
-        $this->setUpBackendUser(1);
+        $context = $this->contextFor($this->setUpBackendUser(1));
 
         self::assertSame(
             'Table not found or not permitted.',
-            $this->tool->execute(['table' => 'be_users', 'field' => 'anything'])->content,
+            $this->tool->execute(['table' => 'be_users', 'field' => 'anything'], $context)->content,
         );
     }
 }

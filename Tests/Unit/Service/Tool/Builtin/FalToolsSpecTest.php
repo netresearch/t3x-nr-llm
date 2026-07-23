@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFalReferencesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -100,11 +101,11 @@ final class FalToolsSpecTest extends TestCase
         // no storages and every tool answers with its neutral denial.
         self::assertSame(
             'Asset not found or not permitted.',
-            self::bare(GetFalReferencesTool::class)->execute(['uid' => 0])->content,
+            self::bare(GetFalReferencesTool::class)->execute(['uid' => 0], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Error: "query" is required.',
-            self::bare(SearchFalFilesTool::class)->execute([])->content,
+            self::bare(SearchFalFilesTool::class)->execute([], ToolExecutionContext::none())->content,
         );
     }
 }

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTcaTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +32,8 @@ final class GetTcaToolTest extends TestCase
 
     private mixed $beUserBackup = null;
 
+    private ToolExecutionContext $context;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +46,10 @@ final class GetTcaToolTest extends TestCase
         $adminUser          = new BackendUserAuthentication();
         $adminUser->user    = ['uid' => 1, 'admin' => 1];
         $GLOBALS['BE_USER'] = $adminUser;
+
+        // The tool now authorises from the explicit context, not $GLOBALS['BE_USER'];
+        // scope it to the same admin user so the tables_select checks pass identically.
+        $this->context = ToolExecutionContext::fromBackendUser($adminUser);
 
         $GLOBALS['TCA'] = [
             'pages' => [
@@ -86,7 +93,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withoutTableArgumentListsSortedTableNames(): void
     {
-        $output = (new GetTcaTool(new TableReadAccessService()))->execute([])->content;
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute([], $this->context)->content;
 
         self::assertStringContainsString('TCA tables (2):', $output);
         // Sorted: pages before tt_content.
@@ -96,7 +103,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function withTableArgumentReturnsColumnNamesAndTypes(): void
     {
-        $output = (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'pages'])->content;
+        $output = (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'pages'], $this->context)->content;
 
         self::assertStringContainsString('TCA columns for pages:', $output);
         self::assertStringContainsString('title: input', $output);
@@ -108,7 +115,7 @@ final class GetTcaToolTest extends TestCase
     #[Test]
     public function unknownTableReturnsNeutralString(): void
     {
-        self::assertSame('Unknown TCA table.', (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'no_such_table'])->content);
+        self::assertSame('Unknown TCA table.', (new GetTcaTool(new TableReadAccessService()))->execute(['table' => 'no_such_table'], $this->context)->content);
     }
 
     #[Test]
@@ -123,9 +130,9 @@ final class GetTcaToolTest extends TestCase
 
         $tool = new GetTcaTool(new TableReadAccessService());
 
-        self::assertSame('Unknown TCA table.', $tool->execute(['table' => 'tx_nrllm_provider'])->content);
-        self::assertStringNotContainsString('tx_nrllm_provider', $tool->execute([])->content);
+        self::assertSame('Unknown TCA table.', $tool->execute(['table' => 'tx_nrllm_provider'], $this->context)->content);
+        self::assertStringNotContainsString('tx_nrllm_provider', $tool->execute([], $this->context)->content);
         // A normal table is still described in full — the gate must not over-block.
-        self::assertStringContainsString('title', $tool->execute(['table' => 'pages'])->content);
+        self::assertStringContainsString('title', $tool->execute(['table' => 'pages'], $this->context)->content);
     }
 }
