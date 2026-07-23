@@ -376,6 +376,58 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function renewLeaseSurvivesANoOpRenewalInTheSameSecond(): void
+    {
+        // ADR-104 heartbeat: two step boundaries in the same wall-clock second
+        // renew with an identical lease_expires, so the second UPDATE changes
+        // nothing. MySQL/MariaDB report zero *changed* rows for that no-op,
+        // which must NOT be read as a lost lease — the worker still owns the run
+        // (regression: a healthy run was abandoned RUNNING until the reaper ran).
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        $lease = time() + 900;
+        self::assertTrue($this->persister->renewLease($handle, 'worker-a:1', $lease));
+        // Identical lease value, same second -> a no-op UPDATE. The ownership
+        // re-check must still confirm the live lease.
+        self::assertTrue($this->persister->renewLease($handle, 'worker-a:1', $lease));
+
+        // A genuine ownership loss (stranger) still returns false.
+        self::assertFalse($this->persister->renewLease($handle, 'worker-b:2', $lease));
+    }
+
+    #[Test]
+    public function purgeClearsMoreThanOneChunkOfRunsAndLeavesFreshOnes(): void
+    {
+        // The purge selects AND deletes in bounded chunks so it never
+        // materialises every matching uid at once (OOM on a neglected install).
+        // Seed just over one chunk of old finished runs and assert the loop
+        // clears them all — proving it iterates past the first chunk and
+        // terminates — while a run created after the cutoff is untouched.
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $old        = 1000;
+        $count      = 501; // one full chunk (500) + 1 -> forces a second pass
+        for ($i = 0; $i < $count; ++$i) {
+            $connection->insert('tx_nrllm_agentrun', [
+                'uuid'   => sprintf('purge-%04d', $i),
+                'status' => 'completed',
+                'crdate' => $old,
+            ]);
+        }
+        $fresh = $this->persister->begin(null, 0);
+        self::assertNotNull($fresh);
+        $this->persister->settleCompleted($fresh, new ToolLoopResult('x', [], 1, false, UsageStatistics::fromTokens(0, 0)));
+
+        $deleted = $this->repository->purgeOlderThan($old + 1);
+
+        self::assertSame($count, $deleted);
+        self::assertNotNull($this->repository->findByUuid($fresh->uuid));
+    }
+
+    #[Test]
     public function requeueIsOwnershipGuardedIncrementsTheCountAndKeepsTheRequest(): void
     {
         // ADR-104 failure retry (review MAJOR): a zombie worker cannot requeue a

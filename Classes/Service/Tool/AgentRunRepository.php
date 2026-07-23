@@ -295,7 +295,42 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ],
         );
 
-        return $affected === 1;
+        if ($affected >= 1) {
+            return true;
+        }
+
+        // MySQL/MariaDB report zero *changed* rows for a no-op UPDATE — two
+        // heartbeats in the same wall-clock second write an identical
+        // lease_expires and tstamp, so the second changes nothing even though
+        // the row still matches and the worker still owns it. Zero affected
+        // rows therefore does NOT prove lost ownership; confirm with an explicit
+        // ownership re-check so a healthy heartbeat is never misread as a lost
+        // lease (which would abandon the run RUNNING until the reaper requeues).
+        return $this->ownsRunningRun($runUid, $claimedBy);
+    }
+
+    /**
+     * Whether the run still exists RUNNING under this worker's claim — the
+     * ownership predicate {@see renewLease()} uses to tell a no-op UPDATE
+     * (nothing changed) apart from a lost lease (nothing matched). The reaper
+     * clears claimed_by on requeue, so a reclaimed run fails this check.
+     */
+    private function ownsRunningRun(int $runUid, string $claimedBy): bool
+    {
+        $builder = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->createQueryBuilder();
+
+        $count = $builder
+            ->count('uid')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('status', $builder->createNamedParameter(AgentRunStatus::RUNNING->value)),
+                $builder->expr()->eq('claimed_by', $builder->createNamedParameter($claimedBy)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return self::toInt($count) === 1;
     }
 
     /**
@@ -554,27 +589,35 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             return 0;
         }
 
-        $runConnection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
-        $selectBuilder = $runConnection->createQueryBuilder();
-        $rows          = $selectBuilder
-            ->select('uid')
-            ->from(self::TABLE_RUN)
-            ->where(
-                $selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)),
-                $selectBuilder->expr()->in('status', $selectBuilder->createNamedParameter($statuses, Connection::PARAM_STR_ARRAY)),
-            )
-            ->executeQuery()
-            ->fetchAllAssociative();
-
-        $uids = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
-        if ($uids === []) {
-            return 0;
-        }
-
+        $runConnection   = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $eventConnection = $this->connectionPool->getConnectionForTable(self::TABLE_EVENT);
         $deleted         = 0;
 
-        foreach (array_chunk($uids, self::PURGE_CHUNK_SIZE) as $chunk) {
+        // Select AND delete in bounded chunks. Materialising every matching uid
+        // up front would exhaust memory on exactly the long-neglected install
+        // the chunking exists to protect (millions of rows accrued because the
+        // purge never ran). Each pass reads at most one chunk of ids; the just
+        // deleted rows drop out of the next pass's WHERE, so no OFFSET is needed
+        // and the loop terminates when a short (or empty) chunk comes back.
+        do {
+            $selectBuilder = $runConnection->createQueryBuilder();
+            $rows          = $selectBuilder
+                ->select('uid')
+                ->from(self::TABLE_RUN)
+                ->where(
+                    $selectBuilder->expr()->lt('crdate', $selectBuilder->createNamedParameter($timestamp, Connection::PARAM_INT)),
+                    $selectBuilder->expr()->in('status', $selectBuilder->createNamedParameter($statuses, Connection::PARAM_STR_ARRAY)),
+                )
+                ->orderBy('uid')
+                ->setMaxResults(self::PURGE_CHUNK_SIZE)
+                ->executeQuery()
+                ->fetchAllAssociative();
+
+            $chunk = array_map(fn(array $row): int => self::toInt($row['uid'] ?? 0), $rows);
+            if ($chunk === []) {
+                break;
+            }
+
             $eventBuilder = $eventConnection->createQueryBuilder();
             $eventBuilder
                 ->delete(self::TABLE_EVENT)
@@ -586,7 +629,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->delete(self::TABLE_RUN)
                 ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();
-        }
+        } while (count($chunk) === self::PURGE_CHUNK_SIZE);
 
         return $deleted;
     }
