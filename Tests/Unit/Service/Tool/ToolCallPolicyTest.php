@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -115,20 +116,53 @@ final class ToolCallPolicyTest extends TestCase
     }
 
     #[Test]
-    public function anythingOtherThanAnExplicitEnforceObserves(): void
+    public function anythingOtherThanAnExplicitObserveEnforces(): void
     {
+        // ADR-113 fail-closed: only a deliberate `observe` observes; a typo, an
+        // empty string or any other value enforces, so a mistyped setting cannot
+        // silently disable the gate. `observe` is matched case/space-insensitively.
         $registry = new ToolRegistry([new FakeTool('system_tool', 'ok', true, false, 'system')]);
         $config   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
 
-        // A typo must not start removing tools from production runs.
-        foreach (['', 'enforced', 'ENFORCE ', 'yes'] as $value) {
-            $decision = $this->policy($registry, enforcement: $value)->decide('system_tool', $config, $this->admin());
-            self::assertSame(
-                $value === 'ENFORCE ',
-                !$decision->allowed,
-                sprintf('enforcement="%s"', $value),
+        $observeValues = ['observe', 'OBSERVE ', ' observe'];
+        $enforceValues = ['', 'observ', 'enforce', 'off', 'yes'];
+
+        foreach ($observeValues as $value) {
+            self::assertTrue(
+                $this->policy($registry, enforcement: $value)->decide('system_tool', $config, $this->admin())->allowed,
+                sprintf('enforcement="%s" should observe (tool still offered)', $value),
             );
         }
+        foreach ($enforceValues as $value) {
+            self::assertFalse(
+                $this->policy($registry, enforcement: $value)->decide('system_tool', $config, $this->admin())->allowed,
+                sprintf('enforcement="%s" should fail closed to enforce', $value),
+            );
+        }
+    }
+
+    #[Test]
+    public function anUnreadableOrMalformedConfigurationFailsClosedToEnforce(): void
+    {
+        // ADR-113: if the enforcement setting cannot be read (the extension
+        // configuration throws) or is malformed (no `tools` section), the gate
+        // enforces rather than silently observing.
+        $registry = new ToolRegistry([new FakeTool('system_tool', 'ok', true, false, 'system')]);
+        $config   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+
+        $throwing = $this->createMock(ExtensionConfiguration::class);
+        $throwing->method('get')->willThrowException(new RuntimeException('config unreadable', 1785100001));
+        self::assertFalse(
+            $this->policyWith($registry, $throwing)->decide('system_tool', $config, $this->admin())->allowed,
+            'an unreadable configuration enforces',
+        );
+
+        $malformed = $this->createMock(ExtensionConfiguration::class);
+        $malformed->method('get')->willReturn(['tools' => 'not-an-array']);
+        self::assertFalse(
+            $this->policyWith($registry, $malformed)->decide('system_tool', $config, $this->admin())->allowed,
+            'a malformed configuration enforces',
+        );
     }
 
     #[Test]
@@ -182,10 +216,21 @@ final class ToolCallPolicyTest extends TestCase
         ?array $enabled = null,
         string $enforcement = 'observe',
     ): ToolCallPolicy {
-        $registry ??= new ToolRegistry([]);
-
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['tools' => ['dataClassEnforcement' => $enforcement]]);
+
+        return $this->policyWith($registry, $extensionConfiguration, $enabled);
+    }
+
+    /**
+     * @param list<string>|null $enabled null = every registered tool is enabled
+     */
+    private function policyWith(
+        ?ToolRegistry $registry,
+        ExtensionConfiguration $extensionConfiguration,
+        ?array $enabled = null,
+    ): ToolCallPolicy {
+        $registry ??= new ToolRegistry([]);
 
         return new ToolCallPolicy(
             $registry,
