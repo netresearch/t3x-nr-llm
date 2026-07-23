@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -61,7 +62,7 @@ final class CancelAgentRunCommand extends Command
             return Command::INVALID;
         }
 
-        if (!$this->agentRuntime->cancel($uuid)) {
+        if (!$this->agentRuntime->cancel(AiActorContext::serviceAccount('cli:nrllm:agent:cancel'), $uuid)) {
             $io->warning(sprintf('Run "%s" was not cancelled: it is unknown or already finished.', $uuid));
 
             return Command::FAILURE;

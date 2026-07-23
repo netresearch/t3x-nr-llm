@@ -112,6 +112,21 @@ final readonly class AiActorContext
     }
 
     /**
+     * Whether this actor may act on (approve, submit input to, cancel, read) the
+     * given agent run (ADR-083): the run's initiator, an administrator, or a
+     * service account acting on the system's behalf. A run UUID alone is never
+     * enough — a stranger who guesses a uuid must not drive somebody else's run.
+     */
+    public function mayActOnRun(AgentRun $run): bool
+    {
+        if ($this->isServiceAccount() || $this->isAdmin) {
+            return true;
+        }
+
+        return $this->backendUserUid > 0 && $this->backendUserUid === $run->beUser;
+    }
+
+    /**
      * A short, log-safe description of the actor for exception messages and
      * audit entries. Never contains a session uuid or any content.
      */

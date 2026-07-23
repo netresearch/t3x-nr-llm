@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
@@ -330,7 +331,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             },
         );
 
-        $result = $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(true, 42));
+        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 42));
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
         self::assertSame($loopResult, $result->loopResult);
@@ -358,7 +359,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->maxSequenceReturns = [4, 9];
 
         $this->runtime($this->loopReturning($this->loopResult('continued')))
-            ->approve('run-uuid-1', new ApprovalDecision(true, 1));
+            ->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
 
         self::assertNotSame([], $this->repository->events);
         self::assertSame(10, $this->repository->events[0]['sequence']);
@@ -370,7 +371,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = null;
 
         $this->expectException(RunNotAwaitingApprovalException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('unknown', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'unknown', new ApprovalDecision(true, 1));
     }
 
     #[Test]
@@ -379,7 +380,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun(status: 'completed');
 
         $this->expectException(RunNotAwaitingApprovalException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
     }
 
     #[Test]
@@ -388,7 +389,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun();
 
         $this->expectException(RunConfigurationGoneException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve('run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
     }
 
     #[Test]
@@ -397,7 +398,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun(stateJson: 'not-json{');
 
         $this->expectException(CorruptSuspendedStateException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
     }
 
     #[Test]
@@ -407,7 +408,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->throwOnMaxSequence = true;
 
         try {
-            $this->runtime($this->loopReturning($this->loopResult('x')))->approve('run-uuid-1', new ApprovalDecision(true, 1));
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
             self::fail('Expected RunStateUnavailableException');
         } catch (RunStateUnavailableException) {
             // Fail-closed BEFORE the claim: the run is still suspended, so the
@@ -429,7 +430,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         });
 
         $this->expectException(RunAlreadyResumingException::class);
-        $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
     }
 
     #[Test]
@@ -447,7 +448,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             },
         );
 
-        $result = $this->runtime($loop)->approve('run-uuid-1', new ApprovalDecision(false, 7));
+        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(false, 7));
 
         // A denial does not terminate the run: the loop continues from the
         // refusal message (ADR-084) — and the denial is on the audit stream.
@@ -464,7 +465,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $again = $this->suspendedState();
 
         $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($again), onResume: true));
-        $result  = $runtime->approve('run-uuid-1', new ApprovalDecision(true, 1));
+        $result  = $runtime->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
 
         self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $result->outcome);
         self::assertSame($again, $result->suspendedState);
@@ -865,7 +866,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->inputRun();
 
         $result = $this->runtime($this->loopReturning($this->loopResult('answered')))
-            ->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+            ->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
         // The claim was consumed exactly once and an INPUT audit event recorded.
@@ -884,7 +885,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
 
         try {
-            $runtime->submitInput('run-uuid-i', new InputSubmission([], 7));
+            $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission([], 7));
             self::fail('Expected InvalidInputSubmissionException');
         } catch (InvalidInputSubmissionException) {
             // expected
@@ -902,7 +903,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         // Unknown run.
         $this->expectException(RunNotAwaitingInputException::class);
-        $runtime->submitInput('unknown', new InputSubmission(['city' => 'Berlin'], 7));
+        $runtime->submitInput($this->actor(), 'unknown', new InputSubmission(['city' => 'Berlin'], 7));
     }
 
     #[Test]
@@ -918,7 +919,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
 
         $this->expectException(CorruptSuspendedStateException::class);
-        $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
     }
 
     #[Test]
@@ -928,12 +929,12 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
 
         // First submission wins the atomic claim and resumes.
-        $first = $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+        $first = $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
         self::assertSame(AgentRunOutcome::COMPLETED, $first->outcome);
 
         // A second submission (the fixture grants only the first claim) is refused.
         $this->expectException(RunAlreadyResumingException::class);
-        $runtime->submitInput('run-uuid-i', new InputSubmission(['city' => 'Hamburg'], 7));
+        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Hamburg'], 7));
     }
 
     #[Test]
@@ -941,7 +942,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $this->repository->findResult = $this->suspendedRun();
 
-        self::assertTrue($this->runtime($this->loopReturning($this->loopResult('x')))->cancel('run-uuid-1'));
+        self::assertTrue($this->runtime($this->loopReturning($this->loopResult('x')))->cancel($this->actor(), 'run-uuid-1'));
         self::assertNotNull($this->repository->finished);
         self::assertSame(AgentRunStatus::CANCELLED->value, $this->repository->finished['status']);
     }
@@ -951,7 +952,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
 
-        self::assertSame([], $runtime->events('unknown'));
+        self::assertSame([], $runtime->events($this->actor(), 'unknown'));
 
         $this->repository->findResult     = $this->suspendedRun();
         $this->repository->eventsToReturn = [
@@ -960,8 +961,8 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             new AgentRunEvent(3, 1, 2, 'tool', 1, 0.0, [], 0),
         ];
 
-        self::assertCount(3, $runtime->events('run-uuid-1'));
-        $paged = $runtime->events('run-uuid-1', 0);
+        self::assertCount(3, $runtime->events($this->actor(), 'run-uuid-1'));
+        $paged = $runtime->events($this->actor(), 'run-uuid-1', 0);
         self::assertCount(2, $paged);
         self::assertSame(1, $paged[0]->sequence);
     }
@@ -972,7 +973,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun();
         $runtime                      = $this->runtime($this->loopReturning($this->loopResult('x')));
 
-        $status = $runtime->status('run-uuid-1');
+        $status = $runtime->status($this->actor(), 'run-uuid-1');
 
         self::assertNotNull($status);
         self::assertSame('run-uuid-1', $status->uuid);
@@ -1112,6 +1113,48 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         );
 
         return $loop;
+    }
+
+    #[Test]
+    public function approveIsDeniedForANonOwnerNonAdmin(): void
+    {
+        // The run is owned by uid 9; a different, non-admin backend user must not
+        // approve it — a guessed uuid is never authorization (ADR-083).
+        $this->repository->findResult = $this->suspendedRun();
+
+        $this->expectException(RunAccessDeniedException::class);
+        $this->runtime($this->loopReturning($this->loopResult('x')))
+            ->approve(AiActorContext::backendUser(5), 'run-uuid-1', new ApprovalDecision(true, 5));
+    }
+
+    #[Test]
+    public function cancelIsDeniedForANonOwnerNonAdmin(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        // A stranger cannot cancel someone else's run: reported not-cancelled.
+        self::assertFalse(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->cancel(AiActorContext::backendUser(5), 'run-uuid-1'),
+        );
+    }
+
+    #[Test]
+    public function statusHidesARunFromANonOwnerNonAdmin(): void
+    {
+        $this->repository->findResult = $this->suspendedRun();
+
+        // Reading is scoped too: a stranger sees null, not another user's run.
+        self::assertNull(
+            $this->runtime($this->loopReturning($this->loopResult('x')))->status(AiActorContext::backendUser(5), 'run-uuid-1'),
+        );
+    }
+
+    private function actor(): AiActorContext
+    {
+        // Owner (uid 9, matching request()) AND admin -> always authorised, so the
+        // lifecycle assertions are not gated by mayActOnRun. Authorization itself
+        // is covered by dedicated cases.
+        return AiActorContext::backendUser(9, isAdmin: true);
     }
 
     private function request(?int $maxIterations = null): AgentRunRequest

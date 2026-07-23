@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
@@ -617,11 +618,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         return substr(($host !== false ? $host : 'unknown') . ':' . getmypid(), 0, 64);
     }
 
-    public function approve(string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult
+    public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
         if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
             throw RunNotAwaitingApprovalException::forRun($runUuid);
+        }
+        if (!$actor->mayActOnRun($run)) {
+            throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
 
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
@@ -694,11 +698,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         );
     }
 
-    public function submitInput(string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult
+    public function submitInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
         if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
             throw RunNotAwaitingInputException::forRun($runUuid);
+        }
+        if (!$actor->mayActOnRun($run)) {
+            throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
 
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
@@ -774,15 +781,22 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         );
     }
 
-    public function cancel(string $runUuid): bool
+    public function cancel(AiActorContext $actor, string $runUuid): bool
     {
+        // Authorised like approve/submitInput: only the run's owner, an admin or
+        // a service account may cancel it (a guessed uuid is never enough).
+        $run = $this->persister->findRun($runUuid);
+        if ($run === null || !$actor->mayActOnRun($run)) {
+            return false;
+        }
+
         return $this->persister->cancel($runUuid);
     }
 
-    public function events(string $runUuid, int $afterSequence = -1): array
+    public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null) {
+        if ($run === null || !$actor->mayActOnRun($run)) {
             return [];
         }
 
@@ -790,11 +804,16 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         return $this->persister->findEvents($run->uid, $afterSequence);
     }
 
-    public function status(string $runUuid): ?AgentRun
+    public function status(AiActorContext $actor, string $runUuid): ?AgentRun
     {
+        $run = $this->persister->findRun($runUuid);
+        if ($run === null || !$actor->mayActOnRun($run)) {
+            return null;
+        }
+
         // The raw suspended transcript bypasses the privacy filter (it must —
         // resume needs it verbatim); the status surface must not expose it.
-        return $this->persister->findRun($runUuid)?->withoutSuspendedState();
+        return $run->withoutSuspendedState();
     }
 
     /**

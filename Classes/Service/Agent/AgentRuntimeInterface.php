@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
 
@@ -96,7 +97,7 @@ interface AgentRuntimeInterface
      *                               RunConfigurationGone, CorruptSuspendedState,
      *                               RunStateUnavailable, RunAlreadyResuming
      */
-    public function approve(string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult;
+    public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult;
 
     /**
      * Submit typed input for a run suspended WAITING_FOR_INPUT (ADR-105) and
@@ -122,7 +123,7 @@ interface AgentRuntimeInterface
      *                               InvalidInputSubmission, RunStateUnavailable,
      *                               RunAlreadyResuming
      */
-    public function submitInput(string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult;
+    public function submitInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult;
 
     /**
      * Cancel a run that is still queued, running or awaiting a decision. True
@@ -136,7 +137,7 @@ interface AgentRuntimeInterface
      * to whoever drove the run. A step already in flight (a provider call, a
      * tool) runs to its boundary — cancellation is not a signal.
      */
-    public function cancel(string $runUuid): bool;
+    public function cancel(AiActorContext $actor, string $runUuid): bool;
 
     /**
      * The persisted event stream of a run, ordered by sequence ascending —
@@ -146,7 +147,7 @@ interface AgentRuntimeInterface
      *
      * @return list<AgentRunEvent>
      */
-    public function events(string $runUuid, int $afterSequence = -1): array;
+    public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array;
 
     /**
      * The persisted run row, or null when unknown. The suspended-state
@@ -154,5 +155,5 @@ interface AgentRuntimeInterface
      * the privacy filter every event goes through (ADR-064), so it is not
      * part of the status surface.
      */
-    public function status(string $runUuid): ?AgentRun;
+    public function status(AiActorContext $actor, string $runUuid): ?AgentRun;
 }
