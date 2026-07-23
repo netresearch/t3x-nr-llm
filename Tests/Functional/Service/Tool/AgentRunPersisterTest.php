@@ -153,6 +153,55 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function theQueuedRequestIsEncryptedAtRestAndTransparentlyDecrypted(): void
+    {
+        // ADR-114: the serialised request holds prompts and tool arguments; the
+        // stored column must be ciphertext, but reads return the plaintext.
+        $plaintext = '{"messages":[{"role":"user","content":"a private prompt"}]}';
+        $handle    = $this->persister->enqueue(null, 7, $plaintext);
+        self::assertNotNull($handle);
+
+        $stored = $this->rawColumn($handle->uuid, 'queued_request');
+        self::assertStringStartsWith('v1:', $stored, 'stored at rest as ciphertext');
+        self::assertStringNotContainsString('private prompt', $stored);
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame($plaintext, $run->queuedRequest, 'transparently decrypted on read');
+    }
+
+    #[Test]
+    public function aLegacyCleartextRowStillRehydrates(): void
+    {
+        // A run enqueued before encryption landed stored plaintext JSON. The
+        // read path returns it verbatim so the upgrade does not strand it.
+        $connection = $this->get(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun');
+        $connection->insert('tx_nrllm_agentrun', [
+            'uuid'           => 'legacy-uuid',
+            'status'         => 'queued',
+            'queued_request' => '{"messages":[]}',
+        ]);
+
+        $run = $this->repository->findByUuid('legacy-uuid');
+        self::assertNotNull($run);
+        self::assertSame('{"messages":[]}', $run->queuedRequest);
+    }
+
+    private function rawColumn(string $uuid, string $column): string
+    {
+        $queryBuilder = $this->get(ConnectionPool::class)->getQueryBuilderForTable('tx_nrllm_agentrun');
+        $queryBuilder->getRestrictions()->removeAll();
+        $value = $queryBuilder
+            ->select($column)
+            ->from('tx_nrllm_agentrun')
+            ->where($queryBuilder->expr()->eq('uuid', $queryBuilder->createNamedParameter($uuid)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_string($value) ? $value : '';
+    }
+
+    #[Test]
     public function aSuspensionClearsTheWorkerLease(): void
     {
         // ADR-102: the lease means "presumed executing until" — a run suspended

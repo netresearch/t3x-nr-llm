@@ -39,6 +39,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     public function __construct(
         private ConnectionPool $connectionPool,
+        private AgentStateCodec $stateCodec = new AgentStateCodec(),
     ) {}
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
@@ -90,7 +91,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'estimated_cost'           => 0.0,
             'error_class'              => '',
             'termination_reason'       => '',
-            'queued_request'           => $requestJson,
+            'queued_request'           => $this->stateCodec->encode($requestJson),
             'started_at'               => 0,
             'finished_at'              => 0,
             'tstamp'                   => $now,
@@ -244,7 +245,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             self::TABLE_RUN,
             [
                 'status'          => $target->value,
-                'suspended_state' => $stateJson,
+                'suspended_state' => $this->stateCodec->encode($stateJson),
                 'claimed_by'      => '',
                 'lease_expires'   => 0,
                 'tstamp'          => time(),
@@ -734,7 +735,16 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      */
     private function suspendedStateOf(mixed $value): ?string
     {
-        return is_string($value) && $value !== '' ? $value : null;
+        if (!is_string($value) || $value === '') {
+            return null;
+        }
+
+        // Decrypt at the read boundary (ADR-114). A tampered or unreadable
+        // payload throws {@see AgentStateDecryptionException}; the fail-soft
+        // read path treats it as an unresumable run rather than a forged state.
+        $decoded = $this->stateCodec->decode($value);
+
+        return $decoded !== '' ? $decoded : null;
     }
 
     /**
