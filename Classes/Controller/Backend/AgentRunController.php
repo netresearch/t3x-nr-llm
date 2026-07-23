@@ -124,6 +124,7 @@ final class AgentRunController extends ActionController
 
         try {
             $result = $this->agentRuntime->approve(
+                $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approve, $this->currentBackendUserUid()),
             );
@@ -169,6 +170,7 @@ final class AgentRunController extends ActionController
 
         try {
             $result = $this->agentRuntime->submitInput(
+                $this->currentActor(),
                 $runUuid,
                 new InputSubmission($data, $this->currentBackendUserUid()),
             );

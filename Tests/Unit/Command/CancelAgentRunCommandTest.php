@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
 use Netresearch\NrLlm\Command\CancelAgentRunCommand;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -24,7 +25,7 @@ final class CancelAgentRunCommandTest extends TestCase
     public function cancelsARunThroughTheRuntimeAndReportsSuccess(): void
     {
         $runtime = $this->createMock(AgentRuntimeInterface::class);
-        $runtime->expects(self::once())->method('cancel')->with('run-uuid-1')->willReturn(true);
+        $runtime->expects(self::once())->method('cancel')->with(self::isInstanceOf(AiActorContext::class), 'run-uuid-1')->willReturn(true);
 
         $tester = new CommandTester(new CancelAgentRunCommand($runtime));
         $exit   = $tester->execute(['uuid' => 'run-uuid-1']);

@@ -226,6 +226,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         try {
             $result = $this->agentRuntime->approve(
+                $this->currentActor(),
                 $runUuid,
                 new ApprovalDecision($approved, $this->currentBackendUserUid()),
             );
@@ -262,6 +263,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         try {
             $result = $this->agentRuntime->submitInput(
+                $this->currentActor(),
                 $runUuid,
                 new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid()),
             );
