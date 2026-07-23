@@ -412,3 +412,4 @@ Tools
    Adr112LeaseBeforeOpWriteFence
    Adr113FailClosedToolDataClassEnforcement
    Adr114EncryptAgentStateAtRest
+   Adr115EnforceByDefaultForNewInstalls
