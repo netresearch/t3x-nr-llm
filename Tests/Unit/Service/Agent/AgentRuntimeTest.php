@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -545,7 +546,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             options: (new ToolOptions(temperature: 0.5, plannedCost: 1.25))->withIdempotencyKey('idem-1'),
             maxIterations: 50,
             captureRaw: true,
-            beUserUid: 9,
+            actor: AiActorContext::backendUser(9),
         ));
 
         $this->repository->findResult = $this->queuedRun($uuid, $this->repository->enqueuedRuns[0]['requestJson']);
@@ -1112,7 +1113,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             configuration: new LlmConfiguration(),
             messages: [ChatMessage::user('go')],
             maxIterations: $maxIterations,
-            beUserUid: 9,
+            actor: AiActorContext::backendUser(9),
         );
     }
 

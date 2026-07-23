@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -521,6 +522,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new AgentRunRequest(
                 configuration: $config,
                 messages: [ChatMessage::user('analyse the logs')],
+                actor: AiActorContext::anonymous(),
                 allowedToolNames: ['fetch_logs'],
                 options: new ToolOptions(),
             ),
@@ -635,6 +637,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             new AgentRunRequest(
                 configuration: $config,
                 messages: [ChatMessage::user('do it')],
+                actor: AiActorContext::anonymous(),
                 allowedToolNames: ['fetch_logs'],
                 options: new ToolOptions(),
             ),

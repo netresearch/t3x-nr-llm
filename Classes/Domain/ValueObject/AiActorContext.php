@@ -65,6 +65,29 @@ final readonly class AiActorContext
         return new self(0, false, [], null);
     }
 
+    /**
+     * Rebuild an actor from its {@see toArray()} form when a queued run is
+     * rehydrated in a worker (ADR-102/083), so the worker acts with the same
+     * identity that enqueued the work rather than the ambient (absent) BE user.
+     * Every field degrades to its least-privileged default, so a malformed or
+     * truncated row can never yield a MORE privileged actor than was stored.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $uid            = $data['backendUserUid'] ?? 0;
+        $groupIds       = $data['backendGroupIds'] ?? [];
+        $serviceAccount = $data['serviceAccount'] ?? null;
+
+        return new self(
+            is_int($uid) ? $uid : 0,
+            ($data['isAdmin'] ?? false) === true,
+            is_array($groupIds) ? array_values(array_filter($groupIds, is_int(...))) : [],
+            is_string($serviceAccount) && $serviceAccount !== '' ? $serviceAccount : null,
+        );
+    }
+
     public function isServiceAccount(): bool
     {
         return $this->serviceAccount !== null;
@@ -103,5 +126,21 @@ final readonly class AiActorContext
         }
 
         return 'an unauthenticated caller';
+    }
+
+    /**
+     * The serialised form persisted with a queued run so a worker can restore
+     * the full actor (not just a backend-user id) via {@see fromArray()}.
+     *
+     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null}
+     */
+    public function toArray(): array
+    {
+        return [
+            'backendUserUid'  => $this->backendUserUid,
+            'isAdmin'         => $this->isAdmin,
+            'backendGroupIds' => $this->backendGroupIds,
+            'serviceAccount'  => $this->serviceAccount,
+        ];
     }
 }

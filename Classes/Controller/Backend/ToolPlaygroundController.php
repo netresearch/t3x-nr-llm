@@ -192,7 +192,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 dryRun: $dryRun,
             ),
             captureRaw: $captureRaw,
-            beUserUid: $this->currentBackendUserUid(),
+            actor: $this->currentActor(),
         );
 
         // Live path: stream each recorded step to the browser as it happens.
