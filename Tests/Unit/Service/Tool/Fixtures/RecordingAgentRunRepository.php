@@ -35,7 +35,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var list<array{runUid: int, sequence: int, kind: string, round: int, durationMs: float, payloadJson: string}> */
     public array $events = [];
 
-    /** @var array{runUid: int, status: string, iterations: int, truncated: bool, promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: float, errorClass: string, terminationReason: string}|null */
+    /** @var array{runUid: int, status: string, iterations: int, truncated: bool, promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: float, errorClass: string, terminationReason: string, ownedBy: string|null}|null */
     public ?array $finished = null;
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
@@ -79,6 +79,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         float $estimatedCost,
         string $errorClass,
         string $terminationReason = '',
+        ?string $ownedBy = null,
     ): bool {
         if ($this->throwOnFinish) {
             throw new RuntimeException('finishRun failed', 7543565687);
@@ -97,6 +98,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             'estimatedCost'    => $estimatedCost,
             'errorClass'         => $errorClass,
             'terminationReason'  => $terminationReason,
+            'ownedBy'            => $ownedBy,
         ];
 
         return true;

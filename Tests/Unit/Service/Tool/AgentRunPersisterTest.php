@@ -245,7 +245,7 @@ final class AgentRunPersisterTest extends TestCase
         $repository               = new RecordingAgentRunRepository();
         $repository->refuseFinish = true;
         $logger                   = $this->createMock(LoggerInterface::class);
-        $logger->expects(self::once())->method('notice')->with(self::stringContains('already settled'), self::anything());
+        $logger->expects(self::once())->method('notice')->with(self::stringContains('was not settled by this call'), self::anything());
 
         $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), $logger);
         $persister->settleCompleted(new AgentRunHandle(1, 'uuid'), new ToolLoopResult('', [], 1, false, UsageStatistics::fromTokens(0, 0)));
