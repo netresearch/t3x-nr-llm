@@ -1,4 +1,4 @@
 # Pinned for a reproducible image (spike). torch resolves to the CPU wheel via the
 # Dockerfile's --extra-index-url .../whl/cpu. Refresh deliberately, not on every build.
 torch==2.13.0
-sentence-transformers==5.6.0
+sentence-transformers==5.6.1
