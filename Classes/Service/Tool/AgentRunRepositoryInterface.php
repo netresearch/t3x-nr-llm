@@ -51,6 +51,7 @@ interface AgentRunRepositoryInterface
         float $estimatedCost,
         string $errorClass,
         string $terminationReason = '',
+        ?string $ownedBy = null,
     ): bool;
 
     /**

@@ -255,7 +255,14 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // dead-letter immediately, distinct from PROVIDER_FAILED so it never
             // reads as retryable.
             if (!$class->isRetryable()) {
-                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE);
+                // Ownership-guarded like the requeue branch below: if this worker
+                // no longer owns the run (reaper reclaimed it), do NOT settle —
+                // return LEASE_LOST and leave the row to its current owner.
+                if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE, $workerIdentity)) {
+                    $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
+                }
                 $this->logger?->warning('Queued agent run failed with a non-retryable error; dead-lettered', ['run' => $runUuid, 'class' => $class->value]);
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
@@ -266,7 +273,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $currentRun = $this->persister->findRun($runUuid);
             $count      = $currentRun instanceof AgentRun ? $currentRun->requeueCount : -1;
             if ($count < 0 || $count >= self::MAX_REQUEUES) {
-                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED);
+                if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity)) {
+                    $this->logger?->notice('Queued agent run could not be dead-lettered (ownership lost or already terminal); leaving it untouched', ['run' => $runUuid]);
+
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
+                }
                 $this->logger?->warning('Queued agent run exhausted its retry budget; dead-lettered', ['run' => $runUuid, 'requeueCount' => $count]);
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
@@ -293,7 +304,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         } catch (Throwable $internal) {
             $this->logger?->error('Queued agent run recovery failed; dead-lettering', ['run' => $runUuid, 'exception' => $internal]);
             try {
-                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED);
+                $this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::RETRIES_EXHAUSTED, $workerIdentity);
             } catch (Throwable) {
                 // The persister is itself fail-soft; nothing more can be done.
             }
@@ -359,6 +370,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
                 $request->augmentation,
             ),
             $recover,
+            $leaseOwner,
         );
     }
 
@@ -822,7 +834,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
      * @param Closure(): ToolLoopResult                                 $loopCall
      * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
      */
-    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null): AgentRunResult
+    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null, ?string $ownerGuard = null): AgentRunResult
     {
         $runUuid = $handle !== null ? $handle->uuid : '';
         $settled = false;
@@ -831,7 +843,15 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $result = $loopCall();
 
             if ($handle !== null) {
-                $this->persister->settleCompleted($handle, $result);
+                $settledOk = $this->persister->settleCompleted($handle, $result, $ownerGuard);
+                // Ownership-guarded on the queued path: if the run was reclaimed
+                // to another worker mid-loop, this completion must not overwrite
+                // its state — stop as LEASE_LOST rather than reporting COMPLETED.
+                if ($ownerGuard !== null && !$settledOk) {
+                    $settled = true;
+
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
+                }
             }
             $settled = true;
 
@@ -880,7 +900,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // re-suspension AND announced awaiting-approval for unpersisted
             // runs).
             if ($handle !== null) {
-                $this->persister->settleFailed($handle, $approval);
+                // Ownership-guarded so a reclaimed queued run is not clobbered by
+                // this worker's fail-closed settle.
+                $this->persister->settleFailed($handle, $approval, $ownerGuard);
             }
             $this->logger?->error('Agent run could not be suspended for approval; no resume is possible', ['run' => $runUuid]);
 
@@ -914,7 +936,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // run was never persisted (null handle) — there is nothing to resume,
             // so promising an input flow would strand the client.
             if ($handle !== null) {
-                $this->persister->settleFailed($handle, $input);
+                // Ownership-guarded so a reclaimed queued run is not clobbered by
+                // this worker's fail-closed settle.
+                $this->persister->settleFailed($handle, $input, $ownerGuard);
             }
             $this->logger?->error('Agent run could not be suspended for input; no resume is possible', ['run' => $runUuid]);
 
@@ -929,13 +953,23 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // failure — and an approval that was required but never obtained
             // is not recorded as an outright denial (ADR-092).
             if ($handle !== null) {
-                $this->persister->settlePolicyStopped(
+                $settledOk = $this->persister->settlePolicyStopped(
                     $handle,
                     $guardrail,
                     $guardrail instanceof GuardrailApprovalRequiredException
                         ? AgentRunTerminationReason::APPROVAL_DENIED
                         : AgentRunTerminationReason::POLICY_DENIED,
+                    $ownerGuard,
                 );
+                // Ownership-guarded on the queued path: a run reclaimed to
+                // another worker must not be flipped to a policy-stopped terminal
+                // by this zombie worker — stop as LEASE_LOST.
+                if ($ownerGuard !== null && !$settledOk) {
+                    $settled = true;
+                    $this->logger?->notice('Guardrail-stopped queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
+
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
+                }
             }
             $settled = true;
             $this->logger?->warning('Agent run blocked by guardrail', ['exception' => $guardrail, 'run' => $runUuid]);
@@ -978,7 +1012,13 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             }
 
             if ($handle !== null) {
-                $this->persister->settleFailed($handle, $e);
+                $settledOk = $this->persister->settleFailed($handle, $e, $ownerGuard);
+                if ($ownerGuard !== null && !$settledOk) {
+                    $settled = true;
+                    $this->logger?->notice('Failed queued run was reclaimed; leaving it to its new owner', ['run' => $runUuid]);
+
+                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
+                }
             }
             $settled = true;
             $this->logger?->error('Agent run failed', ['exception' => $e, 'run' => $runUuid]);
@@ -997,7 +1037,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             // WAITING_FOR_APPROVAL or WAITING_FOR_INPUT — both non-terminal — and
             // settling it here would destroy its resumable state.
             if ($handle !== null && !$settled) {
-                $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'));
+                // Ownership-guarded so this safety-net settle cannot clobber a
+                // queued run the reaper reclaimed to another worker.
+                $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);
             }
         }
     }

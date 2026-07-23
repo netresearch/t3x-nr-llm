@@ -152,6 +152,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         float $estimatedCost,
         string $errorClass,
         string $terminationReason = '',
+        ?string $ownedBy = null,
     ): bool {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
         $builder    = $connection->createQueryBuilder();
@@ -160,6 +161,22 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         // Guarded transition: only a non-terminal run may be settled. Without the
         // predicate a late callback could reopen or overwrite a finished run —
         // COMPLETED -> RUNNING -> COMPLETED with different totals (ADR-092).
+        $predicates = [
+            $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
+            $builder->expr()->in(
+                'status',
+                $builder->createNamedParameter(AgentRunStatus::nonTerminalValues(), Connection::PARAM_STR_ARRAY),
+            ),
+        ];
+        // Ownership guard for the queued-worker path (ADR-104): a slow worker
+        // whose lease expired and whose run the reaper reclaimed to another
+        // worker must NOT settle it — that would destroy the new owner's
+        // in-flight state. A null $ownedBy (the interactive run/approve path,
+        // which holds no lease) keeps the transition ownership-agnostic.
+        if ($ownedBy !== null) {
+            $predicates[] = $builder->expr()->eq('claimed_by', $builder->createNamedParameter($ownedBy));
+        }
+
         $affected = $builder
             ->update(self::TABLE_RUN)
             ->set('status', $status)
@@ -178,13 +195,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
             ->set('finished_at', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
             ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false)
-            ->where(
-                $builder->expr()->eq('uid', $builder->createNamedParameter($runUid, Connection::PARAM_INT)),
-                $builder->expr()->in(
-                    'status',
-                    $builder->createNamedParameter(AgentRunStatus::nonTerminalValues(), Connection::PARAM_STR_ARRAY),
-                ),
-            )
+            ->where(...$predicates)
             ->executeStatement();
 
         return $affected > 0;

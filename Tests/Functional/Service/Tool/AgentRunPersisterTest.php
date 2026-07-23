@@ -400,6 +400,61 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anOwnershipGuardedSettleDoesNotClobberARunReclaimedByAnotherWorker(): void
+    {
+        // ADR-104: worker A claims a queued run whose lease then expires; the
+        // reaper reclaims it and worker B re-claims it. Worker A's late,
+        // ownership-guarded settle must be REFUSED so it cannot overwrite B's
+        // in-flight run (a >lease-length hung provider call is the trigger).
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+
+        // Worker A claims with an already-expired lease (100), so the reaper
+        // (now=200) finds it stale and reclaims it (RUNNING -> QUEUED, unclaimed).
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', 100));
+        self::assertTrue($this->persister->requeueStale($run, 200));
+
+        // Worker B re-claims the requeued run.
+        $requeued = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($requeued);
+        self::assertTrue($this->persister->claimQueued($requeued, 'worker-b:2', time() + 60));
+
+        // Worker A's late settle, guarded by A's identity, is refused.
+        self::assertFalse(
+            $this->persister->settleDeadLettered($handle, new RuntimeException('late A'), AgentRunTerminationReason::NOT_RETRYABLE, 'worker-a:1'),
+        );
+        $afterA = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($afterA);
+        self::assertSame('running', $afterA->status);      // not clobbered to failed
+        self::assertSame('worker-b:2', $afterA->claimedBy); // worker B still owns it
+
+        // Worker B's own guarded settle succeeds.
+        self::assertTrue(
+            $this->persister->settleDeadLettered($handle, new RuntimeException('done B'), AgentRunTerminationReason::NOT_RETRYABLE, 'worker-b:2'),
+        );
+        $final = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($final);
+        self::assertSame('failed', $final->status);
+    }
+
+    #[Test]
+    public function anInteractiveSettleWithoutAnOwnerGuardStillSettles(): void
+    {
+        // The interactive run/approve path holds no lease; its settle passes a
+        // null owner guard and must stay ownership-agnostic (unchanged).
+        $handle = $this->persister->begin(null, 0);
+        self::assertNotNull($handle);
+
+        self::assertTrue($this->persister->settleFailed($handle, new RuntimeException('boom')));
+
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertSame('failed', $run->status);
+    }
+
+    #[Test]
     public function purgeClearsMoreThanOneChunkOfRunsAndLeavesFreshOnes(): void
     {
         // The purge selects AND deletes in bounded chunks so it never

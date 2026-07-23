@@ -39,7 +39,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         // Not needed by the command tests.
     }
 
-    /** @var list<array{runUid: int, status: string, errorClass: string, terminationReason: string}> */
+    /** @var list<array{runUid: int, status: string, errorClass: string, terminationReason: string, ownedBy: string|null}> */
     public array $finished = [];
 
     public function finishRun(
@@ -53,8 +53,9 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         float $estimatedCost,
         string $errorClass,
         string $terminationReason = '',
+        ?string $ownedBy = null,
     ): bool {
-        $this->finished[] = ['runUid' => $runUid, 'status' => $status, 'errorClass' => $errorClass, 'terminationReason' => $terminationReason];
+        $this->finished[] = ['runUid' => $runUid, 'status' => $status, 'errorClass' => $errorClass, 'terminationReason' => $terminationReason, 'ownedBy' => $ownedBy];
 
         return true;
     }

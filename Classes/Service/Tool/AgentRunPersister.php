@@ -188,9 +188,9 @@ final readonly class AgentRunPersister
      * an iteration cap and an exhausted budget both truncate and are otherwise
      * indistinguishable in the stored row.
      */
-    public function settleCompleted(AgentRunHandle $handle, ToolLoopResult $result): void
+    public function settleCompleted(AgentRunHandle $handle, ToolLoopResult $result, ?string $ownedBy = null): bool
     {
-        $this->finish(
+        return $this->finish(
             $handle,
             AgentRunStatus::COMPLETED,
             $result->iterations,
@@ -201,6 +201,7 @@ final readonly class AgentRunPersister
             $result->usage->estimatedCost ?? 0.0,
             '',
             $result->terminationReason,
+            $ownedBy,
         );
     }
 
@@ -209,9 +210,9 @@ final readonly class AgentRunPersister
      * exhausted every fallback, or an unexpected error). The exception FQCN is
      * stored; the message is never persisted (it can carry payload fragments).
      */
-    public function settleFailed(AgentRunHandle $handle, Throwable $error): void
+    public function settleFailed(AgentRunHandle $handle, Throwable $error, ?string $ownedBy = null): bool
     {
-        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, AgentRunTerminationReason::PROVIDER_FAILED);
+        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, AgentRunTerminationReason::PROVIDER_FAILED, $ownedBy);
     }
 
     /**
@@ -220,9 +221,9 @@ final readonly class AgentRunPersister
      * an outage — and an approval that was required but never obtained is not
      * read as a denial.
      */
-    public function settlePolicyStopped(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason): void
+    public function settlePolicyStopped(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason, ?string $ownedBy = null): bool
     {
-        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason);
+        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason, $ownedBy);
     }
 
     /**
@@ -232,18 +233,18 @@ final readonly class AgentRunPersister
      * retrying). Distinct from {@see self::settleFailed()}, whose PROVIDER_FAILED
      * reason is retryable; a dead-letter terminus must not read as retryable.
      */
-    public function settleDeadLettered(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason): void
+    public function settleDeadLettered(AgentRunHandle $handle, Throwable $error, AgentRunTerminationReason $reason, ?string $ownedBy = null): bool
     {
-        $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason);
+        return $this->finish($handle, AgentRunStatus::FAILED, 0, false, 0, 0, 0, 0.0, $error::class, $reason, $ownedBy);
     }
 
     /**
      * Settle a run an operator cancelled. Distinct from a failure: nothing went
      * wrong, somebody stopped it.
      */
-    public function settleCancelled(AgentRunHandle $handle): void
+    public function settleCancelled(AgentRunHandle $handle, ?string $ownedBy = null): bool
     {
-        $this->finish($handle, AgentRunStatus::CANCELLED, 0, false, 0, 0, 0, 0.0, '', AgentRunTerminationReason::CANCELLED);
+        return $this->finish($handle, AgentRunStatus::CANCELLED, 0, false, 0, 0, 0, 0.0, '', AgentRunTerminationReason::CANCELLED, $ownedBy);
     }
 
     /**
@@ -587,7 +588,8 @@ final readonly class AgentRunPersister
         float $estimatedCost,
         string $errorClass,
         AgentRunTerminationReason $reason,
-    ): void {
+        ?string $ownedBy = null,
+    ): bool {
         try {
             $transitioned = $this->repository->finishRun(
                 $handle->runUid,
@@ -600,19 +602,27 @@ final readonly class AgentRunPersister
                 $estimatedCost,
                 $errorClass,
                 $reason->value,
+                $ownedBy,
             );
 
             if (!$transitioned) {
-                // The run was already terminal: a duplicate or late settle. The
-                // guard kept the first outcome, which is the correct one.
-                $this->logger?->notice('AgentRun was already settled; the later outcome was discarded', [
+                // Not settled by this call: the run was already terminal (a
+                // duplicate/late settle — the first, correct outcome was kept),
+                // or, on the ownership-guarded queued path, this worker no longer
+                // owns it (the reaper reclaimed it to another worker). Either way
+                // the caller must not report a terminal outcome it did not write.
+                $this->logger?->notice('AgentRun was not settled by this call (already terminal or ownership lost)', [
                     'run'    => $handle->uuid,
                     'status' => $status->value,
                     'reason' => $reason->value,
                 ]);
             }
+
+            return $transitioned;
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be settled', ['exception' => $exception]);
+
+            return false;
         }
     }
 }
