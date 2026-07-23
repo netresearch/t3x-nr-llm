@@ -411,3 +411,4 @@ Tools
    Adr111ToolEffectAndWriteAudit
    Adr112LeaseBeforeOpWriteFence
    Adr113FailClosedToolDataClassEnforcement
+   Adr114EncryptAgentStateAtRest
