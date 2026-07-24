@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -162,6 +163,7 @@ final readonly class TranslationService implements TranslationServiceInterface
             $sourceLanguage,
             $options,
             1719410501,
+            $configuration,
         );
 
         $messages = [
@@ -170,14 +172,7 @@ final readonly class TranslationService implements TranslationServiceInterface
 
         // Budget metadata for chatWithConfiguration's pipeline (ADR-052):
         // absent keys mean "skip the check", matching the middleware contract.
-        $metadata = [];
-        $beUserUid = $this->resolveBeUserUid($options);
-        if ($beUserUid !== null) {
-            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
-        }
-        if ($options->getPlannedCost() !== null) {
-            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
-        }
+        $metadata = $this->budgetMetadata($options);
 
         // Only forward set generation knobs; unset ones let the configuration's
         // stored defaults apply. Provider is omitted — the configuration owns it.
@@ -246,6 +241,28 @@ final readonly class TranslationService implements TranslationServiceInterface
     }
 
     /**
+     * Budget-relevant pipeline metadata for a chatWithConfiguration() sub-call:
+     * the BE-user uid and planned cost when present. Absent keys mean "skip the
+     * check", matching the middleware contract (ADR-052).
+     *
+     * @return array<string, mixed>
+     */
+    private function budgetMetadata(TranslationOptions $options): array
+    {
+        $metadata  = [];
+        $beUserUid = $this->resolveBeUserUid($options);
+        if ($beUserUid !== null) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
+
+        if ($options->getPlannedCost() !== null) {
+            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $options->getPlannedCost();
+        }
+
+        return $metadata;
+    }
+
+    /**
      * Shared language-detection implementation.
      *
      * @param bool $countsAsRequest false when detection runs as the internal
@@ -257,23 +274,42 @@ final readonly class TranslationService implements TranslationServiceInterface
      *
      * @return string Language code (ISO 639-1)
      */
-    private function runLanguageDetection(string $text, TranslationOptions $options, bool $countsAsRequest): string
+    private function runLanguageDetection(string $text, TranslationOptions $options, bool $countsAsRequest, ?LlmConfiguration $configuration = null): string
     {
         $messages = [
             ChatMessage::system('You are a language detection expert. Respond with ONLY the ISO 639-1 language code (e.g., "en", "de", "fr"). No explanation.'),
             ChatMessage::user("Detect the language of this text:\n\n" . $text),
         ];
 
-        $chatOptions = (new ChatOptions(
-            temperature: 0.1,
-            maxTokens: 10,
-            provider: $options->getProvider(),
-            model: $options->getModel(),
-            beUserUid: $this->resolveBeUserUid($options),
-            plannedCost: $options->getPlannedCost(),
-        ))->withSuppressRequestCount(!$countsAsRequest);
+        // A configuration-driven translation detects the source language through
+        // the SAME configuration it was passed, so it never needs a global default
+        // to be marked just to auto-detect (issue #520). Only the generic
+        // translate() path (no configuration) uses the default-resolving chat()
+        // entry point. Suppression is carried as pipeline metadata (issue #473).
+        if ($configuration !== null) {
+            $metadata = $this->budgetMetadata($options);
+            if (!$countsAsRequest) {
+                $metadata[UsageMiddleware::METADATA_SKIP_REQUEST_COUNT] = true;
+            }
 
-        $response = $this->llmManager->chat($messages, $chatOptions);
+            $response = $this->llmManager->chatWithConfiguration(
+                $messages,
+                $configuration,
+                $metadata,
+                ['temperature' => 0.1, 'max_tokens' => 10],
+            );
+        } else {
+            $chatOptions = (new ChatOptions(
+                temperature: 0.1,
+                maxTokens: 10,
+                provider: $options->getProvider(),
+                model: $options->getModel(),
+                beUserUid: $this->resolveBeUserUid($options),
+                plannedCost: $options->getPlannedCost(),
+            ))->withSuppressRequestCount(!$countsAsRequest);
+
+            $response = $this->llmManager->chat($messages, $chatOptions);
+        }
 
         $detectedLang = trim(strtolower($response->content));
 
@@ -521,6 +557,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?string $sourceLanguage,
         TranslationOptions $options,
         int $emptyTextErrorCode,
+        ?LlmConfiguration $configuration = null,
     ): array {
         if (empty($text)) {
             throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, $emptyTextErrorCode);
@@ -534,7 +571,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         // internal step of the translation, so it records its tokens/cost but
         // does not count as a separate request (issue #473 double-count).
         if ($sourceLanguage === null) {
-            $sourceLanguage = $this->runLanguageDetection($text, $options, false);
+            $sourceLanguage = $this->runLanguageDetection($text, $options, false, $configuration);
         } else {
             $this->validateLanguageCode($sourceLanguage);
         }
