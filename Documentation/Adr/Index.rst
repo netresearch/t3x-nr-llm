@@ -413,3 +413,4 @@ Tools
    Adr113FailClosedToolDataClassEnforcement
    Adr114EncryptAgentStateAtRest
    Adr115EnforceByDefaultForNewInstalls
+   Adr116CentralToolingAuthority
