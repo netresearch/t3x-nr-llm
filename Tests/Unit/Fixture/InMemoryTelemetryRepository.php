@@ -48,4 +48,20 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
 
         return $this->purgeReturns;
     }
+
+    /** Value returned by successRatePercent(), regardless of $since. */
+    public int $successRatePercentReturns = 0;
+
+    /** Value returned by averageLatencyMs(), regardless of $since. */
+    public int $averageLatencyMsReturns = 0;
+
+    public function successRatePercent(int $since): int
+    {
+        return $this->successRatePercentReturns;
+    }
+
+    public function averageLatencyMs(int $since): int
+    {
+        return $this->averageLatencyMsReturns;
+    }
 }

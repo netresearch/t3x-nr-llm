@@ -808,3 +808,73 @@ CREATE TABLE tx_nrllm_ai_session_message (
     -- concurrent turns owns a sequence (ADR-083).
     UNIQUE KEY session_sequence (session, sequence)
 );
+
+#
+# Table structure for table 'tx_nrllm_governance_event'
+# Append-only governance/tool-decision audit trail. One row per denied or
+# gated decision: a guardrail DENY/REQUIRE_APPROVAL, a provider content-filter
+# block, or a tool-gate denial. Closes the gap that these outcomes were only
+# reflected on a run (termination_reason) or logged, never queryable. Written
+# only by GovernanceEventRepository::record() (INSERT); no update/delete path.
+# No TCA, no soft-delete, no tstamp -- crdate is the immutable event time.
+# Growth is bounded by a nrllm:governance:purge command (mirrors telemetry).
+#
+CREATE TABLE tx_nrllm_governance_event (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Immutable event time (append-only; no tstamp).
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Trace correlation (UUID v4, 36 chars) -- links a middleware-origin row to
+    -- the telemetry row and, via the run's correlation, to its agent run.
+    correlation_id varchar(36) DEFAULT '' NOT NULL,
+
+    -- What kind of decision: tool_denied | response_blocked | approval_required | content_filter
+    decision varchar(32) DEFAULT '' NOT NULL,
+
+    -- Why, as a raw enum value: ToolDenialReason (notRegistered/toolDisabled/
+    -- requiresAdmin/configurationGroup/trustZone), GuardrailVerdict (deny/
+    -- require_approval), or the 'content_filter' literal -- see the
+    -- decision->reason mapping in the write points.
+    reason varchar(64) DEFAULT '' NOT NULL,
+
+    -- Provider context (strings, like telemetry -- resolved from the response /
+    -- context, '' when unknown at the write point).
+    provider varchar(64) DEFAULT '' NOT NULL,
+    model varchar(128) DEFAULT '' NOT NULL,
+    configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+
+    -- Attribution (backend user; 0 for CLI/scheduler/unauthenticated).
+    be_user int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- The tool this decision was about; '' for guardrail/content_filter rows.
+    tool_name varchar(190) DEFAULT '' NOT NULL,
+
+    -- The agent run this decision belongs to; 0 when not available at the write
+    -- point (the guardrail middleware and the tool gate both run below the run
+    -- identity -- correlation_id links a guardrail row instead).
+    agentrun_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- The deciding guardrail FQCN for guardrail/content_filter rows ('' for
+    -- tool_denied). Class name only -- never the reason string's payload
+    -- fragments, matching telemetry's error_class privacy stance.
+    guardrail varchar(255) DEFAULT '' NOT NULL,
+
+    -- Optional short policy detail (trust zone, ceiling, ...). NEVER tool
+    -- arguments/output or response content (ADR-064 privacy).
+    detail text,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- Purge + time-range analytics scan by crdate only.
+    KEY crdate (crdate),
+    -- "governance blocks over time", broken down by kind.
+    KEY decision_lookup (decision, crdate),
+    -- "tool denials by reason" / "guardrail denials by reason".
+    KEY reason_lookup (decision, reason, crdate),
+    -- "tool usage/denials by tool_name".
+    KEY tool_lookup (tool_name, crdate),
+    -- Join a middleware-origin row to its trace.
+    KEY correlation (correlation_id)
+);

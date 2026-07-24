@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -220,6 +222,84 @@ final class GuardrailMiddlewareTest extends TestCase
 
         self::assertInstanceOf(CompletionResponse::class, $result);
         self::assertSame('hello', $result->content);
+    }
+
+    #[Test]
+    public function denyRecordsAResponseBlockedGovernanceEvent(): void
+    {
+        $recorder   = new InMemoryGovernanceEventRepository();
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))], governanceEvents: $recorder);
+
+        try {
+            $this->screen($middleware, fn(): CompletionResponse => $this->response('bad'));
+            self::fail('Expected a GuardrailViolationException.');
+        } catch (GuardrailViolationException) {
+            // expected — the record happens before the throw.
+        }
+
+        self::assertCount(1, $recorder->recorded);
+        $event = $recorder->recorded[0];
+        self::assertSame(GovernanceDecision::RESPONSE_BLOCKED->value, $event->decision);
+        self::assertSame('deny', $event->reason);
+        self::assertSame('blocked', $event->detail);
+        self::assertSame('', $event->toolName);
+        self::assertSame(0, $event->agentrunUid);
+        self::assertNotSame('', $event->guardrail, 'The deciding guardrail FQCN is recorded.');
+    }
+
+    #[Test]
+    public function aProviderFilteredDenyIsTaggedContentFilter(): void
+    {
+        $recorder   = new InMemoryGovernanceEventRepository();
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('filtered by provider'))], governanceEvents: $recorder);
+
+        $filtered = fn(): CompletionResponse => new CompletionResponse('bad', 'test-model', UsageStatistics::fromTokens(1, 1), 'content_filter');
+
+        try {
+            $this->screen($middleware, $filtered);
+            self::fail('Expected a GuardrailViolationException.');
+        } catch (GuardrailViolationException) {
+            // expected
+        }
+
+        self::assertCount(1, $recorder->recorded);
+        self::assertSame(GovernanceDecision::CONTENT_FILTER->value, $recorder->recorded[0]->decision);
+        self::assertSame(GovernanceDecision::CONTENT_FILTER->value, $recorder->recorded[0]->reason);
+    }
+
+    #[Test]
+    public function requireApprovalRecordsAnApprovalRequiredEvent(): void
+    {
+        $recorder   = new InMemoryGovernanceEventRepository();
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::requireApproval('needs review'))], governanceEvents: $recorder);
+
+        try {
+            $this->screen($middleware, fn(): CompletionResponse => $this->response('maybe'));
+            self::fail('Expected a GuardrailApprovalRequiredException.');
+        } catch (GuardrailApprovalRequiredException) {
+            // expected
+        }
+
+        self::assertCount(1, $recorder->recorded);
+        self::assertSame(GovernanceDecision::APPROVAL_REQUIRED->value, $recorder->recorded[0]->decision);
+        self::assertSame('require_approval', $recorder->recorded[0]->reason);
+    }
+
+    #[Test]
+    public function aVisionDenyRecordsAGovernanceEvent(): void
+    {
+        $recorder   = new InMemoryGovernanceEventRepository();
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))], governanceEvents: $recorder);
+
+        try {
+            $this->screen($middleware, static fn(): VisionResponse => new VisionResponse('bad', 'm', UsageStatistics::fromTokens(1, 1)));
+            self::fail('Expected a GuardrailViolationException.');
+        } catch (GuardrailViolationException) {
+            // expected
+        }
+
+        self::assertCount(1, $recorder->recorded);
+        self::assertSame(GovernanceDecision::RESPONSE_BLOCKED->value, $recorder->recorded[0]->decision);
     }
 
     /**

@@ -49,6 +49,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_ai_session_message',
         'tx_nrllm_agentrun',
         'tx_nrllm_agentrun_event',
+        'tx_nrllm_governance_event',
     ];
 
     /**
@@ -243,6 +244,22 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
 
         $connectionPool->getConnectionForTable('tx_nrllm_agentrun_event')
             ->insert('tx_nrllm_agentrun_event', $this->eventRow($runUid, $timestamp));
+
+        $connectionPool->getConnectionForTable('tx_nrllm_governance_event')->insert('tx_nrllm_governance_event', [
+            'pid'                      => 0,
+            'crdate'                   => $timestamp,
+            'correlation_id'           => 'c-1',
+            'decision'                 => 'tool_denied',
+            'reason'                   => 'trustZone',
+            'provider'                 => 'openai',
+            'model'                    => 'gpt',
+            'configuration_identifier' => 'default',
+            'be_user'                  => 1,
+            'tool_name'                => 'fetch_logs',
+            'agentrun_uid'             => 0,
+            'guardrail'                => '',
+            'detail'                   => 'zone=externalGlobal;ceiling=editorContent;observedOnly=0',
+        ]);
     }
 
     /**

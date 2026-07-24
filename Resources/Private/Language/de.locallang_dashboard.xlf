@@ -22,6 +22,206 @@
                 <source>Bar chart of nr-llm requests grouped by provider over the last seven days. Combines chat, vision, translation, speech, and image generation.</source>
                 <target>Balkendiagramm der nr-llm-Anfragen nach Anbieter in den letzten sieben Tagen. Umfasst Chat, Vision, Übersetzung, Sprache und Bilderzeugung.</target>
             </trans-unit>
+            <trans-unit id="widgetGroup.nrllm.title">
+                <source>AI agents</source>
+                <target>KI-Agenten</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.title">
+                <source>Agent runs by status</source>
+                <target>Agentenläufe nach Status</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.description">
+                <source>Doughnut of persisted agent runs grouped by lifecycle status over the last 30 days.</source>
+                <target>Ringdiagramm der gespeicherten Agentenläufe nach Lebenszyklus-Status der letzten 30 Tage.</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.queued">
+                <source>Queued</source>
+                <target>In Warteschlange</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.running">
+                <source>Running</source>
+                <target>Läuft</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.waiting_for_approval">
+                <source>Awaiting approval</source>
+                <target>Wartet auf Freigabe</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.waiting_for_input">
+                <source>Awaiting input</source>
+                <target>Wartet auf Eingabe</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.completed">
+                <source>Completed</source>
+                <target>Abgeschlossen</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.failed">
+                <source>Failed</source>
+                <target>Fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="widget.agent_runs_by_status.status.cancelled">
+                <source>Cancelled</source>
+                <target>Abgebrochen</target>
+            </trans-unit>
+            <trans-unit id="widget.runs_awaiting_approval.title">
+                <source>Runs awaiting approval</source>
+                <target>Läufe mit ausstehender Freigabe</target>
+            </trans-unit>
+            <trans-unit id="widget.runs_awaiting_approval.subtitle">
+                <source>waiting for a human decision</source>
+                <target>wartet auf menschliche Entscheidung</target>
+            </trans-unit>
+            <trans-unit id="widget.runs_awaiting_approval.description">
+                <source>Number of agent runs currently suspended waiting for approval. Review them in the Agent Runs module.</source>
+                <target>Anzahl der Agentenläufe, die derzeit auf eine Freigabe warten. Prüfung im Modul „Agentenläufe“.</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.title">
+                <source>Agent run outcomes</source>
+                <target>Ergebnisse der Agentenläufe</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.description">
+                <source>Bar chart of why agent runs ended (completed, budget exhausted, policy denied, provider failed, ...) over the last 30 days.</source>
+                <target>Balkendiagramm der Gründe, warum Agentenläufe endeten (abgeschlossen, Budget erschöpft, durch Richtlinie abgelehnt, Anbieter fehlgeschlagen, …), der letzten 30 Tage.</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.dataset">
+                <source>Runs</source>
+                <target>Läufe</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.completed">
+                <source>Completed</source>
+                <target>Abgeschlossen</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.max_iterations">
+                <source>Max iterations reached</source>
+                <target>Iterationsgrenze erreicht</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.budget_exhausted">
+                <source>Budget exhausted</source>
+                <target>Budget erschöpft</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.policy_denied">
+                <source>Policy denied</source>
+                <target>Durch Richtlinie abgelehnt</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.approval_denied">
+                <source>Approval denied</source>
+                <target>Freigabe verweigert</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.provider_failed">
+                <source>Provider failed</source>
+                <target>Anbieter fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.cancelled">
+                <source>Cancelled</source>
+                <target>Abgebrochen</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.retries_exhausted">
+                <source>Retries exhausted</source>
+                <target>Wiederholungen erschöpft</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.not_retryable">
+                <source>Not retryable</source>
+                <target>Nicht wiederholbar</target>
+            </trans-unit>
+            <trans-unit id="widget.run_termination_reasons.reason.context_truncated">
+                <source>Context truncated</source>
+                <target>Kontext gekürzt</target>
+            </trans-unit>
+            <trans-unit id="widget.request_success_rate.title">
+                <source>Request success rate</source>
+                <target>Erfolgsquote der Anfragen</target>
+            </trans-unit>
+            <trans-unit id="widget.request_success_rate.subtitle">
+                <source>%, last 7 days</source>
+                <target>%, letzte 7 Tage</target>
+            </trans-unit>
+            <trans-unit id="widget.request_success_rate.description">
+                <source>Share of provider pipeline runs that succeeded, from telemetry.</source>
+                <target>Anteil der erfolgreichen Anbieter-Pipeline-Läufe, aus der Telemetrie.</target>
+            </trans-unit>
+            <trans-unit id="widget.average_latency.title">
+                <source>Average latency</source>
+                <target>Durchschnittliche Latenz</target>
+            </trans-unit>
+            <trans-unit id="widget.average_latency.subtitle">
+                <source>ms, last 7 days</source>
+                <target>ms, letzte 7 Tage</target>
+            </trans-unit>
+            <trans-unit id="widget.average_latency.description">
+                <source>Mean end-to-end provider pipeline latency, from telemetry.</source>
+                <target>Mittlere Ende-zu-Ende-Latenz der Anbieter-Pipeline, aus der Telemetrie.</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.title">
+                <source>Governance blocks</source>
+                <target>Governance-Blockierungen</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.description">
+                <source>Bar chart of governance decisions (tool denials, guardrail blocks, approvals required, content-filter blocks) over the last 30 days.</source>
+                <target>Balkendiagramm der Governance-Entscheidungen (Tool-Ablehnungen, Guardrail-Blockierungen, erforderliche Freigaben, Content-Filter-Blockierungen) der letzten 30 Tage.</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.dataset">
+                <source>Events</source>
+                <target>Ereignisse</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.tool_denied">
+                <source>Tool denied</source>
+                <target>Tool abgelehnt</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.response_blocked">
+                <source>Response blocked</source>
+                <target>Antwort blockiert</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.approval_required">
+                <source>Approval required</source>
+                <target>Freigabe erforderlich</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.content_filter">
+                <source>Content filter</source>
+                <target>Content-Filter</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.title">
+                <source>Tool denials by reason</source>
+                <target>Tool-Ablehnungen nach Grund</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.description">
+                <source>Bar chart of tool-gate denials grouped by reason over the last 30 days.</source>
+                <target>Balkendiagramm der Tool-Gate-Ablehnungen nach Grund der letzten 30 Tage.</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.dataset">
+                <source>Denials</source>
+                <target>Ablehnungen</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.notRegistered">
+                <source>Not registered</source>
+                <target>Nicht registriert</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.toolDisabled">
+                <source>Tool disabled</source>
+                <target>Tool deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.requiresAdmin">
+                <source>Requires admin</source>
+                <target>Nur für Administratoren</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.configurationGroup">
+                <source>Outside configuration groups</source>
+                <target>Außerhalb der Konfigurationsgruppen</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.trustZone">
+                <source>Trust zone ceiling</source>
+                <target>Trust-Zone-Obergrenze</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.title">
+                <source>Tool gate decisions by tool</source>
+                <target>Tool-Gate-Entscheidungen nach Tool</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.description">
+                <source>Bar chart of tool-gate decisions grouped by tool name over the last 30 days. These are gate decisions (denials / observe-mode), not successful invocation volume.</source>
+                <target>Balkendiagramm der Tool-Gate-Entscheidungen nach Tool-Name der letzten 30 Tage. Dies sind Gate-Entscheidungen (Ablehnungen / Beobachtungsmodus), nicht die Zahl erfolgreicher Aufrufe.</target>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.dataset">
+                <source>Decisions</source>
+                <target>Entscheidungen</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

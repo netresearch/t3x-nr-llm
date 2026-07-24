@@ -13,9 +13,11 @@ use JsonException;
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -27,6 +29,7 @@ use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -109,6 +112,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // loop sends the full transcript exactly as before, and every
         // enforcement site below is a no-op.
         private ?ContextWindowManagerInterface $contextWindow = null,
+        // Records tool-gate denials so "tool denials by reason / by tool" become
+        // queryable. Nullable, matching the optional $toolPolicy above: absent it
+        // (the lean test wiring) the gate still logs, it just does not persist.
+        private ?GovernanceEventRepositoryInterface $governanceEvents = null,
     ) {}
 
     /**
@@ -731,6 +738,32 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                         'reason' => $decision->reason->value,
                         'zone'   => $decision->zone->value,
                     ]);
+                    // Persist the denial (or observe-mode flag) so it is queryable
+                    // by tool name and reason (the log line is not). This gate is
+                    // the one place tool_name is structurally available. The run's
+                    // correlation id / uid are not in scope at this seam, so a
+                    // tool-denied row carries neither — its value is the by-tool /
+                    // by-reason breakdown, not a per-run join. observed-mode rows
+                    // are recorded too (flagged in detail) so the trust-zone
+                    // rollout is measurable before it is enforced.
+                    $this->governanceEvents?->record(new GovernanceEvent(
+                        correlationId: '',
+                        decision: GovernanceDecision::TOOL_DENIED->value,
+                        reason: $decision->reason->value,
+                        provider: $configuration->getProviderType(),
+                        model: $configuration->getModelId(),
+                        configurationIdentifier: $configuration->getIdentifier(),
+                        beUser: $context->actor->backendUserUid,
+                        toolName: $decision->toolName,
+                        agentrunUid: 0,
+                        guardrail: '',
+                        detail: sprintf(
+                            'zone=%s;ceiling=%s;observedOnly=%d',
+                            $decision->zone->value,
+                            $decision->ceiling->value,
+                            $decision->observedOnly ? 1 : 0,
+                        ),
+                    ));
                 }
             }
 
