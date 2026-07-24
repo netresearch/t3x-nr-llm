@@ -124,4 +124,12 @@ defined('TYPO3') or die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
         = ProviderEndpointNormalizationHook::class;
+
+    // Dedicated dashboard widget group for the agentic / governance / telemetry
+    // widgets, so they do not scatter into the built-in 'general' group. Inert
+    // without typo3/cms-dashboard installed (the array is simply never read).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['dashboard']['widgetGroups']['nrllm'] ??= [
+        'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widgetGroup.nrllm.title',
+    ];
 })();

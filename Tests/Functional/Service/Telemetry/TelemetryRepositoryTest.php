@@ -166,4 +166,64 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
 
         self::assertSame(0, $deleted);
     }
+
+    #[Test]
+    public function successRatePercentRoundsTheShareOfSucceededRunsInWindow(): void
+    {
+        $now = time();
+        // 3 of 4 in-window rows succeeded ⇒ 75%.
+        $this->insertRow('a', true, 100, $now);
+        $this->insertRow('b', true, 100, $now);
+        $this->insertRow('c', true, 100, $now);
+        $this->insertRow('d', false, 100, $now);
+        // An out-of-window failure must not drag the rate down.
+        $this->insertRow('old', false, 100, $now - (10 * 86400));
+
+        self::assertSame(75, $this->repository->successRatePercent($now - (5 * 86400)));
+    }
+
+    #[Test]
+    public function successRatePercentIsZeroWhenNoRowsInWindow(): void
+    {
+        self::assertSame(0, $this->repository->successRatePercent(time() - 60));
+    }
+
+    #[Test]
+    public function averageLatencyMsRoundsTheMeanLatencyInWindow(): void
+    {
+        $now = time();
+        // Mean of 100, 200, 300 = 200.
+        $this->insertRow('a', true, 100, $now);
+        $this->insertRow('b', true, 200, $now);
+        $this->insertRow('c', true, 300, $now);
+        // An out-of-window row must not skew the mean.
+        $this->insertRow('old', true, 9000, $now - (10 * 86400));
+
+        self::assertSame(200, $this->repository->averageLatencyMs($now - (5 * 86400)));
+    }
+
+    #[Test]
+    public function averageLatencyMsIsZeroWhenNoRowsInWindow(): void
+    {
+        self::assertSame(0, $this->repository->averageLatencyMs(time() - 60));
+    }
+
+    private function insertRow(string $correlationId, bool $success, int $latencyMs, int $crdate): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
+            'pid'                      => 0,
+            'correlation_id'           => $correlationId,
+            'operation'                => 'chat',
+            'provider'                 => '',
+            'model'                    => '',
+            'configuration_identifier' => 'primary',
+            'be_user'                  => 0,
+            'success'                  => $success ? 1 : 0,
+            'error_class'              => '',
+            'latency_ms'               => $latencyMs,
+            'cache_hit'                => 0,
+            'fallback_attempts'        => 0,
+            'crdate'                   => $crdate,
+        ]);
+    }
 }

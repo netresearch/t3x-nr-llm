@@ -12,9 +12,9 @@ namespace Netresearch\NrLlm\Service\Telemetry;
 /**
  * Persistence boundary for provider pipeline telemetry rows (ADR-058).
  *
- * Deliberately narrow: append one row, or purge old rows. There is no update
- * or read path — telemetry is append-only and analytics query the table
- * directly.
+ * Append one row, purge old rows, or read a small set of dashboard aggregates.
+ * Telemetry stays append-only — there is no update path; the read methods only
+ * ever aggregate, never expose a single row's payload.
  */
 interface TelemetryRepositoryInterface
 {
@@ -30,4 +30,16 @@ interface TelemetryRepositoryInterface
      * @return int number of rows deleted
      */
     public function purgeOlderThan(int $timestamp): int;
+
+    /**
+     * Success rate as an integer percent (0-100) over rows created on/after
+     * $since. Zero matching rows ⇒ 0.
+     */
+    public function successRatePercent(int $since): int;
+
+    /**
+     * Average latency_ms (rounded to an int) over rows created on/after $since.
+     * Zero matching rows ⇒ 0.
+     */
+    public function averageLatencyMs(int $since): int;
 }

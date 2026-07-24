@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 
@@ -172,6 +173,31 @@ interface AgentRunRepositoryInterface
      * @return list<AgentRun>
      */
     public function findRecentTerminal(int $limit = 20): array;
+
+    /**
+     * Count runs per lifecycle status created on/after $since (0 = all time).
+     * Keys are raw {@see AgentRunStatus} values present in the data; absent
+     * statuses are omitted.
+     *
+     * @return array<string, int>
+     */
+    public function countByStatus(int $since = 0): array;
+
+    /**
+     * Count TERMINATED runs per termination_reason on/after $since (0 = all
+     * time). Only rows with a non-empty termination_reason are counted (a run
+     * still in flight has none).
+     *
+     * @return array<string, int>
+     */
+    public function countByTerminationReason(int $since = 0): array;
+
+    /**
+     * Count runs currently in one status (e.g. WAITING_FOR_APPROVAL). A live
+     * gauge — no $since window, because an approval waiting from last week still
+     * needs a human decision now.
+     */
+    public function countInStatus(AgentRunStatus $status): int;
 
     /**
      * @param int $afterSequence only events with sequence > this value; -1

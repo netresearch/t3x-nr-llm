@@ -81,5 +81,12 @@ final class DashboardWidgetRegistrationTest extends FunctionalTestCase
 
         self::assertArrayHasKey('nrllm-monthly-cost', $widgets);
         self::assertArrayHasKey('nrllm-requests-by-provider', $widgets);
+
+        // Agentic / governance / telemetry widgets (group: nrllm).
+        self::assertArrayHasKey('nrllm-agent-runs-by-status', $widgets);
+        self::assertArrayHasKey('nrllm-runs-awaiting-approval', $widgets);
+        self::assertArrayHasKey('nrllm-run-termination-reasons', $widgets);
+        self::assertArrayHasKey('nrllm-request-success-rate', $widgets);
+        self::assertArrayHasKey('nrllm-average-latency', $widgets);
     }
 }

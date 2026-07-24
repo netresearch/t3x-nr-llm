@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 
@@ -175,6 +176,30 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
     public function maxEventSequence(int $runUid): int
     {
         return -1;
+    }
+
+    /** @var array<string, int> value => count returned by countByStatus() */
+    public array $countByStatusReturns = [];
+
+    /** @var array<string, int> value => count returned by countByTerminationReason() */
+    public array $countByTerminationReasonReturns = [];
+
+    /** @var array<string, int> status value => count returned by countInStatus() */
+    public array $countInStatusReturns = [];
+
+    public function countByStatus(int $since = 0): array
+    {
+        return $this->countByStatusReturns;
+    }
+
+    public function countByTerminationReason(int $since = 0): array
+    {
+        return $this->countByTerminationReasonReturns;
+    }
+
+    public function countInStatus(AgentRunStatus $status): int
+    {
+        return $this->countInStatusReturns[$status->value] ?? 0;
     }
 
     public function purgeOlderThan(int $timestamp): int

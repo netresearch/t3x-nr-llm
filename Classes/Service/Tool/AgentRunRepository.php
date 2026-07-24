@@ -604,6 +604,89 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return is_numeric($max) ? (int)$max : -1;
     }
 
+    public function countByStatus(int $since = 0): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+        $queryBuilder
+            ->select('status')
+            ->addSelectLiteral('COUNT(uid) AS run_count')
+            ->from(self::TABLE_RUN);
+        if ($since > 0) {
+            $queryBuilder->where(
+                $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
+            );
+        }
+        $rows = $queryBuilder
+            ->groupBy('status')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return $this->tallyBy($rows, 'status', 'run_count');
+    }
+
+    public function countByTerminationReason(int $since = 0): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+        $queryBuilder
+            ->select('termination_reason')
+            ->addSelectLiteral('COUNT(uid) AS run_count')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->neq('termination_reason', $queryBuilder->createNamedParameter('')),
+            );
+        if ($since > 0) {
+            $queryBuilder->andWhere(
+                $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
+            );
+        }
+        $rows = $queryBuilder
+            ->groupBy('termination_reason')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return $this->tallyBy($rows, 'termination_reason', 'run_count');
+    }
+
+    public function countInStatus(AgentRunStatus $status): int
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
+        $queryBuilder->getRestrictions()->removeAll();
+        $count = $queryBuilder
+            ->count('uid')
+            ->from(self::TABLE_RUN)
+            ->where(
+                $queryBuilder->expr()->eq('status', $queryBuilder->createNamedParameter($status->value)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return self::toInt($count);
+    }
+
+    /**
+     * Fold GROUP BY rows into a value => count map, dropping empty keys. Shared
+     * by {@see countByStatus()} and {@see countByTerminationReason()}.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     *
+     * @return array<string, int>
+     */
+    private function tallyBy(array $rows, string $keyColumn, string $countColumn): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            $key = self::toStr($row[$keyColumn] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $out[$key] = self::toInt($row[$countColumn] ?? 0);
+        }
+
+        return $out;
+    }
+
     public function purgeOlderThan(int $timestamp): int
     {
         return $this->purgeRuns($timestamp, AgentRunStatus::terminalValues());
