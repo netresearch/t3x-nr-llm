@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-07-24
+
+Backend dashboard widgets for the Agent Runtime, plus a queryable governance
+audit trail.
+
+### Added
+
+- Agentic and telemetry dashboard widgets on existing data (no schema change):
+  Agent runs by status (doughnut), Runs awaiting approval (count), Agent run
+  outcomes / termination reasons (bar), and request success-rate + average
+  latency (from `tx_nrllm_telemetry`). New read aggregates on
+  `AgentRunRepository` (`countByStatus` / `countByTerminationReason` /
+  `countInStatus`) and `TelemetryRepository` (`successRatePercent` /
+  `averageLatencyMs`).
+- Governance audit table `tx_nrllm_governance_event` (append-only) and the
+  widgets it powers: governance blocks over time, tool denials by reason, and
+  tool usage by name. Guardrail verdicts, tool-gate denials and provider
+  content-filter blocks are now recorded (via `GuardrailMiddleware` and
+  `ToolLoopService`) instead of only being reflected on an agent run — making
+  blocked/flagged decisions and per-tool usage queryable.
+- Retention coverage for the new table: `PrivacyDataCategory::GOVERNANCE`,
+  `nrllm:governance:purge`, and `PurgePrivacyDataCommand` wiring.
+
 ## [0.24.0] - 2026-07-23
 
 A focused hardening release for the Agent Runtime: identity and authorization,
