@@ -57,6 +57,13 @@ enum PrivacyDataCategory: string
     case APPROVAL = 'approval';
 
     /**
+     * Governance decisions — tool-gate denials and guardrail blocks
+     * (tx_nrllm_governance_event). Attributable metadata (be_user, decision,
+     * tool name), no prompts or responses; purged like telemetry.
+     */
+    case GOVERNANCE = 'governance';
+
+    /**
      * The `privacy.retention.<key>` extension-configuration key this category
      * reads its override from.
      */

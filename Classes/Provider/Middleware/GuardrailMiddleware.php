@@ -9,17 +9,21 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Applies the guardrail collection to every non-streaming provider response
@@ -64,6 +68,11 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         // working (a null/empty selection runs all guardrails, unchanged from
         // before ADR-106).
         private GuardrailPolicyResolver $policyResolver = new GuardrailPolicyResolver(new GuardrailRegistry([], [])),
+        // Records a DENY / REQUIRE_APPROVAL / content-filter outcome so it becomes
+        // queryable (governance-blocks widget). Nullable to preserve the lean test
+        // wiring, like the $policyResolver default above; absent it the verdict is
+        // still enforced, it just is not persisted.
+        private ?GovernanceEventRepositoryInterface $governanceEvents = null,
     ) {}
 
     public function handle(
@@ -79,7 +88,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             return $this->screen($result, $context, $next, false, $guardrails);
         }
         if ($result instanceof VisionResponse) {
-            return $this->screenVision($result, $guardrails);
+            return $this->screenVision($result, $context, $guardrails);
         }
 
         return $result;
@@ -95,12 +104,13 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
     /**
      * @param list<GuardrailInterface> $guardrails the config-filtered output guardrails
      */
-    private function screenVision(VisionResponse $vision, array $guardrails): VisionResponse
+    private function screenVision(VisionResponse $vision, ProviderCallContext $context, array $guardrails): VisionResponse
     {
         $screened = $vision->description;
         foreach ($guardrails as $guardrail) {
-            $result  = $guardrail->checkOutput(new CompletionResponse($screened, $vision->model, $vision->usage, provider: $vision->provider));
-            $verdict = $result->verdict;
+            $candidate = new CompletionResponse($screened, $vision->model, $vision->usage, provider: $vision->provider);
+            $result    = $guardrail->checkOutput($candidate);
+            $verdict   = $result->verdict;
             if ($verdict === GuardrailVerdict::RETRY) {
                 throw new GuardrailViolationException(
                     $guardrail::class,
@@ -110,14 +120,8 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             $screened = match ($verdict) {
                 GuardrailVerdict::ALLOW => $screened,
                 GuardrailVerdict::REDACT => $result->redactedContent ?? $screened,
-                GuardrailVerdict::DENY => throw new GuardrailViolationException(
-                    $guardrail::class,
-                    $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
-                ),
-                GuardrailVerdict::REQUIRE_APPROVAL => throw new GuardrailApprovalRequiredException(
-                    $guardrail::class,
-                    $result->reason !== '' ? $result->reason : 'A guardrail flagged the response for human approval.',
-                ),
+                GuardrailVerdict::DENY,
+                GuardrailVerdict::REQUIRE_APPROVAL => $this->recordAndThrow($verdict, $guardrail, $result, $candidate, $context),
             };
         }
 
@@ -167,14 +171,8 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
                     $result->redactedContent ?? $response->content,
                     $result->redactedThinking,
                 ),
-                GuardrailVerdict::DENY => throw new GuardrailViolationException(
-                    $guardrail::class,
-                    $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
-                ),
-                GuardrailVerdict::REQUIRE_APPROVAL => throw new GuardrailApprovalRequiredException(
-                    $guardrail::class,
-                    $result->reason !== '' ? $result->reason : 'A guardrail flagged the response for human approval.',
-                ),
+                GuardrailVerdict::DENY,
+                GuardrailVerdict::REQUIRE_APPROVAL => $this->recordAndThrow($verdict, $guardrail, $result, $response, $context),
             };
         }
 
@@ -227,5 +225,87 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             metadata: $response->metadata,
             thinking: $thinking ?? $response->thinking,
         );
+    }
+
+    /**
+     * Persist the governance event for a blocking verdict, then throw the
+     * matching exception — one helper shared by the DENY / REQUIRE_APPROVAL arms
+     * of {@see screen()} and {@see screenVision()} so the record()+throw is not
+     * duplicated four times. Recorded before throwing so a blocked response is
+     * captured even though the pipeline unwinds. Only class names and policy
+     * facts are stored — never the response content (ADR-064).
+     *
+     * A DENY on a provider-flagged response (finishReason = content_filter) is
+     * tagged CONTENT_FILTER so a provider-side safety stop is separately
+     * measurable; REQUIRE_APPROVAL is always APPROVAL_REQUIRED.
+     */
+    private function recordAndThrow(
+        GuardrailVerdict $verdict,
+        GuardrailInterface $guardrail,
+        GuardrailResult $result,
+        CompletionResponse $response,
+        ProviderCallContext $context,
+    ): never {
+        $decision = match (true) {
+            $verdict === GuardrailVerdict::REQUIRE_APPROVAL => GovernanceDecision::APPROVAL_REQUIRED,
+            $response->wasFiltered()                        => GovernanceDecision::CONTENT_FILTER,
+            default                                         => GovernanceDecision::RESPONSE_BLOCKED,
+        };
+        $reason = match ($decision) {
+            GovernanceDecision::APPROVAL_REQUIRED => GuardrailVerdict::REQUIRE_APPROVAL->value,
+            GovernanceDecision::CONTENT_FILTER    => GovernanceDecision::CONTENT_FILTER->value,
+            default                               => GuardrailVerdict::DENY->value,
+        };
+
+        $this->governanceEvents?->record(new GovernanceEvent(
+            correlationId: $context->correlationId,
+            decision: $decision->value,
+            reason: $reason,
+            provider: $response->provider !== '' ? $response->provider : $context->telemetryProvider(),
+            model: $response->model !== '' ? $response->model : $context->telemetryModel(),
+            configurationIdentifier: $context->telemetryConfigurationIdentifier(),
+            beUser: $this->resolveBeUser($context),
+            toolName: '',
+            // The middleware runs below the run identity, so the run uid is not
+            // known here; correlation_id is the join key to the run instead.
+            agentrunUid: 0,
+            guardrail: $guardrail::class,
+            // The guardrail's policy reason — a policy fact, never response content.
+            detail: $result->reason,
+        ));
+
+        if ($verdict === GuardrailVerdict::REQUIRE_APPROVAL) {
+            throw new GuardrailApprovalRequiredException(
+                $guardrail::class,
+                $result->reason !== '' ? $result->reason : 'A guardrail flagged the response for human approval.',
+            );
+        }
+
+        throw new GuardrailViolationException(
+            $guardrail::class,
+            $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
+        );
+    }
+
+    /**
+     * The acting backend user uid, mirroring TelemetryMiddleware's resolution:
+     * the explicit metadata uid the runtime threads through (ADR-083), else the
+     * ambient backend user, else 0 (CLI / scheduler / unauthenticated).
+     */
+    private function resolveBeUser(ProviderCallContext $context): int
+    {
+        $fromMetadata = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
+        if (\is_int($fromMetadata)) {
+            return $fromMetadata;
+        }
+
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if ($backendUser instanceof BackendUserAuthentication && \is_array($backendUser->user)) {
+            $uid = $backendUser->user['uid'] ?? null;
+
+            return \is_numeric($uid) ? (int)$uid : 0;
+        }
+
+        return 0;
     }
 }

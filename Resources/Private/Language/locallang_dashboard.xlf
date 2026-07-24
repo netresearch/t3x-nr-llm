@@ -113,6 +113,60 @@
             <trans-unit id="widget.average_latency.description">
                 <source>Mean end-to-end provider pipeline latency, from telemetry.</source>
             </trans-unit>
+            <trans-unit id="widget.governance_blocks.title">
+                <source>Governance blocks</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.description">
+                <source>Bar chart of governance decisions (tool denials, guardrail blocks, approvals required, content-filter blocks) over the last 30 days.</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.dataset">
+                <source>Events</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.tool_denied">
+                <source>Tool denied</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.response_blocked">
+                <source>Response blocked</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.approval_required">
+                <source>Approval required</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.content_filter">
+                <source>Content filter</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.title">
+                <source>Tool denials by reason</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.description">
+                <source>Bar chart of tool-gate denials grouped by reason over the last 30 days.</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.dataset">
+                <source>Denials</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.notRegistered">
+                <source>Not registered</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.toolDisabled">
+                <source>Tool disabled</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.requiresAdmin">
+                <source>Requires admin</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.configurationGroup">
+                <source>Outside configuration groups</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_denials.reason.trustZone">
+                <source>Trust zone ceiling</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.title">
+                <source>Tool gate decisions by tool</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.description">
+                <source>Bar chart of tool-gate decisions grouped by tool name over the last 30 days. These are gate decisions (denials / observe-mode), not successful invocation volume.</source>
+            </trans-unit>
+            <trans-unit id="widget.tool_usage.dataset">
+                <source>Decisions</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

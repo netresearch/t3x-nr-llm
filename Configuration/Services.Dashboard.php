@@ -9,11 +9,14 @@ declare(strict_types=1);
 
 use Netresearch\NrLlm\Widgets\DataProvider\AgentRunsByStatusDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\AverageLatencyDataProvider;
+use Netresearch\NrLlm\Widgets\DataProvider\GovernanceBlocksOverTimeDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\MonthlyCostDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\RequestsByProviderDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\RequestSuccessRateDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\RunsAwaitingApprovalDataProvider;
 use Netresearch\NrLlm\Widgets\DataProvider\RunTerminationReasonsDataProvider;
+use Netresearch\NrLlm\Widgets\DataProvider\ToolDenialsByReasonDataProvider;
+use Netresearch\NrLlm\Widgets\DataProvider\ToolUsageByNameDataProvider;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use TYPO3\CMS\Dashboard\Widgets\BarChartWidget;
 use TYPO3\CMS\Dashboard\Widgets\DoughnutChartWidget;
@@ -159,5 +162,51 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'iconIdentifier' => 'actions-clock',
             'height'         => 'small',
             'width'          => 'small',
+        ]);
+
+    // --- Governance / tool-usage widgets (group: nrllm), backed by
+    // tx_nrllm_governance_event ---
+
+    $services->set(GovernanceBlocksOverTimeDataProvider::class);
+    $services->set(ToolDenialsByReasonDataProvider::class);
+    $services->set(ToolUsageByNameDataProvider::class);
+
+    // Governance blocks by kind over the last 30 days (bar).
+    $services->set('dashboard.widget.nrllm.governance_blocks', BarChartWidget::class)
+        ->arg('$dataProvider', service(GovernanceBlocksOverTimeDataProvider::class))
+        ->tag('dashboard.widget', [
+            'identifier'     => 'nrllm-governance-blocks',
+            'groupNames'     => 'nrllm',
+            'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.governance_blocks.title',
+            'description'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.governance_blocks.description',
+            'iconIdentifier' => 'content-widget-chart-bar',
+            'height'         => 'medium',
+            'width'          => 'medium',
+        ]);
+
+    // Tool-gate denials by reason over the last 30 days (bar).
+    $services->set('dashboard.widget.nrllm.tool_denials_by_reason', BarChartWidget::class)
+        ->arg('$dataProvider', service(ToolDenialsByReasonDataProvider::class))
+        ->tag('dashboard.widget', [
+            'identifier'     => 'nrllm-tool-denials-by-reason',
+            'groupNames'     => 'nrllm',
+            'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.tool_denials.title',
+            'description'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.tool_denials.description',
+            'iconIdentifier' => 'content-widget-chart-bar',
+            'height'         => 'medium',
+            'width'          => 'medium',
+        ]);
+
+    // Tool-gate decisions by tool name over the last 30 days (bar).
+    $services->set('dashboard.widget.nrllm.tool_usage_by_name', BarChartWidget::class)
+        ->arg('$dataProvider', service(ToolUsageByNameDataProvider::class))
+        ->tag('dashboard.widget', [
+            'identifier'     => 'nrllm-tool-usage-by-name',
+            'groupNames'     => 'nrllm',
+            'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.tool_usage.title',
+            'description'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.tool_usage.description',
+            'iconIdentifier' => 'content-widget-chart-bar',
+            'height'         => 'medium',
+            'width'          => 'medium',
         ]);
 };

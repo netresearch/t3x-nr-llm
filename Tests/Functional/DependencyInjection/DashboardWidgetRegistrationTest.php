@@ -88,5 +88,10 @@ final class DashboardWidgetRegistrationTest extends FunctionalTestCase
         self::assertArrayHasKey('nrllm-run-termination-reasons', $widgets);
         self::assertArrayHasKey('nrllm-request-success-rate', $widgets);
         self::assertArrayHasKey('nrllm-average-latency', $widgets);
+
+        // Governance / tool-usage widgets (backed by tx_nrllm_governance_event).
+        self::assertArrayHasKey('nrllm-governance-blocks', $widgets);
+        self::assertArrayHasKey('nrllm-tool-denials-by-reason', $widgets);
+        self::assertArrayHasKey('nrllm-tool-usage-by-name', $widgets);
     }
 }

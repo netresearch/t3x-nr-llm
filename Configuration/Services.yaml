@@ -251,6 +251,15 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\AgentRunRepository
     public: false
 
+  # Governance-event audit store — private; consumed nullably by
+  # GuardrailMiddleware (guardrail blocks / approval-required / content-filter)
+  # and ToolLoopService (tool-gate denials), and by the nrllm:governance:purge
+  # command. The concrete repository stays private too; functional tests
+  # instantiate it directly with the real ConnectionPool.
+  Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Governance\GovernanceEventRepository
+    public: false
+
   # Conversation session store (ADR-083) — private; consumed by ConversationService
   # and the nrllm:session:purge command. The concrete repository stays private too;
   # functional tests instantiate it directly with the real ConnectionPool.

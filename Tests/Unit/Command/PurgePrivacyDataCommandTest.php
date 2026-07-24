@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAiSessionRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemorySkillAuditRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -37,13 +38,16 @@ final class PurgePrivacyDataCommandTest extends TestCase
 
     private InMemoryAgentRunRepository $agentRuns;
 
+    private InMemoryGovernanceEventRepository $governance;
+
     protected function setUp(): void
     {
-        $this->eval      = new InMemoryEvaluationResultRepository();
-        $this->audit     = new InMemorySkillAuditRepository();
-        $this->telemetry = new InMemoryTelemetryRepository();
-        $this->sessions  = new InMemoryAiSessionRepository();
-        $this->agentRuns = new InMemoryAgentRunRepository();
+        $this->eval       = new InMemoryEvaluationResultRepository();
+        $this->audit      = new InMemorySkillAuditRepository();
+        $this->telemetry  = new InMemoryTelemetryRepository();
+        $this->sessions   = new InMemoryAiSessionRepository();
+        $this->agentRuns  = new InMemoryAgentRunRepository();
+        $this->governance = new InMemoryGovernanceEventRepository();
     }
 
     #[Test]
@@ -55,6 +59,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->sessions->purgeReturns            = 7;
         $this->agentRuns->purgeReturns           = 11;
         $this->agentRuns->purgeUnfinishedReturns = 1;
+        $this->governance->purgeReturns          = 4;
 
         $tester = new CommandTester($this->command(['retentionDays' => '45']));
 
@@ -73,6 +78,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->sessions->purgeCutoff,
             $this->agentRuns->purgeCutoff,
             $this->agentRuns->purgeUnfinishedCutoff,
+            $this->governance->purgeCutoff,
         ];
 
         foreach ($cutoffs as $cutoff) {
@@ -88,6 +94,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         self::assertStringContainsString('Conversation sessions (45 d): 7', $display);
         self::assertStringContainsString('Finished agent runs (45 d): 11', $display);
         self::assertStringContainsString('Unfinished agent runs (45 d): 1', $display);
+        self::assertStringContainsString('Governance events (45 d): 4', $display);
     }
 
     #[Test]
@@ -159,6 +166,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         self::assertNull($this->sessions->purgeCutoff);
         self::assertNull($this->agentRuns->purgeCutoff);
         self::assertNull($this->agentRuns->purgeUnfinishedCutoff);
+        self::assertNull($this->governance->purgeCutoff);
         self::assertStringContainsString('positive integer', $tester->getDisplay());
     }
 
@@ -177,6 +185,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->telemetry,
             $this->sessions,
             $this->agentRuns,
+            $this->governance,
         );
     }
 }

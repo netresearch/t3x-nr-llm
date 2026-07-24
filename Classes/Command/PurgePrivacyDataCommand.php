@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Command;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillAuditRepositoryInterface;
@@ -41,7 +42,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'nrllm:privacy:purge',
-    description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs) past their retention window.',
+    description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs, governance events) past their retention window.',
 )]
 final class PurgePrivacyDataCommand extends Command
 {
@@ -52,6 +53,7 @@ final class PurgePrivacyDataCommand extends Command
         private readonly TelemetryRepositoryInterface $telemetry,
         private readonly AiSessionRepositoryInterface $sessions,
         private readonly AgentRunRepositoryInterface $agentRuns,
+        private readonly GovernanceEventRepositoryInterface $governanceEvents,
     ) {
         parent::__construct();
     }
@@ -100,6 +102,9 @@ final class PurgePrivacyDataCommand extends Command
 
         [$days, $cutoff] = $window(PrivacyDataCategory::APPROVAL);
         $purged[]        = sprintf('Unfinished agent runs (%d d): %d', $days, $this->agentRuns->purgeUnfinishedOlderThan($cutoff));
+
+        [$days, $cutoff] = $window(PrivacyDataCategory::GOVERNANCE);
+        $purged[]        = sprintf('Governance events (%d d): %d', $days, $this->governanceEvents->purgeOlderThan($cutoff));
 
         $io->success('Retention enforced across all content-bearing tables.');
         $io->listing($purged);
