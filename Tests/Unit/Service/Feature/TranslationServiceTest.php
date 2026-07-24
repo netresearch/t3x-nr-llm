@@ -1924,21 +1924,25 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function translateForConfigurationAutoDetectsSourceLanguageViaChat(): void
+    public function translateForConfigurationAutoDetectsSourceLanguageViaConfiguration(): void
     {
-        // Source omitted => detectLanguage() runs first (through chat()),
-        // then the translation runs through chatWithConfiguration().
+        // Source omitted => language auto-detection runs first. It must route
+        // through the SAME configuration (chatWithConfiguration), never the
+        // default-resolving chat() — so a configuration-driven translation needs
+        // no global default marked just to auto-detect the source (issue #520).
         $configuration = self::createStub(LlmConfiguration::class);
 
         $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
         $llmManagerMock
-            ->expects(self::once())
-            ->method('chat')
-            ->willReturn($this->createChatResponse('fr'));
-        $llmManagerMock
-            ->expects(self::once())
+            ->expects(self::exactly(2))
             ->method('chatWithConfiguration')
-            ->willReturn($this->createChatResponse('Hallo'));
+            ->willReturnOnConsecutiveCalls(
+                $this->createChatResponse('fr'),
+                $this->createChatResponse('Hallo'),
+            );
+        $llmManagerMock
+            ->expects(self::never())
+            ->method('chat');
 
         $subject = new TranslationService(
             $llmManagerMock,
@@ -1950,6 +1954,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
         $result = $subject->translateForConfiguration('Bonjour', 'de', $configuration);
 
         self::assertSame('fr', $result->sourceLanguage);
+        self::assertSame('Hallo', $result->translation);
     }
 
     #[Test]
