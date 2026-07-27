@@ -54,6 +54,9 @@ final class GetFlexFormSchemaToolTest extends AbstractFunctionalTestCase
         $singleDs = (new Typo3Version())->getMajorVersion() >= 14
             ? self::DS
             : ['default' => self::DS];
+        // Re-narrow here: the assertIsArray() above does not carry across the
+        // intervening statement, so $GLOBALS['TCA'] is mixed again by this line.
+        \assert(is_array($GLOBALS['TCA']));
         $GLOBALS['TCA']['tx_demo_flex'] = [
             'ctrl'    => ['title' => 'Demo Flex'],
             'columns' => [
