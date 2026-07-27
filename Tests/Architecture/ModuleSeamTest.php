@@ -38,11 +38,23 @@ use PHPat\Test\PHPat;
  * - guardrail:   `Service\Guardrail`
  * - backend:     `Controller`, `Widgets`
  *
- * A dependency in the *other* direction — tools calling a guardrail, the
- * backend calling anything — is legitimate and deliberately not restricted.
+ * What is enforced is directional, not symmetric:
+ *
+ * - specialized ↮ tools, both ways
+ * - guardrail ↛ specialized, guardrail ↛ tools
+ * - everything outside the backend ↛ backend
+ *
+ * The two remaining pairs are deliberately free: specialized → guardrail and
+ * tools → guardrail are how the safety pipeline gets invoked at all, and
+ * `AbstractSpecializedService` uses it today. The backend calling anything is
+ * likewise legitimate. Do not "complete" this into a symmetric rule set.
  */
 final class ModuleSeamTest
 {
+    private const NS_ROOT = 'Netresearch\NrLlm';
+
+    private const NS_TESTS = 'Netresearch\NrLlm\Tests';
+
     private const NS_SPECIALIZED = 'Netresearch\NrLlm\Specialized';
 
     private const NS_TOOL = 'Netresearch\NrLlm\Service\Tool';
@@ -123,29 +135,36 @@ final class ModuleSeamTest
     }
 
     /**
-     * Nothing below the backend package may depend on the backend UI.
+     * Nothing outside the backend package may depend on the backend UI.
      *
      * `nr_llm_backend` is the only package that depends on the others, so a
      * provider, a specialized service or any core service importing a
      * controller or a dashboard widget would make the backend
-     * non-extractable. `ServiceLayerTest` already asserts the Service →
-     * Controller half of this as a layering rule; it is repeated here because
-     * the seam statement is about packages, and because the widget namespace
-     * is not covered there.
+     * non-extractable.
+     *
+     * The subject is expressed as "everything under the extension namespace
+     * except the backend itself and the test suite" rather than as a list of
+     * the namespaces that exist today, so a top-level namespace added later is
+     * covered without anyone remembering this rule. `ServiceLayerTest` already
+     * asserts the Service → Controller half as a layering rule; the seam
+     * statement is about packages and also covers the widget namespace.
      */
-    public function testFeatureModulesDoNotDependOnTheBackendPackage(): Rule
+    public function testNothingOutsideTheBackendDependsOnIt(): Rule
     {
         return PHPat::rule()
-            ->classes(
-                Selector::inNamespace('Netresearch\NrLlm\Provider'),
-                Selector::inNamespace('Netresearch\NrLlm\Service'),
-                Selector::inNamespace(self::NS_SPECIALIZED),
-            )
+            ->classes(Selector::AllOf(
+                Selector::inNamespace(self::NS_ROOT),
+                Selector::NoneOf(
+                    Selector::inNamespace(self::NS_CONTROLLER),
+                    Selector::inNamespace(self::NS_WIDGETS),
+                    Selector::inNamespace(self::NS_TESTS),
+                ),
+            ))
             ->shouldNotDependOn()
             ->classes(
                 Selector::inNamespace(self::NS_CONTROLLER),
                 Selector::inNamespace(self::NS_WIDGETS),
             )
-            ->because('nr_llm_backend depends on the feature packages; none of them may depend on it (ADR-090).');
+            ->because('nr_llm_backend depends on the other packages; nothing outside it may depend on the backend (ADR-090).');
     }
 }

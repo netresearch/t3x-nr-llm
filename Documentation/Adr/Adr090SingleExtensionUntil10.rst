@@ -59,11 +59,14 @@ enforce the **vertical** layering — Controller → Service → Provider / Doma
 (e.g. controllers use the tool registry rather than concrete adapters, services
 do not depend on controllers or concrete provider adapters, domain models stay
 free of repositories/HTTP). Since ``Tests/Architecture/ModuleSeamTest.php`` they
-also police the **horizontal** seams *between* the feature modules
-(specialized ↔ tools ↔ guardrail ↔ backend): the specialized, tool/agent and
-guardrail modules may not depend on one another, and nothing below the backend
-package may depend on ``Controller`` or ``Widgets``. Cross-module coupling that
-would block an extraction fails CI rather than only review.
+also police the **horizontal** seams *between* the feature modules. The
+enforced rules are directional, not symmetric: specialized and tool/agent may
+not depend on each other in either direction, guardrail may depend on neither,
+and nothing outside the backend package may depend on ``Controller`` or
+``Widgets``. Calls in the invoking direction stay allowed — specialized and
+tool code reaching a guardrail is how the safety pipeline runs at all, and the
+backend depends on everything by design. Cross-module coupling that would block
+an extraction now fails CI rather than only review.
 
 Anticipated split seams (candidate extensions):
 

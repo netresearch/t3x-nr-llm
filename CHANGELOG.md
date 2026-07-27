@@ -8,11 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Architecture tests for the horizontal module seams ADR-090 names: the
-  specialized, tool/agent and guardrail modules may no longer depend on one
-  another, and nothing below the backend package may depend on controllers or
-  dashboard widgets. ADR-090 kept these boundaries as a review responsibility
-  and called extending phpat to cover them part of the split-readiness work;
+- Architecture tests for the horizontal module seams ADR-090 names. The
+  specialized and tool/agent modules may no longer depend on each other in
+  either direction, the guardrail module may depend on neither, and nothing
+  outside the backend package may depend on controllers or dashboard widgets.
+  Calls in the invoking direction stay allowed, since that is how the guardrail
+  pipeline runs. ADR-090 kept these boundaries as a review responsibility and
+  called extending phpat to cover them part of the split-readiness work;
   wrong-way coupling now fails CI. All four rules pass against the current tree
   without a baseline.
 
