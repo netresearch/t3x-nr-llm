@@ -6,9 +6,18 @@
 ADR-023: Native Backend Capability Permissions
 ==================================================
 
-:Status: Accepted
+:Status: Superseded
 :Date: 2026-04
+:Superseded: 2026-07 by :ref:`ADR-117 <adr-117>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   The registration and the check primitive this ADR describes were removed in
+   0.26.0. They were never wired into any call, so the checkboxes it added to the
+   backend group form looked like an access control and had no effect. See
+   :ref:`ADR-117 <adr-117>` for why enforcing them was rejected in favour of
+   removal, and what the working gate is instead.
 
 .. _adr-023-context:
 

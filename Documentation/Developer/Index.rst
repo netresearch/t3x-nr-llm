@@ -236,7 +236,6 @@ Best practices
    CustomProviders
    ProviderRegistration
    FallbackChain
-   CapabilityPermissions
    ConfigurationPresets
    QualityEvaluation
    IntegrationGuide

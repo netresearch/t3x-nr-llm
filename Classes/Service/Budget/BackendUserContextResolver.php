@@ -14,9 +14,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 /**
  * Default resolver — reads the active BE user from `$GLOBALS['BE_USER']`.
  *
- * Mirrors the pattern used by `CapabilityPermissionService` (the only
- * other production consumer of `$GLOBALS['BE_USER']` in this extension):
- * direct superglobal access, defended by an `instanceof` check so the
+ * Direct superglobal access, defended by an `instanceof` check so the
  * resolver returns `null` rather than blowing up when called outside a
  * backend request (CLI, scheduler, FE-only contexts).
  *
