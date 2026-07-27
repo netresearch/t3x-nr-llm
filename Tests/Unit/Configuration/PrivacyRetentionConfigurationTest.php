@@ -70,13 +70,46 @@ final class PrivacyRetentionConfigurationTest extends AbstractUnitTestCase
         self::assertIsString($docs, 'DataRetention.rst must be readable');
 
         foreach (PrivacyDataCategory::cases() as $category) {
+            // Anchored on the RST literal's closing backticks: an unanchored
+            // substring would let a future key that is a prefix of an existing
+            // one (e.g. 'agent' vs the documented 'agentRun') pass without ever
+            // being documented — the exact drift this guard exists to catch.
             self::assertStringContainsString(
-                'privacy.retention.' . $category->configKey(),
+                sprintf('``privacy.retention.%s``', $category->configKey()),
                 $docs,
                 sprintf(
-                    'DataRetention.rst must document "privacy.retention.%s" for PrivacyDataCategory::%s',
+                    'DataRetention.rst must document ``privacy.retention.%s`` for PrivacyDataCategory::%s',
                     $category->configKey(),
                     $category->name,
+                ),
+            );
+        }
+    }
+
+    /**
+     * TYPO3 splits an ext_conf_template comment on ';' before splitting the
+     * label from its description, so a semicolon anywhere inside a label
+     * truncates the operator-visible description at that point and silently
+     * drops the rest — see AstConstantCommentVisitor::parseNodeComment().
+     */
+    #[Test]
+    public function noSettingLabelContainsASemicolon(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 3) . '/ext_conf_template.txt');
+        self::assertIsString($contents, 'ext_conf_template.txt must be readable');
+
+        foreach (explode("\n", $contents) as $number => $line) {
+            $position = strpos($line, 'label=');
+            if (!str_starts_with($line, '# cat=') || $position === false) {
+                continue;
+            }
+
+            self::assertStringNotContainsString(
+                ';',
+                substr($line, $position),
+                sprintf(
+                    'ext_conf_template.txt line %d: a semicolon in a label truncates the description TYPO3 shows the operator',
+                    $number + 1,
                 ),
             );
         }
