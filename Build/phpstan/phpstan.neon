@@ -163,3 +163,7 @@ services:
     class: Netresearch\NrLlm\Tests\Architecture\ServiceLayerTest
     tags:
       - phpat.test
+  -
+    class: Netresearch\NrLlm\Tests\Architecture\ModuleSeamTest
+    tags:
+      - phpat.test

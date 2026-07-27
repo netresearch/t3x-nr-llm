@@ -58,11 +58,12 @@ re-architecture. The phpat architecture tests (``Tests/Architecture/``) already
 enforce the **vertical** layering — Controller → Service → Provider / Domain
 (e.g. controllers use the tool registry rather than concrete adapters, services
 do not depend on controllers or concrete provider adapters, domain models stay
-free of repositories/HTTP). They do **not** yet police the **horizontal** seams
-*between* the feature modules (specialized ↔ tools ↔ guardrail ↔ backend); those
-are currently kept clean by review. Extending phpat to assert the horizontal
-module boundaries is itself part of the split-readiness work, and new
-cross-module coupling that would block an extraction is treated as a defect.
+free of repositories/HTTP). Since ``Tests/Architecture/ModuleSeamTest.php`` they
+also police the **horizontal** seams *between* the feature modules
+(specialized ↔ tools ↔ guardrail ↔ backend): the specialized, tool/agent and
+guardrail modules may not depend on one another, and nothing below the backend
+package may depend on ``Controller`` or ``Widgets``. Cross-module coupling that
+would block an extraction fails CI rather than only review.
 
 Anticipated split seams (candidate extensions):
 
@@ -114,11 +115,11 @@ Consequences
   and a broader default attack surface (mitigated by the tool availability
   gating and guardrail defaults).
 - **Split-ready discipline:** module boundaries must stay clean. The phpat
-  architecture tests guard the vertical layering automatically; the horizontal
-  seams (core reaching into the backend UI, or one feature module reaching into
-  another) are today a review responsibility. Adding phpat rules for the module
-  seams — so a wrong-way dependency fails CI rather than only review — is a
-  concrete, cheap step toward split-readiness.
+  architecture tests guard both the vertical layering and, since
+  ``ModuleSeamTest``, the horizontal seams — core reaching into the backend UI,
+  or one feature module reaching into another, fails CI. A deliberate new
+  dependency across a seam therefore has to change this ADR and the rule
+  together, which is the point.
 - **At 1.0:** re-evaluate against the criteria above. If the seams have held,
   the split is largely a ``composer.json`` / ``ext_emconf.php`` repackaging plus
   moving files along the documented boundaries; if a consumer need is real
