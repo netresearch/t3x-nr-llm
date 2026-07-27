@@ -33,7 +33,9 @@ ddev exec ".Build/bin/phpunit -c Build/phpunit.xml"
 Before submitting a PR, ensure all checks pass:
 
 ```bash
-# Run all CI checks
+# Code style, PHPStan, unit, integration and fuzzy tests.
+# Rector and the functional tests are not part of this script — CI runs those
+# too, so run them individually before pushing.
 ddev exec "composer ci"
 
 # Or run individually:
@@ -122,7 +124,10 @@ Version bumps belong to the release commit, never to a feature PR.
 
 A change to the public surface also gets an Architecture Decision Record under
 `Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
-number and follow the format of an existing one. Public surface means anything
+number and follow the format of an existing one. Add the file name to the
+`toctree` at the bottom of `Documentation/Adr/Index.rst` as well; that toctree
+is explicit, so an unregistered ADR renders as an orphan page nothing links to.
+Public surface means anything
 a consumer builds against: an interface, a DI-tagged extension point, a database
 table, a TCA field, an Extension Configuration key, a console command, or the
 behaviour of any of them. Recording *why* matters more than recording what; the
