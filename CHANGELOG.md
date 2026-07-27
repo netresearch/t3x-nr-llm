@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-07-27
+
+A translation fix reported from the field, plus Extension Configuration
+settings that were unreadable or unsettable.
+
 ### Added
 
 - Architecture tests for the horizontal module seams ADR-090 names. The
@@ -20,6 +25,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Translation no longer requires a global default configuration.
+  `translateForConfiguration()` auto-detects the source language when none is
+  given, but the detection sub-call went through the default-resolving `chat()`
+  entry point instead of the configuration the caller had passed. An instance
+  with no configuration marked as default therefore failed with `No default LLM
+  configuration found` even though a configuration was supplied explicitly. The
+  configuration is now threaded through detection. Reported in #520, fixed in
+  #524.
 - `privacy.retention.governance` is now declared in `ext_conf_template.txt` and
   documented. The retention window added for governance events in 0.25.0 was
   read by the purge commands but had no Extension Configuration field, so the
