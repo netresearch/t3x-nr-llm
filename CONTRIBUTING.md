@@ -108,8 +108,25 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - [ ] Tests added/updated
 - [ ] All CI checks pass
 - [ ] Documentation updated (if applicable)
+- [ ] `CHANGELOG.md` entry added under `## [Unreleased]`
+- [ ] ADR added under `Documentation/Adr/` if the public surface changed
 - [ ] No secrets committed
 - [ ] Follows existing code style
+
+### Changelog and ADRs
+
+Every change that a consumer or an integrator can notice gets a `CHANGELOG.md`
+entry under `## [Unreleased]`, in the Keep a Changelog section that fits
+(`Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`).
+Version bumps belong to the release commit, never to a feature PR.
+
+A change to the public surface also gets an Architecture Decision Record under
+`Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
+number and follow the format of an existing one. Public surface means anything
+a consumer builds against: an interface, a DI-tagged extension point, a database
+table, a TCA field, an Extension Configuration key, a console command, or the
+behaviour of any of them. Recording *why* matters more than recording what; the
+diff already shows what.
 
 ## Commit Messages
 
