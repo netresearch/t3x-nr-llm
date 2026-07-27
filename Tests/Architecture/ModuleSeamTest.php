@@ -43,6 +43,20 @@ use PHPat\Test\PHPat;
  */
 final class ModuleSeamTest
 {
+    private const NS_SPECIALIZED = 'Netresearch\NrLlm\Specialized';
+
+    private const NS_TOOL = 'Netresearch\NrLlm\Service\Tool';
+
+    private const NS_AGENT = 'Netresearch\NrLlm\Service\Agent';
+
+    private const NS_RETRIEVAL = 'Netresearch\NrLlm\Service\Retrieval';
+
+    private const NS_GUARDRAIL = 'Netresearch\NrLlm\Service\Guardrail';
+
+    private const NS_CONTROLLER = 'Netresearch\NrLlm\Controller';
+
+    private const NS_WIDGETS = 'Netresearch\NrLlm\Widgets';
+
     /**
      * The specialized services must not reach into the tool/agent module.
      *
@@ -54,12 +68,12 @@ final class ModuleSeamTest
     public function testSpecializedServicesDoNotDependOnTheToolModule(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Specialized'))
+            ->classes(Selector::inNamespace(self::NS_SPECIALIZED))
             ->shouldNotDependOn()
             ->classes(
-                Selector::inNamespace('Netresearch\NrLlm\Service\Tool'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Agent'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Retrieval'),
+                Selector::inNamespace(self::NS_TOOL),
+                Selector::inNamespace(self::NS_AGENT),
+                Selector::inNamespace(self::NS_RETRIEVAL),
             )
             ->because('nr_llm_specialized depends on core only, never on nr_llm_tools (ADR-090).');
     }
@@ -76,12 +90,12 @@ final class ModuleSeamTest
     {
         return PHPat::rule()
             ->classes(
-                Selector::inNamespace('Netresearch\NrLlm\Service\Tool'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Agent'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Retrieval'),
+                Selector::inNamespace(self::NS_TOOL),
+                Selector::inNamespace(self::NS_AGENT),
+                Selector::inNamespace(self::NS_RETRIEVAL),
             )
             ->shouldNotDependOn()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Specialized'))
+            ->classes(Selector::inNamespace(self::NS_SPECIALIZED))
             ->because('nr_llm_tools depends on core only, never on nr_llm_specialized (ADR-090).');
     }
 
@@ -97,13 +111,13 @@ final class ModuleSeamTest
     public function testGuardrailModuleDoesNotDependOnTheModulesItProtects(): Rule
     {
         return PHPat::rule()
-            ->classes(Selector::inNamespace('Netresearch\NrLlm\Service\Guardrail'))
+            ->classes(Selector::inNamespace(self::NS_GUARDRAIL))
             ->shouldNotDependOn()
             ->classes(
-                Selector::inNamespace('Netresearch\NrLlm\Service\Tool'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Agent'),
-                Selector::inNamespace('Netresearch\NrLlm\Service\Retrieval'),
-                Selector::inNamespace('Netresearch\NrLlm\Specialized'),
+                Selector::inNamespace(self::NS_TOOL),
+                Selector::inNamespace(self::NS_AGENT),
+                Selector::inNamespace(self::NS_RETRIEVAL),
+                Selector::inNamespace(self::NS_SPECIALIZED),
             )
             ->because('Guardrails are invoked by the tool and specialized modules, never the reverse (ADR-090).');
     }
@@ -125,12 +139,12 @@ final class ModuleSeamTest
             ->classes(
                 Selector::inNamespace('Netresearch\NrLlm\Provider'),
                 Selector::inNamespace('Netresearch\NrLlm\Service'),
-                Selector::inNamespace('Netresearch\NrLlm\Specialized'),
+                Selector::inNamespace(self::NS_SPECIALIZED),
             )
             ->shouldNotDependOn()
             ->classes(
-                Selector::inNamespace('Netresearch\NrLlm\Controller'),
-                Selector::inNamespace('Netresearch\NrLlm\Widgets'),
+                Selector::inNamespace(self::NS_CONTROLLER),
+                Selector::inNamespace(self::NS_WIDGETS),
             )
             ->because('nr_llm_backend depends on the feature packages; none of them may depend on it (ADR-090).');
     }
