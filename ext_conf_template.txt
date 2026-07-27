@@ -148,3 +148,6 @@ privacy.retention.evaluation = 0
 
 # cat=privacy; type=int+; label=Retention override — Skill audit (days): Skill scan findings. 0 uses the default retention window.
 privacy.retention.skillAudit = 0
+
+# cat=privacy; type=int+; label=Retention override — Governance events (days): Tool-gate denials and guardrail blocks (be_user, decision, tool name; no prompts or responses). 0 uses the default retention window.
+privacy.retention.governance = 0

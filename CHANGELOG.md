@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `privacy.retention.governance` is now declared in `ext_conf_template.txt` and
+  documented. The retention window added for governance events in 0.25.0 was
+  read by the purge commands but had no Extension Configuration field, so the
+  category silently fell back to the global `privacy.retentionDays` and the
+  operator could neither see nor set it. A drift guard now asserts that every
+  `PrivacyDataCategory` has both a template field and a documentation entry.
+
 ## [0.25.0] - 2026-07-24
 
 Backend dashboard widgets for the Agent Runtime, plus a queryable governance
