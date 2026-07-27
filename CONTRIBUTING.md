@@ -33,7 +33,9 @@ ddev exec ".Build/bin/phpunit -c Build/phpunit.xml"
 Before submitting a PR, ensure all checks pass:
 
 ```bash
-# Run all CI checks
+# Code style, PHPStan, unit, integration and fuzzy tests.
+# Rector and the functional tests are not part of this script — CI runs those
+# too, so run them individually before pushing.
 ddev exec "composer ci"
 
 # Or run individually:
@@ -108,8 +110,28 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - [ ] Tests added/updated
 - [ ] All CI checks pass
 - [ ] Documentation updated (if applicable)
+- [ ] `CHANGELOG.md` entry added under `## [Unreleased]`
+- [ ] ADR added under `Documentation/Adr/` if the public surface changed
 - [ ] No secrets committed
 - [ ] Follows existing code style
+
+### Changelog and ADRs
+
+Every change that a consumer or an integrator can notice gets a `CHANGELOG.md`
+entry under `## [Unreleased]`, in the Keep a Changelog section that fits
+(`Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`).
+Version bumps belong to the release commit, never to a feature PR.
+
+A change to the public surface also gets an Architecture Decision Record under
+`Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
+number and follow the format of an existing one. Add the file name to the
+`toctree` at the bottom of `Documentation/Adr/Index.rst` as well; that toctree
+is explicit, so an unregistered ADR renders as an orphan page nothing links to.
+Public surface means anything
+a consumer builds against: an interface, a DI-tagged extension point, a database
+table, a TCA field, an Extension Configuration key, a console command, or the
+behaviour of any of them. Recording *why* matters more than recording what; the
+diff already shows what.
 
 ## Commit Messages
 

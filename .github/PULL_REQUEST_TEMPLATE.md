@@ -20,4 +20,6 @@
 - [ ] I have run `composer ci` and all checks pass
 - [ ] I have added tests that prove my fix/feature works
 - [ ] I have updated the documentation accordingly
+- [ ] I have added a `CHANGELOG.md` entry under `## [Unreleased]`
+- [ ] I have added an ADR under `Documentation/Adr/` if this changes the public surface
 - [ ] My changes generate no new warnings
