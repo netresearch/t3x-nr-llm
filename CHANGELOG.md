@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `privacy.retention.governance` is now declared in `ext_conf_template.txt` and
+  documented. The retention window added for governance events in 0.25.0 was
+  read by the purge commands but had no Extension Configuration field, so the
+  category silently fell back to the global `privacy.retentionDays` and the
+  operator could neither see nor set it. A drift guard now asserts that every
+  `PrivacyDataCategory` has both a template field and a documentation entry.
+- Seven Extension Configuration settings showed a description truncated
+  mid-sentence. TYPO3 splits an `ext_conf_template.txt` comment on `;` before
+  splitting the label from its description, so a semicolon inside a label cuts
+  everything after it — the DeepL identifier, minimum skill trust level,
+  health-aware fallback, tool data-class enforcement, content privacy level and
+  default retention window all lost part of their explanation in the Install
+  Tool. A test now fails on a semicolon in any label.
+
 ## [0.25.0] - 2026-07-24
 
 Backend dashboard widgets for the Agent Runtime, plus a queryable governance

@@ -64,6 +64,8 @@ default:
      - Graded evaluation output
    * - ``privacy.retention.skillAudit``
      - Skill scan findings
+   * - ``privacy.retention.governance``
+     - Tool-gate denials and guardrail blocks (no prompts, no responses)
 
 A zero, negative or non-numeric value never means "delete immediately" — it
 means "no override".

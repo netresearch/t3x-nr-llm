@@ -13,7 +13,7 @@
 # cat=openai; type=string; label=OpenAI Vault Identifier: nr-vault secret identifier for the OpenAI API key used by the DALL-E, Whisper, and TTS specialized services
 providers.openai.apiKeyIdentifier =
 
-# cat=deepl; type=string; label=DeepL Vault Identifier: nr-vault secret identifier for the DeepL API key (Free or Pro; Free keys end with ':fx', auto-detected on first request)
+# cat=deepl; type=string; label=DeepL Vault Identifier: nr-vault secret identifier for the DeepL API key (Free or Pro — Free keys end with ':fx', auto-detected on first request)
 translators.deepl.apiKeyIdentifier =
 
 # cat=deepl; type=string; label=DeepL Base URL: Custom base URL (leave empty for auto-detection based on key type)
@@ -71,7 +71,7 @@ image.fal.defaultModel = flux-schnell
 # Skills (ingest isolation — ADR-061)
 # =============================================================================
 
-# cat=skills; type=options[untrusted,community,verified,first_party]; label=Minimum Skill Trust Level: Only skills from a source classified at or above this publisher-trust level are injected into prompts and may grant tools. "untrusted" (default) accepts every enabled skill; raising it drops lower-trust skills fail-closed.
+# cat=skills; type=options[untrusted,community,verified,first_party]; label=Minimum Skill Trust Level: Only skills from a source classified at or above this publisher-trust level are injected into prompts and may grant tools. "untrusted" (default) accepts every enabled skill. Raising it drops lower-trust skills fail-closed.
 skills.minTrustLevel = untrusted
 
 # =============================================================================
@@ -87,7 +87,7 @@ circuitBreaker.failureThreshold = 5
 # cat=resilience; type=int+; label=Circuit Breaker Cooldown (seconds): How long an open circuit fails fast before allowing one half-open probe call.
 circuitBreaker.cooldownSeconds = 30
 
-# cat=resilience; type=boolean; label=Health-Aware Fallback Reorder: When on, the fallback chain is reordered by recent provider health (from telemetry) so a healthier provider is preferred; configured order is the tie-break. Off (default) keeps the configured order untouched.
+# cat=resilience; type=boolean; label=Health-Aware Fallback Reorder: When on, the fallback chain is reordered by recent provider health (from telemetry) so a healthier provider is preferred. The configured order is the tie-break. Off (default) keeps the configured order untouched.
 health.reorderFallback = 0
 
 # =============================================================================
@@ -118,17 +118,17 @@ telemetry.enabled = 1
 # Tool egress policy (ADR-094)
 # =============================================================================
 
-# cat=tools; type=options[Enforce=enforce,Observe (log only)=observe]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Enforce is the default so a new install is safe by default (ADR-113); the read is fail-closed, so a missing or mistyped value also enforces. An install upgraded from an older version is pinned to Observe by an upgrade wizard so the change does not silently strip tools from a working setup — review the run log there, then switch back to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
+# cat=tools; type=options[Enforce=enforce,Observe (log only)=observe]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Enforce is the default so a new install is safe by default (ADR-113). The read is fail-closed, so a missing or mistyped value also enforces. An install upgraded from an older version is pinned to Observe by an upgrade wizard so the change does not silently strip tools from a working setup — review the run log there, then switch back to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
 tools.dataClassEnforcement = enforce
 
 # =============================================================================
 # Privacy & data retention (ADR-064)
 # =============================================================================
 
-# cat=privacy; type=options[None=none,Metadata=metadata,Redacted=redacted,Full=full]; label=Content Privacy Level: How much per-request content the extension stores in its log tables. "None" and "Metadata" drop the content payload and keep only metadata (identifiers, counts, timestamps); "Redacted" stores a length-capped copy with obvious credentials and email addresses masked; "Full" stores it verbatim. Metadata-only is the default and matches the extension's historical behaviour. Governs tx_nrllm_eval_result.details and tx_nrllm_skill_audit.scan_result/detail.
+# cat=privacy; type=options[None=none,Metadata=metadata,Redacted=redacted,Full=full]; label=Content Privacy Level: How much per-request content the extension stores in its log tables. "None" and "Metadata" drop the content payload and keep only metadata (identifiers, counts, timestamps). "Redacted" stores a length-capped copy with obvious credentials and email addresses masked. "Full" stores it verbatim. Metadata-only is the default and matches the extension's historical behaviour. Governs tx_nrllm_eval_result.details and tx_nrllm_skill_audit.scan_result/detail.
 privacy.level = metadata
 
-# cat=privacy; type=int+; label=Retention (days): Default retention window for every content-bearing table before the nrllm:privacy:purge command deletes the rows (evaluation results, skill audit, telemetry, conversation sessions, agent runs). Minimum 1 day; an empty or zero value falls back to 30 days. Override individual categories below.
+# cat=privacy; type=int+; label=Retention (days): Default retention window for every content-bearing table before the nrllm:privacy:purge command deletes the rows (evaluation results, skill audit, telemetry, conversation sessions, agent runs). Minimum 1 day. An empty or zero value falls back to 30 days. Override individual categories below.
 privacy.retentionDays = 30
 
 # cat=privacy; type=int+; label=Retention override — Conversation sessions (days): Sessions inactive for longer than this, and their message transcripts, are deleted. Conversation content is the most sensitive data the extension stores. 0 uses the default retention window.
@@ -148,3 +148,6 @@ privacy.retention.evaluation = 0
 
 # cat=privacy; type=int+; label=Retention override — Skill audit (days): Skill scan findings. 0 uses the default retention window.
 privacy.retention.skillAudit = 0
+
+# cat=privacy; type=int+; label=Retention override — Governance events (days): Tool-gate denials and guardrail blocks — attributable metadata only, no prompts or responses. 0 uses the default retention window.
+privacy.retention.governance = 0
