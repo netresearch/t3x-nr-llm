@@ -446,9 +446,13 @@
                 <source>Model "%s" returned a %d-dimension embedding (tokens: %d in).</source>
                 <target>Modell "%s" hat ein Embedding mit %d Dimensionen geliefert (Token: %d rein).</target>
             </trans-unit>
+            <trans-unit id="model.test.emptyEmbedding">
+                <source>Model "%s" answered but returned no embedding vector.</source>
+                <target>Modell "%s" hat geantwortet, aber keinen Embedding-Vektor geliefert.</target>
+            </trans-unit>
             <trans-unit id="model.test.notTestableHere">
-                <source>Model "%s" provides %s. Those services authenticate with the Extension Configuration rather than this provider record, so they are verified on the LLM test page, not here.</source>
-                <target>Modell "%s" stellt %s bereit. Diese Dienste authentifizieren sich über die Extension-Konfiguration und nicht über diesen Provider-Datensatz — geprüft werden sie deshalb auf der LLM-Testseite, nicht hier.</target>
+                <source>Model "%s" provides %s. Those services take their credential from the Extension Configuration rather than from this provider record, so this record cannot verify them.</source>
+                <target>Modell "%s" stellt %s bereit. Diese Dienste beziehen ihre Zugangsdaten aus der Extension-Konfiguration und nicht aus diesem Provider-Datensatz — über diesen Datensatz sind sie deshalb nicht prüfbar.</target>
             </trans-unit>
             <trans-unit id="model.test.emptyResponse">
                 <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>

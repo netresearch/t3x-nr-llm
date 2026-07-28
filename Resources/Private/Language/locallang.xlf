@@ -340,8 +340,11 @@
             <trans-unit id="model.test.embedded">
                 <source>Model "%s" returned a %d-dimension embedding (tokens: %d in).</source>
             </trans-unit>
+            <trans-unit id="model.test.emptyEmbedding">
+                <source>Model "%s" answered but returned no embedding vector.</source>
+            </trans-unit>
             <trans-unit id="model.test.notTestableHere">
-                <source>Model "%s" provides %s. Those services authenticate with the Extension Configuration rather than this provider record, so they are verified on the LLM test page, not here.</source>
+                <source>Model "%s" provides %s. Those services take their credential from the Extension Configuration rather than from this provider record, so this record cannot verify them.</source>
             </trans-unit>
             <trans-unit id="model.test.emptyResponse">
                 <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>

@@ -295,6 +295,10 @@ final class ModelController extends ActionController
         ModelCapability::TOOLS,
         ModelCapability::STREAMING,
         ModelCapability::JSON_MODE,
+        // Audio is a chat-completions modality in every provider this
+        // extension speaks to — there is no audio service and no separate
+        // credential, so a record declaring only it still answers a prompt.
+        ModelCapability::AUDIO,
     ];
 
     /**
@@ -324,7 +328,7 @@ final class ModelController extends ActionController
                 success: false,
                 message: sprintf(
                     $this->translate('model.test.notTestableHere')
-                        ?? 'Model "%s" provides %s. Those services authenticate with the Extension Configuration rather than this provider record, so they are verified on the LLM test page, not here.',
+                        ?? 'Model "%s" provides %s. Those services take their credential from the Extension Configuration rather than from this provider record, so this record cannot verify them.',
                     $model->getName(),
                     implode(', ', $model->getCapabilitySet()->toStringList()),
                 ),
@@ -735,7 +739,20 @@ final class ModelController extends ActionController
             'model' => $model->getModelId(),
         ]);
 
-        $dimensions = $response->embeddings === [] ? 0 : count($response->embeddings[0]);
+        $dimensions = $response->getDimensions();
+        if ($dimensions === 0) {
+            // A 2xx whose body carries no vector has verified nothing; saying
+            // "returned a 0-dimension embedding" in the green panel would be a
+            // false positive.
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: sprintf(
+                    $this->translate('model.test.emptyEmbedding')
+                        ?? 'Model "%s" answered but returned no embedding vector.',
+                    $model->getName(),
+                ),
+            ))->jsonSerialize());
+        }
 
         return new JsonResponse((new TestConnectionResponse(
             success: true,

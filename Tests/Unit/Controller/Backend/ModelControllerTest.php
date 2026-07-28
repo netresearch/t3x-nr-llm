@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -1154,5 +1155,73 @@ final class ModelControllerTest extends TestCase
         $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 9])));
 
         self::assertTrue($body['success']);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function chatShapedCapabilityProvider(): array
+    {
+        return [
+            'chat' => ['chat'],
+            'completion' => ['completion'],
+            'vision' => ['vision'],
+            'tools' => ['tools'],
+            'streaming' => ['streaming'],
+            'json_mode' => ['json_mode'],
+            // Audio is a chat-completions modality here — there is no audio
+            // service and no separate credential.
+            'audio' => ['audio'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('chatShapedCapabilityProvider')]
+    public function everyChatShapedCapabilityKeepsTheChatProbe(string $capability): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('some-model');
+        $model->setProvider($provider);
+        $model->setCapabilities($capability);
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'some-model', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 11])));
+
+        self::assertTrue($body['success']);
+    }
+
+    #[Test]
+    public function anEmbeddingProbeThatReturnsNoVectorIsNotASuccess(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('text-embedding-3-small');
+        $model->setProvider($provider);
+        $model->setCapabilities('embeddings');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        // A 2xx whose body carries no vector: nothing was verified.
+        $adapter->method('embeddings')->willReturn(
+            new EmbeddingResponse([], 'text-embedding-3-small', new UsageStatistics(4, 0, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 12])));
+
+        self::assertFalse($body['success']);
     }
 }
