@@ -42,6 +42,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Testing\ToolLoopBuilder;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
@@ -702,11 +703,11 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
 
         // fetch_logs IS registered, but the global gate reports it disabled.
-        $service = new ToolLoopService(
+        $service = (new ToolLoopBuilder(
             $mgr,
             new ToolRegistry([new FakeTool('fetch_logs')]),
             new FakeToolAvailability([]),
-        );
+        ))->build();
         // The caller explicitly lists the disabled tool — the gate still wins.
         $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
 
@@ -735,7 +736,7 @@ final class ToolLoopServiceTest extends TestCase
 
         // Two tools registered, but only one is globally enabled.
         $registry = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
-        $service  = new ToolLoopService($mgr, $registry, new FakeToolAvailability(['fetch_logs']));
+        $service  = (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability(['fetch_logs'])))->build();
         // null ⇒ "no per-run restriction" ⇒ collapses to the enabled set only.
         $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), null);
 
@@ -1195,19 +1196,12 @@ final class ToolLoopServiceTest extends TestCase
     {
         // Defence in depth: with a validator wired, resumeWithInput re-checks the
         // input and refuses data that does not match the declared schema.
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
-        $service = new ToolLoopService(
+        $mgr     = self::createStub(LlmServiceManagerInterface::class);
+        $service = (new ToolLoopBuilder(
             $mgr,
             new ToolRegistry([new FakeInputTool('ask_user')]),
             new FakeToolAvailability(['ask_user']),
-            null,
-            5,
-            null,
-            null,
-            null,
-            null,
-            new JsonSchemaValidator(),
-        );
+        ))->withSchemaValidator(new JsonSchemaValidator())->build();
 
         $state = new SuspendedRunState(
             [$this->userTurn('go')],
@@ -1280,19 +1274,9 @@ final class ToolLoopServiceTest extends TestCase
     {
         $registry = new ToolRegistry([new FakeTool('noop')]);
 
-        return new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            null,
-            null,
-            null,
-            null,
-            null,
-            $contextWindow,
-        );
+        return (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability($registry->names())))
+            ->withContextWindow($contextWindow)
+            ->build();
     }
 
     private function service(
@@ -1301,16 +1285,13 @@ final class ToolLoopServiceTest extends TestCase
         ?LoggerInterface $logger = null,
         ?AllowedToolsResolver $allowedTools = null,
     ): ToolLoopService {
-        return new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability($registry->names()),
-            $logger,
-            5,
-            null,
-            null,
-            $allowedTools,
-        );
+        $builder = (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability($registry->names())))
+            ->withLogger($logger);
+        if ($allowedTools !== null) {
+            $builder->withAllowedTools($allowedTools);
+        }
+
+        return $builder->build();
     }
 
     /**
@@ -1408,11 +1389,11 @@ final class ToolLoopServiceTest extends TestCase
 
             // Tool is registered, globally enabled, AND explicitly allowed — but
             // it requiresAdmin and the acting user is not an admin.
-            $service = new ToolLoopService(
+            $service = (new ToolLoopBuilder(
                 $mgr,
                 new ToolRegistry([new FakeTool('fetch_logs', 'ok', true, true)]),
                 new FakeToolAvailability(['fetch_logs']),
-            );
+            ))->build();
             $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($nonAdmin), ['fetch_logs']);
 
             self::assertSame('plain answer', $result->finalContent);
@@ -1445,11 +1426,11 @@ final class ToolLoopServiceTest extends TestCase
                 ->willReturnCallback($this->queueCallback($queue));
 
             // requiresAdmin = true; globally enabled; explicitly allowed.
-            $service = new ToolLoopService(
+            $service = (new ToolLoopBuilder(
                 $mgr,
                 new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
                 new FakeToolAvailability(['fetch_logs']),
-            );
+            ))->build();
             $result = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
 
             self::assertCount(1, $result->trace);
@@ -1484,11 +1465,11 @@ final class ToolLoopServiceTest extends TestCase
 
             // Tool requiresAdmin AND is registered, but the global gate reports
             // NO enabled tools — the caller even explicitly allows it.
-            $service = new ToolLoopService(
+            $service = (new ToolLoopBuilder(
                 $mgr,
                 new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
                 new FakeToolAvailability([]),
-            );
+            ))->build();
             $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
 
             self::assertSame('plain answer', $result->finalContent);
@@ -1504,11 +1485,11 @@ final class ToolLoopServiceTest extends TestCase
      */
     private function budgetMetadata(?ToolOptions $options): array
     {
-        $service = new ToolLoopService(
+        $service = (new ToolLoopBuilder(
             self::createStub(LlmServiceManagerInterface::class),
             new ToolRegistry([]),
             new FakeToolAvailability([]),
-        );
+        ))->build();
         /** @var array<string, mixed> $result */
         $result = (new ReflectionClass($service))->getMethod('budgetMetadata')->invoke($service, $options);
 

@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Testing\ToolLoopBuilder;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
@@ -53,13 +54,10 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         );
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]);
-        $service  = new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability(['fetch_logs']),
-            toolPolicy: $policy,
-            governanceEvents: $recorder,
-        );
+        $service  = (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability(['fetch_logs'])))
+            ->withToolPolicy($policy)
+            ->withGovernanceEvents($recorder)
+            ->build();
 
         $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(42, true), null);
         $service->runLoop([['role' => 'user', 'content' => 'show logs']], new LlmConfiguration(), $context, null);
@@ -87,13 +85,10 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         );
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]);
-        $service  = new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability(['fetch_logs']),
-            toolPolicy: $policy,
-            governanceEvents: $recorder,
-        );
+        $service  = (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability(['fetch_logs'])))
+            ->withToolPolicy($policy)
+            ->withGovernanceEvents($recorder)
+            ->build();
 
         $service->runLoop([['role' => 'user', 'content' => 'hi']], new LlmConfiguration(), ToolExecutionContext::none(), null);
 

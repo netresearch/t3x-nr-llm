@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Testing\ToolLoopBuilder;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -149,14 +150,16 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
     /**
      * Wire the loop with the real registry + real DB-backed availability service
-     * over the single real {@see FetchLogsTool}.
+     * over the single real {@see FetchLogsTool}. The gate is the ADR-118 lean
+     * test policy over those REAL collaborators, so the availability and admin
+     * decisions are still driven by the real DB-backed enablement state.
      */
     private function buildService(LlmServiceManagerInterface $mgr): ToolLoopService
     {
         $registry     = new ToolRegistry([new FetchLogsTool($this->connectionPool)]);
         $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool), new ToolGroupStateRepository($this->connectionPool));
 
-        return new ToolLoopService($mgr, $registry, $availability);
+        return (new ToolLoopBuilder($mgr, $registry, $availability))->build();
     }
 
     /**

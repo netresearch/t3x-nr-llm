@@ -41,6 +41,7 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Testing\ToolLoopBuilder;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -109,7 +110,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(
             $configurationRepository,
             $toolRegistry,
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
+            (new ToolLoopBuilder(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability))->build(),
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -148,7 +149,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $controller    = $this->makeController(
             $configurationRepository,
             $emptyRegistry,
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), $emptyRegistry, $this->availabilityFor($emptyRegistry)),
+            (new ToolLoopBuilder(self::createStub(LlmServiceManagerInterface::class), $emptyRegistry, $this->availabilityFor($emptyRegistry)))->build(),
         );
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -207,7 +208,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
 
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
@@ -295,7 +296,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
 
         // Wire the real persister (ADR-081): the batch runAction path must open a
         // run, record each step, and settle it COMPLETED.
@@ -367,7 +368,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
         $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -401,7 +402,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithToolsForConfiguration');
 
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoop     = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoop     = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
         $controller   = $this->makeController($configurationRepository, $toolRegistry, $toolLoop);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -459,7 +460,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
         $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -693,7 +694,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('safe_tool')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $registry, $this->availabilityFor($registry)))->withLogger(new NullLogger())->build();
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
@@ -735,7 +736,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('ask_user')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $registry, $this->availabilityFor($registry)))->withLogger(new NullLogger())->build();
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
@@ -782,7 +783,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('ask_user')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $registry, $this->availabilityFor($registry)))->withLogger(new NullLogger())->build();
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
@@ -834,7 +835,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
 
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
     }
@@ -879,7 +880,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = (new ToolLoopBuilder($manager, $toolRegistry, $this->availabilityFor($toolRegistry)))->withLogger(new NullLogger())->build();
 
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
     }

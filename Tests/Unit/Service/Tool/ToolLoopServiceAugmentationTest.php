@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Testing\ToolLoopBuilder;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -150,15 +151,10 @@ final class ToolLoopServiceAugmentationTest extends TestCase
 
         // A tool echoing raw bytes (log/env/phpinfo output) that are not valid UTF-8.
         $registry = new ToolRegistry([new FakeTool('bad', "before \xFF\xFE after")]);
-        $service  = new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            new SkillInjectionService(new SkillComposer(), new NullLogger()),
-            new PromptSnippetComposer(),
-        );
+        $service  = (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability($registry->names())))
+            ->withSkillInjection(new SkillInjectionService(new SkillComposer(), new NullLogger()))
+            ->withSnippetComposer(new PromptSnippetComposer())
+            ->build();
 
         $trace  = new RunTrace();
         $result = $service->runLoop(
@@ -192,14 +188,9 @@ final class ToolLoopServiceAugmentationTest extends TestCase
     {
         $registry = new ToolRegistry([new FakeTool('noop')]);
 
-        return new ToolLoopService(
-            $mgr,
-            $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            new SkillInjectionService(new SkillComposer(), new NullLogger()),
-            new PromptSnippetComposer(),
-        );
+        return (new ToolLoopBuilder($mgr, $registry, new FakeToolAvailability($registry->names())))
+            ->withSkillInjection(new SkillInjectionService(new SkillComposer(), new NullLogger()))
+            ->withSnippetComposer(new PromptSnippetComposer())
+            ->build();
     }
 }
