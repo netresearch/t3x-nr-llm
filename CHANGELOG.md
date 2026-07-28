@@ -35,6 +35,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   consumer calling one of the three action methods directly on
   `ModelController` has to call it on the new controller instead. Same split by
   request pathway as ADR-027.
+- The agent runtime no longer carries the queued-request serialisation. Turning
+  an `AgentRunRequest` into the JSON stored on a queued run row, and reading it
+  back, moved into `AgentRunRequestCodec`. The two directions have to agree
+  field for field — including the budget and idempotency values that
+  `ToolOptions::toArray()` drops and the codec therefore carries out of band —
+  and that agreement is now stated in one class and tested directly rather than
+  inferred from a run. `AgentRuntime` loses its `SkillRepository` and
+  `PromptSnippetRepository` constructor arguments, which only the serialisation
+  used; the codec takes them instead. Consumers use `AgentRuntimeInterface` and
+  are unaffected. First step of the runtime decomposition on the roadmap.
 
 ### Removed
 

@@ -15,14 +15,9 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
-use Netresearch\NrLlm\Domain\Model\PromptSnippet;
-use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
-use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
-use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
-use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -42,7 +37,6 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
-use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -51,7 +45,6 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
-use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -120,8 +113,6 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         private LlmConfigurationRepository $configurationRepository,
         private ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
-        private ?SkillRepository $skillRepository = null,
-        private ?PromptSnippetRepository $promptSnippetRepository = null,
         // Validates a submitted input against a tool's declared schema (ADR-105).
         // Optional in the ctor only so the lean test wiring and the positional
         // construction sites keep working; submitInput() always validates,
@@ -138,7 +129,23 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // read-only — safe today (no builtin writes) and only reachable in bare
         // test construction, never in the autowired runtime.
         private ?ToolEffectResolver $toolEffectResolver = null,
+        // Serialises a request into, and back out of, the queued row (ADR-102).
+        // Optional in the ctor only for the positional test wiring, like the
+        // collaborators above; production autowires it, and a null builds a
+        // codec over the same configuration repository this runtime already
+        // holds — without forced skills or snippets, which only the queue path
+        // resolves.
+        private ?AgentRunRequestCodec $requestCodec = null,
     ) {}
+
+    /**
+     * The codec for the queued-request payload, falling back to a bare instance
+     * when none was injected.
+     */
+    private function requestCodec(): AgentRunRequestCodec
+    {
+        return $this->requestCodec ?? new AgentRunRequestCodec($this->configurationRepository);
+    }
 
     /**
      * Build the tool-execution context for a run from its explicit actor: the
@@ -168,7 +175,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
         try {
             $requestJson = json_encode(
-                $this->dehydrateRequest($request),
+                $this->requestCodec()->dehydrate($request),
                 JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
             );
         } catch (Throwable $e) {
@@ -246,7 +253,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         }
 
         try {
-            $request = $this->rehydrateRequest($run);
+            $request = $this->requestCodec()->rehydrate($run);
         } catch (Throwable $e) {
             $this->persister->settleFailed($handle, $e);
             $this->logger?->error('Queued agent run could not be rehydrated; the run was failed', ['run' => $runUuid, 'exception' => $e]);
@@ -426,213 +433,6 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     }
 
     /**
-     * Serialise a request for the queued row (ADR-102). Entities travel as
-     * uids (the rehydrator re-loads them — the same identity-over-snapshot
-     * choice approve() makes for the configuration); messages and options use
-     * their established array forms (the SuspendedRunState precedent).
-     *
-     * @return array<string, mixed>
-     */
-    private function dehydrateRequest(AgentRunRequest $request): array
-    {
-        $augmentation = $request->augmentation;
-
-        return [
-            'messages'         => array_map(
-                static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m,
-                $request->messages,
-            ),
-            // The FULL initiating actor (ADR-083), not just its backend-user id:
-            // a worker rehydrating this run must authorise with the identity that
-            // enqueued the work — admin flag, groups, service account — rather
-            // than the worker's absent ambient BE user.
-            'actor'            => $request->actor->toArray(),
-            'allowedToolNames' => $request->allowedToolNames,
-            'options'          => $request->options?->toArray(),
-            // ToolOptions::toArray() deliberately excludes the budget fields and
-            // the idempotency key (they are not provider API fields), but a
-            // queued run's budget PRE-FLIGHT has not happened yet — unlike the
-            // ADR-084 resume case that exclusion was designed for. Carry them
-            // out-of-band so run() and enqueue()+runQueued() of the same
-            // request hit the identical budget gate and dedup.
-            'plannedCost'      => $request->options?->getPlannedCost(),
-            'idempotencyKey'   => $request->options?->getIdempotencyKey(),
-            'maxIterations'    => $request->maxIterations,
-            'captureRaw'       => $request->captureRaw,
-            // null stays null: a non-null augmentation makes the loop bake the
-            // effective system prompt into the transcript (ADR-060 assembly),
-            // which a null-augmentation run() would not do — losing the
-            // distinction would silently change the prompt composition.
-            'augmentation'     => $augmentation === null ? null : [
-                'forcedSkillUids'   => array_values(array_filter(array_map(
-                    static fn(Skill $skill): int => $skill->getUid() ?? 0,
-                    $augmentation->forcedSkills,
-                ))),
-                'forcedSnippetUids' => array_values(array_filter(array_map(
-                    static fn(PromptSnippet $snippet): int => $snippet->getUid() ?? 0,
-                    $augmentation->forcedSnippets,
-                ))),
-                'dryRun'            => $augmentation->dryRun,
-            ],
-        ];
-    }
-
-    /**
-     * Rebuild the request from a claimed queued row (ADR-102). The
-     * configuration and the forced skills/snippets are re-loaded by uid — a
-     * configuration deleted while the run was queued fails the run, and a
-     * skill/snippet deleted meanwhile is simply no longer forced (the same
-     * live-resolution semantics the interactive path has).
-     */
-    private function rehydrateRequest(AgentRun $run): AgentRunRequest
-    {
-        // The same typed absence approve() reports — here it is caught by
-        // runQueued()'s rehydration guard, which settles the run FAILED with a
-        // meaningful error class instead of letting it escape.
-        $configuration = $this->configurationRepository->findByUid($run->configurationUid);
-        if ($configuration === null) {
-            throw RunConfigurationGoneException::forRun($run->uuid);
-        }
-
-        $data = json_decode($run->queuedRequest ?? '', true);
-        if (!is_array($data)) {
-            throw new RuntimeException(sprintf('The stored request of queued run %s could not be decoded', $run->uuid), 2826462004);
-        }
-
-        $messages = [];
-        foreach (is_array($data['messages'] ?? null) ? $data['messages'] : [] as $message) {
-            if (is_array($message)) {
-                /** @var array<string, mixed> $message */
-                $messages[] = $message;
-            }
-        }
-
-        $allowed = null;
-        if (is_array($data['allowedToolNames'] ?? null)) {
-            $allowed = array_values(array_filter($data['allowedToolNames'], is_string(...)));
-        }
-
-        $options = null;
-        if (is_array($data['options'] ?? null)) {
-            /** @var array<string, mixed> $optionsData */
-            $optionsData = $data['options'];
-            // The initiator on the run row attributes the budget pre-flight,
-            // exactly as the interactive path does.
-            $options = ToolOptions::fromArray($optionsData, $run->beUser !== 0 ? $run->beUser : null);
-            // Re-inject the out-of-band budget/idempotency fields (see
-            // dehydrateRequest()): a queued run's budget pre-flight must be as
-            // strict as the direct path's, and its provider calls as
-            // deduplicatable.
-            $plannedCost = $data['plannedCost'] ?? null;
-            if (is_float($plannedCost) || is_int($plannedCost)) {
-                $options = $options->withPlannedCost((float)$plannedCost);
-            }
-            $idempotencyKey = $data['idempotencyKey'] ?? null;
-            if (is_string($idempotencyKey) && $idempotencyKey !== '') {
-                $options = $options->withIdempotencyKey($idempotencyKey);
-            }
-        }
-
-        $augmentation = null;
-        if (is_array($data['augmentation'] ?? null)) {
-            $augmentationData = $data['augmentation'];
-            $augmentation     = new RunAugmentation(
-                forcedSkills: $this->skillsByUids($this->uidList($augmentationData['forcedSkillUids'] ?? null)),
-                forcedSnippets: $this->snippetsByUids($this->uidList($augmentationData['forcedSnippetUids'] ?? null)),
-                dryRun: ($augmentationData['dryRun'] ?? false) === true,
-            );
-        }
-
-        // Restore the full initiating actor from the serialised request. A row
-        // queued before actors were persisted has no 'actor' key: fall back to
-        // the stored be_user id (the same single-int identity the pre-actor
-        // worker had), so an in-flight upgrade never loses or invents privilege.
-        $actorData = $data['actor'] ?? null;
-        if (is_array($actorData)) {
-            /** @var array<string, mixed> $actorData a serialised actor is a JSON object (string keys) */
-            $actor = AiActorContext::fromArray($actorData);
-        } else {
-            $actor = AiActorContext::backendUser($run->beUser);
-        }
-
-        return new AgentRunRequest(
-            configuration: $configuration,
-            messages: $messages,
-            actor: $actor,
-            allowedToolNames: $allowed,
-            options: $options,
-            maxIterations: is_int($data['maxIterations'] ?? null) ? $data['maxIterations'] : null,
-            augmentation: $augmentation,
-            captureRaw: ($data['captureRaw'] ?? false) === true,
-        );
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function uidList(mixed $value): array
-    {
-        if (!is_array($value)) {
-            return [];
-        }
-
-        $uids = [];
-        foreach ($value as $uid) {
-            if (is_int($uid) && $uid > 0) {
-                $uids[] = $uid;
-            }
-        }
-
-        return $uids;
-    }
-
-    /**
-     * Forced skills by uid, preserving order. Resolved without the enabled
-     * filter — forcing a skill overrides its global toggle, the same semantics
-     * the playground's force-inject control has.
-     *
-     * @param list<int> $uids
-     *
-     * @return list<Skill>
-     */
-    private function skillsByUids(array $uids): array
-    {
-        if ($uids === [] || $this->skillRepository === null) {
-            return [];
-        }
-
-        $byUid = [];
-        foreach ($this->skillRepository->findAll() as $skill) {
-            if ($skill instanceof Skill && $skill->getUid() !== null) {
-                $byUid[$skill->getUid()] = $skill;
-            }
-        }
-
-        $skills = [];
-        foreach ($uids as $uid) {
-            if (isset($byUid[$uid])) {
-                $skills[] = $byUid[$uid];
-            }
-        }
-
-        return $skills;
-    }
-
-    /**
-     * @param list<int> $uids
-     *
-     * @return list<PromptSnippet>
-     */
-    private function snippetsByUids(array $uids): array
-    {
-        if ($uids === [] || $this->promptSnippetRepository === null) {
-            return [];
-        }
-
-        return $this->promptSnippetRepository->findByUids($uids);
-    }
-
-    /**
      * Which worker claimed a queued run — host + pid, for lease diagnostics.
      */
     private function workerIdentity(): string
@@ -702,7 +502,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         $trace = $this->trace($handle, $onStep, false);
         // Tools resume under the RUN OWNER's identity (ADR-083), not whoever is
         // approving: the owner is who the queued work acts for. Reconstructed
-        // from the run row's initiating uid — the same fallback rehydrateRequest()
+        // from the run row's initiating uid — the same fallback the request codec
         // uses — and resolved to a live user, so authorization is identical to
         // the original synchronous/worker execution.
         $context = $this->toolContext(AiActorContext::backendUser($run->beUser));
