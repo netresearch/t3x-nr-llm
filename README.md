@@ -307,6 +307,7 @@ Then activate in **Admin Tools > Extensions** and run **Admin Tools > LLM > Setu
 - **[Developer Guide](Documentation/Developer/Index.rst)** — API reference, services, custom providers
 - **[Integration Guide](Documentation/Developer/IntegrationGuide.rst)** — Build your extension on nr-llm
 - **[Architecture](Documentation/Architecture/Index.rst)** — Design decisions and ADRs
+- **[Roadmap](ROADMAP.md)** — Where nr-llm is heading, and what it deliberately won't do
 
 ---
 
