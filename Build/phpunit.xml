@@ -69,6 +69,8 @@
             <file>../Classes/Controller/Backend/ConfigurationController.php</file>
             <file>../Classes/Controller/Backend/LlmModuleController.php</file>
             <file>../Classes/Controller/Backend/ModelController.php</file>
+            <file>../Classes/Controller/Backend/ModelDiscoveryController.php</file>
+            <file>../Classes/Controller/Backend/ModelTestController.php</file>
             <file>../Classes/Controller/Backend/ProviderController.php</file>
             <file>../Classes/Controller/Backend/SetupWizardController.php</file>
             <file>../Classes/Controller/Backend/TaskController.php</file>

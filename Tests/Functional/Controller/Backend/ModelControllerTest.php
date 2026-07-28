@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
+use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
@@ -36,6 +38,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * bypassing Extbase ActionController initialization that requires request context.
  */
 #[CoversClass(ModelController::class)]
+#[CoversClass(ModelTestController::class)]
+#[CoversClass(ModelDiscoveryController::class)]
 final class ModelControllerTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_MODEL_GET_BY_PROVIDER = '/ajax/nrllm/model/get-by-provider';
@@ -49,6 +53,8 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
     private const MODEL_NOT_FOUND = 'Model not found';
 
     private ModelController $controller;
+    private ModelTestController $testController;
+    private ModelDiscoveryController $discoveryController;
     private ModelRepository $modelRepository;
     private PersistenceManagerInterface $persistenceManager;
 
@@ -89,7 +95,12 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
             $this->modelRepository,
             $providerRepository,
             $this->persistenceManager,
-            $providerAdapterRegistry,
+        );
+
+        // The probe and discovery actions moved to their own controllers.
+        $this->testController = $this->createTestControllerWithDependencies($providerAdapterRegistry);
+        $this->discoveryController = $this->createDiscoveryControllerWithDependencies(
+            $providerRepository,
             $modelDiscovery,
         );
     }
@@ -102,8 +113,6 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         ModelRepository $modelRepository,
         ProviderRepository $providerRepository,
         PersistenceManagerInterface $persistenceManager,
-        ProviderAdapterRegistry $providerAdapterRegistry,
-        ModelDiscoveryInterface $modelDiscovery,
     ): ModelController {
         $reflection = new ReflectionClass(ModelController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
@@ -112,8 +121,25 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
         $this->setPrivateProperty($controller, 'providerRepository', $providerRepository);
         $this->setPrivateProperty($controller, 'persistenceManager', $persistenceManager);
+
+        // The typed catch blocks log via LoggerInterface — initialise it so the
+        // exercised actions don't hit an uninitialised typed property.
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
+
+        return $controller;
+    }
+
+    /**
+     * Same reflection approach for the probe controller the test action moved to.
+     */
+    private function createTestControllerWithDependencies(
+        ProviderAdapterRegistry $providerAdapterRegistry,
+    ): ModelTestController {
+        $reflection = new ReflectionClass(ModelTestController::class);
+        $controller = $reflection->newInstanceWithoutConstructor();
+
+        $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $providerAdapterRegistry);
-        $this->setPrivateProperty($controller, 'modelDiscovery', $modelDiscovery);
 
         // The test AJAX action resolves a default prompt and the typed
         // catch blocks log via LoggerInterface — initialise both so the
@@ -121,6 +147,23 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
         $this->setPrivateProperty($controller, 'testPromptResolver', $testPromptResolver);
+        $this->setPrivateProperty($controller, 'logger', new NullLogger());
+
+        return $controller;
+    }
+
+    /**
+     * Same reflection approach for the controller the discovery actions moved to.
+     */
+    private function createDiscoveryControllerWithDependencies(
+        ProviderRepository $providerRepository,
+        ModelDiscoveryInterface $modelDiscovery,
+    ): ModelDiscoveryController {
+        $reflection = new ReflectionClass(ModelDiscoveryController::class);
+        $controller = $reflection->newInstanceWithoutConstructor();
+
+        $this->setPrivateProperty($controller, 'providerRepository', $providerRepository);
+        $this->setPrivateProperty($controller, 'modelDiscovery', $modelDiscovery);
         $this->setPrivateProperty($controller, 'logger', new NullLogger());
 
         return $controller;
@@ -343,7 +386,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 1]);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert - response is either success or connection failure (expected without real API)
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -360,7 +403,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody([]);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -378,7 +421,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 999]);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -397,7 +440,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => '1']);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert - should not return 400 (bad request)
         self::assertNotSame(400, $response->getStatusCode());
@@ -476,7 +519,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody([]);
 
         // Act
-        $response = $this->controller->fetchAvailableModelsAction($request);
+        $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -494,7 +537,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 999]);
 
         // Act
-        $response = $this->controller->fetchAvailableModelsAction($request);
+        $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -514,7 +557,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 1]);
 
         // Act
-        $response = $this->controller->fetchAvailableModelsAction($request);
+        $response = $this->discoveryController->fetchAvailableModelsAction($request);
 
         // Assert - either 200 with models or 500 with error (no real API)
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -534,7 +577,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['modelId' => 'gpt-5']);
 
         // Act
-        $response = $this->controller->detectLimitsAction($request);
+        $response = $this->discoveryController->detectLimitsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -552,7 +595,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 1]);
 
         // Act
-        $response = $this->controller->detectLimitsAction($request);
+        $response = $this->discoveryController->detectLimitsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -570,7 +613,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 999, 'modelId' => 'gpt-5']);
 
         // Act
-        $response = $this->controller->detectLimitsAction($request);
+        $response = $this->discoveryController->detectLimitsAction($request);
 
         // Assert
         self::assertSame(404, $response->getStatusCode());
@@ -590,7 +633,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-5']);
 
         // Act
-        $response = $this->controller->detectLimitsAction($request);
+        $response = $this->discoveryController->detectLimitsAction($request);
 
         // Assert - either 200 with limits, 404 if model not found, or 500 with error
         self::assertContains($response->getStatusCode(), [200, 404, 500]);
@@ -611,7 +654,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 6]);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
@@ -668,7 +711,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['uid' => 'abc']);
 
         // Act
-        $response = $this->controller->testModelAction($request);
+        $response = $this->testController->testModelAction($request);
 
         // Assert: treated as missing UID
         self::assertSame(400, $response->getStatusCode());
@@ -687,7 +730,7 @@ final class ModelControllerTest extends AbstractFunctionalTestCase
         $request = $request->withParsedBody(['providerUid' => 1, 'modelId' => '   ']);
 
         // Act
-        $response = $this->controller->detectLimitsAction($request);
+        $response = $this->discoveryController->detectLimitsAction($request);
 
         // Assert
         self::assertSame(400, $response->getStatusCode());
