@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 use LogicException;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -1078,5 +1079,80 @@ final class ModelControllerTest extends TestCase
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function anImageOnlyModelIsNotSentAChatPrompt(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('dall-e-3');
+        $model->setProvider($provider);
+        $model->setCapabilities('image');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+        // The whole point: no adapter is built, so nothing is sent upstream.
+        $this->providerAdapterRegistry->expects(self::never())->method('createAdapterFromModel');
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 7])));
+
+        self::assertFalse($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('dall-e-3', $body['message']);
+        self::assertStringContainsString('Extension Configuration', $body['message']);
+    }
+
+    #[Test]
+    public function anEmbeddingModelIsProbedWithAnEmbeddingCall(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('text-embedding-3-small');
+        $model->setProvider($provider);
+        $model->setCapabilities('embeddings');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('embeddings')->willReturn(
+            new EmbeddingResponse([[0.1, 0.2, 0.3]], 'text-embedding-3-small', new UsageStatistics(4, 0, 4)),
+        );
+        $adapter->expects(self::never())->method('complete');
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 8])));
+
+        self::assertTrue($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('3-dimension', $body['message']);
+    }
+
+    #[Test]
+    public function aModelWithoutDeclaredCapabilitiesKeepsTheChatProbe(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('unlabelled');
+        $model->setProvider($provider);
+        // Capabilities are optional in TCA and routinely left empty; refusing
+        // to test that case would be a regression.
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'unlabelled', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 9])));
+
+        self::assertTrue($body['success']);
     }
 }

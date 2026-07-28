@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -145,6 +146,7 @@ final class ConfigurationControllerTest extends AbstractFunctionalTestCase
             new NullLogger(),
             $presetRegistry,
             $presetImportService,
+            $this->get(ModelSelectionServiceInterface::class),
         );
     }
 
