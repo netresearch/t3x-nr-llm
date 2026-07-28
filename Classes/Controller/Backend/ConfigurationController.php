@@ -564,7 +564,7 @@ final class ConfigurationController extends ActionController
      * its preflight result so the list can show upfront whether an import
      * can succeed.
      *
-     * @return list<array{identifier: string, name: string, description: string, satisfiable: bool, matchedModelLabel: string|null, missingRequirement: string|null}>
+     * @return list<array{identifier: string, name: string, description: string, satisfiable: bool, matchedModelLabel: string|null, missingRequirement: string|null, remedy: string|null, remedySubject: string|null}>
      */
     private function buildPendingPresetRows(): array
     {
@@ -578,6 +578,8 @@ final class ConfigurationController extends ActionController
                 'satisfiable' => $preflight->satisfiable,
                 'matchedModelLabel' => $preflight->matchedModelLabel,
                 'missingRequirement' => $preflight->missingRequirement,
+                'remedy' => $preflight->remedy?->value,
+                'remedySubject' => $preflight->remedySubject,
             ];
         }
 

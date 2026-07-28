@@ -13,18 +13,23 @@ use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetDiffService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
+use Netresearch\NrLlm\Service\Preset\PresetRemedy;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 #[AllowMockObjectsWithoutExpectations]
 #[CoversClass(ConfigurationPresetImportService::class)]
@@ -33,6 +38,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     private ModelSelectionServiceInterface&MockObject $modelSelectionService;
     private LlmConfigurationRepository&MockObject $configurationRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
+    private ModelRepository&MockObject $modelRepository;
+    private ProviderRepository&MockObject $providerRepository;
     private ConfigurationPresetImportService $subject;
 
     protected function setUp(): void
@@ -41,11 +48,23 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
+        $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->providerRepository = $this->createMock(ProviderRepository::class);
+        // A configured provider and no inactive models is the ordinary case;
+        // the remedy tests override what they need.
+        // The remedy gate reads findActive(); countActive() counts every
+        // non-deleted provider and is deliberately not used for it.
+        $defaultProvider = new Provider();
+        $defaultProvider->setName('OpenAI');
+        $this->providerRepository->method('findActive')->willReturn($this->queryResult([$defaultProvider]));
+        $this->modelRepository->method('findAll')->willReturn($this->queryResult([]));
         $this->subject = new ConfigurationPresetImportService(
             $this->modelSelectionService,
             $this->configurationRepository,
             $this->persistenceManager,
             new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $this->providerRepository,
         );
     }
 
@@ -411,5 +430,190 @@ final class ConfigurationPresetImportServiceTest extends TestCase
 
         self::assertTrue($diff->hasChanges());
         self::assertContains('description', $diff->changedFields());
+    }
+
+    /**
+     * Extbase repositories return a QueryResultInterface, not an array.
+     *
+     * @param list<object> $items
+     *
+     * @return QueryResultInterface<int, object>&MockObject
+     */
+    private function queryResult(array $items): QueryResultInterface&MockObject
+    {
+        $result = $this->createMock(QueryResultInterface::class);
+        $result->method('toArray')->willReturn($items);
+
+        return $result;
+    }
+
+    #[Test]
+    public function remedyIsAddProviderWhenNoProviderIsConfigured(): void
+    {
+        // A fresh subject: the shared one is wired for "a provider exists".
+        $providers = $this->createMock(ProviderRepository::class);
+        $providers->method('findActive')->willReturn($this->queryResult([]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $providers,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AddProvider, $result->remedy);
+        self::assertNull($result->remedySubject);
+    }
+
+    #[Test]
+    public function remedyIsActivateModelWhenAnInactiveModelWouldMatch(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $inactive = new Model();
+        $inactive->setName('gpt-4o');
+        $inactive->setIsActive(false);
+        $inactive->setProvider($provider);
+
+        $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->modelRepository->method('findAll')->willReturn($this->queryResult([$inactive]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $this->providerRepository,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+        $this->modelSelectionService->method('modelMatchesCriteria')->willReturn(true);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::ActivateModel, $result->remedy);
+        self::assertSame('gpt-4o (OpenAI)', $result->remedySubject);
+    }
+
+    #[Test]
+    public function anActiveModelIsNeverOfferedForActivation(): void
+    {
+        $active = new Model();
+        $active->setName('gpt-4o');
+        $active->setIsActive(true);
+
+        $models = $this->createMock(ModelRepository::class);
+        $models->method('findAll')->willReturn($this->queryResult([$active]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $models,
+            $this->providerRepository,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+        $this->modelSelectionService->method('modelMatchesCriteria')->willReturn(true);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AddModel, $result->remedy);
+    }
+
+    #[Test]
+    public function remedyIsAddModelAndNamesTheConfiguredProviders(): void
+    {
+        $openAi = new Provider();
+        $openAi->setName('OpenAI');
+        $ollama = new Provider();
+        $ollama->setName('Ollama');
+
+        $providers = $this->createMock(ProviderRepository::class);
+        $providers->method('findActive')->willReturn($this->queryResult([$openAi, $ollama]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $providers,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AddModel, $result->remedy);
+        self::assertSame('OpenAI, Ollama', $result->remedySubject);
+    }
+
+    #[Test]
+    public function remedyIsAdjustSetupWhenCapabilitiesMatchButAnotherCriterionDoesNot(): void
+    {
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        // Capabilities alone find a candidate; adding the context length does not.
+        $this->modelSelectionService->method('findCandidates')->willReturnCallback(
+            static fn(array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
+        );
+
+        $result = $this->subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AdjustSetup, $result->remedy);
+        self::assertNull($result->remedySubject);
+    }
+
+    #[Test]
+    public function aSatisfiablePresetCarriesNoRemedy(): void
+    {
+        $model = new Model();
+        $model->setName('gpt-4o');
+        $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
+
+        $result = $this->subject->preflight(self::preset());
+
+        self::assertTrue($result->satisfiable);
+        self::assertNull($result->remedy);
+        self::assertNull($result->remedySubject);
+    }
+
+    #[Test]
+    public function aProviderThatExistsButIsInactiveCountsAsNoProvider(): void
+    {
+        // ProviderRepository::countActive() would count it — it counts every
+        // non-deleted row. The remedy must not claim providers are configured
+        // and then print an empty list.
+        $providers = $this->createMock(ProviderRepository::class);
+        $providers->method('findActive')->willReturn($this->queryResult([]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $providers,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AddProvider, $result->remedy);
     }
 }

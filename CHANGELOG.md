@@ -46,6 +46,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never read again. Access control is unchanged: the gate that works is the
   per-configuration `allowed_groups` relation.
 
+### Fixed
+
+- A configuration preset that cannot be imported now says what to do about it,
+  and no longer renders a disabled button that looks exactly like the working
+  one. Both branches used `btn btn-primary btn-sm` with the same "Import" label
+  and the same download icon; the only difference was a `disabled` attribute
+  and a tooltip, so an inert control was indistinguishable from a broken one —
+  clicking it did nothing, by design, with no visible explanation.
+
+  "Not satisfiable — missing: capabilities: chat, vision" also stated the
+  diagnosis and left the operator to guess the cure. The preflight now
+  distinguishes four cases from the records already present and names the
+  action for each: a matching model exists but is switched off (activate it,
+  with the model named); no model declares the capabilities (add one to a
+  configured provider, or tick the capability on a model that has it, with the
+  providers named); no provider is configured at all; or the capabilities are
+  covered and a secondary requirement rules every model out. The first three
+  link to the module that fixes them.
+
 ## [0.25.1] - 2026-07-27
 
 A translation fix reported from the field, plus Extension Configuration

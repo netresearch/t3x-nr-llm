@@ -85,12 +85,38 @@
                                                     </button>
                                                 </f:then>
                                                 <f:else>
-                                                    <button type="button" class="btn btn-primary btn-sm" disabled
-                                                            title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.importDisabled.title')}"
-                                                            aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.importDisabled.title')}">
-                                                        <core:icon identifier="actions-download" size="small" />
-                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.import" default="Import" />
-                                                    </button>
+                                                    <f:comment>
+                                                        No button here. A disabled btn-primary carrying the same label
+                                                        and icon as the working one is indistinguishable from a broken
+                                                        control, and its only cue was a tooltip. State the reason in
+                                                        the cell instead.
+                                                    </f:comment>
+                                                    <span class="text-body-secondary">
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.importUnavailable" default="Import unavailable" />
+                                                    </span>
+                                                    <br /><span class="small">
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.{preset.remedy}" default="No active model satisfies the requirements." />
+                                                        <f:if condition="{preset.remedySubject}">
+                                                            <br /><code>{preset.remedySubject}</code>
+                                                        </f:if>
+                                                    </span>
+                                                    <f:switch expression="{preset.remedy}">
+                                                        <f:case value="activateModel">
+                                                            <br /><a class="btn btn-default btn-sm mt-1" href="{be:moduleLink(route: 'nrllm_models')}">
+                                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.gotoModels" default="Open Models" />
+                                                            </a>
+                                                        </f:case>
+                                                        <f:case value="addModel">
+                                                            <br /><a class="btn btn-default btn-sm mt-1" href="{be:moduleLink(route: 'nrllm_models')}">
+                                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.gotoModels" default="Open Models" />
+                                                            </a>
+                                                        </f:case>
+                                                        <f:case value="addProvider">
+                                                            <br /><a class="btn btn-default btn-sm mt-1" href="{be:moduleLink(route: 'nrllm_wizard')}">
+                                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.gotoWizard" default="Open Setup Wizard" />
+                                                            </a>
+                                                        </f:case>
+                                                    </f:switch>
                                                 </f:else>
                                             </f:if>
                                         </td>
