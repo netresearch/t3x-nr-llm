@@ -310,7 +310,12 @@ final readonly class ConfigurationPresetImportService
      */
     private function determineRemedy(ModelSelectionCriteria $criteria, string $missingRequirement): array
     {
-        if ($this->providerRepository->countActive() === 0) {
+        // One source for both the gate and the names. ProviderRepository's
+        // countActive() counts every non-deleted provider regardless of
+        // is_active — a different definition of "there is a provider" from the
+        // one the AddModel message goes on to print.
+        $activeProviders = $this->activeProviderNames();
+        if ($activeProviders === []) {
             return [PresetRemedy::AddProvider, null];
         }
 
@@ -336,7 +341,7 @@ final readonly class ConfigurationPresetImportService
         // model declares them, and that is fixed on a model record — either by
         // adding one or by ticking a capability the model already has.
         if (str_starts_with($missingRequirement, 'capabilities:')) {
-            return [PresetRemedy::AddModel, $this->activeProviderNames()];
+            return [PresetRemedy::AddModel, implode(', ', $activeProviders)];
         }
 
         // Capabilities are covered; a secondary criterion rules the matches
@@ -355,7 +360,10 @@ final readonly class ConfigurationPresetImportService
             : $name;
     }
 
-    private function activeProviderNames(): string
+    /**
+     * @return list<string>
+     */
+    private function activeProviderNames(): array
     {
         $names = [];
         foreach ($this->providerRepository->findActive()->toArray() as $provider) {
@@ -364,6 +372,6 @@ final readonly class ConfigurationPresetImportService
             }
         }
 
-        return implode(', ', $names);
+        return $names;
     }
 }

@@ -1012,19 +1012,19 @@
             </trans-unit>
             <trans-unit id="configuration.presets.remedy.activateModel">
                 <source>A model that meets every requirement exists but is switched off. Activate it:</source>
-                <target>Ein Modell, das alle Anforderungen erfüllt, ist vorhanden, aber deaktiviert. Aktiviere es:</target>
+                <target>Ein Modell, das alle Anforderungen erfüllt, ist vorhanden, aber deaktiviert. Aktivieren Sie es:</target>
             </trans-unit>
             <trans-unit id="configuration.presets.remedy.addModel">
                 <source>None of your models declares the required capabilities. Add a model that does to one of your providers — or, if a model already supports it, tick the capability on its record. Configured providers:</source>
-                <target>Keines deiner Modelle deklariert die geforderten Fähigkeiten. Lege bei einem deiner Provider ein Modell an, das sie mitbringt — oder setze die Fähigkeit am Datensatz, falls ein Modell sie bereits beherrscht. Eingerichtete Provider:</target>
+                <target>Keines Ihrer Modelle deklariert die geforderten Fähigkeiten. Legen Sie bei einem Ihrer Provider ein Modell an, das sie mitbringt — oder setzen Sie die Fähigkeit am Datensatz, falls ein Modell sie bereits beherrscht. Eingerichtete Provider:</target>
             </trans-unit>
             <trans-unit id="configuration.presets.remedy.addProvider">
                 <source>No provider is configured yet. Set one up first; models and their capabilities follow from it.</source>
-                <target>Es ist noch kein Provider eingerichtet. Richte zuerst einen ein; Modelle und ihre Fähigkeiten ergeben sich daraus.</target>
+                <target>Es ist noch kein Provider eingerichtet. Richten Sie zuerst einen ein; Modelle und ihre Fähigkeiten ergeben sich daraus.</target>
             </trans-unit>
             <trans-unit id="configuration.presets.remedy.adjustSetup">
                 <source>Your models cover the required capabilities, but another requirement rules them all out — see Requirement check. This preset may not be servable with the current setup.</source>
-                <target>Deine Modelle decken die geforderten Fähigkeiten ab, aber eine weitere Anforderung schließt alle aus — siehe Anforderungsprüfung. Möglicherweise lässt sich dieses Preset mit der aktuellen Einrichtung nicht bedienen.</target>
+                <target>Ihre Modelle decken die geforderten Fähigkeiten ab, aber eine weitere Anforderung schließt alle aus — siehe Anforderungsprüfung. Möglicherweise lässt sich dieses Preset mit der aktuellen Einrichtung nicht bedienen.</target>
             </trans-unit>
             <trans-unit id="configuration.presets.remedy.gotoModels">
                 <source>Open Models</source>

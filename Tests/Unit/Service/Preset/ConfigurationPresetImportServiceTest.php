@@ -52,8 +52,11 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->providerRepository = $this->createMock(ProviderRepository::class);
         // A configured provider and no inactive models is the ordinary case;
         // the remedy tests override what they need.
-        $this->providerRepository->method('countActive')->willReturn(1);
-        $this->providerRepository->method('findActive')->willReturn($this->queryResult([]));
+        // The remedy gate reads findActive(); countActive() counts every
+        // non-deleted provider and is deliberately not used for it.
+        $defaultProvider = new Provider();
+        $defaultProvider->setName('OpenAI');
+        $this->providerRepository->method('findActive')->willReturn($this->queryResult([$defaultProvider]));
         $this->modelRepository->method('findAll')->willReturn($this->queryResult([]));
         $this->subject = new ConfigurationPresetImportService(
             $this->modelSelectionService,
@@ -449,7 +452,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     {
         // A fresh subject: the shared one is wired for "a provider exists".
         $providers = $this->createMock(ProviderRepository::class);
-        $providers->method('countActive')->willReturn(0);
+        $providers->method('findActive')->willReturn($this->queryResult([]));
 
         $subject = new ConfigurationPresetImportService(
             $this->modelSelectionService,
@@ -539,7 +542,6 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $ollama->setName('Ollama');
 
         $providers = $this->createMock(ProviderRepository::class);
-        $providers->method('countActive')->willReturn(2);
         $providers->method('findActive')->willReturn($this->queryResult([$openAi, $ollama]));
 
         $subject = new ConfigurationPresetImportService(
@@ -587,5 +589,31 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         self::assertTrue($result->satisfiable);
         self::assertNull($result->remedy);
         self::assertNull($result->remedySubject);
+    }
+
+    #[Test]
+    public function aProviderThatExistsButIsInactiveCountsAsNoProvider(): void
+    {
+        // ProviderRepository::countActive() would count it — it counts every
+        // non-deleted row. The remedy must not claim providers are configured
+        // and then print an empty list.
+        $providers = $this->createMock(ProviderRepository::class);
+        $providers->method('findActive')->willReturn($this->queryResult([]));
+
+        $subject = new ConfigurationPresetImportService(
+            $this->modelSelectionService,
+            $this->configurationRepository,
+            $this->persistenceManager,
+            new ConfigurationPresetDiffService(),
+            $this->modelRepository,
+            $providers,
+        );
+
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturn([]);
+
+        $result = $subject->preflight(self::preset());
+
+        self::assertSame(PresetRemedy::AddProvider, $result->remedy);
     }
 }
