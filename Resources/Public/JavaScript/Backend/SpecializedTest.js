@@ -64,8 +64,10 @@ async function loadTranslators() {
             select.appendChild(option);
         }
     } catch (error) {
-        // The picker is a convenience; a failure here must not block the
-        // form, which works with the default (LLM) translator.
+        // The picker is a convenience; a failure here must not block the form,
+        // which still works with the default (LLM) translator. Surfaced in the
+        // console rather than swallowed, so it is diagnosable.
+        console.warn('[nr-llm] Could not load the translator list:', error);
     }
 }
 
