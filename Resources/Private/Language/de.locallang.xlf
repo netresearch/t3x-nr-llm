@@ -1358,6 +1358,54 @@
                 <source>Back to Overview</source>
                 <target>Zurück zur Übersicht</target>
             </trans-unit>
+            <trans-unit id="test.card.translation">
+                <source>Translation</source>
+                <target>Übersetzung</target>
+            </trans-unit>
+            <trans-unit id="test.card.image">
+                <source>Image generation</source>
+                <target>Bildgenerierung</target>
+            </trans-unit>
+            <trans-unit id="test.translation.info">
+                <source>Verifies a translator's credential. Leave the translator empty to use the LLM path, which needs no specialized key.</source>
+                <target>Prüft die Zugangsdaten eines Übersetzers. Ohne Auswahl läuft der LLM-Pfad, der keinen eigenen Schlüssel braucht.</target>
+            </trans-unit>
+            <trans-unit id="test.image.info">
+                <source>Generates one image to verify the credential. The result is shown here and not stored — putting it into the file storage is the consuming extension's job.</source>
+                <target>Erzeugt ein Bild, um die Zugangsdaten zu prüfen. Das Ergebnis wird hier angezeigt und nicht gespeichert — die Übernahme in die Dateiablage ist Sache der konsumierenden Extension.</target>
+            </trans-unit>
+            <trans-unit id="test.field.text">
+                <source>Text</source>
+                <target>Text</target>
+            </trans-unit>
+            <trans-unit id="test.field.sourceLanguage">
+                <source>Source language (optional)</source>
+                <target>Quellsprache (optional)</target>
+            </trans-unit>
+            <trans-unit id="test.field.targetLanguage">
+                <source>Target language</source>
+                <target>Zielsprache</target>
+            </trans-unit>
+            <trans-unit id="test.field.translator">
+                <source>Translator</source>
+                <target>Übersetzer</target>
+            </trans-unit>
+            <trans-unit id="test.field.service">
+                <source>Service</source>
+                <target>Dienst</target>
+            </trans-unit>
+            <trans-unit id="test.translator.default">
+                <source>LLM (default)</source>
+                <target>LLM (Standard)</target>
+            </trans-unit>
+            <trans-unit id="test.btn.translate">
+                <source>Translate</source>
+                <target>Übersetzen</target>
+            </trans-unit>
+            <trans-unit id="test.btn.generateImage">
+                <source>Generate image</source>
+                <target>Bild erzeugen</target>
+            </trans-unit>
             <trans-unit id="test.card.response">
                 <source>Response</source>
                 <target>Antwort</target>

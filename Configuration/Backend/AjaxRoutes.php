@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\PresetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\SkillSourceController;
+use Netresearch\NrLlm\Controller\Backend\SpecializedTestController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Controller\Backend\TaskRecordsController;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
@@ -33,6 +34,21 @@ return [
     'nrllm_test' => [
         'path' => '/nrllm/test',
         'target' => LlmModuleController::class . '::executeTestAction',
+    ],
+
+    // Specialized-service verification (translation, image generation).
+    // Each action guards itself with RequiresBackendAdminTrait (ADR-037).
+    'nrllm_test_translate' => [
+        'path' => '/nrllm/test/translate',
+        'target' => SpecializedTestController::class . '::translateAction',
+    ],
+    'nrllm_test_translators' => [
+        'path' => '/nrllm/test/translators',
+        'target' => SpecializedTestController::class . '::translatorsAction',
+    ],
+    'nrllm_test_image' => [
+        'path' => '/nrllm/test/image',
+        'target' => SpecializedTestController::class . '::generateImageAction',
     ],
 
     // Overview: token-free provider reachability probe (loaded async so

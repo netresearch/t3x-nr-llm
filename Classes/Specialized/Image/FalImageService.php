@@ -34,7 +34,7 @@ use Throwable;
  *
  * @see https://fal.ai/docs
  */
-final class FalImageService extends AbstractSpecializedService
+final class FalImageService extends AbstractSpecializedService implements ImageGeneratorInterface
 {
     private const API_URL = 'https://fal.run';
     private const QUEUE_API_URL = 'https://queue.fal.run';

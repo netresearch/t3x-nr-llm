@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Translation and image generation can be tried from the backend. The test page
+  gained two cards: translate a snippet with a chosen translator, or generate a
+  single image with the OpenAI or the FAL service. Until now nothing in the
+  backend reached these services — the Playground drives the agent runtime, and
+  every "Test" button issues a plain chat completion — so an operator who
+  configured a DeepL or FAL identifier had no way to find out whether it works
+  short of writing consumer code. A missing credential is reported as such and
+  names the Extension Configuration, rather than surfacing as a generic
+  failure. Nothing is stored: the translation is text, the image is rendered
+  from what the provider returned and is gone on reload. Taking an image into
+  the file storage remains the consuming extension's job. See ADR-118.
+- `ImageGeneratorInterface`, the one call `DallEImageService` and
+  `FalImageService` have in common. Their `generate()` signatures differ beyond
+  the prompt and stay that way; the interface serves callers that want the
+  service's own defaults, and makes the two mockable.
+
 ### Removed
 
 - **Breaking:** the backend capability permissions are gone —

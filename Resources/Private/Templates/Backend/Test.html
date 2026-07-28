@@ -102,6 +102,97 @@
         </div>
     </div>
 
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.card.translation" default="Translation" /></h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.translation.info" default="Verifies a translator's credential. Leave the translator empty to use the LLM path, which needs no specialized key." /></p>
+                        <form id="translationForm">
+                            <div class="mb-3">
+                                <label for="translationText" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.text" default="Text" /></label>
+                                <textarea id="translationText" class="form-control" rows="3">Guten Tag, dies ist ein Test.</textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col mb-3">
+                                    <label for="translationSource" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.sourceLanguage" default="Source language (optional)" /></label>
+                                    <input type="text" id="translationSource" class="form-control" placeholder="de" />
+                                </div>
+                                <div class="col mb-3">
+                                    <label for="translationTarget" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.targetLanguage" default="Target language" /></label>
+                                    <input type="text" id="translationTarget" class="form-control" value="en" />
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="translationTranslator" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.translator" default="Translator" /></label>
+                                <select id="translationTranslator" class="form-select">
+                                    <option value=""><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.translator.default" default="LLM (default)" /></option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.translate" default="Translate" />
+                            </button>
+                        </form>
+
+                        <div id="translationLoading" class="mt-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
+                        </div>
+                        <div id="translationError" class="alert alert-danger mt-3" style="display: none;">
+                            <span id="translationErrorMessage"></span>
+                        </div>
+                        <div id="translationResult" class="mt-3" style="display: none;">
+                            <pre id="translationOutput" class="bg-light p-3"></pre>
+                            <p class="text-body-secondary small mb-0" id="translationMeta"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.card.image" default="Image generation" /></h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.image.info" default="Generates one image to verify the credential. The result is shown here and not stored — putting it into the file storage is the consuming extension's job." /></p>
+                        <form id="imageForm">
+                            <div class="mb-3">
+                                <label for="imagePrompt" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.prompt" default="Prompt" /></label>
+                                <textarea id="imagePrompt" class="form-control" rows="3">A red bicycle in front of a white wall.</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="imageService" class="form-label"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.field.service" default="Service" /></label>
+                                <select id="imageService" class="form-select">
+                                    <option value="openai">OpenAI (DALL-E)</option>
+                                    <option value="fal">FAL</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.btn.generateImage" default="Generate image" />
+                            </button>
+                        </form>
+
+                        <div id="imageLoading" class="mt-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            <span class="ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:test.loading" default="Sending request..." /></span>
+                        </div>
+                        <div id="imageError" class="alert alert-danger mt-3" style="display: none;">
+                            <span id="imageErrorMessage"></span>
+                        </div>
+                        <div id="imageResult" class="mt-3" style="display: none;">
+                            <img id="imagePreview" class="img-fluid rounded" alt="" />
+                            <p class="text-body-secondary small mt-2 mb-0" id="imageMeta"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="text-body-secondary small mt-4">
         Provided by <a href="https://www.netresearch.de" target="_blank" rel="noopener">Netresearch DTT GmbH</a>
     </footer>

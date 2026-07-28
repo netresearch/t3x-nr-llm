@@ -71,6 +71,7 @@ left-hand navigation:
    Tools
    Wizards
    UserBudgets
+   SpecializedServices
    Analytics
    AgentRuns
    DataRetention

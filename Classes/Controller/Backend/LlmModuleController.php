@@ -185,6 +185,7 @@ final class LlmModuleController extends ActionController
         // than as a classic <script> (which would throw "Cannot use import
         // statement outside a module").
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/Test.js');
+        $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/SpecializedTest.js');
 
         $providers = $this->llmServiceManager->getAvailableProviders();
 

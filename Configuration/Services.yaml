@@ -413,6 +413,13 @@ services:
   Netresearch\NrLlm\Specialized\Image\FalImageService:
     public: true
 
+  # Both image services satisfy ImageGeneratorInterface, so the argument
+  # types alone cannot tell them apart — bind each one explicitly.
+  Netresearch\NrLlm\Controller\Backend\SpecializedTestController:
+    arguments:
+      $openAiImage: '@Netresearch\NrLlm\Specialized\Image\DallEImageService'
+      $falImage: '@Netresearch\NrLlm\Specialized\Image\FalImageService'
+
   # ========================================
   # Document Analysis Services
   # ========================================
