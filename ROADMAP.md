@@ -41,6 +41,13 @@ governance audit trail.
 
 ## Toward 1.0
 
+- **MCP client — one tooling authority.** nr_llm connects to externally
+  configured MCP servers (stdio / http / sse), lists their tools and registers
+  them into `ToolRegistry` alongside the builtins, so a consumer obtains
+  builtin and MCP tooling together and never opens an MCP connection itself.
+  Origin does not change how a tool is authorised, approved or audited: one
+  registry, one gate, one agent loop (ADR-116). The server configuration —
+  transport, command, url, credential — is managed centrally in nr_llm.
 - **Role model and editor actions.** Distinct operational roles (system
   administration, AI management, AI operation, editing) instead of the current
   admin-centric permissions, plus a purpose-built editor action API rather
@@ -51,10 +58,11 @@ governance audit trail.
 - **A public, versioned API surface.** Mark the supported surface with `@api`,
   adopt an explicit backward-compatibility policy, and add upgrade tests so
   consumer extensions can rely on it.
-- **Enforced horizontal boundaries.** Extend the architecture test suite with
-  the missing cross-cutting rules (core independent of backend and tools,
-  specialized services independent of the agent runtime, guardrails
-  independent of the backend).
+- **Enforced horizontal boundaries.** Mostly shipped: `ModuleSeamTest` asserts
+  that specialized services and the tool/agent module do not depend on each
+  other, that guardrails depend on neither, and that nothing outside the
+  backend package depends on it. The remaining rule is core independent of the
+  tool module.
 - **Re-evaluate a package split only after 1.0.** The seams from the runtime
   decomposition are the prerequisite; until they are stable, one package
   (ADR-090) stays the right call.
@@ -63,9 +71,10 @@ governance audit trail.
 
 Things nr_llm deliberately does not do, so the scope stays sharp:
 
-- **No general-purpose MCP server.** nr_llm consumes and orchestrates tools;
-  exposing TYPO3 as an MCP server to third-party clients is a different
-  product with a different security model.
+- **No general-purpose MCP server.** The direction matters: nr_llm *consumes*
+  MCP servers as a client and aggregates their tools (see Toward 1.0), but it
+  does not *expose* TYPO3 as an MCP server to third-party clients. That is a
+  different product with a different security model.
 - **No backend coding agent.** The agent runtime automates editorial and
   operational work against declared tools — it does not write or deploy code.
 - **No further generic read-everything tools.** Tools stay purpose-built and
