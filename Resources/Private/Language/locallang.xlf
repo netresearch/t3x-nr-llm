@@ -1067,6 +1067,9 @@
             <trans-unit id="test.btn.generateImage">
                 <source>Generate image</source>
             </trans-unit>
+            <trans-unit id="test.image.open">
+                <source>Open the generated image</source>
+            </trans-unit>
             <trans-unit id="test.card.response">
                 <source>Response</source>
             </trans-unit>

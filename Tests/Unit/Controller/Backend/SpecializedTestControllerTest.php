@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Controller\Backend\SpecializedTestController;
 use Netresearch\NrLlm\Domain\Model\TranslationResult;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\ImageGenerationResult;
 use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
@@ -27,6 +28,7 @@ use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Http\Stream;
 
 /**
  * Unit tests for the specialized-service verification endpoints.
@@ -312,5 +314,54 @@ final class SpecializedTestControllerTest extends TestCase
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    #[Test]
+    public function aRejectedCredentialIsDistinguishedFromAMissingOne(): void
+    {
+        // The likeliest real failure: the vault identifier resolves, the secret
+        // behind it is wrong. Reporting that as "not configured" sends the
+        // operator to the wrong place.
+        $this->translationService
+            ->method('translate')
+            ->willThrowException(ServiceConfigurationException::invalidApiKey('translation', 'deepl', 401));
+
+        $response = $this->subject()->translateAction(
+            $this->request(['text' => 'Guten Tag', 'targetLanguage' => 'en']),
+        );
+
+        self::assertSame(502, $response->getStatusCode());
+        $body = $this->decode($response);
+        self::assertIsString($body['error']);
+        self::assertStringContainsString('rejected the credential', $body['error']);
+    }
+
+    #[Test]
+    public function aJsonRequestBodyIsRead(): void
+    {
+        // TYPO3 fills getParsedBody() from $_POST only; the backend JS posts
+        // application/json, so without decoding it every field arrives empty.
+        $this->translationService
+            ->expects(self::once())
+            ->method('translate')
+            ->with('Guten Tag', 'en', null)
+            ->willReturn(new TranslationResult(
+                translation: 'Good day',
+                sourceLanguage: 'de',
+                targetLanguage: 'en',
+                confidence: 0.9,
+                usage: new UsageStatistics(11, 4, 15),
+            ));
+
+        $request = (new ServerRequest('/ajax/test', 'POST'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withBody(new Stream('php://temp', 'rw'));
+        $request->getBody()->write(json_encode(['text' => 'Guten Tag', 'targetLanguage' => 'en'], JSON_THROW_ON_ERROR));
+        $request->getBody()->rewind();
+
+        $body = $this->decode($this->subject()->translateAction($request));
+
+        self::assertTrue($body['success']);
+        self::assertSame('Good day', $body['translation']);
     }
 }

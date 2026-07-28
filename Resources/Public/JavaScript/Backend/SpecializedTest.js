@@ -152,10 +152,32 @@ function wireImage() {
             }
 
             const preview = document.getElementById('imagePreview');
+            const link = document.getElementById('imageLink');
+            const alt = data.revisedPrompt ?? document.getElementById('imagePrompt').value;
+
+            // The backend's Content-Security-Policy allows images from 'self'
+            // and data: only, so a provider's external URL cannot be rendered
+            // inline — FAL returns one. Show the data URI when there is one,
+            // and otherwise link out rather than render a broken image.
             if (preview) {
-                // dataUrl for the OpenAI family, url for FAL — whichever came back.
-                preview.src = data.dataUrl ?? data.url ?? '';
-                preview.alt = data.revisedPrompt ?? document.getElementById('imagePrompt').value;
+                if (data.dataUrl) {
+                    preview.src = data.dataUrl;
+                    preview.alt = alt;
+                    preview.style.display = '';
+                } else {
+                    preview.removeAttribute('src');
+                    preview.style.display = 'none';
+                }
+            }
+
+            if (link) {
+                if (!data.dataUrl && data.url) {
+                    link.href = data.url;
+                    link.style.display = '';
+                } else {
+                    link.removeAttribute('href');
+                    link.style.display = 'none';
+                }
             }
 
             show('imageResult', true);

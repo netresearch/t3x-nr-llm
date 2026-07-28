@@ -9,13 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use JsonException;
 use Netresearch\NrLlm\Service\Feature\TranslationServiceInterface;
+use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
+use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Core\Http\JsonResponse;
 
 /**
@@ -37,6 +40,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
  * Registered in AjaxRoutes.php, so the module's `access => admin` does not
  * apply — every action calls denyNonAdmin() first (ADR-037).
  */
+#[AsController]
 final readonly class SpecializedTestController
 {
     use RequiresBackendAdminTrait;
@@ -64,7 +68,7 @@ final readonly class SpecializedTestController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body = $this->bodyOf($request);
         $text = $this->stringFromBody($body, 'text');
         $targetLanguage = $this->stringFromBody($body, 'targetLanguage');
         $sourceLanguage = $this->stringFromBody($body, 'sourceLanguage');
@@ -112,6 +116,8 @@ final readonly class SpecializedTestController
                     'totalTokens'      => $result->usage->totalTokens,
                 ],
             ]);
+        } catch (ServiceConfigurationException $e) {
+            return $this->rejected('translator', $e);
         } catch (ServiceUnavailableException $e) {
             return $this->unconfigured('translator', $e);
         } catch (Throwable $e) {
@@ -147,7 +153,7 @@ final readonly class SpecializedTestController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body = $this->bodyOf($request);
         $prompt = $this->stringFromBody($body, 'prompt');
         $service = $this->stringFromBody($body, 'service');
 
@@ -175,6 +181,8 @@ final readonly class SpecializedTestController
                 'provider'      => $result->provider,
                 'revisedPrompt' => $result->revisedPrompt,
             ]);
+        } catch (ServiceConfigurationException $e) {
+            return $this->rejected('image service', $e);
         } catch (ServiceUnavailableException $e) {
             return $this->unconfigured('image service', $e);
         } catch (Throwable $e) {
@@ -199,10 +207,28 @@ final readonly class SpecializedTestController
         return new JsonResponse([
             'success' => false,
             'error'   => sprintf(
-                'This %s is not available. Check its vault identifier in the Extension Configuration.',
+                'This %s is not available — either no credential is configured for it, or the provider could not be reached. Check its vault identifier in the Extension Configuration.',
                 $subject,
             ),
         ], 503);
+    }
+
+    /**
+     * A credential exists and the provider refused it — the likeliest real
+     * failure, and a different action from "nothing is configured": the
+     * identifier resolves, the secret behind it is wrong or revoked.
+     */
+    private function rejected(string $subject, Throwable $e): ResponseInterface
+    {
+        $this->logger->info(sprintf('Specialized test: %s rejected the credential', $subject), ['exception' => $e]);
+
+        return new JsonResponse([
+            'success' => false,
+            'error'   => sprintf(
+                'The provider rejected the credential for this %s. The vault identifier resolves — check the secret behind it.',
+                $subject,
+            ),
+        ], 502);
     }
 
     private function failed(string $subject, Throwable $e): ResponseInterface
@@ -215,9 +241,46 @@ final readonly class SpecializedTestController
         ], 500);
     }
 
-    private function stringFromBody(mixed $body, string $key): string
+    /**
+     * TYPO3 fills `getParsedBody()` from `$_POST`, and no core middleware
+     * decodes a JSON body into it — an `application/json` request would arrive
+     * with every field empty. Mirrors SetupWizardController::parseRequestBody().
+     *
+     * @return array<string, mixed>
+     */
+    private function bodyOf(ServerRequestInterface $request): array
     {
-        if (!is_array($body) || !isset($body[$key]) || !is_string($body[$key])) {
+        $body = $request->getParsedBody();
+        if (is_array($body) && $body !== []) {
+            /** @var array<string, mixed> $body */
+            return $body;
+        }
+
+        if (!str_contains($request->getHeaderLine('Content-Type'), 'application/json')) {
+            return [];
+        }
+
+        $contents = $request->getBody()->getContents();
+        if ($contents === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private function stringFromBody(array $body, string $key): string
+    {
+        if (!isset($body[$key]) || !is_string($body[$key])) {
             return '';
         }
 

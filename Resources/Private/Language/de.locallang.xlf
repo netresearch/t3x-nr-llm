@@ -1406,6 +1406,10 @@
                 <source>Generate image</source>
                 <target>Bild erzeugen</target>
             </trans-unit>
+            <trans-unit id="test.image.open">
+                <source>Open the generated image</source>
+                <target>Erzeugtes Bild öffnen</target>
+            </trans-unit>
             <trans-unit id="test.card.response">
                 <source>Response</source>
                 <target>Antwort</target>
