@@ -44,8 +44,9 @@ use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
  * serialise a hot path; callers needing strict enforcement should
  * layer their own lock / reservation on top.
  *
- * Like CapabilityPermissionService, this ships the primitive; wiring the
- * check into individual feature services is a deliberate follow-up.
+ * The check is wired in: `BudgetMiddleware` calls it on the provider
+ * pipeline, and the streaming dispatcher and specialized services call it
+ * on the paths that bypass the pipeline.
  */
 final readonly class BudgetService implements BudgetServiceInterface
 {

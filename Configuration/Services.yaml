@@ -225,10 +225,6 @@ services:
     alias: Netresearch\NrLlm\Service\ModelSelectionService
     public: false
 
-  Netresearch\NrLlm\Service\CapabilityPermissionServiceInterface:
-    alias: Netresearch\NrLlm\Service\CapabilityPermissionService
-    public: false
-
   Netresearch\NrLlm\Service\WizardGeneratorServiceInterface:
     alias: Netresearch\NrLlm\Service\WizardGeneratorService
     public: false

@@ -6,6 +6,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking:** the backend capability permissions are gone —
+  `CapabilityPermissionService`, `CapabilityPermissionServiceInterface`, the DI
+  alias, the `customPermOptions` registration and the developer guide that
+  described them. A consumer injecting either class must drop the dependency;
+  nothing inside the extension called them.
+
+  Every backend group record showed eleven checkboxes named after the model
+  capabilities. They looked like an access control and changed nothing: ADR-023
+  shipped the registration and the check primitive deliberately without gating
+  any call, and the follow-up never came. Enforcing them was rejected rather
+  than deferred again — streaming bypasses the pipeline so one capability would
+  be unenforceable by construction, the check returns "allowed" when no backend
+  user is present so a queued run would pass where the synchronous one failed,
+  and every nr_llm module is admin-only, so the setting would only ever affect
+  third-party consumers. See ADR-117.
+
+  Ticked values stay in `be_groups.custom_options` as inert strings and are
+  never read again. Access control is unchanged: the gate that works is the
+  per-configuration `allowed_groups` relation.
+
 ## [0.25.1] - 2026-07-27
 
 A translation fix reported from the field, plus Extension Configuration

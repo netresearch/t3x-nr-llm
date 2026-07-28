@@ -95,31 +95,4 @@ final class ModelCapabilityRegistrationTest extends TestCase
             );
         }
     }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function permissionLanguageFileProvider(): array
-    {
-        return [
-            'EN BE permission labels' => ['Resources/Private/Language/locallang_be.xlf'],
-            'DE BE permission labels' => ['Resources/Private/Language/de.locallang_be.xlf'],
-        ];
-    }
-
-    #[Test]
-    #[DataProvider('permissionLanguageFileProvider')]
-    public function everyCapabilityHasPermissionLabel(string $relativePath): void
-    {
-        $xlf = file_get_contents(__DIR__ . '/../../../' . $relativePath);
-        self::assertIsString($xlf);
-
-        foreach (ModelCapability::values() as $value) {
-            self::assertStringContainsString(
-                sprintf('id="permissions.capability.%s"', $value),
-                $xlf,
-                sprintf('Missing BE permission label "%s" in %s', $value, $relativePath),
-            );
-        }
-    }
 }

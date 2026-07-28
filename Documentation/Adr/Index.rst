@@ -414,3 +414,4 @@ Tools
    Adr114EncryptAgentStateAtRest
    Adr115EnforceByDefaultForNewInstalls
    Adr116CentralToolingAuthority
+   Adr117WithdrawCapabilityPermissions
