@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetDiffService;
@@ -29,6 +31,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
+use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
 /**
  * Unit tests for the PresetController AJAX actions (ADR-056).
@@ -94,11 +97,21 @@ final class PresetControllerTest extends TestCase
 
         $registry = new ConfigurationPresetRegistry([new FixturePresetProvider($presets)], $repository);
         $diffService = new ConfigurationPresetDiffService();
+        $emptyResult = $this->createMock(QueryResultInterface::class);
+        $emptyResult->method('toArray')->willReturn([]);
+        $models = $this->createMock(ModelRepository::class);
+        $models->method('findAll')->willReturn($emptyResult);
+        $providers = $this->createMock(ProviderRepository::class);
+        $providers->method('countActive')->willReturn(1);
+        $providers->method('findActive')->willReturn($emptyResult);
+
         $importService = new ConfigurationPresetImportService(
             $modelSelection,
             $repository,
             $this->createMock(PersistenceManagerInterface::class),
             $diffService,
+            $models,
+            $providers,
         );
 
         return new PresetController($registry, $importService, $diffService, $repository);

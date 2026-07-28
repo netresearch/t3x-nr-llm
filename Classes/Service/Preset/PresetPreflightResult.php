@@ -15,8 +15,13 @@ namespace Netresearch\NrLlm\Service\Preset;
  *
  * When satisfiable, `matchedModelLabel` names the model the criteria would
  * resolve to right now (informational — criteria-mode configurations re-resolve
- * on every run). When not, `missingRequirement` names the first criterion that
- * eliminates every candidate, so the admin knows what to configure.
+ * on every run).
+ *
+ * When not, `missingRequirement` names the first criterion that eliminates
+ * every candidate, and `remedy` names what to do about it — the two answer
+ * different questions, and the second is the one an operator acts on.
+ * `remedySubject` carries the concrete names the remedy talks about: the
+ * models to switch on, or the providers a model would be added to.
  */
 final readonly class PresetPreflightResult
 {
@@ -24,6 +29,8 @@ final readonly class PresetPreflightResult
         public bool $satisfiable,
         public ?string $missingRequirement,
         public ?string $matchedModelLabel,
+        public ?PresetRemedy $remedy = null,
+        public ?string $remedySubject = null,
     ) {}
 
     public static function satisfiable(string $matchedModelLabel): self
@@ -31,8 +38,11 @@ final readonly class PresetPreflightResult
         return new self(true, null, $matchedModelLabel);
     }
 
-    public static function unsatisfiable(string $missingRequirement): self
-    {
-        return new self(false, $missingRequirement, null);
+    public static function unsatisfiable(
+        string $missingRequirement,
+        ?PresetRemedy $remedy = null,
+        ?string $remedySubject = null,
+    ): self {
+        return new self(false, $missingRequirement, null, $remedy, $remedySubject);
     }
 }

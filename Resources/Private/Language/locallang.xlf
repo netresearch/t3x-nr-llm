@@ -761,8 +761,29 @@
             <trans-unit id="configuration.presets.import">
                 <source>Import</source>
             </trans-unit>
-            <trans-unit id="configuration.presets.importDisabled.title">
-                <source>Cannot import: no active model satisfies the requirements</source>
+            <trans-unit id="configuration.presets.importUnavailable">
+                <source>Import unavailable</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.importUnavailable.reason">
+                <source>No active model satisfies the requirements — see Requirement check.</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.activateModel">
+                <source>A model that meets every requirement exists but is switched off. Activate it:</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.addModel">
+                <source>None of your models declares the required capabilities. Add a model that does to one of your providers — or, if a model already supports it, tick the capability on its record. Configured providers:</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.addProvider">
+                <source>No provider is configured yet. Set one up first; models and their capabilities follow from it.</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.adjustSetup">
+                <source>Your models cover the required capabilities, but another requirement rules them all out — see Requirement check. This preset may not be servable with the current setup.</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.gotoModels">
+                <source>Open Models</source>
+            </trans-unit>
+            <trans-unit id="configuration.presets.remedy.gotoWizard">
+                <source>Open Setup Wizard</source>
             </trans-unit>
             <trans-unit id="configuration.presets.drift.badge">
                 <source>Preset changed</source>

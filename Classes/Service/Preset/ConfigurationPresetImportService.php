@@ -12,7 +12,11 @@ namespace Netresearch\NrLlm\Service\Preset;
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
@@ -56,6 +60,8 @@ final readonly class ConfigurationPresetImportService
         private LlmConfigurationRepository $configurationRepository,
         private PersistenceManagerInterface $persistenceManager,
         private ConfigurationPresetDiffService $diffService,
+        private ModelRepository $modelRepository,
+        private ProviderRepository $providerRepository,
     ) {}
 
     /**
@@ -70,7 +76,10 @@ final readonly class ConfigurationPresetImportService
             return PresetPreflightResult::satisfiable($label);
         }
 
-        return PresetPreflightResult::unsatisfiable($this->determineMissingRequirement($preset->criteria));
+        $missing = $this->determineMissingRequirement($preset->criteria);
+        [$remedy, $subject] = $this->determineRemedy($preset->criteria, $missing);
+
+        return PresetPreflightResult::unsatisfiable($missing, $remedy, $subject);
     }
 
     /**
@@ -288,5 +297,73 @@ final readonly class ConfigurationPresetImportService
         }
 
         return 'combined criteria';
+    }
+
+    /**
+     * Work out what the operator should DO, not just what is missing.
+     *
+     * The cases are distinguishable from the records already present, and they
+     * call for different actions — switching a model on, adding one, adding a
+     * provider, or reconsidering the requirement itself.
+     *
+     * @return array{0: PresetRemedy, 1: string|null}
+     */
+    private function determineRemedy(ModelSelectionCriteria $criteria, string $missingRequirement): array
+    {
+        if ($this->providerRepository->countActive() === 0) {
+            return [PresetRemedy::AddProvider, null];
+        }
+
+        // Would an inactive model satisfy every criterion? Then the fix is one
+        // toggle, and saying "add a model" would send the operator the long way
+        // round.
+        $inactiveMatches = [];
+        foreach ($this->modelRepository->findAll()->toArray() as $model) {
+            if (!$model instanceof Model || $model->isActive()) {
+                continue;
+            }
+
+            if ($this->modelSelectionService->modelMatchesCriteria($model, $criteria->toArray())) {
+                $inactiveMatches[] = $this->labelFor($model);
+            }
+        }
+
+        if ($inactiveMatches !== []) {
+            return [PresetRemedy::ActivateModel, implode(', ', $inactiveMatches)];
+        }
+
+        // Capabilities are the entry criterion: when they are what fails, no
+        // model declares them, and that is fixed on a model record — either by
+        // adding one or by ticking a capability the model already has.
+        if (str_starts_with($missingRequirement, 'capabilities:')) {
+            return [PresetRemedy::AddModel, $this->activeProviderNames()];
+        }
+
+        // Capabilities are covered; a secondary criterion rules the matches
+        // out. That is the one case where the honest answer may be that this
+        // setup cannot serve the preset.
+        return [PresetRemedy::AdjustSetup, null];
+    }
+
+    private function labelFor(Model $model): string
+    {
+        $name = $model->getName() !== '' ? $model->getName() : $model->getModelId();
+        $provider = $model->getProvider();
+
+        return $provider instanceof Provider
+            ? sprintf('%s (%s)', $name, $provider->getName())
+            : $name;
+    }
+
+    private function activeProviderNames(): string
+    {
+        $names = [];
+        foreach ($this->providerRepository->findActive()->toArray() as $provider) {
+            if ($provider instanceof Provider) {
+                $names[] = $provider->getName();
+            }
+        }
+
+        return implode(', ', $names);
     }
 }
