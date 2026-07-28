@@ -45,6 +45,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `PromptSnippetRepository` constructor arguments, which only the serialisation
   used; the codec takes them instead. Consumers use `AgentRuntimeInterface` and
   are unaffected. First step of the runtime decomposition on the roadmap.
+- What becomes of a failed queued run moved out of the agent runtime into
+  `QueuedRunFailureRecovery`. Four independent conditions can each force a
+  dead-letter instead of a retry — a non-retryable error class, a
+  non-idempotent write fenced in flight, an exhausted requeue budget, and a
+  lost claim on the row — and the order between them is the whole of the
+  behaviour, which is easier to review in a class named after the decision than
+  inside the run loop. The retry budget and the backoff stay `AgentRuntime`
+  constants; only the decision reading them moved. Second step of the runtime
+  decomposition.
 
 ### Removed
 
