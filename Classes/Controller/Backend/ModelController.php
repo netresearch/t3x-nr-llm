@@ -16,10 +16,12 @@ use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
@@ -273,6 +275,32 @@ final class ModelController extends ActionController
         return $this->performModelTest($model, $uid);
     }
 
+    /** Send a chat prompt through the record's own provider. */
+    private const PROBE_CHAT = 'chat';
+
+    /** Embed a string through the record's own provider. */
+    private const PROBE_EMBEDDINGS = 'embeddings';
+
+    /** Nothing here can verify this model — say so rather than guess. */
+    private const PROBE_UNSUPPORTED = 'unsupported';
+
+    /**
+     * Capabilities a chat completion exercises. Any of them means the model
+     * answers a prompt, which is what the chat probe sends.
+     */
+    private const CHAT_SHAPED_CAPABILITIES = [
+        ModelCapability::CHAT,
+        ModelCapability::COMPLETION,
+        ModelCapability::VISION,
+        ModelCapability::TOOLS,
+        ModelCapability::STREAMING,
+        ModelCapability::JSON_MODE,
+        // Audio is a chat-completions modality in every provider this
+        // extension speaks to — there is no audio service and no separate
+        // credential, so a record declaring only it still answers a prompt.
+        ModelCapability::AUDIO,
+    ];
+
     /**
      * Perform the actual provider test call for a resolved model.
      */
@@ -290,9 +318,30 @@ final class ModelController extends ActionController
         $emptyFormat = $this->translate('model.test.emptyResponse')
             ?? 'Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning';
 
+        // A model that cannot answer a chat prompt must not be sent one: the
+        // provider rejects it and the admin sees "provider rejected the test
+        // request", which says nothing about the model. Decide from the
+        // record's declared capabilities what a meaningful test even is.
+        $probe = $this->testProbeFor($model);
+        if ($probe === self::PROBE_UNSUPPORTED) {
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: sprintf(
+                    $this->translate('model.test.notTestableHere')
+                        ?? 'Model "%s" provides %s. Those services take their credential from the Extension Configuration rather than from this provider record, so this record cannot verify them.',
+                    $model->getName(),
+                    implode(', ', $model->getCapabilitySet()->toStringList()),
+                ),
+            ))->jsonSerialize());
+        }
+
         try {
             // Create adapter from model's provider
             $adapter = $this->providerAdapterRegistry->createAdapterFromModel($model);
+
+            if ($probe === self::PROBE_EMBEDDINGS) {
+                return $this->respondToEmbeddingProbe($model, $adapter);
+            }
 
             // Make a simple test call - use enough tokens for models with thinking
             $testPrompt = $this->testPromptResolver->resolve();
@@ -644,4 +693,76 @@ final class ModelController extends ActionController
         }
     }
 
+    /**
+     * Which probe verifies this model from a provider record.
+     *
+     * Only capabilities served by the record's own provider connection can be
+     * verified here. Image, speech and transcription go through the specialized
+     * services, whose credential comes from the Extension Configuration and not
+     * from this provider — testing them from here would authenticate with a
+     * different secret than the record declares, which is worse than not
+     * testing at all.
+     *
+     * An empty capability list keeps the chat probe: the TCA field has no
+     * minimum, so it is routinely left as shipped, and refusing to test the
+     * common case would be a regression.
+     */
+    private function testProbeFor(Model $model): string
+    {
+        $capabilities = $model->getCapabilitySet();
+        if ($capabilities->isEmpty()) {
+            return self::PROBE_CHAT;
+        }
+
+        foreach (self::CHAT_SHAPED_CAPABILITIES as $capability) {
+            if ($capabilities->has($capability)) {
+                return self::PROBE_CHAT;
+            }
+        }
+
+        if ($capabilities->has(ModelCapability::EMBEDDINGS)) {
+            return self::PROBE_EMBEDDINGS;
+        }
+
+        return self::PROBE_UNSUPPORTED;
+    }
+
+    /**
+     * Embed a short string and report the vector's dimensions.
+     *
+     * The one non-chat capability that runs on the record's own provider
+     * connection, so it verifies exactly what the record claims.
+     */
+    private function respondToEmbeddingProbe(Model $model, ProviderInterface $adapter): ResponseInterface
+    {
+        $response = $adapter->embeddings($this->testPromptResolver->resolve(), [
+            'model' => $model->getModelId(),
+        ]);
+
+        $dimensions = $response->getDimensions();
+        if ($dimensions === 0) {
+            // A 2xx whose body carries no vector has verified nothing; saying
+            // "returned a 0-dimension embedding" in the green panel would be a
+            // false positive.
+            return new JsonResponse((new TestConnectionResponse(
+                success: false,
+                message: sprintf(
+                    $this->translate('model.test.emptyEmbedding')
+                        ?? 'Model "%s" answered but returned no embedding vector.',
+                    $model->getName(),
+                ),
+            ))->jsonSerialize());
+        }
+
+        return new JsonResponse((new TestConnectionResponse(
+            success: true,
+            message: sprintf(
+                $this->translate('model.test.embedded')
+                    ?? 'Model "%s" returned a %d-dimension embedding (tokens: %d in).',
+                $model->getName(),
+                $dimensions,
+                $response->usage->promptTokens,
+            ),
+        ))->jsonSerialize());
+    }
 }

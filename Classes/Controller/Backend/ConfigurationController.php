@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -83,6 +84,7 @@ final class ConfigurationController extends ActionController
         private readonly LoggerInterface $logger,
         private readonly ConfigurationPresetRegistry $presetRegistry,
         private readonly ConfigurationPresetImportService $presetImportService,
+        private readonly ModelSelectionServiceInterface $modelSelectionService,
     ) {}
 
     protected function initializeAction(): void
@@ -366,7 +368,13 @@ final class ConfigurationController extends ActionController
         }
 
         try {
-            $model = $configuration->getLlmModel();
+            // Criteria-mode configurations carry no direct model relation
+            // (model_uid = 0) — their model is chosen at call time from the
+            // stored criteria. Resolving through ModelSelectionService, which
+            // returns the directly configured model unchanged for fixed-mode
+            // records, is what the runtime does; testing only getLlmModel()
+            // reported "has no model assigned" for a configuration that works.
+            $model = $this->modelSelectionService->resolveModel($configuration);
             if ($model === null || $model->getProvider() === null) {
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {

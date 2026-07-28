@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 use LogicException;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -1078,5 +1080,148 @@ final class ModelControllerTest extends TestCase
 
         self::assertSame(400, $response->getStatusCode());
         self::assertArrayHasKey('error', $data);
+    }
+
+    #[Test]
+    public function anImageOnlyModelIsNotSentAChatPrompt(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('dall-e-3');
+        $model->setProvider($provider);
+        $model->setCapabilities('image');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+        // The whole point: no adapter is built, so nothing is sent upstream.
+        $this->providerAdapterRegistry->expects(self::never())->method('createAdapterFromModel');
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 7])));
+
+        self::assertFalse($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('dall-e-3', $body['message']);
+        self::assertStringContainsString('Extension Configuration', $body['message']);
+    }
+
+    #[Test]
+    public function anEmbeddingModelIsProbedWithAnEmbeddingCall(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('text-embedding-3-small');
+        $model->setProvider($provider);
+        $model->setCapabilities('embeddings');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('embeddings')->willReturn(
+            new EmbeddingResponse([[0.1, 0.2, 0.3]], 'text-embedding-3-small', new UsageStatistics(4, 0, 4)),
+        );
+        $adapter->expects(self::never())->method('complete');
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 8])));
+
+        self::assertTrue($body['success']);
+        self::assertIsString($body['message']);
+        self::assertStringContainsString('3-dimension', $body['message']);
+    }
+
+    #[Test]
+    public function aModelWithoutDeclaredCapabilitiesKeepsTheChatProbe(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('unlabelled');
+        $model->setProvider($provider);
+        // Capabilities are optional in TCA and routinely left empty; refusing
+        // to test that case would be a regression.
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'unlabelled', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 9])));
+
+        self::assertTrue($body['success']);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function chatShapedCapabilityProvider(): array
+    {
+        return [
+            'chat' => ['chat'],
+            'completion' => ['completion'],
+            'vision' => ['vision'],
+            'tools' => ['tools'],
+            'streaming' => ['streaming'],
+            'json_mode' => ['json_mode'],
+            // Audio is a chat-completions modality here — there is no audio
+            // service and no separate credential.
+            'audio' => ['audio'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('chatShapedCapabilityProvider')]
+    public function everyChatShapedCapabilityKeepsTheChatProbe(string $capability): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('some-model');
+        $model->setProvider($provider);
+        $model->setCapabilities($capability);
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'some-model', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 11])));
+
+        self::assertTrue($body['success']);
+    }
+
+    #[Test]
+    public function anEmbeddingProbeThatReturnsNoVectorIsNotASuccess(): void
+    {
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+
+        $model = new Model();
+        $model->setName('text-embedding-3-small');
+        $model->setProvider($provider);
+        $model->setCapabilities('embeddings');
+
+        $this->modelRepository->method('findByUid')->willReturn($model);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        // A 2xx whose body carries no vector: nothing was verified.
+        $adapter->method('embeddings')->willReturn(
+            new EmbeddingResponse([], 'text-embedding-3-small', new UsageStatistics(4, 0, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $body = $this->decodeJsonResponse($this->subject->testModelAction($this->createRequest(['uid' => 12])));
+
+        self::assertFalse($body['success']);
     }
 }

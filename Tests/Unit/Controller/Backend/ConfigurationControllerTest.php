@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
@@ -47,6 +48,7 @@ final class ConfigurationControllerTest extends TestCase
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
     private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
     private ModelRepository&MockObject $modelRepository;
+    private ModelSelectionServiceInterface&MockObject $modelSelectionService;
     private TestPromptResolverInterface&MockObject $testPromptResolver;
     private ConfigurationController $subject;
     private mixed $previousBeUser;
@@ -67,6 +69,12 @@ final class ConfigurationControllerTest extends TestCase
         $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
         $this->providerAdapterRegistry = $this->createMock(ProviderAdapterRegistryInterface::class);
         $this->modelRepository = $this->createMock(ModelRepository::class);
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        // The runtime resolves a configuration's model through this service so
+        // criteria-mode records work; fixed-mode records come back unchanged.
+        $this->modelSelectionService->method('resolveModel')->willReturnCallback(
+            static fn(LlmConfiguration $configuration): ?Model => $configuration->getLlmModel(),
+        );
         $this->testPromptResolver = $this->createMock(TestPromptResolverInterface::class);
         $this->testPromptResolver->method('resolve')->willReturn('Hello, test prompt');
 
@@ -99,6 +107,7 @@ final class ConfigurationControllerTest extends TestCase
         $this->setPrivateProperty($controller, 'llmServiceManager', $this->llmServiceManager);
         $this->setPrivateProperty($controller, 'providerAdapterRegistry', $this->providerAdapterRegistry);
         $this->setPrivateProperty($controller, 'modelRepository', $this->modelRepository);
+        $this->setPrivateProperty($controller, 'modelSelectionService', $this->modelSelectionService);
         $this->setPrivateProperty($controller, 'testPromptResolver', $this->testPromptResolver);
         // REC #8b: typed catches log via LoggerInterface — use a NullLogger
         // for unit tests so the property is initialised but no output is
@@ -1186,5 +1195,57 @@ final class ConfigurationControllerTest extends TestCase
         // No provider → adapterType = '' → default constraints
         self::assertTrue($constraints['frequency_penalty']['supported']);
         self::assertArrayNotHasKey('fixed', $constraints['temperature']);
+    }
+
+    #[Test]
+    public function aCriteriaModeConfigurationIsTestableThroughTheResolvedModel(): void
+    {
+        // Criteria-mode records carry no model relation (model_uid = 0). Testing
+        // only getLlmModel() reported "has no model assigned" for a
+        // configuration that resolves and runs fine at call time.
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('criteria_mode');
+
+        $provider = new Provider();
+        $provider->setName('OpenAI');
+        $resolved = new Model();
+        $resolved->setName('gpt-4o');
+        $resolved->setProvider($provider);
+
+        // A readonly property cannot be re-set, so swap the collaborator and
+        // build a fresh controller rather than patching the shared one.
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService->expects(self::once())->method('resolveModel')->willReturn($resolved);
+        $subject = $this->createControllerWithDependencies();
+
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->expects(self::once())->method('complete')->willReturn(
+            new CompletionResponse('hi', 'gpt-4o', new UsageStatistics(3, 1, 4)),
+        );
+        $this->providerAdapterRegistry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function aConfigurationWhoseCriteriaResolveToNothingStillReportsNoModel(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('unsatisfiable');
+
+        $this->modelSelectionService = $this->createMock(ModelSelectionServiceInterface::class);
+        $this->modelSelectionService->method('resolveModel')->willReturn(null);
+        $subject = $this->createControllerWithDependencies();
+
+        $this->configurationRepository->method('findByUid')->willReturn($configuration);
+        $this->providerAdapterRegistry->expects(self::never())->method('createAdapterFromModel');
+
+        $response = $subject->testConfigurationAction($this->createRequest(['uid' => 1]));
+
+        self::assertSame(400, $response->getStatusCode());
     }
 }

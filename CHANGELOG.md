@@ -64,6 +64,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   providers named); no provider is configured at all; or the capabilities are
   covered and a secondary requirement rules every model out. The first three
   link to the module that fixes them.
+- A configuration in criteria mode can be tested again. The Test button
+  resolved the model only through the direct relation, which criteria-mode
+  records do not have (`model_uid = 0`), so it answered "Configuration has no
+  model assigned" for a configuration that resolves and runs at call time —
+  including every configuration created by a preset import. It now resolves
+  through `ModelSelectionService`, the same path the runtime uses, which
+  returns the directly configured model unchanged for fixed-mode records.
+- The Test button on a model record no longer sends a chat prompt to a model
+  that cannot answer one. A DALL-E or text-to-speech record got a chat
+  completion, the provider rejected it, and the admin was shown "provider
+  rejected the test request" — which says nothing about the model. The probe
+  is now chosen from the record's declared capabilities: a chat-shaped model
+  is prompted as before, an embedding model is embedded and reports the vector
+  dimensions, and a model whose capabilities are served by the specialized
+  services is not called at all. Those authenticate with the Extension
+  Configuration rather than the provider record, so testing them from here
+  would verify a different credential than the record declares; the message
+  says so and points at the LLM test page. A record with no declared
+  capabilities keeps the chat probe — the field is optional and routinely left
+  empty.
 
 ## [0.25.1] - 2026-07-27
 
