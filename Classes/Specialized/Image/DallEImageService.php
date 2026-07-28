@@ -36,7 +36,7 @@ use Throwable;
  *
  * @see https://platform.openai.com/docs/guides/images
  */
-final class DallEImageService extends AbstractSpecializedService
+final class DallEImageService extends AbstractSpecializedService implements ImageGeneratorInterface
 {
     use MultipartBodyBuilderTrait;
 

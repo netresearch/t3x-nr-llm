@@ -415,4 +415,5 @@ Tools
    Adr115EnforceByDefaultForNewInstalls
    Adr116CentralToolingAuthority
    Adr117WithdrawCapabilityPermissions
+   Adr118SpecializedServiceVerification
    Adr119BackendModulePlacement

@@ -1031,6 +1031,45 @@
             <trans-unit id="test.btn.back">
                 <source>Back to Overview</source>
             </trans-unit>
+            <trans-unit id="test.card.translation">
+                <source>Translation</source>
+            </trans-unit>
+            <trans-unit id="test.card.image">
+                <source>Image generation</source>
+            </trans-unit>
+            <trans-unit id="test.translation.info">
+                <source>Verifies a translator's credential. Leave the translator empty to use the LLM path, which needs no specialized key.</source>
+            </trans-unit>
+            <trans-unit id="test.image.info">
+                <source>Generates one image to verify the credential. The result is shown here and not stored — putting it into the file storage is the consuming extension's job.</source>
+            </trans-unit>
+            <trans-unit id="test.field.text">
+                <source>Text</source>
+            </trans-unit>
+            <trans-unit id="test.field.sourceLanguage">
+                <source>Source language (optional)</source>
+            </trans-unit>
+            <trans-unit id="test.field.targetLanguage">
+                <source>Target language</source>
+            </trans-unit>
+            <trans-unit id="test.field.translator">
+                <source>Translator</source>
+            </trans-unit>
+            <trans-unit id="test.field.service">
+                <source>Service</source>
+            </trans-unit>
+            <trans-unit id="test.translator.default">
+                <source>LLM (default)</source>
+            </trans-unit>
+            <trans-unit id="test.btn.translate">
+                <source>Translate</source>
+            </trans-unit>
+            <trans-unit id="test.btn.generateImage">
+                <source>Generate image</source>
+            </trans-unit>
+            <trans-unit id="test.image.open">
+                <source>Open the generated image</source>
+            </trans-unit>
             <trans-unit id="test.card.response">
                 <source>Response</source>
             </trans-unit>
