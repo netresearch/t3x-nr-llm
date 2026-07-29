@@ -16,18 +16,12 @@ governance audit trail.
 
 ## Next — agent runtime maturity
 
-1. **Make the tool loop's security collaborators mandatory.** The
-   `ToolLoopService` gates (tool-call policy, per-configuration allow-list,
-   input schema validation) are optional constructor arguments today — absent
-   wiring silently weakens the gate. Make them required, and give tests an
-   explicit lean wiring (`Null*` implementations plus a `Testing` builder)
-   instead of implicit absence. A container test pins the production wiring.
-2. **Conversation-level context-window management.** The tool loop already
+1. **Conversation-level context-window management.** The tool loop already
    bounds its transcript (ADR-107); conversations do not. Plan against the
    smallest reachable model window in the fallback chain — or re-fit when a
    fallback actually fires — so a long conversation degrades predictably
    instead of failing on the provider.
-3. **A first-class contract for side-effecting tools.** Promote the tool
+2. **A first-class contract for side-effecting tools.** Promote the tool
    effect declaration (read-only / idempotent write / non-idempotent write,
    ADR-111) into a tool-facing interface with an idempotency scope and an
    optional preview, so writing tools can be built against a contract instead
