@@ -85,7 +85,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
-        private ToolAvailabilityServiceInterface $availability,
+        // The composite gate (ADR-094): the single authority on which tools a
+        // run may be offered. Required — an absent gate used to fall through to
+        // a narrower legacy chain with no trust-zone axis, which is a weaker
+        // gate that nothing made visible (ADR-120).
+        private ToolCallPolicyInterface $toolPolicy,
         private ?LoggerInterface $logger = null,
         private int $defaultMaxIterations = 5,
         // Optional collaborators (autowired in production), mirroring the
@@ -94,27 +98,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // the existing lean test wiring keep working unchanged.
         private ?SkillInjectionService $skillInjection = null,
         private ?PromptSnippetComposer $snippetComposer = null,
-        // The per-configuration skill and tool-group gate. Optional so the lean
-        // test wiring keeps working; absent it the run is gated by the global
-        // enablement and admin filters alone, exactly as before.
-        private ?AllowedToolsResolver $allowedTools = null,
-        // The composite gate (ADR-094). When wired it is the single authority;
-        // absent it the loop falls back to the gates it applied before, which
-        // is what the lean unit-test wiring exercises.
-        private ?ToolCallPolicyInterface $toolPolicy = null,
         // Validates a user's typed input against a tool's declared schema
-        // (ADR-105). Optional for the lean test wiring; production always wires
-        // it. Absent it, resumeWithInput() skips its defence-in-depth
-        // re-validation (the runtime already validated before the claim).
-        private ?JsonSchemaValidator $schemaValidator = null,
+        // (ADR-105). Defaulted rather than optional: the validator is stateless
+        // and has no constructor, so there is no wiring under which the
+        // defence-in-depth re-validation can be absent.
+        private JsonSchemaValidator $schemaValidator = new JsonSchemaValidator(),
         // Bounds the growing transcript against the model's context window
         // (ADR-107). Optional so the lean test wiring is unchanged; absent it the
         // loop sends the full transcript exactly as before, and every
         // enforcement site below is a no-op.
         private ?ContextWindowManagerInterface $contextWindow = null,
         // Records tool-gate denials so "tool denials by reason / by tool" become
-        // queryable. Nullable, matching the optional $toolPolicy above: absent it
-        // (the lean test wiring) the gate still logs, it just does not persist.
+        // queryable. Optional because it is an observability sink, not a gate:
+        // absent it the denial is still decided and still logged, it just does
+        // not become a queryable row.
         private ?GovernanceEventRepositoryInterface $governanceEvents = null,
     ) {}
 
@@ -568,7 +565,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?int $beUserUid = null,
     ): ToolLoopResult {
         // Defence in depth: do not trust the caller's "already validated" claim.
-        if ($this->schemaValidator !== null && !$this->schemaValidator->validate($inputData, $state->inputSchema)) {
+        if (!$this->schemaValidator->validate($inputData, $state->inputSchema)) {
             throw new LogicException('resumeWithInput received input that does not match the declared schema.', 1784600106);
         }
 
@@ -714,11 +711,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * @return ToolResult
      */
     /**
-     * Resolve the tool names offered for a run: the caller's per-run allow-list
-     * intersected with the globally-enabled set, then admin-only tools filtered
-     * out unless the acting backend user is an admin. Both gates are fail-closed.
-     * Reused by {@see self::resume()} so a resume re-applies the gate at approval
-     * time — a tool disabled or restricted while suspended is not executed.
+     * Resolve the tool names offered for a run by asking the composite gate
+     * (ADR-094): global enablement, the admin filter, the configuration's own
+     * group grant and the trust-zone ceiling, all fail-closed. Reused by
+     * {@see self::resume()} so a resume re-applies the gate at approval time — a
+     * tool disabled or restricted while suspended is not executed.
      *
      * @param list<string>|null $allowedToolNames null ⇒ the globally-enabled set;
      *                                            a list ⇒ that set ∩ enabled;
@@ -728,83 +725,45 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function resolveOfferedNames(?array $allowedToolNames, LlmConfiguration $configuration, ToolExecutionContext $context): array
     {
-        if ($this->toolPolicy !== null) {
-            $user = $context->actingBackendUser();
+        $user = $context->actingBackendUser();
 
-            foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
-                if (!$decision->allowed || $decision->observedOnly) {
-                    $this->logger?->info('Tool gate: ' . $decision->message(), [
-                        'tool'   => $decision->toolName,
-                        'reason' => $decision->reason->value,
-                        'zone'   => $decision->zone->value,
-                    ]);
-                    // Persist the denial (or observe-mode flag) so it is queryable
-                    // by tool name and reason (the log line is not). This gate is
-                    // the one place tool_name is structurally available. The run's
-                    // correlation id / uid are not in scope at this seam, so a
-                    // tool-denied row carries neither — its value is the by-tool /
-                    // by-reason breakdown, not a per-run join. observed-mode rows
-                    // are recorded too (flagged in detail) so the trust-zone
-                    // rollout is measurable before it is enforced.
-                    $this->governanceEvents?->record(new GovernanceEvent(
-                        correlationId: '',
-                        decision: GovernanceDecision::TOOL_DENIED->value,
-                        reason: $decision->reason->value,
-                        provider: $configuration->getProviderType(),
-                        model: $configuration->getModelId(),
-                        configurationIdentifier: $configuration->getIdentifier(),
-                        beUser: $context->actor->backendUserUid,
-                        toolName: $decision->toolName,
-                        agentrunUid: 0,
-                        guardrail: '',
-                        detail: sprintf(
-                            'zone=%s;ceiling=%s;observedOnly=%d',
-                            $decision->zone->value,
-                            $decision->ceiling->value,
-                            $decision->observedOnly ? 1 : 0,
-                        ),
-                    ));
-                }
+        foreach ($this->toolPolicy->explain($allowedToolNames, $configuration, $user) as $decision) {
+            if (!$decision->allowed || $decision->observedOnly) {
+                $this->logger?->info('Tool gate: ' . $decision->message(), [
+                    'tool'   => $decision->toolName,
+                    'reason' => $decision->reason->value,
+                    'zone'   => $decision->zone->value,
+                ]);
+                // Persist the denial (or observe-mode flag) so it is queryable
+                // by tool name and reason (the log line is not). This gate is
+                // the one place tool_name is structurally available. The run's
+                // correlation id / uid are not in scope at this seam, so a
+                // tool-denied row carries neither — its value is the by-tool /
+                // by-reason breakdown, not a per-run join. observed-mode rows
+                // are recorded too (flagged in detail) so the trust-zone
+                // rollout is measurable before it is enforced.
+                $this->governanceEvents?->record(new GovernanceEvent(
+                    correlationId: '',
+                    decision: GovernanceDecision::TOOL_DENIED->value,
+                    reason: $decision->reason->value,
+                    provider: $configuration->getProviderType(),
+                    model: $configuration->getModelId(),
+                    configurationIdentifier: $configuration->getIdentifier(),
+                    beUser: $context->actor->backendUserUid,
+                    toolName: $decision->toolName,
+                    agentrunUid: 0,
+                    guardrail: '',
+                    detail: sprintf(
+                        'zone=%s;ceiling=%s;observedOnly=%d',
+                        $decision->zone->value,
+                        $decision->ceiling->value,
+                        $decision->observedOnly ? 1 : 0,
+                    ),
+                ));
             }
-
-            return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user);
         }
 
-        // Fail-closed global gate: the effective allow-set is always intersected
-        // with the globally-enabled tools. A null caller list means "no per-run
-        // restriction" and collapses to the enabled set (NOT every registered
-        // tool); a disabled tool can therefore never be offered, even when a
-        // caller — or a model steered by injected skill prose — names it.
-        $enabled   = $this->availability->enabledNames();
-        $effective = $allowedToolNames === null
-            ? $enabled
-            : array_values(array_intersect($allowedToolNames, $enabled));
-
-        // Fail-closed RBAC gate: admin-only tools (logs, environment, phpinfo,
-        // backend user/group listings) are never offered unless the ACTING
-        // backend user is an admin — enforced here in the runtime, not just the
-        // (admin-only) playground, so the public service cannot be invoked on a
-        // non-admin's behalf to reach them. An unknown tool name is treated as
-        // admin-only (fail-closed).
-        if (!$context->isAdmin()) {
-            $effective = array_values(array_filter(
-                $effective,
-                fn(string $name): bool => $this->registry->get($name)?->requiresAdmin() === false,
-            ));
-        }
-
-        // Fail-closed per-configuration gate: the skills' declared allow-list
-        // intersected with the configuration's allowed_tool_groups. This lived
-        // in the tool playground until ADR-093, which meant every other consumer
-        // of the now-public ToolLoopServiceInterface — a scheduler task, a
-        // downstream extension — bypassed the configuration's own restriction
-        // entirely. The caller's list is a request; this is the grant.
-        $configurationAllowed = $this->allowedTools?->resolve($configuration);
-        if ($configurationAllowed !== null) {
-            $effective = array_values(array_intersect($effective, $configurationAllowed));
-        }
-
-        return $effective;
+        return $this->toolPolicy->filterOfferable($allowedToolNames, $configuration, $user);
     }
 
     /**
