@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -43,6 +44,9 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
+use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
+use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -66,6 +70,10 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
 
 #[CoversClass(AgentRuntime::class)]
+#[CoversClass(AgentRunExecutor::class)]
+#[CoversClass(QueuedRunFailureRecovery::class)]
+#[CoversClass(QueuedRunCoordinator::class)]
+#[CoversClass(ResumeCoordinator::class)]
 final class AgentRuntimeTest extends AbstractUnitTestCase
 {
     private RecordingAgentRunRepository $repository;

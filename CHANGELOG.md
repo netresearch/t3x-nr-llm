@@ -35,6 +35,55 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   consumer calling one of the three action methods directly on
   `ModelController` has to call it on the new controller instead. Same split by
   request pathway as ADR-027.
+- The agent runtime no longer carries the queued-request serialisation. Turning
+  an `AgentRunRequest` into the JSON stored on a queued run row, and reading it
+  back, moved into `AgentRunRequestCodec`. The two directions have to agree
+  field for field — including the budget and idempotency values that
+  `ToolOptions::toArray()` drops and the codec therefore carries out of band —
+  and that agreement is now stated in one class and tested directly rather than
+  inferred from a run. `AgentRuntime` loses its `SkillRepository` and
+  `PromptSnippetRepository` constructor arguments, which only the serialisation
+  used; the codec takes them instead. Consumers use `AgentRuntimeInterface` and
+  are unaffected. First step of the runtime decomposition on the roadmap.
+- What becomes of a failed queued run moved out of the agent runtime into
+  `QueuedRunFailureRecovery`. Four independent conditions can each force a
+  dead-letter instead of a retry — a non-retryable error class, a
+  non-idempotent write fenced in flight, an exhausted requeue budget, and a
+  lost claim on the row — and the order between them is the whole of the
+  behaviour, which is easier to review in a class named after the decision than
+  inside the run loop. The retry budget and the backoff stay `AgentRuntime`
+  constants; only the decision reading them moved. Second step of the runtime
+  decomposition.
+- Driving a run from its first round to a settled outcome moved into
+  `AgentRunExecutor`. This is the lifecycle ladder: the catch order ADR-084
+  makes a hard guarantee, ADR-103's cancellation probe, ADR-104's lease
+  heartbeat, ADR-111's write fence and fail-closed audit. It no longer knows
+  where a run came from — a request, a claimed queue row and a resumed
+  suspension all reach it as a handle, a trace and a closure producing the next
+  tool-loop result, so the ordering guarantees hold identically on all three
+  paths and can be exercised without a queue row, a resume claim or a provider.
+  The two resume paths, which previously repeated trace-then-context-then-ladder
+  each in their own method, now share one entry point that fixes that order in
+  one place. Third step of the runtime decomposition.
+- Putting a run on the queue and picking it back up in a worker moved into
+  `QueuedRunCoordinator`. The two halves are one protocol and only make sense
+  together: what `enqueue()` stores is what `runQueued()` has to be able to
+  claim, position and rehydrate, and both are fail-closed in the same direction
+  — a queued run that cannot be stored, dispatched, positioned or rehydrated is
+  settled rather than left as an orphan a worker would later find in an
+  impossible state. Fourth step of the runtime decomposition.
+- Picking a suspended run back up moved into `ResumeCoordinator`. An approval
+  and a submitted input follow the same claim protocol, and the order in it is
+  the safety property: probe, win the atomic claim, then re-resolve the
+  event-stream position from a fresh row because the claim moved it. The one
+  deliberate divergence — a submitted input is validated against the tool's
+  declared schema before anything is claimed, so a rejection leaves the run
+  resumable — is now visible as a divergence inside one class instead of as a
+  difference between two long methods. Fifth step of the runtime decomposition.
+
+  `AgentRuntime` is now 266 lines, down from 1218. What remains is the
+  interface contract, the published constants, the retry predicate and
+  delegation; every algorithm lives in a class named after it.
 
 ### Removed
 

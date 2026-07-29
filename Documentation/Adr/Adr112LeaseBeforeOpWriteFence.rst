@@ -57,7 +57,7 @@ retryable, everything else (including an unset or unrecognised value) is:
 - the stale-run reaper (:php:`ReapStaleAgentRunsCommand`) dead-letters a run
   reaped mid non-idempotent-write instead of reclaiming it onto the queue,
   regardless of the remaining retry budget;
-- the in-process recovery (:php:`AgentRuntime::recoverQueuedFailure()`)
+- the in-process recovery (:php:`QueuedRunFailureRecovery::recover()`)
   dead-letters such a run even when the failure class is otherwise retryable —
   a transient provider blip does not make a repeated write safe.
 
