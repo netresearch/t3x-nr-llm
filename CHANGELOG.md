@@ -65,6 +65,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The two resume paths, which previously repeated trace-then-context-then-ladder
   each in their own method, now share one entry point that fixes that order in
   one place. Third step of the runtime decomposition.
+- Putting a run on the queue and picking it back up in a worker moved into
+  `QueuedRunCoordinator`. The two halves are one protocol and only make sense
+  together: what `enqueue()` stores is what `runQueued()` has to be able to
+  claim, position and rehydrate, and both are fail-closed in the same direction
+  — a queued run that cannot be stored, dispatched, positioned or rehydrated is
+  settled rather than left as an orphan a worker would later find in an
+  impossible state. Fourth step of the runtime decomposition.
+- Picking a suspended run back up moved into `ResumeCoordinator`. An approval
+  and a submitted input follow the same claim protocol, and the order in it is
+  the safety property: probe, win the atomic claim, then re-resolve the
+  event-stream position from a fresh row because the claim moved it. The one
+  deliberate divergence — a submitted input is validated against the tool's
+  declared schema before anything is claimed, so a rejection leaves the run
+  resumable — is now visible as a divergence inside one class instead of as a
+  difference between two long methods. Fifth step of the runtime decomposition.
+
+  `AgentRuntime` is now 266 lines, down from 1218. What remains is the
+  interface contract, the published constants, the retry predicate and
+  delegation; every algorithm lives in a class named after it.
 
 ### Removed
 
