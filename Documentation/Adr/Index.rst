@@ -420,3 +420,4 @@ Tools
    Adr120RequiredToolGate
    Adr121ConversationContextWindow
    Adr122ToolEffectContractDeferred
+   Adr123OneSecretShapeCatalogue

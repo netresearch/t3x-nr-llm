@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetEnvTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -38,6 +39,17 @@ final class GetEnvToolTest extends TestCase
     // Same, but with an EMPTY username (redis://:password@host).
     private const NOUSER_URL_KEY = 'NRLLM_TEST_NOUSER_URL';
     private const NOUSER_URL_VALUE = 'redis://:s3cr3tnouser@cache-02:6379/0';
+    // Names that give NOTHING away — no PASS/KEY/SECRET/TOKEN substring — whose
+    // values are unmistakable secrets. Matching on names alone egressed both
+    // verbatim to the provider (ADR-123).
+    private const SHAPED_PAT_KEY = 'NRLLM_TEST_GITHUB_PAT';
+    private const SHAPED_PAT_VALUE = 'ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    private const SHAPED_STRIPE_KEY = 'NRLLM_TEST_STRIPE_LIVE';
+    // Assembled rather than written out: a complete Stripe-shaped literal in a
+    // committed file trips GitHub's push protection, even as an obvious fixture.
+    private const SHAPED_STRIPE_VALUE = 'sk_live_' . '999999999999999999999999';
+    private const SHAPED_JWT_KEY = 'NRLLM_TEST_SESSION_BLOB';
+    private const SHAPED_JWT_VALUE = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcDEF123';
 
     protected function setUp(): void
     {
@@ -68,6 +80,9 @@ final class GetEnvToolTest extends TestCase
             self::PWD_KEY         => self::PWD_VALUE,
             self::URL_KEY         => self::URL_VALUE,
             self::NOUSER_URL_KEY  => self::NOUSER_URL_VALUE,
+            self::SHAPED_PAT_KEY  => self::SHAPED_PAT_VALUE,
+            self::SHAPED_STRIPE_KEY => self::SHAPED_STRIPE_VALUE,
+            self::SHAPED_JWT_KEY  => self::SHAPED_JWT_VALUE,
         ];
     }
 
@@ -122,6 +137,50 @@ final class GetEnvToolTest extends TestCase
         // stripped rather than leaking to the provider.
         self::assertStringNotContainsString('s3cr3tnouser', $output);
         self::assertStringContainsString(self::NOUSER_URL_KEY . '=redis://***redacted***@cache-02:6379/0', $output);
+    }
+
+    /**
+     * The name rule cannot see these: nothing in GITHUB_PAT, STRIPE_LIVE or
+     * SESSION_BLOB says secret, so before the value-shape pass all three values
+     * were listed verbatim to the LLM provider.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function shapedSecretProvider(): iterable
+    {
+        yield 'GitHub PAT under a neutral name' => [self::SHAPED_PAT_KEY, self::SHAPED_PAT_VALUE];
+        yield 'Stripe key under a neutral name' => [self::SHAPED_STRIPE_KEY, self::SHAPED_STRIPE_VALUE];
+        yield 'JWT under a neutral name' => [self::SHAPED_JWT_KEY, self::SHAPED_JWT_VALUE];
+    }
+
+    #[Test]
+    #[DataProvider('shapedSecretProvider')]
+    public function aSecretShapedValueIsRedactedEvenWhenItsNameLooksHarmless(
+        string $name,
+        string $value,
+    ): void {
+        $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
+
+        self::assertStringNotContainsString($value, $output);
+        self::assertStringContainsString($name . '=', $output, 'The variable itself should still be listed.');
+    }
+
+    #[Test]
+    public function theNameRuleAloneWouldNotHaveCaughtTheseNames(): void
+    {
+        // Guards the premise of the test above: if someone later adds "PAT" or
+        // "STRIPE" to the name pattern, these cases would start passing for the
+        // wrong reason and stop covering the value-shape path.
+        foreach ([self::SHAPED_PAT_KEY, self::SHAPED_STRIPE_KEY, self::SHAPED_JWT_KEY] as $name) {
+            self::assertSame(
+                0,
+                preg_match(
+                    '/PASS|PASSWORD|PWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|AUTH|PRIVATE|MASTER|ENCRYPT|DSN|DATABASE_URL|APIKEY|API_KEY/i',
+                    $name,
+                ),
+                sprintf('"%s" is now matched by the NAME rule, so it no longer tests the value rule.', $name),
+            );
+        }
     }
 
     #[Test]

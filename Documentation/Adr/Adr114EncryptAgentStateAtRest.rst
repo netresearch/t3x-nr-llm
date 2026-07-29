@@ -81,8 +81,42 @@ Consequences
   resuming a forged or corrupt state.
 - The columns stay ``mediumtext``; the base64 JSON envelope is larger than the
   plaintext but well within the 16 MB bound.
-- **Key rotation is the vault's**, not a reserved future slot: rotating the
-  master key re-wraps the DEKs without touching the row ciphertext. The
-  privacy-retention policy (:ref:`ADR-064 <adr-064>`) still governs how long
+- The privacy-retention policy (:ref:`ADR-064 <adr-064>`) still governs how long
   state is kept — encryption protects it while it exists, it does not extend its
   life.
+
+.. _adr-114-rotation:
+
+Key rotation: not yet covered
+=============================
+
+.. warning::
+
+   An earlier revision of this ADR stated that "key rotation is the vault's …
+   rotating the master key re-wraps the DEKs without touching the row
+   ciphertext", citing nr-vault's rotate command and its
+   :php:`MasterKeyRotatedEvent`. **That was wrong on both counts**, and the
+   correction is recorded here rather than quietly edited away.
+
+   nr-vault's ``vault:rotate-master-key`` re-wraps the DEKs it finds by iterating
+   its own ``tx_nrvault_secret`` table. The DEK of an agent-state envelope lives
+   in ``tx_nrllm_agentrun``, where that iteration never reaches it. And
+   :php:`MasterKeyRotatedEvent`, though declared and documented upstream, was
+   never dispatched from anywhere — so this extension could not have subscribed
+   to learn a rotation had happened either.
+
+   **Consequence today:** if an operator rotates the nr-vault master key, every
+   encrypted QUEUED or suspended agent-run row becomes permanently undecryptable.
+   The fail-soft read path treats such a run as unreadable, so nothing crashes —
+   in-flight runs are lost, not the installation. Rows written before ADR-114
+   landed (plaintext JSON, no ``v2:`` marker) are unaffected, and no other
+   nr-llm data is encrypted this way.
+
+   **Fix in progress:** nr-vault gained a
+   :php:`ForeignEnvelopeRotatorInterface` (nr-vault ADR-033) that re-wraps a
+   consumer's envelopes inside the rotation's own transaction. This extension
+   registers a rotator for ``tx_nrllm_agentrun`` as soon as a released nr-vault
+   version contains it; this section is replaced when that lands.
+
+   **Until then:** treat a master-key rotation as draining the agent queue. Let
+   queued and suspended runs finish first, or accept losing them.
