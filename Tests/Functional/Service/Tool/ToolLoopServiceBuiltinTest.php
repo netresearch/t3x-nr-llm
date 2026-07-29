@@ -9,18 +9,26 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -103,7 +111,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             });
 
         $service = $this->buildService($mgr);
-        $result  = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), $this->contextFor($this->actingUser), null);
+        $result  = $service->runLoop([$this->userTurn('show me the logs')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
 
         // The real builtin tool ran exactly once and its REAL output is in the trace.
         self::assertCount(1, $result->trace);
@@ -140,7 +148,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $service = $this->buildService($mgr);
         // The caller even explicitly allows the tool — the admin gate still wins.
-        $result = $service->runLoop([$this->userTurn('show me the logs')], new LlmConfiguration(), $this->contextFor($nonAdmin), ['fetch_logs']);
+        $result = $service->runLoop([$this->userTurn('show me the logs')], $this->localConfiguration(), $this->contextFor($nonAdmin), ['fetch_logs']);
 
         self::assertSame('plain answer', $result->finalContent);
         self::assertSame([], $result->trace);
@@ -156,7 +164,41 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         $registry     = new ToolRegistry([new FetchLogsTool($this->connectionPool)]);
         $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool), new ToolGroupStateRepository($this->connectionPool));
 
-        return new ToolLoopService($mgr, $registry, $availability);
+        // The REAL composite gate (ADR-094), not a double: this test exists to
+        // run production code, and the gate is production code.
+        $policy = new ToolCallPolicy(
+            $registry,
+            $availability,
+            new AllowedToolsResolver(new SkillComposer(), $registry),
+            new ToolDataClassResolver($registry),
+            new TrustZoneResolver(),
+        );
+
+        return new ToolLoopService($mgr, $registry, $policy);
+    }
+
+    /**
+     * A configuration whose provider sits in the LOCAL trust zone.
+     *
+     * `fetch_logs` is SYSTEM_DIAGNOSTICS by group, and a configuration without a
+     * provider fails closed to EXTERNAL_GLOBAL, whose ceiling is EDITOR_CONTENT
+     * — so the composite gate denies the tool there, correctly. The bare
+     * `new LlmConfiguration()` these tests used was a placeholder that only ever
+     * passed because no gate was wired; stating the zone says what they always
+     * assumed, and lets the trust-zone axis genuinely run and allow.
+     */
+    private function localConfiguration(): LlmConfiguration
+    {
+        $provider = new Provider();
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        return $configuration;
     }
 
     /**

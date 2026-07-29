@@ -14,8 +14,11 @@ use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
@@ -30,7 +33,6 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
-use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
@@ -38,10 +40,13 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
@@ -68,7 +73,7 @@ final class ToolLoopServiceTest extends TestCase
         // A registered tool keeps the loop on the tools path (an empty registry
         // would short-circuit to a plain completion — covered separately).
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
-        $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame('the answer', $result->finalContent);
         self::assertSame([], $result->trace);
@@ -89,7 +94,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturnCallback($this->queueCallback($queue));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
-        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertCount(1, $result->trace);
         self::assertSame('fetch_logs', $result->trace[0]->name);
@@ -121,7 +126,7 @@ final class ToolLoopServiceTest extends TestCase
         ], $captured));
 
         $service = $this->service($mgr, new ToolRegistry([$tool]));
-        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         // The second provider call carries the tool-result turn: content only.
         self::assertArrayHasKey(1, $captured);
@@ -150,7 +155,7 @@ final class ToolLoopServiceTest extends TestCase
             $this->response('done'),
         ]));
 
-        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
         $artifact = $result->trace[0]->artifacts[0];
 
         // The label and every nested string leaf are valid UTF-8, and the raw
@@ -174,7 +179,7 @@ final class ToolLoopServiceTest extends TestCase
             $this->response('done'),
         ]));
 
-        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
         $artifacts = $result->trace[0]->artifacts;
 
         self::assertCount(1, $artifacts);
@@ -197,7 +202,7 @@ final class ToolLoopServiceTest extends TestCase
             $this->response('done'),
         ]));
 
-        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result    = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
         $artifacts = $result->trace[0]->artifacts;
 
         self::assertCount(1, $artifacts);
@@ -218,7 +223,7 @@ final class ToolLoopServiceTest extends TestCase
             $this->response('done'),
         ]));
 
-        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result   = $this->service($mgr, new ToolRegistry([$tool]))->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
         $artifact = $result->trace[0]->artifacts[0];
 
         self::assertSame(ArtifactType::TABLE, $artifact->type);
@@ -241,7 +246,7 @@ final class ToolLoopServiceTest extends TestCase
         // path; the model then requests the unregistered name "nope", which
         // registry->get() resolves to null (the unknown-tool branch).
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('real_tool')]));
-        $result  = $service->runLoop([$this->userTurn('do it')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('do it')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertCount(1, $result->trace);
         self::assertTrue($result->trace[0]->isError);
@@ -292,7 +297,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturnCallback($this->queueCallback($queue));
 
         $service = $this->service($mgr, new ToolRegistry([$throwing]));
-        $result  = $service->runLoop([$this->userTurn('blow up')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('blow up')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertCount(1, $result->trace);
         self::assertTrue($result->trace[0]->isError);
@@ -359,7 +364,7 @@ final class ToolLoopServiceTest extends TestCase
             );
 
         $service = $this->service($mgr, new ToolRegistry([$throwing]), $logger);
-        $service->runLoop([$this->userTurn('blow up')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $service->runLoop([$this->userTurn('blow up')], $this->localConfiguration(), ToolExecutionContext::none(), null);
     }
 
     #[Test]
@@ -376,7 +381,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturnCallback($this->queueCallback($queue, $captured));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
-        $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         // The second round must carry the appended assistant + tool turns as
         // typed ChatMessage VOs whose wire form stays OpenAI-compatible.
@@ -416,7 +421,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $runTrace = new RunTrace();
         $service  = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
-        $result   = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), ToolExecutionContext::none(), null, null, 2, $runTrace);
+        $result   = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, 2, $runTrace);
 
         self::assertSame(2, $result->iterations);
         self::assertTrue($result->truncated);
@@ -471,7 +476,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
         $service  = $this->service($mgr, $registry);
-        $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
+        $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
 
         $specs = self::arr($capturedTools[0] ?? null);
         $names = array_map(
@@ -501,7 +506,7 @@ final class ToolLoopServiceTest extends TestCase
             });
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
-        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertTrue($result->truncated);
         self::assertSame(AgentRunTerminationReason::BUDGET_EXHAUSTED, $result->terminationReason);
@@ -533,7 +538,7 @@ final class ToolLoopServiceTest extends TestCase
             );
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]), $logger);
-        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertTrue($result->truncated);
     }
@@ -554,7 +559,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('big_tool', $big)]));
-        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertCount(1, $result->trace);
         $toolResult = $result->trace[0]->result;
@@ -585,7 +590,7 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('edge_tool', $exact)]));
-        $result  = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertCount(1, $result->trace);
         $toolResult = $result->trace[0]->result;
@@ -606,7 +611,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturnCallback($this->queueCallback($queue));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs', 'LOGS')]));
-        $result  = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame(13, $result->usage->promptTokens);
         self::assertSame(7, $result->usage->completionTokens);
@@ -625,7 +630,7 @@ final class ToolLoopServiceTest extends TestCase
 
         // A tool IS registered, but the empty allow-list offers none of them.
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
-        $result  = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), []);
+        $result  = $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), []);
 
         self::assertSame('plain answer', $result->finalContent);
         self::assertSame([], $result->trace);
@@ -681,7 +686,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $registry = new ToolRegistry([new FakeTool('fetch_logs'), $spy]);
         $service  = $this->service($mgr, $registry);
-        $result   = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
+        $result   = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
 
         self::assertCount(1, $result->trace);
         self::assertTrue($result->trace[0]->isError);
@@ -702,13 +707,11 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
 
         // fetch_logs IS registered, but the global gate reports it disabled.
-        $service = new ToolLoopService(
-            $mgr,
-            new ToolRegistry([new FakeTool('fetch_logs')]),
-            new FakeToolAvailability([]),
-        );
+        $registry     = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $availability = new FakeToolAvailability([]);
+        $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
         // The caller explicitly lists the disabled tool — the gate still wins.
-        $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
+        $result = $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
 
         self::assertSame('plain answer', $result->finalContent);
         self::assertSame([], $result->trace);
@@ -734,10 +737,11 @@ final class ToolLoopServiceTest extends TestCase
             });
 
         // Two tools registered, but only one is globally enabled.
-        $registry = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
-        $service  = new ToolLoopService($mgr, $registry, new FakeToolAvailability(['fetch_logs']));
+        $registry     = new ToolRegistry([new FakeTool('fetch_logs'), new FakeTool('read_meta')]);
+        $availability = new FakeToolAvailability(['fetch_logs']);
+        $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
         // null ⇒ "no per-run restriction" ⇒ collapses to the enabled set only.
-        $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         $specs = self::arr($capturedTools[0] ?? null);
         $names = array_map(
@@ -788,7 +792,7 @@ final class ToolLoopServiceTest extends TestCase
         $state = $this->suspend($service);
 
         $trace  = new RunTrace();
-        $result = $service->resume($state, true, new LlmConfiguration(), ToolExecutionContext::none(), null, $trace);
+        $result = $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
 
         self::assertSame('deleted and done', $result->finalContent);
         // The approved tool really executed (recorded on the trace) with its result.
@@ -815,7 +819,7 @@ final class ToolLoopServiceTest extends TestCase
         $state = $this->suspend($service);
 
         $trace  = new RunTrace();
-        $result = $service->resume($state, false, new LlmConfiguration(), ToolExecutionContext::none(), null, $trace);
+        $result = $service->resume($state, false, $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
 
         self::assertSame('ok, cancelled', $result->finalContent);
         // The pending tool was NOT executed; a denial result was fed back instead.
@@ -837,7 +841,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $state = null;
         try {
-            $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), ['delete_thing'], $options);
+            $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['delete_thing'], $options);
         } catch (ToolApprovalRequiredException $e) {
             $state = $e->state;
         }
@@ -870,7 +874,7 @@ final class ToolLoopServiceTest extends TestCase
         );
 
         $trace  = new RunTrace();
-        $result = $service->resume($state, true, new LlmConfiguration(), ToolExecutionContext::none(), null, $trace);
+        $result = $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
 
         // Approved, but the tool is no longer offered → fail-closed, NOT executed.
         $toolSteps = array_values(array_filter($trace->getSteps(), static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL));
@@ -902,7 +906,7 @@ final class ToolLoopServiceTest extends TestCase
         // Only safe_tool is offered; delete_thing (an approval tool) is registered
         // but NOT in the allow-list. A model naming it must be refused by the gate,
         // not raise a spurious pending-approval suspension.
-        $result = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), ['safe_tool']);
+        $result = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['safe_tool']);
 
         self::assertSame('handled', $result->finalContent);
         self::assertCount(1, $result->trace);
@@ -934,7 +938,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $second = null;
         try {
-            $service->resume($state, true, new LlmConfiguration(), ToolExecutionContext::none(), null, null, 7);
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, null, 7);
         } catch (ToolApprovalRequiredException $e) {
             $second = $e->state;
         }
@@ -963,7 +967,7 @@ final class ToolLoopServiceTest extends TestCase
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('safe_tool')]));
         $state   = new SuspendedRunState([$this->userTurn('go')], [], 1, 5, 2, ['safe_tool'], []);
 
-        $service->resume($state, true, new LlmConfiguration(), ToolExecutionContext::none(), null, null, 42);
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, null, 42);
 
         // The resumed continuation carries the acting user's uid so BudgetMiddleware
         // gates it (the uid is not part of the persisted options).
@@ -974,7 +978,7 @@ final class ToolLoopServiceTest extends TestCase
     private function suspend(ToolLoopService $service): SuspendedRunState
     {
         try {
-            $service->runLoop([$this->userTurn('delete it')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+            $service->runLoop([$this->userTurn('delete it')], $this->localConfiguration(), ToolExecutionContext::none(), null);
         } catch (ToolApprovalRequiredException $e) {
             return $e->state;
         }
@@ -1036,10 +1040,14 @@ final class ToolLoopServiceTest extends TestCase
             },
         );
 
-        $configuration = new LlmConfiguration();
+        // LOCAL zone so the trust-zone axis permits BOTH tools: the
+        // configuration's group restriction must then be the sole reason
+        // system_tool is withheld, not a second gate coincidentally agreeing.
+        $configuration = $this->localConfiguration();
         $configuration->setAllowedToolGroups('content');
 
-        $service = $this->service($mgr, $registry, null, new AllowedToolsResolver(new SkillComposer(), $registry));
+        $availability = new FakeToolAvailability($registry->names());
+        $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
 
         // The caller explicitly asks for both, and both are globally enabled.
         $service->runLoop([$this->userTurn('go')], $configuration, ToolExecutionContext::none(), ['content_tool', 'system_tool']);
@@ -1059,7 +1067,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $state = null;
         try {
-            $service->runLoop([$this->userTurn('weather?')], new LlmConfiguration(), ToolExecutionContext::none(), ['ask_user']);
+            $service->runLoop([$this->userTurn('weather?')], $this->localConfiguration(), ToolExecutionContext::none(), ['ask_user']);
             self::fail('Expected the run to suspend for input.');
         } catch (ToolInputRequiredException $e) {
             $state = $e->state;
@@ -1081,7 +1089,7 @@ final class ToolLoopServiceTest extends TestCase
         $service = $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user', [])]));
 
         $this->expectException(LogicException::class);
-        $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), ['ask_user']);
+        $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['ask_user']);
     }
 
     #[Test]
@@ -1096,7 +1104,7 @@ final class ToolLoopServiceTest extends TestCase
 
         // ask_user is registered but NOT offered: a model naming it is refused by
         // the gate, not turned into a spurious input suspension.
-        $result = $service->runLoop([$this->userTurn('go')], new LlmConfiguration(), ToolExecutionContext::none(), ['safe_tool']);
+        $result = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['safe_tool']);
 
         self::assertSame('handled', $result->finalContent);
         self::assertTrue($result->trace[0]->isError);
@@ -1125,7 +1133,7 @@ final class ToolLoopServiceTest extends TestCase
         );
 
         // The human supplies the declared 'city' and an undeclared 'evil'.
-        $service->resumeWithInput($state, ['city' => 'Berlin', 'evil' => 'x'], new LlmConfiguration(), ToolExecutionContext::none());
+        $service->resumeWithInput($state, ['city' => 'Berlin', 'evil' => 'x'], $this->localConfiguration(), ToolExecutionContext::none());
 
         // 'city' comes from the human (model's guess stripped); 'note' (model,
         // undeclared) is kept; 'evil' (human, undeclared) is dropped.
@@ -1157,7 +1165,7 @@ final class ToolLoopServiceTest extends TestCase
         );
 
         $trace = new RunTrace();
-        $service->resumeWithInput($state, ['city' => 'Berlin'], new LlmConfiguration(), ToolExecutionContext::none(), null, $trace);
+        $service->resumeWithInput($state, ['city' => 'Berlin'], $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
 
         // The second input tool got no data — fail-closed refusal, never executed.
         self::assertNull($second->capturedArguments);
@@ -1185,7 +1193,7 @@ final class ToolLoopServiceTest extends TestCase
             [],
         );
 
-        $service->resume($state, true, new LlmConfiguration(), ToolExecutionContext::none());
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
 
         self::assertNull($tool->capturedArguments);
     }
@@ -1193,21 +1201,14 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function resumeWithInputRejectsCallerUnvalidatedData(): void
     {
-        // Defence in depth: with a validator wired, resumeWithInput re-checks the
-        // input and refuses data that does not match the declared schema.
-        $mgr = self::createStub(LlmServiceManagerInterface::class);
-        $service = new ToolLoopService(
-            $mgr,
-            new ToolRegistry([new FakeInputTool('ask_user')]),
-            new FakeToolAvailability(['ask_user']),
-            null,
-            5,
-            null,
-            null,
-            null,
-            null,
-            new JsonSchemaValidator(),
-        );
+        // Defence in depth: resumeWithInput re-checks the input and refuses data
+        // that does not match the declared schema. The validator is no longer
+        // something a wiring can omit (ADR-120), so this holds for every
+        // instance rather than only for one that happens to be given one.
+        $mgr          = self::createStub(LlmServiceManagerInterface::class);
+        $registry     = new ToolRegistry([new FakeInputTool('ask_user')]);
+        $availability = new FakeToolAvailability(['ask_user']);
+        $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
 
         $state = new SuspendedRunState(
             [$this->userTurn('go')],
@@ -1223,7 +1224,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $this->expectException(LogicException::class);
         // Missing the required 'city'.
-        $service->resumeWithInput($state, [], new LlmConfiguration(), ToolExecutionContext::none());
+        $service->resumeWithInput($state, [], $this->localConfiguration(), ToolExecutionContext::none());
     }
 
     #[Test]
@@ -1245,7 +1246,7 @@ final class ToolLoopServiceTest extends TestCase
             new ContextFitResult($pruned, true, 2, 1, 10, 100, false, 1.15),
         ));
 
-        $service->runLoop([$this->userTurn('a'), $this->userTurn('b')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $service->runLoop([$this->userTurn('a'), $this->userTurn('b')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame($pruned, $captured);
     }
@@ -1262,7 +1263,7 @@ final class ToolLoopServiceTest extends TestCase
             new ContextFitResult([], false, 0, 1, 999999, 100, true, 1.15),
         ));
 
-        $result = $service->runLoop([$this->userTurn('x')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result = $service->runLoop([$this->userTurn('x')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame(AgentRunTerminationReason::CONTEXT_TRUNCATED, $result->terminationReason);
         self::assertTrue($result->truncated);
@@ -1280,36 +1281,71 @@ final class ToolLoopServiceTest extends TestCase
     {
         $registry = new ToolRegistry([new FakeTool('noop')]);
 
+        $availability = new FakeToolAvailability($registry->names());
+
         return new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            null,
-            null,
-            null,
-            null,
-            null,
-            $contextWindow,
+            $this->realPolicy($registry, $availability),
+            contextWindow: $contextWindow,
         );
+    }
+
+    /**
+     * The REAL composite gate (ADR-094) over a registry and its availability.
+     *
+     * Tests whose subject IS the gate wire this rather than a double: a double
+     * would assert the double's behaviour, which is precisely the substitution
+     * the mandatory-collaborator work exists to remove.
+     */
+    private function realPolicy(ToolRegistry $registry, FakeToolAvailability $availability): ToolCallPolicy
+    {
+        return new ToolCallPolicy(
+            $registry,
+            $availability,
+            new AllowedToolsResolver(new SkillComposer(), $registry),
+            new ToolDataClassResolver($registry),
+            new TrustZoneResolver(),
+        );
+    }
+
+    /**
+     * A configuration whose provider sits in the LOCAL trust zone.
+     *
+     * {@see FakeTool} declares the group `test`, which is absent from the
+     * data-class group defaults and therefore fails closed to SECRET_ADJACENT.
+     * A configuration without a provider fails closed to EXTERNAL_GLOBAL, whose
+     * ceiling is EDITOR_CONTENT, so the gate would deny every fake tool for a
+     * reason these tests are not about. LOCAL's ceiling is SECRET_ADJACENT, so
+     * the trust-zone axis genuinely runs and permits, leaving the axis under
+     * test as the only possible denier.
+     */
+    private function localConfiguration(): LlmConfiguration
+    {
+        $provider = new Provider();
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        return $configuration;
     }
 
     private function service(
         LlmServiceManagerInterface $mgr,
         ToolRegistry $registry,
         ?LoggerInterface $logger = null,
-        ?AllowedToolsResolver $allowedTools = null,
     ): ToolLoopService {
+        $availability = new FakeToolAvailability($registry->names());
+
         return new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability($registry->names()),
+            $this->realPolicy($registry, $availability),
             $logger,
-            5,
-            null,
-            null,
-            $allowedTools,
         );
     }
 
@@ -1408,12 +1444,10 @@ final class ToolLoopServiceTest extends TestCase
 
             // Tool is registered, globally enabled, AND explicitly allowed — but
             // it requiresAdmin and the acting user is not an admin.
-            $service = new ToolLoopService(
-                $mgr,
-                new ToolRegistry([new FakeTool('fetch_logs', 'ok', true, true)]),
-                new FakeToolAvailability(['fetch_logs']),
-            );
-            $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($nonAdmin), ['fetch_logs']);
+            $registry     = new ToolRegistry([new FakeTool('fetch_logs', 'ok', true, true)]);
+            $availability = new FakeToolAvailability(['fetch_logs']);
+            $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
+            $result       = $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::fromBackendUser($nonAdmin), ['fetch_logs']);
 
             self::assertSame('plain answer', $result->finalContent);
             self::assertSame([], $result->trace);
@@ -1445,12 +1479,10 @@ final class ToolLoopServiceTest extends TestCase
                 ->willReturnCallback($this->queueCallback($queue));
 
             // requiresAdmin = true; globally enabled; explicitly allowed.
-            $service = new ToolLoopService(
-                $mgr,
-                new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
-                new FakeToolAvailability(['fetch_logs']),
-            );
-            $result = $service->runLoop([$this->userTurn('show logs')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
+            $registry     = new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]);
+            $availability = new FakeToolAvailability(['fetch_logs']);
+            $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
+            $result       = $service->runLoop([$this->userTurn('show logs')], $this->localConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
 
             self::assertCount(1, $result->trace);
             self::assertSame('fetch_logs', $result->trace[0]->name);
@@ -1484,12 +1516,10 @@ final class ToolLoopServiceTest extends TestCase
 
             // Tool requiresAdmin AND is registered, but the global gate reports
             // NO enabled tools — the caller even explicitly allows it.
-            $service = new ToolLoopService(
-                $mgr,
-                new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]),
-                new FakeToolAvailability([]),
-            );
-            $result = $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
+            $registry     = new ToolRegistry([new FakeTool('fetch_logs', 'LOGS', true, true)]);
+            $availability = new FakeToolAvailability([]);
+            $service      = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, $availability));
+            $result       = $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::fromBackendUser($admin), ['fetch_logs']);
 
             self::assertSame('plain answer', $result->finalContent);
             self::assertSame([], $result->trace);
@@ -1504,10 +1534,12 @@ final class ToolLoopServiceTest extends TestCase
      */
     private function budgetMetadata(?ToolOptions $options): array
     {
-        $service = new ToolLoopService(
+        $registry     = new ToolRegistry([]);
+        $availability = new FakeToolAvailability([]);
+        $service      = new ToolLoopService(
             self::createStub(LlmServiceManagerInterface::class),
-            new ToolRegistry([]),
-            new FakeToolAvailability([]),
+            $registry,
+            $this->realPolicy($registry, $availability),
         );
         /** @var array<string, mixed> $result */
         $result = (new ReflectionClass($service))->getMethod('budgetMetadata')->invoke($service, $options);
@@ -1557,7 +1589,7 @@ final class ToolLoopServiceTest extends TestCase
             ->willReturn($this->response('SYNTHESISED'));
 
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('loop_tool')]));
-        $result  = $service->runLoop([$this->userTurn('loop')], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $result  = $service->runLoop([$this->userTurn('loop')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame(5, $result->iterations);
         self::assertTrue($result->truncated);
@@ -1579,7 +1611,7 @@ final class ToolLoopServiceTest extends TestCase
         $service = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
         $result  = $service->runLoop(
             [$this->userTurn('hi')],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             null,
             null,
@@ -1612,7 +1644,7 @@ final class ToolLoopServiceTest extends TestCase
         $service  = $this->service($mgr, new ToolRegistry([new FakeTool('noop')]));
         $service->runLoop(
             [$this->userTurn('hi')],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             null,
             new ToolOptions(systemPrompt: 'OVERRIDE_SYS'),
@@ -1648,7 +1680,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $runTrace = new RunTrace();
         $service  = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_logs')]));
-        $service->runLoop([$this->userTurn('hi')], new LlmConfiguration(), ToolExecutionContext::none(), [], null, null, $runTrace);
+        $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), [], null, null, $runTrace);
 
         $steps = $runTrace->getSteps();
         self::assertCount(2, $steps);

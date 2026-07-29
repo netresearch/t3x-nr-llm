@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -19,11 +22,15 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -44,7 +51,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $trace  = new RunTrace();
         $result = $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'hi']],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             null,
             null,
@@ -76,7 +83,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $trace = new RunTrace();
         $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'translate this']],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             null,
             null,
@@ -108,7 +115,7 @@ final class ToolLoopServiceAugmentationTest extends TestCase
         $trace  = new RunTrace();
         $result = $this->service($mgr)->runLoop(
             [['role' => 'user', 'content' => 'hi']],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             null,
             null,
@@ -150,20 +157,25 @@ final class ToolLoopServiceAugmentationTest extends TestCase
 
         // A tool echoing raw bytes (log/env/phpinfo output) that are not valid UTF-8.
         $registry = new ToolRegistry([new FakeTool('bad', "before \xFF\xFE after")]);
-        $service  = new ToolLoopService(
+        $availability = new FakeToolAvailability($registry->names());
+        $service      = new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            new SkillInjectionService(new SkillComposer(), new NullLogger()),
-            new PromptSnippetComposer(),
+            new ToolCallPolicy(
+                $registry,
+                $availability,
+                new AllowedToolsResolver(new SkillComposer(), $registry),
+                new ToolDataClassResolver($registry),
+                new TrustZoneResolver(),
+            ),
+            skillInjection: new SkillInjectionService(new SkillComposer(), new NullLogger()),
+            snippetComposer: new PromptSnippetComposer(),
         );
 
         $trace  = new RunTrace();
         $result = $service->runLoop(
             [['role' => 'user', 'content' => 'go']],
-            new LlmConfiguration(),
+            $this->localConfiguration(),
             ToolExecutionContext::none(),
             ['bad'],
             null,
@@ -192,14 +204,44 @@ final class ToolLoopServiceAugmentationTest extends TestCase
     {
         $registry = new ToolRegistry([new FakeTool('noop')]);
 
+        $availability = new FakeToolAvailability($registry->names());
+
         return new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability($registry->names()),
-            null,
-            5,
-            new SkillInjectionService(new SkillComposer(), new NullLogger()),
-            new PromptSnippetComposer(),
+            new ToolCallPolicy(
+                $registry,
+                $availability,
+                new AllowedToolsResolver(new SkillComposer(), $registry),
+                new ToolDataClassResolver($registry),
+                new TrustZoneResolver(),
+            ),
+            skillInjection: new SkillInjectionService(new SkillComposer(), new NullLogger()),
+            snippetComposer: new PromptSnippetComposer(),
         );
     }
+
+    /**
+     * A configuration whose provider sits in the LOCAL trust zone.
+     *
+     * {@see FakeTool} declares the group `test`, absent from the data-class
+     * group defaults and therefore failing closed to SECRET_ADJACENT. A
+     * configuration without a provider fails closed to EXTERNAL_GLOBAL, whose
+     * ceiling is EDITOR_CONTENT, so the composite gate would withhold every fake
+     * tool for a reason these tests are not about (ADR-094).
+     */
+    private function localConfiguration(): LlmConfiguration
+    {
+        $provider = new Provider();
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        return $configuration;
+    }
+
 }

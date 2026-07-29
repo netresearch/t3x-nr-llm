@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
@@ -25,7 +27,6 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
-use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -56,13 +57,12 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         $service  = new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability(['fetch_logs']),
-            toolPolicy: $policy,
+            $policy,
             governanceEvents: $recorder,
         );
 
         $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(42, true), null);
-        $service->runLoop([['role' => 'user', 'content' => 'show logs']], new LlmConfiguration(), $context, null);
+        $service->runLoop([['role' => 'user', 'content' => 'show logs']], $this->localConfiguration(), $context, null);
 
         self::assertCount(1, $recorder->recorded);
         $event = $recorder->recorded[0];
@@ -90,12 +90,11 @@ final class ToolLoopServiceGovernanceTest extends TestCase
         $service  = new ToolLoopService(
             $mgr,
             $registry,
-            new FakeToolAvailability(['fetch_logs']),
-            toolPolicy: $policy,
+            $policy,
             governanceEvents: $recorder,
         );
 
-        $service->runLoop([['role' => 'user', 'content' => 'hi']], new LlmConfiguration(), ToolExecutionContext::none(), null);
+        $service->runLoop([['role' => 'user', 'content' => 'hi']], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame([], $recorder->recorded);
     }
@@ -167,4 +166,28 @@ final class ToolLoopServiceGovernanceTest extends TestCase
             }
         };
     }
+
+    /**
+     * A configuration whose provider sits in the LOCAL trust zone.
+     *
+     * {@see FakeTool} declares the group `test`, absent from the data-class
+     * group defaults and therefore failing closed to SECRET_ADJACENT. A
+     * configuration without a provider fails closed to EXTERNAL_GLOBAL, whose
+     * ceiling is EDITOR_CONTENT, so the composite gate would withhold every fake
+     * tool for a reason these tests are not about (ADR-094).
+     */
+    private function localConfiguration(): LlmConfiguration
+    {
+        $provider = new Provider();
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
+
+        $model = new Model();
+        $model->setProvider($provider);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($model);
+
+        return $configuration;
+    }
+
 }

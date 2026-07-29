@@ -417,3 +417,4 @@ Tools
    Adr117WithdrawCapabilityPermissions
    Adr118SpecializedServiceVerification
    Adr119BackendModulePlacement
+   Adr120RequiredToolGate

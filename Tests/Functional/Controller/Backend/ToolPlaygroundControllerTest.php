@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -33,14 +34,19 @@ use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -109,7 +115,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $controller = $this->makeController(
             $configurationRepository,
             $toolRegistry,
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), $availability),
+            $this->loopFor(self::createStub(LlmServiceManagerInterface::class), new ToolRegistry([]), null, $availability),
         );
         $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
 
@@ -148,7 +154,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $controller    = $this->makeController(
             $configurationRepository,
             $emptyRegistry,
-            new ToolLoopService(self::createStub(LlmServiceManagerInterface::class), $emptyRegistry, $this->availabilityFor($emptyRegistry)),
+            $this->loopFor(self::createStub(LlmServiceManagerInterface::class), $emptyRegistry),
         );
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -175,6 +181,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -207,7 +218,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
         $controller = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
@@ -267,6 +278,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -295,7 +311,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
         // Wire the real persister (ADR-081): the batch runAction path must open a
         // run, record each step, and settle it COMPLETED.
@@ -334,6 +350,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -367,7 +388,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -401,7 +422,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithToolsForConfiguration');
 
         $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoop     = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoop     = $this->loopFor($manager, $toolRegistry, new NullLogger());
         $controller   = $this->makeController($configurationRepository, $toolRegistry, $toolLoop);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -430,6 +451,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -459,7 +485,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $toolRegistry, $toolLoopService);
 
         $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
@@ -693,7 +719,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('safe_tool')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
@@ -735,7 +761,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('ask_user')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
@@ -782,7 +808,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $manager->expects(self::never())->method('chatWithConfiguration');
 
         $registry        = new ToolRegistry([new FakeTool('ask_user')]);
-        $toolLoopService = new ToolLoopService($manager, $registry, $this->availabilityFor($registry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $registry, new NullLogger());
         $controller      = $this->makeController($configurationRepository, $registry, $toolLoopService, $persister);
 
         $request  = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
@@ -806,6 +832,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -834,7 +865,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
     }
@@ -851,6 +882,11 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
         $provider->setAdapterType('openai');
+        // The playground is an admin surface run against a locally-trusted
+        // provider; without a zone the configuration fails closed to
+        // EXTERNAL_GLOBAL and the tool gate (ADR-094) withholds the fake tool,
+        // which is not what these controller tests are about.
+        $provider->setTrustZoneEnum(TrustZone::LOCAL);
         $provider->setApiKey('nr_tools_vault_key');
 
         $model = new Model();
@@ -879,7 +915,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         );
 
         $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
-        $toolLoopService = new ToolLoopService($manager, $toolRegistry, $this->availabilityFor($toolRegistry), new NullLogger());
+        $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];
     }
@@ -926,6 +962,35 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      * Build the real availability service over the given registry, backed by the
      * functional database — so the fail-closed gate is exercised end-to-end.
      */
+    /**
+     * The tool loop wired with the REAL composite gate (ADR-094), which is a
+     * required collaborator (ADR-120). These tests are about the playground
+     * controller, not the gate, so the gate is real rather than doubled — a
+     * permissive double here would be the same silent weakening the required
+     * argument exists to prevent.
+     */
+    private function loopFor(
+        LlmServiceManagerInterface $mgr,
+        ToolRegistry $registry,
+        ?NullLogger $logger = null,
+        ?ToolAvailabilityService $availability = null,
+    ): ToolLoopService {
+        $availability ??= $this->availabilityFor($registry);
+
+        return new ToolLoopService(
+            $mgr,
+            $registry,
+            new ToolCallPolicy(
+                $registry,
+                $availability,
+                new AllowedToolsResolver(new SkillComposer(), $registry),
+                new ToolDataClassResolver($registry),
+                new TrustZoneResolver(),
+            ),
+            $logger,
+        );
+    }
+
     private function availabilityFor(ToolRegistry $toolRegistry): ToolAvailabilityService
     {
         return new ToolAvailabilityService($toolRegistry, new ToolStateRepository($this->toolConnectionPool()), new ToolGroupStateRepository($this->toolConnectionPool()));

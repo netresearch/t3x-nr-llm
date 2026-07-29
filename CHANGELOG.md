@@ -26,6 +26,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The agent loop's tool gate is no longer something a wiring can omit. The
+  composite tool-call policy is a required constructor argument on
+  `ToolLoopService`, the per-configuration allow-list resolver is gone, and the
+  input schema validator is defaulted rather than optional. An absent policy
+  used to fall through to a narrower legacy chain with no trust-zone axis — a
+  weaker gate that nothing made visible. That chain is deleted, and with it the
+  resolver, which only ever ran inside it and whose check the policy performs
+  itself. The availability service also leaves the constructor: nothing in the
+  loop read it once the chain was gone.
+
+  No `Null` gate implementation was written — an allow-all one would have been
+  weaker than the `null` it replaced, which is the failure mode the change
+  exists to remove. Tests construct the real policy instead. Doing so revealed
+  that fixtures passing a provider-less configuration were relying on a gate
+  that was never wired: such a configuration fails closed to the external trust
+  zone, so a real run withholds tools above the editor-content class. See
+  ADR-120.
+
 - The model backend controller no longer carries the provider round trips.
   Probing a model and discovering what a provider offers moved into
   `ModelTestController` and `ModelDiscoveryController`; `ModelController` keeps
