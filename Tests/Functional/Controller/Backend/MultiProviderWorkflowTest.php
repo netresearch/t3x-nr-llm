@@ -203,15 +203,11 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         $modelRepository = $this->get(ModelRepository::class);
         self::assertInstanceOf(ModelRepository::class, $modelRepository);
 
-        $providerAdapterRegistry = $this->get(ProviderAdapterRegistry::class);
-        self::assertInstanceOf(ProviderAdapterRegistry::class, $providerAdapterRegistry);
-
         $reflection = new ReflectionClass(ModelController::class);
         $controller = $reflection->newInstanceWithoutConstructor();
 
         $this->setPrivateProperty($controller, 'modelRepository', $modelRepository);
         $this->setPrivateProperty($controller, 'providerRepository', $this->providerRepository);
-        $this->setPrivateProperty($controller, 'providerAdapterRegistry', $providerAdapterRegistry);
         // REC #8b: typed catches log via LoggerInterface — initialise
         // the new property so any exercised exception path doesn't
         // hit an uninitialised typed property error.

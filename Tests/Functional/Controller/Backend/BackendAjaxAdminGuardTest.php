@@ -13,6 +13,8 @@ use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
+use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
@@ -43,6 +45,8 @@ use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
  */
 #[CoversClass(ProviderController::class)]
 #[CoversClass(ModelController::class)]
+#[CoversClass(ModelDiscoveryController::class)]
+#[CoversClass(ModelTestController::class)]
 #[CoversClass(ConfigurationController::class)]
 #[CoversClass(TaskRecordsController::class)]
 #[CoversClass(TaskExecutionController::class)]
@@ -218,5 +222,40 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         // The overview reachability probe is admin-only: the guard refuses a
         // non-admin before any provider is contacted.
         $this->assertForbidden($controller->reachabilityAction());
+    }
+
+    #[Test]
+    public function modelTestDeniedForNonAdmin(): void
+    {
+        // The probe decrypts the provider's vault API key, so this endpoint
+        // must never answer a non-admin (ADR-037).
+        $controller = $this->get(ModelTestController::class);
+        self::assertInstanceOf(ModelTestController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/model/test'))
+            ->withParsedBody(['uid' => 3]);
+        $this->assertForbidden($controller->testModelAction($request));
+    }
+
+    #[Test]
+    public function modelFetchAvailableDeniedForNonAdmin(): void
+    {
+        $controller = $this->get(ModelDiscoveryController::class);
+        self::assertInstanceOf(ModelDiscoveryController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/model/fetch-available'))
+            ->withParsedBody(['providerUid' => 1]);
+        $this->assertForbidden($controller->fetchAvailableModelsAction($request));
+    }
+
+    #[Test]
+    public function modelDetectLimitsDeniedForNonAdmin(): void
+    {
+        $controller = $this->get(ModelDiscoveryController::class);
+        self::assertInstanceOf(ModelDiscoveryController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/model/detect-limits'))
+            ->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-4o']);
+        $this->assertForbidden($controller->detectLimitsAction($request));
     }
 }

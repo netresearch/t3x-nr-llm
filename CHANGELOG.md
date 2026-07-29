@@ -24,6 +24,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the prompt and stay that way; the interface serves callers that want the
   service's own defaults, and makes the two mockable.
 
+### Changed
+
+- The model backend controller no longer carries the provider round trips.
+  Probing a model and discovering what a provider offers moved into
+  `ModelTestController` and `ModelDiscoveryController`; `ModelController` keeps
+  the record list and the state toggles. The three AJAX routes keep their
+  identifiers and their paths, so nothing in the backend UI or in a consuming
+  extension's route lookup changes — only the class behind the route does. A
+  consumer calling one of the three action methods directly on
+  `ModelController` has to call it on the new controller instead. Same split by
+  request pathway as ADR-027.
+
 ### Removed
 
 - **Breaking:** the backend capability permissions are gone —

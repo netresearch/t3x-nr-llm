@@ -13,6 +13,8 @@ use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
+use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\TaskExecutionController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -51,6 +53,8 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
  */
 #[CoversClass(ProviderController::class)]
 #[CoversClass(ModelController::class)]
+#[CoversClass(ModelTestController::class)]
+#[CoversClass(ModelDiscoveryController::class)]
 #[CoversClass(LlmModuleController::class)]
 final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 {
@@ -70,6 +74,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
     private ProviderController $providerController;
     private ModelController $modelController;
+    private ModelTestController $modelTestController;
+    private ModelDiscoveryController $modelDiscoveryController;
     private ConfigurationController $configController;
     private TaskExecutionController $taskController;
     private LlmModuleController $dashboardController;
@@ -105,6 +111,8 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         $this->providerController = $this->createProviderController();
         $this->modelController = $this->createModelController();
+        $this->modelTestController = $this->createModelTestController();
+        $this->modelDiscoveryController = $this->createModelDiscoveryController();
         $this->configController = $this->createConfigurationController();
         $this->taskController = $this->createTaskController();
         $this->dashboardController = $this->createDashboardController();
@@ -126,23 +134,40 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
     private function createModelController(): ModelController
     {
+        return $this->createControllerWithReflection(ModelController::class, [
+            'modelRepository' => $this->modelRepository,
+            'providerRepository' => $this->providerRepository,
+            'persistenceManager' => $this->persistenceManager,
+            // Error paths log.
+            'logger' => new NullLogger(),
+        ]);
+    }
+
+    private function createModelTestController(): ModelTestController
+    {
         $providerAdapterRegistry = $this->get(ProviderAdapterRegistry::class);
         self::assertInstanceOf(ProviderAdapterRegistry::class, $providerAdapterRegistry);
-
-        $modelDiscovery = $this->get(ModelDiscoveryInterface::class);
-        self::assertInstanceOf(ModelDiscoveryInterface::class, $modelDiscovery);
 
         $testPromptResolver = $this->get(TestPromptResolverInterface::class);
         self::assertInstanceOf(TestPromptResolverInterface::class, $testPromptResolver);
 
-        return $this->createControllerWithReflection(ModelController::class, [
+        return $this->createControllerWithReflection(ModelTestController::class, [
             'modelRepository' => $this->modelRepository,
-            'providerRepository' => $this->providerRepository,
             'providerAdapterRegistry' => $providerAdapterRegistry,
-            'modelDiscovery' => $modelDiscovery,
-            'persistenceManager' => $this->persistenceManager,
             // testModel resolves a default prompt; error paths log.
             'testPromptResolver' => $testPromptResolver,
+            'logger' => new NullLogger(),
+        ]);
+    }
+
+    private function createModelDiscoveryController(): ModelDiscoveryController
+    {
+        $modelDiscovery = $this->get(ModelDiscoveryInterface::class);
+        self::assertInstanceOf(ModelDiscoveryInterface::class, $modelDiscovery);
+
+        return $this->createControllerWithReflection(ModelDiscoveryController::class, [
+            'providerRepository' => $this->providerRepository,
+            'modelDiscovery' => $modelDiscovery,
             'logger' => new NullLogger(),
         ]);
     }
@@ -303,7 +328,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         // User tests model
         $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $addedModel->getUid()]);
-        $response = $this->modelController->testModelAction($request);
+        $response = $this->modelTestController->testModelAction($request);
 
         // Response should be structured
         self::assertContains($response->getStatusCode(), [200, 500]);
@@ -485,7 +510,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'providerUid' => $provider->getUid(),
             'modelId' => 'completely-nonexistent-model-xyz',
         ]);
-        $response = $this->modelController->detectLimitsAction($request);
+        $response = $this->modelDiscoveryController->detectLimitsAction($request);
 
         // Response should indicate model not found
         self::assertContains($response->getStatusCode(), [200, 404, 500]);
@@ -522,7 +547,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 
         // User tries to test orphaned model
         $request = $this->createFormRequest(self::AJAX_MODEL_TEST, ['uid' => $addedModel->getUid()]);
-        $response = $this->modelController->testModelAction($request);
+        $response = $this->modelTestController->testModelAction($request);
 
         // Should return error about missing provider
         self::assertSame(400, $response->getStatusCode());
@@ -589,7 +614,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     public function missingUid_modelTest_returnsError(): void
     {
         $request = $this->createFormRequest(self::AJAX_MODEL_TEST, []);
-        $response = $this->modelController->testModelAction($request);
+        $response = $this->modelTestController->testModelAction($request);
 
         $this->assertErrorResponse($response, 400, self::NO_MODEL_UID_SPECIFIED);
     }
@@ -607,7 +632,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     public function missingProviderUid_fetchAvailable_returnsError(): void
     {
         $request = $this->createFormRequest('/ajax/model/fetch', []);
-        $response = $this->modelController->fetchAvailableModelsAction($request);
+        $response = $this->modelDiscoveryController->fetchAvailableModelsAction($request);
 
         self::assertSame(400, $response->getStatusCode());
 
@@ -1325,12 +1350,12 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     #[Test]
     public function pathway7_14_allErrorsHaveSuccessField(): void
     {
-        /** @var list<array{controller: ProviderController|ModelController, method: string, params: array<string, mixed>}> $errorRequests */
+        /** @var list<array{controller: ModelController|ModelTestController|ProviderController, method: string, params: array<string, mixed>}> $errorRequests */
         $errorRequests = [
             ['controller' => $this->providerController, 'method' => 'toggleActiveAction', 'params' => []],
             ['controller' => $this->modelController, 'method' => 'toggleActiveAction', 'params' => []],
             ['controller' => $this->modelController, 'method' => 'setDefaultAction', 'params' => []],
-            ['controller' => $this->modelController, 'method' => 'testModelAction', 'params' => []],
+            ['controller' => $this->modelTestController, 'method' => 'testModelAction', 'params' => []],
         ];
 
         foreach ($errorRequests as $errorReq) {
@@ -1452,7 +1477,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
     public function pathway7_16_fetchModelsForInvalidProvider_returnsError(): void
     {
         $request = $this->createFormRequest('/ajax/model/fetch', ['providerUid' => 99999]);
-        $response = $this->modelController->fetchAvailableModelsAction($request);
+        $response = $this->modelDiscoveryController->fetchAvailableModelsAction($request);
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
@@ -1470,7 +1495,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'providerUid' => 99999,
             'modelId' => 'gpt-4o',
         ]);
-        $response = $this->modelController->detectLimitsAction($request);
+        $response = $this->modelDiscoveryController->detectLimitsAction($request);
 
         self::assertSame(404, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);
@@ -1490,7 +1515,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
             'providerUid' => $provider->getUid(),
             // modelId missing
         ]);
-        $response = $this->modelController->detectLimitsAction($request);
+        $response = $this->modelDiscoveryController->detectLimitsAction($request);
 
         self::assertSame(400, $response->getStatusCode());
         $body = json_decode((string)$response->getBody(), true);

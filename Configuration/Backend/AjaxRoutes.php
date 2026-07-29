@@ -10,6 +10,8 @@ declare(strict_types=1);
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
+use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
+use Netresearch\NrLlm\Controller\Backend\ModelTestController;
 use Netresearch\NrLlm\Controller\Backend\PresetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Controller\Backend\SetupWizardController;
@@ -83,15 +85,15 @@ return [
     ],
     'nrllm_model_test' => [
         'path' => '/nrllm/model/test',
-        'target' => ModelController::class . '::testModelAction',
+        'target' => ModelTestController::class . '::testModelAction',
     ],
     'nrllm_model_fetch_available' => [
         'path' => '/nrllm/model/fetch-available',
-        'target' => ModelController::class . '::fetchAvailableModelsAction',
+        'target' => ModelDiscoveryController::class . '::fetchAvailableModelsAction',
     ],
     'nrllm_model_detect_limits' => [
         'path' => '/nrllm/model/detect-limits',
-        'target' => ModelController::class . '::detectLimitsAction',
+        'target' => ModelDiscoveryController::class . '::detectLimitsAction',
     ],
 
     // Configuration routes
