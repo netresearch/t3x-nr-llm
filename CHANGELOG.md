@@ -24,6 +24,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the prompt and stay that way; the interface serves callers that want the
   service's own defaults, and makes the two mockable.
 
+- A long conversation now shortens instead of failing. `ConversationService`
+  replays the whole history on every turn, so it was the one path that grew
+  without bound until the provider refused it. It is now bounded against the
+  model's context window, the same mechanism the agent loop already used: the
+  oldest exchanges drop out of what is sent, while the system prompt, the
+  opening exchange and the newest turn always survive.
+
+  The stored history is never shortened — it is the audit record. What the model
+  actually saw is recorded separately, as a count of dropped turns on the user
+  row of each turn (`tx_nrllm_ai_session_message.dropped_turns`). NULL there
+  means no fit was evaluated, 0 means it ran and kept everything. Without that
+  a reader could not tell why an answer ignored an earlier turn. Run
+  `extension:setup` or the Database Analyzer for the new column; no data
+  migration is involved.
+
+  When even the shortest permissible transcript does not fit, the request is
+  sent anyway and a warning is logged. The estimate errs high on purpose, so
+  this often succeeds; when it does not, the provider's own error is what the
+  caller would have got before. See ADR-121.
+
 ### Changed
 
 - The agent loop's tool gate is no longer something a wiring can omit. The

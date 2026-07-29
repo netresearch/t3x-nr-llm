@@ -72,6 +72,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): void {
         $this->connectionPool->getConnectionForTable(self::TABLE_MESSAGE)->insert(self::TABLE_MESSAGE, [
             'pid'               => 0,
@@ -83,6 +84,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             'prompt_tokens'     => $promptTokens,
             'completion_tokens' => $completionTokens,
             'total_tokens'      => $totalTokens,
+            'dropped_turns'     => $droppedTurns,
             'crdate'            => time(),
         ]);
     }
@@ -95,6 +97,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): int {
         // Two concurrent turns in one session must not share a sequence. The
         // unique key on (session, sequence) is the authority: read the next free
@@ -105,7 +108,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             $sequence = $this->nextSequence($sessionUid);
 
             try {
-                $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens);
+                $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens, $droppedTurns);
 
                 return $sequence;
             } catch (UniqueConstraintViolationException) {
@@ -219,6 +222,9 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
             completionTokens: self::toInt($row['completion_tokens'] ?? 0),
             totalTokens: self::toInt($row['total_tokens'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
+            // Null stays null: "no fit was evaluated" is a different fact from
+            // "evaluated, nothing dropped".
+            droppedTurns: isset($row['dropped_turns']) ? self::toInt($row['dropped_turns']) : null,
         ), $rows);
     }
 

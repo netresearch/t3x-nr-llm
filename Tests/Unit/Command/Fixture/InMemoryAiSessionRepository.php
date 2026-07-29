@@ -39,6 +39,7 @@ final class InMemoryAiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): void {
         // Not needed by the command tests.
     }
@@ -51,6 +52,7 @@ final class InMemoryAiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): int {
         return 0;
     }
