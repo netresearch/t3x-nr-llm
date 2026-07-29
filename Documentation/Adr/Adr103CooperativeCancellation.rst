@@ -28,7 +28,7 @@ for exactly this: check the cancel flag *between* model and tool steps.
 Decision
 ========
 
-The AgentRuntime's trace hook gains a **cancellation probe**. Every step
+The run executor's trace hook gains a **cancellation probe**. Every step
 boundary — after a provider response, after each tool execution, before the
 next round — already records a step through the runtime's ``onRecord`` closure;
 the probe re-reads the run row there and, when it is CANCELLED, throws the

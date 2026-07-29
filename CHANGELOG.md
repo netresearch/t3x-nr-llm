@@ -54,6 +54,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inside the run loop. The retry budget and the backoff stay `AgentRuntime`
   constants; only the decision reading them moved. Second step of the runtime
   decomposition.
+- Driving a run from its first round to a settled outcome moved into
+  `AgentRunExecutor`. This is the lifecycle ladder: the catch order ADR-084
+  makes a hard guarantee, ADR-103's cancellation probe, ADR-104's lease
+  heartbeat, ADR-111's write fence and fail-closed audit. It no longer knows
+  where a run came from — a request, a claimed queue row and a resumed
+  suspension all reach it as a handle, a trace and a closure producing the next
+  tool-loop result, so the ordering guarantees hold identically on all three
+  paths and can be exercised without a queue row, a resume claim or a provider.
+  The two resume paths, which previously repeated trace-then-context-then-ladder
+  each in their own method, now share one entry point that fixes that order in
+  one place. Third step of the runtime decomposition.
 
 ### Removed
 
