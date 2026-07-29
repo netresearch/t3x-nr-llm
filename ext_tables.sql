@@ -798,6 +798,13 @@ CREATE TABLE tx_nrllm_ai_session_message (
     prompt_tokens int(11) unsigned DEFAULT '0' NOT NULL,
     completion_tokens int(11) unsigned DEFAULT '0' NOT NULL,
     total_tokens int(11) unsigned DEFAULT '0' NOT NULL,
+    -- How many older turns were dropped from the transcript SENT for this turn
+    -- so it would fit the model's context window (ADR-121). NULL means no fit
+    -- was evaluated (a pre-feature row, or a turn without a bound
+    -- configuration); 0 means it was evaluated and nothing had to go. The
+    -- persisted history itself is never trimmed -- this records what the model
+    -- saw, not what was kept.
+    dropped_turns int(11) unsigned DEFAULT NULL,
 
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 

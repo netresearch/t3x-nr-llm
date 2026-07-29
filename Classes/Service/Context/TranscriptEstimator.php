@@ -20,6 +20,11 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
  * Latin text vs the house 4.0), while DENSE segments — tool-call JSON arguments,
  * tool_result payloads, ids and the tool-schema block — divide by 2.5, because
  * minified JSON and code tokenize denser and were the previous overflow vector.
+ * Counts are UTF-8 BYTES, not characters, and deliberately so (ADR-121): bytes
+ * per token stay roughly comparable across scripts while characters per token do
+ * not — Latin runs about one byte per character, CJK about three, and tokens
+ * track the byte count. Counting characters instead would under-count CJK by
+ * roughly a factor of three, which is the direction that fails at the provider.
  * A per-message and per-tool-call overhead covers the role/wrapper tokens the
  * provider adds. The whole estimate is finally scaled by a calibration factor
  * (>= 1.0) the manager grows toward the real prompt-token counts.

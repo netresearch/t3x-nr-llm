@@ -63,6 +63,10 @@ interface AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        // How many older turns were dropped from the transcript sent for this
+        // turn (ADR-121). Trailing and defaulted so existing callers are
+        // unaffected; null records that no fit was evaluated.
+        ?int $droppedTurns = null,
     ): int;
 
     /**

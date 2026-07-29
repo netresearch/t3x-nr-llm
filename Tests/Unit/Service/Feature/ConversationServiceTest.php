@@ -16,9 +16,11 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -366,6 +368,125 @@ final class ConversationServiceTest extends TestCase
         $repository->method('findOneByIdentifier')->willReturn($configuration);
 
         return new ConfigurationResolver($repository);
+    }
+
+    #[Test]
+    public function aTrimmedTurnRecordsHowManyOlderTurnsTheModelDidNotSee(): void
+    {
+        // The persisted history is the audit record and is never shortened. What
+        // the model actually saw is a different fact, and without it a reader
+        // cannot tell why an answer ignored an earlier turn (ADR-121).
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $sent    = null;
+        $trimmed = [ChatMessage::user('only the newest turn survived')];
+
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturn(
+            new ContextFitResult($trimmed, true, 4, 1, 900, 1000, false, 1.15),
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturnCallback(
+            function (array $messages) use (&$sent): CompletionResponse {
+                $sent = $messages;
+
+                return $this->response('answered');
+            },
+        );
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration), $contextWindow);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'and now?');
+
+        // The provider saw the trimmed transcript, not the assembled one.
+        self::assertSame($trimmed, $sent);
+
+        $userRow = $this->firstRowWithRole($repository, 'user');
+        self::assertSame(4, $userRow['droppedTurns']);
+    }
+
+    #[Test]
+    public function aTurnThatFitsRecordsZeroDroppedRatherThanNothing(): void
+    {
+        // Zero and "not evaluated" are different facts: zero says the fit ran
+        // and kept everything.
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $kept          = [ChatMessage::user('hi')];
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturn(
+            new ContextFitResult($kept, false, 0, 1, 10, 1000, false, 1.15),
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('short'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration), $contextWindow);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertSame(0, $this->firstRowWithRole($repository, 'user')['droppedTurns']);
+    }
+
+    #[Test]
+    public function aConversationWithoutAContextManagerRecordsNoFitAndIsUnchanged(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::once())->method('chatForConfiguration')->willReturn($this->response('as before'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration));
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+
+        self::assertSame('as before', $service->send($actor, $session->uuid, 'hi')->content);
+        self::assertNull($this->firstRowWithRole($repository, 'user')['droppedTurns']);
+    }
+
+    #[Test]
+    public function aTranscriptThatCannotBeTrimmedAnyFurtherIsStillSent(): void
+    {
+        // Refusing here would end a conversation the provider might still have
+        // answered — the estimate errs high on purpose. If it really is too
+        // large the provider says so, which is what the caller got before.
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+
+        $floor         = [ChatMessage::user('a very long turn')];
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturn(
+            new ContextFitResult($floor, false, 0, 1, 99999, 1000, true, 1.15),
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::once())->method('chatForConfiguration')->willReturn($this->response('answered anyway'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration), $contextWindow);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+
+        self::assertSame('answered anyway', $service->send($actor, $session->uuid, 'a very long turn')->content);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function firstRowWithRole(RecordingAiSessionRepository $repository, string $role): array
+    {
+        foreach ($repository->messages as $row) {
+            if ($row['role'] === $role) {
+                return $row;
+            }
+        }
+
+        self::fail(sprintf('No %s row was recorded.', $role));
     }
 
     private function configuration(string $identifier): LlmConfiguration

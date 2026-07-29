@@ -20,9 +20,11 @@ use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Uid\Uuid;
 
@@ -49,6 +51,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         private LlmServiceManagerInterface $llmManager,
         private AiSessionRepositoryInterface $sessions,
         private ConfigurationResolver $configurationResolver,
+        // Bounds the replayed transcript against the model's context window
+        // (ADR-121). Optional so the existing lean test wiring keeps working;
+        // absent it a conversation grows unbounded exactly as before.
+        private ?ContextWindowManagerInterface $contextWindow = null,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession
@@ -102,6 +109,45 @@ final readonly class ConversationService implements ConversationServiceInterface
         }
         $messages[] = ChatMessage::user($userMessage);
 
+        // A conversation replays its whole history on every turn, so it is the
+        // one path that grows without bound. Bound it here (ADR-121): the
+        // oldest turns are dropped from what is SENT, never from what is
+        // stored. The count is persisted on the user row below so a trimmed
+        // turn is not merely a log line.
+        $configuration = $this->resolveTurnConfiguration($session, $actor);
+        $droppedTurns  = null;
+        if ($this->contextWindow !== null && $configuration !== null) {
+            // lastUsage is null: each turn is a fresh assembly, so the
+            // manager's calibration starts from its seed rather than carrying a
+            // ratio over from an unrelated turn.
+            $fit          = $this->contextWindow->fit($messages, $configuration, $options, null, []);
+            $messages     = $fit->messages;
+            $droppedTurns = $fit->droppedTurns;
+
+            if ($fit->overflowAtFloor) {
+                // Nothing left to drop and it still does not fit. Send it: the
+                // estimate errs high, so this may well succeed, and if it does
+                // not the provider's own error is what the caller would have
+                // got anyway. Refusing here would end a conversation that the
+                // provider might still have answered.
+                $this->logger?->warning('Conversation transcript does not fit even at its floor; sending it unpruned', [
+                    'session'         => $session->uid,
+                    'droppedTurns'    => $fit->droppedTurns,
+                    'keptTurns'       => $fit->keptTurns,
+                    'estimatedTokens' => $fit->estimatedTokens,
+                    'budget'          => $fit->budget,
+                ]);
+            } elseif ($fit->pruned) {
+                $this->logger?->info('Conversation transcript trimmed to fit the context window', [
+                    'session'         => $session->uid,
+                    'droppedTurns'    => $fit->droppedTurns,
+                    'keptTurns'       => $fit->keptTurns,
+                    'estimatedTokens' => $fit->estimatedTokens,
+                    'budget'          => $fit->budget,
+                ]);
+            }
+        }
+
         // Persist the user turn before the call: it is a real turn regardless of
         // whether the provider then succeeds. The repository allocates the
         // sequence, so two concurrent turns cannot collide on one slot.
@@ -113,10 +159,11 @@ final readonly class ConversationService implements ConversationServiceInterface
             0,
             0,
             0,
+            $droppedTurns,
         );
         $this->sessions->touch($session->uid, $userSequence + 1);
 
-        $response = $this->dispatch($messages, $session, $actor, $options);
+        $response = $this->dispatch($messages, $configuration, $options);
 
         $assistantSequence = $this->sessions->appendMessageAtNextSequence(
             $session->uid,
@@ -133,24 +180,41 @@ final readonly class ConversationService implements ConversationServiceInterface
     }
 
     /**
-     * Run the turn against the session's bound configuration.
+     * Run the turn against the configuration resolved for it.
      *
-     * A session opened without one (the identifier is empty) keeps the generic
-     * path, which resolves the installation default — the pre-ADR-083 behaviour
-     * for callers that never chose a configuration.
+     * A null configuration is a session opened without one: it keeps the
+     * generic path, which resolves the installation default — the pre-ADR-083
+     * behaviour for callers that never chose a configuration.
      *
-     * @param list<ChatMessage> $messages
-     *
-     * @throws AccessDeniedException when the bound configuration is gone, deactivated, or no longer open to the actor
+     * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function dispatch(array $messages, AiSession $session, AiActorContext $actor, ChatOptions $options): CompletionResponse
+    private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options): CompletionResponse
     {
-        if ($session->configurationIdentifier === '') {
+        if ($configuration === null) {
             return $this->llmManager->chat($messages, $options);
         }
 
+        return $this->llmManager->chatForConfiguration($messages, $configuration, $options);
+    }
+
+    /**
+     * The configuration this turn runs against, or null for a session opened
+     * without one (the pre-ADR-083 generic path, which resolves the
+     * installation default inside the manager).
+     *
+     * Resolved once per turn and before the transcript is assembled, because
+     * the context bound depends on the model it will actually be sent to.
+     *
+     * @throws AccessDeniedException when the bound configuration is gone, deactivated, or no longer open to the actor
+     */
+    private function resolveTurnConfiguration(AiSession $session, AiActorContext $actor): ?LlmConfiguration
+    {
+        if ($session->configurationIdentifier === '') {
+            return null;
+        }
+
         try {
-            $configuration = $this->configurationResolver->getActiveByIdentifierForActor($session->configurationIdentifier, $actor);
+            return $this->configurationResolver->getActiveByIdentifierForActor($session->configurationIdentifier, $actor);
         } catch (ConfigurationNotFoundException|ConfigurationInactiveException $unusable) {
             // Not found or deactivated: the conversation was opened against a
             // configuration that no longer exists or was switched off. Silently
@@ -166,8 +230,6 @@ final readonly class ConversationService implements ConversationServiceInterface
                 $unusable,
             );
         }
-
-        return $this->llmManager->chatForConfiguration($messages, $configuration, $options);
     }
 
     /**

@@ -59,12 +59,14 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): void {
         $this->messages[] = [
             'session'    => $sessionUid,
             'sequence'   => $sequence,
             'role'       => $role,
             'content'    => $content,
+            'droppedTurns' => $droppedTurns,
             'model'      => $model,
             'prompt'     => $promptTokens,
             'completion' => $completionTokens,
@@ -80,6 +82,7 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         int $promptTokens,
         int $completionTokens,
         int $totalTokens,
+        ?int $droppedTurns = null,
     ): int {
         $sequence = 0;
         foreach ($this->messages as $row) {
@@ -88,7 +91,7 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
             }
         }
 
-        $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens);
+        $this->appendMessage($sessionUid, $sequence, $role, $content, $model, $promptTokens, $completionTokens, $totalTokens, $droppedTurns);
 
         return $sequence;
     }

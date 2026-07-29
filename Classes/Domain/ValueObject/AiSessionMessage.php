@@ -30,6 +30,9 @@ final readonly class AiSessionMessage
         public int $completionTokens,
         public int $totalTokens,
         public int $crdate,
+        // Older turns dropped from the transcript sent for this turn (ADR-121).
+        // null = no fit evaluated; 0 = evaluated, nothing dropped.
+        public ?int $droppedTurns = null,
     ) {}
 
     /**
