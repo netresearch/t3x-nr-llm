@@ -1,57 +1,100 @@
-# Fully resolved dependency set for the reranker sidecar image (ADR-075).
+# Fully resolved, hash-pinned dependency set for the reranker sidecar (ADR-075).
 #
 # GENERATED — do not hand-edit. requirements.txt holds the two direct
-# dependencies; this file pins every transitive package the resolver picked, so
-# a rebuild installs the same tree rather than whatever is current on PyPI.
+# dependencies; this file pins every transitive package AND its wheel digest, so
+# the image installs byte-for-byte what was resolved and reviewed. The Dockerfile
+# passes --require-hashes, which makes pip refuse any artifact not listed here.
 #
-# Regenerate deliberately (not on every build):
+# Regenerate deliberately (not on every build), from the repository root:
 #
-#   docker run --rm -v "$PWD/requirements.txt:/req.txt:ro" python:3.14-slim \
-#     pip install --dry-run --only-binary :all: \
-#       --extra-index-url https://download.pytorch.org/whl/cpu \
-#       --report /dev/stdout -r /req.txt
+#   docker run --rm -v "$PWD/Build/reranker/requirements.txt:/req.txt:ro" \
+#     -v "$PWD/Build/reranker:/out" python:3.14-slim sh -c '
+#       pip download --only-binary :all: \
+#         --extra-index-url https://download.pytorch.org/whl/cpu \
+#         -d /wheels -r /req.txt
+#       for w in /wheels/*; do pip hash "$w"; done > /out/hashes.txt'
 #
-# Hashes are deliberately absent: two packages (Jinja2, MarkupSafe) resolve from
-# the PyTorch CPU index, which does not publish hashes in its simple-API
-# metadata, so --require-hashes cannot be satisfied for the full set.
+# then rebuild this file from that output. Hashes are computed locally because
+# two packages (Jinja2, MarkupSafe) resolve from the PyTorch CPU index, whose
+# simple-API metadata publishes no digests.
 
-annotated-doc==0.0.5
-anyio==4.14.2
-certifi==2026.7.22
-click==8.4.2
-filelock==3.32.2
-fsspec==2026.7.0
-h11==0.16.0
-hf-xet==1.5.2
-httpcore==1.0.9
-httpx==0.28.1
-huggingface_hub==1.26.0
-idna==3.18
-Jinja2==3.1.6
-joblib==1.5.3
-markdown-it-py==4.2.0
-MarkupSafe==3.0.3
-mdurl==0.1.2
-mpmath==1.3.0
-narwhals==2.24.0
-networkx==3.6.1
-numpy==2.5.1
-packaging==26.2
-Pygments==2.20.0
-PyYAML==6.0.3
-regex==2026.7.19
-rich==15.0.0
-safetensors==0.8.0
-scikit-learn==1.9.0
-scipy==1.18.0
-sentence-transformers==5.6.1
-setuptools==83.0.0
-shellingham==1.5.4
-sympy==1.14.0
-threadpoolctl==3.6.0
-tokenizers==0.22.2
-torch==2.13.0+cpu
-tqdm==4.70.0
-transformers==5.14.1
-typer==0.27.0
-typing_extensions==4.16.0
+annotated_doc==0.0.5 \
+    --hash=sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101
+anyio==4.14.2 \
+    --hash=sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494
+certifi==2026.7.22 \
+    --hash=sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775
+click==8.4.2 \
+    --hash=sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76
+filelock==3.32.2 \
+    --hash=sha256:87dd94cf281e586d135fa51132b8e3d9a598b316e90377a288663c9321036c82
+fsspec==2026.7.0 \
+    --hash=sha256:b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279
+h11==0.16.0 \
+    --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
+hf_xet==1.5.2 \
+    --hash=sha256:db78c39c83d6279daddc98e2238f373ab8980685556d42472b4ec51abcf03e8c
+httpcore==1.0.9 \
+    --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55
+httpx==0.28.1 \
+    --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
+huggingface_hub==1.26.0 \
+    --hash=sha256:e8cca670caa5d8dfa7e45bf45e86b466698198cd8150c021bcdb4a86b9252364
+idna==3.18 \
+    --hash=sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2
+jinja2==3.1.6 \
+    --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
+joblib==1.5.3 \
+    --hash=sha256:5fc3c5039fc5ca8c0276333a188bbd59d6b7ab37fe6632daa76bc7f9ec18e713
+markdown_it_py==4.2.0 \
+    --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
+markupsafe==3.0.3 \
+    --hash=sha256:457a69a9577064c05a97c41f4e65148652db078a3a509039e64d3467b9e7ef97
+mdurl==0.1.2 \
+    --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8
+mpmath==1.3.0 \
+    --hash=sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c
+narwhals==2.24.0 \
+    --hash=sha256:42fdedf44e5b2ca7505630d45b4ac3058f38d8485cba9fe1652ca23152df7489
+networkx==3.6.1 \
+    --hash=sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762
+numpy==2.5.1 \
+    --hash=sha256:54ad769f17bc2d833b620851989f62054fb9ab93c969d9e1dc3c8e3d56beea21
+packaging==26.2 \
+    --hash=sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e
+pygments==2.20.0 \
+    --hash=sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176
+pyyaml==6.0.3 \
+    --hash=sha256:c458b6d084f9b935061bc36216e8a69a7e293a2f1e68bf956dcd9e6cbcd143f5
+regex==2026.7.19 \
+    --hash=sha256:7322ec6cc9fba9d49ab888bb82d67ac5625627aa168f0165139b17018df3fb8a
+rich==15.0.0 \
+    --hash=sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb
+safetensors==0.8.0 \
+    --hash=sha256:fd6f3f93c9a0a7cc2788ee63fb763353d4bd2e89b0751bc78fcf7dda00bea774
+scikit_learn==1.9.0 \
+    --hash=sha256:1fea2cc5677ab49d6f5bade978c866da44957b712d92e9635e8b4f723013c3cb
+scipy==1.18.0 \
+    --hash=sha256:8ca01e8ae69f1b18e9a58d91afead31be3cef0dd905a10249dac559ee15460a0
+sentence_transformers==5.6.1 \
+    --hash=sha256:cefbb17b6325a982a4732c8c49fb013375392687049d1de3d435c4b04060680b
+setuptools==83.0.0 \
+    --hash=sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3
+shellingham==1.5.4 \
+    --hash=sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686
+sympy==1.14.0 \
+    --hash=sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5
+threadpoolctl==3.6.0 \
+    --hash=sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb
+tokenizers==0.22.2 \
+    --hash=sha256:369cc9fc8cc10cb24143873a0d95438bb8ee257bb80c71989e3ee290e8d72c67
+torch==2.13.0+cpu \
+    --hash=sha256:d20fa53ee744502fa4c69818a720b05ca0d37abd055d4f6e66cae155114bc691
+tqdm==4.70.0 \
+    --hash=sha256:7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953
+transformers==5.14.1 \
+    --hash=sha256:9db974c4079ede2d1a3ea7ca5a240df33f2cc26fc2b36ba64c5f2a4f43b6e725
+typer==0.27.0 \
+    --hash=sha256:6f4b27631e47f077871b7dc30e933ec0131c1390fbe0e387ea5574b5bac9ccf1
+typing_extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

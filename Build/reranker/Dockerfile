@@ -17,9 +17,11 @@ COPY requirements.txt requirements.lock ./
 #
 # --only-binary :all: refuses source distributions, so no dependency's setup.py
 # executes at build time. Verified: the whole resolved tree publishes wheels.
-# requirements.lock pins every transitive package, so a rebuild installs the
-# tree that was resolved and reviewed rather than whatever is current on PyPI.
-RUN pip install --only-binary :all: --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.lock \
+# --require-hashes makes pip refuse any artifact whose digest is not listed in
+# requirements.lock, which pins all 40 transitive packages by version AND sha256
+# — so a rebuild installs byte-for-byte what was resolved and reviewed, not
+# whatever the index serves that day.
+RUN pip install --require-hashes --only-binary :all: --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.lock \
     && python -c "from sentence_transformers import CrossEncoder; \
         CrossEncoder('BAAI/bge-reranker-v2-m3', max_length=512, device='cpu')" \
     && useradd --create-home reranker \
