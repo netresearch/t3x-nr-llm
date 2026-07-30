@@ -10,11 +10,18 @@ ENV HF_HOME=/models \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.txt requirements.lock ./
 # torch CPU wheels from the dedicated index keep the image off the CUDA stack.
 # The model is pre-downloaded into the image so runtime needs no network / HF
 # token; /models is handed to the unprivileged runtime user for HF lock files.
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt \
+#
+# --only-binary :all: refuses source distributions, so no dependency's setup.py
+# executes at build time. Verified: the whole resolved tree publishes wheels.
+# --require-hashes makes pip refuse any artifact whose digest is not listed in
+# requirements.lock, which pins all 40 transitive packages by version AND sha256
+# — so a rebuild installs byte-for-byte what was resolved and reviewed, not
+# whatever the index serves that day.
+RUN pip install --require-hashes --only-binary :all: --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.lock \
     && python -c "from sentence_transformers import CrossEncoder; \
         CrossEncoder('BAAI/bge-reranker-v2-m3', max_length=512, device='cpu')" \
     && useradd --create-home reranker \
