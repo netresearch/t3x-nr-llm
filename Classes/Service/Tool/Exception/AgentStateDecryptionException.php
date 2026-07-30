@@ -29,8 +29,8 @@ final class AgentStateDecryptionException extends RuntimeException
         return new self('The stored agent run state failed authentication and was not decrypted.', 1785200001, $previous);
     }
 
-    public static function corrupted(): self
+    public static function corrupted(?Throwable $previous = null): self
     {
-        return new self('The stored agent run state is malformed and could not be decoded.', 1785200002);
+        return new self('The stored agent run state is malformed and could not be decoded.', 1785200002, $previous);
     }
 }

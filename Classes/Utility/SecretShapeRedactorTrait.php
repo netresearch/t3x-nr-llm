@@ -9,34 +9,30 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Utility;
 
+use Netresearch\NrVault\Secret\SecretPatternLibrary;
+
 /**
- * The single catalogue of secret shapes this extension recognises (ADR-123).
+ * Masks the secret shapes nr-vault's catalogue knows (ADR-123, nr-vault ADR-031).
  *
- * Three places used to mask secrets and each knew a different subset: the
- * response/prompt guardrails knew modern OpenAI project keys, GitHub PATs, AWS,
- * Google and Slack tokens and JWTs; the privacy redactor that decides what gets
- * WRITTEN to the database knew none of those; and the environment-listing tool
- * matched on variable NAMES only. So a secret correctly masked on its way to a
- * provider was still persisted in cleartext, and a variable whose name gave
- * nothing away — ``GITHUB_PAT``, ``STRIPE_LIVE`` — egressed its value verbatim.
+ * The shapes are no longer defined here. They live in
+ * {@see SecretPatternLibrary}, the org-wide catalogue shared with nr-vault's
+ * plaintext scanner, so a shape added for either extension is known to both —
+ * which is the whole point of moving it upstream. What stays here is the part
+ * specific to this extension: two entry points with opposite behaviour when the
+ * regex engine gives up.
  *
- * The masks are deliberately not uniform: ``sk-`` and ``Bearer`` keep their
- * prefix so a reader can tell WHAT was removed, while opaque vendor tokens
- * collapse to a bare mask.
+ * The library is read through STATIC methods rather than the injectable
+ * {@see \Netresearch\NrVault\Secret\SecretRedactorInterface}, because this trait is
+ * also used from objects the container never builds — a provider exception, a
+ * backend response DTO constructed with ``new``. A trait that reached into the DI
+ * container to mask a string would be a worse dependency than a static call to a
+ * pure pattern list.
  *
- * Two entry points, because the two kinds of caller need opposite behaviour when
- * the regex engine gives up — see {@see redactSecretShapes()} (fail open) and
- * {@see redactSecretShapesStrict()} (fail closed).
- *
- * This is best-effort: it recognises these shapes and nothing else, and does not
- * replace keeping secrets in nr-vault.
+ * This is best-effort: it recognises the catalogued shapes and nothing else, and
+ * does not replace keeping secrets in nr-vault.
  */
 trait SecretShapeRedactorTrait
 {
-    use ErrorMessageSanitizerTrait;
-
-    private const SECRET_SHAPE_MASK = '***';
-
     /**
      * Mask every recognised secret shape, keeping the content when a pattern
      * fails.
@@ -70,7 +66,8 @@ trait SecretShapeRedactorTrait
     }
 
     /**
-     * Run the pattern list in order, recording whether any pattern failed.
+     * Run every inline pattern in the shared catalogue, recording whether any
+     * failed.
      *
      * `preg_replace()` returns null when the engine gives up (a backtrack limit
      * hit on a huge payload, for instance). A bare (string) cast would turn that
@@ -79,19 +76,24 @@ trait SecretShapeRedactorTrait
      * kept instead and the failure is reported through $failed so a caller that
      * must fail closed can.
      *
-     * Order matters: credential-bearing URLs are masked first, so ``?token=<jwt>``
-     * collapses to one masked parameter rather than a masked JWT behind a
-     * dangling parameter name.
+     * The catalogue's own order is preserved: credential-bearing URLs first, then
+     * ``Bearer …``, then the prefix-specific vendor shapes. That is not cosmetic —
+     * masking ``?token=<jwt>`` as one parameter beats masking the JWT and leaving a
+     * dangling parameter name, and ``Bearer sk-…`` must collapse to a single mask
+     * rather than two.
      */
     private function applySecretShapePatterns(string $content, bool &$failed): string
     {
-        // Credential query parameters and connection-string userinfo.
-        $redacted = $this->sanitizeErrorMessage($content);
+        $redacted = $content;
 
-        foreach (self::secretShapePatterns() as [$pattern, $replacement]) {
-            $result = preg_replace($pattern, $replacement, (string)$redacted);
+        foreach (SecretPatternLibrary::all() as $pattern) {
+            if ($pattern->inlinePattern === null) {
+                continue;
+            }
 
-            if (is_string($result)) {
+            $result = preg_replace($pattern->inlinePattern, $pattern->inlineReplacement, $redacted);
+
+            if (\is_string($result)) {
                 $redacted = $result;
 
                 continue;
@@ -101,43 +103,5 @@ trait SecretShapeRedactorTrait
         }
 
         return $redacted;
-    }
-
-    /**
-     * Secret shapes that survive the URL sanitiser, as [pattern, replacement].
-     *
-     * All patterns are bounded character classes separated by literals — no
-     * nested quantifiers, so none is vulnerable to catastrophic backtracking.
-     *
-     * @return list<array{string, string}>
-     */
-    private static function secretShapePatterns(): array
-    {
-        return [
-            // Bearer credentials FIRST: a 'Bearer <token>' match subsumes whatever
-            // the token is, so running it before the prefix-specific shapes makes
-            // 'Bearer sk-…' collapse to a single mask. The other way round, the
-            // OpenAI rule rewrote the key to 'sk-***' and the Bearer rule then
-            // matched the leftover 'Bearer sk-', yielding 'Bearer ******'.
-            // The class covers base64-standard characters (+ / =) so a token's
-            // tail is not left behind after the mask.
-            ['/\b(Bearer\s+)[A-Za-z0-9._~+\/\-]+=*/i', '$1' . self::SECRET_SHAPE_MASK],
-            // OpenAI. The class allows '-' and '_' so modern project keys
-            // (sk-proj-…) match; the mask keeps the prefix.
-            ['/\bsk-[A-Za-z0-9_\-]{16,}/', 'sk-' . self::SECRET_SHAPE_MASK],
-            // A JWT is the canonical bearer secret even without a 'Bearer '
-            // prefix. Only the header segment must start with 'eyJ'.
-            ['/\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/', self::SECRET_SHAPE_MASK],
-            // GitHub: classic tokens, then fine-grained PATs.
-            ['/\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}/', self::SECRET_SHAPE_MASK],
-            ['/\bgithub_pat_[A-Za-z0-9_]{22,}/', self::SECRET_SHAPE_MASK],
-            ['/\bAKIA[0-9A-Z]{16,}/', self::SECRET_SHAPE_MASK],
-            ['/\bAIza[0-9A-Za-z_\-]{35,}/', self::SECRET_SHAPE_MASK],
-            ['/\bxox[baprs]-[A-Za-z0-9\-]{10,}/', self::SECRET_SHAPE_MASK],
-            // Stripe secret and publishable keys. Note the underscore: these do
-            // not collide with the hyphenated OpenAI shape above.
-            ['/\b[sp]k_(?:live|test)_[A-Za-z0-9]{24,}/', self::SECRET_SHAPE_MASK],
-            ['/\bSG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}/', self::SECRET_SHAPE_MASK],
-        ];
     }
 }

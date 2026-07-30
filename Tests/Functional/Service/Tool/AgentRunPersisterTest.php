@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Crypto\EnvelopeCodecInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -164,7 +165,7 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertNotNull($handle);
 
         $stored = $this->rawColumn($handle->uuid, 'queued_request');
-        self::assertStringStartsWith('v2:', $stored, 'stored at rest as ciphertext');
+        self::assertStringStartsWith(EnvelopeCodecInterface::MARKER, $stored, 'stored at rest as ciphertext');
         self::assertStringNotContainsString('private prompt', $stored);
 
         $run = $this->repository->findByUuid($handle->uuid);

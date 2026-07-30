@@ -87,36 +87,45 @@ Consequences
 
 .. _adr-114-rotation:
 
-Key rotation: not yet covered
-=============================
+Key rotation
+============
 
-.. warning::
+Covered, but only because this extension registers for it.
 
-   An earlier revision of this ADR stated that "key rotation is the vault's …
-   rotating the master key re-wraps the DEKs without touching the row
-   ciphertext", citing nr-vault's rotate command and its
-   :php:`MasterKeyRotatedEvent`. **That was wrong on both counts**, and the
-   correction is recorded here rather than quietly edited away.
+An earlier revision of this ADR claimed rotation was handled: "key rotation is
+the vault's … rotating the master key re-wraps the DEKs without touching the row
+ciphertext", citing nr-vault's rotate command and its
+:php:`MasterKeyRotatedEvent`. **That was wrong on both counts, and it shipped in
+0.24.0.** nr-vault's ``vault:rotate-master-key`` re-wrapped the data keys it found
+by walking its own ``tx_nrvault_secret``; the data key of an agent-state envelope
+lives in ``tx_nrllm_agentrun``, where that walk never reached it. And the event,
+though declared and documented upstream, was never dispatched from anywhere — so
+this extension could not have subscribed to learn a rotation had happened either.
+Encrypting these columns was therefore a delayed data-loss bug: the first master
+key rotation made every encrypted queued and suspended run permanently
+unreadable, silently, because the rotation succeeded at everything it knew about.
 
-   nr-vault's ``vault:rotate-master-key`` re-wraps the DEKs it finds by iterating
-   its own ``tx_nrvault_secret`` table. The DEK of an agent-state envelope lives
-   in ``tx_nrllm_agentrun``, where that iteration never reaches it. And
-   :php:`MasterKeyRotatedEvent`, though declared and documented upstream, was
-   never dispatched from anywhere — so this extension could not have subscribed
-   to learn a rotation had happened either.
+The correction is recorded rather than edited away, because a wrong claim about
+where data survives is worth remembering.
 
-   **Consequence today:** if an operator rotates the nr-vault master key, every
-   encrypted QUEUED or suspended agent-run row becomes permanently undecryptable.
-   The fail-soft read path treats such a run as unreadable, so nothing crashes —
-   in-flight runs are lost, not the installation. Rows written before ADR-114
-   landed (plaintext JSON, no ``v2:`` marker) are unaffected, and no other
-   nr-llm data is encrypted this way.
+nr-vault now exposes :php:`ForeignEnvelopeRotatorInterface` (nr-vault ADR-033),
+and :php:`AgentStateEnvelopeRotator` implements it. Registering it is what makes
+rotation cover these rows:
 
-   **Fix in progress:** nr-vault gained a
-   :php:`ForeignEnvelopeRotatorInterface` (nr-vault ADR-033) that re-wraps a
-   consumer's envelopes inside the rotation's own transaction. This extension
-   registers a rotator for ``tx_nrllm_agentrun`` as soon as a released nr-vault
-   version contains it; this section is replaced when that lands.
+.. code-block:: yaml
+   :caption: Configuration/Services.yaml
 
-   **Until then:** treat a master-key rotation as draining the agent queue. Let
-   queued and suspended runs finish first, or accept losing them.
+   Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeRotator:
+     tags: ['nrvault.foreign_envelope_rotator']
+
+The rotator re-wraps both columns inside the vault's own rotation transaction, so
+a failure rolls the whole rotation back rather than leaving half the installation
+under a key the operator is about to destroy. It re-wraps the DEK layer only —
+the payload is never decrypted — and it covers BOTH the current ``nrv1:`` marker
+and the legacy ``v2:`` one written by 0.24.0-0.25.x, since both are sealed under
+the same master key. Default query restrictions are removed so no row is hidden
+from the pass, and the walk pages by ``uid`` rather than ``OFFSET`` because it is
+rewriting the rows as it goes.
+
+Requires nr-vault ^0.13.0. On an older nr-vault the interface does not exist, so
+the constraint is a hard one rather than a suggestion.
