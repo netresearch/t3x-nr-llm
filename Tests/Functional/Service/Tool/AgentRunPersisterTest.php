@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -584,6 +585,35 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertSame('', $requeued->claimedBy);
         self::assertSame(0, $requeued->leaseExpires);
         self::assertSame('{"messages":[]}', $requeued->queuedRequest);
+    }
+
+    #[Test]
+    public function aRequeuedRunDoesNotInheritThePreviousAttemptsWriteFence(): void
+    {
+        // The fence describes a write that was in flight during ONE attempt. A
+        // requeued run has not started its next attempt, so carrying the value
+        // forward would let a later failure be judged against a write that is
+        // no longer running — and a standing NON_IDEMPOTENT_WRITE dead-letters
+        // the run whatever the retry budget says (ADR-111/112).
+        $handle = $this->persister->enqueue(null, 7, '{"messages":[]}');
+        self::assertNotNull($handle);
+        $run = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($run);
+        self::assertTrue($this->persister->claimQueued($run, 'worker-a:1', time() + 60));
+
+        self::assertTrue($this->persister->markPendingEffect($handle, 'worker-a:1', 'non_idempotent_write', time() + 999));
+        $fenced = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($fenced);
+        self::assertSame('non_idempotent_write', $fenced->pendingEffect);
+
+        self::assertTrue($this->persister->requeue($handle, 'worker-a:1'));
+
+        $requeued = $this->repository->findByUuid($handle->uuid);
+        self::assertNotNull($requeued);
+        self::assertSame('', $requeued->pendingEffect, 'a requeued run must start its next attempt unfenced');
+        // The retry decision reads that value; a stale fence would refuse the
+        // retry the requeue just granted.
+        self::assertTrue(AgentRuntime::mayRetryAfterFence($requeued->pendingEffect));
     }
 
     #[Test]

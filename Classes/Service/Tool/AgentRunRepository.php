@@ -765,7 +765,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * caller adds the WHERE guard that distinguishes an ownership requeue
      * ({@see requeue()}) from a staleness reclaim ({@see requeueStale()}).
      * queued_request is deliberately left untouched — the stored request is what
-     * the re-dispatched worker re-executes.
+     * the re-dispatched worker re-executes. pending_effect IS cleared: it
+     * describes a write that was in flight during the previous attempt.
      */
     private function applyRequeueSet(QueryBuilder $builder): QueryBuilder
     {
@@ -777,6 +778,13 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->set('requeue_count', 'requeue_count + 1', false)
             ->set('claimed_by', $builder->createNamedParameter(''), false)
             ->set('lease_expires', $builder->createNamedParameter(0, Connection::PARAM_INT), false)
+            // The fence belongs to the attempt that set it, not to the run. A
+            // requeued run has not started its next attempt, so carrying the
+            // previous attempt's pending effect forward would let a later
+            // failure be judged against a write that is no longer in flight —
+            // and a NON_IDEMPOTENT_WRITE left standing dead-letters the run
+            // (ADR-111/112) whatever the retry budget says.
+            ->set('pending_effect', $builder->createNamedParameter(''), false)
             ->set('tstamp', $builder->createNamedParameter($now, Connection::PARAM_INT), false);
     }
 
