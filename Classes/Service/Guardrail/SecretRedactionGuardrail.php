@@ -45,8 +45,8 @@ final readonly class SecretRedactionGuardrail implements GuardrailInterface, Str
         // context is echoed into the `thinking` block as readily as the content
         // (ADR-089). Tool-call arguments are NOT redacted — they are functional
         // parameters the tool consumes, and masking them would break the call.
-        $redactedContent  = $this->redactSecrets($response->content);
-        $redactedThinking = $response->thinking !== null ? $this->redactSecrets($response->thinking) : null;
+        $redactedContent  = $this->redactSecretShapes($response->content);
+        $redactedThinking = $response->thinking !== null ? $this->redactSecretShapes($response->thinking) : null;
 
         $contentChanged  = $redactedContent !== $response->content;
         $thinkingChanged = $redactedThinking !== $response->thinking;
