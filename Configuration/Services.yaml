@@ -473,3 +473,13 @@ services:
         description: 'Run a golden question set against a retriever and report hit rates and regression.'
         schedulable: false
 
+
+  # ========================================
+  # nr-vault integration
+  # ========================================
+  # Re-wraps the encrypted agent-state columns during a master-key rotation
+  # (ADR-114, nr-vault ADR-033). The tag is what makes nr-vault call it INSIDE
+  # its rotation transaction; without it, every encrypted queued or suspended
+  # run silently becomes unreadable the first time an operator rotates.
+  Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeRotator:
+    tags: ['nrvault.foreign_envelope_rotator']

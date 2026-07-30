@@ -113,17 +113,36 @@ Consequences
 
 .. _adr-123-upstream:
 
-Relationship to nr-vault
-========================
+The catalogue lives in nr-vault
+===============================
 
-nr-vault carries the same knowledge for its plaintext scanner, and it had drifted
+nr-vault carried the same knowledge for its plaintext scanner, and it had drifted
 the other way — it knew Stripe, SendGrid, Twilio, Mailchimp and PayPal but not
 OpenAI project keys or fine-grained PATs. The merged superset now lives upstream
-in :php:`Netresearch\\NrVault\\Secret\\SecretPatternLibrary` (nr-vault ADR-031),
+in :php:`Netresearch\NrVault\Secret\SecretPatternLibrary` (nr-vault ADR-031),
 which is the right long-term home: one catalogue for every Netresearch extension
 rather than one per extension.
 
-This trait is deliberately shaped so that adopting the upstream library is a
-change to :php:`applySecretShapePatterns()` alone, with the two failure-mode
-entry points and every call site unchanged. That swap waits on a released
-nr-vault version that contains the library.
+This extension reads it. :php:`SecretShapeRedactorTrait` iterates
+:php:`SecretPatternLibrary::all()` and :php:`ErrorMessageSanitizerTrait` iterates
+:php:`SecretPatternLibrary::urlCredentials()`, so no secret regex is defined in
+nr-llm any more. Both gained shapes in the process — Slack legacy tokens,
+Mailchimp and SendGrid keys, Stripe publishable keys — without any change here.
+
+Read through the library's STATIC methods, not the injectable
+:php:`SecretRedactorInterface`. These traits are used from objects the container
+never builds: a provider exception, and
+:php:`Controller\Backend\Response\ErrorResponse`, which callers construct with
+``new``. A trait that reached into the DI container to mask a string would be a
+worse dependency than a static call to a pure pattern list.
+
+Requires nr-vault ^0.13.0.
+
+Why the sanitiser stays a narrower subset
+-----------------------------------------
+
+:php:`ErrorMessageSanitizerTrait` deliberately applies only the two URL shapes,
+not the whole catalogue. It runs on error messages, where the job is to strip the
+credential a client library put into a request URL — not to scan arbitrary prose
+for every vendor token shape. Callers that want the full catalogue use
+:php:`SecretShapeRedactorTrait`, and the guardrails do.

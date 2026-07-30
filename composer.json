@@ -1,6 +1,6 @@
 {
     "name": "netresearch/nr-llm",
-    "description": "Shared AI/LLM foundation for TYPO3 — centralized provider management, encrypted API keys, and ready-to-use services for chat, translation, vision, and embeddings",
+    "description": "Shared AI/LLM foundation for TYPO3 \u2014 centralized provider management, encrypted API keys, and ready-to-use services for chat, translation, vision, and embeddings",
     "license": "GPL-2.0-or-later",
     "type": "typo3-cms-extension",
     "keywords": [
@@ -32,7 +32,7 @@
     },
     "require": {
         "php": "^8.2",
-        "netresearch/nr-vault": "^0.10.1 || ^0.11.0 || ^0.12.0",
+        "netresearch/nr-vault": "^0.13.0",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0",
@@ -51,7 +51,7 @@
     },
     "suggest": {
         "apache-solr-for-typo3/solr": "Site-search RAG tools retrieve evidence from the Solr index when installed",
-        "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages — enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
+        "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages \u2014 enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",
         "typo3/cms-indexed-search": "Site-search RAG tools retrieve evidence from the indexed_search index when installed"
