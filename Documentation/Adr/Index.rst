@@ -419,3 +419,4 @@ Tools
    Adr119BackendModulePlacement
    Adr120RequiredToolGate
    Adr121ConversationContextWindow
+   Adr122ToolEffectContractDeferred

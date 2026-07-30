@@ -147,6 +147,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A requeued agent run no longer inherits the write fence of its previous
+  attempt. The requeue cleared the worker claim and the lease but left
+  `pending_effect` standing, so a later failure could be judged against a write
+  that was no longer running — and a standing non-idempotent write dead-letters
+  a run whatever its retry budget says. Narrow but reachable: a step naming a
+  tool the registry no longer knows resolves fail-closed to non-idempotent, so
+  a tool removed or renamed between attempts stamps the fence for real. See
+  ADR-122.
+
 - A configuration preset that cannot be imported now says what to do about it,
   and no longer renders a disabled button that looks exactly like the working
   one. Both branches used `btn btn-primary btn-sm` with the same "Import" label

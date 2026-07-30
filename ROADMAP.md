@@ -10,17 +10,20 @@ the quality gate, not when a calendar says so.
 
 The security-hardening arc is shipped: explicit actor context and fail-closed
 authorization through the whole agent runtime, at-least-once queue delivery
-with idempotent tool effects, tool data-class enforcement on by default, agent
-state encrypted at rest, and an operations dashboard with a queryable
-governance audit trail.
+with a declared tool-effect classification and a fail-closed write audit, tool
+data-class enforcement on by default, agent state encrypted at rest, and an
+operations dashboard with a queryable governance audit trail.
 
 ## Next — agent runtime maturity
 
-1. **A first-class contract for side-effecting tools.** Promote the tool
-   effect declaration (read-only / idempotent write / non-idempotent write,
-   ADR-111) into a tool-facing interface with an idempotency scope and an
-   optional preview, so writing tools can be built against a contract instead
-   of a convention.
+1. **A first-class contract for side-effecting tools — when one exists.**
+   The effect classification, the write fence and the fail-closed audit are in
+   place, but all 44 builtin tools read; nothing exercises the write path. The
+   proposed interface, idempotency scope and preview each had no reader and no
+   display, so they are deferred rather than guessed at (ADR-122). The
+   machinery and a coverage test that forces a new writer to declare itself are
+   waiting; the shape of the contract is a question the first writing tool
+   answers.
 
 ## Toward 1.0
 
