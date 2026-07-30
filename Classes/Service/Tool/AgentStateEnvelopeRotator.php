@@ -134,7 +134,9 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
      * One page of sealed values for a column, keyed by uid for a stable cursor.
      *
      * Paged by uid rather than by OFFSET because the rows are being rewritten as
-     * the walk proceeds; an OFFSET page would shift under it.
+     * the walk proceeds; an OFFSET page would shift under it. The cursor advances
+     * over every returned row, so the loop terminates exactly when the query stops
+     * matching.
      *
      * @return list<array{uid: int, value: string}>
      */
@@ -155,12 +157,18 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
         $rows = [];
         while ($row = $result->fetchAssociative()) {
+            // Every row the query returned is kept, including any whose value does
+            // not coerce to a usable string. Dropping rows HERE would stop the
+            // cursor advancing past them, and a page that dropped entirely would
+            // end the walk early — leaving later rows un-rotated. The caller skips
+            // non-envelopes instead, so an empty batch means "no more rows", not
+            // "no more interesting rows".
             $value = $row[$column] ?? null;
-            if (!\is_string($value) || $value === '') {
-                continue;
-            }
 
-            $rows[] = ['uid' => self::toInt($row['uid'] ?? null), 'value' => $value];
+            $rows[] = [
+                'uid' => self::toInt($row['uid'] ?? null),
+                'value' => \is_string($value) ? $value : '',
+            ];
         }
 
         return $rows;
