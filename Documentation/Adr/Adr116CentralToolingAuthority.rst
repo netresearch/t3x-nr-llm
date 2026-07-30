@@ -59,7 +59,7 @@ builtin and MCP — is aggregated and executed there; consumers never reach an
 MCP server directly.
 
 - **Add an MCP client to nr_llm.** nr_llm gains the ability to connect to
-  external MCP servers (stdio / http / sse), list their tools, and register
+  external MCP servers over HTTP, list their tools, and register
   those tools into ``ToolRegistry`` **alongside** the builtin tools. MCP tools
   then flow through the exact same path as builtins: ``ToolRegistry`` →
   ``ToolLoopService`` / ``AgentRuntime``, subject to the same tool gate
@@ -104,6 +104,68 @@ Consequences
   implementation is designed; the public-service count authority
   (:ref:`ADR-101 <adr-101>`) is updated then, not here.
 
+.. _adr-116-transports:
+
+Transports: HTTP only
+=====================
+
+This ADR first named "stdio / http / sse". That list was wrong in two ways and
+is corrected here, because it would otherwise be read as a build order.
+
+``sse`` is not a peer of ``http``. It is a response framing for an HTTP
+connection, not a separate transport to select. Offering both as values of one
+field invites a configuration that cannot be satisfied — which is what the
+``transport`` field in ``nr_mcp_agent``'s own table already shows, where
+``stdio`` and ``sse`` are the only values and plain ``http`` does not exist.
+
+``stdio`` is out of scope, and not merely for performance. It means spawning a
+process on the TYPO3 host from a request, with the command line taken from an
+operator-editable record. Every control in the tool stack classifies a tool's
+OUTPUT (:ref:`ADR-094 <adr-094>`) or authorises its CALLER — nothing classifies
+what a tool may do to the host it runs on. "One registry, one gate" is a true
+statement about offering, approving and auditing a tool; it says nothing about
+launching a process, and it must not be read as covering one. If a stdio
+transport is ever wanted, it belongs on the CLI and queue paths behind an
+explicit allow-list of executables, decided in its own ADR.
+
+The client therefore speaks HTTP, and only HTTP.
+
+.. _adr-116-classification:
+
+What an MCP tool resolves to, and why it needs a declaration
+============================================================
+
+An MCP tool arrives without a group, and the two resolvers answer that
+differently — one fail-closed, one fail-open. Both answers are wrong for MCP,
+in opposite directions, and an implementation that does not address both is not
+"the same gate as a builtin".
+
+**Data class fails closed to unusable.** A tool whose group is unknown resolves
+to ``SECRET_ADJACENT``, which only a ``LOCAL`` trust zone permits. Against every
+hosted provider such a tool is withheld. So MCP tools are not merely
+"classified strictly" by default — they do not run at all outside a local
+model.
+
+**Effect fails open.** A registered tool that declares nothing resolves to
+``READ_ONLY``, which is correct for the builtins (all of them read) and wrong
+for an MCP server, where writes are ordinary. An undeclared remote write would
+lose the write fence and the fail-closed audit of :ref:`ADR-111 <adr-111>`.
+
+The implementation therefore requires a **per-server data-class declaration**
+by the operator, and must treat an externally-sourced tool as a write unless
+declared otherwise — the inverse of the builtin default. Neither is a
+weakening: the first replaces "denied everywhere" with a stated ceiling, the
+second replaces a guess with the strict answer.
+
+**Why any of this is nr_llm's problem at all**, given that the MCP server
+authorises its own resources: three things the server cannot see. Its output
+travels onward to an LLM provider we chose, under a data-protection obligation
+that is ours. Its authorisation is against one operator credential, so without
+a gate here every backend user inherits the full rights of that credential. And
+the write fence is our own retry bookkeeping, about our queue, which the server
+knows nothing about. Securing the resource stays the server's job; where its
+answers flow and in whose name we ask are ours.
+
 .. _adr-116-migration:
 
 Migration and follow-up
@@ -111,10 +173,10 @@ Migration and follow-up
 
 Implementation is separate follow-up work; this ADR records the target only.
 
-- Build the MCP client in nr_llm: transports (stdio / http / sse), the
-  ``tools/list`` handshake, inputSchema-to-provider-schema normalisation
-  (the concern ``McpToolProvider`` already solves), and registration of the
-  resulting tools into ``ToolRegistry``.
+- Build the MCP client in nr_llm: the HTTP transport, the ``tools/list``
+  handshake, inputSchema-to-provider-schema normalisation (the concern
+  ``McpToolProvider`` already solves), and registration of the resulting tools
+  into ``ToolRegistry``.
 - Move the MCP server configuration model (``transport``, ``command`` /
   ``arguments``, ``url`` / ``auth_token``) into nr_llm.
 - Repoint ``nr_mcp_agent``'s ``ChatService`` onto ``AgentRuntime`` and delete

@@ -28,12 +28,16 @@ operations dashboard with a queryable governance audit trail.
 ## Toward 1.0
 
 - **MCP client — one tooling authority.** nr_llm connects to externally
-  configured MCP servers (stdio / http / sse), lists their tools and registers
+  configured MCP servers over HTTP, lists their tools and registers
   them into `ToolRegistry` alongside the builtins, so a consumer obtains
   builtin and MCP tooling together and never opens an MCP connection itself.
   Origin does not change how a tool is authorised, approved or audited: one
-  registry, one gate, one agent loop (ADR-116). The server configuration —
-  transport, command, url, credential — is managed centrally in nr_llm.
+  registry, one gate, one agent loop (ADR-116). The server configuration — url,
+  credential, and the data-class ceiling the operator declares for it — is
+  managed centrally in nr_llm. That declaration is required, not optional: an
+  MCP tool has no group, so it would otherwise resolve to the strictest data
+  class and never be offered, while its effect would resolve to read-only and
+  lose the write fence. stdio is out of scope (ADR-116).
 - **Role model and editor actions.** Distinct operational roles (system
   administration, AI management, AI operation, editing) instead of the current
   admin-centric permissions, plus a purpose-built editor action API rather
