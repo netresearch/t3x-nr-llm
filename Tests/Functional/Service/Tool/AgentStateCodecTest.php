@@ -26,6 +26,9 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(AgentStateCodec::class)]
 final class AgentStateCodecTest extends AbstractFunctionalTestCase
 {
+    /** Minimal payload for the tests that only care about the envelope, not its contents. */
+    private const SMALL_PAYLOAD = '{"x":1}';
+
     private AgentStateCodec $codec;
 
     protected function setUp(): void
@@ -81,7 +84,7 @@ final class AgentStateCodecTest extends AbstractFunctionalTestCase
     {
         // The per-column identifier is AAD: a queued-request envelope decrypted
         // as a suspended-state payload fails authentication rather than leaking.
-        $encoded = $this->codec->encode('{"x":1}', AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $encoded = $this->codec->encode(self::SMALL_PAYLOAD, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
 
         $this->expectException(AgentStateDecryptionException::class);
         $this->codec->decode($encoded, AgentStateCodec::PURPOSE_SUSPENDED_STATE);
@@ -90,7 +93,7 @@ final class AgentStateCodecTest extends AbstractFunctionalTestCase
     #[Test]
     public function aTamperedEnvelopeFailsAuthentication(): void
     {
-        $encoded  = $this->codec->encode('{"x":1}', AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $encoded  = $this->codec->encode(self::SMALL_PAYLOAD, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
         $tampered = substr($encoded, 0, -2) . ($encoded[-2] === 'A' ? 'B' : 'A') . $encoded[-1];
 
         $this->expectException(AgentStateDecryptionException::class);
@@ -144,7 +147,7 @@ final class AgentStateCodecTest extends AbstractFunctionalTestCase
         $encryptionService = $this->get(EncryptionServiceInterface::class);
         self::assertInstanceOf(EncryptionServiceInterface::class, $encryptionService);
 
-        $encrypted = $encryptionService->encrypt('{"x":1}', AgentStateCodec::PURPOSE_QUEUED_REQUEST);
+        $encrypted = $encryptionService->encrypt(self::SMALL_PAYLOAD, AgentStateCodec::PURPOSE_QUEUED_REQUEST);
         $legacyValue = 'v2:' . base64_encode(json_encode($encrypted->toArray(), JSON_THROW_ON_ERROR));
 
         $this->expectException(AgentStateDecryptionException::class);

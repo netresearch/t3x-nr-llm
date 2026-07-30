@@ -39,10 +39,8 @@ final readonly class AgentStateEnvelopeMarker
      */
     public static function normalise(string $stored): ?string
     {
-        if ($stored === '') {
-            return null;
-        }
-
+        // No empty-string guard: '' starts with neither marker, so it already
+        // falls through to null.
         if (str_starts_with($stored, EnvelopeCodecInterface::MARKER)) {
             return $stored;
         }
