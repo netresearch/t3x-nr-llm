@@ -1,0 +1,57 @@
+# Fully resolved dependency set for the reranker sidecar image (ADR-075).
+#
+# GENERATED — do not hand-edit. requirements.txt holds the two direct
+# dependencies; this file pins every transitive package the resolver picked, so
+# a rebuild installs the same tree rather than whatever is current on PyPI.
+#
+# Regenerate deliberately (not on every build):
+#
+#   docker run --rm -v "$PWD/requirements.txt:/req.txt:ro" python:3.14-slim \
+#     pip install --dry-run --only-binary :all: \
+#       --extra-index-url https://download.pytorch.org/whl/cpu \
+#       --report /dev/stdout -r /req.txt
+#
+# Hashes are deliberately absent: two packages (Jinja2, MarkupSafe) resolve from
+# the PyTorch CPU index, which does not publish hashes in its simple-API
+# metadata, so --require-hashes cannot be satisfied for the full set.
+
+annotated-doc==0.0.5
+anyio==4.14.2
+certifi==2026.7.22
+click==8.4.2
+filelock==3.32.2
+fsspec==2026.7.0
+h11==0.16.0
+hf-xet==1.5.2
+httpcore==1.0.9
+httpx==0.28.1
+huggingface_hub==1.26.0
+idna==3.18
+Jinja2==3.1.6
+joblib==1.5.3
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+mpmath==1.3.0
+narwhals==2.24.0
+networkx==3.6.1
+numpy==2.5.1
+packaging==26.2
+Pygments==2.20.0
+PyYAML==6.0.3
+regex==2026.7.19
+rich==15.0.0
+safetensors==0.8.0
+scikit-learn==1.9.0
+scipy==1.18.0
+sentence-transformers==5.6.1
+setuptools==83.0.0
+shellingham==1.5.4
+sympy==1.14.0
+threadpoolctl==3.6.0
+tokenizers==0.22.2
+torch==2.13.0+cpu
+tqdm==4.70.0
+transformers==5.14.1
+typer==0.27.0
+typing_extensions==4.16.0

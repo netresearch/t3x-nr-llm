@@ -1,4 +1,8 @@
-# Pinned for a reproducible image (spike). torch resolves to the CPU wheel via the
-# Dockerfile's --extra-index-url .../whl/cpu. Refresh deliberately, not on every build.
+# Direct dependencies only. torch resolves to the CPU wheel via the Dockerfile's
+# --extra-index-url .../whl/cpu.
+#
+# The image installs from requirements.lock, NOT from this file: that lock pins
+# the full resolved tree, which is what makes the build reproducible. Change a
+# version here, then regenerate the lock (command in its header).
 torch==2.13.0
 sentence-transformers==5.6.1
