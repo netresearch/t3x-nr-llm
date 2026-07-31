@@ -1,0 +1,27 @@
+name: DCO
+
+# Enforced sign-off gate.
+#
+# This repository requires signed-off commits, but had no enforcing check: the
+# probot DCO app reacts to pull_request events only and therefore cannot report
+# on a merge_group. Because a merge queue treats a required check that has not
+# reported by check_response_timeout_minutes as failed and ejects the entry, the
+# app could never be a required context here — which is why DCO was absent from
+# the required set while every other gate was present.
+#
+# The shared reusable reads the merge group's base_sha..head_sha range on that
+# event, so it can gate a queued branch.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  merge_group:
+
+permissions: {}
+
+jobs:
+  dco:
+    uses: netresearch/.github/.github/workflows/dco.yml@main # NOSONAR — own-org reusable deliberately tracks main
+    permissions:
+      contents: read
+      pull-requests: read
