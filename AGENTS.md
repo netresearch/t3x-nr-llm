@@ -229,3 +229,31 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 - **Releasing is a tag push, and the tag publishes TER automatically.** Pushing an annotated signed tag `vX.Y.Z` on `main` triggers `release.yml`, which calls the reusable `netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml` with `TYPO3_TER_ACCESS_TOKEN` wired in: it produces the SBOM / Cosign / SLSA artifacts, creates the GitHub release, **and publishes to TER + Packagist**. `ter-publish.yml` ("Manual TER publish" in the workflow table) is only a `workflow_dispatch` re-publish fallback — it is *not* the primary path and does not need to be run for a normal release. Verify a release by checking Packagist (`repo.packagist.org/p2/netresearch/nr-llm.json`, tags are `v`-prefixed), TER (`extensions.typo3.org/api/v1/extension/nr_llm/versions`) and the docs 0.X URL — do not assume TER is a separate manual step.
 - **The `chore(release): X.Y.Z` commit bumps four files:** `ext_emconf.php`, `composer.json` (`extra.typo3/cms.version`), `Documentation/guides.xml`, and `CHANGELOG.md` (not `Changelog.rst`). Version bumps belong to this release flow, never to a feature PR.
 - **Renovate/Dependabot PRs auto-merge via `auto-merge-deps.yml` — do not hand-merge them by default.** Known gap (2026-07-24): `auto-merge-deps.yml` did **not** auto-merge #511/#509 and they were admin-merged manually to unblock the 0.24.0 release; root cause (merge-queue interaction vs an unmet workflow condition) is **not yet verified**. Investigate the workflow's condition/queue behaviour before relying on it for the next release rather than reflexively hand-merging.
+
+<!-- Hand-maintained; intentionally outside the AGENTS-GENERATED blocks above. -->
+## Working in this repo (agent notes)
+
+- **`CHANGELOG.md`: check whether the section already exists before inserting one.**
+  `## [Unreleased]` usually already carries `### Added`, `### Changed`, `### Fixed`
+  and `### Removed`. Inserting before the *first* `### ` after `## [Unreleased]`
+  produces a duplicate heading — the entry lands in a second `### Changed` while
+  the original sits forty lines below. Find the matching heading and append under
+  it; only create one when it genuinely is not there. (Three duplicates in one
+  session, 2026-07-30.)
+
+- **A fresh worktree needs its own dependency resolution.** `.Build/` is not
+  tracked, so a new worktree has none; copying it from `main/.Build` is the usual
+  shortcut and avoids the WSL2 segfault on a fresh composer resolve. But that copy
+  can be OLDER than `main`'s code — after a dependency bump lands, PHPStan aborts
+  with an internal error such as `Interface "Netresearch\NrVault\Crypto\
+  ForeignEnvelopeRotatorInterface" not found` while analysing an unrelated test.
+  That is a stale `.Build`, not a code defect: run
+  `./Build/Scripts/runTests.sh -s composerUpdate -p 8.4` and re-run the gate.
+
+- **A local gate run covers one matrix cell; CI covers eight.** The six pre-push
+  suites run against a single PHP version and a single TYPO3 constraint. CI runs
+  PHP 8.2–8.5 × TYPO3 13.4 / 14.3. A PHPStan finding can therefore be invisible
+  locally and red across all eight legs — a `willReturnCallback` whose closure type
+  resolves differently under the PHPUnit version a given cell installs is the
+  observed case. Green locally means "no reason to push a known failure", not
+  "CI will pass".
