@@ -16,4 +16,5 @@ regexes = [
 paths = [
   '''.github/workflows/e2e\.yml''',
   '''^Tests/E2E/.*''',
+  '''^Tests/(Unit|Functional)/Service/Tool/AgentStateCodecTest\.php''',
 ]
