@@ -61,7 +61,13 @@ final readonly class LlmTranslator implements TranslatorInterface
 
     public static function getPriority(): int
     {
-        return 100;
+        // Lowest priority: this is the universal fallback — supportsLanguagePair()
+        // always returns true, so it must sort LAST behind any real specialized
+        // translator (e.g. DeepLTranslator, priority 90). The previous value
+        // (100, higher than DeepL's) made TranslatorRegistry::findBestTranslator()
+        // always return this translator first — a specialized translator could
+        // never be selected, regardless of availability.
+        return -1000;
     }
 
     public function isAvailable(): bool

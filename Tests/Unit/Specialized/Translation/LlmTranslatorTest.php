@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use Netresearch\NrLlm\Specialized\Translation\DeepLTranslator;
 use Netresearch\NrLlm\Specialized\Translation\LlmTranslator;
 use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
@@ -127,6 +128,28 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     public function getNameReturnsLlmBasedTranslation(): void
     {
         self::assertEquals('LLM-based Translation', $this->subject->getName());
+    }
+
+    /**
+     * Regression guard for the priority inversion that made
+     * TranslatorRegistry::findBestTranslator() always return this translator
+     * first. LlmTranslator::supportsLanguagePair() always returns true, so —
+     * per the "higher priority sorts first" contract documented on
+     * TranslatorInterface::getPriority() — it must sort BEHIND every real
+     * specialized translator (DeepLTranslator::getPriority() === 90), or a
+     * specialized translator could never be selected regardless of
+     * availability. This doesn't exercise the real DI-tagged-iterator
+     * sorting (see TranslatorRegistryTest, which uses hand-ordered stubs and
+     * so cannot catch this class of bug either) — it pins the one invariant
+     * that sorting depends on.
+     */
+    #[Test]
+    public function priorityIsLowerThanDeepLSoTheFallbackNeverWinsOverASpecializedTranslator(): void
+    {
+        self::assertLessThan(
+            DeepLTranslator::getPriority(),
+            LlmTranslator::getPriority(),
+        );
     }
 
     #[Test]

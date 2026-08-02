@@ -50,6 +50,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a remote call crosses the network while a backend user waits and nothing else
   limits how many a model asks for at once.
 
+- `TranslationOptions::withTranslator()` forces a specific translator by
+  identifier (e.g. `'deepl'`, `'llm'`) on `translateWithTranslator()` /
+  `translateBatchWithTranslator()`, bypassing configuration-based resolution.
+  Callers that already know which translator they want (e.g. having picked
+  one via `TranslationService::findBestTranslator()`) previously had no way
+  to act on that choice without pinning an entire `LlmConfiguration`.
+
 - Translation and image generation can be tried from the backend. The test page
   gained two cards: translate a snippet with a chosen translator, or generate a
   single image with the OpenAI or the FAL service. Until now nothing in the
@@ -220,6 +227,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   per-configuration `allowed_groups` relation.
 
 ### Fixed
+
+- `LlmTranslator::getPriority()` returned `100`, higher than
+  `DeepLTranslator`'s `90`. Per the "higher priority sorts first" contract
+  on `TranslatorInterface::getPriority()`, that put the universal LLM
+  fallback ahead of every specialized translator in the tagged iterator —
+  and since `LlmTranslator::supportsLanguagePair()` always returns `true`,
+  `TranslatorRegistry::findBestTranslator()` always returned it first,
+  regardless of whether a specialized translator (DeepL) was actually
+  available. Lowered to `-1000` so the fallback sorts last, as its name
+  implies.
 
 - A requeued agent run no longer inherits the write fence of its previous
   attempt. The requeue cleared the worker claim and the lease but left

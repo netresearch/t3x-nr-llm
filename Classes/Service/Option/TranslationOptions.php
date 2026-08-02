@@ -36,6 +36,7 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         private ?string $provider = null,
         private ?string $model = null,
         private ?string $configuration = null,
+        private ?string $translator = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
     ) {
@@ -208,6 +209,19 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $clone;
     }
 
+    /**
+     * Force a specific translator by identifier (e.g. 'deepl', 'llm'),
+     * bypassing configuration-based resolution. Highest priority in
+     * `TranslationService::resolveTranslator()` — takes precedence over a
+     * pinned configuration's own translator, if both are set.
+     */
+    public function withTranslator(string $translator): static
+    {
+        $clone = clone $this;
+        $clone->translator = $translator;
+        return $clone;
+    }
+
     // Budget pre-flight setters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -267,6 +281,11 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         return $this->configuration;
     }
 
+    public function getTranslator(): ?string
+    {
+        return $this->translator;
+    }
+
     // Budget pre-flight getters provided by `BudgetFieldsTrait`.
 
     // ========================================
@@ -286,6 +305,7 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
             'provider' => $this->provider,
             'model' => $this->model,
             'configuration' => $this->configuration,
+            'translator' => $this->translator,
         ]);
     }
 
