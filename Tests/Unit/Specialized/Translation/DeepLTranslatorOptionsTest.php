@@ -24,6 +24,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UriInterface;
 use ReflectionClass;
 
 /**
@@ -224,6 +229,96 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         $result = $translator->translate('Hello', 'de', null, ['deepl' => $options]);
 
         self::assertEquals('Formatted', $result->translatedText);
+    }
+
+    /**
+     * Regression test for the JSON-vs-form-encoded API mismatch: DeepL's
+     * `/v2/translate` rejects `preserve_formatting`/`split_sentences` as the
+     * strings "1"/"0" over JSON with `{"message":"Value for
+     * 'preserve_formatting' not supported."}` (verified against the live
+     * API) — it needs a genuine JSON boolean. The other tests in this class
+     * use `createTranslatorWithMockClient()`, whose `createRequestMock()`
+     * stub makes `withBody()` a no-op that discards the argument, so they
+     * cannot see this class of bug; this test builds its own factories to
+     * capture and decode the actual request body.
+     */
+    #[Test]
+    public function translateSendsPreserveFormattingAndSplitSentencesAsJsonBooleans(): void
+    {
+        $capturedBody = null;
+
+        $requestFactory = self::createStub(RequestFactoryInterface::class);
+        $requestFactory->method('createRequest')->willReturnCallback(
+            function (string $method, string $uri) use (&$capturedBody): RequestInterface {
+                $uriStub = self::createStub(UriInterface::class);
+                $uriStub->method('__toString')->willReturn($uri);
+                $uriStub->method('getHost')->willReturn(parse_url($uri, PHP_URL_HOST) ?? '');
+                $uriStub->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
+
+                $request = self::createStub(RequestInterface::class);
+                $request->method('withHeader')->willReturnCallback(fn() => $request);
+                $request->method('withoutHeader')->willReturnCallback(fn() => $request);
+                $request->method('withBody')->willReturnCallback(
+                    function (StreamInterface $body) use ($request, &$capturedBody): RequestInterface {
+                        $capturedBody = $body->getContents();
+                        return $request;
+                    },
+                );
+                $request->method('getMethod')->willReturn($method);
+                $request->method('getUri')->willReturn($uriStub);
+
+                return $request;
+            },
+        );
+
+        $streamFactory = self::createStub(StreamFactoryInterface::class);
+        $streamFactory->method('createStream')->willReturnCallback(function (string $content) {
+            $stream = self::createStub(StreamInterface::class);
+            $stream->method('__toString')->willReturn($content);
+            $stream->method('getContents')->willReturn($content);
+            return $stream;
+        });
+
+        $httpClientMock = self::createStub(ClientInterface::class);
+        $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'translations' => [
+                ['text' => 'Formatted', 'detected_source_language' => 'EN'],
+            ],
+        ]));
+
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $requestFactory,
+            $streamFactory,
+            $this->createExtensionConfigurationMock([
+                'translators' => [
+                    'deepl' => ['apiKeyIdentifier' => $this->randomApiKey(), 'timeout' => 30],
+                ],
+            ]),
+            self::createStub(UsageTrackerServiceInterface::class),
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
+        );
+        $translator->setHttpClient($httpClientMock);
+
+        $options = new DeepLOptions(preserveFormatting: true, splitSentences: false);
+        $translator->translate('Hello', 'de', null, ['deepl' => $options]);
+
+        self::assertNotNull($capturedBody, 'Expected withBody() to have been called with the JSON payload.');
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode((string)$capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue(
+            $decoded['preserve_formatting'] ?? null,
+            'preserve_formatting must be a JSON boolean — DeepL rejects the string "1"/"0" over the JSON API.',
+        );
+        self::assertFalse(
+            $decoded['split_sentences'] ?? null,
+            'split_sentences must be a JSON boolean — DeepL rejects the string "1"/"0" over the JSON API.',
+        );
     }
 
     #[Test]

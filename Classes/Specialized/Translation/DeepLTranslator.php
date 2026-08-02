@@ -578,13 +578,19 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         if ($deepLOptions->preserveFormatting !== null) {
-            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting ? '1' : '0';
+            // DeepL's JSON API (Content-Type: application/json) requires a genuine
+            // JSON boolean here — the documented "0"/"1" string values are for the
+            // classic form-encoded API only. A quoted string is rejected with
+            // {"message":"Value for 'preserve_formatting' not supported."}
+            // (verified against the live API).
+            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting;
         }
 
         $payload = $this->applyTagHandling($payload, $deepLOptions);
 
         if ($deepLOptions->splitSentences !== null) {
-            $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
+            // Same JSON-vs-form-encoded API mismatch as preserve_formatting above.
+            $payload['split_sentences'] = $deepLOptions->splitSentences;
         }
 
         return $payload;
@@ -652,7 +658,8 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         if ($deepLOptions->preserveFormatting !== null) {
-            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting ? '1' : '0';
+            // See buildTranslatePayload() above — JSON API needs a real boolean.
+            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting;
         }
 
         if ($deepLOptions->tagHandling !== null) {
