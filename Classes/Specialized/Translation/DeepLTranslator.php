@@ -589,8 +589,13 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         $payload = $this->applyTagHandling($payload, $deepLOptions);
 
         if ($deepLOptions->splitSentences !== null) {
-            // Same JSON-vs-form-encoded API mismatch as preserve_formatting above.
-            $payload['split_sentences'] = $deepLOptions->splitSentences;
+            // Unlike preserve_formatting, split_sentences has no boolean variant in
+            // DeepL's schema at all — SplitSentencesOption is a string enum
+            // ('0'|'1'|'nonewlines') for both the JSON and form-encoded request
+            // body (see DeepLcom/openapi, components.schemas.SplitSentencesOption).
+            // Stays a string cast; a native bool here would be wrong, not just
+            // inconsistent with preserve_formatting.
+            $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
         }
 
         return $payload;

@@ -221,15 +221,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `DeepLTranslator` sent `preserve_formatting` and `split_sentences` as the
-  strings `"1"`/`"0"` in a JSON request body. DeepL's `/v2/translate` accepts
-  those string values only on the classic form-encoded API; over JSON it
-  rejects the request with `{"message":"Value for 'preserve_formatting' not
-  supported."}`. Since `TranslationOptions` defaults `preserveFormatting` to
-  `true`, this affected the specialized-translator path on effectively every
-  call that reached DeepL with default options, not just callers who opted
-  into formatting preservation explicitly. Both payload builders now pass the
+- `DeepLTranslator` sent `preserve_formatting` as the string `"1"`/`"0"` in a
+  JSON request body. DeepL's `/v2/translate` accepts that string form only on
+  the classic form-encoded API (`PreserveFormattingOptionStr`); over JSON it
+  expects a genuine boolean (`PreserveFormattingOption`) and rejects the
+  string with `{"message":"Value for 'preserve_formatting' not supported."}`.
+  Since `TranslationOptions` defaults `preserveFormatting` to `true`, this
+  affected the specialized-translator path on effectively every call that
+  reached DeepL with default options, not just callers who opted into
+  formatting preservation explicitly. Both payload builders now pass the
   native `bool` through unchanged; verified against the live API.
+  `split_sentences` is intentionally left as the string cast — DeepL's schema
+  has no boolean variant for it in either request-body form
+  (`SplitSentencesOption` is `'0'|'1'|'nonewlines'` for both).
 
 - A requeued agent run no longer inherits the write fence of its previous
   attempt. The requeue cleared the worker claim and the lease but left
