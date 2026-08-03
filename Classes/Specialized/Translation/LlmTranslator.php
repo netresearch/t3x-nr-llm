@@ -26,6 +26,15 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 #[AsTranslator]
 final readonly class LlmTranslator implements TranslatorInterface
 {
+    /**
+     * This translator's registry identifier. Public so callers that need to
+     * distinguish "a specialized translator was selected" from "the
+     * universal fallback was selected" (e.g. after
+     * TranslationService::findBestTranslator()) don't have to hardcode the
+     * string 'llm'.
+     */
+    public const IDENTIFIER = 'llm';
+
     private const SUPPORTED_LANGUAGES = [
         'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
         'ar', 'cs', 'da', 'fi', 'el', 'hu', 'id', 'no', 'ro', 'sk', 'sv', 'th',
@@ -51,7 +60,7 @@ final readonly class LlmTranslator implements TranslatorInterface
 
     public function getIdentifier(): string
     {
-        return 'llm';
+        return self::IDENTIFIER;
     }
 
     public function getName(): string

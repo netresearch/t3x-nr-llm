@@ -125,6 +125,12 @@ class LlmTranslatorTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function getIdentifierReturnsTheIdentifierConstant(): void
+    {
+        self::assertSame(LlmTranslator::IDENTIFIER, $this->subject->getIdentifier());
+    }
+
+    #[Test]
     public function getNameReturnsLlmBasedTranslation(): void
     {
         self::assertEquals('LLM-based Translation', $this->subject->getName());

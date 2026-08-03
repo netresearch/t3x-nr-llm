@@ -183,6 +183,10 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             'english us variant' => ['de', 'en-us', true],
             'invalid source' => ['xx', 'de', false],
             'invalid target' => ['en', 'yy', false],
+            'auto source lowercase' => ['auto', 'de', true],
+            'auto source uppercase' => ['AUTO', 'de', true],
+            'auto source with unsupported target' => ['auto', 'yy', false],
+            'empty source (no preference yet)' => ['', 'de', true],
         ];
     }
 

@@ -308,11 +308,24 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
     public function supportsLanguagePair(string $sourceLanguage, string $targetLanguage): bool
     {
-        $sourceLang = $this->normalizeLanguageCode($sourceLanguage, true);
         $targetLang = $this->normalizeLanguageCode($targetLanguage, false);
-
-        $sourceSupported = in_array(strtolower($sourceLang), self::SUPPORTED_SOURCE_LANGUAGES, true);
         $targetSupported = in_array(strtolower($targetLang), self::SUPPORTED_TARGET_LANGUAGES, true);
+
+        // 'auto' (case-insensitive) is a caller-side sentinel for "detect the
+        // source language", not a real DeepL language code — it will never
+        // appear in SUPPORTED_SOURCE_LANGUAGES and normalizeLanguageCode()
+        // doesn't map it to one either. DeepL auto-detects whenever
+        // source_lang is omitted from the request (buildTranslatePayload()
+        // already omits it for a null $sourceLanguage), so treating 'auto'
+        // as "any source is fine" here is faithful to the API, not a
+        // workaround. An empty string is treated the same way for callers
+        // that pass through a "no preference yet" state.
+        if ($sourceLanguage === '' || strtolower($sourceLanguage) === 'auto') {
+            return $targetSupported;
+        }
+
+        $sourceLang = $this->normalizeLanguageCode($sourceLanguage, true);
+        $sourceSupported = in_array(strtolower($sourceLang), self::SUPPORTED_SOURCE_LANGUAGES, true);
 
         return $sourceSupported && $targetSupported;
     }

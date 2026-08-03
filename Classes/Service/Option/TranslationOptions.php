@@ -36,9 +36,13 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
         private ?string $provider = null,
         private ?string $model = null,
         private ?string $configuration = null,
-        private ?string $translator = null,
         ?int $beUserUid = null,
         ?float $plannedCost = null,
+        // Last, not grouped with the other fluent-setter-only fields above:
+        // any positional caller relying on $beUserUid/$plannedCost being the
+        // last two constructor params (BC) is unaffected only if new fields
+        // are appended after them, not inserted before.
+        private ?string $translator = null,
     ) {
         $this->setBudgetFields($beUserUid, $plannedCost);
         $this->validate();
