@@ -32,9 +32,18 @@ jobs:
       # breaks are a TYPO3-major axis (TCA/DI/schema), essentially never a PHP
       # patch axis, which the PR already proved across all four versions. This
       # cuts the queue's slowest matrix (functional, 8-11min/cell) from 8 cells
-      # to 2. The required-status-checks ruleset is reduced to match (only the
+      # to 4. The required-status-checks ruleset is reduced to match (only the
       # 8.4 cells stay required); the other cells remain visible on the PR.
-      php-versions: ${{ github.event_name == 'merge_group' && '["8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
+      #
+      # 8.2 must stay FIRST in both lists: the reusable runs the tool jobs
+      # (lint, cgl, phpstan, rector) on fromJSON(php-versions)[0], and Rector
+      # 2.6's PHPUnit rules resolve against the phpunit version composer
+      # installs — 8.2 resolves phpunit ^11, 8.4 resolves ^13, and the 13-only
+      # migrations (e.g. expectExceptionMessageIsOrContains) would break the
+      # 8.2 unit legs if applied. A queue that evaluated Rector on 8.4 while
+      # the PR evaluated it on 8.2 dequeued every entry with findings the PR
+      # run could not see (observed on #573, 2026-08-03).
+      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
       typo3-versions: '["^13.4","^14.3"]'
       # Keeps the unit job's Codecov upload on every PR — that job is ~1min, so
       # its Xdebug tax is negligible and patch coverage stays useful. The
