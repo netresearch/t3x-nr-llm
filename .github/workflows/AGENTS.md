@@ -175,3 +175,11 @@ jobs:
 - Use `act` for local testing: https://github.com/nektos/act
 - Check existing workflows in this repo for patterns
 <!-- AGENTS-GENERATED:END help -->
+
+## Org-owned reusables track `@main`
+
+The "pin to a full SHA, not a tag" rule above covers **third-party** actions only. Every `uses: netresearch/…` reference stays on `@main` — not a tag, not a SHA.
+
+Netresearch reusables are deliberately mutable so an upstream fix reaches all consumers at once. A pin freezes this repo on an old copy and turns each upstream fix into a Renovate bump PR — `republish.yml` was pinned in April 2026 and had already collected one such PR the following day.
+
+The `githubactions:S7637` hotspot this leaves in SonarCloud is accepted. If a quality gate blocks on it, mark the hotspot Safe — do not resolve it by pinning.
