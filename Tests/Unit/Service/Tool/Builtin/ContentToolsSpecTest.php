@@ -222,20 +222,20 @@ final class ContentToolsSpecTest extends TestCase
     private function searchTool(): SearchRecordsTool
     {
         return new SearchRecordsTool(
-            $this->createMock(ConnectionPool::class),
+            self::createStub(ConnectionPool::class),
             new TableReadAccessService(),
-            $this->createMock(SearchableSchemaFieldsCollector::class),
+            self::createStub(SearchableSchemaFieldsCollector::class),
         );
     }
 
     private function pageContentTool(): GetPageContentTool
     {
-        return new GetPageContentTool($this->createMock(ConnectionPool::class));
+        return new GetPageContentTool(self::createStub(ConnectionPool::class));
     }
 
     private function readRecordsTool(): ReadRecordsTool
     {
-        return new ReadRecordsTool($this->createMock(ConnectionPool::class), new TableReadAccessService());
+        return new ReadRecordsTool(self::createStub(ConnectionPool::class), new TableReadAccessService());
     }
 
     private function typoScriptTool(): GetTypoScriptTool
@@ -250,6 +250,6 @@ final class ContentToolsSpecTest extends TestCase
 
     private function tsConfigTool(): GetTsConfigTool
     {
-        return new GetTsConfigTool($this->createMock(ConnectionPool::class));
+        return new GetTsConfigTool(self::createStub(ConnectionPool::class));
     }
 }

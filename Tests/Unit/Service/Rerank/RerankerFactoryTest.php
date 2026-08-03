@@ -52,7 +52,7 @@ final class RerankerFactoryTest extends TestCase
         $extensionConfiguration->method('get')->willThrowException(
             new ExtensionConfigurationExtensionNotConfiguredException('not configured', 1784750101),
         );
-        $factory = new RerankerFactory($this->createMock(RequestFactory::class), $extensionConfiguration);
+        $factory = new RerankerFactory(self::createStub(RequestFactory::class), $extensionConfiguration);
 
         self::assertInstanceOf(NullReranker::class, $factory->create());
     }

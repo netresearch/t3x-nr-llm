@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\NullLogger;
@@ -37,7 +38,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelControllerTest extends TestCase
 {
     private ModelRepository&MockObject $modelRepository;
-    private ProviderRepository&MockObject $providerRepository;
+    private ProviderRepository&Stub $providerRepository;
     private PersistenceManagerInterface&MockObject $persistenceManager;
     private ModelController $subject;
     private mixed $previousBeUser;
@@ -54,7 +55,7 @@ final class ModelControllerTest extends TestCase
         $GLOBALS['BE_USER'] = $backendUser;
 
         $this->modelRepository = $this->createMock(ModelRepository::class);
-        $this->providerRepository = $this->createMock(ProviderRepository::class);
+        $this->providerRepository = self::createStub(ProviderRepository::class);
         $this->persistenceManager = $this->createMock(PersistenceManagerInterface::class);
 
         // Create controller using reflection to inject only required dependencies

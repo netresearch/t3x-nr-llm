@@ -11,13 +11,12 @@ namespace Netresearch\NrLlm\Tests\Unit\Form\Element;
 
 use Netresearch\NrLlm\Form\Element\ModelIdElement;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Http\Message\UriInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 
-/**
- * @covers \Netresearch\NrLlm\Form\Element\ModelIdElement
- */
+#[CoversClass(ModelIdElement::class)]
 final class ModelIdElementTest extends AbstractUnitTestCase
 {
     private ModelIdElement $subject;

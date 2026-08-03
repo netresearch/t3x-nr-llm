@@ -11,13 +11,12 @@ namespace Netresearch\NrLlm\Tests\Unit\Form\FieldWizard;
 
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Psr\Http\Message\UriInterface;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 
-/**
- * @covers \Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard
- */
+#[CoversClass(ModelConstraintsWizard::class)]
 final class ModelConstraintsWizardTest extends AbstractUnitTestCase
 {
     private ModelConstraintsWizard $subject;

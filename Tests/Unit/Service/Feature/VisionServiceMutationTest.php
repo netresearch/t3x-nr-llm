@@ -362,7 +362,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
     #[Test]
     public function analyzeImageFullThrowsExceptionForInvalidUrl(): void
     {
-        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock = self::createStub(LlmServiceManagerInterface::class);
         $service = new VisionService($llmManagerMock);
 
         $this->expectException(InvalidArgumentException::class);
