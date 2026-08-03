@@ -42,7 +42,7 @@ final class ConfigurationPresetRegistryTest extends TestCase
         $beta = self::preset('ext_b.beta');
         $registry = new ConfigurationPresetRegistry(
             [new FixturePresetProvider([$alpha]), new FixturePresetProvider([$beta])],
-            $this->createMock(LlmConfigurationRepository::class),
+            self::createStub(LlmConfigurationRepository::class),
         );
 
         self::assertSame([$alpha, $beta], $registry->all());
@@ -61,7 +61,7 @@ final class ConfigurationPresetRegistryTest extends TestCase
                 new FixturePresetProvider([self::preset('ext.dup')]),
                 new FixturePresetProvider([self::preset('ext.dup')]),
             ],
-            $this->createMock(LlmConfigurationRepository::class),
+            self::createStub(LlmConfigurationRepository::class),
         );
     }
 

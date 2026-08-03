@@ -68,7 +68,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $this->suspendApproval('delete_thing', ['uid' => 42]);
         $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string', 'title' => 'Reason']], 'required' => ['reason']]);
 
-        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $this->createMock(AgentRuntimeInterface::class));
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), self::createStub(AgentRuntimeInterface::class));
         $this->setRequest($controller, 'list');
 
         $response = $controller->listAction();

@@ -174,7 +174,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function generateCacheKeyIncludesProviderAndOperation(): void
     {
-        $cacheFrontend = $this->createMock(FrontendInterface::class);
+        $cacheFrontend = self::createStub(FrontendInterface::class);
         $cacheManager = $this->createCacheManager($cacheFrontend);
 
         $key = $cacheManager->generateCacheKey('openai', 'completion', ['prompt' => 'test']);
@@ -185,7 +185,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function generateCacheKeyProducesDifferentKeysForDifferentParams(): void
     {
-        $cacheFrontend = $this->createMock(FrontendInterface::class);
+        $cacheFrontend = self::createStub(FrontendInterface::class);
         $cacheManager = $this->createCacheManager($cacheFrontend);
 
         $key1 = $cacheManager->generateCacheKey('openai', 'completion', ['prompt' => 'test1']);
@@ -197,7 +197,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
     #[Test]
     public function generateCacheKeyProducesSameKeyForSameParamsInDifferentOrder(): void
     {
-        $cacheFrontend = $this->createMock(FrontendInterface::class);
+        $cacheFrontend = self::createStub(FrontendInterface::class);
         $cacheManager = $this->createCacheManager($cacheFrontend);
 
         $key1 = $cacheManager->generateCacheKey('openai', 'completion', ['a' => 1, 'b' => 2]);

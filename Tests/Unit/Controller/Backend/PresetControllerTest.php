@@ -108,7 +108,7 @@ final class PresetControllerTest extends TestCase
         $importService = new ConfigurationPresetImportService(
             $modelSelection,
             $repository,
-            $this->createMock(PersistenceManagerInterface::class),
+            self::createStub(PersistenceManagerInterface::class),
             $diffService,
             $models,
             $providers,

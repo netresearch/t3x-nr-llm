@@ -64,7 +64,7 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
 
         $wizard = new DataClassEnforcementDefaultUpdateWizard(
             $this->getConnectionPool(),
-            $this->createMock(ExtensionConfiguration::class),
+            self::createStub(ExtensionConfiguration::class),
         );
 
         self::assertFalse($wizard->updateNecessary());
@@ -78,7 +78,7 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
 
         $wizard = new DataClassEnforcementDefaultUpdateWizard(
             $this->getConnectionPool(),
-            $this->createMock(ExtensionConfiguration::class),
+            self::createStub(ExtensionConfiguration::class),
         );
 
         self::assertFalse($wizard->updateNecessary(), 'an explicit enforce is left untouched');
@@ -92,7 +92,7 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
 
         $wizard = new DataClassEnforcementDefaultUpdateWizard(
             $this->getConnectionPool(),
-            $this->createMock(ExtensionConfiguration::class),
+            self::createStub(ExtensionConfiguration::class),
         );
 
         self::assertFalse($wizard->updateNecessary(), 'already observe -> nothing to do');

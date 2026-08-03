@@ -339,7 +339,7 @@ final class ConversationServiceTest extends TestCase
     #[Test]
     public function startSessionStampsTitleAndTheActorAsOwner(): void
     {
-        $service = $this->service($this->createMock(LlmServiceManagerInterface::class), new RecordingAiSessionRepository());
+        $service = $this->service(self::createStub(LlmServiceManagerInterface::class), new RecordingAiSessionRepository());
 
         $session = $service->startSession($this->owner(), 'my chat');
 
