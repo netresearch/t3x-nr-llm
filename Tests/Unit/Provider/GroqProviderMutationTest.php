@@ -203,7 +203,7 @@ class GroqProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('Groq does not support embeddings');
+        $this->expectExceptionMessageIsOrContains('Groq does not support embeddings');
 
         $provider->embeddings('test input');
     }

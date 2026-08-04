@@ -194,7 +194,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         ]);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Incorrect API key');
+        $this->expectExceptionMessageIsOrContains('Incorrect API key');
 
         $provider->chatCompletion([
             ['role' => 'user', 'content' => 'Hello'],
@@ -218,7 +218,7 @@ class OpenAiProviderIntegrationTest extends AbstractIntegrationTestCase
         ]);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Rate limit');
+        $this->expectExceptionMessageIsOrContains('Rate limit');
 
         $provider->chatCompletion([
             ['role' => 'user', 'content' => 'Hello'],

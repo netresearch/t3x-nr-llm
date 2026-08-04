@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,6 +45,7 @@ use Psr\Http\Message\UriInterface;
 use ReflectionClass;
 
 #[CoversClass(DeepLTranslator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DeepLTranslatorTest extends AbstractUnitTestCase
 {
     use PipelineRoutingAssertionTrait;
@@ -843,7 +845,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceQuotaExceededException::class);
-        $this->expectExceptionMessage('Rate limit exceeded');
+        $this->expectExceptionMessageIsOrContains('Rate limit exceeded');
 
         $subject->translate('Hello', 'de');
     }
@@ -856,7 +858,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('quota exceeded');
+        $this->expectExceptionMessageIsOrContains('quota exceeded');
 
         $subject->translate('Hello', 'de');
     }
@@ -869,7 +871,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('empty translation');
+        $this->expectExceptionMessageIsOrContains('empty translation');
 
         $subject->translate('Hello', 'de');
     }

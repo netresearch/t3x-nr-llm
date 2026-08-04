@@ -234,7 +234,7 @@ class ClaudeProviderMutationTest extends AbstractUnitTestCase
         $provider->configure(['apiKeyIdentifier' => $this->randomApiKey()]);
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('Anthropic Claude does not support embeddings');
+        $this->expectExceptionMessageIsOrContains('Anthropic Claude does not support embeddings');
 
         $provider->embeddings('test input');
     }

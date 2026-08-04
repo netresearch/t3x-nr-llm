@@ -159,7 +159,7 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
     public function validateRejectsInvalidFormality(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('formality');
+        $this->expectExceptionMessageIsOrContains('formality');
 
         self::assertInstanceOf(DeepLOptions::class, new DeepLOptions(formality: 'invalid'));
     }
@@ -179,7 +179,7 @@ class DeepLOptionsMutationTest extends AbstractUnitTestCase
     public function validateRejectsInvalidTagHandling(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('tagHandling');
+        $this->expectExceptionMessageIsOrContains('tagHandling');
 
         self::assertInstanceOf(DeepLOptions::class, new DeepLOptions(tagHandling: 'invalid'));
     }

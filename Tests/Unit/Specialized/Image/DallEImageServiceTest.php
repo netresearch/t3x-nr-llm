@@ -1851,7 +1851,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest(['data' => []]);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Prompt cannot be empty');
+        $this->expectExceptionMessageIsOrContains('Prompt cannot be empty');
 
         $subject->generateMultiple('   ', 2, new ImageGenerationOptions(model: 'dall-e-2', size: '512x512'));
     }

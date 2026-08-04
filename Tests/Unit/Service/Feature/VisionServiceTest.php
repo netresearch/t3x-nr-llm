@@ -183,7 +183,7 @@ class VisionServiceTest extends AbstractUnitTestCase
         $invalidUrl = 'not-a-valid-url';
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid image URL');
+        $this->expectExceptionMessageIsOrContains('Invalid image URL');
 
         $this->subject->generateAltText($invalidUrl);
     }

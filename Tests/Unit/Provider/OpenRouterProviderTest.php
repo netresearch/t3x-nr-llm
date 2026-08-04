@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -34,6 +35,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class OpenRouterProviderTest extends AbstractUnitTestCase
 {
     private OpenRouterProvider $subject;
@@ -2350,7 +2352,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createSseResponse([], 500));
 
         $this->expectException(ProviderConnectionException::class);
-        $this->expectExceptionMessage('Server returned status 500');
+        $this->expectExceptionMessageIsOrContains('Server returned status 500');
 
         $provider->streamChatCompletion(
             [['role' => 'user', 'content' => 'Hi']],
@@ -2806,7 +2808,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ));
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('OpenRouter API error (500): upstream exploded');
+        $this->expectExceptionMessageIsOrContains('OpenRouter API error (500): upstream exploded');
 
         $this->subject->chatCompletion(
             [['role' => 'user', 'content' => 'Hi']],

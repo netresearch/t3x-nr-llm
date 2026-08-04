@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\FormEngineUrlBuilder;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,7 @@ use TYPO3\CMS\Core\Http\Uri;
  * Unit tests for FormEngineUrlBuilder.
  */
 #[CoversClass(FormEngineUrlBuilder::class)]
+#[AllowMockObjectsWithoutExpectations]
 final class FormEngineUrlBuilderTest extends TestCase
 {
     /**

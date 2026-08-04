@@ -384,7 +384,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativeBeUserUid(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(beUserUid: -1));
     }
@@ -393,7 +393,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativePlannedCost(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(SpeechSynthesisOptions::class, new SpeechSynthesisOptions(plannedCost: -0.01));
     }

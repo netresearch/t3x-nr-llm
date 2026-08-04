@@ -597,7 +597,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         // The availability guard runs before any request work; without it the
         // path would later surface a generic connection failure instead.
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Whisper service is not configured');
+        $this->expectExceptionMessageIsOrContains('Whisper service is not configured');
 
         $subject->transcribe($audioFile);
     }
@@ -783,7 +783,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
 
         $this->expectException(UnsupportedFormatException::class);
         // 25 * 1024 * 1024 / 1024 / 1024 = 25 MB in the limit message.
-        $this->expectExceptionMessage('Audio content exceeds maximum size of 25 MB');
+        $this->expectExceptionMessageIsOrContains('Audio content exceeds maximum size of 25 MB');
 
         $subject->transcribeFromContent($largeContent, 'test.mp3');
     }
@@ -1115,7 +1115,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Failed to connect to Whisper API');
+        $this->expectExceptionMessageIsOrContains('Failed to connect to Whisper API');
 
         $subject->transcribe($audioFile);
     }
@@ -1151,7 +1151,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Unknown Whisper API error');
+        $this->expectExceptionMessageIsOrContains('Unknown Whisper API error');
 
         $subject->transcribe($audioFile);
     }
@@ -1386,7 +1386,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithoutApiKey();
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Whisper service is not configured');
+        $this->expectExceptionMessageIsOrContains('Whisper service is not configured');
 
         $subject->transcribeFromContent('fake audio content', 'test.mp3');
     }
@@ -1398,7 +1398,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $audioFile = $this->createTestAudioFile();
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Whisper service is not configured');
+        $this->expectExceptionMessageIsOrContains('Whisper service is not configured');
 
         $subject->translateToEnglish($audioFile);
     }
@@ -1426,7 +1426,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->tempFile = $largeFile;
 
         $this->expectException(UnsupportedFormatException::class);
-        $this->expectExceptionMessage('Audio file exceeds maximum size of 25 MB');
+        $this->expectExceptionMessageIsOrContains('Audio file exceeds maximum size of 25 MB');
 
         $subject->transcribe($largeFile);
     }

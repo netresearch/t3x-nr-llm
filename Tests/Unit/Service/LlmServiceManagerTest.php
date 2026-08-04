@@ -125,7 +125,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function getProviderThrowsWhenProviderNotFound(): void
     {
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Provider "nonexistent" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "nonexistent" not found');
 
         $this->subject->getProvider('nonexistent');
     }
@@ -142,7 +142,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->createLlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->getProvider();
     }
@@ -317,7 +317,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function configureProviderThrowsForNonexistent(): void
     {
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Provider "nonexistent" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "nonexistent" not found');
 
         $this->subject->configureProvider('nonexistent', ['key' => 'value']);
     }
@@ -375,7 +375,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     {
         // Pin the registered provider (openai), which doesn't implement VisionCapableInterface
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support vision');
+        $this->expectExceptionMessageIsOrContains('does not support vision');
 
         $this->subject->vision([['type' => 'text', 'text' => 'test']], new VisionOptions(provider: 'openai'));
     }
@@ -400,7 +400,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function streamChatThrowsWhenProviderDoesNotSupportStreaming(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support streaming');
+        $this->expectExceptionMessageIsOrContains('does not support streaming');
 
         iterator_to_array($this->subject->streamChat([['role' => 'user', 'content' => 'test']], new ChatOptions(provider: 'openai')));
     }
@@ -474,7 +474,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function chatWithToolsThrowsWhenProviderDoesNotSupportTools(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support tool calling');
+        $this->expectExceptionMessageIsOrContains('does not support tool calling');
 
         $messages = [['role' => 'user', 'content' => 'test']];
         $tools = [ToolSpec::fromArray(['type' => 'function', 'function' => ['name' => 'test', 'description' => 'test', 'parameters' => []]])];
@@ -510,7 +510,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     public function embedThrowsWhenProviderDoesNotSupportEmbeddings(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support embeddings');
+        $this->expectExceptionMessageIsOrContains('does not support embeddings');
 
         $limitedProvider = new TestableNoEmbeddingsProvider();
         $this->subject->registerProvider($limitedProvider);
@@ -594,7 +594,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('orphan-config');
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('has no model assigned');
+        $this->expectExceptionMessageIsOrContains('has no model assigned');
 
         $this->subject->getAdapterFromConfiguration($config);
     }
@@ -642,7 +642,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('has no model assigned');
+        $this->expectExceptionMessageIsOrContains('has no model assigned');
 
         $manager->getAdapterFromConfiguration($config);
     }
@@ -1657,7 +1657,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('Provider "chat-only" does not support embeddings');
+        $this->expectExceptionMessageIsOrContains('Provider "chat-only" does not support embeddings');
 
         $manager->embedForConfiguration('text', $config);
     }
@@ -1945,7 +1945,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // extension-config default-provider fallback removed, the generic path
         // must throw rather than silently pick a provider.
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
@@ -1974,7 +1974,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // returns null, so with no pinned provider the generic path throws the
         // no-provider error — asserting that distinguishes the gate from a misroute.
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
@@ -2004,7 +2004,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // context to enforce membership: resolveDefaultConfiguration() returns
         // null, so with no pinned provider the generic path throws.
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->chat([['role' => 'user', 'content' => 'Hello']]);
     }
@@ -2101,7 +2101,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         // Mirror of the chat() no-fallback contract for the complete() entry point.
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->complete('Prompt');
     }
@@ -2247,7 +2247,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryMock, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support streaming');
+        $this->expectExceptionMessageIsOrContains('does not support streaming');
 
         iterator_to_array($manager->streamChatWithConfiguration([['role' => 'user', 'content' => 'Hello']], $config));
     }
@@ -2325,7 +2325,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('does not support streaming');
+        $this->expectExceptionMessageIsOrContains('does not support streaming');
 
         // No iteration: the throw must come from the call itself, proving the
         // check is eager rather than deferred into the dispatcher generator.

@@ -258,7 +258,7 @@ final class ProviderTest extends AbstractUnitTestCase
     public function setApiKeyThrowsForRawApiKey(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('API key must be a vault identifier');
+        $this->expectExceptionMessageIsOrContains('API key must be a vault identifier');
 
         // Raw API key, not a UUID v7
         $this->subject->setApiKey('sk-abc123xyz');
@@ -301,7 +301,7 @@ final class ProviderTest extends AbstractUnitTestCase
     public function setApiKeyThrowsForKnownPlaintextKeyPrefixes(string $plaintextKey): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('API key must be a vault identifier');
+        $this->expectExceptionMessageIsOrContains('API key must be a vault identifier');
 
         $this->subject->setApiKey($plaintextKey);
     }

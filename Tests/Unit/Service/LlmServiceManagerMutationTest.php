@@ -69,7 +69,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $manager = $this->createManager();
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $manager->getProvider();
     }
@@ -80,7 +80,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $manager = $this->createManager();
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Provider "nonexistent" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "nonexistent" not found');
 
         $manager->getProvider('nonexistent');
     }
@@ -177,7 +177,7 @@ class LlmServiceManagerMutationTest extends AbstractUnitTestCase
         $manager = $this->createManager();
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessage('Provider "unknown" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "unknown" not found');
 
         $manager->configureProvider('unknown', ['apiKeyIdentifier' => 'test']);
     }

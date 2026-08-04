@@ -47,7 +47,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForNegativeDimensions(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('dimensions must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('dimensions must be a positive integer');
 
         self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(dimensions: -1));
     }
@@ -56,7 +56,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForZeroDimensions(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('dimensions must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('dimensions must be a positive integer');
 
         self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(dimensions: 0));
     }
@@ -65,7 +65,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForNegativeCacheTtl(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('cache_ttl must be between');
+        $this->expectExceptionMessageIsOrContains('cache_ttl must be between');
 
         self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(cacheTtl: -1));
     }
@@ -225,7 +225,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativeBeUserUid(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(beUserUid: -1));
     }
@@ -234,7 +234,7 @@ class EmbeddingOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativePlannedCost(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(EmbeddingOptions::class, new EmbeddingOptions(plannedCost: -0.5));
     }

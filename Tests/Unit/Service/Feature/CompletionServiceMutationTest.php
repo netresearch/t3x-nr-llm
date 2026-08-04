@@ -432,7 +432,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service = new CompletionService($llmManagerMock);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Failed to decode JSON response');
+        $this->expectExceptionMessageIsOrContains('Failed to decode JSON response');
 
         $service->completeJson('Generate JSON');
     }
@@ -526,7 +526,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
         $service = new CompletionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens');
+        $this->expectExceptionMessageIsOrContains('max_tokens');
 
         $options = new ChatOptions(maxTokens: 0);
         $service->complete('Test', $options);

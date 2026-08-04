@@ -992,7 +992,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->expectException(ServiceUnavailableException::class);
         // FAL surfaces 422 with its own validation wording (see mapErrorStatus()):
         // the prefix and the decoded detail in that exact order.
-        $this->expectExceptionMessage('FAL API validation error: Invalid prompt');
+        $this->expectExceptionMessageIsOrContains('FAL API validation error: Invalid prompt');
 
         $subject->generate('A sunset');
     }
@@ -1189,7 +1189,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupQueueResponses(['IN_PROGRESS'], null);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('FAL generation timed out');
+        $this->expectExceptionMessageIsOrContains('FAL generation timed out');
 
         $subject->generate('A sunset', 'sdxl');
     }
@@ -1253,7 +1253,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($queueSubmitResponse);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('no request_id');
+        $this->expectExceptionMessageIsOrContains('no request_id');
 
         $subject->generate('A sunset', 'sdxl'); // sdxl uses queue
     }
@@ -1300,7 +1300,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturnOnConsecutiveCalls($queueSubmitResponse, $statusResponse);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('FAL generation failed');
+        $this->expectExceptionMessageIsOrContains('FAL generation failed');
 
         $subject->generate('A sunset', 'sdxl');
     }
@@ -1350,7 +1350,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Failed to connect to FAL API');
+        $this->expectExceptionMessageIsOrContains('Failed to connect to FAL API');
 
         $subject->generate('A sunset');
     }
@@ -1387,7 +1387,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Invalid model specified');
+        $this->expectExceptionMessageIsOrContains('Invalid model specified');
 
         $subject->generate('A sunset');
     }
@@ -1796,7 +1796,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupFailedRequest(500, 'Boom detail');
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Boom detail');
+        $this->expectExceptionMessageIsOrContains('Boom detail');
 
         $subject->generate('A sunset');
     }
@@ -1810,7 +1810,7 @@ class FalImageServiceTest extends AbstractUnitTestCase
         $this->setupFailedRequestRaw(500, ['detail' => '', 'message' => '']);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Unknown FAL API error');
+        $this->expectExceptionMessageIsOrContains('Unknown FAL API error');
 
         $subject->generate('A sunset');
     }

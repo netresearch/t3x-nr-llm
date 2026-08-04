@@ -205,7 +205,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     public function validateThrowsOnInvalidTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature');
+        $this->expectExceptionMessageIsOrContains('temperature');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(temperature: 3.0)); // Above max of 2.0
     }
@@ -214,7 +214,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     public function validateThrowsOnNegativeMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens');
+        $this->expectExceptionMessageIsOrContains('max_tokens');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(maxTokens: -1));
     }
@@ -223,7 +223,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     public function validateThrowsOnInvalidTopP(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('top_p');
+        $this->expectExceptionMessageIsOrContains('top_p');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(topP: 1.5)); // Above max of 1.0
     }
@@ -232,7 +232,7 @@ class ChatOptionsMutationTest extends AbstractUnitTestCase
     public function validateThrowsOnInvalidResponseFormat(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('response_format');
+        $this->expectExceptionMessageIsOrContains('response_format');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(responseFormat: 'invalid'));
     }

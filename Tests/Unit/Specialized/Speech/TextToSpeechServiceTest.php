@@ -408,7 +408,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // ensureAvailable() fires FIRST, before any request is built — the
         // not-configured message is distinct from the generic API-error
         // message the send path would otherwise raise.
-        $this->expectExceptionMessage('Tts service is not configured');
+        $this->expectExceptionMessageIsOrContains('Tts service is not configured');
 
         $subject->synthesize('Hello world');
     }
@@ -421,7 +421,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->expectException(ServiceUnavailableException::class);
         // trim('   ') is empty, so validateInput() rejects it with this exact
         // message — pins both the trim() unwrap and the throw itself.
-        $this->expectExceptionMessage('Input text cannot be empty');
+        $this->expectExceptionMessageIsOrContains('Input text cannot be empty');
 
         $subject->synthesize('   ');
     }
@@ -435,7 +435,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->expectException(ServiceUnavailableException::class);
         // Over-length input is rejected by validateInput() before any request
         // — pins the throw against the generic send-path error message.
-        $this->expectExceptionMessage('Input text exceeds maximum length');
+        $this->expectExceptionMessageIsOrContains('Input text exceeds maximum length');
 
         $subject->synthesize($longText);
     }
@@ -1138,7 +1138,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
 
         $this->expectException(ServiceQuotaExceededException::class);
-        $this->expectExceptionMessage('Rate limit exceeded');
+        $this->expectExceptionMessageIsOrContains('Rate limit exceeded');
 
         $subject->synthesize('Test text');
     }
@@ -1172,7 +1172,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willReturn($responseStub);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Server error');
+        $this->expectExceptionMessageIsOrContains('Server error');
 
         $subject->synthesize('Test text');
     }
@@ -1318,7 +1318,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
             ->willThrowException(new RuntimeException('Connection refused'));
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Failed to connect to TTS API');
+        $this->expectExceptionMessageIsOrContains('Failed to connect to TTS API');
 
         $subject->synthesize('Test text');
     }
@@ -1927,7 +1927,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // The success window is [200, 300): a 300 response is an error and
         // maps through the default branch of mapErrorStatus().
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('OpenAI TTS API error: Multiple choices');
+        $this->expectExceptionMessageIsOrContains('OpenAI TTS API error: Multiple choices');
 
         $subject->synthesize('Hello world');
     }
@@ -2021,7 +2021,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         // InvalidArgumentException from the options validation instead of
         // the not-configured error.
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessage('Tts service is not configured');
+        $this->expectExceptionMessageIsOrContains('Tts service is not configured');
 
         $subject->synthesizeLong('Hello world', ['voice' => 'not-a-real-voice']);
     }

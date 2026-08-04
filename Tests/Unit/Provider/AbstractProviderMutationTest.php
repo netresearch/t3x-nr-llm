@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,6 +38,7 @@ use Throwable;
  * extractErrorMessage(), and related methods.
  */
 #[CoversClass(AbstractProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AbstractProviderMutationTest extends AbstractUnitTestCase
 {
     // ===== Tests for supportsFeature() =====
@@ -481,7 +483,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessage('API key identifier is required');
+        $this->expectExceptionMessageIsOrContains('API key identifier is required');
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('validateConfiguration');

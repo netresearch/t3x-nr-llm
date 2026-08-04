@@ -202,7 +202,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $service = new EmbeddingService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Text cannot be empty');
+        $this->expectExceptionMessageIsOrContains('Text cannot be empty');
 
         $service->embedFull('');
     }

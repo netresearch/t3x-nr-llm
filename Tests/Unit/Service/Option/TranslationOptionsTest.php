@@ -80,7 +80,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidFormality(string $formality): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('formality must be one of: default, formal, informal');
+        $this->expectExceptionMessageIsOrContains('formality must be one of: default, formal, informal');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(formality: $formality));
     }
@@ -125,7 +125,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidDomain(string $domain): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('domain must be one of: general, technical, medical, legal, marketing');
+        $this->expectExceptionMessageIsOrContains('domain must be one of: general, technical, medical, legal, marketing');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(domain: $domain));
     }
@@ -146,7 +146,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(temperature: 2.5));
     }
@@ -155,7 +155,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForNegativeMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('max_tokens must be a positive integer');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(maxTokens: 0));
     }
@@ -451,7 +451,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativeBeUserUid(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(beUserUid: -1));
     }
@@ -460,7 +460,7 @@ class TranslationOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativePlannedCost(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(TranslationOptions::class, new TranslationOptions(plannedCost: -1.5));
     }
