@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
 use Doctrine\DBAL\ParameterType;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -67,7 +68,7 @@ final readonly class McpServerRepository
     {
         return array_values(array_filter(
             $this->findEnabled(),
-            static fn(McpServerRecord $server): bool => $server->dataClassEnum() !== null,
+            static fn(McpServerRecord $server): bool => $server->dataClassEnum() instanceof ToolDataClass,
         ));
     }
 

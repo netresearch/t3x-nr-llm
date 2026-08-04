@@ -166,7 +166,7 @@ final class McpHttpTransport
         $host = $request->getUri()->getHost();
 
         try {
-            if ($this->configuredHttpClient !== null) {
+            if ($this->configuredHttpClient instanceof ClientInterface) {
                 $response = $this->configuredHttpClient->sendRequest($request);
             } else {
                 // Anonymous host gate first — see the class docblock.
@@ -215,6 +215,7 @@ final class McpHttpTransport
             if ($chunk === '') {
                 break;
             }
+
             $body .= $chunk;
         }
 
@@ -250,6 +251,7 @@ final class McpHttpTransport
             if ($server->authHeaderName === '') {
                 throw McpTransportException::forMissingCredential($server->identifier);
             }
+
             $options['headerName'] = $server->authHeaderName;
         }
 

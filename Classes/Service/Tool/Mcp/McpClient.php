@@ -205,9 +205,11 @@ final readonly class McpClient
             if (!\is_array($block)) {
                 continue;
             }
+
             if (($block['type'] ?? null) !== 'text') {
                 continue;
             }
+
             $text = $block['text'] ?? null;
             if (\is_string($text) && $text !== '') {
                 $parts[] = $text;

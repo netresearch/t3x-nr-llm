@@ -131,6 +131,7 @@ final readonly class McpToolRepository
             if (isset($seen[$toolName])) {
                 continue;
             }
+
             ++$orphaned;
 
             // Already marked from an earlier import: counted, not rewritten,

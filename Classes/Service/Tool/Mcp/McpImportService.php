@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
 use JsonException;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\McpImportReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
@@ -57,7 +58,7 @@ final readonly class McpImportService
     {
         $now = $this->now();
 
-        if ($server->dataClassEnum() === null) {
+        if (!$server->dataClassEnum() instanceof ToolDataClass) {
             return $this->refuse($server, $now, 'The server has no declared data class, so its tools cannot be classified.');
         }
 
@@ -121,7 +122,7 @@ final readonly class McpImportService
         $this->servers->recordImportOutcome(
             $server->uid,
             $skipReasons === [] ? 'ok' : 'partial',
-            $skipReasons === [] ? '' : implode("\n", $skipReasons),
+            implode("\n", $skipReasons),
             count($accepted),
             $now,
         );

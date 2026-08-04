@@ -1365,6 +1365,7 @@ final class ToolLoopServiceTest extends TestCase
         $service = $this->service($mgr, new ToolRegistry([$this->remoteTool()]));
 
         $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
         $second = $service->runLoop([$this->userTurn('again')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         $refused = array_filter(
@@ -1413,7 +1414,7 @@ final class ToolLoopServiceTest extends TestCase
         return new class implements ToolInterface, RemoteToolInterface {
             public function getSpec(): ToolSpec
             {
-                return ToolSpec::function('remote_thing', 'a tool on someone else\'s server', ['type' => 'object', 'properties' => []]);
+                return ToolSpec::function('remote_thing', "a tool on someone else's server", ['type' => 'object', 'properties' => []]);
             }
 
             /**

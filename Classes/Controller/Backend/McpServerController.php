@@ -82,7 +82,7 @@ final class McpServerController extends ActionController
      */
     public function importAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 

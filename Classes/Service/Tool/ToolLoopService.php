@@ -798,6 +798,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         if (!in_array($call->name, $allowedNames, true)) {
             return ToolResult::error(sprintf('Error: tool "%s" not permitted', $call->name));
         }
+
         // Charged after the permission checks and before execution, so a
         // refused call costs nothing and a granted one is counted exactly once.
         // The message says the budget is spent rather than that the tool is
