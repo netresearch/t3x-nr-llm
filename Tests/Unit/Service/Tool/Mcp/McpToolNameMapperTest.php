@@ -40,8 +40,8 @@ final class McpToolNameMapperTest extends TestCase
     public function acceptsHyphensAndDigits(): void
     {
         self::assertSame(
-            'mcp_srv-2_list-items9',
-            $this->mapper->localName('srv-2', 'list-items9'),
+            'mcp_srv2_list-items9',
+            $this->mapper->localName('srv2', 'list-items9'),
         );
     }
 

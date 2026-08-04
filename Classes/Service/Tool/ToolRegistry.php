@@ -13,6 +13,7 @@ use LogicException;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
+use Throwable;
 
 /**
  * Collects every tool and exposes it to the agent loop.
@@ -108,21 +109,33 @@ final class ToolRegistry
         $this->providersHydrated = true;
 
         foreach ($this->providers as $provider) {
-            foreach ($provider->tools() as $tool) {
-                $name = $tool->getSpec()->name;
-                if (isset($this->byName[$name])) {
-                    // Not fatal, deliberately: the name came from operator
-                    // configuration, and a configuration mistake must not take
-                    // down every page that builds the registry.
-                    $this->logger?->warning('A provided tool was dropped because its name is already taken', [
-                        'tool'     => $name,
-                        'provider' => $provider::class,
-                    ]);
+            try {
+                foreach ($provider->tools() as $tool) {
+                    $name = $tool->getSpec()->name;
+                    if (isset($this->byName[$name])) {
+                        // Not fatal, deliberately: the name came from operator
+                        // configuration, and a configuration mistake must not take
+                        // down every page that builds the registry.
+                        $this->logger?->warning('A provided tool was dropped because its name is already taken', [
+                            'tool'     => $name,
+                            'provider' => $provider::class,
+                        ]);
 
-                    continue;
+                        continue;
+                    }
+
+                    $this->byName[$name] = $tool;
                 }
-
-                $this->byName[$name] = $tool;
+            } catch (Throwable $e) {
+                // Same reasoning as the collision above, one level up: a
+                // provider reads persisted rows, so a broken table or a
+                // half-written record must cost that provider its tools and
+                // nothing else. A run that then names a missing tool fails
+                // closed at the gate, which is the safe direction.
+                $this->logger?->error('A tool provider failed and supplied no tools', [
+                    'provider'  => $provider::class,
+                    'exception' => $e,
+                ]);
             }
         }
     }
