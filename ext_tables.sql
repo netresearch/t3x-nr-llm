@@ -885,3 +885,93 @@ CREATE TABLE tx_nrllm_governance_event (
     -- Join a middleware-origin row to its trace.
     KEY correlation (correlation_id)
 );
+
+#
+# Table structure for table 'tx_nrllm_mcp_server'
+# Operator-configured external MCP servers (ADR-116). nr_llm is the only MCP
+# client in the stack; consumers reach these servers through ToolRegistry, never
+# directly. HTTP is the sole transport, so there is no transport column.
+#
+CREATE TABLE tx_nrllm_mcp_server (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- Identity. The identifier prefixes every imported tool name and the group
+    -- mcp_<identifier>, so it is part of the tool namespace: ^[a-z0-9_]{1,32}$.
+    identifier varchar(32) DEFAULT '' NOT NULL,
+    name varchar(255) DEFAULT '' NOT NULL,
+    description text,
+
+    -- Absolute http(s) MCP endpoint.
+    url varchar(2048) DEFAULT '' NOT NULL,
+
+    -- Credential (nr-vault UUID, never plaintext). Empty = unauthenticated server.
+    auth_credential varchar(64) DEFAULT '' NOT NULL,
+    auth_placement varchar(32) DEFAULT 'bearer' NOT NULL,
+    auth_header_name varchar(190) DEFAULT '' NOT NULL,
+
+    -- ToolDataClass every tool of this server is classified as (ADR-094). No
+    -- default: a server whose class the operator has not declared is inert.
+    data_class varchar(32) DEFAULT '' NOT NULL,
+
+    -- Off until an operator switches it on.
+    enabled tinyint(1) DEFAULT '0' NOT NULL,
+
+    -- Import state
+    import_status varchar(20) DEFAULT 'never_imported' NOT NULL,
+    import_error text,
+    last_imported int(11) unsigned DEFAULT '0' NOT NULL,
+    tool_count int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Standard TYPO3 fields
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
+    hidden tinyint(4) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY identifier (identifier)
+);
+
+#
+# Table structure for table 'tx_nrllm_mcp_tool'
+# Tool catalogue imported from an MCP server, written only by the import action
+# (no FormEngine UI / no TCA). Queries drop the default restrictions, like
+# tx_nrllm_tool_state, so there is no deleted/hidden column.
+#
+# Per-tool enablement is NOT stored here: an imported tool is toggled through the
+# existing tx_nrllm_tool_state override keyed by tool_name, the same switch a
+# builtin tool uses.
+#
+CREATE TABLE tx_nrllm_mcp_tool (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    server int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Local name mcp_<identifier>_<remote>, <= 64 chars, ^[a-zA-Z0-9_-]+$. This
+    -- is the ToolSpec name the model sees.
+    tool_name varchar(190) DEFAULT '' NOT NULL,
+    -- The name on the wire, sent verbatim in tools/call.
+    remote_name varchar(190) DEFAULT '' NOT NULL,
+
+    description text,
+    -- Normalised JSON-Schema parameter object.
+    input_schema mediumtext,
+    -- Stored verbatim for display only; no resolver reads it.
+    remote_annotations text,
+
+    -- Present in an earlier import, absent from the latest. Kept so an operator
+    -- sees what disappeared.
+    orphaned tinyint(1) DEFAULT '0' NOT NULL,
+
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY server (server),
+    UNIQUE KEY tool_name (tool_name)
+);
