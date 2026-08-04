@@ -9,6 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\SetupWizard;
 
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\AbstractModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\AnthropicModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\DiscoveryResult;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\GeminiModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\GroqModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\MistralModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\OllamaModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenAiModelDiscoverer;
+use Netresearch\NrLlm\Service\SetupWizard\Discovery\OpenRouterModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscovery;
@@ -29,6 +38,15 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 #[CoversClass(ModelDiscovery::class)]
+#[CoversClass(AbstractModelDiscoverer::class)]
+#[CoversClass(AnthropicModelDiscoverer::class)]
+#[CoversClass(DiscoveryResult::class)]
+#[CoversClass(GeminiModelDiscoverer::class)]
+#[CoversClass(GroqModelDiscoverer::class)]
+#[CoversClass(MistralModelDiscoverer::class)]
+#[CoversClass(OllamaModelDiscoverer::class)]
+#[CoversClass(OpenAiModelDiscoverer::class)]
+#[CoversClass(OpenRouterModelDiscoverer::class)]
 #[CoversClass(DiscoveredModel::class)]
 #[CoversClass(DetectedProvider::class)]
 #[AllowMockObjectsWithoutExpectations]

@@ -64,6 +64,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that names its model explicitly still triggers no catalogue fetch. Purely
   internal.
 
+- Model discovery is split into one discoverer class per provider
+  (`Classes/Service/SetupWizard/Discovery/`); `ModelDiscovery` remains as the
+  facade with an unchanged interface and unchanged behaviour, including each
+  provider's fallback policy and result order. Purely internal — nothing to
+  reconfigure.
+
 - The agent loop's tool gate is no longer something a wiring can omit. The
   composite tool-call policy is a required constructor argument on
   `ToolLoopService`, the per-configuration allow-list resolver is gone, and the
