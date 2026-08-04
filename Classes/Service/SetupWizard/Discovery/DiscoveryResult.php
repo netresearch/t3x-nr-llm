@@ -12,7 +12,8 @@ namespace Netresearch\NrLlm\Service\SetupWizard\Discovery;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 
 /**
- * What one provider discovery produced, and whether it is live API data.
+ * What one provider discovery produced, and whether a static fallback catalog
+ * was substituted for it.
  *
  * Before the split this was a bool on the ModelDiscovery facade, set by a
  * helper deep inside each provider path. A discoverer in its own class cannot
@@ -31,8 +32,10 @@ final readonly class DiscoveryResult
     ) {}
 
     /**
-     * Models read from the provider's live API — including a legitimately
-     * empty list, which is an answer, not a failure.
+     * No static catalog was substituted. Usually live API data — but also the
+     * providers that deliberately answer a failure with an empty list rather
+     * than a canned catalog (Ollama, OpenRouter, Groq): an empty result from
+     * them is reported as-is, exactly as the inline code did.
      *
      * @param array<DiscoveredModel> $models
      */
