@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -25,8 +27,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Mutation-killing tests for LlmServiceManager.
  */
 #[CoversClass(LlmServiceManager::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
+#[CoversClass(CallMetadataFactory::class)]
+#[CoversClass(ConfigurationCallPlanner::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;

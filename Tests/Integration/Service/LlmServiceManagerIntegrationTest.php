@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Tests\Integration\AbstractIntegrationTestCase;
@@ -34,8 +36,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Tests full service coordination with multiple providers.
  */
 #[CoversClass(LlmServiceManager::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
+#[CoversClass(CallMetadataFactory::class)]
+#[CoversClass(ConfigurationCallPlanner::class)]
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     use LlmServiceManagerTestFactory;

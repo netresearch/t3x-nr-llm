@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -38,8 +40,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * so the configuration's vault key, model and pricing reach the call.
  */
 #[CoversClass(LlmServiceManager::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
-#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
+#[CoversClass(CallMetadataFactory::class)]
+#[CoversClass(ConfigurationCallPlanner::class)]
 final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTestCase
 {
     use LlmServiceManagerTestFactory;
