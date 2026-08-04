@@ -66,6 +66,14 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 <!-- AGENTS-GENERATED:END testing -->
 
 <!-- AGENTS-GENERATED:START development -->
+### Demo data for screenshots and manual testing
+
+`ddev seed-ollama` creates 1 provider (Local Ollama), 3 models and 4 configurations; `ddev seed-tasks` creates 13 tasks across 4 categories (SQL in `.ddev/sql/`). `ddev install-v14` auto-runs seed-ollama but NOT seed-tasks — run both before documentation screenshots so populated views are visible.
+
+### Functional suite runtime
+
+The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-connection smoke tests that make REAL outbound HTTPS calls to unreachable providers (deliberate 502 mapping) — the full run takes ~35 min locally while per-class runs stay fast. Scope local runs to the touched test classes; leave the full matrix to CI.
+
 ## Development Workflow
 
 1. Branch off `main` (worktree convention — see project memory).
@@ -232,6 +240,9 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 
 <!-- Hand-maintained; intentionally outside the AGENTS-GENERATED blocks above. -->
 ## Working in this repo (agent notes)
+
+- **Merge-queue stall nudge**: a CLEAN PR with armed auto-merge that never enters the queue (`isInMergeQueue: false`) usually just needs a re-evaluation — `gh pr merge --disable-auto` followed by `gh pr merge --auto`. Diagnose before escalating; admin-bypassing the queue is not the fix.
+
 
 - **`CHANGELOG.md`: check whether the section already exists before inserting one.**
   `## [Unreleased]` usually already carries `### Added`, `### Changed`, `### Fixed`
