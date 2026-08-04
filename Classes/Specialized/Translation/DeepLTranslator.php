@@ -569,6 +569,35 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             ? $options['deepl']
             : DeepLOptions::fromArray($options);
 
+        $payload = $this->applyCommonTranslateOptions($payload, $targetLanguage, $deepLOptions);
+        $payload = $this->applyTagHandling($payload, $deepLOptions);
+
+        if ($deepLOptions->splitSentences !== null) {
+            // Unlike preserve_formatting, split_sentences has no boolean variant in
+            // DeepL's schema at all — SplitSentencesOption is a string enum
+            // ('0'|'1'|'nonewlines') for both the JSON and form-encoded request
+            // body (see DeepLcom/openapi, components.schemas.SplitSentencesOption).
+            // Stays a string cast; a native bool here would be wrong, not just
+            // inconsistent with preserve_formatting.
+            $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Apply the option fields shared by the single-text and batch payload
+     * builders: formality, glossary_id, preserve_formatting. Extracted so
+     * a future option only has to be added once — this exact duplication
+     * is why the JSON-boolean fix in this PR originally had to touch two
+     * places instead of one.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function applyCommonTranslateOptions(array $payload, string $targetLanguage, DeepLOptions $deepLOptions): array
+    {
         if ($deepLOptions->formality !== null && $this->supportsFormality($targetLanguage)) {
             $payload['formality'] = $this->mapFormality($deepLOptions->formality);
         }
@@ -584,18 +613,6 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             // {"message":"Value for 'preserve_formatting' not supported."}
             // (verified against the live API).
             $payload['preserve_formatting'] = $deepLOptions->preserveFormatting;
-        }
-
-        $payload = $this->applyTagHandling($payload, $deepLOptions);
-
-        if ($deepLOptions->splitSentences !== null) {
-            // Unlike preserve_formatting, split_sentences has no boolean variant in
-            // DeepL's schema at all — SplitSentencesOption is a string enum
-            // ('0'|'1'|'nonewlines') for both the JSON and form-encoded request
-            // body (see DeepLcom/openapi, components.schemas.SplitSentencesOption).
-            // Stays a string cast; a native bool here would be wrong, not just
-            // inconsistent with preserve_formatting.
-            $payload['split_sentences'] = $deepLOptions->splitSentences ? '1' : '0';
         }
 
         return $payload;
@@ -654,18 +671,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
             ? $options['deepl']
             : DeepLOptions::fromArray($options);
 
-        if ($deepLOptions->formality !== null && $this->supportsFormality($targetLanguage)) {
-            $payload['formality'] = $this->mapFormality($deepLOptions->formality);
-        }
-
-        if ($deepLOptions->glossaryId !== null) {
-            $payload['glossary_id'] = $deepLOptions->glossaryId;
-        }
-
-        if ($deepLOptions->preserveFormatting !== null) {
-            // See buildTranslatePayload() above — JSON API needs a real boolean.
-            $payload['preserve_formatting'] = $deepLOptions->preserveFormatting;
-        }
+        $payload = $this->applyCommonTranslateOptions($payload, $targetLanguage, $deepLOptions);
 
         if ($deepLOptions->tagHandling !== null) {
             $payload['tag_handling'] = $deepLOptions->tagHandling;
