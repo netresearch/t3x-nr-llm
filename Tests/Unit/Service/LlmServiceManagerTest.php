@@ -44,6 +44,8 @@ use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
+use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionInputGuardrail;
@@ -68,6 +70,8 @@ use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
 
 #[CoversClass(LlmServiceManager::class)]
+#[CoversClass(CallMetadataFactory::class)]
+#[CoversClass(ConfigurationCallPlanner::class)]
 class LlmServiceManagerTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
