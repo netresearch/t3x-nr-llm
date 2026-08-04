@@ -173,9 +173,9 @@ final readonly class ToolResultBounder
             return $result;
         }
 
-        // Cast defends the string return type: mb_convert_encoding is typed
-        // string|false, and false (unreachable for the literal 'UTF-8' names)
-        // would otherwise be a TypeError.
+        // No cast needed: with literal 'UTF-8' encoding names PHPStan narrows
+        // mb_convert_encoding()'s string|false to string — the false branch is
+        // unreachable, and level 10 verifies exactly that.
         return mb_convert_encoding($result, 'UTF-8', 'UTF-8');
     }
 }
