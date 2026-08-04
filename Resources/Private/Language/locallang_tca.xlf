@@ -1012,6 +1012,112 @@
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>
             </trans-unit>
+
+            <!-- MCP server (ADR-116) -->
+            <trans-unit id="tx_nrllm_mcp_server">
+                <source>MCP Server</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.identifier">
+                <source>Identifier</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.identifier.description">
+                <source>Lowercase letters, digits and underscores, up to 32 characters. Prefixes every tool imported from this server and its tool group mcp_&lt;identifier&gt;. Changing it renames all of them.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.name">
+                <source>Name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.description">
+                <source>Description</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.url">
+                <source>Endpoint URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.url.description">
+                <source>Absolute http(s) URL of the MCP endpoint.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_credential">
+                <source>Credential</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_credential.description">
+                <source>Stored in nr-vault. Leave empty for an unauthenticated server.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_placement">
+                <source>Credential placement</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_placement.description">
+                <source>Where the credential goes on the request.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_placement.bearer">
+                <source>Authorization: Bearer</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_placement.header">
+                <source>Custom header</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_header_name">
+                <source>Header name</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.auth_header_name.description">
+                <source>Name of the header carrying the credential, for example X-Api-Key.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.data_class">
+                <source>Data class</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.data_class.description">
+                <source>Sensitivity every tool of this server is classified as. Required: until it is set, the server contributes no tools.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status">
+                <source>Import status</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status.never_imported">
+                <source>Never imported</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status.importing">
+                <source>Importing</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status.ok">
+                <source>OK</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status.partial">
+                <source>Partial</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_status.error">
+                <source>Error</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.import_error">
+                <source>Import error</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_imported">
+                <source>Last imported</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.tool_count">
+                <source>Imported tools</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.enabled.description">
+                <source>Off until an operator switches it on. A disabled server keeps its catalogue but contributes no tools.</source>
+            </trans-unit>
+
+            <!-- Tool data class (ADR-094) -->
+            <trans-unit id="tx_nrllm.tool_data_class.publicContent">
+                <source>Public content</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.tool_data_class.editorContent">
+                <source>Editor content</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.tool_data_class.sourceCode">
+                <source>Source code</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.tool_data_class.internalConfiguration">
+                <source>Internal configuration</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.tool_data_class.systemDiagnostics">
+                <source>System diagnostics</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm.tool_data_class.secretAdjacent">
+                <source>Secret-adjacent</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>
