@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use Netresearch\NrLlm\Provider\OpenRouter\ModelRouter;
 use GuzzleHttp\Psr7\HttpFactory;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
@@ -34,6 +35,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
+#[CoversClass(ModelRouter::class)]
 class OpenRouterProviderTest extends AbstractUnitTestCase
 {
     private OpenRouterProvider $subject;

@@ -72,6 +72,10 @@ final class ServiceLayerTest
             ->shouldNotDependOn()
             ->classes(
                 Selector::classname('/^Netresearch\\\\NrLlm\\\\Provider\\\\[A-Z][A-Za-z0-9]*Provider$/', true),
+                // Per-adapter collaborators (ADR-125) are adapter internals just
+                // like the adapters themselves; without this a helper named
+                // anything but *Provider would quietly escape the guard.
+                Selector::inNamespace('Netresearch\NrLlm\Provider\OpenRouter'),
             )
             ->because('Services must invoke providers through ProviderInterface / MiddlewarePipeline / ProviderAdapterRegistry, never via concrete adapter classes (ADR-026).');
     }

@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\OpenRouter\ModelRouter;
 use Psr\Http\Message\RequestInterface;
 use Throwable;
 
@@ -101,6 +102,14 @@ final class OpenRouterProvider extends AbstractProvider implements
      * @var array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>|null
      */
     private ?array $cachedModels = null;
+
+    /**
+     * Lazily built routing collaborator (ADR-125). A property initializer
+     * cannot contain `new`, and the adapter constructor is owned by
+     * AbstractProvider and shared by all seven providers — hence the ??= in
+     * {@see self::router()}.
+     */
+    private ?ModelRouter $router = null;
 
     public function getName(): string
     {
@@ -280,7 +289,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $messages,
         );
 
-        $model = $this->selectModel($options);
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
 
         $payload = [
             'model' => $model,
@@ -370,7 +379,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $messages,
         );
 
-        $model = $this->selectModel($options);
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
 
         $payload = [
             'model' => $model,
@@ -488,7 +497,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         // Select vision-capable model
-        $model = $this->getString($options, 'model', $this->selectVisionModel());
+        $model = $this->getString($options, 'model', $this->router()->selectVisionModel($this->fetchAvailableModels(), $this->getDefaultModel()));
 
         $messages = [
             [
@@ -574,7 +583,7 @@ final class OpenRouterProvider extends AbstractProvider implements
             $messages,
         );
 
-        $model = $this->selectModel($options);
+        $model = $this->router()->select($options, $this->routingStrategy, $this->getDefaultModel(), fn(): array => $this->fetchAvailableModels());
 
         $payload = $this->buildStreamPayload($messages, $model, $options);
 
@@ -703,173 +712,9 @@ final class OpenRouterProvider extends AbstractProvider implements
         return true;
     }
 
-    /**
-     * Select model based on routing strategy.
-     *
-     * @param array<string, mixed> $options
-     */
-    private function selectModel(array $options): string
+    private function router(): ModelRouter
     {
-        // Explicit model specified in options
-        $model = $this->getString($options, 'model');
-        if ($model !== '') {
-            return $model;
-        }
-
-        // Non-explicit strategies attempt smart routing over the available models.
-        if ($this->routingStrategy !== 'explicit') {
-            $models = $this->fetchAvailableModels();
-
-            // Filter models by requirements
-            $candidates = $models === []
-                ? []
-                : $this->filterModelsByRequirements($models, $options);
-
-            if ($candidates !== []) {
-                return match ($this->routingStrategy) {
-                    'cost_optimized' => $this->selectCheapestModel($candidates),
-                    'performance' => $this->selectFastestModel($candidates),
-                    'balanced' => $this->selectBalancedModel($candidates),
-                    default => $this->getDefaultModel(),
-                };
-            }
-        }
-
-        // Explicit strategy, no models available, or no matching candidates: use default model
-        return $this->getDefaultModel();
-    }
-
-    /**
-     * Filter models by requirements from options.
-     *
-     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $models
-     * @param array<string, mixed>                                                                                                                        $options
-     *
-     * @return array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}>
-     */
-    private function filterModelsByRequirements(array $models, array $options): array
-    {
-        $filtered = $models;
-
-        // Context length requirement
-        $minContext = $this->getInt($options, 'min_context');
-        if ($minContext > 0) {
-            $filtered = array_filter(
-                $filtered,
-                static fn(array $model): bool => $model['context_length'] >= $minContext,
-            );
-        }
-
-        // Vision capability
-        if ($this->getBool($options, 'vision_required')) {
-            $filtered = array_filter(
-                $filtered,
-                static fn(array $model) => $model['capabilities']['vision'] ?? false,
-            );
-        }
-
-        // Function calling
-        if ($this->getBool($options, 'function_calling')) {
-            return array_filter(
-                $filtered,
-                static fn(array $model) => $model['capabilities']['function_calling'] ?? false,
-            );
-        }
-
-        return $filtered;
-    }
-
-    /**
-     * Select cheapest model from candidates.
-     *
-     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
-     */
-    private function selectCheapestModel(array $candidates): string
-    {
-        $cheapest = null;
-        $lowestCost = PHP_FLOAT_MAX;
-
-        foreach ($candidates as $id => $model) {
-            $avgCost = (($model['pricing']['prompt'] ?? 0) + ($model['pricing']['completion'] ?? 0)) / 2;
-            if ($avgCost < $lowestCost) {
-                $lowestCost = $avgCost;
-                $cheapest = $id;
-            }
-        }
-
-        return $cheapest ?? $this->getDefaultModel();
-    }
-
-    /**
-     * Select fastest model (heuristic: flash/haiku/turbo models).
-     *
-     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
-     */
-    private function selectFastestModel(array $candidates): string
-    {
-        $fastKeywords = ['flash', 'haiku', 'turbo', 'instant', 'mini'];
-
-        foreach ($candidates as $id => $model) {
-            foreach ($fastKeywords as $keyword) {
-                if (stripos($id, $keyword) !== false) {
-                    return $id;
-                }
-            }
-        }
-
-        return $this->getDefaultModel();
-    }
-
-    /**
-     * Select balanced model (mid-tier quality and speed).
-     *
-     * @param array<string, array{name: string, context_length: int, pricing: array<string, float>, capabilities: array<string, bool>, provider: string}> $candidates
-     */
-    private function selectBalancedModel(array $candidates): string
-    {
-        $balancedKeywords = ['sonnet', 'medium', '3.5', 'pro'];
-
-        foreach ($candidates as $id => $model) {
-            foreach ($balancedKeywords as $keyword) {
-                if (stripos($id, $keyword) !== false) {
-                    return $id;
-                }
-            }
-        }
-
-        return $this->getDefaultModel();
-    }
-
-    /**
-     * Select vision-capable model.
-     */
-    private function selectVisionModel(): string
-    {
-        $visionModels = [
-            'anthropic/claude-sonnet-4-5',
-            'anthropic/claude-opus-4-5',
-            'openai/gpt-5.2',
-            'openai/gpt-5.2-pro',
-            'google/gemini-3-flash',
-        ];
-
-        // Check if default model supports vision
-        $models = $this->fetchAvailableModels();
-        $defaultModel = $this->getDefaultModel();
-
-        if (isset($models[$defaultModel]['capabilities']['vision'])
-            && $models[$defaultModel]['capabilities']['vision']) {
-            return $defaultModel;
-        }
-
-        // Find first available vision model
-        foreach ($visionModels as $model) {
-            if (isset($models[$model]) || $models === []) {
-                return $model;
-            }
-        }
-
-        return 'openai/gpt-5.2'; // Fallback
+        return $this->router ??= new ModelRouter();
     }
 
     /**

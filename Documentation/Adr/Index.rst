@@ -422,3 +422,4 @@ Tools
    Adr122ToolEffectContractDeferred
    Adr123OneSecretShapeCatalogue
    Adr124ProviderKeyFromTheCommandLine
+   Adr125PerAdapterCollaborators

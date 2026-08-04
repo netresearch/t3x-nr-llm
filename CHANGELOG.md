@@ -58,6 +58,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- OpenRouter's model routing lives in its own class
+  (`Provider/OpenRouter/ModelRouter`), the first per-adapter collaborator
+  (ADR-125). Same strategies, same keyword heuristics, same fallbacks; a call
+  that names its model explicitly still triggers no catalogue fetch. Purely
+  internal.
+
 - The agent loop's tool gate is no longer something a wiring can omit. The
   composite tool-call policy is a required constructor argument on
   `ToolLoopService`, the per-configuration allow-list resolver is gone, and the
