@@ -116,6 +116,15 @@ final class McpServerController extends ActionController
         ]);
     }
 
+    /**
+     * A uid, or 0 for anything that is not one.
+     *
+     * Validated rather than cast. `is_numeric()` accepts "1.9" and "1e3", and
+     * casting either yields a uid the caller never named — the import would
+     * then reach an external server chosen by a rounding rule. A form-encoded
+     * body always carries strings, so the string case is the normal one; a JSON
+     * body can carry a real integer.
+     */
     private function intFromBody(mixed $body, string $key): int
     {
         if (!is_array($body)) {
@@ -124,6 +133,16 @@ final class McpServerController extends ActionController
 
         $value = $body[$key] ?? null;
 
-        return is_numeric($value) ? (int)$value : 0;
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (!is_string($value)) {
+            return 0;
+        }
+
+        $uid = filter_var($value, FILTER_VALIDATE_INT);
+
+        return $uid === false ? 0 : $uid;
     }
 }
