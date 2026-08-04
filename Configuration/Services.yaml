@@ -473,6 +473,14 @@ services:
         description: 'Run a golden question set against a retriever and report hit rates and regression.'
         schedulable: false
 
+  # Reads the secret from STDIN, so it cannot run from the scheduler (ADR-124).
+  Netresearch\NrLlm\Command\SetProviderApiKeyCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:provider:set-key'
+        description: 'Store a provider API key read from STDIN and link it to the provider record.'
+        schedulable: false
+
 
   # ========================================
   # nr-vault integration

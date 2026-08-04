@@ -342,10 +342,14 @@ final class SetupWizardController extends ActionController
         if ($providerApiKey !== '') {
             try {
                 $vaultIdentifier = $this->generateVaultIdentifier();
+                // nr-vault reads provenance from the `metadata` option and drops
+                // unknown top-level keys, so these have to be nested to survive.
                 $this->vaultService->store($vaultIdentifier, $providerApiKey, [
-                    'table' => 'tx_nrllm_provider',
-                    'field' => 'api_key',
-                    'source' => 'setup_wizard',
+                    'metadata' => [
+                        'table' => 'tx_nrllm_provider',
+                        'field' => 'api_key',
+                        'source' => 'setup_wizard',
+                    ],
                 ]);
             } catch (Throwable $e) {
                 $this->logger->error('Setup wizard: failed to store API key in vault', ['exception' => $e]);

@@ -61,6 +61,37 @@ Adding a provider
    first-time setup — it auto-detects the provider
    type from your endpoint URL.
 
+.. _administration-providers-set-key:
+
+Setting the key from the command line
+=====================================
+
+An unattended install cannot operate the
+wizard. :bash:`nrllm:provider:set-key` does the
+same job for a provider record that already
+exists, reading the key from STDIN:
+
+.. code-block:: bash
+   :caption: Store a key for the "openai" provider
+
+   printf '%s' "$OPENAI_API_KEY" | \
+       vendor/bin/typo3 nrllm:provider:set-key openai
+
+The key is never accepted as an argument — that
+would put it in the process list and the shell
+history. A terminal is refused rather than read,
+so a provisioning script fails visibly instead of
+hanging on a prompt.
+
+Running it again for the same provider replaces
+the stored key and keeps the identifier, so
+anything already referring to that identifier —
+including
+``providers.openai.apiKeyIdentifier`` in the
+extension configuration, which the speech and
+image services read — keeps working. See
+:ref:`ADR-124 <adr-124>`.
+
 .. _administration-providers-test:
 
 Testing a connection

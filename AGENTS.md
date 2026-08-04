@@ -250,6 +250,20 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   That is a stale `.Build`, not a code defect: run
   `./Build/Scripts/runTests.sh -s composerUpdate -p 8.4` and re-run the gate.
 
+- **Run the Rector gate with `-p 8.2`, never `-p 8.4`.** Rector's PHPUnit rules
+  activate from the phpunit version composer *installed*, not from the set named
+  in `Build/rector/rector.php`. PHP 8.2 resolves phpunit ^11, 8.4 resolves ^13,
+  and the 13-only migrations do not apply to a codebase whose blocking matrix
+  caps `phpunit/phpunit:<13`. CI pins the job with `rector-php-version: '8.2'`
+  in `ci.yml` and says so in a comment there. Running it on 8.4 reports dozens of
+  files CI will never flag — and applying those "fixes" breaks the blocking
+  matrix with `Call to an undefined method
+  expectExceptionMessageIsOrContains()`. Observed 2026-08-04: a 53-file Rector
+  run taken at face value produced a PR that turned 8 PHPStan cells and several
+  test cells red; a control on unmodified `main` with an uncapped local resolve
+  reproduced the same 53 files, proving the finding was the environment, not the
+  code.
+
 - **A local gate run covers one matrix cell; CI covers eight.** The six pre-push
   suites run against a single PHP version and a single TYPO3 constraint. CI runs
   PHP 8.2–8.5 × TYPO3 13.4 / 14.3. A PHPStan finding can therefore be invisible
