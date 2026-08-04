@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Queue;
 
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -35,7 +36,7 @@ final readonly class AgentRunQueuedHandler
 
     public function __invoke(AgentRunQueuedMessage $message): void
     {
-        if ($this->agentRuntime->runQueued($message->runUuid) === null) {
+        if (!$this->agentRuntime->runQueued($message->runUuid) instanceof AgentRunResult) {
             $this->logger?->info('Queued agent run was not claimable (already claimed, cancelled, or unknown)', [
                 'run' => $message->runUuid,
             ]);

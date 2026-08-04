@@ -39,7 +39,7 @@ final readonly class ListBeGroupsTool implements ToolInterface, ToolDataClassInt
     private const HARD_LIMIT = 200;
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec

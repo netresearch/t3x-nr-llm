@@ -61,10 +61,12 @@ final class PromptSnippetController extends ActionController
             if (!$snippet instanceof PromptSnippet) { // @phpstan-ignore instanceof.alwaysTrue
                 continue;
             }
+
             $uid = $snippet->getUid();
             if ($uid === null) {
                 continue;
             }
+
             $editUrls[$uid] = $this->formEngineUrlBuilder
                 ->buildEditUrl(self::TABLE_NAME, $uid, self::MODULE_ROUTE);
         }

@@ -97,7 +97,7 @@ final class ConfigurationGenerator
         // Find the best model to use for generation
         $generationModel = $this->selectGenerationModel($models);
 
-        if ($generationModel === null) {
+        if (!$generationModel instanceof DiscoveredModel) {
             return $this->getFallbackConfigurations($models);
         }
 
@@ -136,7 +136,7 @@ final class ConfigurationGenerator
     private function selectGenerationModel(array $models): ?DiscoveredModel
     {
         // Prefer recommended models, then by context length
-        $candidates = array_filter($models, fn(DiscoveredModel $m) => $m->recommended);
+        $candidates = array_filter($models, fn(DiscoveredModel $m): bool => $m->recommended);
 
         if ($candidates === []) {
             $candidates = $models;
@@ -149,7 +149,7 @@ final class ConfigurationGenerator
         // Sort by context length (prefer larger context)
         usort(
             $candidates,
-            fn(DiscoveredModel $a, DiscoveredModel $b)
+            fn(DiscoveredModel $a, DiscoveredModel $b): int
             => $b->contextLength <=> $a->contextLength,
         );
 
@@ -164,7 +164,7 @@ final class ConfigurationGenerator
     private function buildPrompt(array $models): string
     {
         $modelList = array_map(
-            fn(DiscoveredModel $m) => sprintf(
+            fn(DiscoveredModel $m): string => sprintf(
                 '- %s (%s): %s',
                 $m->name,
                 $m->modelId,
@@ -250,10 +250,12 @@ final class ConfigurationGenerator
         if (!is_array($content) || $content === []) {
             return '';
         }
+
         $firstBlock = $content[0] ?? [];
         if (!is_array($firstBlock)) {
             return '';
         }
+
         $text = $firstBlock['text'] ?? '';
         return is_string($text) ? $text : '';
     }
@@ -269,11 +271,13 @@ final class ConfigurationGenerator
         if ($candidates === []) {
             return '';
         }
+
         $content = $this->arrayAt($this->arrayAt($candidates, 0), 'content');
         $parts   = $this->arrayAt($content, 'parts');
         if ($parts === []) {
             return '';
         }
+
         $text = $this->arrayAt($parts, 0)['text'] ?? '';
         return is_string($text) ? $text : '';
     }
@@ -303,6 +307,7 @@ final class ConfigurationGenerator
         if ($choices === []) {
             return '';
         }
+
         $message = $this->arrayAt($this->arrayAt($choices, 0), 'message');
         $content = $message['content'] ?? '';
         return is_string($content) ? $content : '';
@@ -410,7 +415,7 @@ final class ConfigurationGenerator
             }
 
             $config = $this->buildConfiguration($item, $modelId);
-            if ($config !== null) {
+            if ($config instanceof SuggestedConfiguration) {
                 $configs[] = $config;
             }
         }

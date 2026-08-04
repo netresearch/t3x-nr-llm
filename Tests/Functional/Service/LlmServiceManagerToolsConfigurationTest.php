@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTestCase
 {
     use LlmServiceManagerTestFactory;
+
     #[Test]
     public function chatWithToolsForConfigurationResolvesAdapterFromConfigurationAndReturnsToolCall(): void
     {

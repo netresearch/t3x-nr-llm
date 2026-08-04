@@ -39,7 +39,7 @@ final readonly class AllowedToolsResolver
     public function resolve(LlmConfiguration $config, ?Task $task = null): ?array
     {
         $configSkills = $this->toList($config->getSkills());
-        $taskSkills   = $task !== null ? $this->toList($task->getSkills()) : [];
+        $taskSkills   = $task instanceof Task ? $this->toList($task->getSkills()) : [];
 
         $declared = [];
         $any      = false;
@@ -48,6 +48,7 @@ final readonly class AllowedToolsResolver
             if ($list === null) {
                 continue;
             }
+
             $any = true;
             foreach ($list as $name) {
                 $declared[$name] = true;
@@ -84,7 +85,7 @@ final readonly class AllowedToolsResolver
         $inGroups = [];
         foreach ($this->registry->names() as $name) {
             $tool = $this->registry->get($name);
-            if ($tool !== null && in_array($tool->getGroup(), $groupSet, true)) {
+            if ($tool instanceof ToolInterface && in_array($tool->getGroup(), $groupSet, true)) {
                 $inGroups[] = $name;
             }
         }

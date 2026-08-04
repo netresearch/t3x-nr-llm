@@ -51,21 +51,27 @@ final readonly class ConfigurationPresetDiffService
         if ($preset->systemPrompt !== null) {
             $this->addStringChange($changes, 'systemPrompt', $record->getSystemPrompt(), $preset->systemPrompt);
         }
+
         if ($preset->temperature !== null) {
             $this->addFloatChange($changes, 'temperature', $record->getTemperature(), $preset->temperature);
         }
+
         if ($preset->maxTokens !== null) {
             $this->addIntChange($changes, 'maxTokens', $record->getMaxTokens(), $preset->maxTokens);
         }
+
         if ($preset->maxRequestsPerDay !== null) {
             $this->addIntChange($changes, 'maxRequestsPerDay', $record->getMaxRequestsPerDay(), $preset->maxRequestsPerDay);
         }
+
         if ($preset->maxTokensPerDay !== null) {
             $this->addIntChange($changes, 'maxTokensPerDay', $record->getMaxTokensPerDay(), $preset->maxTokensPerDay);
         }
+
         if ($preset->maxCostPerDay !== null) {
             $this->addFloatChange($changes, 'maxCostPerDay', $record->getMaxCostPerDay(), $preset->maxCostPerDay);
         }
+
         if ($preset->allowedToolGroups !== []) {
             $this->addToolGroupsChange($changes, $record->getAllowedToolGroupsList(), $preset->allowedToolGroups);
         }

@@ -75,6 +75,7 @@ final class GetTcaToolTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->beUserBackup;
         }
+
         parent::tearDown();
     }
 

@@ -175,7 +175,6 @@ final class VisionResponseTest extends AbstractUnitTestCase
             description: 'No confidence',
             model: 'gpt-4o',
             usage: $this->defaultUsage,
-            confidence: null,
         );
 
         self::assertFalse($response->meetsConfidence(0.5));

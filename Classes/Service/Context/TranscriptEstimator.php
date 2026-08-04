@@ -60,6 +60,7 @@ final class TranscriptEstimator
             } else {
                 $proseChars += strlen($content);
             }
+
             $denseChars += strlen(is_string($data['tool_call_id'] ?? null) ? $data['tool_call_id'] : '');
 
             $toolCalls = is_array($data['tool_calls'] ?? null) ? $data['tool_calls'] : [];

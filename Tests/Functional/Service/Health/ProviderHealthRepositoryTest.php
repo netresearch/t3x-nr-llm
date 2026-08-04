@@ -23,6 +23,7 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
     private const TABLE = 'tx_nrllm_telemetry';
 
     private ProviderHealthRepository $repository;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

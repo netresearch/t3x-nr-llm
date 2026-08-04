@@ -27,6 +27,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 class CompletionServiceTest extends AbstractUnitTestCase
 {
     private CompletionService $subject;
+
     private LlmServiceManagerInterface $llmManagerStub;
 
     protected function setUp(): void
@@ -99,6 +100,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
                     if (count($messages) !== 2) {
                         return false;
                     }
+
                     $msg0 = $messages[0];
                     $msg1 = $messages[1];
                     return $msg0 instanceof ChatMessage
@@ -181,7 +183,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $options) => $options->getTemperature() === 0.2
+                self::callback(fn(ChatOptions $options): bool => $options->getTemperature() === 0.2
                         && $options->getTopP() === 0.9),
             )
             ->willReturn($mockResponse);
@@ -201,7 +203,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $options) => $options->getTemperature() === 1.2
+                self::callback(fn(ChatOptions $options): bool => $options->getTemperature() === 1.2
                         && $options->getPresencePenalty() === 0.6),
             )
             ->willReturn($mockResponse);
@@ -377,7 +379,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($mockResponse);
 
@@ -398,7 +400,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.5),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.5),
             )
             ->willReturn($mockResponse);
 
@@ -419,7 +421,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.8),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.8),
             )
             ->willReturn($mockResponse);
 
@@ -440,7 +442,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.8 && $opts->getPresencePenalty() === 0.3),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.8 && $opts->getPresencePenalty() === 0.3),
             )
             ->willReturn($mockResponse);
 
@@ -622,7 +624,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->willReturn($mockResponse);
 
-        $result = $subject->complete('Test prompt', null);
+        $result = $subject->complete('Test prompt');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -691,7 +693,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->method('chat')
             ->willReturn($mockResponse);
 
-        $result = $subject->completeJson('Test', null);
+        $result = $subject->completeJson('Test');
 
         self::assertTrue($result['answer']);
     }
@@ -715,7 +717,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             )
             ->willReturn($mockResponse);
 
-        $result = $subject->completeMarkdown('Test', null);
+        $result = $subject->completeMarkdown('Test');
 
         self::assertEquals('# Title', $result);
     }

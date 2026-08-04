@@ -31,7 +31,9 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
 final readonly class ProviderApiTimeoutUpdateWizard implements UpgradeWizardInterface
 {
     private const TABLE = 'tx_nrllm_provider';
+
     private const OLD_DEFAULT = 30;
+
     private const NEW_DEFAULT = 120;
 
     public function __construct(

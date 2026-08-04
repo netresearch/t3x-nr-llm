@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
@@ -117,7 +118,7 @@ final readonly class GetFalReferencesTool implements ToolInterface
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $isAdmin = $user !== null && $user->isAdmin();
+        $isAdmin = $user instanceof BackendUserAuthentication && $user->isAdmin();
 
         $lines   = [];
         $skipped = 0;
@@ -127,14 +128,17 @@ final readonly class GetFalReferencesTool implements ToolInterface
             if ($table === '') {
                 continue;
             }
+
             // Non-admins only see references from tables they may read.
             if (!$isAdmin && !$this->tableAccess->canReadTable($user, $table)) {
                 continue;
             }
+
             if (count($lines) >= self::MAX_REFERENCES) {
                 ++$skipped;
                 continue;
             }
+
             $lines[] = sprintf(
                 '- %s:%d (field %s)%s',
                 $table,

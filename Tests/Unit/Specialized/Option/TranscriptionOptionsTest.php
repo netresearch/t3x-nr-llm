@@ -111,10 +111,7 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     {
         $options = new TranscriptionOptions(
             model: null,
-            language: null,
             format: null,
-            prompt: null,
-            temperature: null,
         );
 
         self::assertNull($options->model);
@@ -149,10 +146,7 @@ class TranscriptionOptionsTest extends AbstractUnitTestCase
     {
         $options = new TranscriptionOptions(
             model: 'whisper-1',
-            language: null,
             format: 'json',
-            prompt: null,
-            temperature: null,
         );
 
         $array = $options->toArray();

@@ -25,6 +25,7 @@ use PHPUnit\Framework\Attributes\Test;
 class EmbeddingServiceTest extends AbstractUnitTestCase
 {
     private EmbeddingService $subject;
+
     private LlmServiceManagerInterface $llmManagerStub;
 
     protected function setUp(): void

@@ -128,6 +128,7 @@ final class ModelTest extends TestCase
 
         $provider = $this->createProviderWithUid(1);
         $provider->setName('OpenAI');
+
         $model->setProvider($provider);
 
         self::assertSame('GPT-4o (OpenAI)', $model->getDisplayName());

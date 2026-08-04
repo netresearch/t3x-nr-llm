@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Hook;
 
 use Netresearch\NrLlm\Service\SetupWizard\ProviderDetector;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 
@@ -39,7 +38,6 @@ final class ProviderEndpointNormalizationHook
         array &$fieldArray,
         string $table,
         int|string $id,
-        DataHandler $dataHandler,
     ): void {
         if ($table !== 'tx_nrllm_provider' || !array_key_exists('endpoint_url', $fieldArray)) {
             return;

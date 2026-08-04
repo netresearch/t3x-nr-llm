@@ -42,10 +42,15 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class SetupWizardControllerTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_WIZARD_GENERATE = '/ajax/nrllm/wizard/generate';
+
     private const AJAX_NRLLM_WIZARD_DETECT = '/ajax/nrllm/wizard/detect';
+
     private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
+
     private const ENDPOINT_URL_IS_REQUIRED = 'Endpoint URL is required';
+
     private const AJAX_NRLLM_WIZARD_SAVE = '/ajax/nrllm/wizard/save';
+
     private const APPLICATION_JSON = 'application/json';
 
     private SetupWizardController $controller;

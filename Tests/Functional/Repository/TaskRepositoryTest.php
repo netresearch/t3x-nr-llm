@@ -28,6 +28,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class TaskRepositoryTest extends AbstractFunctionalTestCase
 {
     private TaskRepository $repository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void

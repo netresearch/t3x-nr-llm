@@ -82,10 +82,12 @@ final readonly class ToolDenialsByReasonDataProvider implements ChartDataProvide
             if ($case === ToolDenialReason::NONE) {
                 continue;
             }
+
             $count = $counts[$case->value] ?? 0;
             if ($count <= 0) {
                 continue;
             }
+
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
             $colors[]      = self::REASON_COLORS[$case->value] ?? '#9E9E9E';

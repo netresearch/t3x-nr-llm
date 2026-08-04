@@ -67,6 +67,7 @@ final class RetrievalService
             if ($backend->getIdentifier() !== $reference->backend) {
                 continue;
             }
+
             if (!$this->available($backend)) {
                 return null;
             }
@@ -91,6 +92,7 @@ final class RetrievalService
             foreach ($this->backends as $backend) {
                 $backends[] = $backend;
             }
+
             usort(
                 $backends,
                 static fn(SearchBackendInterface $a, SearchBackendInterface $b): int => $b->getPriority() <=> $a->getPriority(),
@@ -123,6 +125,7 @@ final class RetrievalService
             if (isset($seen[$key])) {
                 continue;
             }
+
             $seen[$key] = true;
             $sources[] = $source;
             if (count($sources) >= $maxSources) {

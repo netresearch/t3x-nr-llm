@@ -52,7 +52,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->complete('Test prompt', null);
+        $result = $service->complete('Test prompt');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -66,7 +66,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.2),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.2),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -83,7 +83,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 0.9),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 0.9),
             )
             ->willReturn($this->createMockResponse('Factual response'));
 
@@ -100,7 +100,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 0.5),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -118,7 +118,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTemperature() === 1.2),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTemperature() === 1.2),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -135,7 +135,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getTopP() === 1.0),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getTopP() === 1.0),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -152,7 +152,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.6),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.6),
             )
             ->willReturn($this->createMockResponse('Creative response'));
 
@@ -169,7 +169,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getPresencePenalty() === 0.3),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getPresencePenalty() === 0.3),
             )
             ->willReturn($this->createMockResponse('Response'));
 
@@ -188,7 +188,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeJson('Generate JSON', null);
+        $result = $service->completeJson('Generate JSON');
 
         self::assertEquals(['key' => 'value'], $result);
     }
@@ -203,7 +203,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('# Heading'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeMarkdown('Generate markdown', null);
+        $result = $service->completeMarkdown('Generate markdown');
 
         self::assertEquals('# Heading', $result);
     }
@@ -475,6 +475,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     if (count($messages) !== 2) {
                         return false;
                     }
+
                     $msg0 = $messages[0];
                     $msg1 = $messages[1];
                     return $msg0 instanceof ChatMessage
@@ -505,6 +506,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
                     if (count($messages) !== 1) {
                         return false;
                     }
+
                     $msg = $messages[0];
                     return $msg instanceof ChatMessage
                         && $msg->isUser()
@@ -541,7 +543,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeFactual('Question', null);
+        $result = $service->completeFactual('Question');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -555,7 +557,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('Response'));
 
         $service = new CompletionService($llmManagerMock);
-        $result = $service->completeCreative('Prompt', null);
+        $result = $service->completeCreative('Prompt');
 
         self::assertInstanceOf(CompletionResponse::class, $result);
     }
@@ -569,7 +571,7 @@ class CompletionServiceMutationTest extends AbstractUnitTestCase
             ->method('chat')
             ->with(
                 self::anything(),
-                self::callback(fn(ChatOptions $opts) => $opts->getResponseFormat() === 'json'),
+                self::callback(fn(ChatOptions $opts): bool => $opts->getResponseFormat() === 'json'),
             )
             ->willReturn($this->createMockResponse('{"key": "value"}'));
 

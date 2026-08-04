@@ -50,10 +50,10 @@ final readonly class GetTypoScriptTool implements ToolInterface
     private const TYPE_CONSTANTS = 'constants';
 
     public function __construct(
-        protected FrontendTypoScriptFactory $typoScriptFactory,
-        protected SysTemplateRepository $sysTemplateRepository,
-        protected SiteFinder $siteFinder,
-        protected CacheManager $cacheManager,
+        private FrontendTypoScriptFactory $typoScriptFactory,
+        private SysTemplateRepository $sysTemplateRepository,
+        private SiteFinder $siteFinder,
+        private CacheManager $cacheManager,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -206,6 +206,7 @@ final readonly class GetTypoScriptTool implements ToolInterface
             $lastSegment = substr((string)strrchr('.' . $path, '.'), 1);
             $lines[]     = sprintf('%s = %s', $path, $this->redactSecretValue($lastSegment, $value));
         }
+
         if ($subtree !== null) {
             $this->renderTree($subtree, $lines, 0);
         }
@@ -229,10 +230,12 @@ final readonly class GetTypoScriptTool implements ToolInterface
             if ($path !== '' && $key !== $path && !str_starts_with($key, $path . '.')) {
                 continue;
             }
+
             if (count($lines) >= self::MAX_LINES) {
                 $lines[] = sprintf('… [output truncated at %d lines]', self::MAX_LINES);
                 break;
             }
+
             $lastSegment = substr((string)strrchr('.' . $key, '.'), 1);
             $lines[]     = sprintf('%s = %s', $key, $this->redactSecretValue($lastSegment, $value));
         }

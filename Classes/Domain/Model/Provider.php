@@ -39,8 +39,11 @@ class Provider extends AbstractEntity
     private const PLAINTEXT_API_KEY_PREFIXES = ['sk-', 'xai-', 'AIza', 'gsk_'];
 
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
+
     protected string $adapterType = '';
 
     /**
@@ -49,17 +52,29 @@ class Provider extends AbstractEntity
      * resolves that to the strictest zone.
      */
     protected string $trustZone = '';
+
     protected string $endpointUrl = '';
+
     protected string $apiKey = '';
+
     protected string $organizationId = '';
+
     protected int $apiTimeout = 120;
+
     protected int $maxRetries = 3;
+
     protected string $options = '';
+
     protected bool $isActive = true;
+
     protected int $priority = 50;
+
     protected int $sorting = 0;
+
     protected int $tstamp = 0;
+
     protected int $crdate = 0;
+
     /**
      * Models associated with this provider.
      *
@@ -136,7 +151,7 @@ class Provider extends AbstractEntity
         }
 
         // Detect legacy plaintext API keys that were stored before vault integration
-        if (!self::isVaultIdentifier($this->apiKey)) {
+        if (!$this->isVaultIdentifier($this->apiKey)) {
             trigger_error(
                 \sprintf(
                     'Provider %d has a plaintext API key instead of a vault identifier. '
@@ -228,10 +243,12 @@ class Provider extends AbstractEntity
         if ($this->options === '') {
             return [];
         }
+
         $decoded = json_decode($this->options, true);
         if (!is_array($decoded)) {
             return [];
         }
+
         /** @var array<string, mixed> $decoded */
         return $decoded;
     }
@@ -292,9 +309,10 @@ class Provider extends AbstractEntity
     {
         // Extbase can reconstitute a relation-less entity without the constructor's
         // ObjectStorage init, leaving this property unset/null.
-        if (!isset($this->models)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+        if (!$this->models instanceof ObjectStorage) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
             $this->models = new ObjectStorage();
         }
+
         return $this->models;
     }
 
@@ -375,7 +393,7 @@ class Provider extends AbstractEntity
     {
         // Allow empty string (no key / clearing)
         // Reject values that look like raw API keys (not vault identifiers)
-        if ($apiKey !== '' && !self::isVaultIdentifier($apiKey)) {
+        if ($apiKey !== '' && !$this->isVaultIdentifier($apiKey)) {
             throw new InvalidArgumentException(
                 'API key must be a vault identifier (UUID v7 or name-style identifier), not a raw secret. '
                 . 'Use VaultServiceInterface::store() first.',
@@ -395,7 +413,7 @@ class Provider extends AbstractEntity
      * prefix are conservatively treated as legacy plaintext secrets, since
      * some raw keys would otherwise match the name-style pattern.
      */
-    private static function isVaultIdentifier(string $value): bool
+    private function isVaultIdentifier(string $value): bool
     {
         foreach (self::PLAINTEXT_API_KEY_PREFIXES as $prefix) {
             if (str_starts_with($value, $prefix)) {
@@ -521,6 +539,7 @@ class Provider extends AbstractEntity
         if ($this->endpointUrl !== '') {
             return $this->endpointUrl;
         }
+
         return self::getDefaultEndpointForAdapter($this->adapterType);
     }
 
@@ -592,8 +611,8 @@ class Provider extends AbstractEntity
 
         // Merge additional options
         $additionalOptions = $this->getOptionsArray();
-        if (!empty($additionalOptions)) {
-            $config = array_merge($config, $additionalOptions);
+        if ($additionalOptions !== []) {
+            return array_merge($config, $additionalOptions);
         }
 
         return $config;

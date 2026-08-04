@@ -87,6 +87,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
         if ($result instanceof CompletionResponse) {
             return $this->screen($result, $context, $next, false, $guardrails);
         }
+
         if ($result instanceof VisionResponse) {
             return $this->screenVision($result, $context, $guardrails);
         }
@@ -117,6 +118,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
                     'A guardrail asked to retry, but retrying is not supported for vision responses.',
                 );
             }
+
             $screened = match ($verdict) {
                 GuardrailVerdict::ALLOW => $screened,
                 GuardrailVerdict::REDACT => $result->redactedContent ?? $screened,
@@ -198,6 +200,7 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
                 'A guardrail asked to retry, but the retried response also failed: ' . $result->reason,
             );
         }
+
         // $next is the behavioural stack BELOW this guardrail (Budget → Fallback →
         // Usage → CircuitBreaker → terminal) and INSIDE Idempotency/Cache, so a
         // retry genuinely re-runs the provider rather than replaying an

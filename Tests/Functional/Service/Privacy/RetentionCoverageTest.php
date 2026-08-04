@@ -240,6 +240,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
 
         $runConnection = $connectionPool->getConnectionForTable('tx_nrllm_agentrun');
         $runConnection->insert('tx_nrllm_agentrun', $this->runRow('run-1', AgentRunStatus::COMPLETED, $timestamp));
+
         $runUid = (int)$runConnection->lastInsertId();
 
         $connectionPool->getConnectionForTable('tx_nrllm_agentrun_event')

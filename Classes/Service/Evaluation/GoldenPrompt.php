@@ -36,12 +36,14 @@ final readonly class GoldenPrompt
         if ($id === '') {
             throw new InvalidArgumentException('Golden prompt id must not be empty.', 1794000010);
         }
+
         if ($prompt === '') {
             throw new InvalidArgumentException(
                 sprintf('Golden prompt "%s" must declare a non-empty prompt.', $id),
                 1794000011,
             );
         }
+
         if ($assertions === [] && ($reference === null || $reference === '')) {
             throw new InvalidArgumentException(
                 sprintf('Golden prompt "%s" must declare at least one assertion or a reference answer.', $id),

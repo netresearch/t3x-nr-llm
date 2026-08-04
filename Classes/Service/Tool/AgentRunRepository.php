@@ -617,6 +617,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
             );
         }
+
         $rows = $queryBuilder
             ->groupBy('status')
             ->executeQuery()
@@ -641,6 +642,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
             );
         }
+
         $rows = $queryBuilder
             ->groupBy('termination_reason')
             ->executeQuery()
@@ -681,6 +683,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             if ($key === '') {
                 continue;
             }
+
             $out[$key] = self::toInt($row[$countColumn] ?? 0);
         }
 
@@ -750,7 +753,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->executeStatement();
 
             $deleteBuilder = $runConnection->createQueryBuilder();
-            $deleted += (int)$deleteBuilder
+            $deleted += $deleteBuilder
                 ->delete(self::TABLE_RUN)
                 ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();

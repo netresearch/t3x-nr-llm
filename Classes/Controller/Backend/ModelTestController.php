@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -91,9 +92,10 @@ final class ModelTestController extends ActionController
      */
     public function testModelAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -111,7 +113,7 @@ final class ModelTestController extends ActionController
     private function performModelTest(Model $model, int $uid): ResponseInterface
     {
         // Provider is lazy-loaded by Extbase
-        if ($model->getProvider() === null) {
+        if (!$model->getProvider() instanceof Provider) {
             return new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.noProviderConfigured', 'Model has no provider configured')))->jsonSerialize(), 400);
         }
 

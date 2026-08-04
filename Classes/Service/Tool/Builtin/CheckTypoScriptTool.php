@@ -135,6 +135,7 @@ final readonly class CheckTypoScriptTool implements ToolInterface
                     count($sysTemplateRows) === 1 ? '' : 's',
                 );
             }
+
             if ($site->isTypoScriptRoot()) {
                 $sources[] = 'site-set TypoScript';
             }

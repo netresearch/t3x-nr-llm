@@ -37,6 +37,7 @@ use Throwable;
 final class FalImageService extends AbstractSpecializedService implements ImageGeneratorInterface
 {
     private const API_URL = 'https://fal.run';
+
     private const QUEUE_API_URL = 'https://queue.fal.run';
 
     /** Default model endpoints. */
@@ -158,6 +159,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
                 if (!is_array($imageData)) {
                     continue;
                 }
+
                 /** @var array<string, mixed> $imageData */
                 $imageUrl = isset($imageData['url']) && is_string($imageData['url']) ? $imageData['url'] : '';
                 $results[] = new ImageGenerationResult(
@@ -355,6 +357,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             if (is_string($detail) && $detail !== '') {
                 return $detail;
             }
+
             if (is_string($message) && $message !== '') {
                 return $message;
             }
@@ -377,6 +380,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
                 ['provider' => $this->getServiceProvider()],
             );
         }
+
         return parent::mapErrorStatus($statusCode, $errorMessage);
     }
 
@@ -607,7 +611,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
             $width = $image['width'];
             $height = $image['height'];
             if (is_scalar($width) && is_scalar($height)) {
-                return (string)$width . 'x' . (string)$height;
+                return $width . 'x' . $height;
             }
         }
 
@@ -639,6 +643,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
         foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
+
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 

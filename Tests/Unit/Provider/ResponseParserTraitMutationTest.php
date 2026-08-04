@@ -39,6 +39,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
             $this->createSecureHttpClientFactoryMock(),
         );
         $provider->setHttpClient($this->createHttpClientMock());
+
         $this->traitObject = $provider;
     }
 

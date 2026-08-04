@@ -59,10 +59,12 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
         if ($json === '') {
             return new self();
         }
+
         $data = json_decode($json, true);
         if (!is_array($data)) {
             return new self();
         }
+
         /** @var array{capabilities?: list<string>, adapterTypes?: list<string>, minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $data */
         return self::fromArray($data);
     }
@@ -127,6 +129,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
         if ($this->adapterTypes === []) {
             return true; // No restriction means all are allowed
         }
+
         return in_array($adapterType, $this->adapterTypes, true);
     }
 
@@ -139,6 +142,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
         if (in_array($capabilityValue, $this->capabilities, true)) {
             return $this;
         }
+
         return new self(
             capabilities: [...$this->capabilities, $capabilityValue],
             adapterTypes: $this->adapterTypes,
@@ -156,6 +160,7 @@ final readonly class ModelSelectionCriteria implements JsonSerializable
         if (in_array($adapterType, $this->adapterTypes, true)) {
             return $this;
         }
+
         return new self(
             capabilities: $this->capabilities,
             adapterTypes: [...$this->adapterTypes, $adapterType],

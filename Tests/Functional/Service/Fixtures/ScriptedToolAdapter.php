@@ -63,7 +63,6 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
             usage: new UsageStatistics(5, 4, 9),
             finishReason: 'stop',
             provider: 'scripted-fake',
-            toolCalls: null,
         );
     }
 

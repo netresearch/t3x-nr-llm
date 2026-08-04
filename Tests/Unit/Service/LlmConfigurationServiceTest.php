@@ -33,10 +33,15 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 class LlmConfigurationServiceTest extends AbstractUnitTestCase
 {
     private LlmConfigurationRepository&MockObject $repositoryMock;
+
     private PersistenceManagerInterface&Stub $persistenceManagerStub;
+
     private Context&MockObject $contextMock;
+
     private bool $isAdmin = false;
+
     private bool $isLoggedIn = true;
+
     /** @var array<int> */
     private array $groupIds = [];
 
@@ -84,6 +89,7 @@ class LlmConfigurationServiceTest extends AbstractUnitTestCase
                 $group->method('getUid')->willReturn($id);
                 $groups->attach($group);
             }
+
             $config->method('getBeGroups')->willReturn($groups);
         } else {
             // getBeGroups() never returns null — an unrestricted configuration

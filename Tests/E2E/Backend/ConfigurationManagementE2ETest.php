@@ -50,16 +50,25 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 {
     private const NO_CONFIGURATION_UID_SPECIFIED = 'No configuration UID specified';
+
     private const CONFIGURATION_NOT_FOUND = 'Configuration not found';
+
     private const AJAX_CONFIG_SETDEFAULT = '/ajax/config/setdefault';
+
     private const AJAX_CONFIG_GET_MODELS = '/ajax/config/get-models';
+
     private const AJAX_CONFIG_TOGGLE = '/ajax/config/toggle';
+
     private const AJAX_CONFIG_TEST = '/ajax/config/test';
 
     private ConfigurationController $controller;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private ModelRepository $modelRepository;
+
     private ProviderRepository $providerRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -166,6 +175,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
             if ($config->getIdentifier() !== 'no-model-config') {
                 self::assertNotNull($config->getLlmModel(), 'Configuration should have a model');
             }
+
             // isActive() and isDefault() return bool, getTemperature() returns float, getMaxTokens() returns int
             // Verify values are accessible (types are enforced by domain model)
             $config->isActive();
@@ -956,7 +966,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         $defaultConfig = $this->configurationRepository->findDefault();
 
-        if ($defaultConfig !== null) {
+        if ($defaultConfig instanceof LlmConfiguration) {
             self::assertTrue($defaultConfig->isDefault());
             self::assertTrue($defaultConfig->isActive());
         }
@@ -989,6 +999,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
                 $iterCount++;
             }
         }
+
         self::assertSame($iterCount, $count);
     }
 
@@ -1035,7 +1046,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
     {
         // Get or set a default configuration
         $default = $this->configurationRepository->findDefault();
-        if ($default === null) {
+        if (!$default instanceof LlmConfiguration) {
             $config = $this->configurationRepository->findActive()->getFirst();
             self::assertNotNull($config);
             $configUid = $config->getUid();
@@ -1381,6 +1392,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
 
         $this->configurationRepository->add($config1);
         $this->configurationRepository->add($config2);
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -1530,6 +1542,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         foreach ($allConfigs as $config) {
             $manualCount++;
         }
+
         self::assertSame($count, $manualCount);
     }
 
@@ -1986,6 +1999,7 @@ final class ConfigurationManagementE2ETest extends AbstractBackendE2ETestCase
         // Update
         $retrieved->setName('Updated Name');
         $retrieved->setTemperature(0.9);
+
         $this->configurationRepository->update($retrieved);
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();

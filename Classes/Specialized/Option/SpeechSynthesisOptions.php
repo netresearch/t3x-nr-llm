@@ -21,7 +21,9 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
     use BudgetFieldsTrait;
 
     private const VALID_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+
     private const VALID_MODELS = ['tts-1', 'tts-1-hd'];
+
     private const VALID_FORMATS = ['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm'];
 
     /**
@@ -52,15 +54,19 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
         if ($this->model !== null) {
             self::validateEnum($this->model, self::VALID_MODELS, 'model');
         }
+
         if ($this->voice !== null) {
             self::validateEnum($this->voice, self::VALID_VOICES, 'voice');
         }
+
         if ($this->format !== null) {
             self::validateEnum($this->format, self::VALID_FORMATS, 'format');
         }
+
         if ($this->speed !== null) {
             self::validateRange($this->speed, 0.25, 4.0, 'speed');
         }
+
         $this->validateBudgetFields();
     }
 

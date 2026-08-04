@@ -25,6 +25,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
 {
     private UsageTrackerService $service;
+
     private ConnectionPool $connectionPool;
 
     private const TABLE = 'tx_nrllm_service_usage';

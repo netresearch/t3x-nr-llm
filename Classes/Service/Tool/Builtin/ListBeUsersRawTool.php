@@ -54,7 +54,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
     private const CREDENTIAL_COLUMNS = ['password', 'mfa'];
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -99,6 +99,7 @@ final readonly class ListBeUsersRawTool implements ToolInterface, ToolDataClassI
             foreach ($row as $key => $value) {
                 $pairs[] = sprintf('  %s: %s', (string)$key, $this->truncate(self::toStr($value)));
             }
+
             $blocks[] = sprintf('[%d]', self::toInt($row['uid'] ?? 0)) . "\n" . implode("\n", $pairs);
         }
 

@@ -46,22 +46,32 @@ abstract class AbstractProvider implements ProviderInterface
      * @deprecated Use ModelCapability enum instead
      */
     protected const FEATURE_CHAT = 'chat';
+
     /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_COMPLETION = 'completion';
+
     /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_EMBEDDINGS = 'embeddings';
+
     /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_VISION = 'vision';
+
     /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_STREAMING = 'streaming';
+
     /** @deprecated Use ModelCapability enum instead */
     protected const FEATURE_TOOLS = 'tools';
 
     protected string $apiKeyIdentifier = '';
+
     protected string $baseUrl = '';
+
     protected string $defaultModel = '';
+
     protected int $timeout = 120;
+
     protected int $maxRetries = 3;
+
     protected string $organizationId = '';
 
     /**
@@ -173,7 +183,7 @@ abstract class AbstractProvider implements ProviderInterface
      */
     protected function getHttpClient(?int $timeout = null): ClientInterface
     {
-        if ($this->configuredHttpClient !== null) {
+        if ($this->configuredHttpClient instanceof ClientInterface) {
             return $this->configuredHttpClient;
         }
 
@@ -323,6 +333,7 @@ abstract class AbstractProvider implements ProviderInterface
         if ($httpClient instanceof VaultHttpClientInterface) {
             $httpClient = $httpClient->withReason($this->buildAuditReason($endpoint, $payload));
         }
+
         $attempt = 0;
         $lastException = null;
         // maxRetries counts retries after the initial attempt; max_retries = 0
@@ -367,7 +378,7 @@ abstract class AbstractProvider implements ProviderInterface
                     // attempt >= 9 (100000 * 2**9 = 51.2s already exceeds the
                     // cap) so the 2 ** $attempt term cannot overflow the float→int
                     // cast into a negative value and make usleep() throw.
-                    $backoffMicros = $attempt >= 9 ? 30_000_000 : (int)(100000 * (2 ** $attempt));
+                    $backoffMicros = $attempt >= 9 ? 30_000_000 : 100000 * (2 ** $attempt);
                     usleep($backoffMicros);
                 }
             }
@@ -491,7 +502,15 @@ abstract class AbstractProvider implements ProviderInterface
                 continue;
             }
 
-            if (!is_string($value) || str_contains($value, "\r") || str_contains($value, "\n")) {
+            if (!is_string($value)) {
+                continue;
+            }
+
+            if (str_contains($value, "\r")) {
+                continue;
+            }
+
+            if (str_contains($value, "\n")) {
                 continue;
             }
 

@@ -35,6 +35,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class ChatCompletionWorkflowTest extends AbstractE2ETestCase
 {
     use LlmServiceManagerTestFactory;
+
     private const FAKE_CLAUDE_VAULT_ID = '019650a0-1234-7abc-8def-0123456789ab';
 
     #[Test]
@@ -219,7 +220,7 @@ class ChatCompletionWorkflowTest extends AbstractE2ETestCase
         // Act: Request with specific options (provider pinned per-call; gpt-4o supports sampling params)
         $result = $completionService->complete(
             'Generate JSON',
-            new ChatOptions(provider: 'openai', model: 'gpt-4o', temperature: 0.1, maxTokens: 500),
+            new ChatOptions(temperature: 0.1, maxTokens: 500, provider: 'openai', model: 'gpt-4o'),
         );
 
         // Assert

@@ -62,9 +62,10 @@ final class TaskRecordsController extends ActionController
      */
     public function listTablesAction(): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         try {
             return new JsonResponse((new TableListResponse(
                 tables: $this->recordTableReader->listAllowedTables(),
@@ -84,9 +85,10 @@ final class TaskRecordsController extends ActionController
      */
     public function fetchRecordsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $dto = FetchRecordsRequest::fromRequest($request);
 
         if (!$dto->isValid()) {
@@ -151,9 +153,10 @@ final class TaskRecordsController extends ActionController
      */
     public function loadRecordDataAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $dto = LoadRecordDataRequest::fromRequest($request);
 
         if (!$dto->isValid()) {

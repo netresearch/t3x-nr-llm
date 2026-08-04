@@ -191,6 +191,7 @@ final class ProviderHealthServiceTest extends AbstractUnitTestCase
                 if (!\array_key_exists($identifier, $identifierToProvider)) {
                     return null;
                 }
+
                 $provider = $identifierToProvider[$identifier];
                 if ($provider === null) {
                     return null;

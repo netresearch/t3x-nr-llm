@@ -111,7 +111,11 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
                     // every legacy row — found by the SQL predicate, then silently
                     // passed over, and left wrapped under the retired key.
                     $sealed = AgentStateEnvelopeMarker::normalise($row['value']);
-                    if ($sealed === null || !$context->isSealed($sealed)) {
+                    if ($sealed === null) {
+                        continue;
+                    }
+
+                    if (!$context->isSealed($sealed)) {
                         continue;
                     }
 

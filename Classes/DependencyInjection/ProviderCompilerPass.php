@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\DependencyInjection;
 
 use Netresearch\NrLlm\Attribute\AsLlmProvider;
 use Netresearch\NrLlm\Service\LlmServiceManager;
+use ReflectionClass;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -82,12 +83,20 @@ final class ProviderCompilerPass implements CompilerPassInterface
             }
 
             $class = $definition->getClass() ?? $serviceId;
-            if (!is_string($class) || $class === '' || !str_starts_with($class, self::SCAN_NAMESPACE_PREFIX)) {
+            if (!is_string($class)) {
+                continue;
+            }
+
+            if ($class === '') {
+                continue;
+            }
+
+            if (!str_starts_with($class, self::SCAN_NAMESPACE_PREFIX)) {
                 continue;
             }
 
             $reflection = $container->getReflectionClass($class, false);
-            if ($reflection === null) {
+            if (!$reflection instanceof ReflectionClass) {
                 continue;
             }
 

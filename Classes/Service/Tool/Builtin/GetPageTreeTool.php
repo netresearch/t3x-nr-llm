@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
@@ -50,7 +51,7 @@ final readonly class GetPageTreeTool implements ToolInterface
     private const NODE_CAP = 200;
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -86,6 +87,7 @@ final readonly class GetPageTreeTool implements ToolInterface
         if ($depth < 1) {
             $depth = self::DEFAULT_DEPTH;
         }
+
         $depth = min($depth, self::MAX_DEPTH);
 
         $lines = [];
@@ -127,9 +129,10 @@ final readonly class GetPageTreeTool implements ToolInterface
         // Respect the acting user's page permissions: a non-admin only sees
         // pages they may show. No backend user → no pages (fail-closed).
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return;
         }
+
         $permsClause = $user->getPagePermsClause(Permission::PAGE_SHOW);
 
         // Default restrictions (no removeAll) already drop soft-deleted rows;

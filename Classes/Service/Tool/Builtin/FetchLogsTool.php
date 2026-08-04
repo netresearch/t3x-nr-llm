@@ -46,7 +46,7 @@ final readonly class FetchLogsTool implements ToolInterface
     private const DEFAULT_LIMIT = 20;
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -77,6 +77,7 @@ final readonly class FetchLogsTool implements ToolInterface
         if ($limit < 1) {
             $limit = self::DEFAULT_LIMIT;
         }
+
         $limit = min($limit, self::HARD_LIMIT);
 
         $level = self::toStr($arguments['level'] ?? '');

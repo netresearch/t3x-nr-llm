@@ -19,6 +19,7 @@ use Psr\Http\Message\ServerRequestInterface;
 final readonly class FetchRecordsRequest
 {
     private const MAX_LIMIT = 200;
+
     private const DEFAULT_LIMIT = 50;
 
     public function __construct(

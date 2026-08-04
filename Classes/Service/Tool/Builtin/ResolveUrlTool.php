@@ -16,12 +16,14 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Routing\RouteNotFoundException;
 use TYPO3\CMS\Core\Routing\SiteMatcher;
 use TYPO3\CMS\Core\Routing\SiteRouteResult;
 use TYPO3\CMS\Core\Site\Entity\Site;
+use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
@@ -84,7 +86,7 @@ final readonly class ResolveUrlTool implements ToolInterface
         }
 
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
@@ -103,6 +105,7 @@ final readonly class ResolveUrlTool implements ToolInterface
         if (!$routeResult instanceof SiteRouteResult) {
             return ToolResult::text(self::NO_SITE);
         }
+
         $site = $routeResult->getSite();
         if (!$site instanceof Site) {
             // NullSite: the host/path prefix belongs to no configured site.
@@ -183,9 +186,11 @@ final readonly class ResolveUrlTool implements ToolInterface
             if ($base === '') {
                 continue;
             }
+
             if ($site->getBase()->getHost() !== '') {
                 return $base;
             }
+
             $relativeBase ??= $base;
         }
 
@@ -217,8 +222,8 @@ final readonly class ResolveUrlTool implements ToolInterface
         // and a denied page are indistinguishable in the reply (fail-closed).
         if (!$isAdmin) {
             $user        = $context->actingBackendUser();
-            $permsClause = $user !== null ? self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW)) : '1=0';
-            if ($user === null || !is_array(BackendUtility::readPageAccess($pageUid, $permsClause))) {
+            $permsClause = $user instanceof BackendUserAuthentication ? self::toStr($user->getPagePermsClause(Permission::PAGE_SHOW)) : '1=0';
+            if (!$user instanceof BackendUserAuthentication || !is_array(BackendUtility::readPageAccess($pageUid, $permsClause))) {
                 return self::NOT_PERMITTED;
             }
         }
@@ -232,9 +237,10 @@ final readonly class ResolveUrlTool implements ToolInterface
 
         $lines   = [];
         $lines[] = sprintf('Site: %s (base %s)', $site->getIdentifier(), (string)$site->getBase());
-        if ($language !== null) {
+        if ($language instanceof SiteLanguage) {
             $lines[] = sprintf('Language: %d (%s)', $language->getLanguageId(), (string)$language->getLocale());
         }
+
         $lines[] = sprintf(
             'Page: [%d] %s (doktype %d, slug %s)%s',
             self::toInt($page['uid'] ?? 0),
@@ -248,6 +254,7 @@ final readonly class ResolveUrlTool implements ToolInterface
         if ($routeArguments !== []) {
             $lines[] = 'Route arguments: ' . $this->renderArguments($routeArguments);
         }
+
         $queryArguments = $pageArguments->getQueryArguments();
         if ($queryArguments !== []) {
             $lines[] = 'Query arguments: ' . $this->renderArguments($queryArguments);

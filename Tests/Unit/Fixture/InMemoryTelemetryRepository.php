@@ -35,7 +35,7 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
 
     public function record(TelemetryRecord $record): void
     {
-        if ($this->failOnRecord !== null) {
+        if ($this->failOnRecord instanceof Throwable) {
             throw $this->failOnRecord;
         }
 

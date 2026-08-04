@@ -88,8 +88,6 @@ final readonly class AgentRun
             startedAt: $this->startedAt,
             finishedAt: $this->finishedAt,
             crdate: $this->crdate,
-            suspendedState: null,
-            queuedRequest: null,
             claimedBy: $this->claimedBy,
             leaseExpires: $this->leaseExpires,
             requeueCount: $this->requeueCount,

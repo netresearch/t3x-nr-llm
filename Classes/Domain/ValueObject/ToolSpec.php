@@ -67,6 +67,7 @@ final readonly class ToolSpec implements JsonSerializable
                 1745410001,
             );
         }
+
         if ($this->type === '') {
             throw new InvalidArgumentException(
                 'ToolSpec type must not be empty.',
@@ -74,7 +75,7 @@ final readonly class ToolSpec implements JsonSerializable
             );
         }
 
-        $this->parameters = self::normaliseParameters($parameters);
+        $this->parameters = $this->normaliseParameters($parameters);
     }
 
     /**
@@ -90,7 +91,7 @@ final readonly class ToolSpec implements JsonSerializable
      *
      * @return array<string, mixed>
      */
-    private static function normaliseParameters(array $parameters): array
+    private function normaliseParameters(array $parameters): array
     {
         if (($parameters['properties'] ?? null) === []) {
             $parameters['properties'] = new stdClass();
@@ -134,6 +135,7 @@ final readonly class ToolSpec implements JsonSerializable
                 1745410003,
             );
         }
+
         $function = $data['function'];
         if (!isset($function['name']) || !\is_string($function['name'])) {
             throw new InvalidArgumentException(

@@ -45,12 +45,14 @@ final readonly class GoldenQuestion
         if ($id === '') {
             throw new InvalidArgumentException('Golden question id must not be empty.', 1794000050);
         }
+
         if ($question === '') {
             throw new InvalidArgumentException(
                 sprintf('Golden question "%s" must declare a non-empty question.', $id),
                 1794000051,
             );
         }
+
         $seen = [];
         foreach ($expectedDocumentIds as $documentId) {
             if ($documentId === '') {
@@ -59,14 +61,17 @@ final readonly class GoldenQuestion
                     1794000052,
                 );
             }
+
             if (isset($seen[$documentId])) {
                 throw new InvalidArgumentException(
                     sprintf('Golden question "%s" declares duplicate expected document id "%s".', $id, $documentId),
                     1794000053,
                 );
             }
+
             $seen[$documentId] = true;
         }
+
         if ($hardClass === '') {
             throw new InvalidArgumentException(
                 sprintf('Golden question "%s" must declare a non-empty hard class or none.', $id),

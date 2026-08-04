@@ -292,7 +292,7 @@ final readonly class AgentRunPersister
     public function cancel(string $uuid): bool
     {
         $run = $this->findRun($uuid);
-        if ($run === null) {
+        if (!$run instanceof AgentRun) {
             return false;
         }
 

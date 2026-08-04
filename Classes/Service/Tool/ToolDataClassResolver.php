@@ -67,7 +67,7 @@ final readonly class ToolDataClassResolver
     {
         $tool = $this->registry->get($toolName);
 
-        return $tool === null ? ToolDataClass::SECRET_ADJACENT : $this->classForTool($tool);
+        return $tool instanceof ToolInterface ? $this->classForTool($tool) : ToolDataClass::SECRET_ADJACENT;
     }
 
     /**

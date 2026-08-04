@@ -32,10 +32,13 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 final readonly class VisionContent implements JsonSerializable
 {
     public const TYPE_TEXT      = 'text';
+
     public const TYPE_IMAGE_URL = 'image_url';
 
     public const DETAIL_LOW  = 'low';
+
     public const DETAIL_HIGH = 'high';
+
     public const DETAIL_AUTO = 'auto';
 
     /**
@@ -81,18 +84,21 @@ final readonly class VisionContent implements JsonSerializable
                 1745420001,
             );
         }
+
         if ($this->type === self::TYPE_TEXT && ($this->text === null || $this->text === '')) {
             throw new InvalidArgumentException(
                 'VisionContent of type "text" requires a non-empty text payload.',
                 1745420002,
             );
         }
+
         if ($this->type === self::TYPE_IMAGE_URL && ($this->imageUrl === null || $this->imageUrl === '')) {
             throw new InvalidArgumentException(
                 'VisionContent of type "image_url" requires a non-empty URL.',
                 1745420003,
             );
         }
+
         if ($this->detail !== null && !\in_array($this->detail, self::KNOWN_DETAILS, true)) {
             throw new InvalidArgumentException(
                 sprintf(
@@ -103,6 +109,7 @@ final readonly class VisionContent implements JsonSerializable
                 1745420004,
             );
         }
+
         if ($this->detail !== null && $this->type !== self::TYPE_IMAGE_URL) {
             throw new InvalidArgumentException(
                 'VisionContent detail can only be set on image_url items.',
@@ -165,6 +172,7 @@ final readonly class VisionContent implements JsonSerializable
                         1745420004,
                     );
                 }
+
                 $detail = $imageUrl['detail'];
             }
 
@@ -235,6 +243,7 @@ final readonly class VisionContent implements JsonSerializable
         if (\is_string($raw)) {
             return $raw;
         }
+
         if (\is_array($raw)) {
             $url = $raw['url'] ?? '';
 

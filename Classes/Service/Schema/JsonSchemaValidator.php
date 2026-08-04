@@ -42,6 +42,7 @@ final readonly class JsonSchemaValidator
             if (!is_array($data) || ($data !== [] && array_is_list($data))) {
                 return false;
             }
+
             foreach ($schema['required'] as $key) {
                 if (!is_string($key) || !array_key_exists($key, $data)) {
                     return false;
@@ -72,6 +73,7 @@ final readonly class JsonSchemaValidator
         if (json_last_error() !== JSON_ERROR_NONE) {
             return false;
         }
+
         $schema = json_decode($schemaJson, true);
         if (!is_array($schema)) {
             return false;

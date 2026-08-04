@@ -167,7 +167,8 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     public function openCircuitFailsFastWithoutCallingProvider(): void
     {
         $store = new InMemoryCircuitBreakerStore();
-        $store->seed(self::PROVIDER, new CircuitState(5, time())); // opened just now
+        $store->seed(self::PROVIDER, new CircuitState(5, time()));
+        // opened just now
         $called = false;
 
         try {
@@ -194,6 +195,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
         $store = new InMemoryCircuitBreakerStore();
         // Opened long enough ago that the cooldown has elapsed → half-open.
         $store->seed(self::PROVIDER, new CircuitState(5, time() - 31));
+
         $called = false;
 
         $result = $this->middleware($store, cooldown: 30)->handle(
@@ -266,7 +268,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     public function successResetsAFailureStreak(): void
     {
         $store = new InMemoryCircuitBreakerStore();
-        $store->seed(self::PROVIDER, new CircuitState(2, null)); // closed, counting
+        $store->seed(self::PROVIDER, new CircuitState(2)); // closed, counting
 
         $this->middleware($store)->handle(
             $this->context()->withConfiguration($this->config(self::PROVIDER)),
@@ -282,7 +284,7 @@ final class CircuitBreakerMiddlewareTest extends AbstractUnitTestCase
     public function nonTrippingFailureLeavesStateUntouchedAndRethrows(): void
     {
         $store = new InMemoryCircuitBreakerStore();
-        $store->seed(self::PROVIDER, new CircuitState(2, null));
+        $store->seed(self::PROVIDER, new CircuitState(2));
 
         try {
             $this->middleware($store)->handle(

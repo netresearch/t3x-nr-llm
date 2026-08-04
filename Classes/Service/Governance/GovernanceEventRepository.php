@@ -60,7 +60,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
         $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        return (int)$queryBuilder
+        return $queryBuilder
             ->delete(self::TABLE)
             ->where($queryBuilder->expr()->lt('crdate', $queryBuilder->createNamedParameter($timestamp)))
             ->executeStatement();
@@ -79,6 +79,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
             );
         }
+
         $rows = $queryBuilder
             ->groupBy('decision')
             ->executeQuery()
@@ -103,6 +104,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
             );
         }
+
         $rows = $queryBuilder
             ->groupBy('reason')
             ->executeQuery()
@@ -127,6 +129,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
             );
         }
+
         $rows = $queryBuilder
             ->groupBy('tool_name')
             ->orderBy('event_count', 'DESC')
@@ -151,6 +154,7 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
             if ($key === '') {
                 continue;
             }
+
             $out[$key] = self::toInt($row[$countColumn] ?? 0);
         }
 

@@ -46,7 +46,9 @@ use Throwable;
 final class DeepLTranslator extends AbstractSpecializedService implements TranslatorInterface
 {
     private const API_VERSION = 'v2';
+
     private const FREE_API_URL = 'https://api-free.deepl.com';
+
     private const PRO_API_URL = 'https://api.deepl.com';
 
     /** DeepL supported source languages (ISO 639-1 codes). */
@@ -167,7 +169,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         ?string $sourceLanguage = null,
         array $options = [],
     ): array {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 
@@ -210,6 +212,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 ['provider' => 'deepl'],
             );
         }
+
         $results = [];
 
         foreach ($translations as $index => $translation) {
@@ -274,7 +277,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         return array_values(array_unique(array_merge(
             self::SUPPORTED_SOURCE_LANGUAGES,
             array_map(
-                fn(string $lang) => explode('-', $lang)[0],
+                fn(string $lang): string => explode('-', $lang)[0],
                 self::SUPPORTED_TARGET_LANGUAGES,
             ),
         )));
@@ -476,6 +479,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         if ($key !== '') {
             sodium_memzero($key);
         }
+
         $this->baseUrlResolved = true;
     }
 
@@ -498,6 +502,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 }
             }
         }
+
         return $this->unknownErrorLabel();
     }
 
@@ -514,6 +519,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 ['provider' => $this->getServiceProvider()],
             );
         }
+
         return parent::mapErrorStatus($statusCode, $errorMessage);
     }
 

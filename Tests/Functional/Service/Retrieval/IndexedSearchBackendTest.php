@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Retrieval;
 
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
+use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\IndexedSearchBackend;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
@@ -78,9 +79,9 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             'sorting' => 2, 'slug' => '/migration',
         ]);
 
-        $this->publicPhash = self::indexHash('public-doc');
-        $this->restrictedPhash = self::indexHash('restricted-doc');
-        $this->regainedPhash = self::indexHash('regained-doc');
+        $this->publicPhash = $this->indexHash('public-doc');
+        $this->restrictedPhash = $this->indexHash('restricted-doc');
+        $this->regainedPhash = $this->indexHash('regained-doc');
 
         $connection = $connectionPool->getConnectionForTable('index_phash');
         self::assertInstanceOf(Connection::class, $connection);
@@ -91,7 +92,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         // The "regained" document was ALSO rendered by an anonymous session.
         $connection->insert('index_grlist', [
             'phash' => $this->regainedPhash, 'phash_x' => $this->regainedPhash,
-            'hash_gr_list' => self::indexHash('0,-1'), 'gr_list' => '0,-1',
+            'hash_gr_list' => $this->indexHash('0,-1'), 'gr_list' => '0,-1',
         ]);
 
         $connection->insert('index_fulltext', [
@@ -108,8 +109,9 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         ]);
 
         foreach (['aikido', 'migration', 'insider', 'schedule'] as $word) {
-            $connection->insert('index_words', ['wid' => self::indexHash($word), 'baseword' => $word]);
+            $connection->insert('index_words', ['wid' => $this->indexHash($word), 'baseword' => $word]);
         }
+
         $this->relate($connection, $this->publicPhash, 'aikido', 4, 12);
         $this->relate($connection, $this->publicPhash, 'migration', 4, 8);
         $this->relate($connection, $this->restrictedPhash, 'aikido', 0, 5);
@@ -135,7 +137,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('indexed_search:' . $this->publicPhash, $ids);
         self::assertContains('indexed_search:' . $this->regainedPhash, $ids, 'anonymous index_grlist row ignored');
         self::assertNotContains('indexed_search:' . $this->restrictedPhash, $ids, 'group-restricted document leaked');
@@ -154,7 +156,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             RetrievalQuery::create('aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids);
 
         $none = $this->backend->search(
@@ -171,20 +173,20 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         // Lexer produces) — it must be ignored, not required.
         $connection = $this->connectionPool->getConnectionForTable('index_words');
         self::assertInstanceOf(Connection::class, $connection);
-        $connection->insert('index_words', ['wid' => self::indexHash('the'), 'baseword' => 'the', 'is_stopword' => 1]);
+        $connection->insert('index_words', ['wid' => $this->indexHash('the'), 'baseword' => 'the', 'is_stopword' => 1]);
 
         $repeated = $this->backend->search(
             RetrievalQuery::create('aikido aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn($source): string => $source->sourceId, $repeated->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $repeated->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'duplicate query word broke the required count');
 
         $withStopword = $this->backend->search(
             RetrievalQuery::create('the aikido migration'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn($source): string => $source->sourceId, $withStopword->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $withStopword->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids, 'stopword was treated as a required word');
     }
 
@@ -201,7 +203,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['indexed_search:' . $this->publicPhash], $ids);
 
         // The gr_list guard must hold on the LIKE fallback path too: the
@@ -219,11 +221,11 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $connection = $this->connectionPool->getConnectionForTable('index_phash');
         self::assertInstanceOf(Connection::class, $connection);
 
-        $filePhash = self::indexHash('file-doc');
+        $filePhash = $this->indexHash('file-doc');
         $connection->insert('index_phash', [
             'phash' => $filePhash,
             'phash_grouping' => $filePhash,
-            'contentHash' => self::indexHash('content-' . $filePhash),
+            'contentHash' => $this->indexHash('content-' . $filePhash),
             'data_page_id' => 2,
             'gr_list' => '0,-1',
             'item_type' => 'pdf',
@@ -240,7 +242,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('indexed_search:' . $filePhash, $ids, 'non-page item_type leaked');
     }
 
@@ -288,7 +290,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
         $connection->insert('index_phash', [
             'phash' => $phash,
             'phash_grouping' => $phash,
-            'contentHash' => self::indexHash('content-' . $phash),
+            'contentHash' => $this->indexHash('content-' . $phash),
             'data_page_id' => $pageUid,
             'gr_list' => $grList,
             'item_type' => '0',
@@ -301,7 +303,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
     private function relate(Connection $connection, string $phash, string $word, int $flags, int $freq): void
     {
         $connection->insert('index_rel', [
-            'phash' => $phash, 'wid' => self::indexHash($word),
+            'phash' => $phash, 'wid' => $this->indexHash($word),
             'count' => 1, 'first' => 1, 'freq' => $freq, 'flags' => $flags,
         ]);
     }
@@ -311,7 +313,7 @@ final class IndexedSearchBackendTest extends AbstractFunctionalTestCase
      * the md5 of the lowercased word since TYPO3 13, #102975) — a storage
      * FORMAT, not a security control.
      */
-    private static function indexHash(string $value): string
+    private function indexHash(string $value): string
     {
         return md5($value); // NOSONAR php:S4790 — index table format, not cryptography
     }

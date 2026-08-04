@@ -59,13 +59,21 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class DallEImageServiceTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private ExtensionConfiguration&MockObject $extensionConfigMock;
+
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+
     private LoggerInterface&Stub $loggerStub;
+
     private VaultServiceInterface $vaultStub;
+
     private SpecializedCostCalculatorInterface $costCalculator;
+
     private ?string $tempFile = null;
 
     protected function setUp(): void
@@ -177,6 +185,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         if ($this->tempFile !== null && file_exists($this->tempFile)) {
             unlink($this->tempFile);
         }
+
         parent::tearDown();
     }
 
@@ -638,6 +647,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
     {
         $regular = new Model();
         $regular->setModelId('gpt-image-1');
+
         $default = new Model();
         $default->setModelId('gpt-image-2');
         $default->setIsDefault(true);
@@ -661,6 +671,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $foreignDefault = new Model();
         $foreignDefault->setModelId('flux-schnell');
         $foreignDefault->setIsDefault(true);
+
         $acceptable = new Model();
         $acceptable->setModelId('gpt-image-2');
 
@@ -885,9 +896,7 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $requestStub->method('withHeader')->willReturnSelf();
         $requestStub->method('withBody')->willReturnSelf();
         $this->requestFactoryStub->method('createRequest')->willReturnCallback(
-            function () use (&$capturedUrl, $requestStub): RequestInterface {
-                // createRequest($method, $url) — capture the URL (the second positional argument).
-                $args = func_get_args();
+            function (...$args) use (&$capturedUrl, $requestStub): RequestInterface {
                 $capturedUrl = is_string($args[1] ?? null) ? $args[1] : '';
                 return $requestStub;
             },

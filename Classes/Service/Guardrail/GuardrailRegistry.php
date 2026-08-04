@@ -103,12 +103,14 @@ final class GuardrailRegistry
                     $id,
                 ), 1752000000);
             }
+
             if ($flag['hasMandatory']) {
                 $mandatory[$id] = true;
             } else {
                 $selectable[] = $id;
             }
         }
+
         sort($selectable);
 
         $this->mandatory  = $mandatory;

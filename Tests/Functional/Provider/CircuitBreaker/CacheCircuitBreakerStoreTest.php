@@ -63,7 +63,7 @@ final class CacheCircuitBreakerStoreTest extends AbstractFunctionalTestCase
     {
         // The ad-hoc scheme carries colons the cache frontend rejects; the store
         // must map them to distinct, valid entry identifiers.
-        $this->store->save('ad-hoc:chat:openai', new CircuitState(1, null), 300);
+        $this->store->save('ad-hoc:chat:openai', new CircuitState(1), 300);
         $this->store->save('ad-hoc:chat:groq', new CircuitState(7, 1_700_000_500), 300);
 
         self::assertSame(1, $this->store->load('ad-hoc:chat:openai')->consecutiveFailures);

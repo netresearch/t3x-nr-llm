@@ -432,6 +432,7 @@ class BudgetServiceTest extends AbstractUnitTestCase
         if ($uid !== null) {
             $config->_setProperty('uid', $uid);
         }
+
         $config->setIdentifier('capped');
         $config->setMaxRequestsPerDay($dailyRequests);
         $config->setMaxTokensPerDay($dailyTokens);

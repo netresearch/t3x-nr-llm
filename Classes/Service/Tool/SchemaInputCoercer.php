@@ -60,6 +60,7 @@ final readonly class SchemaInputCoercer
                 /** @var array<string, mixed> $propSchema a JSON-Schema property object is keyed by string */
                 $type = $this->classifier->classify($propSchema);
             }
+
             $isRequired = in_array($name, $required, true);
             $posted     = $rawInput[$name] ?? null;
 
@@ -85,7 +86,11 @@ final readonly class SchemaInputCoercer
             // text / integer / number: an empty value is OMITTED. Optional →
             // the validator accepts the absence; required → the required-key
             // check fails with a clear per-field 422, not a silent wrong type.
-            if ($posted === null || $posted === '') {
+            if ($posted === null) {
+                continue;
+            }
+
+            if ($posted === '') {
                 continue;
             }
 

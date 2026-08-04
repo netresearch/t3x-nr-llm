@@ -71,10 +71,15 @@ use TYPO3\CMS\Core\Context\Context;
 class LlmServiceManagerTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
+
     private LlmServiceManager $subject;
+
     private ExtensionConfiguration $extensionConfigStub;
+
     private LoggerInterface $loggerStub;
+
     private ProviderAdapterRegistryInterface $adapterRegistryStub;
+
     private TestableProvider $provider;
 
     protected function setUp(): void
@@ -889,7 +894,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         // screened too (ADR-089), not only the user turns.
         $manager->chat(
             [['role' => 'user', 'content' => 'hello']],
-            new ChatOptions(provider: 'openai', systemPrompt: 'You hold key sk-abcdef0123456789ABCDEF now'),
+            new ChatOptions(systemPrompt: 'You hold key sk-abcdef0123456789ABCDEF now', provider: 'openai'),
         );
 
         $joined = $this->joinContents($provider->capturedMessages);
@@ -1005,6 +1010,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         return new InputGuardrailScreener([
             new class ($reason) implements InputGuardrailInterface {
                 use GuardrailIdentityDoubleTrait;
+
                 public function __construct(private readonly string $reason) {}
 
                 public function checkInput(string $text): GuardrailResult
@@ -2683,6 +2689,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
                 provider: $testProvider->getIdentifier(),
             ));
         }
+
         $manager->registerProvider($testProvider);
 
         return $manager;
@@ -2703,7 +2710,7 @@ final class RecordingMiddleware implements ProviderMiddlewareInterface
         callable $next,
     ): mixed {
         $configuration = $context->configuration;
-        assert($configuration !== null);
+        assert($configuration instanceof LlmConfiguration);
 
         $this->calls[] = [
             'operation'          => $context->operation,
@@ -2723,11 +2730,15 @@ final class RecordingMiddleware implements ProviderMiddlewareInterface
 class TestableProvider extends AbstractProvider
 {
     private ?CompletionResponse $nextResponse = null;
+
     private ?EmbeddingResponse $nextEmbeddingResponse = null;
+
     /** @var array<string, mixed> */
     private array $lastOptions = [];
+
     /** @var array<string, mixed> */
     private array $lastConfiguration = [];
+
     /**
      * Messages the provider last received (for asserting input screening on the
      * ad-hoc provider-key path, ADR-087).
@@ -2853,7 +2864,7 @@ class TestableVisionProvider extends TestableProvider implements VisionCapableIn
 
     public function __construct()
     {
-        parent::__construct('openai-vision', 'OpenAI Vision', true);
+        parent::__construct('openai-vision', 'OpenAI Vision');
     }
 
     public function setNextVisionResponse(VisionResponse $response): void
@@ -2896,7 +2907,7 @@ class TestableStreamingProvider extends TestableProvider implements StreamingCap
 {
     public function __construct()
     {
-        parent::__construct('openai-stream', 'OpenAI Stream', true);
+        parent::__construct('openai-stream', 'OpenAI Stream');
     }
 
     public function streamChatCompletion(array $messages, array $options = []): Generator
@@ -2925,7 +2936,7 @@ class StubStreamingProvider extends TestableProvider implements StreamingCapable
 
     public function __construct()
     {
-        parent::__construct('mock', 'Mock', true);
+        parent::__construct('mock', 'Mock');
     }
 
     public function streamChatCompletion(array $messages, array $options = []): Generator
@@ -2952,7 +2963,7 @@ class TestableToolProvider extends TestableProvider implements ToolCapableInterf
 
     public function __construct()
     {
-        parent::__construct('openai-tools', 'OpenAI Tools', true);
+        parent::__construct('openai-tools', 'OpenAI Tools');
     }
 
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
@@ -2976,14 +2987,14 @@ class TestableNoEmbeddingsProvider extends TestableProvider
 {
     public function __construct()
     {
-        parent::__construct('limited', 'Limited Provider', true);
+        parent::__construct('limited', 'Limited Provider');
     }
 
     public function supportsFeature(string|ModelCapability $feature): bool
     {
         $featureValue = $feature instanceof ModelCapability ? $feature->value : $feature;
         // Does NOT support embeddings
-        return in_array($featureValue, ['chat'], true);
+        return $featureValue === 'chat';
     }
 
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse

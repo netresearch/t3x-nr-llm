@@ -102,6 +102,7 @@ final class StreamRedactionWindow
         if ($this->pending < self::BLOCK_BYTES) {
             return [];
         }
+
         $this->pending = 0;
         $out           = $this->emitStable(true);
         $this->bound();
@@ -148,6 +149,7 @@ final class StreamRedactionWindow
         if ($limit <= $this->emitted) {
             return [];
         }
+
         $delta         = \substr($full, $this->emitted, $limit - $this->emitted);
         $this->emitted = $limit;
 
@@ -159,9 +161,11 @@ final class StreamRedactionWindow
         if (\strlen($this->window) <= self::SOFT_CAP_BYTES) {
             return;
         }
+
         if ($this->pruneFront()) {
             return;
         }
+
         if (\strlen($this->window) >= self::HARD_CAP_BYTES) {
             $this->safeHold();
         }
@@ -182,6 +186,7 @@ final class StreamRedactionWindow
             if ($cut <= 0) {
                 break;
             }
+
             $head  = \substr($this->window, 0, $cut);
             $rHead = ($this->redact)($head);
             if (\strlen($rHead) <= $this->emitted
@@ -211,6 +216,7 @@ final class StreamRedactionWindow
         if (\strlen($this->window) <= 2 * $keep) {
             return;
         }
+
         $headLen   = $this->utf8SafeBack($this->window, $keep);
         $tailStart = $this->utf8SafeForward($this->window, \strlen($this->window) - $keep);
         $candidate = \substr($this->window, 0, $headLen) . \substr($this->window, $tailStart);
@@ -228,9 +234,11 @@ final class StreamRedactionWindow
         if ($length <= 0) {
             return 0;
         }
+
         if ($length >= \strlen($text)) {
             return \strlen($text);
         }
+
         while ($length > 0 && (\ord($text[$length]) & 0xC0) === 0x80) {
             --$length;
         }
@@ -246,9 +254,11 @@ final class StreamRedactionWindow
         if ($offset <= 0) {
             return 0;
         }
+
         if ($offset >= \strlen($text)) {
             return \strlen($text);
         }
+
         while ($offset < \strlen($text) && (\ord($text[$offset]) & 0xC0) === 0x80) {
             ++$offset;
         }

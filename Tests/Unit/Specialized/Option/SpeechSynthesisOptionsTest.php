@@ -360,6 +360,7 @@ class SpeechSynthesisOptionsTest extends AbstractUnitTestCase
         self::assertContains('nova', $voices);
         self::assertContains('shimmer', $voices);
     }
+
     // ============ Budget / attribution fields (ADR-057) ============
 
     #[Test]

@@ -41,7 +41,7 @@ final readonly class GuardrailPolicyResolver
     {
         $all = $guardrails instanceof Traversable ? iterator_to_array($guardrails, false) : array_values($guardrails);
 
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             return $all;
         }
 

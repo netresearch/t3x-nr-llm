@@ -41,6 +41,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
 {
     private const TABLE_BUDGET = 'tx_nrllm_user_budget';
+
     private const TABLE_USAGE  = 'tx_nrllm_service_usage';
 
     private const BE_USER_UID = 42;
@@ -196,7 +197,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertTrue($terminalRan, 'Another configuration\'s usage must not trip this configuration\'s cap.');
+        self::assertTrue($terminalRan, "Another configuration's usage must not trip this configuration's cap.");
     }
 
     /**
@@ -236,6 +237,7 @@ final class BudgetMiddlewarePipelineTest extends AbstractFunctionalTestCase
         if ($uid !== null) {
             $config->_setProperty('uid', $uid);
         }
+
         $config->setMaxCostPerDay($maxCostPerDay);
 
         return $config;

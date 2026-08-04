@@ -177,6 +177,7 @@ final class InputGuardrailScreenerTest extends TestCase
     {
         return new class implements InputGuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkInput(string $text): GuardrailResult
             {
                 return GuardrailResult::allow();
@@ -188,6 +189,7 @@ final class InputGuardrailScreenerTest extends TestCase
     {
         return new class ($needle, $replacement) implements InputGuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function __construct(private readonly string $needle, private readonly string $replacement) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -205,6 +207,7 @@ final class InputGuardrailScreenerTest extends TestCase
     {
         return new class ($reason) implements InputGuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function __construct(private readonly string $reason) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -218,6 +221,7 @@ final class InputGuardrailScreenerTest extends TestCase
     {
         return new class ($reason) implements InputGuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function __construct(private readonly string $reason) {}
 
             public function checkInput(string $text): GuardrailResult
@@ -231,6 +235,7 @@ final class InputGuardrailScreenerTest extends TestCase
     {
         return new class implements InputGuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkInput(string $text): GuardrailResult
             {
                 return GuardrailResult::retry('later');

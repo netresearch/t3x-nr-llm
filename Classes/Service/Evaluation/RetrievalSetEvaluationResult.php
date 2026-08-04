@@ -170,6 +170,7 @@ final readonly class RetrievalSetEvaluationResult
             if ($key === null) {
                 continue;
             }
+
             $grouped[$key][] = $evaluation;
         }
 

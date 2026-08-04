@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Psr\Http\Message\ResponseInterface;
@@ -69,13 +70,13 @@ final class ToolController extends ActionController
      */
     public function toggleToolAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
         $body     = $request->getParsedBody();
         $toolName = $this->stringFromBody($body, 'tool');
-        if ($toolName === '' || $this->toolRegistry->get($toolName) === null) {
+        if ($toolName === '' || !$this->toolRegistry->get($toolName) instanceof ToolInterface) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
         }
 
@@ -97,7 +98,7 @@ final class ToolController extends ActionController
      */
     public function toggleToolGroupAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -134,6 +135,7 @@ final class ToolController extends ActionController
         if (!is_array($body)) {
             return '';
         }
+
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
     }
@@ -143,6 +145,7 @@ final class ToolController extends ActionController
         if (!is_array($body)) {
             return false;
         }
+
         // filter_var (not a plain cast) so the string "false"/"0" from form bodies is correctly false.
         return filter_var($body[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
     }

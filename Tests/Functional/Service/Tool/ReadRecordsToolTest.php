@@ -141,8 +141,10 @@ final class ReadRecordsToolTest extends AbstractFunctionalTestCase
                 // Parity: no cell re-exposes a value absent from the text egress.
                 self::assertStringContainsString($cell, $result->content);
             }
+
             $headers[] = $row[2] ?? null;
         }
+
         self::assertContains('Alpha', $headers);
         self::assertContains('Beta', $headers);
     }

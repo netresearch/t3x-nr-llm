@@ -41,7 +41,7 @@ final readonly class GetTsConfigTool implements ToolInterface
     private const NOT_FOUND = 'Page not found.';
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -109,6 +109,7 @@ final readonly class GetTsConfigTool implements ToolInterface
             $lastSegment = substr((string)strrchr('.' . $path, '.'), 1);
             $lines[]     = sprintf('%s = %s', $path, $this->redactSecretValue($lastSegment, $value));
         }
+
         if ($subtree !== null) {
             $this->renderTree($subtree, $lines, 0);
         }

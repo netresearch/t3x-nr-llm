@@ -76,6 +76,7 @@ final readonly class ChatMessage implements JsonSerializable
                 1736502001,
             );
         }
+
         $this->role = $resolved->value;
 
         if ($toolCalls !== null && $resolved !== MessageRole::ASSISTANT) {
@@ -84,6 +85,7 @@ final readonly class ChatMessage implements JsonSerializable
                 1752400001,
             );
         }
+
         if ($toolCalls === []) {
             throw new InvalidArgumentException(
                 'An assistant tool-call message requires at least one tool call.',
@@ -102,8 +104,10 @@ final readonly class ChatMessage implements JsonSerializable
                         1752400003,
                     );
                 }
+
                 $validated[] = $call;
             }
+
             $this->toolCalls = $validated;
         }
 
@@ -113,6 +117,7 @@ final readonly class ChatMessage implements JsonSerializable
                 1752400004,
             );
         }
+
         if ($this->toolCallId === '') {
             throw new InvalidArgumentException(
                 'A tool message requires a non-empty tool_call_id.',
@@ -234,12 +239,14 @@ final readonly class ChatMessage implements JsonSerializable
 
                     continue;
                 }
+
                 if (!is_array($call)) {
                     throw new InvalidArgumentException(
                         'Every "tool_calls" element must be an array or a ToolCall instance.',
                         1752400007,
                     );
                 }
+
                 /** @var array{id?: string, type?: string, function?: array{name?: string, arguments?: string|array<string, mixed>}} $call */
                 $toolCalls[] = ToolCall::fromArray($call);
             }
@@ -255,12 +262,13 @@ final readonly class ChatMessage implements JsonSerializable
 
         $content = $data['content'] ?? null;
         if (!is_string($content)) {
-            if (!($content === null && $toolCalls !== null)) {
+            if ($content !== null || $toolCalls === null) {
                 throw new InvalidArgumentException(
                     'ChatMessage::fromArray() requires a string "content" key.',
                     1736502003,
                 );
             }
+
             $content = '';
         }
 

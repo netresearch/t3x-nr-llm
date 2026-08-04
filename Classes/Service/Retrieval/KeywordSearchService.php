@@ -44,6 +44,7 @@ final class KeywordSearchService implements KeywordSearchInterface
         if (mb_strlen($query) > RetrievalQuery::MAX_QUERY_LENGTH) {
             $query = trim(mb_substr($query, 0, RetrievalQuery::MAX_QUERY_LENGTH));
         }
+
         if (mb_strlen($query) < RetrievalQuery::MIN_QUERY_LENGTH) {
             return [];
         }
@@ -104,8 +105,10 @@ final class KeywordSearchService implements KeywordSearchInterface
                 if ($this->indexBackedOnly && $backend->getPriority() <= 0) {
                     continue;
                 }
+
                 $selected[] = $backend;
             }
+
             $this->selectedBackends = $selected;
         }
 

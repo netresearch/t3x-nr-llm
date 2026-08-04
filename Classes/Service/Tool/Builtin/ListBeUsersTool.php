@@ -38,7 +38,7 @@ final readonly class ListBeUsersTool implements ToolInterface, ToolDataClassInte
     private const HARD_LIMIT = 200;
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
+        private ConnectionPool $connectionPool,
     ) {}
 
     public function getSpec(): ToolSpec

@@ -31,6 +31,7 @@ use Psr\Http\Message\StreamInterface;
 class GroqProviderTest extends AbstractUnitTestCase
 {
     private GroqProvider $subject;
+
     private ClientInterface&Stub $httpClientStub;
 
     protected function setUp(): void

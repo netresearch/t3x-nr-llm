@@ -155,6 +155,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
             fclose($socket);
             return true;
         }
+
         return false;
     }
 }

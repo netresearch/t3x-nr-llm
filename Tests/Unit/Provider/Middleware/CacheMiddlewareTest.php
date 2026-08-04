@@ -281,6 +281,7 @@ final class CacheMiddlewareTest extends AbstractUnitTestCase
         if ($ttl !== null) {
             $metadata[CacheMiddleware::METADATA_CACHE_TTL] = $ttl;
         }
+
         if ($tags !== null) {
             $metadata[CacheMiddleware::METADATA_CACHE_TAGS] = $tags;
         }

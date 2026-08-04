@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
 final class DeepLOptions extends AbstractOptions
 {
     private const VALID_FORMALITIES = ['default', 'more', 'less', 'prefer_more', 'prefer_less'];
+
     private const VALID_TAG_HANDLING = ['xml', 'html'];
 
     /**
@@ -35,6 +36,7 @@ final class DeepLOptions extends AbstractOptions
         if ($this->formality !== null) {
             self::validateEnum($this->formality, self::VALID_FORMALITIES, 'formality');
         }
+
         if ($this->tagHandling !== null) {
             self::validateEnum($this->tagHandling, self::VALID_TAG_HANDLING, 'tagHandling');
         }
@@ -98,7 +100,7 @@ final class DeepLOptions extends AbstractOptions
      */
     public static function html(): self
     {
-        return new self(tagHandling: 'html', preserveFormatting: true);
+        return new self(preserveFormatting: true, tagHandling: 'html');
     }
 
     /**
@@ -106,7 +108,7 @@ final class DeepLOptions extends AbstractOptions
      */
     public static function xml(): self
     {
-        return new self(tagHandling: 'xml', preserveFormatting: true);
+        return new self(preserveFormatting: true, tagHandling: 'xml');
     }
 
     /**

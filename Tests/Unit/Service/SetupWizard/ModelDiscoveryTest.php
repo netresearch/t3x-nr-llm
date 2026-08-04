@@ -35,11 +35,17 @@ use RuntimeException;
 class ModelDiscoveryTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private VaultServiceInterface $vaultStub;
+
     private SecureHttpClientFactory $httpClientFactory;
+
     private LoggerInterface&Stub $loggerStub;
+
     private ModelDiscovery $subject;
 
     protected function setUp(): void
@@ -86,8 +92,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -109,8 +115,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com',
         );
 
         $this->requestFactoryStub
@@ -131,8 +137,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
         );
 
         $this->requestFactoryStub
@@ -153,8 +159,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -175,8 +181,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -198,8 +204,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -221,8 +227,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -259,8 +265,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://169.254.169.254/latest/meta-data',
             suggestedName: 'Metadata SSRF',
+            endpoint: 'https://169.254.169.254/latest/meta-data',
         );
 
         $result = $subject->testConnection($provider, 'test-key');
@@ -282,8 +288,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'http://127.0.0.1:8080/v1',
             suggestedName: 'Loopback SSRF',
+            endpoint: 'http://127.0.0.1:8080/v1',
         );
 
         // The host gate rejects the loopback target before any request is sent;
@@ -302,8 +308,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -332,8 +338,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -355,14 +361,14 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com',
         );
 
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         self::assertContains('claude-sonnet-4-5-20250929', $modelIds);
         self::assertContains('claude-haiku-4-5-20251001', $modelIds);
@@ -373,8 +379,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
         );
 
         $this->requestFactoryStub
@@ -407,7 +413,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -419,8 +425,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // proxy and referrer logs). Capture the URL the request was built with.
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $capturedUri = null;
@@ -448,8 +454,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
         );
 
         $this->requestFactoryStub
@@ -470,8 +476,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -509,7 +515,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, '');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('llama3:latest', $modelIds);
     }
 
@@ -518,8 +524,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -540,8 +546,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -578,8 +584,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -607,8 +613,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -622,7 +628,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -631,8 +637,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -663,8 +669,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -685,8 +691,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'unknown-provider',
-            endpoint: 'https://example.com',
             suggestedName: 'Unknown',
+            endpoint: 'https://example.com',
         );
 
         $models = $this->subject->discover($provider, 'test-key');
@@ -703,8 +709,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -727,7 +733,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $models = $this->subject->discover($provider, 'test-key');
 
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.2', $modelIds);
         self::assertContains('gpt-image-1', $modelIds);
         self::assertNotContains('text-davinci-003', $modelIds);
@@ -740,8 +746,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -791,8 +797,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -829,8 +835,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -860,8 +866,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -889,8 +895,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -931,8 +937,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1023,8 +1029,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         self::assertEquals('openai', $provider->adapterType);
@@ -1039,8 +1045,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -1062,8 +1068,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -1084,8 +1090,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -1099,7 +1105,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         // Fallback models should include current GPT models
         self::assertContains('gpt-5.3', $modelIds);
     }
@@ -1109,8 +1115,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -1132,7 +1138,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gpt-5.3', $modelIds);
     }
 
@@ -1143,8 +1149,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1173,7 +1179,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         self::assertContains('claude-sonnet-4-5-20250929', $modelIds);
     }
@@ -1183,8 +1189,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1198,7 +1204,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'bad-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1207,8 +1213,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1222,7 +1228,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1231,8 +1237,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1246,7 +1252,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1255,8 +1261,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1277,8 +1283,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1304,7 +1310,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // if the loop had stopped early, the result would be the fallback
         // catalog (which contains the same id), so pin the fallback flag.
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1313,8 +1319,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1328,7 +1334,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
     }
 
@@ -1338,8 +1344,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Dated model IDs like 'claude-opus-4-5-20251101' should match 'claude-opus-4-5' prefix
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1371,8 +1377,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1403,8 +1409,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -1438,8 +1444,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1453,7 +1459,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1462,8 +1468,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1477,7 +1483,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1486,8 +1492,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1501,7 +1507,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1510,8 +1516,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1532,7 +1538,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1541,8 +1547,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1563,7 +1569,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('gemini-3-flash', $modelIds);
     }
 
@@ -1572,8 +1578,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1606,8 +1612,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1647,8 +1653,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -1689,8 +1695,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1712,8 +1718,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1734,8 +1740,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1779,8 +1785,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1817,8 +1823,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1852,8 +1858,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1895,8 +1901,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -1961,8 +1967,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $subject = new ModelDiscovery(
@@ -1973,6 +1979,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             $this->loggerStub,
         );
         $subject->setHttpClient($httpClient);
+
         $models = $subject->discover($provider, '');
 
         // Model is still added with fallback details (contextLength = 0)
@@ -1988,8 +1995,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2055,8 +2062,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2098,8 +2105,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2141,8 +2148,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2190,8 +2197,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -2212,8 +2219,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -2252,8 +2259,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -2283,8 +2290,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -2313,8 +2320,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -2328,7 +2335,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $models = $this->subject->discover($provider, 'test-key');
 
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -2337,8 +2344,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -2370,8 +2377,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -2400,8 +2407,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -2430,8 +2437,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -2457,6 +2464,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         foreach ($models as $m) {
             $byId[$m->modelId] = $m;
         }
+
         self::assertSame(131072, $byId['model-with-ctx']->contextLength);
         self::assertSame(0, $byId['model-without-ctx']->contextLength);
     }
@@ -2466,8 +2474,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -2491,8 +2499,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 420: continue when model['id'] is not a non-empty string
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -2517,7 +2525,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // The invalid ids must be SKIPPED (not break the loop, not blow up
         // with a TypeError that degrades to the fallback catalog).
         self::assertFalse($this->subject->wasLastDiscoveryFromFallback());
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('claude-opus-4-5-20251101', $modelIds);
         // None of the invalid entries should appear
         self::assertNotContains('', $modelIds);
@@ -2531,8 +2539,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 638: return false when gemini-* model contains 'embedding'
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com/v1beta',
         );
 
         $this->requestFactoryStub
@@ -2553,7 +2561,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $models = $this->subject->discover($provider, 'test-key');
 
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         // Embedding models (gemini-* prefix with 'embedding') must be excluded
         self::assertNotContains('gemini-embedding-exp-03-07', $modelIds);
         self::assertNotContains('gemini-1.5-embedding', $modelIds);
@@ -2568,8 +2576,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 789: continue when model item in /api/tags is not an array
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2616,8 +2624,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers lines 855 and 861: fallback values when model_info and parameters keys are missing
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $this->requestFactoryStub
@@ -2662,8 +2670,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 962: return [] when response status is not 200
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -2687,8 +2695,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 970: modelList = [] when $data has no 'data' key
         $provider = new DetectedProvider(
             adapterType: 'openrouter',
-            endpoint: 'https://openrouter.ai/api',
             suggestedName: 'OpenRouter',
+            endpoint: 'https://openrouter.ai/api',
         );
 
         $this->requestFactoryStub
@@ -2717,8 +2725,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 1037: modelList = [] when $data has no 'data' key
         $provider = new DetectedProvider(
             adapterType: 'mistral',
-            endpoint: 'https://api.mistral.ai',
             suggestedName: 'Mistral AI',
+            endpoint: 'https://api.mistral.ai',
         );
 
         $this->requestFactoryStub
@@ -2740,7 +2748,7 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // No 'data' key → modelList is [] → no API models found
         // Mistral falls back to static models on empty discovery
         self::assertNotEmpty($models);
-        $modelIds = array_map(fn(DiscoveredModel $m) => $m->modelId, $models);
+        $modelIds = array_map(fn(DiscoveredModel $m): string => $m->modelId, $models);
         self::assertContains('mistral-large-latest', $modelIds);
     }
 
@@ -2752,8 +2760,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // Covers line 1122: modelList = [] when $data has no 'data' key
         $provider = new DetectedProvider(
             adapterType: 'groq',
-            endpoint: 'https://api.groq.com',
             suggestedName: 'Groq',
+            endpoint: 'https://api.groq.com',
         );
 
         $this->requestFactoryStub
@@ -2814,8 +2822,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $captured = [];
@@ -2837,8 +2845,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // A user-entered trailing slash must not produce "https://…//models".
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com/',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com/',
         );
 
         $captured = [];
@@ -2857,8 +2865,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com',
         );
 
         $captured = [];
@@ -2881,8 +2889,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
         );
 
         $captured = [];
@@ -2903,8 +2911,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434',
         );
 
         $captured = [];
@@ -2927,8 +2935,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // does not become ".../api/api/tags".
         $provider = new DetectedProvider(
             adapterType: 'ollama',
-            endpoint: 'http://localhost:11434/api',
             suggestedName: 'Ollama',
+            endpoint: 'http://localhost:11434/api',
         );
 
         $captured = [];
@@ -2948,8 +2956,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // The success window is 200–299; 300 must be reported as a failure.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -2973,8 +2981,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // single ".../models", never ".../…//models".
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com/',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com/',
         );
 
         $captured = [];
@@ -3001,8 +3009,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // absent from the fallback list.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3032,8 +3040,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // flipped-comparison mutants.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3061,8 +3069,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // going after the bad entry.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3113,8 +3121,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3157,8 +3165,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // a generic description, chat capability and zeroed numeric fields.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3193,8 +3201,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // (defaultOpenAICapabilities): image / text_to_speech / transcription.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3263,8 +3271,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $subject->discover($provider, 'test-key');
@@ -3293,8 +3301,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $subject->discover($provider, 'test-key');
@@ -3322,8 +3330,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $subject->testConnection($provider, 'test-key');
@@ -3357,8 +3365,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $subject->discover($provider, 'test-key');
@@ -3380,8 +3388,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3410,8 +3418,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3440,8 +3448,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // (failOnWarning turns that into a failure).
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3467,8 +3475,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // no gpt-4.1).
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3497,8 +3505,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // '-search' arm.
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3526,8 +3534,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // defaultOpenAICapabilities().
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
 
         $this->requestFactoryStub
@@ -3553,8 +3561,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $captured = [];
@@ -3581,8 +3589,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // is absent from the fallback list.
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -3611,8 +3619,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // OpenAI test for the warning rationale).
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -3637,8 +3645,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // and the flipped-comparison mutants.
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -3680,8 +3688,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $this->requestFactoryStub
@@ -3739,8 +3747,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $subject->discover($provider, 'test-key');
@@ -3769,8 +3777,8 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         $subject = $this->makeSubjectWithLogger($logger);
         $provider = new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com/v1',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com/v1',
         );
 
         $subject->discover($provider, 'test-key');

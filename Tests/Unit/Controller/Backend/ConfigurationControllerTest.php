@@ -44,13 +44,21 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 final class ConfigurationControllerTest extends TestCase
 {
     private LlmConfigurationRepository&MockObject $configurationRepository;
+
     private LlmConfigurationServiceInterface&MockObject $configurationService;
+
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
+
     private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
+
     private ModelRepository&MockObject $modelRepository;
+
     private ModelSelectionServiceInterface&MockObject $modelSelectionService;
+
     private TestPromptResolverInterface&MockObject $testPromptResolver;
+
     private ConfigurationController $subject;
+
     private mixed $previousBeUser;
 
     protected function setUp(): void
@@ -89,6 +97,7 @@ final class ConfigurationControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
@@ -155,6 +164,7 @@ final class ConfigurationControllerTest extends TestCase
         $reflection = new ReflectionClass($configuration);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($configuration, $uid);
+
         $configuration->setIsActive($isActive);
         $configuration->setIsDefault($isDefault);
         return $configuration;
@@ -1208,6 +1218,7 @@ final class ConfigurationControllerTest extends TestCase
 
         $provider = new Provider();
         $provider->setName('OpenAI');
+
         $resolved = new Model();
         $resolved->setName('gpt-4o');
         $resolved->setProvider($provider);

@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
@@ -84,16 +86,18 @@ final readonly class BrowseFalFolderTool implements ToolInterface
 
         try {
             $storage = $this->storageRepository->findByUid($storageUid);
-            if ($storage === null || !$storage->isOnline()) {
+            if (!$storage instanceof ResourceStorage || !$storage->isOnline()) {
                 return ToolResult::text(self::NOT_PERMITTED);
             }
+
             // Folder-level enforcement on top of the storage gate: with
             // evaluatePermissions the read calls below check the acting
             // user's file-mount boundaries and throw outside them — which
             // collapses into the neutral denial.
-            if ($user !== null && !$user->isAdmin()) {
+            if ($user instanceof BackendUserAuthentication && !$user->isAdmin()) {
                 $storage->setEvaluatePermissions(true);
             }
+
             $folder = $storage->getFolder($folderId);
 
             $lines   = [];
@@ -105,6 +109,7 @@ final readonly class BrowseFalFolderTool implements ToolInterface
                     ++$skipped;
                     continue;
                 }
+
                 $lines[] = sprintf(
                     '- %s/ (%d files)',
                     $subfolder->getName(),
@@ -118,6 +123,7 @@ final readonly class BrowseFalFolderTool implements ToolInterface
                     ++$skipped;
                     continue;
                 }
+
                 $lines[] = sprintf(
                     '- %s (%s, %s)',
                     $file->getName(),
@@ -168,6 +174,7 @@ final readonly class BrowseFalFolderTool implements ToolInterface
         if ($bytes >= 1048576) {
             return sprintf('%.1f MiB', $bytes / 1048576);
         }
+
         if ($bytes >= 1024) {
             return sprintf('%.1f KiB', $bytes / 1024);
         }

@@ -38,9 +38,13 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelControllerTest extends TestCase
 {
     private ModelRepository&MockObject $modelRepository;
+
     private ProviderRepository&Stub $providerRepository;
+
     private PersistenceManagerInterface&MockObject $persistenceManager;
+
     private ModelController $subject;
+
     private mixed $previousBeUser;
 
     protected function setUp(): void
@@ -69,6 +73,7 @@ final class ModelControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
@@ -115,6 +120,7 @@ final class ModelControllerTest extends TestCase
         $reflection = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
+
         $model->setIsActive($isActive);
         $model->setIsDefault($isDefault);
         return $model;
@@ -370,6 +376,7 @@ final class ModelControllerTest extends TestCase
         $queryResult = new class ([$model1, $model2]) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
+
             /**
              * @param array<int, object> $items
              */
@@ -377,68 +384,83 @@ final class ModelControllerTest extends TestCase
             {
                 $this->items = array_values($items);
             }
+
             public function setQuery(QueryInterface $query): void
             {
                 // Intentionally empty: this in-memory stub ignores the query object.
             }
+
             public function getFirst(): ?object
             {
                 return $this->items[0] ?? null;
             }
+
             /**
              * @return list<object>
              */
             public function toArray(): array
             {
-                /** @var list<object> */
-                return $this->items;
+                // offsetSet()/offsetUnset() can leave gaps, so re-index rather
+                // than asserting listness of the stored array.
+                return array_values($this->items);
             }
+
             public function count(): int
             {
                 return count($this->items);
             }
+
             public function getQuery(): QueryInterface
             {
                 throw new LogicException('Not implemented', 7771386589);
             }
+
             public function offsetExists($offset): bool
             {
                 return is_int($offset) && isset($this->items[$offset]);
             }
+
             public function offsetGet($offset): mixed
             {
                 return is_int($offset) ? ($this->items[$offset] ?? null) : null;
             }
+
             public function offsetSet($offset, $value): void
             {
                 if (is_object($value) && is_int($offset)) {
                     $this->items[$offset] = $value;
                 }
             }
+
             public function offsetUnset($offset): void
             {
                 if (is_int($offset)) {
                     unset($this->items[$offset]);
                 }
             }
+
             public function current(): object
             {
                 $current = current($this->items);
                 assert($current !== false);
                 return $current;
             }
+
             public function next(): void
             {
                 next($this->items);
             }
+
             public function key(): int
             {
                 return (int)key($this->items);
             }
+
             public function valid(): bool
             {
                 return key($this->items) !== null;
             }
+
             public function rewind(): void
             {
                 reset($this->items);

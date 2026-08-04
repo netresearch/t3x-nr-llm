@@ -24,6 +24,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
 final class ModelIdElement extends AbstractFormElement
 {
     public function __construct(private readonly BackendUriBuilder $uriBuilder) {}
+
     /**
      * @return array<string, mixed>
      */

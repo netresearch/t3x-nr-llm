@@ -125,6 +125,7 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
             $this->tool->execute(['query' => 'brochure'], ToolExecutionContext::none())->content,
         );
     }
+
     #[Test]
     public function searchIsCaseInsensitive(): void
     {

@@ -72,6 +72,7 @@ final class TaskWizardController extends ActionController
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
+
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/WizardFormLoading.js');
 
         $availableConfigs = $this->configurationRepository->findActive();
@@ -97,11 +98,13 @@ final class TaskWizardController extends ActionController
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
+
         $description = trim($description);
         if ($description === '') {
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
+
         if (mb_strlen($description) > 2000) {
             $description = mb_substr($description, 0, 2000);
         }
@@ -121,6 +124,7 @@ final class TaskWizardController extends ActionController
                     $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string)$value : '';
                 }
             }
+
             $newUrl = (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
 
             $moduleTemplate->assignMultiple([
@@ -142,6 +146,7 @@ final class TaskWizardController extends ActionController
                 $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
                 $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             }
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -150,11 +155,13 @@ final class TaskWizardController extends ActionController
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
+
         $description = trim($description);
         if ($description === '') {
             $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.body', 'Please describe what this task should do.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.missingDescription.title', 'Missing description'), ContextualFeedbackSeverity::WARNING);
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
+
         if (mb_strlen($description) > 2000) {
             $description = mb_substr($description, 0, 2000);
         }
@@ -188,6 +195,7 @@ final class TaskWizardController extends ActionController
                 $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
                 $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             }
+
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
     }
@@ -232,6 +240,7 @@ final class TaskWizardController extends ActionController
                 if ($model instanceof Model) {
                     $configuration->setLlmModel($model);
                 }
+
                 $this->configurationRepository->add($configuration);
                 $this->persistenceManager->persistAll();
             }
@@ -297,9 +306,11 @@ final class TaskWizardController extends ActionController
         if ($modelChoice === 'existing' && $existingModelUid > 0) {
             $model = $this->modelRepository->findByUid($existingModelUid);
         }
+
         if (!$model instanceof Model) {
             $model = $this->modelRepository->findDefault();
         }
+
         if (!$model instanceof Model) {
             $first = $this->modelRepository->findActive()->getFirst();
             if ($first instanceof Model) {

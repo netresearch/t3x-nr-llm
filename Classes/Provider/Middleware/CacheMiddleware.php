@@ -75,7 +75,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 final readonly class CacheMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_CACHE_KEY  = 'cacheKey';
+
     public const METADATA_CACHE_TTL  = 'cacheTtl';
+
     public const METADATA_CACHE_TAGS = 'cacheTags';
 
     private const DEFAULT_TTL_SECONDS = 3600;

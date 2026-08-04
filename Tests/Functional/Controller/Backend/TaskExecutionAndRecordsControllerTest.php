@@ -45,14 +45,21 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class TaskExecutionAndRecordsControllerTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_TASK_LOAD_RECORD_DATA = '/ajax/nrllm/task/load-record-data';
+
     private const AJAX_NRLLM_TASK_FETCH_RECORDS = '/ajax/nrllm/task/fetch-records';
+
     private const AJAX_NRLLM_TASK_REFRESH_INPUT = '/ajax/nrllm/task/refresh-input';
+
     private const AJAX_NRLLM_TASK_EXECUTE = '/ajax/nrllm/task/execute';
+
     private const TASK_NOT_FOUND = 'Task not found';
+
     private const TEST_INPUT = 'test input';
 
     private TaskExecutionController $executionController;
+
     private TaskRecordsController $recordsController;
+
     private TaskRepository $taskRepository;
 
     protected function setUp(): void

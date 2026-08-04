@@ -72,6 +72,7 @@ final class SkillManifestVerifier
         if (!$this->isDeclared($expectedFingerprint)) {
             return false;
         }
+
         if ($identifierToChecksum === []) {
             return false;
         }

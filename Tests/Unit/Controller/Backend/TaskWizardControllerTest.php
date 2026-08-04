@@ -30,7 +30,9 @@ use stdClass;
 final class TaskWizardControllerTest extends TestCase
 {
     private ReflectionMethod $toStr;
+
     private ReflectionMethod $toInt;
+
     private ReflectionMethod $toFloat;
 
     protected function setUp(): void

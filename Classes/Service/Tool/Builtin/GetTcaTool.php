@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Describe the TYPO3 table schema from `$GLOBALS['TCA']`.
@@ -36,7 +37,7 @@ final readonly class GetTcaTool implements ToolInterface
     private const MAX_ITEMS = 500;
 
     public function __construct(
-        private readonly TableReadAccessService $tableAccess,
+        private TableReadAccessService $tableAccess,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -93,7 +94,7 @@ final readonly class GetTcaTool implements ToolInterface
         // backend user → no tables (fail-closed); return early so the whole TCA
         // is not mapped/filtered for nothing.
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return "TCA tables (0):\n";
         }
 
@@ -123,7 +124,7 @@ final readonly class GetTcaTool implements ToolInterface
         // unknown) table returns the same neutral string so the tool never
         // confirms a table's existence to someone without access.
         $user = $context->actingBackendUser();
-        if ($user === null || !$this->tableAccess->canReadTable($user, $table)) {
+        if (!$user instanceof BackendUserAuthentication || !$this->tableAccess->canReadTable($user, $table)) {
             return 'Unknown TCA table.';
         }
 
@@ -143,6 +144,7 @@ final readonly class GetTcaTool implements ToolInterface
             if (is_array($config) && isset($config['config']) && is_array($config['config'])) {
                 $type = self::toStr($config['config']['type'] ?? '');
             }
+
             $lines[] = sprintf('%s: %s', (string)$field, $type !== '' ? $type : '?');
             ++$count;
         }

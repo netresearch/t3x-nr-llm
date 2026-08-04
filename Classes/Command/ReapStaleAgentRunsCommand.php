@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Command;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -73,7 +74,7 @@ final class ReapStaleAgentRunsCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        if ($this->messageBus === null) {
+        if (!$this->messageBus instanceof MessageBusInterface) {
             $io->error('No message bus is available; queued runs cannot be reclaimed.');
 
             return Command::FAILURE;
@@ -140,9 +141,10 @@ final class ReapStaleAgentRunsCommand extends Command
                 ++$requeued;
             } catch (Throwable $exception) {
                 $handle = $this->persister->resumeHandle($run);
-                if ($handle !== null) {
+                if ($handle instanceof AgentRunHandle) {
                     $this->persister->settleFailed($handle, $exception);
                 }
+
                 $io->warning(sprintf('Run "%s" was reclaimed but its wake-up could not be dispatched; settled failed to avoid an orphan: %s', $run->uuid, $exception->getMessage()));
                 ++$deadLetter;
             }

@@ -92,6 +92,7 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
         if (!is_array($conf)) {
             return ToolResult::text(sprintf('Field %s.%s not found.', $table, $field));
         }
+
         if (self::toStr($conf['type'] ?? '') !== 'flex') {
             return ToolResult::text(sprintf('Field %s.%s is not a FlexForm field (type=%s).', $table, $field, self::toStr($conf['type'] ?? '?')));
         }
@@ -214,6 +215,7 @@ final readonly class GetFlexFormSchemaTool implements ToolInterface
                 if (!is_array($elConf)) {
                     continue;
                 }
+
                 $config = is_array($elConf['config'] ?? null) ? $elConf['config'] : [];
                 $type   = self::toStr($config['type'] ?? '') ?: '?';
                 $label  = $this->resolveLabel(self::toStr($elConf['label'] ?? ''));

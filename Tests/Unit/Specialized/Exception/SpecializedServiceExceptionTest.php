@@ -75,7 +75,7 @@ class SpecializedServiceExceptionTest extends AbstractUnitTestCase
     #[Test]
     public function getDetailedMessageExcludesNullContext(): void
     {
-        $exception = new TranslatorException('Error', 'translation', null);
+        $exception = new TranslatorException('Error', 'translation');
 
         self::assertEquals('[translation] Error', $exception->getDetailedMessage());
         self::assertStringNotContainsString('Context:', $exception->getDetailedMessage());

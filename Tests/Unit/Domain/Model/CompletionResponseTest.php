@@ -169,7 +169,6 @@ class CompletionResponseTest extends AbstractUnitTestCase
             content: 'content',
             model: 'gpt-4',
             usage: new UsageStatistics(10, 20, 30),
-            toolCalls: null,
         );
 
         self::assertFalse($response->hasToolCalls());
@@ -250,7 +249,6 @@ class CompletionResponseTest extends AbstractUnitTestCase
             content: 'result',
             model: 'gpt-4',
             usage: new UsageStatistics(10, 20, 30),
-            thinking: null,
         );
 
         self::assertFalse($response->hasThinking());

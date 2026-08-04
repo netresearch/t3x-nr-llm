@@ -65,6 +65,7 @@ final class StreamRedactionWindowTest extends TestCase
                 $out .= $d;
             }
         }
+
         foreach ($w->flush() as $d) {
             $out .= $d;
         }
@@ -169,6 +170,7 @@ final class StreamRedactionWindowTest extends TestCase
             $w->push('some benign words here and there ');
             $max = max($max, $w->currentWindowBytes());
         }
+
         $w->flush();
 
         self::assertLessThan(20000, $max, 'window is pruned well below the ~165 KB raw stream');
@@ -185,9 +187,11 @@ final class StreamRedactionWindowTest extends TestCase
         foreach ($w->push($raw) as $d) {
             $out .= $d;
         }
+
         foreach ($w->push(' done') as $d) {
             $out .= $d;
         }
+
         foreach ($w->flush() as $d) {
             $out .= $d;
         }
@@ -207,6 +211,7 @@ final class StreamRedactionWindowTest extends TestCase
         foreach ($w->push($blob) as $d) {
             $out .= $d;
         }
+
         foreach ($w->flush() as $d) {
             $out .= $d;
         }
@@ -227,6 +232,7 @@ final class StreamRedactionWindowTest extends TestCase
                 self::assertTrue(mb_check_encoding($out, 'UTF-8'), 'no delta boundary splits a codepoint');
             }
         }
+
         foreach ($w->flush() as $d) {
             $out .= $d;
         }

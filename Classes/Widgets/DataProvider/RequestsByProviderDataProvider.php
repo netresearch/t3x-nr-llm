@@ -24,6 +24,7 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
 final readonly class RequestsByProviderDataProvider implements ChartDataProviderInterface
 {
     private const TABLE = 'tx_nrllm_service_usage';
+
     private const DEFAULT_DAYS = 7;
 
     public function __construct(
@@ -73,6 +74,7 @@ final readonly class RequestsByProviderDataProvider implements ChartDataProvider
             if ($provider === '') {
                 continue;
             }
+
             $labels[] = $provider;
             /** @var mixed $rawCount */
             $rawCount = $row['total_requests'] ?? 0;

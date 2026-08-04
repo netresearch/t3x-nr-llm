@@ -132,6 +132,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->refuseRequeueStale) {
             return false;
         }
+
         $this->staleRequeues[] = ['runUid' => $runUid, 'now' => $now];
 
         return true;
@@ -148,6 +149,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->refuseDeadLetterStale) {
             return false;
         }
+
         $this->staleDeadLetters[] = ['runUid' => $runUid, 'now' => $now, 'reason' => $terminationReason];
 
         return true;

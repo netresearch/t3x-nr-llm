@@ -99,6 +99,7 @@ final readonly class SearchCodeTool implements ToolInterface
             } finally {
                 restore_error_handler();
             }
+
             if (!$patternIsValid) {
                 return ToolResult::text(sprintf('Error: invalid regular expression "%s".', $pattern));
             }
@@ -108,6 +109,7 @@ final readonly class SearchCodeTool implements ToolInterface
         if ($maxResults < 1) {
             $maxResults = self::DEFAULT_RESULTS;
         }
+
         $maxResults = min($maxResults, self::MAX_RESULTS);
 
         $root = $this->guard->rootPath();
@@ -122,9 +124,11 @@ final readonly class SearchCodeTool implements ToolInterface
             if ($candidate === false || !is_dir($candidate) || !str_starts_with($candidate . '/', $root . '/')) {
                 return ToolResult::text(sprintf('Denied or not found: search path "%s".', $subPath));
             }
+
             if ($this->guard->isDeniedRelativePath(substr($candidate, strlen($root) + 1) . '/x')) {
                 return ToolResult::text(sprintf('Denied: search path "%s".', $subPath));
             }
+
             $base = $candidate;
         }
 
@@ -152,10 +156,12 @@ final readonly class SearchCodeTool implements ToolInterface
             if (!$file->isReadable()) {
                 continue;
             }
+
             $content = file_get_contents($file->getPathname(), false, null, 0, 2_000_000);
             if ($content === false) {
                 continue;
             }
+
             if ($regex === null && !str_contains($content, $pattern)) {
                 continue;
             }
@@ -172,6 +178,7 @@ final readonly class SearchCodeTool implements ToolInterface
                 if (mb_strlen($trimmed) > self::MAX_LINE_LENGTH) {
                     $trimmed = mb_substr($trimmed, 0, self::MAX_LINE_LENGTH) . '…';
                 }
+
                 $hits[] = sprintf('%s:%d: %s', $relative, $lineNumber + 1, $trimmed);
 
                 if (count($hits) >= $maxResults) {
@@ -231,6 +238,7 @@ final readonly class SearchCodeTool implements ToolInterface
                 if (str_starts_with($name, '.')) {
                     return false;
                 }
+
                 if ($current->isDir()) {
                     return !in_array($name, SourcePathGuard::SKIPPED_DIRECTORIES, true);
                 }
@@ -239,7 +247,6 @@ final readonly class SearchCodeTool implements ToolInterface
             },
         );
 
-        /** @var iterable<SplFileInfo> */
         return new RecursiveIteratorIterator($filtered);
     }
 }

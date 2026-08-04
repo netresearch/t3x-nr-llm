@@ -59,6 +59,7 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
             if ($this->isExcluded($table)) {
                 continue;
             }
+
             $allowed[] = [
                 'name'  => $table,
                 'label' => $this->formatTableLabel($table),
@@ -221,6 +222,7 @@ final readonly class RecordTableReader implements RecordTableReaderInterface
                 return true;
             }
         }
+
         return in_array($table, $this->excludedTableNames, true);
     }
 

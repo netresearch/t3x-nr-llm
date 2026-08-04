@@ -30,7 +30,9 @@ use Psr\Log\NullLogger;
 abstract class AbstractE2ETestCase extends AbstractUnitTestCase
 {
     protected RequestFactoryInterface $requestFactory;
+
     protected StreamFactoryInterface $streamFactory;
+
     protected NullLogger $logger;
 
     protected function setUp(): void
@@ -65,7 +67,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
         $requests = [];
         $client = self::createStub(ClientInterface::class);
         $client->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use ($response, &$requests) {
+            ->willReturnCallback(function (RequestInterface $request) use ($response, &$requests): ResponseInterface {
                 $requests[] = $request;
                 return $response;
             });
@@ -164,7 +166,7 @@ abstract class AbstractE2ETestCase extends AbstractUnitTestCase
                     'object' => 'embedding',
                     'index' => 0,
                     'embedding' => array_map(
-                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        fn(): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, $dimensions),
                     ),
                 ],

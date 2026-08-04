@@ -67,6 +67,7 @@ final class SpecializedTestControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 

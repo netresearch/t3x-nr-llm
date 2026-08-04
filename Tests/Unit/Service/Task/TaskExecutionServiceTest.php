@@ -31,6 +31,7 @@ use ReflectionProperty;
 final class TaskExecutionServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
+
     private TaskExecutionService $subject;
 
     protected function setUp(): void

@@ -46,8 +46,11 @@ final class SkillSyncService
     private const MARKETPLACE_INDEX_PATH = '.claude-plugin/marketplace.json';
 
     private int $syncDeadline = 0;
+
     private int $filesProcessed = 0;
+
     private bool $boundsExceeded = false;
+
     private int $lastHeartbeat = 0;
 
     /**
@@ -127,6 +130,7 @@ final class SkillSyncService
                         $errors[] = sprintf('duplicate identifier "%s", first wins', $identifier);
                         continue;
                     }
+
                     $seen[$identifier] = true;
                     [$outcome, $blocked] = $this->upsert($source, $identifier, $sha, $parsed);
                     $created += $outcome === 'created' ? 1 : 0;
@@ -152,6 +156,7 @@ final class SkillSyncService
                 if ($collected['rootSha'] !== null) {
                     $source->setPinnedSha($collected['rootSha']);
                 }
+
                 $source->setSyncError($this->sanitizeErrorMessage(implode("\n", $errors)));
             }
         } catch (Throwable $e) {
@@ -190,7 +195,7 @@ final class SkillSyncService
      */
     private function fingerprintRejected(SkillSource $source, array $parsed, string $sourcePrefix): bool
     {
-        if ($this->manifestVerifier === null || !$this->manifestVerifier->isDeclared($source->getExpectedFingerprint())) {
+        if (!$this->manifestVerifier instanceof SkillManifestVerifier || !$this->manifestVerifier->isDeclared($source->getExpectedFingerprint())) {
             return false;
         }
 
@@ -242,6 +247,7 @@ final class SkillSyncService
         if ($source->getSyncStatusEnum() !== SyncStatus::SYNCING || $this->isLockActive($source, time())) {
             return false;
         }
+
         $source->setSyncStatus(SyncStatus::ERROR->value);
         $source->setSyncError('The previous sync was interrupted before it finished. Trigger a new sync to retry.');
         $this->persistSource($source);
@@ -269,6 +275,7 @@ final class SkillSyncService
         if ($type === SkillSourceType::MARKETPLACE) {
             return $this->collectMarketplace($source, $errors);
         }
+
         // Non-marketplace sources address a single GitHub repo; an unparseable URL is fatal and
         // surfaces as a clear ERROR rather than a malformed API call against an empty owner/repo.
         [$owner, $repo] = $this->requireOwnerRepo($source->getUrl());
@@ -298,11 +305,13 @@ final class SkillSyncService
             if ($e->isRateLimit) {
                 throw $e;
             }
+
             if ($e->status === 404) {
                 // The file is gone at the resolved commit: drop it from discovered so it is orphaned.
                 // A non-404 (transient) error leaves it discovered (present) and does not orphan it.
                 $discovered = [];
             }
+
             $errors[] = $e->getMessage();
         } catch (SkillParseException $e) {
             $errors[] = $e->getMessage();
@@ -329,6 +338,7 @@ final class SkillSyncService
             if ($this->limitReached($source, $errors)) {
                 break;
             }
+
             $this->filesProcessed++;
             try {
                 $body = $this->gitHub->fetchRawBySha($owner, $repo, $sha, $path, $this->token($source));
@@ -337,6 +347,7 @@ final class SkillSyncService
                 if ($e->isRateLimit) {
                     throw $e;
                 }
+
                 $errors[] = $e->getMessage();
             } catch (SkillParseException $e) {
                 $errors[] = $e->getMessage();
@@ -372,6 +383,7 @@ final class SkillSyncService
                 $errors[] = sprintf('duplicate marketplace plugin "%s/%s", first wins', $entry->owner, $entry->repo);
                 continue;
             }
+
             // "Listed" = present in the parsed index this run, even if unreached below. A skill whose
             // prefix is no longer listed (plugin de-listed) IS orphaned; one listed-but-unreached is not.
             $listedPrefixes[]          = $prefix;
@@ -381,12 +393,14 @@ final class SkillSyncService
             if ($this->limitReached($source, $errors)) {
                 continue;
             }
+
             try {
                 $repoResult = $this->collectRepo($source, $entry->owner, $entry->repo, $entry->ref ?? 'HEAD', $errors);
             } catch (GitHubApiException $e) {
                 if ($e->isRateLimit) {
                     throw $e;
                 }
+
                 // An unreachable child repo is recorded and skipped (PARTIAL); it stays "listed" (so its
                 // existing skills are protected as a transient failure) but is excluded from "reached".
                 $errors[] = $e->getMessage();
@@ -400,6 +414,7 @@ final class SkillSyncService
             foreach ($repoResult['discovered'] as $path) {
                 $discovered[] = $prefix . $path;
             }
+
             foreach ($repoResult['parsed'] as $row) {
                 $parsed[] = [$row[0], new ParsedSkill(
                     $prefix . $row[1]->path,
@@ -428,6 +443,7 @@ final class SkillSyncService
         if ($this->boundsExceeded) {
             return true;
         }
+
         if ($this->filesProcessed >= $this->maxFiles || time() >= $this->syncDeadline) {
             $this->boundsExceeded = true;
             $errors[] = sprintf(
@@ -437,6 +453,7 @@ final class SkillSyncService
             );
             return true;
         }
+
         return false;
     }
 
@@ -453,6 +470,7 @@ final class SkillSyncService
         if ($now - $this->lastHeartbeat < $this->heartbeatSeconds) {
             return;
         }
+
         $this->lastHeartbeat = $now;
         $source->setLastSynced($now);
         $this->persistSource($source);
@@ -475,7 +493,7 @@ final class SkillSyncService
         $highConf = $scan?->hasHighConfidence() ?? false;
         $existing = $this->skillRepository->findBySourceAndIdentifier($source->getUid() ?? 0, $identifier);
 
-        if ($existing === null) {
+        if (!$existing instanceof Skill) {
             $skill = new Skill();
             $skill->setSource($source->getUid() ?? 0);
             $skill->setIdentifier($identifier);
@@ -510,6 +528,7 @@ final class SkillSyncService
             $existing->setEnabled(false);
             $outcome = $changed ? 'changed' : 'updated';
         }
+
         $this->skillRepository->update($existing);
         $this->audit?->recordSkillEvent(
             $outcome === 'changed' ? SkillAuditEvent::INGEST_DISABLED_ON_CHANGE : SkillAuditEvent::INGEST_UPDATED,
@@ -532,7 +551,7 @@ final class SkillSyncService
     private function applyIsolationMetadata(Skill $skill, SkillSource $source, ?InjectionScanResult $scan): void
     {
         $skill->setTrustLevel($source->getTrustLevel());
-        if ($scan !== null) {
+        if ($scan instanceof InjectionScanResult) {
             $skill->setInjectionScan((string)json_encode($scan->toArray()));
         }
     }
@@ -542,9 +561,10 @@ final class SkillSyncService
      */
     private function highConfidenceLabels(?InjectionScanResult $scan): string
     {
-        if ($scan === null) {
+        if (!$scan instanceof InjectionScanResult) {
             return '';
         }
+
         $labels = [];
         foreach ($scan->findings as $finding) {
             if ($finding->severity === InjectionSeverity::HIGH) {
@@ -579,6 +599,7 @@ final class SkillSyncService
             if (is_string($tools)) {
                 $tools = preg_split('/[\s,]+/', trim($tools), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             }
+
             $skill->setAllowedTools((string)json_encode(is_array($tools) ? array_values($tools) : []));
         }
     }
@@ -596,6 +617,7 @@ final class SkillSyncService
         if ($prefixes === null) {
             return null;
         }
+
         return array_map(static fn(string $prefix): string => $sourcePrefix . $prefix, $prefixes);
     }
 
@@ -620,6 +642,7 @@ final class SkillSyncService
             if (isset($discoveredSet[$identifier])) {
                 continue;
             }
+
             if (
                 $reachedPrefixes !== null
                 && $listedPrefixes !== null
@@ -627,6 +650,7 @@ final class SkillSyncService
             ) {
                 continue;
             }
+
             if (!$skill->isOrphaned()) {
                 $skill->setOrphaned(true);
                 $skill->setEnabled(false);
@@ -634,6 +658,7 @@ final class SkillSyncService
                 $count++;
             }
         }
+
         return $count;
     }
 
@@ -649,8 +674,11 @@ final class SkillSyncService
      */
     private function orphanEligible(string $identifier, array $reachedPrefixes, array $listedPrefixes): bool
     {
-        return $this->inScope($identifier, $reachedPrefixes)
-            || !$this->inScope($identifier, $listedPrefixes);
+        if ($this->inScope($identifier, $reachedPrefixes)) {
+            return true;
+        }
+
+        return !$this->inScope($identifier, $listedPrefixes);
     }
 
     /**
@@ -663,6 +691,7 @@ final class SkillSyncService
                 return true;
             }
         }
+
         return false;
     }
 
@@ -680,6 +709,7 @@ final class SkillSyncService
                 // update but still flush any pending skill changes below.
             }
         }
+
         $this->persistenceManager->persistAll();
     }
 
@@ -766,6 +796,7 @@ final class SkillSyncService
         if ($owner === '' || $repo === '') {
             throw new RuntimeException(sprintf('Not a GitHub URL: %s', $url), 1719500201);
         }
+
         return [$owner, $repo];
     }
 
@@ -778,6 +809,7 @@ final class SkillSyncService
         if (preg_match('#github(?:usercontent)?\.com/([^/]+)/([^/]+)#', $url, $m) === 1) {
             return [$m[1], preg_replace('/\.git$/', '', $m[2]) ?? $m[2]];
         }
+
         return ['', ''];
     }
 
@@ -788,10 +820,12 @@ final class SkillSyncService
         if (preg_match('#raw\.githubusercontent\.com/[^/]+/[^/]+/[^/]+/(.+)$#', $url, $m) === 1) {
             return $m[1];
         }
+
         // blob URL: https://github.com/owner/repo/blob/ref/<path>
         if (preg_match('#github\.com/[^/]+/[^/]+/blob/[^/]+/(.+)$#', $url, $m) === 1) {
             return $m[1];
         }
+
         return 'SKILL.md';
     }
 

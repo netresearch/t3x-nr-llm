@@ -85,13 +85,13 @@ final readonly class ImageGenerationResult
         $content = $this->getBinaryContent();
 
         if ($content === null) {
-            $content = self::silenced(fn(): string|false => file_get_contents($this->url));
+            $content = $this->silenced(fn(): string|false => file_get_contents($this->url));
             if ($content === false) {
                 return false;
             }
         }
 
-        $result = self::silenced(static fn(): int|false => file_put_contents($path, $content));
+        $result = $this->silenced(static fn(): int|false => file_put_contents($path, $content));
         return $result !== false;
     }
 
@@ -102,7 +102,7 @@ final readonly class ImageGenerationResult
      */
     public function downloadFromUrl(): ?string
     {
-        $content = self::silenced(fn(): string|false => file_get_contents($this->url));
+        $content = $this->silenced(fn(): string|false => file_get_contents($this->url));
         return $content !== false ? $content : null;
     }
 
@@ -118,7 +118,7 @@ final readonly class ImageGenerationResult
      *
      * @return T
      */
-    private static function silenced(callable $fn): mixed
+    private function silenced(callable $fn): mixed
     {
         set_error_handler(static fn(): bool => true);
         try {
@@ -194,9 +194,7 @@ final readonly class ImageGenerationResult
      */
     public function wasPromptRevised(): bool
     {
-        return $this->revisedPrompt !== null
-            && $this->revisedPrompt !== ''
-            && $this->revisedPrompt !== $this->prompt;
+        return !in_array($this->revisedPrompt, [null, '', $this->prompt], true);
     }
 
     /**

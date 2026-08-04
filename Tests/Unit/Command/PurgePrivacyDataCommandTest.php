@@ -59,6 +59,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->sessions->purgeReturns            = 7;
         $this->agentRuns->purgeReturns           = 11;
         $this->agentRuns->purgeUnfinishedReturns = 1;
+
         $this->governance->purgeReturns          = 4;
 
         $tester = new CommandTester($this->command(['retentionDays' => '45']));

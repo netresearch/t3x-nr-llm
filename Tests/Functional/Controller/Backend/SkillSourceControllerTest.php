@@ -81,6 +81,7 @@ final class SkillSourceControllerTest extends AbstractFunctionalTestCase
         $source->setTitle('Acme');
         $source->setType(SkillSourceType::SINGLE_FILE->value);
         $source->setUrl('https://github.com/acme/skills/blob/main/SKILL.md');
+
         $repository = $this->get(SkillSourceRepository::class);
         $repository->add($source);
         $this->get(PersistenceManagerInterface::class)->persistAll();

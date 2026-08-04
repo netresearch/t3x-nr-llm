@@ -16,19 +16,33 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class Skill extends AbstractEntity
 {
     protected int $source = 0;
+
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
+
     protected string $body = '';
+
     protected string $bodyChecksum = '';
+
     protected string $sourceSha = '';
+
     protected string $rawFrontmatter = '';
+
     protected string $supportStatus = SupportStatus::FULL->value;
+
     protected string $unsupportedNotes = '';
+
     protected string $allowedTools = '';
+
     protected string $trustLevel = SkillTrustLevel::UNTRUSTED->value;
+
     protected string $injectionScan = '';
+
     protected bool $orphaned = false;
+
     protected bool $enabled = false;
 
     public function getSource(): int
@@ -119,14 +133,17 @@ class Skill extends AbstractEntity
         if (trim($this->rawFrontmatter) === '') {
             return [];
         }
+
         $decoded = json_decode($this->rawFrontmatter, true);
         if (!is_array($decoded) || array_is_list($decoded)) {
             return [];
         }
+
         $out = [];
         foreach ($decoded as $k => $v) {
             $out[(string)$k] = $v;
         }
+
         return $out;
     }
 
@@ -184,6 +201,7 @@ class Skill extends AbstractEntity
         if ($this->allowedTools === '') {
             return null;
         }
+
         $decoded = json_decode($this->allowedTools, true);
         return is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : null;
     }
@@ -228,21 +246,26 @@ class Skill extends AbstractEntity
         if (trim($this->injectionScan) === '') {
             return [];
         }
+
         $decoded = json_decode($this->injectionScan, true);
         if (!is_array($decoded) || !array_is_list($decoded)) {
             return [];
         }
+
         $out = [];
         foreach ($decoded as $entry) {
             if (!is_array($entry)) {
                 continue;
             }
+
             $row = [];
             foreach ($entry as $key => $value) {
                 $row[(string)$key] = $value;
             }
+
             $out[] = $row;
         }
+
         return $out;
     }
 

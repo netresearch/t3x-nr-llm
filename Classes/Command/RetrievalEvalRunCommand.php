@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverRegistry;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
+use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
 use Netresearch\NrLlm\Service\Evaluation\RegressionThresholds;
@@ -67,7 +69,7 @@ final class RetrievalEvalRunCommand extends Command
         $setArgument = $input->getArgument('set');
         $setIdentifier = is_string($setArgument) ? $setArgument : '';
         $set = $this->setRegistry->findByIdentifier($setIdentifier);
-        if ($set === null) {
+        if (!$set instanceof GoldenQuestionSet) {
             $io->error(sprintf('Unknown golden question set "%s".', $setIdentifier));
             $available = $this->setRegistry->identifiers();
             if ($available !== []) {
@@ -80,7 +82,7 @@ final class RetrievalEvalRunCommand extends Command
         $retrieverArgument = $input->getArgument('retriever');
         $retrieverIdentifier = is_string($retrieverArgument) ? $retrieverArgument : '';
         $retriever = $this->retrieverRegistry->findByIdentifier($retrieverIdentifier);
-        if ($retriever === null) {
+        if (!$retriever instanceof EvaluatableRetrieverInterface) {
             $io->error(sprintf('Unknown retriever "%s".', $retrieverIdentifier));
             $available = $this->retrieverRegistry->identifiers();
             if ($available !== []) {
@@ -134,6 +136,7 @@ final class RetrievalEvalRunCommand extends Command
                 (string)$evaluation->latencyMs,
             ];
         }
+
         $io->table(['Question', 'Form', 'Hard class', 'Top-1', 'Top-3', 'Latency (ms)'], $rows);
 
         $io->writeln(sprintf('Retriever:      %s', $result->retriever));
@@ -173,6 +176,7 @@ final class RetrievalEvalRunCommand extends Command
                 sprintf('%.1f%%', $rates['top3HitRate'] * 100),
             ];
         }
+
         $io->table(['Class', 'Questions', 'Top-1', 'Top-3'], $rows);
     }
 

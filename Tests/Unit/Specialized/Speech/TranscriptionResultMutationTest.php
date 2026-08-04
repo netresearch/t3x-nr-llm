@@ -25,7 +25,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     #[Test]
     public function hasSegmentsReturnsFalseForNull(): void
     {
-        $result = new TranscriptionResult('Test', 'en', segments: null);
+        $result = new TranscriptionResult('Test', 'en');
 
         self::assertFalse($result->hasSegments());
     }
@@ -50,7 +50,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getFormattedDurationReturnsNullWhenDurationIsNull(): void
     {
-        $result = new TranscriptionResult('Test', 'en', duration: null);
+        $result = new TranscriptionResult('Test', 'en');
 
         self::assertNull($result->getFormattedDuration());
     }
@@ -85,7 +85,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     #[Test]
     public function getConfidencePercentReturnsNullWhenConfidenceIsNull(): void
     {
-        $result = new TranscriptionResult('Test', 'en', confidence: null);
+        $result = new TranscriptionResult('Test', 'en');
 
         self::assertNull($result->getConfidencePercent());
     }
@@ -139,7 +139,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     #[Test]
     public function toSrtReturnsNullWithoutSegments(): void
     {
-        $result = new TranscriptionResult('Test', 'en', segments: null);
+        $result = new TranscriptionResult('Test', 'en');
 
         self::assertNull($result->toSrt());
     }
@@ -203,7 +203,7 @@ class TranscriptionResultMutationTest extends AbstractUnitTestCase
     #[Test]
     public function toVttReturnsNullWithoutSegments(): void
     {
-        $result = new TranscriptionResult('Test', 'en', segments: null);
+        $result = new TranscriptionResult('Test', 'en');
 
         self::assertNull($result->toVtt());
     }

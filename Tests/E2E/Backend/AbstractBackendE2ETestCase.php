@@ -55,9 +55,8 @@ abstract class AbstractBackendE2ETestCase extends AbstractFunctionalTestCase
     {
         $request = new ServerRequest('POST', $uri);
         $request = $request->withHeader('Content-Type', 'application/json');
-        $request = $request->withBody(Utils::streamFor(json_encode($data, JSON_THROW_ON_ERROR)));
 
-        return $request;
+        return $request->withBody(Utils::streamFor(json_encode($data, JSON_THROW_ON_ERROR)));
     }
 
     /**

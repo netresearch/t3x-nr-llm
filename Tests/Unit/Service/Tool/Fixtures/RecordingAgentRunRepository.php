@@ -44,6 +44,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnStart) {
             throw new RuntimeException('startRun failed', 5383517209);
         }
+
         $this->startedRuns[] = [
             'uuid'                     => $uuid,
             'configurationUid'         => $configurationUid,
@@ -59,6 +60,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnRecord) {
             throw new RuntimeException('recordEvent failed', 9973913396);
         }
+
         $this->events[] = [
             'runUid'      => $runUid,
             'sequence'    => $sequence,
@@ -85,9 +87,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnFinish) {
             throw new RuntimeException('finishRun failed', 7543565687);
         }
+
         if ($this->refuseFinish) {
             return false;
         }
+
         $this->finished = [
             'runUid'           => $runUid,
             'status'           => $status,
@@ -121,9 +125,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnSuspend) {
             throw new RuntimeException('suspendRun failed', 1784600401);
         }
+
         if ($this->refuseSuspend) {
             return false;
         }
+
         $this->suspended = ['runUid' => $runUid, 'stateJson' => $stateJson];
 
         return true;
@@ -142,9 +148,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnSuspendForInput) {
             throw new RuntimeException('suspendRunForInput failed', 1784600402);
         }
+
         if ($this->refuseSuspendForInput) {
             return false;
         }
+
         $this->suspendedForInput = ['runUid' => $runUid, 'stateJson' => $stateJson];
 
         return true;
@@ -160,6 +168,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnEnqueue) {
             throw new RuntimeException('enqueueRun failed', 1784700010);
         }
+
         $this->enqueuedRuns[] = [
             'uuid'                    => $uuid,
             'configurationUid'        => $configurationUid,
@@ -184,9 +193,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnClaimQueued) {
             throw new RuntimeException('claimQueued failed', 1784700011);
         }
+
         if ($this->refuseClaimQueued) {
             return false;
         }
+
         $this->queuedClaim = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
 
         return true;
@@ -202,10 +213,12 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnClaim) {
             throw new RuntimeException('claimForResume failed', 1784600400);
         }
+
         // First claim wins; a second concurrent claim on the same run loses.
         if ($this->claimsGranted > 0) {
             return false;
         }
+
         ++$this->claimsGranted;
 
         return true;
@@ -221,9 +234,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnClaimInput) {
             throw new RuntimeException('claimForResumeFromInput failed', 1784600403);
         }
+
         if ($this->inputClaimsGranted > 0) {
             return false;
         }
+
         ++$this->inputClaimsGranted;
 
         return true;
@@ -268,6 +283,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnMaxSequence) {
             throw new RuntimeException('maxEventSequence failed', 1784600403);
         }
+
         if ($this->maxSequenceReturns !== []) {
             return array_shift($this->maxSequenceReturns);
         }
@@ -288,9 +304,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnRenewLease) {
             throw new RuntimeException('renewLease failed', 1784700020);
         }
+
         if ($this->refuseRenewLease) {
             return false;
         }
+
         $this->leaseRenewals[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
 
         return true;
@@ -304,9 +322,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnRenewLease) {
             throw new RuntimeException('markPendingEffect failed', 1785000020);
         }
+
         if ($this->refuseRenewLease) {
             return false;
         }
+
         $this->pendingEffects[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy, 'effect' => $effect, 'leaseExpires' => $leaseExpires];
 
         return true;
@@ -325,9 +345,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->throwOnRequeue) {
             throw new RuntimeException('requeue failed', 1784700021);
         }
+
         if ($this->refuseRequeue) {
             return false;
         }
+
         $this->requeues[] = ['runUid' => $runUid, 'claimedBy' => $claimedBy];
 
         return true;
@@ -368,6 +390,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->refuseRequeueStale) {
             return false;
         }
+
         $this->staleRequeues[] = ['runUid' => $runUid, 'now' => $now];
 
         return true;
@@ -383,6 +406,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         if ($this->refuseDeadLetterStale) {
             return false;
         }
+
         $this->staleDeadLetters[] = ['runUid' => $runUid, 'now' => $now, 'reason' => $terminationReason];
 
         return true;

@@ -50,6 +50,7 @@ final class MistralProvider extends AbstractProvider implements
     private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
 
     private const DEFAULT_CHAT_MODEL = 'mistral-large-latest';
+
     private const DEFAULT_EMBEDDING_MODEL = 'mistral-embed';
 
     /** @var array<string, string> */
@@ -218,7 +219,7 @@ final class MistralProvider extends AbstractProvider implements
                 // Untrusted provider output: skip a malformed tool call (missing
                 // id/name) instead of crashing the whole completion.
                 $call = ToolCall::tryFromArray($this->asArray($tc));
-                if ($call !== null) {
+                if ($call instanceof ToolCall) {
                     $toolCalls[] = $call;
                 }
             }

@@ -19,6 +19,7 @@ class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsIn
     use BudgetFieldsTrait;
 
     private const FORMALITIES = ['default', 'formal', 'informal'];
+
     private const DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(

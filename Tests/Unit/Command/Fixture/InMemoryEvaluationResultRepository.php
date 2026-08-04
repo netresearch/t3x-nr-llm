@@ -51,7 +51,7 @@ final class InMemoryEvaluationResultRepository implements EvaluationResultReposi
     {
         $latest = $this->findLatest($setIdentifier, $model, $grader);
 
-        return $latest === null ? [] : [$latest];
+        return $latest instanceof EvaluationResultSummary ? [$latest] : [];
     }
 
     public function meanQualityScoreForModel(string $model, string $grader): ?float

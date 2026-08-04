@@ -31,7 +31,9 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelRepositoryTest extends AbstractFunctionalTestCase
 {
     private ModelRepository $repository;
+
     private ProviderRepository $providerRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -279,7 +281,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify we got the expected models by UID
-        $uids = array_map(fn($m) => $m->getUid(), $models->toArray());
+        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids, 'Should find gpt-5 (uid=1) with chat capability');
         self::assertContains(3, $uids, 'Should find llama3 (uid=3) with chat capability');
 
@@ -298,7 +300,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify correct models returned by UID
-        $uids = array_map(fn($m) => $m->getUid(), $models->toArray());
+        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids);
         self::assertContains(3, $uids);
     }
@@ -321,7 +323,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $models->count());
 
         // Verify correct model returned by UID
-        $uids = array_map(fn($m) => $m->getUid(), $models->toArray());
+        $uids = array_map(fn(Model $m): ?int => $m->getUid(), $models->toArray());
         self::assertContains(1, $uids, 'Should find gpt-5 with vision capability');
     }
 

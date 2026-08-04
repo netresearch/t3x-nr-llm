@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Health;
 
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Throwable;
 use TYPO3\CMS\Core\Cache\CacheManager as Typo3CacheManager;
@@ -103,7 +104,7 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
     private function providerForIdentifier(string $identifier): ?string
     {
         $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             return null;
         }
 

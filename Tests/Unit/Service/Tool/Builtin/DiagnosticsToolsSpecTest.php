@@ -38,7 +38,7 @@ final class DiagnosticsToolsSpecTest extends TestCase
     /**
      * @return list<class-string<ToolInterface>>
      */
-    private static function toolClasses(): array
+    private function toolClasses(): array
     {
         return [
             ListExtensionsTool::class,
@@ -53,7 +53,7 @@ final class DiagnosticsToolsSpecTest extends TestCase
     /**
      * @param class-string<ToolInterface> $class
      */
-    private static function bare(string $class): ToolInterface
+    private function bare(string $class): ToolInterface
     {
         $tool = (new ReflectionClass($class))->newInstanceWithoutConstructor();
         self::assertInstanceOf(ToolInterface::class, $tool);
@@ -74,7 +74,7 @@ final class DiagnosticsToolsSpecTest extends TestCase
         ];
 
         foreach ($expected as $class => $name) {
-            $spec = self::bare($class)->getSpec();
+            $spec = $this->bare($class)->getSpec();
             self::assertSame($name, $spec->name);
             // All arguments are optional across the whole wave.
             self::assertArrayNotHasKey('required', $spec->parameters);
@@ -84,8 +84,8 @@ final class DiagnosticsToolsSpecTest extends TestCase
     #[Test]
     public function allAreAdminOnlyAndEnabledByDefault(): void
     {
-        foreach (self::toolClasses() as $class) {
-            $tool = self::bare($class);
+        foreach ($this->toolClasses() as $class) {
+            $tool = $this->bare($class);
             self::assertTrue($tool->requiresAdmin(), $class);
             self::assertTrue($tool->isEnabledByDefault(), $class);
         }
@@ -94,8 +94,8 @@ final class DiagnosticsToolsSpecTest extends TestCase
     #[Test]
     public function groupsFollowTheTaxonomy(): void
     {
-        foreach (self::toolClasses() as $class) {
-            $tool     = self::bare($class);
+        foreach ($this->toolClasses() as $class) {
+            $tool     = $this->bare($class);
             $expected = $class === GetSiteConfigTool::class ? 'configuration' : 'system';
             self::assertSame($expected, $tool->getGroup(), $class);
         }

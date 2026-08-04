@@ -37,6 +37,7 @@ final class SkillDiscovery
                 }
             }
         }
+
         return $matched;
     }
 }

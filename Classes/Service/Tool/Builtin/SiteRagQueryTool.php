@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Retrieval\RetrievalService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Site-content RAG retrieval (ADR-049): question in, curated evidence
@@ -47,11 +48,11 @@ final readonly class SiteRagQueryTool implements ToolInterface
     {
         return ToolSpec::function(
             'site_rag_query',
-            'Retrieve evidence about the website\'s own PUBLIC content for a question: returns curated '
+            "Retrieve evidence about the website's own PUBLIC content for a question: returns curated "
             . 'sources (source_id, title, URL, excerpt) from the installed search index (Solr, ke_search, '
             . 'indexed_search) or a database fallback. Base statements about site content ONLY on this '
             . 'evidence and cite the source URLs; when the evidence is insufficient, say so instead of '
-            . 'guessing. Use site_fetch_source(source_id) to read a source\'s full indexed text.',
+            . "guessing. Use site_fetch_source(source_id) to read a source's full indexed text.",
             [
                 'type' => 'object',
                 'properties' => [
@@ -80,7 +81,7 @@ final readonly class SiteRagQueryTool implements ToolInterface
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::text('Not permitted.');
         }
 
@@ -96,6 +97,7 @@ final readonly class SiteRagQueryTool implements ToolInterface
         if ($maxSources < 1) {
             $maxSources = self::DEFAULT_SOURCES;
         }
+
         $maxSources = min($maxSources, RetrievalQuery::MAX_SOURCES);
 
         $site = trim(self::toStr($arguments['site'] ?? ''));
@@ -144,11 +146,13 @@ final readonly class SiteRagQueryTool implements ToolInterface
                 if ($source->url !== '') {
                     $lines[] = '   ' . $source->url;
                 }
+
                 if ($source->excerpt !== '') {
                     $lines[] = '   ' . $source->excerpt;
                 }
             }
-            $lines[] = 'Use site_fetch_source(source_id) for a source\'s full indexed text; cite URLs in answers.';
+
+            $lines[] = "Use site_fetch_source(source_id) for a source's full indexed text; cite URLs in answers.";
         }
 
         foreach ($result->notes as $note) {

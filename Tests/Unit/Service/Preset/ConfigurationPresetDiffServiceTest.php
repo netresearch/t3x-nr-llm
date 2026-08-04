@@ -33,7 +33,7 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
     /**
      * A record whose values match {@see baselinePreset()} field for field.
      */
-    private static function baselineRecord(): LlmConfiguration
+    private function baselineRecord(): LlmConfiguration
     {
         $record = new LlmConfiguration();
         $record->setIdentifier('ext.chat');
@@ -49,7 +49,7 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
         return $record;
     }
 
-    private static function baselinePreset(): ConfigurationPreset
+    private function baselinePreset(): ConfigurationPreset
     {
         return new ConfigurationPreset(
             identifier: 'ext.chat',
@@ -66,20 +66,21 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
     /**
      * @param list<PresetFieldDiff> $changes
      */
-    private static function change(array $changes, string $field): PresetFieldDiff
+    private function change(array $changes, string $field): PresetFieldDiff
     {
         foreach ($changes as $change) {
             if ($change->field === $field) {
                 return $change;
             }
         }
+
         self::fail(sprintf('No diff entry for field "%s".', $field));
     }
 
     #[Test]
     public function reportsNoChangeWhenDeclarationMatchesRecord(): void
     {
-        $diff = $this->subject->diff(self::baselinePreset(), self::baselineRecord());
+        $diff = $this->subject->diff($this->baselinePreset(), $this->baselineRecord());
 
         self::assertFalse($diff->hasChanges());
         self::assertSame([], $diff->changedFields());
@@ -100,11 +101,11 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             allowedToolGroups: ['rag', 'content'],
         );
 
-        $changes = $this->subject->diff($preset, self::baselineRecord())->changes;
+        $changes = $this->subject->diff($preset, $this->baselineRecord())->changes;
 
-        self::assertSame('Chat', self::change($changes, 'name')->current);
-        self::assertSame('Chat v2', self::change($changes, 'name')->declared);
-        self::assertSame('Updated.', self::change($changes, 'description')->declared);
+        self::assertSame('Chat', $this->change($changes, 'name')->current);
+        self::assertSame('Chat v2', $this->change($changes, 'name')->declared);
+        self::assertSame('Updated.', $this->change($changes, 'description')->declared);
     }
 
     #[Test]
@@ -121,7 +122,7 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             allowedToolGroups: ['rag', 'content'],
         );
 
-        $change = self::change($this->subject->diff($preset, self::baselineRecord())->changes, 'temperature');
+        $change = $this->change($this->subject->diff($preset, $this->baselineRecord())->changes, 'temperature');
 
         self::assertSame('0.20', $change->current);
         self::assertSame('0.90', $change->declared);
@@ -142,7 +143,7 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             allowedToolGroups: ['rag', 'content'],
         );
 
-        $diff = $this->subject->diff($preset, self::baselineRecord());
+        $diff = $this->subject->diff($preset, $this->baselineRecord());
 
         self::assertNotContains('temperature', $diff->changedFields());
     }
@@ -165,14 +166,14 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             allowedToolGroups: ['rag', 'content'],
         );
 
-        $changes = $this->subject->diff($preset, self::baselineRecord())->changes;
+        $changes = $this->subject->diff($preset, $this->baselineRecord())->changes;
 
-        self::assertSame('chat', self::change($changes, 'criteria.capabilities')->current);
-        self::assertSame('chat, vision', self::change($changes, 'criteria.capabilities')->declared);
-        self::assertSame('0', self::change($changes, 'criteria.minContextLength')->current);
-        self::assertSame('8000', self::change($changes, 'criteria.minContextLength')->declared);
-        self::assertSame('false', self::change($changes, 'criteria.preferLowestCost')->current);
-        self::assertSame('true', self::change($changes, 'criteria.preferLowestCost')->declared);
+        self::assertSame('chat', $this->change($changes, 'criteria.capabilities')->current);
+        self::assertSame('chat, vision', $this->change($changes, 'criteria.capabilities')->declared);
+        self::assertSame('0', $this->change($changes, 'criteria.minContextLength')->current);
+        self::assertSame('8000', $this->change($changes, 'criteria.minContextLength')->declared);
+        self::assertSame('false', $this->change($changes, 'criteria.preferLowestCost')->current);
+        self::assertSame('true', $this->change($changes, 'criteria.preferLowestCost')->declared);
     }
 
     #[Test]
@@ -180,10 +181,10 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
     {
         // Declared list order differs from the record's CSV order, but the
         // sets are equal, so it is not a change.
-        $record = self::baselineRecord();
+        $record = $this->baselineRecord();
         $record->setAllowedToolGroups('content,rag');
 
-        $diff = $this->subject->diff(self::baselinePreset(), $record);
+        $diff = $this->subject->diff($this->baselinePreset(), $record);
 
         self::assertNotContains('allowedToolGroups', $diff->changedFields());
     }
@@ -202,7 +203,7 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             allowedToolGroups: ['rag'],
         );
 
-        $diff = $this->subject->diff($preset, self::baselineRecord());
+        $diff = $this->subject->diff($preset, $this->baselineRecord());
 
         self::assertContains('allowedToolGroups', $diff->changedFields());
     }
@@ -218,12 +219,11 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
             description: 'A chat preset.',
             criteria: new ModelSelectionCriteria(capabilities: ['chat']),
             systemPrompt: 'You are helpful.',
-            temperature: null,
             maxTokens: 2000,
             allowedToolGroups: ['rag', 'content'],
         );
 
-        $diff = $this->subject->diff($preset, self::baselineRecord());
+        $diff = $this->subject->diff($preset, $this->baselineRecord());
 
         self::assertNotContains('temperature', $diff->changedFields());
     }
@@ -233,11 +233,11 @@ final class ConfigurationPresetDiffServiceTest extends TestCase
     {
         // Flipping the record's activation / default flags produces no diff
         // entry: those fields are structurally absent from a preset.
-        $record = self::baselineRecord();
+        $record = $this->baselineRecord();
         $record->setIsActive(true);
         $record->setIsDefault(true);
 
-        $diff = $this->subject->diff(self::baselinePreset(), $record);
+        $diff = $this->subject->diff($this->baselinePreset(), $record);
 
         self::assertFalse($diff->hasChanges());
     }

@@ -579,6 +579,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
         self::assertIsString($options->style);
         self::assertIsString($options->format);
     }
+
     // ============ Budget / attribution fields (ADR-057) ============
 
     #[Test]

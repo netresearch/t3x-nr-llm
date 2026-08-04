@@ -59,6 +59,6 @@ final readonly class TranslationResult
      */
     public function hasAlternatives(): bool
     {
-        return !empty($this->alternatives);
+        return $this->alternatives !== null && $this->alternatives !== [];
     }
 }

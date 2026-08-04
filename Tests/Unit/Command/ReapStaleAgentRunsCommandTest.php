@@ -138,7 +138,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
     public function failsWhenNoMessageBusIsAvailable(): void
     {
         $persister = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
-        $tester    = new CommandTester(new ReapStaleAgentRunsCommand($persister, null));
+        $tester    = new CommandTester(new ReapStaleAgentRunsCommand($persister));
 
         $exit = $tester->execute([]);
 
@@ -216,7 +216,6 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
             startedAt: 0,
             finishedAt: 0,
             crdate: 0,
-            suspendedState: null,
             queuedRequest: '{"messages":[]}',
             claimedBy: 'dead-worker:1',
             leaseExpires: 1,

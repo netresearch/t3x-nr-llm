@@ -35,25 +35,43 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class SetupWizardE2ETest extends AbstractBackendE2ETestCase
 {
     private const PROVIDER_AND_MODELS_ARE_REQUIRED = 'Provider and models are required';
+
     private const ENDPOINT_AND_MODELS_ARE_REQUIRED = 'Endpoint and models are required';
+
     private const HTTPS_API_ANTHROPIC_COM_V1 = 'https://api.anthropic.com/v1';
+
     private const HTTPS_API_EXAMPLE_COM_V1 = 'https://api.example.com/v1';
+
     private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
+
     private const ENDPOINT_URL_IS_REQUIRED = 'Endpoint URL is required';
+
     private const HTTP_LOCALHOST_11434 = 'http://localhost:11434';
+
     private const AJAX_WIZARD_DISCOVER = '/ajax/wizard/discover';
+
     private const AJAX_WIZARD_GENERATE = '/ajax/wizard/generate';
+
     private const AJAX_WIZARD_DETECT = '/ajax/wizard/detect';
+
     private const AJAX_WIZARD_TEST = '/ajax/wizard/test';
+
     private const AJAX_WIZARD_SAVE = '/ajax/wizard/save';
+
     private const TEST_MODEL = 'Test Model';
+
     private const O4_MINI = 'O4 Mini';
+
     private const ANT = '-ant-';
 
     private SetupWizardController $controller;
+
     private ProviderRepository $providerRepository;
+
     private ModelRepository $modelRepository;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void

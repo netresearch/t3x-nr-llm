@@ -50,6 +50,7 @@ final class ConfigurationPresetRegistry
                         1789347004,
                     );
                 }
+
                 $this->byIdentifier[$preset->identifier] = $preset;
             }
         }
@@ -77,7 +78,7 @@ final class ConfigurationPresetRegistry
     {
         $pending = [];
         foreach ($this->byIdentifier as $identifier => $preset) {
-            if ($this->configurationRepository->findOneByIdentifier($identifier) === null) {
+            if (!$this->configurationRepository->findOneByIdentifier($identifier) instanceof LlmConfiguration) {
                 $pending[] = $preset;
             }
         }
@@ -102,9 +103,10 @@ final class ConfigurationPresetRegistry
         $drifted = [];
         foreach ($this->byIdentifier as $identifier => $preset) {
             $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
-            if ($configuration === null) {
+            if (!$configuration instanceof LlmConfiguration) {
                 continue;
             }
+
             $storedChecksum = $configuration->getPresetChecksum();
             if ($storedChecksum !== '' && $storedChecksum !== $preset->checksum()) {
                 $drifted[] = ['preset' => $preset, 'configuration' => $configuration];

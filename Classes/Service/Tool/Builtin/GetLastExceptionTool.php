@@ -104,6 +104,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         if ($entry->exceptionClass !== null) {
             $lines[] = 'Exception: ' . $entry->exceptionClass;
         }
+
         $lines[] = 'Message: ' . $this->sanitizeErrorMessage($entry->message);
         $lines[] = '';
 
@@ -117,8 +118,11 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
         $expanded = 0;
         foreach ($entry->frames as $i => $frame) {
             $lines[] = sprintf('#%d %s:%d — %s', $i, $frame['file'], $frame['line'], $frame['call']);
+            if ($expanded >= self::MAX_EXPANDED_FRAMES) {
+                continue;
+            }
 
-            if ($expanded >= self::MAX_EXPANDED_FRAMES || !$this->isProjectFrame($frame['file'])) {
+            if (!$this->isProjectFrame($frame['file'])) {
                 continue;
             }
 
@@ -126,6 +130,7 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
             if ($sourceLines === []) {
                 continue;
             }
+
             $expanded++;
             foreach ($sourceLines as $sourceLine) {
                 $lines[] = $sourceLine;

@@ -68,6 +68,7 @@ final class DeprecationLogReaderTest extends AbstractFunctionalTestCase
         for ($i = 1; $i <= 10; ++$i) {
             $lines[] = 'deprecation entry ' . $i;
         }
+
         $this->writeLog(implode("\n", $lines));
 
         $tail = $this->reader->readTail(3);

@@ -42,7 +42,7 @@ final class ToolDataClassCoverageTest extends AbstractFunctionalTestCase
             $tool = $registry->get($name);
             self::assertNotNull($tool);
 
-            if (ToolDataClassResolver::defaultForGroup($tool->getGroup()) === null
+            if (!ToolDataClassResolver::defaultForGroup($tool->getGroup()) instanceof ToolDataClass
                 && !in_array($name, self::EXPLICITLY_DECLARED, true)
             ) {
                 $unclassed[] = sprintf('%s (group "%s")', $name, $tool->getGroup());

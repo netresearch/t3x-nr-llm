@@ -33,10 +33,15 @@ use TYPO3\CMS\Core\SingletonInterface;
 class UsageTrackerServiceTest extends AbstractUnitTestCase
 {
     private ConnectionPool&Stub $connectionPoolStub;
+
     private Context&MockObject $contextMock;
+
     private QueryBuilder&Stub $queryBuilderStub;
+
     private Connection&Stub $connectionStub;
+
     private ExpressionBuilder&Stub $exprStub;
+
     private Result&Stub $resultStub;
 
     protected function setUp(): void
@@ -130,7 +135,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['service_type'] === 'translation'
+                self::callback(fn(array $data): bool => $data['service_type'] === 'translation'
                         && $data['service_provider'] === 'deepl'
                         && $data['request_count'] === 1
                         && $data['characters_used'] === 1000
@@ -169,7 +174,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('executeStatement')
             ->with(
                 self::stringContains('UPDATE tx_nrllm_service_usage SET'),
-                self::callback(fn(array $params) => $params['tokens'] === 500
+                self::callback(fn(array $params): bool => $params['tokens'] === 500
                         && $params['promptTokens'] === 25
                         && $params['completionTokens'] === 75
                         && $params['characters'] === 300
@@ -219,7 +224,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['configuration_uid'] === 42),
+                self::callback(fn(array $data): bool => $data['configuration_uid'] === 42),
             );
 
         $connectionPoolStub = self::createStub(ConnectionPool::class);
@@ -264,7 +269,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['tokens_used'] === $metrics['tokens']
+                self::callback(fn(array $data): bool => $data['tokens_used'] === $metrics['tokens']
                         && $data['prompt_tokens'] === $metrics['promptTokens']
                         && $data['completion_tokens'] === $metrics['completionTokens']
                         && $data['characters_used'] === $metrics['characters']
@@ -309,7 +314,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['service_type'] === 'image'
+                self::callback(fn(array $data): bool => $data['service_type'] === 'image'
                         && $data['service_provider'] === 'dall-e'
                         && $data['model_id'] === 'gpt-image-2'
                         && $data['model_uid'] === 0
@@ -356,7 +361,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['be_user'] === 0
+                self::callback(fn(array $data): bool => $data['be_user'] === 0
                         && array_key_exists('pid', $data)
                         && $data['pid'] === 0
                         && $data['configuration_uid'] === 0
@@ -408,7 +413,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('executeStatement')
             ->with(
                 self::stringContains('UPDATE tx_nrllm_service_usage SET'),
-                self::callback(fn(array $params) => $params['tokens'] === 0
+                self::callback(fn(array $params): bool => $params['tokens'] === 0
                         && $params['promptTokens'] === 0
                         && $params['completionTokens'] === 0
                         && $params['characters'] === 0
@@ -510,7 +515,7 @@ class UsageTrackerServiceTest extends AbstractUnitTestCase
             ->method('insert')
             ->with(
                 'tx_nrllm_service_usage',
-                self::callback(fn(array $data) => $data['be_user'] === 99),
+                self::callback(fn(array $data): bool => $data['be_user'] === 99),
             );
 
         $connectionPoolStub = self::createStub(ConnectionPool::class);

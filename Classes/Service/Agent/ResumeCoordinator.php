@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -81,9 +82,10 @@ final readonly class ResumeCoordinator
     public function approve(AiActorContext $actor, string $runUuid, ApprovalDecision $decision, ?Closure $onStep = null): AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
+        if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_APPROVAL || $run->suspendedState === null) {
             throw RunNotAwaitingApprovalException::forRun($runUuid);
         }
+
         if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
@@ -97,13 +99,14 @@ final readonly class ResumeCoordinator
         if (!is_array($decoded)) {
             throw CorruptSuspendedStateException::forRun($runUuid);
         }
+
         /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
 
         // Probe the event-stream position BEFORE the claim: a failure here
         // refuses the resume while the run is still WAITING_FOR_APPROVAL, so
         // the approval can simply be retried (nothing was claimed or executed).
-        if ($this->persister->resumeHandle($run) === null) {
+        if (!$this->persister->resumeHandle($run) instanceof AgentRunHandle) {
             throw RunStateUnavailableException::forRun($runUuid);
         }
 
@@ -121,8 +124,8 @@ final readonly class ResumeCoordinator
         // interleave segments. The claim is won, so a failure now settles the
         // run rather than stranding it RUNNING (fail-closed either way).
         $claimed = $this->persister->findRun($runUuid);
-        $handle  = $claimed !== null ? $this->persister->resumeHandle($claimed) : null;
-        if ($handle === null) {
+        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),
                 new RuntimeException('The event-stream position could not be determined after the resume claim'),
@@ -169,9 +172,10 @@ final readonly class ResumeCoordinator
     public function submitInput(AiActorContext $actor, string $runUuid, InputSubmission $submission, ?Closure $onStep = null): AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
+        if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::WAITING_FOR_INPUT || $run->suspendedState === null) {
             throw RunNotAwaitingInputException::forRun($runUuid);
         }
+
         if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
@@ -185,6 +189,7 @@ final readonly class ResumeCoordinator
         if (!is_array($decoded)) {
             throw CorruptSuspendedStateException::forRun($runUuid);
         }
+
         /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
 
@@ -206,7 +211,7 @@ final readonly class ResumeCoordinator
 
         // From here the flow is identical to approve(): probe-before-claim,
         // atomic claim, re-resolve the stream position from a fresh row.
-        if ($this->persister->resumeHandle($run) === null) {
+        if (!$this->persister->resumeHandle($run) instanceof AgentRunHandle) {
             throw RunStateUnavailableException::forRun($runUuid);
         }
 
@@ -215,8 +220,8 @@ final readonly class ResumeCoordinator
         }
 
         $claimed = $this->persister->findRun($runUuid);
-        $handle  = $claimed !== null ? $this->persister->resumeHandle($claimed) : null;
-        if ($handle === null) {
+        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),
                 new RuntimeException('The event-stream position could not be determined after the resume claim'),

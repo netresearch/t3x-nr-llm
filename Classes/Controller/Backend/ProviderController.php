@@ -99,6 +99,7 @@ final class ProviderController extends ActionController
             if ($uid === null) {
                 continue;
             }
+
             $editUrls[$uid] = $this->buildEditUrl($uid);
         }
 
@@ -142,9 +143,10 @@ final class ProviderController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -194,9 +196,10 @@ final class ProviderController extends ActionController
      */
     public function testConnectionAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 

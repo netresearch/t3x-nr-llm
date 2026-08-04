@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Throwable;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
@@ -57,7 +58,8 @@ final readonly class ListFalStoragesTool implements ToolInterface
             } catch (Throwable) {
                 $storage = null;
             }
-            if ($storage === null) {
+
+            if (!$storage instanceof ResourceStorage) {
                 continue;
             }
 
@@ -66,6 +68,7 @@ final readonly class ListFalStoragesTool implements ToolInterface
             if ($storage->isBrowsable()) {
                 $flags[] = 'browsable';
             }
+
             if ($storage->isPublic()) {
                 $flags[] = 'public';
             }

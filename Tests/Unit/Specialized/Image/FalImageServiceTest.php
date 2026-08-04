@@ -57,11 +57,17 @@ class FalImageServiceTest extends AbstractUnitTestCase
     use PipelineRoutingAssertionTrait;
 
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private ExtensionConfiguration&MockObject $extensionConfigMock;
+
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+
     private LoggerInterface&Stub $loggerStub;
+
     private VaultServiceInterface $vaultStub;
 
     /** @var list<array{method: string, uri: string}> */

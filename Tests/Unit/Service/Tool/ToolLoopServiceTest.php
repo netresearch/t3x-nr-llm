@@ -162,7 +162,7 @@ final class ToolLoopServiceTest extends TestCase
         // invalid byte is gone (the exact substitute char is an mbstring detail).
         self::assertTrue(mb_check_encoding($artifact->label, 'UTF-8'));
         self::assertStringNotContainsString("\xFF", $artifact->label);
-        $leaf = self::str($artifact->data['text'] ?? null);
+        $leaf = $this->str($artifact->data['text'] ?? null);
         self::assertTrue(mb_check_encoding($leaf, 'UTF-8'));
         self::assertStringNotContainsString("\xFF", $leaf);
     }
@@ -185,7 +185,7 @@ final class ToolLoopServiceTest extends TestCase
         self::assertCount(1, $artifacts);
         self::assertSame(ArtifactType::TEXT, $artifacts[0]->type);
         self::assertSame('Artifacts omitted', $artifacts[0]->label);
-        self::assertStringContainsString('exceeded', self::str($artifacts[0]->data['text'] ?? ''));
+        self::assertStringContainsString('exceeded', $this->str($artifacts[0]->data['text'] ?? ''));
     }
 
     #[Test]
@@ -207,7 +207,7 @@ final class ToolLoopServiceTest extends TestCase
 
         self::assertCount(1, $artifacts);
         self::assertSame('Artifacts omitted', $artifacts[0]->label);
-        self::assertStringContainsString('could not be encoded', self::str($artifacts[0]->data['text'] ?? ''));
+        self::assertStringContainsString('could not be encoded', $this->str($artifacts[0]->data['text'] ?? ''));
     }
 
     #[Test]
@@ -385,16 +385,16 @@ final class ToolLoopServiceTest extends TestCase
 
         // The second round must carry the appended assistant + tool turns as
         // typed ChatMessage VOs whose wire form stays OpenAI-compatible.
-        $round2    = self::arr($captured[1] ?? null);
+        $round2    = $this->arr($captured[1] ?? null);
         $assistant = $round2[1] ?? null;
         self::assertInstanceOf(ChatMessage::class, $assistant);
         self::assertSame('assistant', $assistant->role);
 
         $wire     = $assistant->toArray();
-        $calls    = self::arr($wire['tool_calls'] ?? null);
-        $function = self::arr(self::arr($calls[0] ?? null)['function'] ?? null);
-        self::assertSame('call_1', self::arr($calls[0] ?? null)['id'] ?? null);
-        self::assertSame('function', self::arr($calls[0] ?? null)['type'] ?? null);
+        $calls    = $this->arr($wire['tool_calls'] ?? null);
+        $function = $this->arr($this->arr($calls[0] ?? null)['function'] ?? null);
+        self::assertSame('call_1', $this->arr($calls[0] ?? null)['id'] ?? null);
+        self::assertSame('function', $this->arr($calls[0] ?? null)['type'] ?? null);
         // Empty arguments MUST serialise to an object, not an array.
         self::assertSame('{}', $function['arguments'] ?? null);
 
@@ -478,7 +478,7 @@ final class ToolLoopServiceTest extends TestCase
         $service  = $this->service($mgr, $registry);
         $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), ['fetch_logs']);
 
-        $specs = self::arr($capturedTools[0] ?? null);
+        $specs = $this->arr($capturedTools[0] ?? null);
         $names = array_map(
             static fn(mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
             array_values($specs),
@@ -743,7 +743,7 @@ final class ToolLoopServiceTest extends TestCase
         // null ⇒ "no per-run restriction" ⇒ collapses to the enabled set only.
         $service->runLoop([$this->userTurn('hi')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
-        $specs = self::arr($capturedTools[0] ?? null);
+        $specs = $this->arr($capturedTools[0] ?? null);
         $names = array_map(
             static fn(mixed $s): string => $s instanceof ToolSpec ? $s->name : '<not-a-spec>',
             array_values($specs),
@@ -982,6 +982,7 @@ final class ToolLoopServiceTest extends TestCase
         } catch (ToolApprovalRequiredException $e) {
             return $e->state;
         }
+
         self::fail('Expected the run to suspend for approval.');
     }
 
@@ -1052,7 +1053,7 @@ final class ToolLoopServiceTest extends TestCase
         // The caller explicitly asks for both, and both are globally enabled.
         $service->runLoop([$this->userTurn('go')], $configuration, ToolExecutionContext::none(), ['content_tool', 'system_tool']);
 
-        self::assertSame(['content_tool'], $captured, 'A tool outside the configuration\'s groups must never be offered.');
+        self::assertSame(['content_tool'], $captured, "A tool outside the configuration's groups must never be offered.");
     }
 
     #[Test]
@@ -1407,7 +1408,7 @@ final class ToolLoopServiceTest extends TestCase
      *
      * @return array<array-key, mixed>
      */
-    private static function arr(mixed $value): array
+    private function arr(mixed $value): array
     {
         self::assertIsArray($value);
 
@@ -1418,7 +1419,7 @@ final class ToolLoopServiceTest extends TestCase
      * Assert a mixed value is a string and return it narrowed (PHPStan-clean
      * access into artifact `data` leaves).
      */
-    private static function str(mixed $value): string
+    private function str(mixed $value): string
     {
         self::assertIsString($value);
 
@@ -1660,7 +1661,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $messages = $assembled->messagesSent;
         self::assertIsArray($messages);
-        $first = self::arr($messages[0] ?? null);
+        $first = $this->arr($messages[0] ?? null);
         self::assertSame('system', $first['role'] ?? null);
         self::assertSame('OVERRIDE_SYS', $first['content'] ?? null);
     }

@@ -61,7 +61,7 @@ final readonly class TrustZoneResolver
             $fallback = $this->configurationRepository?->findOneByIdentifier($identifier);
             $zone     = TrustZone::leastTrusted(
                 $zone,
-                $fallback === null ? TrustZone::EXTERNAL_GLOBAL : $this->zoneForProvider($fallback->getProvider()),
+                $fallback instanceof LlmConfiguration ? $this->zoneForProvider($fallback->getProvider()) : TrustZone::EXTERNAL_GLOBAL,
             );
         }
 

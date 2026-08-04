@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\E2E\Backend;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -38,9 +39,13 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class DashboardE2ETest extends AbstractBackendE2ETestCase
 {
     private LlmModuleController $controller;
+
     private ProviderRepository $providerRepository;
+
     private ModelRepository $modelRepository;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private TaskRepository $taskRepository;
 
     protected function setUp(): void
@@ -160,7 +165,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         // Dashboard highlights the default configuration
         $defaultConfig = $this->configurationRepository->findDefault();
 
-        if ($defaultConfig !== null) {
+        if ($defaultConfig instanceof LlmConfiguration) {
             self::assertTrue($defaultConfig->isDefault());
             self::assertTrue($defaultConfig->isActive());
             self::assertNotEmpty($defaultConfig->getName());
@@ -719,6 +724,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             // Dashboard shows model capabilities
             self::assertNotEmpty($model->getModelId());
             self::assertGreaterThanOrEqual(0, $model->getContextLength());
@@ -732,7 +738,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $defaultModel = $this->modelRepository->findDefault();
 
-        if ($defaultModel !== null) {
+        if ($defaultModel instanceof Model) {
             self::assertTrue($defaultModel->isDefault());
             self::assertTrue($defaultModel->isActive());
         }
@@ -774,6 +780,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if (!isset($tasksByCategory[$category])) {
                 $tasksByCategory[$category] = [];
             }
+
             $tasksByCategory[$category][] = $task;
         }
 
@@ -815,6 +822,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             $provider = $model->getProvider();
             self::assertNotNull($provider);
             $providerUid = $provider->getUid();
@@ -1132,7 +1140,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
     {
         $highestProvider = $this->providerRepository->findHighestPriority();
 
-        if ($highestProvider !== null) {
+        if ($highestProvider instanceof Provider) {
             self::assertTrue($highestProvider->isActive());
 
             // Should have highest priority among active providers
@@ -1158,6 +1166,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if (!isset($byType[$type])) {
                 $byType[$type] = 0;
             }
+
             $byType[$type]++;
         }
 
@@ -1179,6 +1188,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if (!isset($byCategory[$category])) {
                 $byCategory[$category] = 0;
             }
+
             $byCategory[$category]++;
         }
 
@@ -1199,6 +1209,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if (!isset($byInputType[$inputType])) {
                 $byInputType[$inputType] = 0;
             }
+
             $byInputType[$inputType]++;
         }
 
@@ -1286,6 +1297,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             $provider = $model->getProvider();
             self::assertNotNull($provider, 'Each model must have a provider');
             self::assertNotNull($provider->getUid());
@@ -1419,6 +1431,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             self::assertNotNull($model->getProvider());
         }
     }

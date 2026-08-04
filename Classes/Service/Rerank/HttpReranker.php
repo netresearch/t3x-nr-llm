@@ -109,7 +109,11 @@ final readonly class HttpReranker implements RerankerInterface
 
             $id    = $entry['id'] ?? null;
             $score = $entry['score'] ?? null;
-            if (!is_string($id) || (!is_int($score) && !is_float($score))) {
+            if (!is_string($id)) {
+                continue;
+            }
+
+            if (!is_int($score) && !is_float($score)) {
                 continue;
             }
 

@@ -107,7 +107,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             // in a misconfigured baseUrl don't leak into sys_log.
             $this->logger->warning('Ollama: getAvailableModels failed, returning hardcoded defaults', [
                 'exception' => $e,
-                'baseUrl'   => self::sanitizeUrlForLog($this->baseUrl),
+                'baseUrl'   => $this->sanitizeUrlForLog($this->baseUrl),
             ]);
 
             return [
@@ -129,7 +129,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
      * embedded credentials (`https://user:pass@host:11434`) does not leak
      * those credentials into sys_log.
      */
-    private static function sanitizeUrlForLog(string $url): string
+    private function sanitizeUrlForLog(string $url): string
     {
         $parts = parse_url($url);
         if (!is_array($parts)) {
@@ -291,9 +291,10 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                 // Untrusted provider output: skip a malformed call (missing name)
                 // instead of crashing the whole completion.
                 $call = ToolCall::tryFromArray($callData);
-                if ($call !== null) {
+                if ($call instanceof ToolCall) {
                     $toolCalls[] = $call;
                 }
+
                 ++$index;
             }
         }
@@ -367,6 +368,7 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
                 foreach ($message['tool_calls'] as $call) {
                     $calls[] = $this->decodeToolCallArguments($call);
                 }
+
                 $message['tool_calls'] = $calls;
             }
 

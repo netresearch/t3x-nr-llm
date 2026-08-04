@@ -86,7 +86,7 @@ final readonly class TableReadAccessService
      */
     public function canReadTable(?BackendUserAuthentication $user, string $table): bool
     {
-        if ($user === null || $table === '') {
+        if (!$user instanceof BackendUserAuthentication || $table === '') {
             return false;
         }
 
@@ -98,6 +98,7 @@ final readonly class TableReadAccessService
         if (!is_array($allTca)) {
             return false;
         }
+
         $tca = $allTca[$table] ?? null;
         if (!is_array($tca)) {
             return false;

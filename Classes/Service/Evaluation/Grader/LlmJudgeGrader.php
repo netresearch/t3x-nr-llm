@@ -71,6 +71,7 @@ final readonly class LlmJudgeGrader implements GraderInterface
             $parts[] = 'REFERENCE ANSWER (an ideal response):';
             $parts[] = $prompt->reference;
         }
+
         $parts[] = '';
         $parts[] = 'RESPONSE TO GRADE:';
         $parts[] = $response;

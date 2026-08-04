@@ -69,6 +69,7 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
         } catch (Throwable) {
             return ToolResult::text(self::NOT_INSTALLED);
         }
+
         if ($available === []) {
             return ToolResult::text(self::NOT_INSTALLED);
         }
@@ -102,6 +103,7 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
             if ($label === '') {
                 $label = self::toStr($row['tasktype'] ?? '') ?: '(no description)';
             }
+
             $label = mb_strimwidth(trim((string)preg_replace('/\s+/', ' ', $label)), 0, 100, '…');
 
             $next = self::toInt($row['nextexecution'] ?? 0);
@@ -115,9 +117,11 @@ final readonly class ListSchedulerTasksTool implements ToolInterface
             if ($lastRun > 0) {
                 $flags[] = 'last run ' . gmdate('Y-m-d H:i', $lastRun) . ' UTC';
             }
+
             if (self::toInt($row['disable'] ?? 0) === 1) {
                 $flags[] = 'DISABLED';
             }
+
             if ($failed) {
                 $flags[] = 'LAST RUN FAILED';
             }

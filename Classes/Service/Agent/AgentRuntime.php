@@ -222,7 +222,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Authorised like approve/submitInput: only the run's owner, an admin or
         // a service account may cancel it (a guessed uuid is never enough).
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_CANCEL)) {
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_CANCEL)) {
             return false;
         }
 
@@ -232,7 +232,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function events(AiActorContext $actor, string $runUuid, int $afterSequence = -1): array
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return [];
         }
 
@@ -243,7 +243,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
     public function status(AiActorContext $actor, string $runUuid): ?AgentRun
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
+        if (!$run instanceof AgentRun || !$actor->mayActOnRun($run, ServiceAccountScope::AGENT_READ)) {
             return null;
         }
 

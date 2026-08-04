@@ -82,7 +82,7 @@ final class TranslatorRegistry implements TranslatorRegistryInterface, Singleton
     {
         return array_filter(
             $this->translators,
-            static fn(TranslatorInterface $t) => $t->isAvailable(),
+            static fn(TranslatorInterface $t): bool => $t->isAvailable(),
         );
     }
 

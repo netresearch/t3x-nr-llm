@@ -30,6 +30,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelSelectionServiceTest extends TestCase
 {
     private ModelRepository&Stub $modelRepository;
+
     private ModelSelectionService $subject;
 
     protected function setUp(): void
@@ -55,6 +56,7 @@ final class ModelSelectionServiceTest extends TestCase
         $providerReflection = new ReflectionClass($provider);
         $providerUid = $providerReflection->getProperty('uid');
         $providerUid->setValue($provider, $uid);
+
         $provider->setAdapterType($adapterType);
         $provider->setPriority($providerPriority);
 
@@ -62,6 +64,7 @@ final class ModelSelectionServiceTest extends TestCase
         $reflection = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
+
         $model->setIdentifier('model-' . $uid);
         $model->setName('Model ' . $uid);
         $model->setCapabilities($capabilities);
@@ -95,6 +98,7 @@ final class ModelSelectionServiceTest extends TestCase
         return new class ($items) implements QueryResultInterface {
             /** @var array<int, object> */
             private array $items;
+
             /**
              * @param array<int, object> $items
              */
@@ -102,74 +106,91 @@ final class ModelSelectionServiceTest extends TestCase
             {
                 $this->items = array_values($items);
             }
+
             public function setQuery(QueryInterface $query): void
             {
                 // Intentionally empty: this in-memory test double has no backing query to bind.
             }
+
             public function getFirst(): ?object
             {
                 return $this->items[0] ?? null;
             }
+
             /**
              * @return list<object>
              */
             public function toArray(): array
             {
-                /** @var list<object> */
-                return $this->items;
+                // offsetSet()/offsetUnset() can leave gaps, so re-index rather
+                // than asserting listness of the stored array.
+                return array_values($this->items);
             }
+
             public function count(): int
             {
                 return count($this->items);
             }
+
             public function getQuery(): QueryInterface
             {
                 throw new LogicException('Not implemented', 7771386590);
             }
+
             public function offsetExists($offset): bool
             {
                 if (!is_int($offset)) {
                     return false;
                 }
+
                 return isset($this->items[$offset]);
             }
+
             public function offsetGet($offset): mixed
             {
                 if (!is_int($offset)) {
                     return null;
                 }
+
                 return $this->items[$offset];
             }
+
             public function offsetSet($offset, $value): void
             {
                 if (is_object($value) && is_int($offset)) {
                     $this->items[$offset] = $value;
                 }
             }
+
             public function offsetUnset($offset): void
             {
                 if (is_int($offset)) {
                     unset($this->items[$offset]);
                 }
             }
+
             public function current(): object
             {
                 $current = current($this->items);
                 assert($current !== false);
                 return $current;
             }
+
             public function next(): void
             {
                 next($this->items);
             }
+
             public function key(): int
             {
                 return (int)key($this->items);
             }
+
             public function valid(): bool
             {
                 return key($this->items) !== null;
             }
+
             public function rewind(): void
             {
                 reset($this->items);
@@ -444,6 +465,7 @@ final class ModelSelectionServiceTest extends TestCase
         $reflection = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, 1);
+
         $model->setCapabilities('chat');
         // No provider set
 

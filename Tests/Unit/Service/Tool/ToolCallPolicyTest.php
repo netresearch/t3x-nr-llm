@@ -133,6 +133,7 @@ final class ToolCallPolicyTest extends TestCase
                 sprintf('enforcement="%s" should observe (tool still offered)', $value),
             );
         }
+
         foreach ($enforceValues as $value) {
             self::assertFalse(
                 $this->policy($registry, enforcement: $value)->decide('system_tool', $config, $this->admin())->allowed,

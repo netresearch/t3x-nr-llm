@@ -41,8 +41,11 @@ use Throwable;
 final class TextToSpeechService extends AbstractSpecializedService
 {
     private const API_URL = 'https://api.openai.com/v1/audio/speech';
+
     private const DEFAULT_MODEL = 'tts-1';
+
     private const DEFAULT_VOICE = 'alloy';
+
     private const MAX_INPUT_LENGTH = 4096;
 
     /** Available voices with their characteristics. */
@@ -293,7 +296,7 @@ final class TextToSpeechService extends AbstractSpecializedService
      */
     private function validateInput(string $text): void
     {
-        if (empty(trim($text))) {
+        if (in_array(trim($text), ['', '0'], true)) {
             throw new ServiceUnavailableException(
                 'Input text cannot be empty',
                 'speech',
@@ -353,6 +356,7 @@ final class TextToSpeechService extends AbstractSpecializedService
                 $chunks[] = $currentChunk;
                 $currentChunk = '';
             }
+
             foreach ($this->splitLongSentence($sentence) as $subChunk) {
                 $chunks[] = $subChunk;
             }
@@ -371,6 +375,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         if ($currentChunk !== '') {
             $chunks[] = $currentChunk;
         }
+
         $currentChunk = $sentence;
     }
 
@@ -423,6 +428,7 @@ final class TextToSpeechService extends AbstractSpecializedService
             $chunks[] = rtrim($currentChunk, ', ');
             $currentChunk = '';
         }
+
         // A single comma-delimited part can itself exceed the limit
         // (e.g. a clause with no internal commas). Emitting it whole
         // would produce an over-limit chunk that synthesize() rejects,
@@ -456,6 +462,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
+
         $request = $request->withBody(
             $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)),
         );

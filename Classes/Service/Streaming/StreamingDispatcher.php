@@ -13,6 +13,7 @@ use Generator;
 use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
@@ -207,6 +208,7 @@ final readonly class StreamingDispatcher
                 if ($firstTokenNs === null) {
                     $firstTokenNs = hrtime(true);
                 }
+
                 $chunk = $inner->current();
                 // Usage/telemetry count the RAW provider output. A bounded leading
                 // window is buffered raw for the end-of-stream audit (ADR-086).
@@ -215,7 +217,7 @@ final readonly class StreamingDispatcher
                     $completion .= $chunk;
                 }
 
-                if ($window === null) {
+                if (!$window instanceof StreamRedactionWindow) {
                     // No redaction-capable guardrail: verbatim pass-through.
                     yield $chunk;
                     $inner->next();
@@ -225,11 +227,12 @@ final readonly class StreamingDispatcher
                 foreach ($window->push($chunk) as $delta) {
                     yield $delta;
                 }
+
                 $inner->next();
             }
 
             // Flush the redacted remainder once the stream is complete.
-            if ($window !== null) {
+            if ($window instanceof StreamRedactionWindow) {
                 foreach ($window->flush() as $delta) {
                     yield $delta;
                 }
@@ -338,7 +341,7 @@ final readonly class StreamingDispatcher
         $chain = $primary->getFallbackChainDTO()->without($primary->getIdentifier());
         foreach ($chain->configurationIdentifiers as $identifier) {
             $fallback = $this->repository->findOneByIdentifier($identifier);
-            if ($fallback === null || !$fallback->isActive()) {
+            if (!$fallback instanceof LlmConfiguration || !$fallback->isActive()) {
                 $this->logger->warning(
                     'LLM streaming fallback configuration missing or inactive, skipping',
                     $this->logContext($context, ['configuration' => $identifier]),
@@ -545,7 +548,7 @@ final readonly class StreamingDispatcher
         $model    = $served->getLlmModel();
         $modelUid = $model?->getUid() ?? 0;
 
-        $cost = ($model !== null && $model->hasPricing())
+        $cost = ($model instanceof Model && $model->hasPricing())
             ? $model->estimateCost($promptTokens, $completionTokens)
             : null;
 

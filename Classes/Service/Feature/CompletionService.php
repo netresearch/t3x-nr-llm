@@ -275,6 +275,7 @@ final readonly class CompletionService implements CompletionServiceInterface
         if (!is_array($decoded)) {
             return null;
         }
+
         if (!$this->schemaValidator->validate($decoded, $schema)) {
             return null;
         }
@@ -436,8 +437,9 @@ final readonly class CompletionService implements CompletionServiceInterface
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(0.2);
         }
+
         if ($options->getTopP() === null) {
-            $options = $options->withTopP(0.9);
+            return $options->withTopP(0.9);
         }
 
         return $options;
@@ -452,11 +454,13 @@ final readonly class CompletionService implements CompletionServiceInterface
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(1.2);
         }
+
         if ($options->getTopP() === null) {
             $options = $options->withTopP(1.0);
         }
+
         if ($options->getPresencePenalty() === null) {
-            $options = $options->withPresencePenalty(0.6);
+            return $options->withPresencePenalty(0.6);
         }
 
         return $options;

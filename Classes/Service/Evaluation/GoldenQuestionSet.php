@@ -47,18 +47,21 @@ final readonly class GoldenQuestionSet
                 1794000055,
             );
         }
+
         if ($name === '') {
             throw new InvalidArgumentException(
                 sprintf('Golden question set "%s" must declare a non-empty name.', $identifier),
                 1794000056,
             );
         }
+
         if ($questions === []) {
             throw new InvalidArgumentException(
                 sprintf('Golden question set "%s" must declare at least one question.', $identifier),
                 1794000057,
             );
         }
+
         $seen = [];
         foreach ($questions as $question) {
             if (isset($seen[$question->id])) {
@@ -67,6 +70,7 @@ final readonly class GoldenQuestionSet
                     1794000058,
                 );
             }
+
             $seen[$question->id] = true;
         }
     }

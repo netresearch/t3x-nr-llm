@@ -22,6 +22,7 @@ use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
 final class ModelConstraintsWizard extends AbstractNode
 {
     public function __construct(private readonly BackendUriBuilder $uriBuilder) {}
+
     /**
      * @return array<string, mixed>
      */

@@ -76,6 +76,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     {
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return str_contains($response->content, 'sk-secret')
@@ -108,6 +109,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
     {
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::allow();
@@ -329,6 +331,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         foreach ($chunks as $chunk) {
             self::assertTrue(mb_check_encoding($chunk, 'UTF-8'), 'each yielded chunk must be valid UTF-8');
         }
+
         self::assertSame($text, implode('', $chunks));
     }
 
@@ -339,6 +342,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         // onto the buffered path — chunks pass through 1:1, no re-chunking.
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('policy');
@@ -512,6 +516,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $seen[] = $chunk;
             break; // abandon after the first chunk
         }
+
         // Destroying the suspended generator runs its finally (settlement).
         unset($generator);
 
@@ -694,9 +699,10 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $surfaced = $e;
         }
 
-        if ($surfaced === null) {
+        if (!$surfaced instanceof ProviderConnectionException) {
             self::fail('An exhausted streaming fallback chain must surface the last error.');
         }
+
         // The LAST retryable exception is surfaced (the ?? fallback default is
         // never reached because $lastRetryable is set) — code/message prove the
         // actual candidate error propagated, not a freshly built default.

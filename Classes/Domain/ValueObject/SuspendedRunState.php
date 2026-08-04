@@ -127,6 +127,7 @@ final readonly class SuspendedRunState
         if (!is_array($value)) {
             return [];
         }
+
         $out = [];
         foreach ($value as $item) {
             if (is_array($item)) {

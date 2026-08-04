@@ -273,7 +273,6 @@ final class TranslationResultTest extends AbstractUnitTestCase
             targetLanguage: 'de',
             confidence: 0.9,
             usage: $this->defaultUsage,
-            alternatives: null,
         );
 
         self::assertSame([], $result->getAlternatives());

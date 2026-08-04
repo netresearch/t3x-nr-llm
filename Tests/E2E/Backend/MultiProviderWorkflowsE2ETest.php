@@ -41,10 +41,15 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
     private const AJAX_CONFIG_TEST = '/ajax/config/test';
 
     private ProviderRepository $providerRepository;
+
     private ModelRepository $modelRepository;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private TaskRepository $taskRepository;
+
     private PersistenceManagerInterface $persistenceManager;
+
     private ConfigurationController $configurationController;
 
     protected function setUp(): void
@@ -160,7 +165,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($providers), 'Should have at least one active provider');
 
         // Each provider should have unique identifiers
-        $identifiers = array_map(fn($p) => $p->getIdentifier(), $providers);
+        $identifiers = array_map(fn(Provider $p): string => $p->getIdentifier(), $providers);
         self::assertSame(count($providers), count(array_unique($identifiers)), 'Provider identifiers should be unique');
     }
 
@@ -339,7 +344,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $newPrimary = $this->providerRepository->findHighestPriority();
 
         // Should have a different provider available (or null if only one existed)
-        if ($newPrimary !== null) {
+        if ($newPrimary instanceof Provider) {
             self::assertNotSame($primaryUid, $newPrimary->getUid(), 'Fallback provider should now be primary');
         }
 
@@ -433,6 +438,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $provider2->setPriority(100);
         $this->providerRepository->update($provider1);
         $this->providerRepository->update($provider2);
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -452,10 +458,12 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $p1->setPriority($originalPriority1);
             $this->providerRepository->update($p1);
         }
+
         if ($p2 !== null) {
             $p2->setPriority($originalPriority2);
             $this->providerRepository->update($p2);
         }
+
         $this->persistenceManager->persistAll();
     }
 
@@ -572,6 +580,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $provider2->setIsActive(!$original2);
         $this->providerRepository->update($provider1);
         $this->providerRepository->update($provider2);
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -593,6 +602,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $reloaded2->setIsActive($original2);
         $this->providerRepository->update($reloaded1);
         $this->providerRepository->update($reloaded2);
+
         $this->persistenceManager->persistAll();
     }
 
@@ -676,7 +686,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
                 self::assertInstanceOf(QueryResultInterface::class, $allConfigsQueryResult);
                 /** @var array<int, LlmConfiguration> $allConfigs */
                 $allConfigs = $allConfigsQueryResult->toArray();
-                $allConfigUids = array_map(fn(LlmConfiguration $c) => $c->getUid(), $allConfigs);
+                $allConfigUids = array_map(fn(LlmConfiguration $c): ?int => $c->getUid(), $allConfigs);
                 self::assertContains($taskConfig->getUid(), $allConfigUids);
             }
         }
@@ -743,7 +753,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($allModels));
 
         // Each model should be uniquely identifiable
-        $modelUids = array_map(fn($m) => $m['model']->getUid(), $allModels);
+        $modelUids = array_map(fn(array $m) => $m['model']->getUid(), $allModels);
         self::assertSame(count($allModels), count(array_unique($modelUids)));
     }
 
@@ -753,7 +763,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         // Only one model should be default across all providers
         $defaultModel = $this->modelRepository->findDefault();
 
-        if ($defaultModel !== null) {
+        if ($defaultModel instanceof Model) {
             self::assertTrue($defaultModel->isDefault());
 
             // Count total defaults - should be exactly 1
@@ -766,6 +776,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
                     $defaultCount++;
                 }
             }
+
             self::assertSame(1, $defaultCount, 'Only one model should be default');
         }
     }
@@ -861,6 +872,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             foreach ($providerModels as $m) {
                 $modelUids[] = $m->getUid();
             }
+
             self::assertContains($model->getUid(), $modelUids);
         }
     }
@@ -1063,6 +1075,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         foreach ($providerModels as $m) {
             $modelUids[] = $m->getUid();
         }
+
         self::assertContains($model->getUid(), $modelUids);
     }
 
@@ -1081,6 +1094,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             if (!isset($byType[$type])) {
                 $byType[$type] = [];
             }
+
             $byType[$type][] = $provider;
         }
 
@@ -1200,6 +1214,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $provider->setIsActive(false);
             $this->providerRepository->update($provider);
         }
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -1214,6 +1229,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
                 $this->providerRepository->update($provider);
             }
         }
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -1236,6 +1252,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             $model->setIsActive(false);
             $this->modelRepository->update($model);
         }
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -1250,6 +1267,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
                 $this->modelRepository->update($model);
             }
         }
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -1323,6 +1341,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getName()} must have a provider");
             self::assertNotNull($provider->getUid());
@@ -1517,6 +1536,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getIdentifier()} is orphaned");
 
@@ -1538,7 +1558,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $allModels = $modelQueryResult->toArray();
         $defaultModels = array_filter(
             $allModels,
-            fn(Model $m) => $m->isDefault(),
+            fn(Model $m): bool => $m->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultModels));
 
@@ -1549,7 +1569,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $allConfigs = $configQueryResult->toArray();
         $defaultConfigs = array_filter(
             $allConfigs,
-            fn(LlmConfiguration $c) => $c->isDefault(),
+            fn(LlmConfiguration $c): bool => $c->isDefault(),
         );
         self::assertLessThanOrEqual(1, count($defaultConfigs));
     }

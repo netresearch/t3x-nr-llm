@@ -23,6 +23,7 @@ if (!file_exists($autoloadFile)) {
         1730000001,
     );
 }
+
 require_once $autoloadFile;
 
 // Initialize testing framework

@@ -197,10 +197,12 @@ class ProviderRepository extends Repository
             if (!$provider instanceof Provider) {
                 continue;
             }
+
             $type = $provider->getAdapterType();
             if (!isset($counts[$type])) {
                 $counts[$type] = 0;
             }
+
             $counts[$type]++;
         }
 

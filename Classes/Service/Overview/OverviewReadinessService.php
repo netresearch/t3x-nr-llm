@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\Overview;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Enum\OverviewCardState;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
@@ -74,10 +76,10 @@ final readonly class OverviewReadinessService
         $providers        = $this->providerRepository->countActive();
         $models           = $this->modelRepository->countActive();
         $configurations   = $this->configurationRepository->countActive();
-        $configHasDefault = $this->configurationRepository->findDefault() !== null;
+        $configHasDefault = $this->configurationRepository->findDefault() instanceof LlmConfiguration;
         // Models carry a default too (used for fallback model selection); show
         // the same "default set" badge. Providers use priority, not a default.
-        $modelHasDefault  = $this->modelRepository->findDefault() !== null;
+        $modelHasDefault  = $this->modelRepository->findDefault() instanceof Model;
 
         // Critical path: the first incomplete step is Next, later steps Locked.
         $providersState      = $providers > 0 ? OverviewCardState::Ready : OverviewCardState::Next;

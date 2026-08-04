@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Pricing;
 
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Throwable;
 
@@ -75,7 +76,7 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
     {
         try {
             $modelRow = $this->modelRepository->findOneByIdentifier($model);
-            if ($modelRow !== null && $modelRow->hasPricing()) {
+            if ($modelRow instanceof Model && $modelRow->hasPricing()) {
                 return $modelRow->estimateCost($inputTokens, $outputTokens);
             }
         } catch (Throwable) {

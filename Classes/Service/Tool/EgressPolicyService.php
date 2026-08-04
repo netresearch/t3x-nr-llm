@@ -104,11 +104,13 @@ final readonly class EgressPolicyService
         if (!is_array($parts)) {
             return null;
         }
+
         // Reject userinfo (user:pass@host): the URL may be echoed back into the
         // tool output, so credentials must never reach the LLM or the logs.
         if (isset($parts['user']) || isset($parts['pass'])) {
             return null;
         }
+
         $scheme = strtolower(self::toStr($parts['scheme'] ?? ''));
         $host   = strtolower(self::toStr($parts['host'] ?? ''));
         if (!in_array($scheme, ['http', 'https'], true) || $host === '') {
@@ -146,6 +148,7 @@ final readonly class EgressPolicyService
         if (!is_array($parts)) {
             return null;
         }
+
         if (isset($parts['user']) || isset($parts['pass'])) {
             return null;
         }
@@ -195,6 +198,7 @@ final readonly class EgressPolicyService
                 if ($host === '') {
                     continue;
                 }
+
                 $scheme  = strtolower($base->getScheme() ?: 'http');
                 $port    = $base->getPort() ?? ($scheme === 'https' ? 443 : 80);
                 $hosts[] = $host . ':' . $port;

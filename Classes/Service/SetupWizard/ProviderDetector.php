@@ -279,6 +279,7 @@ final class ProviderDetector
         if (preg_match('/^([^.]+)\.openai\.azure\.com$/', $host, $matches)) {
             return $matches[1];
         }
+
         return '';
     }
 
@@ -297,10 +298,6 @@ final class ProviderDetector
         }
 
         // Check for 'openai' in the URL (common for compatible proxies)
-        if (str_contains(strtolower($endpoint), 'openai')) {
-            return true;
-        }
-
-        return false;
+        return str_contains(strtolower($endpoint), 'openai');
     }
 }

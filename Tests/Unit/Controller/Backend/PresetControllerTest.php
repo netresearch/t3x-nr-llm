@@ -63,10 +63,11 @@ final class PresetControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
-    private static function preset(): ConfigurationPreset
+    private function preset(): ConfigurationPreset
     {
         return new ConfigurationPreset(
             identifier: 'ext.chat',
@@ -122,7 +123,7 @@ final class PresetControllerTest extends TestCase
      * checksum differs from the current declaration — i.e. drifted. Its name
      * differs so an update produces a non-empty diff.
      */
-    private static function driftedRecord(): LlmConfiguration
+    private function driftedRecord(): LlmConfiguration
     {
         $record = new LlmConfiguration();
         $record->setIdentifier('ext.chat');
@@ -137,7 +138,7 @@ final class PresetControllerTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function decode(ResponseInterface $response): array
+    private function decode(ResponseInterface $response): array
     {
         $decoded = json_decode((string)$response->getBody(), true);
         self::assertIsArray($decoded);
@@ -172,12 +173,13 @@ final class PresetControllerTest extends TestCase
     {
         $model = new Model();
         $model->setName('Claude Sonnet');
-        $controller = $this->createController([self::preset()], existing: null, matchedModel: $model);
+
+        $controller = $this->createController([$this->preset()], matchedModel: $model);
 
         $response = $controller->listPresetsAction(new ServerRequest());
 
         self::assertSame(200, $response->getStatusCode());
-        $body = self::decode($response);
+        $body = $this->decode($response);
         self::assertTrue($body['success']);
         assert(isset($body['presets']) && is_array($body['presets']));
         self::assertCount(1, $body['presets']);
@@ -194,9 +196,9 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function listPresetsOmitsAlreadyImportedPresets(): void
     {
-        $controller = $this->createController([self::preset()], existing: new LlmConfiguration());
+        $controller = $this->createController([$this->preset()], existing: new LlmConfiguration());
 
-        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+        $body = $this->decode($controller->listPresetsAction(new ServerRequest()));
 
         self::assertSame([], $body['presets']);
     }
@@ -209,9 +211,10 @@ final class PresetControllerTest extends TestCase
         $configuration = new LlmConfiguration();
         $configuration->_setProperty('uid', 7);
         $configuration->setPresetChecksum('0000000000000000000000000000000000000000000000000000000000000000');
-        $controller = $this->createController([self::preset()], existing: $configuration);
 
-        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+        $controller = $this->createController([$this->preset()], existing: $configuration);
+
+        $body = $this->decode($controller->listPresetsAction(new ServerRequest()));
 
         self::assertSame([], $body['presets']);
         assert(isset($body['drifted']) && is_array($body['drifted']));
@@ -227,10 +230,11 @@ final class PresetControllerTest extends TestCase
     public function listPresetsOmitsImportedPresetWithUnchangedChecksumFromDrifted(): void
     {
         $configuration = new LlmConfiguration();
-        $configuration->setPresetChecksum(self::preset()->checksum());
-        $controller = $this->createController([self::preset()], existing: $configuration);
+        $configuration->setPresetChecksum($this->preset()->checksum());
 
-        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+        $controller = $this->createController([$this->preset()], existing: $configuration);
+
+        $body = $this->decode($controller->listPresetsAction(new ServerRequest()));
 
         self::assertSame([], $body['presets']);
         self::assertSame([], $body['drifted']);
@@ -242,13 +246,13 @@ final class PresetControllerTest extends TestCase
         // The registry must see the identifier as pending while the import
         // service checks for duplicates against the same repository — a null
         // answer serves both.
-        $controller = $this->createController([self::preset()], existing: null, matchedModel: new Model());
+        $controller = $this->createController([$this->preset()], matchedModel: new Model());
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->importAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = self::decode($response);
+        $body = $this->decode($response);
         self::assertTrue($body['success']);
         self::assertSame('ext.chat', $body['identifier']);
     }
@@ -256,26 +260,26 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function importReturns404ForUnknownIdentifier(): void
     {
-        $controller = $this->createController([self::preset()]);
+        $controller = $this->createController([$this->preset()]);
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
 
         $response = $controller->importAction($request);
 
         self::assertSame(404, $response->getStatusCode());
-        self::assertFalse(self::decode($response)['success']);
+        self::assertFalse($this->decode($response)['success']);
     }
 
     #[Test]
     public function importReturns422WhenPresetIsUnsatisfiable(): void
     {
         // No matched model and no candidates: preflight is unsatisfiable.
-        $controller = $this->createController([self::preset()], existing: null, matchedModel: null);
+        $controller = $this->createController([$this->preset()]);
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->importAction($request);
 
         self::assertSame(422, $response->getStatusCode());
-        $body = self::decode($response);
+        $body = $this->decode($response);
         self::assertFalse($body['success']);
         assert(isset($body['error']) && is_string($body['error']));
         self::assertStringContainsString('capabilities: chat', $body['error']);
@@ -284,11 +288,12 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function listPresetsSummarisesDriftedChangedFields(): void
     {
-        $configuration = self::driftedRecord();
+        $configuration = $this->driftedRecord();
         $configuration->_setProperty('uid', 7);
-        $controller = $this->createController([self::preset()], existing: $configuration);
 
-        $body = self::decode($controller->listPresetsAction(new ServerRequest()));
+        $controller = $this->createController([$this->preset()], existing: $configuration);
+
+        $body = $this->decode($controller->listPresetsAction(new ServerRequest()));
 
         assert(isset($body['drifted']) && is_array($body['drifted']));
         $entry = $body['drifted'][0];
@@ -317,7 +322,7 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function diffReturns404ForUnknownIdentifier(): void
     {
-        $controller = $this->createController([self::preset()]);
+        $controller = $this->createController([$this->preset()]);
         $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.unknown']);
 
         self::assertSame(404, $controller->diffAction($request)->getStatusCode());
@@ -326,7 +331,7 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function diffReturns422WhenNothingImported(): void
     {
-        $controller = $this->createController([self::preset()], existing: null);
+        $controller = $this->createController([$this->preset()]);
         $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
 
         self::assertSame(422, $controller->diffAction($request)->getStatusCode());
@@ -335,13 +340,13 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function diffReturnsChangesForDriftedRecord(): void
     {
-        $controller = $this->createController([self::preset()], existing: self::driftedRecord(), matchedModel: new Model());
+        $controller = $this->createController([$this->preset()], existing: $this->driftedRecord(), matchedModel: new Model());
         $request = (new ServerRequest())->withQueryParams(['identifier' => 'ext.chat']);
 
         $response = $controller->diffAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = self::decode($response);
+        $body = $this->decode($response);
         self::assertTrue($body['success']);
         self::assertSame('ext.chat', $body['identifier']);
         assert(isset($body['changes']) && is_array($body['changes']));
@@ -350,19 +355,20 @@ final class PresetControllerTest extends TestCase
             assert(is_array($change) && isset($change['field']) && is_string($change['field']));
             $fields[] = $change['field'];
         }
+
         self::assertContains('name', $fields);
     }
 
     #[Test]
     public function updateAppliesDriftedRecordAndReturnsChangedFields(): void
     {
-        $controller = $this->createController([self::preset()], existing: self::driftedRecord(), matchedModel: new Model());
+        $controller = $this->createController([$this->preset()], existing: $this->driftedRecord(), matchedModel: new Model());
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->updateAction($request);
 
         self::assertSame(200, $response->getStatusCode());
-        $body = self::decode($response);
+        $body = $this->decode($response);
         self::assertTrue($body['success']);
         self::assertSame('ext.chat', $body['identifier']);
         assert(isset($body['changedFields']) && is_array($body['changedFields']));
@@ -372,23 +378,25 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function updateReturns422WhenModeSwitchedToFixed(): void
     {
-        $record = self::driftedRecord();
+        $record = $this->driftedRecord();
         $record->setModelSelectionMode(ModelSelectionMode::FIXED->value);
-        $controller = $this->createController([self::preset()], existing: $record, matchedModel: new Model());
+
+        $controller = $this->createController([$this->preset()], existing: $record, matchedModel: new Model());
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         $response = $controller->updateAction($request);
 
         self::assertSame(422, $response->getStatusCode());
-        self::assertFalse(self::decode($response)['success']);
+        self::assertFalse($this->decode($response)['success']);
     }
 
     #[Test]
     public function updateReturns422WhenRecordNotDrifted(): void
     {
-        $record = self::driftedRecord();
-        $record->setPresetChecksum(self::preset()->checksum());
-        $controller = $this->createController([self::preset()], existing: $record, matchedModel: new Model());
+        $record = $this->driftedRecord();
+        $record->setPresetChecksum($this->preset()->checksum());
+
+        $controller = $this->createController([$this->preset()], existing: $record, matchedModel: new Model());
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.chat']);
 
         self::assertSame(422, $controller->updateAction($request)->getStatusCode());
@@ -397,7 +405,7 @@ final class PresetControllerTest extends TestCase
     #[Test]
     public function updateReturns404ForUnknownIdentifier(): void
     {
-        $controller = $this->createController([self::preset()]);
+        $controller = $this->createController([$this->preset()]);
         $request = (new ServerRequest())->withParsedBody(['identifier' => 'ext.unknown']);
 
         self::assertSame(404, $controller->updateAction($request)->getStatusCode());

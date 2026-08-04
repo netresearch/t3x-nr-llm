@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Retrieval\SourceReference;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Companion to site_rag_query (ADR-049): resolves one of its source ids
@@ -61,12 +62,12 @@ final readonly class SiteFetchSourceTool implements ToolInterface
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::text('Not permitted.');
         }
 
         $reference = SourceReference::parse(trim(self::toStr($arguments['source_id'] ?? '')));
-        if ($reference === null) {
+        if (!$reference instanceof SourceReference) {
             return ToolResult::text('Invalid source_id.');
         }
 

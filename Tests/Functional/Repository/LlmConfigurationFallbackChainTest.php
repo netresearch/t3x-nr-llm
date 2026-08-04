@@ -36,6 +36,7 @@ use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 class LlmConfigurationFallbackChainTest extends AbstractFunctionalTestCase
 {
     private LlmConfigurationRepository $subject;
+
     private PersistenceManager $persistenceManager;
 
     protected function setUp(): void

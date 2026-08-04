@@ -81,9 +81,11 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
                     $site->getRootPageId(),
                 );
             }
+
             if ($lines === []) {
                 return ToolResult::text('No sites configured.');
             }
+
             sort($lines);
 
             return ToolResult::text(sprintf(
@@ -160,6 +162,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
                     $lines[] = sprintf('%s: []', $path);
                     continue;
                 }
+
                 $this->flatten($value, $path, $lines);
                 continue;
             }
@@ -173,6 +176,7 @@ final readonly class GetSiteConfigTool implements ToolInterface, ToolDataClassIn
         if (is_bool($value)) {
             return $value ? 'true' : 'false';
         }
+
         if ($value === null) {
             return 'null';
         }

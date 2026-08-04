@@ -69,6 +69,7 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
         if ($csv === '') {
             return new self();
         }
+
         return self::fromArray(explode(',', $csv));
     }
 
@@ -83,12 +84,18 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
         $out  = [];
         foreach ($tokens as $token) {
             $enum = self::coerceToEnum($token);
-            if ($enum === null || isset($seen[$enum->value])) {
+            if (!$enum instanceof ModelCapability) {
                 continue;
             }
+
+            if (isset($seen[$enum->value])) {
+                continue;
+            }
+
             $seen[$enum->value] = true;
             $out[]              = $enum;
         }
+
         return new self($out);
     }
 
@@ -124,9 +131,10 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
     public function has(ModelCapability|string $capability): bool
     {
         $needle = self::coerceToEnum($capability);
-        if ($needle === null) {
+        if (!$needle instanceof ModelCapability) {
             return false;
         }
+
         // PHP enums are singletons, so strict equality is enough — and
         // `in_array(..., true)` short-circuits on first match.
         return in_array($needle, $this->capabilities, true);
@@ -140,9 +148,10 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
     public function with(ModelCapability|string $capability): self
     {
         $enum = self::coerceToEnum($capability);
-        if ($enum === null || $this->has($enum)) {
+        if (!$enum instanceof ModelCapability || $this->has($enum)) {
             return $this;
         }
+
         return new self([...$this->capabilities, $enum]);
     }
 
@@ -153,9 +162,10 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
     public function without(ModelCapability|string $capability): self
     {
         $enum = self::coerceToEnum($capability);
-        if ($enum === null || !$this->has($enum)) {
+        if (!$enum instanceof ModelCapability || !$this->has($enum)) {
             return $this;
         }
+
         $filtered = array_values(array_filter(
             $this->capabilities,
             static fn(ModelCapability $cap): bool => $cap !== $enum,
@@ -188,9 +198,11 @@ final readonly class CapabilitySet implements Countable, JsonSerializable
         if ($token instanceof ModelCapability) {
             return $token;
         }
+
         if (!is_string($token)) {
             return null;
         }
+
         return ModelCapability::tryFrom(trim($token));
     }
 }

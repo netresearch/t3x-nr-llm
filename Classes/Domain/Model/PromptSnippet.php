@@ -26,7 +26,9 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class PromptSnippet extends AbstractEntity
 {
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
 
     /** Comma-separated free-form tags, e.g. "audience,tone_of_voice". */
@@ -42,6 +44,7 @@ class PromptSnippet extends AbstractEntity
     protected string $metadata = '';
 
     protected bool $isActive = true;
+
     protected int $sorting = 0;
 
     // Getters

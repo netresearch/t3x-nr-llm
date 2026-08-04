@@ -74,6 +74,7 @@ final readonly class EmbeddingResponse
         if (!\is_array($usageData)) {
             $usageData = [];
         }
+
         /** @var array<string, mixed> $usageData The serialized usage shape is a JSON object (string keys). */
 
         return new self(
@@ -105,13 +106,16 @@ final readonly class EmbeddingResponse
             if (!\is_array($vector)) {
                 return [];
             }
+
             $floats = [];
             foreach ($vector as $component) {
                 if (!\is_int($component) && !\is_float($component)) {
                     return [];
                 }
+
                 $floats[] = (float)$component;
             }
+
             $normalized[] = $floats;
         }
 
@@ -164,13 +168,13 @@ final readonly class EmbeddingResponse
      */
     public function normalizeVector(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn(float $x): float => $x * $x, $vector)));
 
         if ($magnitude === 0.0) {
             return $vector;
         }
 
-        return array_map(static fn($x) => $x / $magnitude, $vector);
+        return array_map(static fn(float $x): float => $x / $magnitude, $vector);
     }
 
     /**

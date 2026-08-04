@@ -117,7 +117,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm', $tags, true)
+                self::callback(fn(array $tags): bool => in_array('nrllm', $tags, true)
                         && in_array('nrllm_response', $tags, true)),
                 self::anything(),
             );
@@ -137,7 +137,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm', $tags, true)
+                self::callback(fn(array $tags): bool => in_array('nrllm', $tags, true)
                         && in_array('nrllm_response', $tags, true)
                         && in_array('custom_tag', $tags, true)),
                 self::anything(),
@@ -161,7 +161,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
                 self::callback(
                     // 'nrllm' should appear only once even if passed as custom tag
 
-                    fn(array $tags) => count(array_keys($tags, 'nrllm', true)) === 1,
+                    fn(array $tags): bool => count(array_keys($tags, 'nrllm', true)) === 1,
                 ),
                 self::anything(),
             );
@@ -252,7 +252,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
                 self::callback(
                     // Model 'gpt-4.0-turbo' should become 'nrllm_model_gpt_4_0_turbo'
 
-                    fn(array $tags) => in_array('nrllm_model_gpt_4_0_turbo', $tags, true),
+                    fn(array $tags): bool => in_array('nrllm_model_gpt_4_0_turbo', $tags, true),
                 ),
                 self::anything(),
             );
@@ -280,6 +280,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
                             return !str_contains($tag, '.') && !str_contains($tag, '-');
                         }
                     }
+
                     return false;
                 }),
                 self::anything(),
@@ -478,7 +479,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm_provider_claude', $tags, true)),
+                self::callback(fn(array $tags): bool => in_array('nrllm_provider_claude', $tags, true)),
                 self::anything(),
             );
 
@@ -498,7 +499,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm_provider_openai', $tags, true)),
+                self::callback(fn(array $tags): bool => in_array('nrllm_provider_openai', $tags, true)),
                 self::anything(),
             );
 
@@ -517,7 +518,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm_embeddings', $tags, true)),
+                self::callback(fn(array $tags): bool => in_array('nrllm_embeddings', $tags, true)),
                 self::anything(),
             );
 
@@ -536,7 +537,7 @@ class CacheManagerMutationTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 self::anything(),
-                self::callback(fn(array $tags) => in_array('nrllm_completion', $tags, true)),
+                self::callback(fn(array $tags): bool => in_array('nrllm_completion', $tags, true)),
                 self::anything(),
             );
 

@@ -113,7 +113,7 @@ final readonly class SkillAuditRepository implements SkillAuditRepositoryInterfa
         $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        return (int)$queryBuilder
+        return $queryBuilder
             ->delete(self::TABLE)
             ->where($queryBuilder->expr()->lt('crdate', $queryBuilder->createNamedParameter($timestamp)))
             ->executeStatement();

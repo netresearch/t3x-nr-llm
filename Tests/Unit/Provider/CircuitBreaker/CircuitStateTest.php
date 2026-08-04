@@ -32,7 +32,7 @@ final class CircuitStateTest extends AbstractUnitTestCase
     #[Test]
     public function statusIsClosedWhenNeverOpened(): void
     {
-        $state = new CircuitState(3, null);
+        $state = new CircuitState(3);
 
         self::assertSame(CircuitStatus::Closed, $state->status(1_000, 30));
         // A failure streak without an open timestamp is still "closed" — it is
@@ -63,7 +63,7 @@ final class CircuitStateTest extends AbstractUnitTestCase
         self::assertSame(0, $state->secondsUntilHalfOpen($openedAt + 30, 30));
         self::assertSame(0, $state->secondsUntilHalfOpen($openedAt + 999, 30));
         // Not open → no wait.
-        self::assertSame(0, (new CircuitState(0, null))->secondsUntilHalfOpen(1_000, 30));
+        self::assertSame(0, (new CircuitState(0))->secondsUntilHalfOpen(1_000, 30));
     }
 
     #[Test]

@@ -296,7 +296,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         );
 
         $runtime = $this->runtime($loop);
-        $result  = $runtime->run($this->request(), static function (): void {
+        $result  = $runtime->run($this->request(), static function (): never {
             throw new RuntimeException('client gone', 1784700002);
         });
 
@@ -333,6 +333,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     {
         $this->repository->findResult  = $this->suspendedRun();
         $this->repository->maxSequence = 4;
+
         $loopResult = $this->loopResult('continued');
 
         $seenBeUser = null;
@@ -559,11 +560,11 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $uuid       = $runtime0->enqueue(new AgentRunRequest(
             configuration: new LlmConfiguration(),
             messages: [ChatMessage::user('do the queued thing')],
+            actor: AiActorContext::backendUser(9),
             allowedToolNames: ['fetch_logs'],
             options: (new ToolOptions(temperature: 0.5, plannedCost: 1.25))->withIdempotencyKey('idem-1'),
             maxIterations: 50,
             captureRaw: true,
-            actor: AiActorContext::backendUser(9),
         ));
 
         $this->repository->findResult = $this->queuedRun($uuid, $this->repository->enqueuedRuns[0]['requestJson']);
@@ -1207,7 +1208,6 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             startedAt: 0,
             finishedAt: 0,
             crdate: 0,
-            suspendedState: null,
             queuedRequest: $requestJson,
             requeueCount: $requeueCount,
             pendingEffect: $pendingEffect,
@@ -1355,8 +1355,8 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         return new AgentRunRequest(
             configuration: new LlmConfiguration(),
             messages: [ChatMessage::user('go')],
-            maxIterations: $maxIterations,
             actor: AiActorContext::backendUser(9),
+            maxIterations: $maxIterations,
         );
     }
 

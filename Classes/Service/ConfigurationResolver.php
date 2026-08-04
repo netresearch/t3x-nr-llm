@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
@@ -77,8 +78,8 @@ final readonly class ConfigurationResolver
         // otherwise getProvider(null) throws. The generic chat()/complete()/streamChat()
         // path has no backend-user context to enforce group membership against (notably the CLI
         // worker), so an access-restricted default must not be auto-applied to arbitrary callers.
-        if ($configuration === null
-            || $configuration->getLlmModel() === null
+        if (!$configuration instanceof LlmConfiguration
+            || !$configuration->getLlmModel() instanceof Model
             || $configuration->hasAccessRestrictions()
         ) {
             return null;
@@ -109,7 +110,7 @@ final readonly class ConfigurationResolver
     {
         $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
 
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException(
                 sprintf('LLM configuration "%s" not found', $identifier),
                 1784211001,
@@ -158,7 +159,7 @@ final readonly class ConfigurationResolver
     {
         $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
 
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException(
                 sprintf('LLM configuration "%s" not found', $identifier),
                 1784211001,

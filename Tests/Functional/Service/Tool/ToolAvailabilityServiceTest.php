@@ -28,6 +28,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class ToolAvailabilityServiceTest extends AbstractFunctionalTestCase
 {
     private ToolStateRepository $stateRepository;
+
     private ToolGroupStateRepository $groupStateRepository;
 
     protected function setUp(): void

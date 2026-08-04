@@ -50,18 +50,21 @@ final readonly class GoldenPromptSet
                 1794000020,
             );
         }
+
         if ($name === '') {
             throw new InvalidArgumentException(
                 sprintf('Golden set "%s" must declare a non-empty name.', $identifier),
                 1794000021,
             );
         }
+
         if ($prompts === []) {
             throw new InvalidArgumentException(
                 sprintf('Golden set "%s" must declare at least one prompt.', $identifier),
                 1794000022,
             );
         }
+
         $seen = [];
         foreach ($prompts as $prompt) {
             if (isset($seen[$prompt->id])) {
@@ -70,6 +73,7 @@ final readonly class GoldenPromptSet
                     1794000023,
                 );
             }
+
             $seen[$prompt->id] = true;
         }
     }

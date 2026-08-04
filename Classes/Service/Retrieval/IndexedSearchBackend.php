@@ -130,6 +130,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         if (count($reference->parts) !== 1) {
             return null;
         }
+
         $phash = $reference->parts[0];
 
         $queryBuilder = $this->phashQueryBuilder();
@@ -331,6 +332,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         } catch (Throwable) {
             return null;
         }
+
         if ($siteIdentifier !== null && $site->getIdentifier() !== $siteIdentifier) {
             return null;
         }
@@ -352,6 +354,7 @@ final class IndexedSearchBackend implements SearchBackendInterface
         if ($pageType > 0) {
             $arguments['type'] = $pageType;
         }
+
         $arguments['_language'] = self::toInt($row['sys_language_uid'] ?? 0);
 
         try {

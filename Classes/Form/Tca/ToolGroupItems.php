@@ -38,6 +38,7 @@ final class ToolGroupItems
                 $groups[$tool->getGroup()] = true;
             }
         }
+
         ksort($groups);
 
         // Keep already-stored but currently unknown groups selectable.
@@ -53,6 +54,7 @@ final class ToolGroupItems
         } else {
             $stored = (string)$stored;
         }
+
         foreach (GeneralUtility::trimExplode(',', $stored, true) as $known) {
             $groups[$known] ??= true;
         }

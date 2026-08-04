@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 final readonly class SecretRedactionInputGuardrail implements InputGuardrailInterface
 {
     use RedactsSecretsTrait;
+
     public function getIdentifier(): string
     {
         return 'secret-redaction';

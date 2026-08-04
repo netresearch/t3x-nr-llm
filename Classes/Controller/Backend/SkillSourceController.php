@@ -87,6 +87,7 @@ final class SkillSourceController extends ActionController
             if ($uid === null) {
                 continue;
             }
+
             $sourceEditUrls[$uid] = $this->formEngineUrlBuilder->buildEditUrl('tx_nrllm_skill_source', $uid, 'nrllm_skills');
         }
 
@@ -100,14 +101,16 @@ final class SkillSourceController extends ActionController
 
     public function syncAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $uid = $this->intFromBody($request->getParsedBody(), 'source');
         $source = $this->sourceRepository->findByUid($uid);
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
+
         $result = $this->syncService->sync($source);
         return new JsonResponse([
             'success' => true,
@@ -123,14 +126,16 @@ final class SkillSourceController extends ActionController
 
     public function toggleSkillAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         [$skill, $error] = $this->resolveToggleableSkill($body);
-        if ($error !== null) {
+        if ($error instanceof ResponseInterface) {
             return $error;
         }
+
         assert($skill instanceof Skill);
         $skill->setEnabled($this->boolFromBody($body, 'enabled'));
         $this->skillRepository->update($skill);
@@ -155,22 +160,26 @@ final class SkillSourceController extends ActionController
         if ($skill === null) {
             return [null, new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSkill', 'Unknown skill')], 404)];
         }
+
         if ($skill->isOrphaned()) {
             return [null, new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.orphaned', 'Cannot enable an orphaned skill')], 422)];
         }
+
         return [$skill, null];
     }
 
     public function setTokenAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $source = $this->sourceRepository->findByUid($this->intFromBody($body, 'source'));
         if ($source === null) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.skill.unknownSource', 'Unknown source')], 404);
         }
+
         $token = $this->stringFromBody($body, 'token');
         $uuid = $source->getGithubToken() !== '' ? $source->getGithubToken() : StringUtility::getUniqueId('ghtoken_');
         try {
@@ -194,6 +203,7 @@ final class SkillSourceController extends ActionController
         if (!is_array($body)) {
             return 0;
         }
+
         $value = $body[$key] ?? 0;
         return is_numeric($value) ? (int)$value : 0;
     }
@@ -203,6 +213,7 @@ final class SkillSourceController extends ActionController
         if (!is_array($body)) {
             return '';
         }
+
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
     }
@@ -212,6 +223,7 @@ final class SkillSourceController extends ActionController
         if (!is_array($body)) {
             return false;
         }
+
         // filter_var (not a plain cast) so the string "false"/"0" from form bodies is correctly false.
         return filter_var($body[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
     }

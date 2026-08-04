@@ -40,6 +40,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 {
     /** @var array<string, array<string, array<string, int|string>>> */
     private array $defaultConfig;
+
     private UsageTrackerServiceInterface $usageTrackerStub;
 
     protected function setUp(): void
@@ -347,8 +348,8 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
 
         $options = new DeepLOptions(
             formality: 'more',
-            preserveFormatting: true,
             glossaryId: 'gls_123',
+            preserveFormatting: true,
         );
 
         $result = $translator->translate('Hello', 'de', null, ['deepl' => $options]);
@@ -478,7 +479,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data) => $data['batch_size'] === 2 && $data['characters'] === 10),
+                self::callback(fn(array $data): bool => $data['batch_size'] === 2 && $data['characters'] === 10),
             );
 
         $translator = new DeepLTranslator(

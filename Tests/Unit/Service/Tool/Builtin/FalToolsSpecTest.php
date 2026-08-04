@@ -37,7 +37,7 @@ final class FalToolsSpecTest extends TestCase
     /**
      * @return list<class-string<ToolInterface>>
      */
-    private static function toolClasses(): array
+    private function toolClasses(): array
     {
         return [
             ListFalStoragesTool::class,
@@ -51,7 +51,7 @@ final class FalToolsSpecTest extends TestCase
     /**
      * @param class-string<ToolInterface> $class
      */
-    private static function bare(string $class): ToolInterface
+    private function bare(string $class): ToolInterface
     {
         $tool = (new ReflectionClass($class))->newInstanceWithoutConstructor();
         self::assertInstanceOf(ToolInterface::class, $tool);
@@ -62,23 +62,23 @@ final class FalToolsSpecTest extends TestCase
     #[Test]
     public function specsExposeNamesAndRequiredParameters(): void
     {
-        $storages = self::bare(ListFalStoragesTool::class)->getSpec();
+        $storages = $this->bare(ListFalStoragesTool::class)->getSpec();
         self::assertSame('list_fal_storages', $storages->name);
         self::assertArrayNotHasKey('required', $storages->parameters);
 
-        $browse = self::bare(BrowseFalFolderTool::class)->getSpec();
+        $browse = $this->bare(BrowseFalFolderTool::class)->getSpec();
         self::assertSame('browse_fal_folder', $browse->name);
         self::assertArrayNotHasKey('required', $browse->parameters);
 
-        $search = self::bare(SearchFalFilesTool::class)->getSpec();
+        $search = $this->bare(SearchFalFilesTool::class)->getSpec();
         self::assertSame('search_fal_files', $search->name);
         self::assertSame(['query'], $search->parameters['required'] ?? []);
 
-        $references = self::bare(GetFalReferencesTool::class)->getSpec();
+        $references = $this->bare(GetFalReferencesTool::class)->getSpec();
         self::assertSame('get_fal_references', $references->name);
         self::assertSame(['uid'], $references->parameters['required'] ?? []);
 
-        $missing = self::bare(FindMissingFilesTool::class)->getSpec();
+        $missing = $this->bare(FindMissingFilesTool::class)->getSpec();
         self::assertSame('find_missing_files', $missing->name);
         self::assertArrayNotHasKey('required', $missing->parameters);
     }
@@ -86,8 +86,8 @@ final class FalToolsSpecTest extends TestCase
     #[Test]
     public function allToolsAreNonAdminEnabledByDefaultAndInTheFilesGroup(): void
     {
-        foreach (self::toolClasses() as $class) {
-            $tool = self::bare($class);
+        foreach ($this->toolClasses() as $class) {
+            $tool = $this->bare($class);
             self::assertFalse($tool->requiresAdmin(), $class);
             self::assertTrue($tool->isEnabledByDefault(), $class);
             self::assertSame('files', $tool->getGroup(), $class);
@@ -101,11 +101,11 @@ final class FalToolsSpecTest extends TestCase
         // no storages and every tool answers with its neutral denial.
         self::assertSame(
             'Asset not found or not permitted.',
-            self::bare(GetFalReferencesTool::class)->execute(['uid' => 0], ToolExecutionContext::none())->content,
+            $this->bare(GetFalReferencesTool::class)->execute(['uid' => 0], ToolExecutionContext::none())->content,
         );
         self::assertSame(
             'Error: "query" is required.',
-            self::bare(SearchFalFilesTool::class)->execute([], ToolExecutionContext::none())->content,
+            $this->bare(SearchFalFilesTool::class)->execute([], ToolExecutionContext::none())->content,
         );
     }
 }

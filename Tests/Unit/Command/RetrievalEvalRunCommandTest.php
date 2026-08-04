@@ -147,6 +147,7 @@ final class RetrievalEvalRunCommandTest extends TestCase
     {
         $repository = new InMemoryEvaluationResultRepository();
         $repository->seed($this->perfectBaseline());
+
         $tester = new CommandTester($this->command(new StaticRetriever(), $repository));
 
         $exitCode = $tester->execute(['set' => self::SET_IDENTIFIER, 'retriever' => self::RETRIEVER_IDENTIFIER]);
@@ -160,6 +161,7 @@ final class RetrievalEvalRunCommandTest extends TestCase
     {
         $repository = new InMemoryEvaluationResultRepository();
         $repository->seed($this->perfectBaseline());
+
         $tester = new CommandTester($this->command(new StaticRetriever(), $repository));
 
         $exitCode = $tester->execute([

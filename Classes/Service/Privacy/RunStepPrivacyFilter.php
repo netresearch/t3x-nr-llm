@@ -113,6 +113,7 @@ final readonly class RunStepPrivacyFilter
                     $types[] = $artifact['type'];
                 }
             }
+
             $out['toolArtifactTypes'] = $types;
         }
 

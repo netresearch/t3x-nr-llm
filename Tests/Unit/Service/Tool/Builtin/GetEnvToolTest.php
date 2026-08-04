@@ -27,28 +27,43 @@ use PHPUnit\Framework\TestCase;
 final class GetEnvToolTest extends TestCase
 {
     private const PLAIN_KEY = 'NRLLM_TEST_PLAIN_HOST';
+
     private const PLAIN_VALUE = 'web-01.example.test';
+
     private const SECRET_KEY = 'NRLLM_TEST_DB_PASSWORD';
+
     private const SECRET_VALUE = 'sup3r-s3cr3t-value';
+
     // Name uses PWD (not PASS), matched by the secret-name pattern.
     private const PWD_KEY = 'NRLLM_TEST_MYSQL_PWD';
+
     private const PWD_VALUE = 'dbpass123';
+
     // Non-secret NAME whose VALUE embeds credentials in a connection URL.
     private const URL_KEY = 'NRLLM_TEST_REDIS_URL';
+
     private const URL_VALUE = 'redis://cacheuser:s3cr3turl@cache-01:6379/0';
+
     // Same, but with an EMPTY username (redis://:password@host).
     private const NOUSER_URL_KEY = 'NRLLM_TEST_NOUSER_URL';
+
     private const NOUSER_URL_VALUE = 'redis://:s3cr3tnouser@cache-02:6379/0';
+
     // Names that give NOTHING away — no PASS/KEY/SECRET/TOKEN substring — whose
     // values are unmistakable secrets. Matching on names alone egressed both
     // verbatim to the provider (ADR-123).
     private const SHAPED_PAT_KEY = 'NRLLM_TEST_GITHUB_PAT';
+
     private const SHAPED_PAT_VALUE = 'ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
     private const SHAPED_STRIPE_KEY = 'NRLLM_TEST_STRIPE_LIVE';
+
     // Assembled rather than written out: a complete Stripe-shaped literal in a
     // committed file trips GitHub's push protection, even as an obvious fixture.
     private const SHAPED_STRIPE_VALUE = 'sk_live_' . '999999999999999999999999';
+
     private const SHAPED_JWT_KEY = 'NRLLM_TEST_SESSION_BLOB';
+
     private const SHAPED_JWT_VALUE = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcDEF123';
 
     protected function setUp(): void
@@ -66,6 +81,7 @@ final class GetEnvToolTest extends TestCase
             putenv($name);
             unset($_ENV[$name]);
         }
+
         parent::tearDown();
     }
 

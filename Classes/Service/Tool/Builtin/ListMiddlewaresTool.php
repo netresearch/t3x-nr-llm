@@ -77,6 +77,7 @@ final readonly class ListMiddlewaresTool implements ToolInterface
                     $lines[] = '… more entries not shown';
                     break;
                 }
+
                 ++$shown;
                 $lines[] = sprintf('%2d. %s (%s)', $shown, (string)$identifier, self::toStr($className));
             }

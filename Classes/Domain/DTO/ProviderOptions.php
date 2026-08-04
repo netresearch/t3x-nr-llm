@@ -133,10 +133,12 @@ final readonly class ProviderOptions implements JsonSerializable
         if ($json === '') {
             return new self();
         }
+
         $decoded = json_decode($json, true);
         if (!is_array($decoded)) {
             return new self();
         }
+
         /** @var array<string, mixed> $decoded */
         return self::fromArray($decoded);
     }
@@ -250,6 +252,7 @@ final readonly class ProviderOptions implements JsonSerializable
         if ($proxy === '') {
             $proxy = null;
         }
+
         return new self(
             proxy: $proxy,
             customHeaders: $this->customHeaders,
@@ -274,6 +277,7 @@ final readonly class ProviderOptions implements JsonSerializable
                 $sanitised[$name] = $value;
             }
         }
+
         return new self(
             proxy: $this->proxy,
             customHeaders: $sanitised,
@@ -295,6 +299,7 @@ final readonly class ProviderOptions implements JsonSerializable
         if ($key === 'proxy' || $key === 'customHeaders') {
             return $this;
         }
+
         $extra = $this->extra;
         $extra[$key] = $value;
         return new self(

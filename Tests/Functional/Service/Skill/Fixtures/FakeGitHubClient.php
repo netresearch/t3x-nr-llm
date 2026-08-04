@@ -62,6 +62,7 @@ final readonly class FakeGitHubClient implements GitHubClientInterface
                 404,
             );
         }
+
         return $bodies[$path];
     }
 

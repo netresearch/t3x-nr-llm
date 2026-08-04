@@ -33,8 +33,8 @@ final class FakeToolCallingServiceTest extends TestCase
     #[Test]
     public function returnsQueuedResponsesInFifoOrderAcrossBothMethods(): void
     {
-        $first = self::response('first');
-        $second = self::response('second');
+        $first = $this->response('first');
+        $second = $this->response('second');
 
         $subject = new FakeToolCallingService();
         $subject->responses = [$first, $second];
@@ -51,7 +51,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $options  = new ToolOptions();
 
         $subject = new FakeToolCallingService();
-        $subject->responses = [self::response('ok')];
+        $subject->responses = [$this->response('ok')];
 
         $subject->chatWithTools($messages, $tools, $options);
 
@@ -68,7 +68,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $configuration = new LlmConfiguration();
 
         $subject = new FakeToolCallingService();
-        $subject->responses = [self::response('ok')];
+        $subject->responses = [$this->response('ok')];
 
         $subject->chatWithToolsForConfiguration([], [], $configuration);
 
@@ -80,7 +80,7 @@ final class FakeToolCallingServiceTest extends TestCase
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
         $subject = new FakeToolCallingService();
-        $subject->responses = [self::response('unused')];
+        $subject->responses = [$this->response('unused')];
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
@@ -92,7 +92,7 @@ final class FakeToolCallingServiceTest extends TestCase
     #[Test]
     public function throwableIsOneShotAndNextCallReturnsAQueuedResponseAgain(): void
     {
-        $queued = self::response('after');
+        $queued = $this->response('after');
 
         $subject = new FakeToolCallingService();
         $subject->responses = [$queued];
@@ -120,7 +120,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $subject->chatWithTools([], []);
     }
 
-    private static function response(string $content): CompletionResponse
+    private function response(string $content): CompletionResponse
     {
         return new CompletionResponse($content, 'fake-model', new UsageStatistics(0, 0, 0));
     }

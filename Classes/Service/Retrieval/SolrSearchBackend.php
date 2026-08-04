@@ -100,9 +100,10 @@ final class SolrSearchBackend implements SearchBackendInterface
 
             foreach ($this->select($endpoint, $parameters, $filters) as $document) {
                 $source = $this->toEvidence($document, $site, $query);
-                if ($source !== null) {
+                if ($source instanceof EvidenceSource) {
                     $sources[] = $source;
                 }
+
                 if (count($sources) >= $query->maxSources) {
                     return new EvidenceList(self::IDENTIFIER, $sources);
                 }
@@ -117,6 +118,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         if (count($reference->parts) !== 4) {
             return null;
         }
+
         [$siteIdentifier, $type, $uid, $languageId] = $reference->parts;
         if (preg_match('/^[A-Za-z0-9_]{1,64}$/', $type) !== 1) {
             return null;
@@ -160,6 +162,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         if ($documentUrl !== '' && $this->siteScopedUrl($documentUrl, $site) === null) {
             return null;
         }
+
         $title = ExcerptBuilder::plain(self::toStr($document['title'] ?? ''));
         $content = ExcerptBuilder::plain(self::toStr($document['content'] ?? ''));
 
@@ -202,6 +205,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         foreach ($parameters as $name => $value) {
             $pairs[] = rawurlencode($name) . '=' . rawurlencode($value);
         }
+
         foreach ($filters as $filter) {
             $pairs[] = 'fq=' . rawurlencode($filter);
         }
@@ -215,10 +219,12 @@ final class SolrSearchBackend implements SearchBackendInterface
         if (!is_array($data)) {
             return [];
         }
+
         $responseNode = $data['response'] ?? null;
         if (!is_array($responseNode)) {
             return [];
         }
+
         $docs = $responseNode['docs'] ?? null;
         if (!is_array($docs)) {
             return [];
@@ -245,6 +251,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         if ($type === '' || $uid < 1 || preg_match('/^[A-Za-z0-9_]{1,64}$/', $type) !== 1) {
             return null;
         }
+
         $url = $this->siteScopedUrl(self::toStr($document['url'] ?? ''), $site);
         if ($url === null) {
             return null;
@@ -308,6 +315,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             if ($baseHost === '') {
                 return $url;
             }
+
             $origin = $scheme . '://' . $baseHost
                 . ($base->getPort() !== null ? ':' . $base->getPort() : '');
 
@@ -372,7 +380,7 @@ final class SolrSearchBackend implements SearchBackendInterface
         // carrying configuration rather than model input (ADR-093). A denial
         // returns null, the method's established "not configured" path, which
         // RetrievalService treats as an unavailable backend and skips.
-        if ($this->egressPolicy === null) {
+        if (!$this->egressPolicy instanceof EgressPolicyService) {
             return $url;
         }
 

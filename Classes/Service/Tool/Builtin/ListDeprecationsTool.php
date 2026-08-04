@@ -87,8 +87,10 @@ final readonly class ListDeprecationsTool implements ToolInterface
             if ($message === '') {
                 continue;
             }
+
             $counts[$message] = ($counts[$message] ?? 0) + 1;
         }
+
         if ($counts === []) {
             return ToolResult::text(self::NO_LOG);
         }
@@ -142,20 +144,24 @@ final readonly class ListDeprecationsTool implements ToolInterface
         if (!is_file($file) || !is_readable($file)) {
             return '';
         }
+
         $size = (int)filesize($file);
         if ($size < 1) {
             return '';
         }
+
         $handle = fopen($file, 'r');
         if ($handle === false) {
             return '';
         }
+
         try {
             if ($size > self::TAIL_BYTES) {
                 fseek($handle, -self::TAIL_BYTES, SEEK_END);
                 // Drop the (likely partial) first line of the window.
                 fgets($handle);
             }
+
             $content = stream_get_contents($handle);
         } finally {
             fclose($handle);

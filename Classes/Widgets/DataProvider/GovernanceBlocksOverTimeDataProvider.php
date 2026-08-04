@@ -80,6 +80,7 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
             if ($count <= 0) {
                 continue;
             }
+
             $chartLabels[] = $labels[$case->value] ?? $case->value;
             $data[]        = $count;
             $colors[]      = self::DECISION_COLORS[$case->value] ?? '#9E9E9E';

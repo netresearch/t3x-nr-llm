@@ -12,7 +12,7 @@ use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
-defined('TYPO3') or die();
+defined('TYPO3') || die();
 
 (static function (): void {
     // Cache configuration (also in Configuration/Caching.php for TYPO3 v14+)

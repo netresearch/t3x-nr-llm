@@ -19,14 +19,23 @@ namespace Netresearch\NrLlm\Domain\DTO;
 final readonly class BudgetCheckResult
 {
     public const LIMIT_NONE = '';
+
     public const LIMIT_DAILY_REQUESTS = 'daily_requests';
+
     public const LIMIT_DAILY_TOKENS = 'daily_tokens';
+
     public const LIMIT_DAILY_COST = 'daily_cost';
+
     public const LIMIT_MONTHLY_REQUESTS = 'monthly_requests';
+
     public const LIMIT_MONTHLY_TOKENS = 'monthly_tokens';
+
     public const LIMIT_MONTHLY_COST = 'monthly_cost';
+
     public const LIMIT_CONFIGURATION_DAILY_REQUESTS = 'configuration_daily_requests';
+
     public const LIMIT_CONFIGURATION_DAILY_TOKENS = 'configuration_daily_tokens';
+
     public const LIMIT_CONFIGURATION_DAILY_COST = 'configuration_daily_cost';
 
     /**

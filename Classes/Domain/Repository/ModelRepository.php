@@ -244,6 +244,7 @@ class ModelRepository extends Repository
             if (!$model instanceof Model) {
                 continue;
             }
+
             if ($model->isDefault()) {
                 $model->setIsDefault(false);
                 $this->update($model);

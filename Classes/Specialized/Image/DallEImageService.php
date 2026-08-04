@@ -41,7 +41,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
     use MultipartBodyBuilderTrait;
 
     private const API_URL = 'https://api.openai.com/v1/images';
+
     private const DEFAULT_MODEL = 'dall-e-3';
+
     private const DEFAULT_SIZE = '1024x1024';
 
     /** Model capabilities. */
@@ -167,6 +169,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             for ($i = 0; $i < $count; $i++) {
                 $results[] = $this->generate($prompt, $options);
             }
+
             return $results;
         }
 
@@ -236,7 +239,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         $this->ensureAvailable();
 
         $this->validateImageFile($imagePath);
-        $this->enforceBudget($beUserUid, null, null);
+        $this->enforceBudget($beUserUid, null);
 
         $count = min(max($count, 1), 10);
 
@@ -302,8 +305,9 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         if ($maskPath !== null) {
             $this->validateImageFile($maskPath);
         }
+
         $prompt = $this->screenPrompt($prompt);
-        $this->enforceBudget($beUserUid, null, null);
+        $this->enforceBudget($beUserUid, null);
 
         $response = $this->runLifecycle(
             $this->imageDispatchContext(ProviderOperation::ImageEdit, 'dall-e-2', $size, 'standard', null, $beUserUid),
@@ -420,6 +424,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                 ['provider' => $this->getServiceProvider(), 'type' => 'validation'],
             );
         }
+
         return parent::mapErrorStatus($statusCode, $errorMessage);
     }
 
@@ -504,7 +509,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
      */
     private function validatePrompt(string $prompt, string $model): void
     {
-        if (empty(trim($prompt))) {
+        if (in_array(trim($prompt), ['', '0'], true)) {
             throw new ServiceUnavailableException(
                 'Prompt cannot be empty',
                 'image',
@@ -588,6 +593,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
             if (isset($options['quality'])) {
                 $payload['quality'] = $options['quality'];
             }
+
             if (isset($options['style'])) {
                 $payload['style'] = $options['style'];
             }
@@ -636,6 +642,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                     ['provider' => 'dall-e', 'path' => $maskPath],
                 );
             }
+
             $parts[] = ['name' => 'mask', 'filename' => 'mask.png', 'content' => $maskContent, 'contentType' => 'image/png'];
         }
 

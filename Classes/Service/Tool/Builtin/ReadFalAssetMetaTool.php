@@ -46,8 +46,8 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
      * @param list<int> $allowedStorages sys_file_storage uids this tool may read from
      */
     public function __construct(
-        protected ConnectionPool $connectionPool,
-        protected array $allowedStorages = [1],
+        private ConnectionPool $connectionPool,
+        private array $allowedStorages = [1],
     ) {}
 
     public function getSpec(): ToolSpec
@@ -125,6 +125,7 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
             if ($title !== '') {
                 $lines[] = 'title: ' . $title;
             }
+
             $alt = self::toStr($meta['alternative'] ?? '');
             if ($alt !== '') {
                 $lines[] = 'alt: ' . $alt;

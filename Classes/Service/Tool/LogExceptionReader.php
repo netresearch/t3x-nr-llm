@@ -71,12 +71,15 @@ final readonly class LogExceptionReader
                 if ($sinceTs !== null && $entry->timestamp < $sinceTs) {
                     continue;
                 }
+
                 if ($untilTs !== null && $entry->timestamp > $untilTs) {
                     continue;
                 }
+
                 if ($search !== null && $search !== '' && !$this->matchesSearch($entry, $search)) {
                     continue;
                 }
+
                 $entries[] = $entry;
             }
         }
@@ -110,6 +113,7 @@ final readonly class LogExceptionReader
         if (!is_readable($file)) {
             return [];
         }
+
         $size   = (int)filesize($file);
         $offset = max(0, $size - self::TAIL_BYTES);
         $raw    = file_get_contents($file, false, null, $offset);
@@ -127,13 +131,16 @@ final readonly class LogExceptionReader
                 if ($current !== null) {
                     $records[] = $current;
                 }
+
                 $current = $line;
                 continue;
             }
+
             if ($current !== null) {
                 $current .= "\n" . $line;
             }
         }
+
         if ($current !== null) {
             $records[] = $current;
         }

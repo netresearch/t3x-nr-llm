@@ -78,6 +78,7 @@ final readonly class ReadSourceTool implements ToolInterface
         if ($lines < 1) {
             $lines = self::DEFAULT_LINES;
         }
+
         $lines = min($lines, self::MAX_LINES);
 
         $read = $this->guard->readLines($path, $fromLine, $lines);

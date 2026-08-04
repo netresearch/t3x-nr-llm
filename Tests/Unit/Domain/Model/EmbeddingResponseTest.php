@@ -24,7 +24,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
      */
     private function createSampleEmbedding(int $dimensions = 1536): array
     {
-        return array_map(fn() => random_int(-1_000_000, 1_000_000) / 1_000_000, range(1, $dimensions));
+        return array_map(fn(): int|float => random_int(-1_000_000, 1_000_000) / 1_000_000, range(1, $dimensions));
     }
 
     #[Test]
@@ -167,7 +167,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         self::assertEqualsWithDelta(0.8, $normalized[1], 0.0001);
 
         // Verify magnitude is 1
-        $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $normalized)));
+        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $normalized)));
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
     }
 
@@ -295,7 +295,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
     public function batchEmbeddingsAreStoredCorrectly(): void
     {
         $texts = ['text1', 'text2', 'text3', 'text4', 'text5'];
-        $embeddings = array_map(fn() => $this->createSampleEmbedding(256), $texts);
+        $embeddings = array_map(fn(): array => $this->createSampleEmbedding(256), $texts);
 
         $response = new EmbeddingResponse(
             embeddings: $embeddings,

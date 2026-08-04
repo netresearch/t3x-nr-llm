@@ -45,12 +45,14 @@ final readonly class SkillMarkdownParser
         if (!preg_match('/^---\R(.*?)\R---\R?(.*)$/s', $content, $m)) {
             throw SkillParseException::forReason($path, 'missing YAML front-matter');
         }
+
         $frontmatterRaw = $m[1];
         $body = ltrim($m[2]);
 
         if (strlen($frontmatterRaw) > $this->maxFrontmatterBytes) {
             throw SkillParseException::forReason($path, 'front-matter exceeds size cap');
         }
+
         if (strlen($body) > $this->maxBodyBytes) {
             throw SkillParseException::forReason($path, 'body exceeds size cap');
         }
@@ -60,6 +62,7 @@ final readonly class SkillMarkdownParser
         } catch (ParseException $e) {
             throw SkillParseException::forReason($path, 'malformed YAML: ' . $e->getMessage());
         }
+
         if (!is_array($frontmatter) || array_is_list($frontmatter)) {
             throw SkillParseException::forReason($path, 'front-matter is not a mapping');
         }
@@ -69,6 +72,7 @@ final readonly class SkillMarkdownParser
         if ($name === '') {
             throw SkillParseException::forReason($path, 'missing or empty "name"');
         }
+
         if ($description === '') {
             throw SkillParseException::forReason($path, 'missing or empty "description"');
         }
@@ -95,15 +99,18 @@ final readonly class SkillMarkdownParser
         if (array_key_exists('allowed-tools', $frontmatter) || array_key_exists('allowed_tools', $frontmatter)) {
             $reasons[] = 'declares allowed-tools';
         }
+
         foreach (self::UNSUPPORTED_PATTERNS as $pattern) {
             if (preg_match($pattern, $body) === 1) {
                 $reasons[] = 'body references scripts/assets';
                 break;
             }
         }
+
         if ($reasons === []) {
             return [SupportStatus::FULL, ''];
         }
+
         return [SupportStatus::PARTIAL, implode('; ', array_unique($reasons))];
     }
 }

@@ -57,13 +57,21 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     use PipelineRoutingAssertionTrait;
 
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private ExtensionConfiguration&MockObject $extensionConfigMock;
+
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+
     private LoggerInterface&Stub $loggerStub;
+
     private VaultServiceInterface $vaultStub;
+
     private SpecializedCostCalculatorInterface $costCalculator;
+
     private ?string $tempFile = null;
 
     /**
@@ -154,6 +162,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         if ($this->tempFile !== null && file_exists($this->tempFile)) {
             unlink($this->tempFile);
         }
+
         parent::tearDown();
     }
 
@@ -363,6 +372,7 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
     {
         $regular = new Model();
         $regular->setModelId('whisper-1');
+
         $default = new Model();
         $default->setModelId('gpt-4o-transcribe');
         $default->setIsDefault(true);
@@ -1179,11 +1189,11 @@ class WhisperTranscriptionServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest((string)json_encode(['text' => 'Full options test']));
 
         $options = new TranscriptionOptions(
+            model: 'whisper-1',
             language: 'en',
             format: 'json',
             prompt: 'Technical content',
             temperature: 0.3,
-            model: 'whisper-1',
         );
 
         $result = $subject->transcribeFromContent('fake audio content', 'test.wav', $options);

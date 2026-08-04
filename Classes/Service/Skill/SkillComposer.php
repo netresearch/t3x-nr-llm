@@ -143,7 +143,11 @@ final readonly class SkillComposer
         $candidates = [];
         $seen       = [];
         foreach ([...$configSkills, ...$taskSkills] as $skill) {
-            if (!$skill->isEnabled() || $skill->isOrphaned()) {
+            if (!$skill->isEnabled()) {
+                continue;
+            }
+
+            if ($skill->isOrphaned()) {
                 continue;
             }
 
@@ -200,6 +204,7 @@ final readonly class SkillComposer
         if ($skill->getSupportStatusEnum() === SupportStatus::PARTIAL) {
             $body = $this->stripAssetReferences($body);
         }
+
         $body = $this->neutralizeFenceMarkers($body);
 
         return sprintf("### Skill: %s\n%s\n", $skill->getName(), $body);

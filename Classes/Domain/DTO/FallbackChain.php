@@ -45,6 +45,7 @@ final readonly class FallbackChain implements JsonSerializable
         if (!is_array($identifiers)) {
             return new self();
         }
+
         return new self(self::sanitize($identifiers));
     }
 
@@ -53,10 +54,12 @@ final readonly class FallbackChain implements JsonSerializable
         if ($json === '') {
             return new self();
         }
+
         $data = json_decode($json, true);
         if (!is_array($data)) {
             return new self();
         }
+
         /** @var array{configurationIdentifiers?: mixed} $data */
         return self::fromArray($data);
     }
@@ -109,6 +112,7 @@ final readonly class FallbackChain implements JsonSerializable
         if ($normalised === '' || $this->contains($normalised)) {
             return $this;
         }
+
         return new self([...$this->configurationIdentifiers, $normalised]);
     }
 
@@ -122,6 +126,7 @@ final readonly class FallbackChain implements JsonSerializable
         if ($normalised === '' || !$this->contains($normalised)) {
             return $this;
         }
+
         $filtered = array_values(array_filter(
             $this->configurationIdentifiers,
             static fn(string $link): bool => $link !== $normalised,
@@ -147,13 +152,20 @@ final readonly class FallbackChain implements JsonSerializable
             if (!is_string($identifier)) {
                 continue;
             }
+
             $normalised = self::normalise($identifier);
-            if ($normalised === '' || isset($seen[$normalised])) {
+            if ($normalised === '') {
                 continue;
             }
+
+            if (isset($seen[$normalised])) {
+                continue;
+            }
+
             $seen[$normalised] = true;
             $out[] = $normalised;
         }
+
         return $out;
     }
 

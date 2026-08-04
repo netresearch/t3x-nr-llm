@@ -105,11 +105,7 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
 
         // Check for LocalConfiguration
         $localConfigPath = dirname(__DIR__, 2) . '/typo3conf/LocalConfiguration.php';
-        if (file_exists($localConfigPath)) {
-            return true;
-        }
-
-        return false;
+        return file_exists($localConfigPath);
     }
 
     /**

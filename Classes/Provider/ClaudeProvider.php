@@ -46,6 +46,7 @@ final class ClaudeProvider extends AbstractProvider implements
     ];
 
     private const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+
     private const API_VERSION = '2023-06-01';
 
     public function getName(): string
@@ -703,6 +704,7 @@ final class ClaudeProvider extends AbstractProvider implements
             if (is_string($arguments)) {
                 $arguments = json_decode($arguments, true) ?? [];
             }
+
             if (!is_array($arguments)) {
                 $arguments = [];
             }

@@ -70,7 +70,7 @@ final readonly class ProbeUrlTool implements ToolInterface
             'probe_url',
             'GET a URL of THIS TYPO3 instance and report status, headers, timing and a short body '
             . 'excerpt. On a 5xx the matching exception from the TYPO3 logs is appended automatically. '
-            . 'Only the instance\'s own site hosts are allowed; redirects are reported, not followed.',
+            . "Only the instance's own site hosts are allowed; redirects are reported, not followed.",
             [
                 'type'       => 'object',
                 'properties' => [
@@ -184,6 +184,7 @@ final readonly class ProbeUrlTool implements ToolInterface
         if ($text === '') {
             return '';
         }
+
         if (strlen($text) > self::BODY_EXCERPT_BYTES) {
             $text = mb_strcut($text, 0, self::BODY_EXCERPT_BYTES, 'UTF-8') . '…';
         }
@@ -223,6 +224,7 @@ final readonly class ProbeUrlTool implements ToolInterface
                 $lines[] = sprintf('  at %s:%d', $entry->frames[0]['file'], $entry->frames[0]['line']);
             }
         }
+
         $lines[] = 'Use get_last_exception for the full stack trace and source context.';
 
         return implode("\n", $lines);

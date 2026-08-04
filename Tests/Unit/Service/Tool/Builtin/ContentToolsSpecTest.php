@@ -64,6 +64,7 @@ final class ContentToolsSpecTest extends TestCase
         } else {
             unset($GLOBALS['BE_USER']);
         }
+
         parent::tearDown();
     }
 

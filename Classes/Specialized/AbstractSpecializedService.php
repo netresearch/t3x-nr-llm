@@ -71,7 +71,9 @@ abstract class AbstractSpecializedService
     use ServiceConfigurationTrait;
 
     protected string $apiKeyIdentifier = '';
+
     protected string $baseUrl = '';
+
     protected int $timeout;
 
     /**
@@ -358,6 +360,7 @@ abstract class AbstractSpecializedService
             $reason .= sprintf(' (%s)', $this->auditContext);
             $this->auditContext = '';
         }
+
         return $reason;
     }
 
@@ -376,7 +379,7 @@ abstract class AbstractSpecializedService
      */
     protected function getSecureClient(): ClientInterface
     {
-        if ($this->configuredHttpClient !== null) {
+        if ($this->configuredHttpClient instanceof ClientInterface) {
             return $this->configuredHttpClient;
         }
 
@@ -439,7 +442,7 @@ abstract class AbstractSpecializedService
      */
     protected function resolveDefaultModelFor(ModelCapability $capability, string $fallback): string
     {
-        if ($this->modelRepository === null) {
+        if (!$this->modelRepository instanceof ModelRepository) {
             return $fallback;
         }
 
@@ -450,21 +453,29 @@ abstract class AbstractSpecializedService
             $chosen = null;
             foreach ($this->modelRepository->findByCapability($capability->value) as $candidate) {
                 // @phpstan-ignore instanceof.alwaysTrue (defensive check for QueryResult)
-                if (!$candidate instanceof Model || $candidate->getModelId() === '') {
+                if (!$candidate instanceof Model) {
                     continue;
                 }
+
+                if ($candidate->getModelId() === '') {
+                    continue;
+                }
+
                 // The capability query is provider-agnostic, but model-id vocabularies
                 // are not (gpt-image-* vs flux-*): skip records this service cannot
                 // speak, so e.g. an OpenAI default never reaches the FAL endpoint.
                 if (!$this->acceptsModelId($candidate->getModelId())) {
                     continue;
                 }
+
                 if ($candidate->isDefault()) {
                     $chosen = $candidate;
                     break;
                 }
+
                 $chosen ??= $candidate;
             }
+
             if ($chosen instanceof Model) {
                 return $chosen->getModelId();
             }
@@ -486,7 +497,7 @@ abstract class AbstractSpecializedService
      */
     protected function resolveModelUid(string $modelId): int
     {
-        if ($this->modelRepository === null || $modelId === '') {
+        if (!$this->modelRepository instanceof ModelRepository || $modelId === '') {
             return 0;
         }
 
@@ -523,7 +534,7 @@ abstract class AbstractSpecializedService
     ): string {
         try {
             $model = $this->findActiveConfiguration($configurationIdentifier)?->getLlmModel();
-            if ($model !== null && $model->isActive() && $model->getModelId() !== ''
+            if ($model instanceof Model && $model->isActive() && $model->getModelId() !== ''
                 && $this->acceptsModelId($model->getModelId())
             ) {
                 return $model->getModelId();
@@ -534,7 +545,7 @@ abstract class AbstractSpecializedService
             // default so the service call never breaks on resolution.
         }
 
-        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+        return $capability instanceof ModelCapability ? $this->resolveDefaultModelFor($capability, $fallback) : $fallback;
     }
 
     /**
@@ -569,7 +580,7 @@ abstract class AbstractSpecializedService
     {
         $capability = $this->getModelCapability();
 
-        return $capability === null ? $fallback : $this->resolveDefaultModelFor($capability, $fallback);
+        return $capability instanceof ModelCapability ? $this->resolveDefaultModelFor($capability, $fallback) : $fallback;
     }
 
     /**
@@ -637,12 +648,12 @@ abstract class AbstractSpecializedService
      */
     private function findActiveConfiguration(string $identifier): ?LlmConfiguration
     {
-        if ($this->configurationRepository === null || $identifier === '') {
+        if (!$this->configurationRepository instanceof LlmConfigurationRepository || $identifier === '') {
             return null;
         }
 
         $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
-        if ($configuration === null || !$configuration->isActive()) {
+        if (!$configuration instanceof LlmConfiguration || !$configuration->isActive()) {
             return null;
         }
 
@@ -716,6 +727,7 @@ abstract class AbstractSpecializedService
         if ($endpoint === '') {
             return $base;
         }
+
         return $base . '/' . $endpoint;
     }
 
@@ -750,6 +762,7 @@ abstract class AbstractSpecializedService
                 if ($responseBody === '') {
                     return [];
                 }
+
                 $decoded = json_decode($responseBody, true, 512, JSON_THROW_ON_ERROR);
                 if (!is_array($decoded)) {
                     return [];
@@ -827,6 +840,7 @@ abstract class AbstractSpecializedService
                 }
             }
         }
+
         return $this->unknownErrorLabel();
     }
 
@@ -896,6 +910,7 @@ abstract class AbstractSpecializedService
             if (!is_array($config)) {
                 return;
             }
+
             /** @var array<string, mixed> $config */
             $this->loadServiceConfiguration($config);
         } catch (Throwable $e) {

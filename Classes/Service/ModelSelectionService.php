@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 
 /**
@@ -55,7 +56,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     {
         $candidates = $this->findCandidates($criteria);
 
-        if (empty($candidates)) {
+        if ($candidates === []) {
             return null;
         }
 
@@ -150,7 +151,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         }
 
         $provider = $model->getProvider();
-        if ($provider === null) {
+        if (!$provider instanceof Provider) {
             return false;
         }
 
@@ -246,6 +247,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         if ($costA === 0) {
             $costA = PHP_INT_MAX;
         }
+
         if ($costB === 0) {
             $costB = PHP_INT_MAX;
         }

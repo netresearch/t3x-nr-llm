@@ -27,6 +27,7 @@ use PHPUnit\Framework\Attributes\Test;
 class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
 {
     private LlmConfigurationService $subject;
+
     private LlmConfigurationRepository $repository;
 
     protected function setUp(): void

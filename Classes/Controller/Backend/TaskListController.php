@@ -73,10 +73,12 @@ final class TaskListController extends ActionController
             if (!$task instanceof Task) { // @phpstan-ignore instanceof.alwaysTrue
                 continue;
             }
+
             $uid = $task->getUid();
             if ($uid === null) {
                 continue;
             }
+
             $editUrls[$uid] = $this->buildEditUrl($uid);
             $category = $task->getCategory();
             if (!isset($groupedTasks[$category])) {
@@ -85,10 +87,11 @@ final class TaskListController extends ActionController
                     'tasks' => [],
                 ];
             }
+
             $groupedTasks[$category]['tasks'][] = $task;
         }
 
-        $groupedTasks = array_filter($groupedTasks, fn($group) => !empty($group['tasks']));
+        $groupedTasks = array_filter($groupedTasks, fn(array $group): bool => !empty($group['tasks']));
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage = UsageAnalyticsService::formatUsageColumns(

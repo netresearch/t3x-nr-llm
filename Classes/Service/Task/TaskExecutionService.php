@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Task;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -68,7 +69,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         // The effective configuration's skills form the baseline, the task's own
         // skills are additive (precedence + dedup handled by SkillComposer). The
         // applied identifiers therefore cover BOTH sets, deduped.
-        $configSkills = $configuration !== null
+        $configSkills = $configuration instanceof LlmConfiguration
             ? SkillInjectionService::toList($configuration->getSkills())
             : [];
         [$prompt, $appliedSkills] = $this->skillInjection->augmentPromptWithReport(
@@ -79,7 +80,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
 
         // With no resolvable configuration the task cannot run; the generic path
         // raises the existing "no provider specified" error — preserve that.
-        $response = $configuration !== null
+        $response = $configuration instanceof LlmConfiguration
             ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
             : $this->llmServiceManager->complete($prompt, new ChatOptions());
 

@@ -57,12 +57,19 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     use PipelineRoutingAssertionTrait;
 
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private ExtensionConfiguration&MockObject $extensionConfigMock;
+
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+
     private LoggerInterface&Stub $loggerStub;
+
     private VaultServiceInterface $vaultStub;
+
     private SpecializedCostCalculatorInterface $costCalculator;
 
     protected function setUp(): void
@@ -578,6 +585,7 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
     {
         $regular = new Model();
         $regular->setModelId('tts-1');
+
         $default = new Model();
         $default->setModelId('tts-1-hd');
         $default->setIsDefault(true);
@@ -741,8 +749,8 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest();
 
         $options = new SpeechSynthesisOptions(
-            voice: 'nova',
             model: 'tts-1-hd',
+            voice: 'nova',
             format: 'opus',
             speed: 1.5,
         );
@@ -1184,8 +1192,8 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $this->setupSuccessfulRequest();
 
         $options = new SpeechSynthesisOptions(
-            voice: 'nova',
             model: 'tts-1-hd',
+            voice: 'nova',
             format: 'opus',
             speed: 1.5,
         );

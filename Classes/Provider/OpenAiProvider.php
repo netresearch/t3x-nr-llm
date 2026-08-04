@@ -44,6 +44,7 @@ final class OpenAiProvider extends AbstractProvider implements
     private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
 
     private const DEFAULT_CHAT_MODEL = 'gpt-5.2';
+
     private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
 
     public function getName(): string
@@ -76,7 +77,7 @@ final class OpenAiProvider extends AbstractProvider implements
     protected function addProviderSpecificHeaders(RequestInterface $request): RequestInterface
     {
         if ($this->organizationId !== '') {
-            $request = $request->withHeader('OpenAI-Organization', $this->organizationId);
+            return $request->withHeader('OpenAI-Organization', $this->organizationId);
         }
 
         return $request;
@@ -214,7 +215,7 @@ final class OpenAiProvider extends AbstractProvider implements
                 // Untrusted provider output: skip a malformed tool call (missing
                 // id/name) instead of crashing the whole completion.
                 $call = ToolCall::tryFromArray($this->asArray($tc));
-                if ($call !== null) {
+                if ($call instanceof ToolCall) {
                     $toolCalls[] = $call;
                 }
             }

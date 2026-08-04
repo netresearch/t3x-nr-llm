@@ -80,7 +80,7 @@ final readonly class AgentRunRequestCodec
             // effective system prompt into the transcript (ADR-060 assembly),
             // which a null-augmentation run() would not do — losing the
             // distinction would silently change the prompt composition.
-            'augmentation'     => $augmentation === null ? null : [
+            'augmentation'     => $augmentation instanceof RunAugmentation ? [
                 'forcedSkillUids'   => array_values(array_filter(array_map(
                     static fn(Skill $skill): int => $skill->getUid() ?? 0,
                     $augmentation->forcedSkills,
@@ -90,7 +90,7 @@ final readonly class AgentRunRequestCodec
                     $augmentation->forcedSnippets,
                 ))),
                 'dryRun'            => $augmentation->dryRun,
-            ],
+            ] : null,
         ];
     }
 
@@ -144,6 +144,7 @@ final readonly class AgentRunRequestCodec
             if (is_float($plannedCost) || is_int($plannedCost)) {
                 $options = $options->withPlannedCost((float)$plannedCost);
             }
+
             $idempotencyKey = $data['idempotencyKey'] ?? null;
             if (is_string($idempotencyKey) && $idempotencyKey !== '') {
                 $options = $options->withIdempotencyKey($idempotencyKey);
@@ -214,7 +215,7 @@ final readonly class AgentRunRequestCodec
      */
     private function skillsByUids(array $uids): array
     {
-        if ($uids === [] || $this->skillRepository === null) {
+        if ($uids === [] || !$this->skillRepository instanceof SkillRepository) {
             return [];
         }
 
@@ -242,7 +243,7 @@ final readonly class AgentRunRequestCodec
      */
     private function snippetsByUids(array $uids): array
     {
-        if ($uids === [] || $this->promptSnippetRepository === null) {
+        if ($uids === [] || !$this->promptSnippetRepository instanceof PromptSnippetRepository) {
             return [];
         }
 
