@@ -104,8 +104,11 @@ final class OpenRouterProvider extends AbstractProvider implements
     private ?array $cachedModels = null;
 
     /**
-     * Lazily built routing collaborator (ADR-125). A property initializer
-     * cannot contain `new`, and the adapter constructor is owned by
+     * Lazily built routing collaborator (ADR-125). A class property DEFAULT
+     * cannot contain `new` on any current PHP (the new-in-initializers RFC
+     * covers promoted constructor parameters, not property defaults —
+     * verified: 8.2 and 8.5 both fatal with "New expressions are not
+     * supported in this context"), and the adapter constructor is owned by
      * AbstractProvider and shared by all seven providers — hence the ??= in
      * {@see self::router()}.
      */
