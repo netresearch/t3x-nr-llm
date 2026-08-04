@@ -125,12 +125,12 @@ final class SetProviderApiKeyCommandTest extends TestCase
     }
 
     #[Test]
-    public function stripsOnlyTheTrailingNewlineAPipeAdds(): void
+    public function stripsTrailingLineBreaksButKeepsEveryOtherCharacter(): void
     {
         $provider = $this->provider('openai', apiKey: '');
         $vault    = new InMemoryVaultService();
 
-        $this->runCommand($this->command($provider, $vault), 'openai', "  sk-with-padding  \n");
+        $this->runCommand($this->command($provider, $vault), 'openai', "  sk-with-padding  \r\n\n");
 
         self::assertSame('  sk-with-padding  ', $vault->secrets[$provider->getApiKey()] ?? null);
     }
@@ -177,7 +177,11 @@ final class SetProviderApiKeyCommandTest extends TestCase
         $input = new ArrayInput(['provider' => $provider]);
         $input->setStream($stream);
 
-        return $command->run($input, $this->output);
+        try {
+            return $command->run($input, $this->output);
+        } finally {
+            fclose($stream);
+        }
     }
 
     private function command(?Provider $provider, InMemoryVaultService $vault): SetProviderApiKeyCommand

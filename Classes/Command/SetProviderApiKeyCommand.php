@@ -102,7 +102,10 @@ final class SetProviderApiKeyCommand extends Command
 
         $stream = $this->resolveInputStream($input);
         if ($stream === null) {
-            $io->error('Refusing to read the key from a terminal. Pipe it in, for example: printf \'%s\' "$KEY" | vendor/bin/typo3 nrllm:provider:set-key ' . $providerIdentifier);
+            // The example carries a fixed placeholder rather than the argument
+            // just read: echoing it back into a copy-pasteable shell line would
+            // hand whitespace or metacharacters straight to the next shell.
+            $io->error('Refusing to read the key from a terminal. Pipe it in, for example: printf \'%s\' "$KEY" | vendor/bin/typo3 nrllm:provider:set-key <provider>');
 
             return Command::INVALID;
         }
@@ -187,8 +190,10 @@ final class SetProviderApiKeyCommand extends Command
         $raw = stream_get_contents($stream);
 
         // A key piped with `echo` carries a trailing newline; one piped with
-        // `printf '%s'` does not. Everything else is kept verbatim — trimming
-        // further would silently mangle a key rather than reject it.
+        // `printf '%s'` does not. Trailing CR/LF are dropped — all of them, a
+        // key never ends in one. Everything else is kept verbatim, including
+        // surrounding spaces: trimming those would silently mangle a key
+        // rather than reject it.
         return $raw === false ? '' : rtrim($raw, "\r\n");
     }
 }
