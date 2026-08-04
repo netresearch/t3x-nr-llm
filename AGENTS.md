@@ -68,11 +68,11 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 <!-- AGENTS-GENERATED:START development -->
 ### Demo data for screenshots and manual testing
 
-`ddev seed-ollama` creates 1 provider (Local Ollama), 3 models and 4 configurations; `ddev seed-tasks` creates 13 tasks across 4 categories (SQL in `.ddev/sql/`). `install-v14` auto-runs seed-ollama but NOT seed-tasks — run both before documentation screenshots so populated views are visible.
+`ddev seed-ollama` creates 1 provider (Local Ollama), 3 models and 4 configurations; `ddev seed-tasks` creates 13 tasks across 4 categories (SQL in `.ddev/sql/`). `ddev install-v14` auto-runs seed-ollama but NOT seed-tasks — run both before documentation screenshots so populated views are visible.
 
 ### Functional suite runtime
 
-The full `runTests.sh -s functional` run includes ~34 provider-connection smoke tests that make REAL outbound HTTPS calls to unreachable providers (deliberate 502 mapping) — the full run takes ~35 min locally while per-class runs stay fast. Scope local runs to the touched test classes; leave the full matrix to CI.
+The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-connection smoke tests that make REAL outbound HTTPS calls to unreachable providers (deliberate 502 mapping) — the full run takes ~35 min locally while per-class runs stay fast. Scope local runs to the touched test classes; leave the full matrix to CI.
 
 ## Development Workflow
 
