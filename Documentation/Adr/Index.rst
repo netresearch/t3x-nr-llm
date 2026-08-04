@@ -421,3 +421,4 @@ Tools
    Adr121ConversationContextWindow
    Adr122ToolEffectContractDeferred
    Adr123OneSecretShapeCatalogue
+   Adr124ProviderKeyFromTheCommandLine
