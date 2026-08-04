@@ -76,6 +76,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   provider's fallback policy and result order. Purely internal — nothing to
   reconfigure.
 
+- The service manager's per-configuration call planning (model resolution,
+  adapter choice, effective options) and its pipeline-metadata builders live in
+  two collaborators (`ConfigurationCallPlanner`, `CallMetadataFactory`) —
+  ADR-059's stage-2 seams, moved verbatim. The public API, the middleware
+  metadata keys and their union semantics are unchanged. Purely internal.
+
 - The agent loop's tool gate is no longer something a wiring can omit. The
   composite tool-call policy is a required constructor argument on
   `ToolLoopService`, the per-configuration allow-list resolver is gone, and the

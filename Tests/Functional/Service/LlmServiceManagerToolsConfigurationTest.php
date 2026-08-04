@@ -38,6 +38,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * so the configuration's vault key, model and pricing reach the call.
  */
 #[CoversClass(LlmServiceManager::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
 final class LlmServiceManagerToolsConfigurationTest extends AbstractFunctionalTestCase
 {
     use LlmServiceManagerTestFactory;

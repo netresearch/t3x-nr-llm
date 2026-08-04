@@ -68,6 +68,8 @@ use TYPO3\CMS\Core\Context\AspectInterface;
 use TYPO3\CMS\Core\Context\Context;
 
 #[CoversClass(LlmServiceManager::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
 class LlmServiceManagerTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;

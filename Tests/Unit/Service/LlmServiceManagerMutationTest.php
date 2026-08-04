@@ -25,6 +25,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Mutation-killing tests for LlmServiceManager.
  */
 #[CoversClass(LlmServiceManager::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;

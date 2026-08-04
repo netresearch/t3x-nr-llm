@@ -34,6 +34,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Tests full service coordination with multiple providers.
  */
 #[CoversClass(LlmServiceManager::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\CallMetadataFactory::class)]
+#[CoversClass(\Netresearch\NrLlm\Service\ConfigurationCallPlanner::class)]
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     use LlmServiceManagerTestFactory;

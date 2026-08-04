@@ -24,12 +24,9 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
-use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
-use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
-use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -59,7 +56,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // nothing to screen, which is honest; a null screener meant "screening
         // was requested and skipped", which was not.
         private InputGuardrailScreener $inputScreener = new InputGuardrailScreener([]),
-    ) {}
+    ) {
+        // Built here from the manager's own dependencies, not injected: the
+        // constructor signature is pinned by the shared test factory, and both
+        // are implementation details of this facade's dispatch (ADR-059
+        // stage 2).
+        $this->planner  = new ConfigurationCallPlanner($this->adapterRegistry, $this->modelSelectionService);
+        $this->metadata = new CallMetadataFactory();
+    }
+
+    /** Plans a configuration-driven call: model, adapter, effective options. */
+    private ConfigurationCallPlanner $planner;
+
+    /** Builds the pipeline metadata the middlewares read. */
+    private CallMetadataFactory $metadata;
 
     /**
      * Prepend the resolved configuration's attached skills to a plain prompt.
@@ -221,7 +231,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()) + $this->requestCountMetadata($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options),
                 $optionsArray,
             );
         }
@@ -235,7 +245,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()) + $this->requestCountMetadata($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options),
         );
     }
 
@@ -253,7 +263,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->completeWithConfiguration(
                 $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
                 $optionsArray,
             );
         }
@@ -265,7 +275,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
             fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
         );
     }
 
@@ -284,7 +294,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // is left out and CacheMiddleware becomes a no-op for this call. The
         // ad-hoc path keys by provider identifier.
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
-        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey());
         $resolvedProvider = $providerKey ?? 'default';
         $metadata += $this->embedCacheKeyBuilder->build(
             $cacheTtl,
@@ -383,7 +393,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->analyzeImage($normalisedContent, $optionsArray);
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
         );
     }
 
@@ -412,7 +422,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
                 $optionsArray,
-                $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()),
             );
         }
 
@@ -442,7 +452,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // first iteration inside the dispatcher.
         $this->assertStreamingCapable($this->getProvider($providerKey), 1581627129);
 
-        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost());
         $metadata[StreamingDispatcher::METADATA_PROVIDER]     = $providerKey ?? 'default';
         $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
 
@@ -498,7 +508,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->chatCompletionWithTools($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
         );
     }
 
@@ -547,8 +557,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Tools,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
-                $config   = $this->requireConfiguration($ctx);
-                $llmModel = $this->resolveModelForConfiguration($config);
+                $config   = $this->planner->requireConfiguration($ctx);
+                $llmModel = $this->planner->resolveModel($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -557,7 +567,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     );
                 }
 
-                $callOptions = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+                $callOptions = $this->planner->callOptions($config, $llmModel, $optionOverrides);
 
                 return $adapter->chatCompletionWithTools(
                     $this->applyAndScreenSystemPrompt($normalisedMessages, $callOptions),
@@ -565,7 +575,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $callOptions,
                 );
             },
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
         );
     }
 
@@ -601,7 +611,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
-        $metadata = $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey());
 
         // Cache metadata mirrors embed(), but the configuration path keys by
         // configuration identifier plus the effective model (options override
@@ -618,7 +628,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ? $optionOverrides['model']
             : ($configuration->getModelId() !== ''
                 ? $configuration->getModelId()
-                : $this->resolveModelForConfiguration($configuration)->getModelId());
+                : $this->planner->resolveModel($configuration)->getModelId());
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
         // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
         // and the cache frontend rejects a tag containing a dot with an
@@ -636,8 +646,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $raw = $this->pipeline->run(
             ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration, $metadata),
             function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
-                $config   = $this->requireConfiguration($ctx);
-                $llmModel = $this->resolveModelForConfiguration($config);
+                $config   = $this->planner->requireConfiguration($ctx);
+                $llmModel = $this->planner->resolveModel($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(
@@ -646,7 +656,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     );
                 }
 
-                $callOptions = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+                $callOptions = $this->planner->callOptions($config, $llmModel, $optionOverrides);
 
                 // Embedding-only default: fill the vector size from the model
                 // when the caller's EmbeddingOptions left it unset (#390).
@@ -715,69 +725,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
     {
-        return $this->adapterRegistry->createAdapterFromModel($this->resolveModelForConfiguration($configuration));
-    }
-
-    /**
-     * Resolve the concrete Model entity an LlmConfiguration call runs against.
-     */
-    private function resolveModelForConfiguration(LlmConfiguration $configuration): Model
-    {
-        // Criteria-mode configurations carry no direct model relation (model_uid = 0);
-        // their model is selected at call time from the stored criteria. Resolve
-        // through ModelSelectionService — which returns the directly configured model
-        // unchanged for fixed-mode configs — so both selection modes reach a concrete
-        // model here. Without this, every *ForConfiguration() call on a criteria-mode
-        // configuration threw "has no model assigned".
-        $llmModel = $this->modelSelectionService instanceof ModelSelectionServiceInterface
-            ? $this->modelSelectionService->resolveModel($configuration)
-            : $configuration->getLlmModel();
-        if (!$llmModel instanceof Model) {
-            throw new ProviderException(
-                sprintf('Configuration "%s" has no model assigned', $configuration->getIdentifier()),
-                1735300100,
-            );
-        }
-
-        // Intentionally NOT calling $configuration->setLlmModel($llmModel): the
-        // configuration is a repository-managed Extbase entity, so mutating it
-        // would mark it dirty and Extbase would persist model_uid at end of
-        // request — silently converting a criteria-mode record into a fixed-mode
-        // one. Per-model cost analytics for criteria configs (UsageMiddleware
-        // reads getLlmModel() directly) remain a separate, non-destructive
-        // follow-up.
-        return $llmModel;
-    }
-
-    /**
-     * Merge a configuration's stored option defaults with per-call overrides
-     * and fill `max_tokens` from the resolved model when neither set it (#390).
-     *
-     * Precedence: explicit per-call option > configuration max_tokens (> 0)
-     * > model max_output_tokens (> 0) > provider default (4096 for
-     * OpenAI/Claude-shaped payloads; Ollama omits num_predict so the server
-     * default applies).
-     *
-     * @param array<string, mixed> $optionOverrides
-     *
-     * @return array<string, mixed>
-     */
-    private function buildCallOptions(LlmConfiguration $config, Model $model, array $optionOverrides): array
-    {
-        $options = array_merge($config->toOptionsArray(), $optionOverrides);
-        unset($options['provider']);
-
-        // An explicit non-positive max_tokens override means "unset" too —
-        // passing 0 through would fail provider-side validation.
-        if (!isset($options['max_tokens']) || (is_int($options['max_tokens']) && $options['max_tokens'] <= 0)) {
-            if ($model->getMaxOutputTokens() > 0) {
-                $options['max_tokens'] = $model->getMaxOutputTokens();
-            } else {
-                unset($options['max_tokens']);
-            }
-        }
-
-        return $options;
+        return $this->planner->adapterFor($configuration);
     }
 
     /**
@@ -803,10 +751,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Chat,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides): CompletionResponse {
-                $config   = $this->requireConfiguration($ctx);
-                $llmModel = $this->resolveModelForConfiguration($config);
+                $config   = $this->planner->requireConfiguration($ctx);
+                $llmModel = $this->planner->resolveModel($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
-                $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+                $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $options), $options);
             },
             $metadata,
@@ -829,10 +777,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             ProviderOperation::Completion,
             function (ProviderCallContext $ctx) use ($prompt, $optionOverrides): CompletionResponse {
-                $config   = $this->requireConfiguration($ctx);
-                $llmModel = $this->resolveModelForConfiguration($config);
+                $config   = $this->planner->requireConfiguration($ctx);
+                $llmModel = $this->planner->resolveModel($config);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
-                $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+                $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 return $adapter->complete($prompt, $options);
             },
             $metadata,
@@ -865,7 +813,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $this->injectConfigSkillsIntoMessages($messages, $configuration),
             $configuration,
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
             $optionsArray,
         );
     }
@@ -886,7 +834,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $this->injectConfigSkillsIntoMessages($messages, $configuration),
             $configuration,
-            $this->buildBudgetMetadata($options->getBeUserUid(), $options->getPlannedCost()) + $this->idempotencyMetadata($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
             $optionsArray,
         );
     }
@@ -922,58 +870,6 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderCallContext::forConfiguration($operation, $configuration, $metadata),
             $terminal,
         );
-    }
-
-    /**
-     * The configuration the pipeline threaded onto the context — never null on
-     * the configuration-driven paths, which always enter through
-     * {@see ProviderCallContext::forConfiguration()} and whose fallback swaps
-     * carry a non-null sibling. The guard makes that invariant explicit for the
-     * type checker; it never fires in practice.
-     */
-    private function requireConfiguration(ProviderCallContext $context): LlmConfiguration
-    {
-        $configuration = $context->configuration;
-        if (!$configuration instanceof LlmConfiguration) {
-            throw new ProviderException('The pipeline context carried no configuration on a configuration-driven call.', 1784600700);
-        }
-
-        return $configuration;
-    }
-
-    /**
-     * Translate the budget-relevant fields into the metadata keys the
-     * BudgetMiddleware reads. Only non-null values become metadata —
-     * the middleware's "skip the check" branch naturally fires for
-     * absent keys, matching its documented contract (see
-     * `BudgetMiddleware::handle()`).
-     *
-     * Takes raw nullable values rather than a typed option object so
-     * every entry point can reuse it: `chat()` reads from `ChatOptions`,
-     * `embed()` from `EmbeddingOptions`, `vision()` from `VisionOptions`,
-     * `chatWithTools()` from `ToolOptions` — none of which share a
-     * common base interface for these two fields. A small option-type-
-     * agnostic helper is simpler than introducing a marker interface
-     * just to thread two fields.
-     *
-     * Lives on the manager rather than on the option objects so the
-     * options layer does not need to know which middleware exists.
-     *
-     * @return array<string, mixed>
-     */
-    private function buildBudgetMetadata(?int $beUserUid, ?float $plannedCost): array
-    {
-        $metadata = [];
-
-        if ($beUserUid !== null) {
-            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
-        }
-
-        if ($plannedCost !== null) {
-            $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
-        }
-
-        return $metadata;
     }
 
     /**
@@ -1021,39 +917,6 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         }
 
         return $chars;
-    }
-
-    /**
-     * Translate an optional idempotency key (ADR-063) into the metadata key the
-     * IdempotencyMiddleware reads. Empty / absent keys produce no entry, so the
-     * middleware's pass-through branch fires and non-idempotent calls are
-     * untouched. Disjoint from {@see self::buildBudgetMetadata()} keys, so the
-     * two merge with `+` at every call site.
-     *
-     * @return array<string, mixed>
-     */
-    private function idempotencyMetadata(?string $idempotencyKey): array
-    {
-        if ($idempotencyKey === null || $idempotencyKey === '') {
-            return [];
-        }
-
-        return [IdempotencyMiddleware::METADATA_IDEMPOTENCY_KEY => $idempotencyKey];
-    }
-
-    /**
-     * Pipeline metadata that tells UsageMiddleware to record the call's metrics
-     * without incrementing the request counter. Set for chat sub-calls that
-     * belong to a higher-level operation recording its own request row (e.g. a
-     * translation's language-detection step, or the LLM translator's chat call).
-     *
-     * @return array<string, bool>
-     */
-    private function requestCountMetadata(ChatOptions $options): array
-    {
-        return $options->getSuppressRequestCount()
-            ? [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true]
-            : [];
     }
 
     /**
@@ -1143,9 +1006,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages = $this->screenInput($messages);
 
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
-            $llmModel = $this->resolveModelForConfiguration($config);
+            $llmModel = $this->planner->resolveModel($config);
             $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
-            $options  = $this->buildCallOptions($config, $llmModel, $optionOverrides);
+            $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
 
             $this->assertStreamingCapable($adapter, 1735300101);
 
