@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
+use Netresearch\NrLlm\Provider\OpenRouter\ModelRouter;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -34,6 +35,7 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
 #[CoversClass(OpenRouterProvider::class)]
+#[CoversClass(ModelRouter::class)]
 class OpenRouterProviderTest extends AbstractUnitTestCase
 {
     private OpenRouterProvider $subject;

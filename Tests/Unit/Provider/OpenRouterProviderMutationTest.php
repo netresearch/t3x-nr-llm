@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Provider;
 
+use Netresearch\NrLlm\Provider\OpenRouter\ModelRouter;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,6 +21,7 @@ use ReflectionClass;
  * Mutation-killing tests for OpenRouterProvider.
  */
 #[CoversClass(OpenRouterProvider::class)]
+#[CoversClass(ModelRouter::class)]
 class OpenRouterProviderMutationTest extends AbstractUnitTestCase
 {
     private function createProvider(): OpenRouterProvider
