@@ -49,7 +49,7 @@ final class ToolRegistry
     private array $byName = [];
 
     /** @var list<string> */
-    private array $builtinNames = [];
+    private readonly array $builtinNames;
 
     private bool $providersHydrated = false;
 
@@ -108,6 +108,7 @@ final class ToolRegistry
         if ($this->providersHydrated) {
             return;
         }
+
         $this->providersHydrated = true;
 
         foreach ($this->providers as $provider) {

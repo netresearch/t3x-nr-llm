@@ -128,7 +128,7 @@ final class McpSchemaNormalizerTest extends TestCase
     #[Test]
     public function aSchemaAtTheDepthCapIsAccepted(): void
     {
-        $schema = self::nestedObjectSchema(self::acceptableNestingLevels());
+        $schema = $this->nestedObjectSchema($this->acceptableNestingLevels());
 
         self::assertSame($schema, $this->normalizer->normalise($schema));
     }
@@ -137,7 +137,7 @@ final class McpSchemaNormalizerTest extends TestCase
     public function aSchemaBeyondTheDepthCapIsRejected(): void
     {
         self::assertNull(
-            $this->normalizer->normalise(self::nestedObjectSchema(self::acceptableNestingLevels() + 1)),
+            $this->normalizer->normalise($this->nestedObjectSchema($this->acceptableNestingLevels() + 1)),
         );
     }
 
@@ -216,7 +216,7 @@ final class McpSchemaNormalizerTest extends TestCase
      * sub-schema. Derived from the constant so a changed cap does not silently
      * turn these two tests into assertions about the same side of the boundary.
      */
-    private static function acceptableNestingLevels(): int
+    private function acceptableNestingLevels(): int
     {
         return intdiv(McpSchemaNormalizer::MAX_DEPTH - 1, 2);
     }
@@ -224,7 +224,7 @@ final class McpSchemaNormalizerTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function nestedObjectSchema(int $levels): array
+    private function nestedObjectSchema(int $levels): array
     {
         $schema = ['type' => 'object', 'properties' => ['leaf' => ['type' => 'string']]];
 
