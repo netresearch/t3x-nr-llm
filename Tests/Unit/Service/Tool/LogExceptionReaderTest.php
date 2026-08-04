@@ -91,7 +91,7 @@ final class LogExceptionReaderTest extends TestCase
     #[Test]
     public function timeWindowFilters(): void
     {
-        $probe = (int)strtotime('Mon, 06 Jul 2026 01:13:20 +0200');
+        $probe = strtotime('Mon, 06 Jul 2026 01:13:20 +0200');
 
         $entries = $this->reader->read(10, null, $probe - 30, $probe + 30);
 

@@ -41,6 +41,7 @@ final class GoldenQuestionSetRegistry
                         1794000059,
                     );
                 }
+
                 $this->byIdentifier[$set->identifier] = $set;
             }
         }

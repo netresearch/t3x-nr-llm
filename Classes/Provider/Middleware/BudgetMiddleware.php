@@ -74,6 +74,7 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
 {
     public const METADATA_BE_USER_UID  = 'beUserUid';
+
     public const METADATA_PLANNED_COST = 'plannedCost';
 
     public function __construct(

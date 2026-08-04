@@ -71,7 +71,7 @@ final readonly class ConversationService implements ConversationServiceInterface
         $this->sessions->startSession($uuid, $actor->backendUserUid, $configuration?->getIdentifier() ?? '', $title);
 
         $session = $this->sessions->findByUuid($uuid);
-        if ($session === null) {
+        if (!$session instanceof AiSession) {
             throw new RuntimeException('The conversation session could not be loaded immediately after creation.', 1784600002);
         }
 
@@ -81,7 +81,7 @@ final readonly class ConversationService implements ConversationServiceInterface
     public function send(AiActorContext $actor, string $sessionUuid, string $userMessage, ?ChatOptions $options = null): CompletionResponse
     {
         $session = $this->sessions->findByUuid($sessionUuid);
-        if ($session === null) {
+        if (!$session instanceof AiSession) {
             throw new InvalidArgumentException(sprintf('Unknown AI session "%s".', $sessionUuid), 1784600001);
         }
 
@@ -104,9 +104,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         if (is_string($systemPrompt) && $systemPrompt !== '') {
             $messages[] = ChatMessage::system($systemPrompt);
         }
+
         foreach ($history as $message) {
             $messages[] = $message->toChatMessage();
         }
+
         $messages[] = ChatMessage::user($userMessage);
 
         // A conversation replays its whole history on every turn, so it is the
@@ -116,7 +118,7 @@ final readonly class ConversationService implements ConversationServiceInterface
         // turn is not merely a log line.
         $configuration = $this->resolveTurnConfiguration($session, $actor);
         $droppedTurns  = null;
-        if ($this->contextWindow !== null && $configuration !== null) {
+        if ($this->contextWindow instanceof ContextWindowManagerInterface && $configuration instanceof LlmConfiguration) {
             // lastUsage is null: each turn is a fresh assembly, so the
             // manager's calibration starts from its seed rather than carrying a
             // ratio over from an unrelated turn.
@@ -190,7 +192,7 @@ final readonly class ConversationService implements ConversationServiceInterface
      */
     private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options): CompletionResponse
     {
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             return $this->llmManager->chat($messages, $options);
         }
 

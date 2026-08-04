@@ -76,6 +76,7 @@ final readonly class QueuedRunFailureRecovery
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
+
                 $this->logger?->warning('Queued agent run failed with a non-retryable error; dead-lettered', ['run' => $runUuid, 'class' => $class->value]);
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
@@ -93,6 +94,7 @@ final readonly class QueuedRunFailureRecovery
                 if (!$this->persister->settleDeadLettered($handle, $e, AgentRunTerminationReason::NOT_RETRYABLE, $workerIdentity)) {
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
+
                 $this->logger?->warning('Queued agent run failed mid non-idempotent write; dead-lettered instead of retried (ADR-111)', ['run' => $runUuid]);
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
@@ -105,6 +107,7 @@ final readonly class QueuedRunFailureRecovery
 
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $steps, error: $e);
                 }
+
                 $this->logger?->warning('Queued agent run exhausted its retry budget; dead-lettered', ['run' => $runUuid, 'requeueCount' => $count]);
 
                 return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: $steps, error: $e);
@@ -148,7 +151,7 @@ final readonly class QueuedRunFailureRecovery
      */
     private function dispatchRequeue(string $uuid, int $priorRequeueCount): void
     {
-        if ($this->messageBus === null) {
+        if (!$this->messageBus instanceof MessageBusInterface) {
             throw RunEnqueueFailedException::forRun($uuid);
         }
 

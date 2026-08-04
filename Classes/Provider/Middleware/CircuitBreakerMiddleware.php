@@ -77,6 +77,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInterface
 {
     private const DEFAULT_FAILURE_THRESHOLD = 5;
+
     private const DEFAULT_COOLDOWN_SECONDS  = 30;
 
     public function __construct(
@@ -114,6 +115,7 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
             // Fail fast so FallbackMiddleware can try the next provider.
             throw new CircuitOpenException($provider, $state->secondsUntilHalfOpen($now, $cooldown));
         }
+
         if ($halfOpenProbe) {
             // Cooldown elapsed. Reserve the single probe by refreshing the open
             // window up front, so any concurrent caller keeps failing fast while
@@ -246,6 +248,7 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         if (\is_int($value) && $value > 0) {
             return $value;
         }
+
         if (\is_string($value) && ctype_digit($value) && (int)$value > 0) {
             return (int)$value;
         }

@@ -264,6 +264,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
         // public — doing so would drift the public-service set locked by ADR-028.
         $container = new ContainerBuilder();
         $container->setDefinition(LlmServiceManager::class, new Definition(LlmServiceManager::class));
+
         $definition = $container->setDefinition('provider.attr', new Definition(AttributeTaggedProvider::class));
         self::assertFalse($definition->isPublic());
 
@@ -294,6 +295,7 @@ class ProviderCompilerPassTest extends AbstractUnitTestCase
 
         $definition = new Definition(AttributeTaggedProvider::class);
         $definition->addTag(AsLlmProvider::TAG_NAME, ['priority' => 999]);
+
         $container->setDefinition('provider.attr', $definition);
 
         (new ProviderCompilerPass())->process($container);

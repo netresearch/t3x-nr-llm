@@ -58,6 +58,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
                 $writers[] = $name;
             }
         }
+
         sort($writers);
 
         $expected = self::DECLARED_WRITERS;

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Middleware;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
@@ -69,7 +70,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
         // fallback chain — there is nothing to swap to, so pass it straight
         // through, exactly as an empty chain does.
         $configuration = $context->configuration;
-        if ($configuration === null || $configuration->getFallbackChainDTO()->isEmpty()) {
+        if (!$configuration instanceof LlmConfiguration || $configuration->getFallbackChainDTO()->isEmpty()) {
             return $next($context);
         }
 
@@ -82,6 +83,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
             if (!$this->isRetryable($e)) {
                 throw $e;
             }
+
             $attempts[] = [
                 'configuration' => $configuration->getIdentifier(),
                 'error'         => $e,
@@ -123,7 +125,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 
         foreach ($chain->configurationIdentifiers as $identifier) {
             $fallback = $this->repository->findOneByIdentifier($identifier);
-            if ($fallback === null) {
+            if (!$fallback instanceof LlmConfiguration) {
                 $this->logger->warning(
                     'LLM fallback configuration not found, skipping',
                     [
@@ -134,6 +136,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                 );
                 continue;
             }
+
             if (!$fallback->isActive()) {
                 $this->logger->warning(
                     'LLM fallback configuration is inactive, skipping',
@@ -170,6 +173,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                 if (!$this->isRetryable($e)) {
                     throw $e;
                 }
+
                 $attempts[] = [
                     'configuration' => $identifier,
                     'error'         => $e,

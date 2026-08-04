@@ -95,7 +95,7 @@ final class DeepLTranslatorBudgetTest extends TestCase
         bool $allowed = true,
         ?BudgetServiceInterface $budgetService = null,
     ): DeepLTranslator {
-        if ($budgetService === null) {
+        if (!$budgetService instanceof BudgetServiceInterface) {
             $budgetService = $this->createMock(BudgetServiceInterface::class);
             $budgetService->method('check')->willReturn(
                 $allowed

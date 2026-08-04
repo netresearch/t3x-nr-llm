@@ -183,9 +183,10 @@ final class TaskExecutionController extends ActionController
      */
     public function executeAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $dto = ExecuteTaskRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);
@@ -257,9 +258,10 @@ final class TaskExecutionController extends ActionController
      */
     public function refreshInputAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $dto = RefreshInputRequest::fromRequest($request);
 
         $task = $this->taskRepository->findByUid($dto->uid);

@@ -111,11 +111,12 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     ): OpenRouterProvider {
         $httpClientMock = self::createStub(ClientInterface::class);
         $httpClientMock->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use ($modelsResponse, $chatResponse) {
+            ->willReturnCallback(function (RequestInterface $request) use ($modelsResponse, $chatResponse): ResponseInterface {
                 $uri = (string)$request->getUri();
                 if (str_contains($uri, '/models')) {
                     return $this->createJsonResponseMock($modelsResponse);
                 }
+
                 return $this->createJsonResponseMock($chatResponse);
             });
 
@@ -301,7 +302,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // OpenRouter models have provider prefixes in keys (e.g., "anthropic/claude-3.5-sonnet")
         $modelKeys = array_keys($models);
         self::assertTrue(
-            count(array_filter($modelKeys, fn($m) => str_contains((string)$m, '/'))) > 0,
+            count(array_filter($modelKeys, fn(string $m): bool => str_contains($m, '/'))) > 0,
             'OpenRouter models should have provider prefixes in keys',
         );
     }
@@ -1237,7 +1238,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -1270,7 +1271,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -1299,7 +1300,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -1684,7 +1685,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
      *
      * @return array<string, mixed>
      */
-    private static function modelEntry(string $id, float $prompt, float $completion, array $overrides = []): array
+    private function modelEntry(string $id, float $prompt, float $completion, array $overrides = []): array
     {
         return $overrides + [
             'id' => $id,
@@ -2611,9 +2612,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('prompt-heavy/model', 0.05, 0.001),
-                self::modelEntry('completion-heavy/model', 0.001, 0.04),
-                self::modelEntry('mid/model', 0.02, 0.02),
+                $this->modelEntry('prompt-heavy/model', 0.05, 0.001),
+                $this->modelEntry('completion-heavy/model', 0.001, 0.04),
+                $this->modelEntry('mid/model', 0.02, 0.02),
             ],
         );
 
@@ -2626,8 +2627,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('first/model', 0.01, 0.01),
-                self::modelEntry('second/model', 0.01, 0.01),
+                $this->modelEntry('first/model', 0.01, 0.01),
+                $this->modelEntry('second/model', 0.01, 0.01),
             ],
         );
 
@@ -2640,8 +2641,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'performance'],
             [
-                self::modelEntry('slow/opus', 0.01, 0.03),
-                self::modelEntry('quick/flash', 0.001, 0.002),
+                $this->modelEntry('slow/opus', 0.01, 0.03),
+                $this->modelEntry('quick/flash', 0.001, 0.002),
             ],
         );
 
@@ -2654,8 +2655,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'balanced'],
             [
-                self::modelEntry('fast/haiku', 0.0001, 0.0001),
-                self::modelEntry('steady/sonnet', 0.003, 0.015),
+                $this->modelEntry('fast/haiku', 0.0001, 0.0001),
+                $this->modelEntry('steady/sonnet', 0.003, 0.015),
             ],
         );
 
@@ -2668,7 +2669,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $captured = [];
         $provider = $this->createCapturingRoutingProvider(
             ['routingStrategy' => 'explicit'],
-            ['data' => [self::modelEntry('steady/sonnet', 0.003, 0.015)]],
+            ['data' => [$this->modelEntry('steady/sonnet', 0.003, 0.015)]],
             $this->chatResponse(),
             $captured,
         );
@@ -2689,9 +2690,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('tiny/context', 0.00001, 0.00001, ['context_length' => 4000]),
-                self::modelEntry('exact/context', 0.0001, 0.0001, ['context_length' => 100000]),
-                self::modelEntry('huge/context', 0.01, 0.01, ['context_length' => 128000]),
+                $this->modelEntry('tiny/context', 0.00001, 0.00001, ['context_length' => 4000]),
+                $this->modelEntry('exact/context', 0.0001, 0.0001, ['context_length' => 100000]),
+                $this->modelEntry('huge/context', 0.01, 0.01, ['context_length' => 128000]),
             ],
             ['min_context' => 100000],
         );
@@ -2707,8 +2708,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('plain/cheap', 0.0001, 0.0001),
-                self::modelEntry('able/model', 0.01, 0.01, [
+                $this->modelEntry('plain/cheap', 0.0001, 0.0001),
+                $this->modelEntry('able/model', 0.01, 0.01, [
                     'architecture' => ['modality' => 'multimodal'],
                     'supports_function_calling' => true,
                 ]),
@@ -2724,8 +2725,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('text/cheap', 0.0001, 0.0001),
-                self::modelEntry('vision/pricier', 0.01, 0.01, [
+                $this->modelEntry('text/cheap', 0.0001, 0.0001),
+                $this->modelEntry('vision/pricier', 0.01, 0.01, [
                     'architecture' => ['modality' => 'multimodal'],
                 ]),
             ],
@@ -2741,8 +2742,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedRoutedModel(
             ['routingStrategy' => 'cost_optimized'],
             [
-                self::modelEntry('plain/cheap', 0.0001, 0.0001),
-                self::modelEntry('tools/pricier', 0.01, 0.01, [
+                $this->modelEntry('plain/cheap', 0.0001, 0.0001),
+                $this->modelEntry('tools/pricier', 0.01, 0.01, [
                     'supports_function_calling' => true,
                 ]),
             ],
@@ -2761,7 +2762,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
     {
         $model = $this->capturedVisionModel(
             [],
-            [self::modelEntry('anthropic/claude-3.5-sonnet', 0.003, 0.015, [
+            [$this->modelEntry('anthropic/claude-3.5-sonnet', 0.003, 0.015, [
                 'architecture' => ['modality' => 'multimodal'],
             ])],
         );
@@ -2776,7 +2777,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // the curated vision-model list that is available must be selected.
         $model = $this->capturedVisionModel(
             [],
-            [self::modelEntry('anthropic/claude-sonnet-4-5', 0.003, 0.015)],
+            [$this->modelEntry('anthropic/claude-sonnet-4-5', 0.003, 0.015)],
         );
 
         self::assertSame('anthropic/claude-sonnet-4-5', $model);
@@ -2789,7 +2790,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         // hardcoded 'openai/gpt-5.2' fallback and over unavailable entries.
         $model = $this->capturedVisionModel(
             [],
-            [self::modelEntry('google/gemini-3-flash', 0.001, 0.002)],
+            [$this->modelEntry('google/gemini-3-flash', 0.001, 0.002)],
         );
 
         self::assertSame('google/gemini-3-flash', $model);

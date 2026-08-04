@@ -72,7 +72,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function injectConfigSkillsIntoPrompt(string $prompt, LlmConfiguration $configuration): string
     {
-        if ($this->skillInjection === null) {
+        if (!$this->skillInjection instanceof SkillInjectionService) {
             return $prompt;
         }
 
@@ -93,7 +93,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration): array
     {
-        if ($this->skillInjection === null) {
+        if (!$this->skillInjection instanceof SkillInjectionService) {
             return $messages;
         }
 
@@ -217,7 +217,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // no default configuration resolves and no provider is pinned, the call
         // throws (no extension-config fallback; see ADR-034).
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
-        if ($defaultConfiguration !== null) {
+        if ($defaultConfiguration instanceof LlmConfiguration) {
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
@@ -249,7 +249,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         // Single source of truth: prefer the default DB configuration (see chat()).
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
-        if ($defaultConfiguration !== null) {
+        if ($defaultConfiguration instanceof LlmConfiguration) {
             return $this->completeWithConfiguration(
                 $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
                 $defaultConfiguration,
@@ -346,6 +346,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 if ($item instanceof VisionContent) {
                     return $item;
                 }
+
                 /** @var array{type?: string, text?: string, image_url?: array{url?: string}|string} $item */
                 return VisionContent::fromArray($item);
             },
@@ -360,6 +361,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 if (!$item->isText() || $item->text === null) {
                     return $item;
                 }
+
                 $screened = $this->screenInputPrompt($item->text);
 
                 return $screened === $item->text ? $item : VisionContent::text($screened);
@@ -405,7 +407,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // Budget attribution is forwarded so the streaming lifecycle can gate the
         // same over-budget users the non-streaming path rejects.
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey);
-        if ($defaultConfiguration !== null) {
+        if ($defaultConfiguration instanceof LlmConfiguration) {
             return $this->streamChatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
@@ -431,7 +433,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         $configuration = $this->synthesizeTransientConfiguration(ProviderOperation::Stream, $providerKey);
 
-        if ($this->streaming === null) {
+        if (!$this->streaming instanceof StreamingDispatcher) {
             return $open();
         }
 
@@ -475,6 +477,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 if ($tool instanceof ToolSpec) {
                     return $tool;
                 }
+
                 /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
                 return ToolSpec::fromArray($tool);
             },
@@ -533,6 +536,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 if ($tool instanceof ToolSpec) {
                     return $tool;
                 }
+
                 /** @var array{type?: string, function: array{name: string, description?: string, parameters?: array<string, mixed>}} $tool */
                 return ToolSpec::fromArray($tool);
             },
@@ -725,10 +729,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // unchanged for fixed-mode configs — so both selection modes reach a concrete
         // model here. Without this, every *ForConfiguration() call on a criteria-mode
         // configuration threw "has no model assigned".
-        $llmModel = $this->modelSelectionService !== null
+        $llmModel = $this->modelSelectionService instanceof ModelSelectionServiceInterface
             ? $this->modelSelectionService->resolveModel($configuration)
             : $configuration->getLlmModel();
-        if ($llmModel === null) {
+        if (!$llmModel instanceof Model) {
             throw new ProviderException(
                 sprintf('Configuration "%s" has no model assigned', $configuration->getIdentifier()),
                 1735300100,
@@ -876,6 +880,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         if (is_string($systemPrompt) && $systemPrompt !== '') {
             $messages[] = ChatMessage::system($systemPrompt);
         }
+
         $messages[] = ChatMessage::user($prompt);
 
         return $this->chatWithConfiguration(
@@ -929,7 +934,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     private function requireConfiguration(ProviderCallContext $context): LlmConfiguration
     {
         $configuration = $context->configuration;
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             throw new ProviderException('The pipeline context carried no configuration on a configuration-driven call.', 1784600700);
         }
 
@@ -1150,7 +1155,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             );
         };
 
-        if ($this->streaming === null) {
+        if (!$this->streaming instanceof StreamingDispatcher) {
             return $open($configuration);
         }
 

@@ -54,6 +54,7 @@ final readonly class ToolStateRepository
             if ($name === '') {
                 continue;
             }
+
             $overrides[$name] = self::toInt($row['enabled'] ?? 0) === 1;
         }
 

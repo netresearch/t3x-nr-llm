@@ -46,7 +46,11 @@ final class NrLlmExceptionInterfaceTest extends TestCase
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
 
             foreach ($iterator as $file) {
-                if (!$file instanceof SplFileInfo || $file->getExtension() !== 'php') {
+                if (!$file instanceof SplFileInfo) {
+                    continue;
+                }
+
+                if ($file->getExtension() !== 'php') {
                     continue;
                 }
 

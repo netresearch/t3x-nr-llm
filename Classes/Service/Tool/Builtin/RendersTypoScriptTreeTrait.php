@@ -73,6 +73,7 @@ trait RendersTypoScriptTreeTrait
             if ($subtree === null) {
                 return [null, null];
             }
+
             $node = $subtree;
         }
 
@@ -100,6 +101,7 @@ trait RendersTypoScriptTreeTrait
                 if (!is_array($value)) {
                     continue;
                 }
+
                 $lines[] = str_repeat('  ', $level) . rtrim($key, '.') . ' {';
                 $this->renderTree($value, $lines, $level + 1);
                 if (end($lines) !== sprintf('… [output truncated at %d lines]', self::MAX_LINES)) {
@@ -157,9 +159,11 @@ trait RendersTypoScriptTreeTrait
         if ($value === '') {
             return $value;
         }
+
         if (preg_match(self::SECRET_KEY_PATTERN, $key) === 1) {
             return '[redacted]';
         }
+
         // Mask an inline connection-string password even under a benign key name.
         $masked = preg_replace(self::SECRET_URL_PATTERN, '$1:***@', $value);
 

@@ -25,6 +25,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 class VisionServiceTest extends AbstractUnitTestCase
 {
     private VisionService $subject;
+
     private LlmServiceManagerInterface $llmManagerStub;
 
     protected function setUp(): void

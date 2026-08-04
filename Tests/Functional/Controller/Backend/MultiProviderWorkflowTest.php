@@ -58,15 +58,23 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_MODEL_GET_BY_PROVIDER = '/ajax/nrllm/model/get-by-provider';
+
     private const AJAX_NRLLM_PROVIDER_TOGGLE = '/ajax/nrllm/provider/toggle';
+
     private const AJAX_NRLLM_CONFIG_TOGGLE = '/ajax/nrllm/config/toggle';
 
     private ConfigurationController $configController;
+
     private ProviderController $providerController;
+
     private ModelController $modelController;
+
     private LlmModuleController $llmModuleController;
+
     private ProviderRepository $providerRepository;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -340,10 +348,12 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Toggle both configurations (demonstrates provider independence)
         $request1 = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $response1 = $this->configController->toggleActiveAction($request1);
 
         $request2 = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request2 = $request2->withParsedBody(['uid' => 2]);
+
         $response2 = $this->configController->toggleActiveAction($request2);
 
         // Both operations should succeed
@@ -365,6 +375,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Set configuration 1 as default
         $request1 = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $response1 = $this->configController->setDefaultAction($request1);
         self::assertSame(200, $response1->getStatusCode());
 
@@ -377,6 +388,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Switch to configuration 2 as default
         $request2 = new ServerRequest('POST', '/ajax/nrllm/config/setdefault');
         $request2 = $request2->withParsedBody(['uid' => 2]);
+
         $response2 = $this->configController->setDefaultAction($request2);
         self::assertSame(200, $response2->getStatusCode());
 
@@ -401,11 +413,13 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Toggle provider 1 to active
         $request1 = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $response1 = $this->providerController->toggleActiveAction($request1);
 
         // Toggle provider 2 to active
         $request2 = new ServerRequest('POST', self::AJAX_NRLLM_PROVIDER_TOGGLE);
         $request2 = $request2->withParsedBody(['uid' => 2]);
+
         $response2 = $this->providerController->toggleActiveAction($request2);
 
         self::assertSame(200, $response1->getStatusCode());
@@ -460,6 +474,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Toggle config 1
         $request1 = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $this->configController->toggleActiveAction($request1);
 
         // Config 2 should be unaffected
@@ -479,11 +494,13 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Test connection for provider 1
         $request1 = new ServerRequest('POST', '/ajax/nrllm/provider/connection');
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $response1 = $this->providerController->testConnectionAction($request1);
 
         // Test connection for provider 2
         $request2 = new ServerRequest('POST', '/ajax/nrllm/provider/connection');
         $request2 = $request2->withParsedBody(['uid' => 2]);
+
         $response2 = $this->providerController->testConnectionAction($request2);
 
         // Both should return valid responses
@@ -505,6 +522,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Get models for provider 1
         $request1 = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request1 = $request1->withParsedBody(['providerUid' => 1]);
+
         $response1 = $this->modelController->getByProviderAction($request1);
 
         $body1 = json_decode((string)$response1->getBody(), true);
@@ -519,6 +537,7 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Get models for provider 2
         $request2 = new ServerRequest('POST', self::AJAX_NRLLM_MODEL_GET_BY_PROVIDER);
         $request2 = $request2->withParsedBody(['providerUid' => 2]);
+
         $response2 = $this->modelController->getByProviderAction($request2);
 
         $body2 = json_decode((string)$response2->getBody(), true);
@@ -560,10 +579,12 @@ final class MultiProviderWorkflowTest extends AbstractFunctionalTestCase
         // Toggle both configurations
         $request1 = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request1 = $request1->withParsedBody(['uid' => 1]);
+
         $this->configController->toggleActiveAction($request1);
 
         $request2 = new ServerRequest('POST', self::AJAX_NRLLM_CONFIG_TOGGLE);
         $request2 = $request2->withParsedBody(['uid' => 2]);
+
         $this->configController->toggleActiveAction($request2);
 
         // Toggle back

@@ -48,7 +48,7 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
         $states = [];
         foreach ($this->registry->names() as $name) {
             $tool = $this->registry->get($name);
-            if ($tool === null) {
+            if (!$tool instanceof ToolInterface) {
                 continue;
             }
 
@@ -84,13 +84,15 @@ final readonly class ToolAvailabilityService implements ToolAvailabilityServiceI
         $groups = [];
         foreach ($this->registry->names() as $name) {
             $tool = $this->registry->get($name);
-            if ($tool === null) {
+            if (!$tool instanceof ToolInterface) {
                 continue;
             }
+
             $group = $tool->getGroup();
             if (isset($groups[$group])) {
                 continue;
             }
+
             $groups[$group] = [
                 'name'       => $group,
                 'enabled'    => $groupOverrides[$group] ?? true,

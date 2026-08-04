@@ -59,11 +59,15 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 final class ErrorHandlingTest extends AbstractFunctionalTestCase
 {
     private const AJAX_CONFIG_TEST = '/ajax/nrllm/config/test';
+
     private const AJAX_TEST = '/ajax/test';
 
     private ConfigurationController $configController;
+
     private TaskExecutionController $taskController;
+
     private LlmModuleController $llmModuleController;
+
     private LlmConfigurationRepository $configurationRepository;
 
     protected function setUp(): void

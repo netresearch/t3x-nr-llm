@@ -36,8 +36,8 @@ final readonly class WizardResult
     {
         return [
             'provider' => $this->provider->toArray(),
-            'models' => array_map(fn(DiscoveredModel $m) => $m->toArray(), $this->models),
-            'configurations' => array_map(fn(SuggestedConfiguration $c) => $c->toArray(), $this->configurations),
+            'models' => array_map(fn(DiscoveredModel $m): array => $m->toArray(), $this->models),
+            'configurations' => array_map(fn(SuggestedConfiguration $c): array => $c->toArray(), $this->configurations),
             'connectionSuccessful' => $this->connectionSuccessful,
             'connectionMessage' => $this->connectionMessage,
         ];

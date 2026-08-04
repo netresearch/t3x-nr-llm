@@ -270,6 +270,7 @@ class OllamaProviderToolsTest extends AbstractUnitTestCase
         // Explicitly OFF: the top-level `think` field carries `false`.
         $subject = $this->buildSubject($this->plainAssistantResponse('done'));
         $subject->chatCompletionWithTools($messages, [$tool], ['think' => false]);
+
         $payload = $this->capturedRequest();
         self::assertArrayHasKey('think', $payload);
         self::assertFalse($payload['think']);

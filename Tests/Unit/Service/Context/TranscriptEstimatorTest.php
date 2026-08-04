@@ -75,7 +75,7 @@ final class TranscriptEstimatorTest extends TestCase
     public function toolCallArgumentsAreCountedAsDense(): void
     {
         $call     = new ToolCall('call_1', 'fetch', ['q' => str_repeat('x', 400)]);
-        $estimate = $this->estimator->estimate([ChatMessage::assistantToolCalls([$call], null)], [], 1.0);
+        $estimate = $this->estimator->estimate([ChatMessage::assistantToolCalls([$call])], [], 1.0);
 
         self::assertGreaterThan(100, $estimate);
     }

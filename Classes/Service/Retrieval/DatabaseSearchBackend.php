@@ -184,6 +184,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             if ($header !== '') {
                 $parts[] = '## ' . $header;
             }
+
             if ($body !== '') {
                 $parts[] = $body;
             }
@@ -282,6 +283,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             if (!$this->ancestorsArePublic(self::toInt($row['pid'] ?? 0), $ancestorCache)) {
                 continue;
             }
+
             $titles[self::toInt($row['uid'] ?? 0)] = self::toStr($row['title'] ?? '');
         }
 
@@ -405,6 +407,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
         foreach ($fields as $field) {
             $haystack .= ' ' . self::toStr($row[$field] ?? '');
         }
+
         $haystack = ExcerptBuilder::plain($haystack);
 
         return array_values(array_filter(
@@ -456,6 +459,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 $public = $cache[$current];
                 break;
             }
+
             $chain[] = $current;
 
             $row = $this->ancestorRow($current);
@@ -463,6 +467,7 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
                 $public = false;
                 break;
             }
+
             $current = self::toInt($row['pid'] ?? 0);
         }
 
@@ -571,13 +576,16 @@ final readonly class DatabaseSearchBackend implements SearchBackendInterface
             if ($value === '') {
                 continue;
             }
+
             $plain = ExcerptBuilder::plain($value);
             if ($fallback === '') {
                 $fallback = mb_substr($plain, 0, ExcerptBuilder::DEFAULT_LENGTH);
             }
+
             if (mb_stripos($plain, $query) !== false) {
                 return ['excerpt' => ExcerptBuilder::around($plain, $query), 'phrase' => true];
             }
+
             foreach ($words as $word) {
                 if (mb_stripos($plain, $word) !== false) {
                     return ['excerpt' => ExcerptBuilder::around($plain, $word), 'phrase' => false];

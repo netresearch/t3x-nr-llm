@@ -44,20 +44,33 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
 {
     private const AJAX_MODEL_DETECT_LIMITS = '/ajax/model/detect-limits';
+
     private const AJAX_MODEL_GETBYPROVIDER = '/ajax/model/getbyprovider';
+
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+
     private const AJAX_MODEL_SETDEFAULT = '/ajax/model/setdefault';
+
     private const NO_MODEL_UID_SPECIFIED = 'No model UID specified';
+
     private const AJAX_MODEL_TOGGLE = '/ajax/model/toggle';
+
     private const AJAX_MODEL_FETCH = '/ajax/model/fetch';
+
     private const AJAX_MODEL_TEST = '/ajax/model/test';
+
     private const MODEL_NOT_FOUND = 'Model not found';
 
     private ModelController $controller;
+
     private ModelTestController $testController;
+
     private ModelDiscoveryController $discoveryController;
+
     private ModelRepository $modelRepository;
+
     private ProviderRepository $providerRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -216,6 +229,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
             if ($providerUid === 0) {
                 continue;
             }
+
             self::assertGreaterThan(0, $providerUid);
             self::assertGreaterThan(0, $count);
         }
@@ -475,6 +489,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         // Restore
         $reloaded->setName($originalName);
         $reloaded->setContextLength($originalContextLength);
+
         $this->modelRepository->update($reloaded);
         $this->persistenceManager->persistAll();
     }
@@ -782,6 +797,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
             if ($model->getIdentifier() === 'orphan-model') {
                 continue;
             }
+
             $provider = $model->getProvider();
             self::assertNotNull($provider, "Model {$model->getName()} must have a provider");
             self::assertNotNull($provider->getUid(), 'Provider must have UID');
@@ -1026,7 +1042,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
     public function pathway3_17_findDefaultModel(): void
     {
         $models = $this->modelRepository->findActive()->toArray();
-        $defaults = array_filter($models, fn($m) => $m->isDefault());
+        $defaults = array_filter($models, fn(Model $m): bool => $m->isDefault());
 
         // Should have at most one default
         self::assertLessThanOrEqual(1, count($defaults));

@@ -22,16 +22,24 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
     use BudgetFieldsTrait;
 
     private const SIZE_SQUARE = '1024x1024';
+
     private const VALID_MODELS = ['dall-e-2', 'dall-e-3'];
+
     private const VALID_QUALITIES = ['standard', 'hd'];
+
     private const VALID_STYLES = ['vivid', 'natural'];
+
     private const VALID_FORMATS = ['url', 'b64_json'];
+
     private const VALID_SIZES_DALLE3 = [self::SIZE_SQUARE, '1792x1024', '1024x1792'];
+
     private const VALID_SIZES_DALLE2 = ['256x256', '512x512', self::SIZE_SQUARE];
+
     // OpenAI's gpt-image-* family (gpt-image-1, -mini, -1.5, -2, …) replaced DALL·E. It exposes
     // a different square/landscape/portrait size set and always returns b64_json; `response_format`
     // and `style` are not accepted (the service omits them for non-DALL·E models).
     private const VALID_SIZES_GPT_IMAGE = [self::SIZE_SQUARE, '1536x1024', '1024x1536', 'auto'];
+
     private const GPT_IMAGE_PREFIX = 'gpt-image-';
 
     // Arbitrary WxH sizes for gpt-image-* (per OpenAI docs, June 2026): gpt-image-2
@@ -40,8 +48,11 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
     // 3840x2160. The standard sizes above remain valid (they satisfy these rules);
     // 'auto' lets the model pick. Other extensions rely on this contract.
     private const GPT_IMAGE_DIMENSION_STEP = 16;
+
     private const GPT_IMAGE_MAX_WIDTH = 3840;
+
     private const GPT_IMAGE_MAX_HEIGHT = 2160;
+
     private const GPT_IMAGE_MAX_ASPECT = 3;
 
     /**
@@ -77,15 +88,19 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
         if ($this->model !== null) {
             $this->validateModel($this->model);
         }
+
         if ($this->quality !== null) {
             self::validateEnum($this->quality, self::VALID_QUALITIES, 'quality');
         }
+
         if ($this->style !== null) {
             self::validateEnum($this->style, self::VALID_STYLES, 'style');
         }
+
         if ($this->format !== null) {
             self::validateEnum($this->format, self::VALID_FORMATS, 'format');
         }
+
         $this->validateSize();
         $this->validateBudgetFields();
     }
@@ -254,7 +269,7 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
      */
     public static function hd(string $size = self::SIZE_SQUARE): self
     {
-        return new self(quality: 'hd', size: $size);
+        return new self(size: $size, quality: 'hd');
     }
 
     /**

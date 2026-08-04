@@ -138,6 +138,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
                     continue;
                 }
             }
+
             $out[$key] = [
                 'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
                 'requests' => is_numeric($row['requests'] ?? null) ? (int)$row['requests'] : 0,
@@ -209,6 +210,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             if ($ts === null) {
                 continue;
             }
+
             // setTimestamp() keeps the object's default (local) timezone; '@'.$ts
             // would force UTC and misbucket local-midnight request_date values.
             $key = (new DateTimeImmutable())->setTimestamp($ts)->format('Y-m-d');
@@ -254,6 +256,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             } else {
                 $label = 'user #' . $uid;
             }
+
             $out[] = [
                 'beUserUid' => $uid,
                 'label'     => $label,
@@ -332,6 +335,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
             if ($label === '') {
                 $label = 'unknown';
             }
+
             $out[] = [
                 'label'    => $label,
                 'cost'     => is_numeric($row['cost'] ?? null) ? (float)$row['cost'] : 0.0,
@@ -357,6 +361,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
                 $uids[$uid] = $uid;
             }
         }
+
         if ($uids === []) {
             return [];
         }
@@ -388,7 +393,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
      */
     private function budgetConsumption(?UserBudget $budget, float $usedCost): ?array
     {
-        if ($budget === null || !$budget->isActive() || $budget->getMaxCostPerMonth() <= 0.0) {
+        if (!$budget instanceof UserBudget || !$budget->isActive() || $budget->getMaxCostPerMonth() <= 0.0) {
             return null;
         }
 

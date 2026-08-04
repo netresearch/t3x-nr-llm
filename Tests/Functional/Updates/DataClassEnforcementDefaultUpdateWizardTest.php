@@ -120,10 +120,12 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
         if (!is_array($confVars)) {
             $confVars = [];
         }
+
         $extensions = $confVars['EXTENSIONS'] ?? [];
         if (!is_array($extensions)) {
             $extensions = [];
         }
+
         $extensions['nr_llm']   = $nrLlm;
         $confVars['EXTENSIONS'] = $extensions;
         $GLOBALS['TYPO3_CONF_VARS'] = $confVars;

@@ -97,6 +97,7 @@ enum AdapterType: string
         foreach (self::cases() as $case) {
             $result[$case->value] = $case->label();
         }
+
         return $result;
     }
 }

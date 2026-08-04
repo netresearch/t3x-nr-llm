@@ -17,16 +17,27 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class SkillSource extends AbstractEntity
 {
     protected string $title = '';
+
     protected string $type = SkillSourceType::SINGLE_FILE->value;
+
     protected string $url = '';
+
     protected string $ref = '';
+
     protected string $pinnedSha = '';
+
     protected string $githubToken = '';
+
     protected string $trustLevel = SkillTrustLevel::UNTRUSTED->value;
+
     protected string $expectedFingerprint = '';
+
     protected string $syncStatus = SyncStatus::NEVER_SYNCED->value;
+
     protected string $syncError = '';
+
     protected int $lastSynced = 0;
+
     protected bool $enabled = true;
 
     public function getTitle(): string

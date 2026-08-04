@@ -41,7 +41,7 @@ class SegmentMutationTest extends AbstractUnitTestCase
     #[Test]
     public function hasWordsReturnsFalseForNull(): void
     {
-        $segment = new Segment('Test', 0.0, 1.0, words: null);
+        $segment = new Segment('Test', 0.0, 1.0);
 
         self::assertFalse($segment->hasWords());
     }

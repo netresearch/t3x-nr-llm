@@ -34,8 +34,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
 {
     private const SET = 'nr_llm.smoke';
+
     private const MODEL = 'gpt-test';
+
     private const GRADER = 'deterministic';
+
     private const TABLE = 'tx_nrllm_eval_result';
 
     private EvaluationResultRepository $repository;
@@ -168,6 +171,7 @@ final class EvaluationResultRepositoryTest extends AbstractFunctionalTestCase
     {
         self::assertNull($this->repository->meanQualityScoreForModel('unseen-model', self::GRADER));
     }
+
     #[Test]
     public function findLatestSegregatesByGrader(): void
     {

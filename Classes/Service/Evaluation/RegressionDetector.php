@@ -24,7 +24,7 @@ final readonly class RegressionDetector
         ?EvaluationResultSummary $previous,
         RegressionThresholds $thresholds,
     ): RegressionReport {
-        if ($previous === null) {
+        if (!$previous instanceof EvaluationResultSummary) {
             return new RegressionReport(
                 $current->setIdentifier,
                 $current->model,
@@ -72,6 +72,7 @@ final readonly class RegressionDetector
         if ($passRateRegressed) {
             $causes[] = sprintf('pass rate dropped %.1f pp', -$passRateDelta * 100);
         }
+
         if ($meanScoreRegressed) {
             $causes[] = sprintf('mean score dropped %.3f', -$meanScoreDelta);
         }

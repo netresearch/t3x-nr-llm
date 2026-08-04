@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
@@ -317,10 +318,11 @@ final class ConversationServiceTest extends TestCase
         } catch (Throwable) {
             // The first provider call fails; the user turn is already recorded.
         }
+
         $service->send($actor, $session->uuid, 'second');
 
         // No two turns share a sequence number, even across the failed attempt.
-        $sequences = array_map(static fn($m): int => $m->sequence, $repository->findMessages($session->uid));
+        $sequences = array_map(static fn(AiSessionMessage $m): int => $m->sequence, $repository->findMessages($session->uid));
         self::assertSame($sequences, array_values(array_unique($sequences)));
     }
 

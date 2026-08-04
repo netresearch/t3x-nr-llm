@@ -60,7 +60,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
         $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        return (int)$queryBuilder
+        return $queryBuilder
             ->delete(self::TABLE)
             ->where($queryBuilder->expr()->lt('run_date', $queryBuilder->createNamedParameter($timestamp)))
             ->executeStatement();
@@ -117,6 +117,7 @@ final readonly class EvaluationResultRepository implements EvaluationResultRepos
             if (isset($seenSets[$setIdentifier])) {
                 continue;
             }
+
             $seenSets[$setIdentifier] = true;
             $scores[] = $this->toFloat($row['mean_score'] ?? 0);
         }

@@ -120,6 +120,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
                     1735300002,
                 );
             }
+
             if (!is_string($adapterClass) || $adapterClass === '') {
                 throw new ProviderConfigurationException(
                     sprintf(
@@ -130,6 +131,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
                     1735300003,
                 );
             }
+
             if (!is_subclass_of($adapterClass, AbstractProvider::class)) {
                 throw new ProviderConfigurationException(
                     sprintf('Adapter class %s must extend %s', $adapterClass, AbstractProvider::class),
@@ -245,7 +247,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
     {
         $provider = $model->getProvider();
 
-        if ($provider === null) {
+        if (!$provider instanceof Provider) {
             throw new ProviderConfigurationException(
                 sprintf('Model "%s" has no associated provider', $model->getIdentifier()),
                 1735300002,
@@ -319,8 +321,8 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
 
         // Merge additional options from JSON field
         $additionalOptions = $provider->getOptionsArray();
-        if (!empty($additionalOptions)) {
-            $config = array_merge($config, $additionalOptions);
+        if ($additionalOptions !== []) {
+            return array_merge($config, $additionalOptions);
         }
 
         return $config;

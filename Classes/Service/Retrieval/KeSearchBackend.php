@@ -135,6 +135,7 @@ final class KeSearchBackend implements SearchBackendInterface
         if ($abstract !== '') {
             $parts[] = $abstract;
         }
+
         if ($content !== '') {
             $parts[] = $content;
         }
@@ -237,6 +238,7 @@ final class KeSearchBackend implements SearchBackendInterface
             if ($siteIdentifier !== null) {
                 return null;
             }
+
             $url = self::toStr($row['params'] ?? '');
 
             return str_starts_with($url, 'https://') || str_starts_with($url, 'http://') ? $url : null;
@@ -252,6 +254,7 @@ final class KeSearchBackend implements SearchBackendInterface
         } catch (Throwable) {
             return null;
         }
+
         if ($siteIdentifier !== null && $site->getIdentifier() !== $siteIdentifier) {
             return null;
         }
@@ -261,6 +264,7 @@ final class KeSearchBackend implements SearchBackendInterface
         if ($params !== '') {
             parse_str($params, $arguments);
         }
+
         $arguments['_language'] = $languageId;
 
         try {

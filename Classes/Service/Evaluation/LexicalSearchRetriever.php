@@ -45,6 +45,7 @@ final readonly class LexicalSearchRetriever implements EvaluatableRetrieverInter
             // Truncation can expose interior whitespace at the cut — trim again.
             $question = trim(mb_substr($question, 0, RetrievalQuery::MAX_QUERY_LENGTH));
         }
+
         if (mb_strlen($question) < RetrievalQuery::MIN_QUERY_LENGTH) {
             return [];
         }

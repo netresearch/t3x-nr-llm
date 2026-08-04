@@ -95,6 +95,7 @@ final class GetLastExceptionToolFunctionalTest extends AbstractFunctionalTestCas
         if (is_file($seededLog)) {
             unlink($seededLog);
         }
+
         GeneralUtility::rmdir(Environment::getProjectPath() . '/probe-fixture', true);
         parent::tearDown();
     }

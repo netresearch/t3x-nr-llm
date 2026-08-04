@@ -35,9 +35,13 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class ProviderControllerTest extends TestCase
 {
     private ProviderRepository&MockObject $providerRepository;
+
     private PersistenceManagerInterface&MockObject $persistenceManager;
+
     private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
+
     private ProviderController $subject;
+
     private mixed $previousBeUser;
 
     protected function setUp(): void
@@ -66,6 +70,7 @@ final class ProviderControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
@@ -126,6 +131,7 @@ final class ProviderControllerTest extends TestCase
         $reflection = new ReflectionClass($provider);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($provider, $uid);
+
         $provider->setIsActive($isActive);
         return $provider;
     }

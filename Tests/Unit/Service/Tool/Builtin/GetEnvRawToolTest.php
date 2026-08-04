@@ -25,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 final class GetEnvRawToolTest extends TestCase
 {
     private const SECRET_KEY = 'NRLLM_TEST_RAW_SECRET_KEY';
+
     private const SECRET_VALUE = 'raw-unmasked-value';
 
     protected function setUp(): void

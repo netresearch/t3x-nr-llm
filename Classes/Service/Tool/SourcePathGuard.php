@@ -141,6 +141,7 @@ final readonly class SourcePathGuard
         if (!is_readable($real)) {
             return null;
         }
+
         $content = file_get_contents($real, false, null, 0, 2_000_000);
         if ($content === false) {
             return null;

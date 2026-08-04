@@ -75,11 +75,13 @@ final readonly class FluidResolveTool implements ToolInterface
         if ($name === '') {
             return ToolResult::text('Provide a template/partial/layout name.');
         }
+
         // Reject path traversal outright — names address files under the
         // extension's private folder, never elsewhere.
         if (str_contains($name, '..')) {
             return ToolResult::text('Invalid name.');
         }
+
         $name = preg_replace('/\.html$/i', '', $name) ?? $name;
 
         $type = strtolower(trim(self::toStr($arguments['type'] ?? 'template')));
@@ -91,6 +93,7 @@ final readonly class FluidResolveTool implements ToolInterface
         if ($extension === '') {
             return ToolResult::text('Provide the "extension" key so the Fluid root paths can be resolved.');
         }
+
         if (preg_match('/^[a-z0-9_]+$/', $extension) !== 1) {
             return ToolResult::text('Invalid extension key.');
         }

@@ -41,7 +41,7 @@ final readonly class VisionResponse
      */
     public function getDescription(): string
     {
-        return $this->getText();
+        return $this->description;
     }
 
     /**

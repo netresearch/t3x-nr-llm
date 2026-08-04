@@ -35,6 +35,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\Stub;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
@@ -49,6 +50,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     use PipelineRoutingAssertionTrait;
 
     private DeepLTranslator $subject;
+
     private UsageTrackerServiceInterface $usageTrackerStub;
 
     /** @var array{translators: array{deepl: array{apiKeyIdentifier: string, timeout: int}}} */
@@ -189,8 +191,8 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 $uriStub->method('getPath')->willReturn(parse_url($uri, PHP_URL_PATH) ?? '');
 
                 $request = self::createStub(RequestInterface::class);
-                $request->method('withHeader')->willReturnCallback(fn() => $request);
-                $request->method('withoutHeader')->willReturnCallback(fn() => $request);
+                $request->method('withHeader')->willReturnCallback(fn(): Stub => $request);
+                $request->method('withoutHeader')->willReturnCallback(fn(): Stub => $request);
                 $request->method('withBody')->willReturnCallback(
                     function (StreamInterface $body) use (&$captured, &$request): RequestInterface {
                         $captured['body'] = (string)$body;
@@ -313,6 +315,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         } catch (LogicException $e) {
             self::assertSame('vault unavailable', $e->getMessage());
         }
+
         self::assertFalse($reflection->getProperty('baseUrlResolved')->getValue($translator));
 
         // Second attempt retries retrieve() and succeeds (Free key → free host).
@@ -533,7 +536,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data) => $data['characters'] === mb_strlen($text)),
+                self::callback(fn(array $data): bool => $data['characters'] === mb_strlen($text)),
                 null,
                 0,
                 '',
@@ -1013,7 +1016,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data) => $data['characters'] === mb_strlen($text)),
+                self::callback(fn(array $data): bool => $data['characters'] === mb_strlen($text)),
                 null,
                 0,
                 '',
@@ -1192,7 +1195,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
                 'translation',
                 'deepl',
                 self::callback(
-                    fn(array $data) => $data['characters'] === $expectedCharacters && $data['batch_size'] === 2,
+                    fn(array $data): bool => $data['characters'] === $expectedCharacters && $data['batch_size'] === 2,
                 ),
                 null,
                 0,

@@ -704,6 +704,7 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
     {
         $groups = new ObjectStorage();
         $groups->attach(new BackendUserGroup());
+
         $this->subject->setBeGroups($groups);
 
         self::assertTrue($this->subject->hasAccessRestrictions());

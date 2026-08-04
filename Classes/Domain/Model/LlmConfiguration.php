@@ -30,7 +30,9 @@ class LlmConfiguration extends AbstractEntity
     private const DEFAULT_TIMEOUT = 120;
 
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
 
     /** Reference to database Model entity. */
@@ -42,6 +44,7 @@ class LlmConfiguration extends AbstractEntity
      * @deprecated Use ModelSelectionMode enum instead
      */
     public const SELECTION_MODE_FIXED = 'fixed';
+
     /** @deprecated Use ModelSelectionMode enum instead */
     public const SELECTION_MODE_CRITERIA = 'criteria';
 
@@ -52,13 +55,21 @@ class LlmConfiguration extends AbstractEntity
     protected string $modelSelectionCriteria = '';
 
     protected string $translator = '';
+
     protected string $systemPrompt = '';
+
     protected float $temperature = 0.7;
+
     protected int $maxTokens = 1000;
+
     protected float $topP = 1.0;
+
     protected float $frequencyPenalty = 0.0;
+
     protected float $presencePenalty = 0.0;
+
     protected int $timeout = 0;
+
     protected string $options = '';
 
     /**
@@ -74,9 +85,13 @@ class LlmConfiguration extends AbstractEntity
      * See {@see getAllowedGuardrailsList()} and GuardrailPolicyResolver.
      */
     protected string $allowedGuardrails = '';
+
     protected int $maxRequestsPerDay = 0;
+
     protected int $maxTokensPerDay = 0;
+
     protected float $maxCostPerDay = 0.0;
+
     /**
      * JSON-encoded fallback chain (ordered list of LlmConfiguration identifiers).
      * Populated automatically from the `fallback_chain` column by Extbase.
@@ -91,9 +106,13 @@ class LlmConfiguration extends AbstractEntity
     protected string $presetChecksum = '';
 
     protected bool $isActive = true;
+
     protected bool $isDefault = false;
+
     protected int $tstamp = 0;
+
     protected int $crdate = 0;
+
     /**
      * Allowed backend groups (MM relation) — the single source of truth for the
      * per-group access restriction. Its TCA config lives on the `allowed_groups`
@@ -145,7 +164,7 @@ class LlmConfiguration extends AbstractEntity
      */
     public function hasLlmModel(): bool
     {
-        return $this->llmModel !== null;
+        return $this->llmModel instanceof Model;
     }
 
     public function getModelSelectionMode(): string
@@ -185,10 +204,12 @@ class LlmConfiguration extends AbstractEntity
         if ($this->modelSelectionCriteria === '') {
             return [];
         }
+
         $decoded = json_decode($this->modelSelectionCriteria, true);
         if (!is_array($decoded)) {
             return [];
         }
+
         /** @var array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $decoded */
         return $decoded;
     }
@@ -214,12 +235,13 @@ class LlmConfiguration extends AbstractEntity
      */
     public function getProviderType(): string
     {
-        if ($this->llmModel !== null) {
+        if ($this->llmModel instanceof Model) {
             $provider = $this->llmModel->getProvider();
-            if ($provider !== null) {
+            if ($provider instanceof Provider) {
                 return $provider->getAdapterType();
             }
         }
+
         return '';
     }
 
@@ -228,9 +250,10 @@ class LlmConfiguration extends AbstractEntity
      */
     public function getModelId(): string
     {
-        if ($this->llmModel !== null) {
+        if ($this->llmModel instanceof Model) {
             return $this->llmModel->getModelId();
         }
+
         return '';
     }
 
@@ -285,9 +308,11 @@ class LlmConfiguration extends AbstractEntity
         if ($this->timeout > 0) {
             return $this->timeout;
         }
-        if ($this->llmModel !== null) {
+
+        if ($this->llmModel instanceof Model) {
             return $this->llmModel->getDefaultTimeout();
         }
+
         return self::DEFAULT_TIMEOUT;
     }
 
@@ -321,10 +346,12 @@ class LlmConfiguration extends AbstractEntity
         if ($this->options === '') {
             return [];
         }
+
         $decoded = json_decode($this->options, true);
         if (!is_array($decoded)) {
             return [];
         }
+
         /** @var array<string, mixed> $decoded */
         return $decoded;
     }
@@ -387,9 +414,10 @@ class LlmConfiguration extends AbstractEntity
     {
         // Extbase can reconstitute a relation-less entity without the constructor's
         // ObjectStorage init, leaving this property unset/null.
-        if (!isset($this->beGroups)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
+        if (!$this->beGroups instanceof ObjectStorage) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
             $this->beGroups = new ObjectStorage();
         }
+
         return $this->beGroups;
     }
 
@@ -403,6 +431,7 @@ class LlmConfiguration extends AbstractEntity
         if (!isset($this->skills)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
             $this->skills = new ObjectStorage();
         }
+
         return $this->skills;
     }
 
@@ -478,6 +507,7 @@ class LlmConfiguration extends AbstractEntity
         if (!ModelSelectionMode::isValid($modelSelectionMode)) {
             $modelSelectionMode = ModelSelectionMode::FIXED->value;
         }
+
         $this->modelSelectionMode = $modelSelectionMode;
     }
 
@@ -755,8 +785,8 @@ class LlmConfiguration extends AbstractEntity
 
         // Merge additional options
         $additionalOptions = $this->getOptionsArray();
-        if (!empty($additionalOptions)) {
-            $options = array_merge($options, $additionalOptions);
+        if ($additionalOptions !== []) {
+            return array_merge($options, $additionalOptions);
         }
 
         return $options;

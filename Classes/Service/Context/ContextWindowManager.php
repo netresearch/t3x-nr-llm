@@ -61,7 +61,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         // per-run calibration state here so a single shared manager instance
         // (ToolLoopService is a shared service) never carries one run's
         // calibration into the next.
-        if ($lastUsage === null) {
+        if (!$lastUsage instanceof UsageStatistics) {
             $this->calibration      = self::CALIBRATION_SEED;
             $this->lastSentEstimate = null;
         }
@@ -115,9 +115,10 @@ final class ContextWindowManager implements ContextWindowManagerInterface
 
     private function recalibrate(?UsageStatistics $lastUsage): void
     {
-        if ($lastUsage === null || $this->lastSentEstimate === null || $this->lastSentEstimate <= 0) {
+        if (!$lastUsage instanceof UsageStatistics || $this->lastSentEstimate === null || $this->lastSentEstimate <= 0) {
             return;
         }
+
         $ratio = $lastUsage->promptTokens / $this->lastSentEstimate;
         // Monotone up: never trust an estimate below observed reality.
         $this->calibration = max($this->calibration, $ratio);
@@ -129,6 +130,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         if ($optionMax > 0) {
             return $optionMax;
         }
+
         $modelMax = $configuration->getLlmModel()?->getMaxOutputTokens() ?? 0;
         if ($modelMax > 0) {
             return $modelMax;
@@ -145,6 +147,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         if (isset($messages[0]) && $this->roleOf($messages[0]) === 'system') {
             return 0;
         }
+
         $systemPrompt = $configuration->getSystemPrompt();
         if ($systemPrompt === '') {
             return 0;
@@ -174,6 +177,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
                 break;
             }
         }
+
         if (!$seenUser) {
             return [$head, []];
         }
@@ -188,6 +192,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
                 if ($current !== null) {
                     $turns[] = $current;
                 }
+
                 $current = [$message];
             } elseif ($current === null) {
                 $current = [$message];
@@ -195,6 +200,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
                 $current[] = $message;
             }
         }
+
         if ($current !== null) {
             $turns[] = $current;
         }

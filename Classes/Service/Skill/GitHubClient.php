@@ -55,6 +55,7 @@ final class GitHubClient implements GitHubClientInterface
         if (!isset($data['sha']) || !is_string($data['sha'])) {
             throw GitHubApiException::forStatus($url, 0);
         }
+
         return $data['sha'];
     }
 
@@ -71,6 +72,7 @@ final class GitHubClient implements GitHubClientInterface
         if (!isset($data['tree']) || !is_array($data['tree'])) {
             throw GitHubApiException::forMalformedResponse($url);
         }
+
         $tree = $data['tree'];
         $paths = [];
         foreach ($tree as $node) {
@@ -78,6 +80,7 @@ final class GitHubClient implements GitHubClientInterface
                 $paths[] = $node['path'];
             }
         }
+
         return $paths;
     }
 
@@ -113,6 +116,7 @@ final class GitHubClient implements GitHubClientInterface
 
             throw GitHubApiException::forMalformedResponse($url);
         }
+
         if (!is_array($decoded)) {
             $this->logger->warning('GitHub API response was not a JSON object', [
                 'url' => $url,
@@ -121,6 +125,7 @@ final class GitHubClient implements GitHubClientInterface
 
             throw GitHubApiException::forMalformedResponse($url);
         }
+
         /** @var array<string,mixed> $decoded */
         return $decoded;
     }
@@ -144,10 +149,12 @@ final class GitHubClient implements GitHubClientInterface
             // Rate-limit failures must abort the whole sync (re-thrown past per-file/per-repo isolation).
             throw GitHubApiException::forRateLimit((int)$response->getHeaderLine('X-RateLimit-Reset'));
         }
+
         if ($status >= 300) {
             // 3xx included: redirects are not followed (could escape the GitHub allowlist).
             throw GitHubApiException::forStatus($url, $status);
         }
+
         return (string)$response->getBody();
     }
 
@@ -160,18 +167,24 @@ final class GitHubClient implements GitHubClientInterface
         if ($status === 429) {
             return true;
         }
+
         if ($status === 403) {
-            return $response->getHeaderLine('X-RateLimit-Remaining') === '0'
-                || $response->hasHeader('Retry-After');
+            if ($response->getHeaderLine('X-RateLimit-Remaining') === '0') {
+                return true;
+            }
+
+            return $response->hasHeader('Retry-After');
         }
+
         return false;
     }
 
     private function send(RequestInterface $request): ResponseInterface
     {
-        if ($this->httpClient !== null) {
+        if ($this->httpClient instanceof ClientInterface) {
             return $this->httpClient->sendRequest($request);
         }
+
         // Production transport: nr-vault audited client (redirects disabled at factory default).
         return $this->vault->http()->withReason('nr-llm skill sync')->sendRequest($request);
     }

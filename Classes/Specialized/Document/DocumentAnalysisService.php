@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Document;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Budget\AutoPopulatesBeUserUidTrait;
@@ -105,7 +106,7 @@ final readonly class DocumentAnalysisService
         }
 
         $configuration = $this->llmManager->resolveEffectiveConfiguration();
-        if ($configuration !== null && $configuration->getProviderType() !== '') {
+        if ($configuration instanceof LlmConfiguration && $configuration->getProviderType() !== '') {
             return $configuration->getProviderType();
         }
 

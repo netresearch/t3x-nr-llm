@@ -23,22 +23,30 @@ final class MarketplaceParser
         if (!is_array($decoded)) {
             throw SkillParseException::forReason('marketplace.json', 'invalid JSON');
         }
+
         if (!isset($decoded['plugins']) || !is_array($decoded['plugins'])) {
             throw SkillParseException::forReason('marketplace.json', 'missing "plugins" array');
         }
 
         $entries = [];
         foreach ($decoded['plugins'] as $plugin) {
-            if (!is_array($plugin) || !isset($plugin['source'])) {
+            if (!is_array($plugin)) {
                 continue;
             }
+
+            if (!isset($plugin['source'])) {
+                continue;
+            }
+
             $ownerRepo = $this->extractOwnerRepo($plugin['source']);
             if ($ownerRepo === null) {
                 continue;
             }
+
             $ref = isset($plugin['ref']) && is_string($plugin['ref']) ? $plugin['ref'] : null;
             $entries[] = new MarketplaceEntry($ownerRepo[0], $ownerRepo[1], $ref);
         }
+
         return $entries;
     }
 
@@ -55,13 +63,16 @@ final class MarketplaceParser
         } elseif (is_array($source) && isset($source['url']) && is_string($source['url'])) {
             return $this->extractFromGitUrl($source['url']);
         }
+
         if ($slug === null || !str_contains($slug, '/')) {
             return null;
         }
+
         [$owner, $repo] = explode('/', $slug, 2);
         if ($owner === '' || $repo === '') {
             return null;
         }
+
         return [$owner, $repo];
     }
 
@@ -79,26 +90,32 @@ final class MarketplaceParser
         if (!is_array($parts)) {
             return null;
         }
+
         $host = $parts['host'] ?? null;
         if (!is_string($host) || !in_array(strtolower($host), ['github.com', 'www.github.com'], true)) {
             return null;
         }
+
         $path = $parts['path'] ?? null;
         if (!is_string($path)) {
             return null;
         }
+
         $segments = array_values(array_filter(explode('/', $path), static fn(string $s): bool => $s !== ''));
         if (count($segments) < 2) {
             return null;
         }
+
         $owner = $segments[0];
         $repo = $segments[1];
         if (str_ends_with($repo, '.git')) {
             $repo = substr($repo, 0, -4);
         }
+
         if ($repo === '') {
             return null;
         }
+
         return [$owner, $repo];
     }
 }

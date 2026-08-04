@@ -79,7 +79,6 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $result = new TranscriptionResult(
             text: 'Hello',
             language: 'en',
-            segments: null,
         );
 
         self::assertFalse($result->hasSegments());
@@ -130,7 +129,6 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $result = new TranscriptionResult(
             text: 'test',
             language: 'en',
-            duration: null,
         );
 
         self::assertNull($result->getFormattedDuration());
@@ -171,7 +169,6 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $result = new TranscriptionResult(
             text: 'test',
             language: 'en',
-            confidence: null,
         );
 
         self::assertNull($result->getConfidencePercent());
@@ -205,7 +202,6 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $result = new TranscriptionResult(
             text: 'Hello world',
             language: 'en',
-            segments: null,
         );
 
         self::assertNull($result->toSrt());
@@ -254,7 +250,6 @@ class TranscriptionResultTest extends AbstractUnitTestCase
         $result = new TranscriptionResult(
             text: 'Hello',
             language: 'en',
-            segments: null,
         );
 
         self::assertNull($result->toVtt());

@@ -48,14 +48,21 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class ConfigurationControllerTest extends AbstractFunctionalTestCase
 {
     private const NO_CONFIGURATION_UID_SPECIFIED = 'No configuration UID specified';
+
     private const AJAX_NRLLM_CONFIG_SETDEFAULT = '/ajax/nrllm/config/setdefault';
+
     private const AJAX_NRLLM_CONFIG_GET_MODELS = '/ajax/nrllm/config/get-models';
+
     private const AJAX_NRLLM_CONFIG_TOGGLE = '/ajax/nrllm/config/toggle';
+
     private const CONFIGURATION_NOT_FOUND = 'Configuration not found';
+
     private const AJAX_NRLLM_CONFIG_TEST = '/ajax/nrllm/config/test';
 
     private ConfigurationController $controller;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void

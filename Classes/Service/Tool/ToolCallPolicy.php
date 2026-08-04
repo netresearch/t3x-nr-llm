@@ -54,7 +54,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         $ceiling = $zone->maxDataClass();
 
         $tool = $this->registry->get($toolName);
-        if ($tool === null) {
+        if (!$tool instanceof ToolInterface) {
             return $this->denial($toolName, ToolDataClass::SECRET_ADJACENT, $zone, $ceiling, ToolDenialReason::NOT_REGISTERED);
         }
 
@@ -65,7 +65,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         }
 
         // Fail-closed: no user is not an admin.
-        if ($tool->requiresAdmin() && ($user === null || !$user->isAdmin())) {
+        if ($tool->requiresAdmin() && (!$user instanceof BackendUserAuthentication || !$user->isAdmin())) {
             return $this->denial($toolName, $dataClass, $zone, $ceiling, ToolDenialReason::REQUIRES_ADMIN);
         }
 
@@ -154,6 +154,6 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 
         $mode = $tools['dataClassEnforcement'] ?? null;
 
-        return !(is_string($mode) && strtolower(trim($mode)) === self::OBSERVE);
+        return !is_string($mode) || strtolower(trim($mode)) !== self::OBSERVE;
     }
 }

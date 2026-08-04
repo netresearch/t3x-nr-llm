@@ -95,9 +95,14 @@ final readonly class ValidateTcaTool implements ToolInterface
         $checked  = 0;
         foreach ($allTca as $name => $definition) {
             $tableName = (string)$name;
-            if (!is_array($definition) || !$this->tableAccess->canReadTable($user, $tableName)) {
+            if (!is_array($definition)) {
                 continue;
             }
+
+            if (!$this->tableAccess->canReadTable($user, $tableName)) {
+                continue;
+            }
+
             ++$checked;
             foreach ($this->validateTable($tableName, $definition, $allTca) as $finding) {
                 $findings[] = $finding;
@@ -228,8 +233,15 @@ final readonly class ValidateTcaTool implements ToolInterface
         foreach (explode(',', $showitem) as $item) {
             $parts     = explode(';', trim($item));
             $fieldName = trim($parts[0]);
+            if ($fieldName === '') {
+                continue;
+            }
 
-            if ($fieldName === '' || $fieldName === '--div--' || $fieldName === '--linebreak--') {
+            if ($fieldName === '--div--') {
+                continue;
+            }
+
+            if ($fieldName === '--linebreak--') {
                 continue;
             }
 
@@ -240,6 +252,7 @@ final readonly class ValidateTcaTool implements ToolInterface
                 } elseif ($paletteName === '' || !is_array($palettes[$paletteName] ?? null)) {
                     $findings[] = sprintf('references unknown palette "%s"', $paletteName);
                 }
+
                 continue;
             }
 

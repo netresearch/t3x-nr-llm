@@ -37,7 +37,7 @@ final readonly class DeepLUsageExtractor implements UsageMetricsExtractorInterfa
     public function extract(ProviderCallContext $context, mixed $result): ?ProviderUsageRecord
     {
         $intent = SpecializedUsageIntent::fromContext($context);
-        if ($intent === null) {
+        if (!$intent instanceof SpecializedUsageIntent) {
             return null;
         }
 

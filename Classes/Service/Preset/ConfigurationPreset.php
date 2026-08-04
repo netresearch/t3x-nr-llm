@@ -75,6 +75,7 @@ final readonly class ConfigurationPreset
                 1789347001,
             );
         }
+
         if (strlen($identifier) > self::IDENTIFIER_MAX_LENGTH) {
             throw new InvalidArgumentException(
                 sprintf(
@@ -85,6 +86,7 @@ final readonly class ConfigurationPreset
                 1789347002,
             );
         }
+
         if ($criteria->capabilities === []) {
             throw new InvalidArgumentException(
                 sprintf(
@@ -94,6 +96,7 @@ final readonly class ConfigurationPreset
                 1789347003,
             );
         }
+
         if ($name === '' || mb_strlen($name) > self::NAME_MAX_LENGTH) {
             throw new InvalidArgumentException(
                 sprintf(
@@ -105,6 +108,7 @@ final readonly class ConfigurationPreset
                 1789347005,
             );
         }
+
         $this->validateSeeds();
     }
 
@@ -123,12 +127,14 @@ final readonly class ConfigurationPreset
                 1789347006,
             );
         }
+
         if ($this->maxTokens !== null && $this->maxTokens < 1) {
             throw new InvalidArgumentException(
                 sprintf('Preset "%s" maxTokens must be >= 1; got %d.', $this->identifier, $this->maxTokens),
                 1789347007,
             );
         }
+
         foreach (['maxRequestsPerDay' => $this->maxRequestsPerDay, 'maxTokensPerDay' => $this->maxTokensPerDay] as $field => $value) {
             if ($value !== null && $value < 0) {
                 throw new InvalidArgumentException(
@@ -137,6 +143,7 @@ final readonly class ConfigurationPreset
                 );
             }
         }
+
         if ($this->maxCostPerDay !== null && $this->maxCostPerDay < 0.0) {
             throw new InvalidArgumentException(
                 sprintf('Preset "%s" maxCostPerDay must be >= 0.0; got %s.', $this->identifier, $this->maxCostPerDay),

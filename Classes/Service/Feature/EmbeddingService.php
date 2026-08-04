@@ -77,7 +77,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      */
     public function embedBatch(array $texts, ?EmbeddingOptions $options = null): array
     {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 
@@ -121,7 +121,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      */
     public function embedBatchForConfiguration(array $texts, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): array
     {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 
@@ -163,7 +163,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
         array $candidateVectors,
         int $topK = 5,
     ): array {
-        if (empty($candidateVectors)) {
+        if ($candidateVectors === []) {
             return [];
         }
 
@@ -178,7 +178,7 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
         }
 
         // Sort by similarity descending
-        usort($similarities, static fn($a, $b) => $b['similarity'] <=> $a['similarity']);
+        usort($similarities, static fn(array $a, array $b): int => $b['similarity'] <=> $a['similarity']);
 
         // Return top K results
         return array_slice($similarities, 0, $topK);
@@ -217,13 +217,13 @@ final readonly class EmbeddingService implements EmbeddingServiceInterface
      */
     public function normalize(array $vector): array
     {
-        $magnitude = sqrt(array_sum(array_map(static fn($x) => $x * $x, $vector)));
+        $magnitude = sqrt(array_sum(array_map(static fn(float $x): float => $x * $x, $vector)));
 
         if ($magnitude === 0.0) {
             return $vector;
         }
 
-        return array_map(static fn($x) => $x / $magnitude, $vector);
+        return array_map(static fn(float $x): float => $x / $magnitude, $vector);
     }
 
     // `autoPopulateBeUserUid()` is provided by `AutoPopulatesBeUserUidTrait`.

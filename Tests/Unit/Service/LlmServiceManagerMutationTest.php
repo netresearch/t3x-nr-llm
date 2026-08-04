@@ -28,6 +28,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmServiceManagerMutationTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
+
     /**
      * @param array<string, mixed> $config
      */

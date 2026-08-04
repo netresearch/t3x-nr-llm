@@ -515,7 +515,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
             ->with(
                 'translation',
                 'deepl',
-                self::callback(fn(array $data) => $data['characters'] === $expectedTotalChars && $data['batch_size'] === 3),
+                self::callback(fn(array $data): bool => $data['characters'] === $expectedTotalChars && $data['batch_size'] === 3),
             );
 
         $httpClientMock = self::createStub(ClientInterface::class);

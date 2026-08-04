@@ -112,6 +112,7 @@ final class ToolGroupItemsTest extends AbstractUnitTestCase
         foreach ($groups as $i => $group) {
             $tools[] = new FakeTool('tool_' . $i . '_' . $group, group: $group);
         }
+
         GeneralUtility::addInstance(ToolRegistry::class, new ToolRegistry($tools));
     }
 }

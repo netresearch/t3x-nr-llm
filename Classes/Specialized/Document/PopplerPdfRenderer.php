@@ -145,6 +145,7 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
                 // nosemgrep: php.lang.security.unlink-use.unlink-use
                 unlink($stub);
             }
+
             $leftovers = glob($stub . '*.png');
             foreach ($leftovers === false ? [] : $leftovers as $leftover) {
                 if (is_file($leftover)) {
@@ -190,18 +191,22 @@ final readonly class PopplerPdfRenderer implements PdfRasterizerInterface
             if (stream_select($read, $write, $except, null) === false) {
                 break;
             }
+
             foreach ($open as $fd => $pipe) {
                 if (!\in_array($pipe, $read, true)) {
                     continue;
                 }
+
                 $chunk = fread($pipe, 65536);
                 if ($chunk === false || ($chunk === '' && feof($pipe))) {
                     unset($open[$fd]);
                     continue;
                 }
+
                 $output[$fd] .= $chunk;
             }
         }
+
         $stdout = $output[1];
         $stderr = $output[2];
         fclose($pipes[1]);

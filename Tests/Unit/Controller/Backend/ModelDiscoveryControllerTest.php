@@ -35,8 +35,11 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 final class ModelDiscoveryControllerTest extends TestCase
 {
     private ProviderRepository&MockObject $providerRepository;
+
     private ModelDiscoveryInterface&MockObject $modelDiscovery;
+
     private ModelDiscoveryController $subject;
+
     private mixed $previousBeUser;
 
     protected function setUp(): void
@@ -68,6 +71,7 @@ final class ModelDiscoveryControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
@@ -433,6 +437,7 @@ final class ModelDiscoveryControllerTest extends TestCase
         $reflection = new ReflectionClass($provider);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($provider, $uid);
+
         $provider->setName('Test Provider');
         $provider->setAdapterType('openai');
         $provider->setApiKey('0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f');

@@ -74,6 +74,7 @@ final readonly class DataClassEnforcementDefaultUpdateWizard implements UpgradeW
     {
         $config = $this->extensionConfiguration->get(self::EXT_KEY);
         $config = is_array($config) ? $config : [];
+
         $tools  = is_array($config['tools'] ?? null) ? $config['tools'] : [];
 
         $tools['dataClassEnforcement'] = self::OBSERVE;

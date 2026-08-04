@@ -65,7 +65,7 @@ final class PurgePrivacyDataCommand extends Command
             'd',
             InputOption::VALUE_REQUIRED,
             'Delete rows older than this many days, overriding every per-category window. '
-            . 'Defaults to each category\'s own configured retention window.',
+            . "Defaults to each category's own configured retention window.",
         );
     }
 

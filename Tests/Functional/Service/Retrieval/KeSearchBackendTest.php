@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Retrieval;
 
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
+use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\KeSearchBackend;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
@@ -154,7 +155,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids, 'public page row missing');
         self::assertContains('ke_search:5', $ids, 'language=-1 external row missing');
 
@@ -165,6 +166,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
                 self::assertSame(2, $source->pageUid);
                 self::assertStringContainsString('aikido', mb_strtolower($source->excerpt));
             }
+
             if ($source->sourceId === 'ke_search:5') {
                 self::assertSame('https://aikido.example.org/rules', $source->url);
                 self::assertNull($source->pageUid);
@@ -180,7 +182,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('ke_search:2', $ids, 'fe_group-restricted row leaked');
         self::assertNotContains('ke_search:3', $ids, 'expired row leaked');
         self::assertNotContains('ke_search:4', $ids, 'foreign-language row leaked');
@@ -236,7 +238,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids);
     }
 
@@ -253,7 +255,7 @@ final class KeSearchBackendTest extends AbstractFunctionalTestCase
             RetrievalQuery::create('aikido', 8, 'main'),
             AccessContext::publicOnly(),
         );
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('ke_search:1', $ids);
         self::assertNotContains('ke_search:5', $ids, 'external row not attributable to a site');
     }

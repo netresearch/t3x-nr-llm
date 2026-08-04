@@ -51,9 +51,11 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
         if ($this->format !== null) {
             self::validateEnum($this->format, self::VALID_FORMATS, 'format');
         }
+
         if ($this->temperature !== null) {
             self::validateRange($this->temperature, 0.0, 1.0, 'temperature');
         }
+
         $this->validateBudgetFields();
     }
 
@@ -102,7 +104,7 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
      */
     public static function verbose(?string $language = null): self
     {
-        return new self(format: 'verbose_json', language: $language);
+        return new self(language: $language, format: 'verbose_json');
     }
 
     /**
@@ -110,6 +112,6 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
      */
     public static function subtitles(?string $language = null): self
     {
-        return new self(format: 'srt', language: $language);
+        return new self(language: $language, format: 'srt');
     }
 }

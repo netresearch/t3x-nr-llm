@@ -37,9 +37,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class StreamingDispatcherTest extends AbstractFunctionalTestCase
 {
     private const USAGE_TABLE     = 'tx_nrllm_service_usage';
+
     private const TELEMETRY_TABLE = 'tx_nrllm_telemetry';
 
     private StreamingDispatcher $dispatcher;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

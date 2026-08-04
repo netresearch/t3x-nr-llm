@@ -33,10 +33,15 @@ use RuntimeException;
 class ConfigurationGeneratorTest extends AbstractUnitTestCase
 {
     private ClientInterface&Stub $httpClientStub;
+
     private RequestFactoryInterface&Stub $requestFactoryStub;
+
     private StreamFactoryInterface&Stub $streamFactoryStub;
+
     private VaultServiceInterface $vaultStub;
+
     private LoggerInterface&Stub $loggerStub;
+
     private ConfigurationGenerator $subject;
 
     protected function setUp(): void
@@ -78,8 +83,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         return new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com',
         );
     }
 
@@ -87,8 +92,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         return new DetectedProvider(
             adapterType: 'anthropic',
-            endpoint: 'https://api.anthropic.com',
             suggestedName: 'Anthropic',
+            endpoint: 'https://api.anthropic.com',
         );
     }
 
@@ -96,8 +101,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         return new DetectedProvider(
             adapterType: 'gemini',
-            endpoint: 'https://generativelanguage.googleapis.com',
             suggestedName: 'Google Gemini',
+            endpoint: 'https://generativelanguage.googleapis.com',
         );
     }
 
@@ -154,8 +159,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://169.254.169.254/v1',
             suggestedName: 'Metadata SSRF',
+            endpoint: 'https://169.254.169.254/v1',
         );
 
         $result = $subject->generate($provider, 'test-key', $this->createTestModels());
@@ -187,7 +192,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         self::assertNotEmpty($result);
         // Should return fallback configurations
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -591,7 +596,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Should return fallback configurations
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -652,7 +657,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Should return fallback configurations
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== SuggestedConfiguration tests ====================
@@ -709,7 +714,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         $result = $this->subject->generate($provider, 'test-key', []);
 
-        $identifiers = array_map(fn($c) => $c->identifier, $result);
+        $identifiers = array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result);
 
         self::assertContains('content-assistant', $identifiers);
         self::assertContains('content-summarizer', $identifiers);
@@ -768,7 +773,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractAnthropicContent edge cases ====================
@@ -808,7 +813,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
 
         // Empty content → empty string → parse fails → fallback
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -845,7 +850,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -882,7 +887,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractGeminiContent edge cases ====================
@@ -920,7 +925,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -956,7 +961,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -992,7 +997,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1028,7 +1033,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1066,7 +1071,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1104,7 +1109,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== extractOpenAIContent edge cases ====================
@@ -1133,7 +1138,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1160,7 +1165,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1187,7 +1192,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     #[Test]
@@ -1214,7 +1219,7 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
         $result = $this->subject->generate($provider, 'test-key', $models);
 
         self::assertNotEmpty($result);
-        self::assertContains('content-assistant', array_map(fn($c) => $c->identifier, $result));
+        self::assertContains('content-assistant', array_map(fn(SuggestedConfiguration $c): string => $c->identifier, $result));
     }
 
     // ==================== parseResponse edge cases ====================
@@ -1528,8 +1533,8 @@ class ConfigurationGeneratorTest extends AbstractUnitTestCase
     {
         $provider = new DetectedProvider(
             adapterType: 'openai',
-            endpoint: 'https://api.openai.com/',
             suggestedName: 'OpenAI',
+            endpoint: 'https://api.openai.com/',
         );
         $models = $this->createTestModels();
 

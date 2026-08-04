@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetDiffService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
@@ -64,9 +66,10 @@ final class PresetController extends ActionController
      */
     public function listPresetsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $presets = [];
         foreach ($this->presetRegistry->pending() as $preset) {
             $preflight = $this->importService->preflight($preset);
@@ -80,6 +83,7 @@ final class PresetController extends ActionController
                 'matchedModelLabel' => $preflight->matchedModelLabel,
             ];
         }
+
         $drifted = [];
         foreach ($this->presetRegistry->drifted() as $drift) {
             $drifted[] = [
@@ -89,6 +93,7 @@ final class PresetController extends ActionController
                 'changedFields' => $this->diffService->diff($drift['preset'], $drift['configuration'])->changedFields(),
             ];
         }
+
         return new JsonResponse(['success' => true, 'presets' => $presets, 'drifted' => $drifted]);
     }
 
@@ -102,19 +107,22 @@ final class PresetController extends ActionController
      */
     public function importAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $identifier = $this->stringFromBody($request->getParsedBody(), 'identifier');
         $preset = $this->presetRegistry->findByIdentifier($identifier);
-        if ($preset === null) {
+        if (!$preset instanceof ConfigurationPreset) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.preset.unknown', 'Unknown preset')], 404);
         }
+
         try {
             $configuration = $this->importService->import($preset);
         } catch (InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], 422);
         }
+
         return new JsonResponse([
             'success' => true,
             'identifier' => $configuration->getIdentifier(),
@@ -132,23 +140,27 @@ final class PresetController extends ActionController
      */
     public function diffAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $identifier = $this->stringFromBody($request->getQueryParams(), 'identifier');
         $preset = $this->presetRegistry->findByIdentifier($identifier);
-        if ($preset === null) {
+        if (!$preset instanceof ConfigurationPreset) {
             return $this->unknownPresetResponse();
         }
+
         $record = $this->configurationRepository->findOneByIdentifier($identifier);
-        if ($record === null) {
+        if (!$record instanceof LlmConfiguration) {
             return $this->notDriftedResponse();
         }
+
         try {
             $diff = $this->importService->previewUpdate($preset, $record);
         } catch (InvalidArgumentException $e) {
             return $this->refusalResponse($e);
         }
+
         return new JsonResponse([
             'success' => true,
             'identifier' => $diff->identifier,
@@ -166,23 +178,27 @@ final class PresetController extends ActionController
      */
     public function updateAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $identifier = $this->stringFromBody($request->getParsedBody(), 'identifier');
         $preset = $this->presetRegistry->findByIdentifier($identifier);
-        if ($preset === null) {
+        if (!$preset instanceof ConfigurationPreset) {
             return $this->unknownPresetResponse();
         }
+
         $record = $this->configurationRepository->findOneByIdentifier($identifier);
-        if ($record === null) {
+        if (!$record instanceof LlmConfiguration) {
             return $this->notDriftedResponse();
         }
+
         try {
             $diff = $this->importService->update($preset, $record);
         } catch (InvalidArgumentException $e) {
             return $this->refusalResponse($e);
         }
+
         return new JsonResponse([
             'success' => true,
             'identifier' => $diff->identifier,
@@ -235,6 +251,7 @@ final class PresetController extends ActionController
         if (!is_array($body)) {
             return '';
         }
+
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
     }

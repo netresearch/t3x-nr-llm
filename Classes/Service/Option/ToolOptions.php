@@ -69,8 +69,8 @@ class ToolOptions extends ChatOptions
     public static function auto(): static
     {
         return new static(
-            toolChoice: 'auto',
             temperature: 0.7,
+            toolChoice: 'auto',
         );
     }
 
@@ -80,8 +80,8 @@ class ToolOptions extends ChatOptions
     public static function required(): static
     {
         return new static(
-            toolChoice: 'required',
             temperature: 0.3,
+            toolChoice: 'required',
         );
     }
 
@@ -91,8 +91,8 @@ class ToolOptions extends ChatOptions
     public static function noTools(): static
     {
         return new static(
-            toolChoice: 'none',
             temperature: 0.7,
+            toolChoice: 'none',
         );
     }
 
@@ -102,9 +102,9 @@ class ToolOptions extends ChatOptions
     public static function parallel(): static
     {
         return new static(
+            temperature: 0.7,
             toolChoice: 'auto',
             parallelToolCalls: true,
-            temperature: 0.7,
         );
     }
 
@@ -177,7 +177,6 @@ class ToolOptions extends ChatOptions
         $stopSequences = is_array($stop) ? array_values(array_filter($stop, is_string(...))) : null;
 
         return new static(
-            beUserUid: $beUserUid,
             temperature: is_numeric($data['temperature'] ?? null) ? (float)$data['temperature'] : null,
             maxTokens: is_numeric($data['max_tokens'] ?? null) ? (int)$data['max_tokens'] : null,
             topP: is_numeric($data['top_p'] ?? null) ? (float)$data['top_p'] : null,
@@ -188,6 +187,7 @@ class ToolOptions extends ChatOptions
             stopSequences: $stopSequences,
             provider: is_string($data['provider'] ?? null) ? $data['provider'] : null,
             model: is_string($data['model'] ?? null) ? $data['model'] : null,
+            beUserUid: $beUserUid,
             think: is_bool($data['think'] ?? null) ? $data['think'] : null,
             toolChoice: is_string($data['tool_choice'] ?? null) ? $data['tool_choice'] : null,
             parallelToolCalls: is_bool($data['parallel_tool_calls'] ?? null) ? $data['parallel_tool_calls'] : null,

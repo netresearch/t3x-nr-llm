@@ -23,6 +23,7 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
     private const TABLE = 'tx_nrllm_governance_event';
 
     private GovernanceEventRepository $repository;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

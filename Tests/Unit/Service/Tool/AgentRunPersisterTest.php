@@ -36,6 +36,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository = new RecordingAgentRunRepository();
         $repository->nextUid = 42;
+
         $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         $config = new LlmConfiguration();
@@ -151,6 +152,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnClaim = true;
+
         $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $run                      = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
 
@@ -164,6 +166,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository               = new RecordingAgentRunRepository();
         $repository->throwOnStart = true;
+
         $persister                = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         self::assertNull($persister->begin(null, 0));
@@ -174,6 +177,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnRecord = true;
+
         $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle                    = new AgentRunHandle(1, 'uuid');
 
@@ -244,6 +248,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository               = new RecordingAgentRunRepository();
         $repository->refuseFinish = true;
+
         $logger                   = $this->createMock(LoggerInterface::class);
         $logger->expects(self::once())->method('notice')->with(self::stringContains('was not settled by this call'), self::anything());
 
@@ -259,6 +264,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository                 = new RecordingAgentRunRepository();
         $repository->throwOnSuspend = true;
+
         $persister                  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
 
         // An approval-gated tool is side-effecting: telling the caller "awaiting
@@ -280,6 +286,7 @@ final class AgentRunPersisterTest extends TestCase
     {
         $repository                = new RecordingAgentRunRepository();
         $repository->throwOnFinish = true;
+
         $persister                 = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
         $handle                    = new AgentRunHandle(1, 'uuid');
 

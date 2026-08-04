@@ -38,9 +38,13 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmTranslatorTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
+
     private LlmServiceManager $llmManager;
+
     private UsageTrackerServiceInterface&Stub $usageTrackerStub;
+
     private LlmTranslator $subject;
+
     private TranslatorTestProvider $provider;
 
     protected function setUp(): void
@@ -937,6 +941,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
         $captured = new class {
             /** @var list<mixed> */
             public array $messages = [];
+
             /** @var array<int, ChatOptions> */
             public array $options = [];
         };
@@ -1276,6 +1281,7 @@ class LlmTranslatorTest extends AbstractUnitTestCase
 class TranslatorTestProvider extends AbstractProvider
 {
     public ?CompletionResponse $nextResponse = null;
+
     /** @var array<CompletionResponse> */
     public array $responseQueue = [];
 

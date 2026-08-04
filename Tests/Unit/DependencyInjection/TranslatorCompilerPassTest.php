@@ -50,6 +50,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
         $container = new ContainerBuilder();
         $definition = new Definition(AttributeTaggedTranslator::class);
         $definition->addTag(AsTranslator::TAG_NAME);
+
         $container->setDefinition('translator.preexisting', $definition);
 
         (new TranslatorCompilerPass(self::TEST_SCAN_PREFIX))->process($container);
@@ -100,6 +101,7 @@ class TranslatorCompilerPassTest extends AbstractUnitTestCase
         $container = new ContainerBuilder();
         $definition = new Definition(AttributeTaggedTranslator::class);
         $definition->setPublic(false);
+
         $container->setDefinition('translator.private', $definition);
 
         (new TranslatorCompilerPass(self::TEST_SCAN_PREFIX))->process($container);

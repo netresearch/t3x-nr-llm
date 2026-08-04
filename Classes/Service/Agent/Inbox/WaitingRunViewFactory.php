@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 
 /**
@@ -83,7 +84,7 @@ final readonly class WaitingRunViewFactory
     public function turnDigestForRun(AgentRun $run): ?string
     {
         $state = $this->decodeState($run);
-        if ($state === null || $state->inputToolName !== null) {
+        if (!$state instanceof SuspendedRunState || $state->inputToolName !== null) {
             return null;
         }
 
@@ -101,7 +102,7 @@ final readonly class WaitingRunViewFactory
     public function inputSchemaForRun(AgentRun $run): ?array
     {
         $state = $this->decodeState($run);
-        if ($state === null || $state->inputToolName === null || !$this->isRenderableObjectSchema($state->inputSchema)) {
+        if (!$state instanceof SuspendedRunState || $state->inputToolName === null || !$this->isRenderableObjectSchema($state->inputSchema)) {
             return null;
         }
 
@@ -111,7 +112,7 @@ final readonly class WaitingRunViewFactory
     private function buildWaitingOne(AgentRun $run): WaitingRunView
     {
         $state = $this->decodeState($run);
-        if ($state === null) {
+        if (!$state instanceof SuspendedRunState) {
             return $this->unreadable($run, 'state-unreadable');
         }
 
@@ -131,10 +132,11 @@ final readonly class WaitingRunViewFactory
             if (!$call instanceof ToolCall) {
                 continue;
             }
+
             $calls[] = new PendingCallView(
                 name: $call->name,
                 argumentsJson: $this->encodeArguments($call->arguments),
-                toolStillRegistered: $this->registry->get($call->name) !== null,
+                toolStillRegistered: $this->registry->get($call->name) instanceof ToolInterface,
             );
         }
 
@@ -208,6 +210,7 @@ final readonly class WaitingRunViewFactory
             if (!is_array($propSchema)) {
                 continue;
             }
+
             /** @var array<string, mixed> $propSchema */
             $name        = (string)$name;
             $controlType = $this->classifier->classify($propSchema);

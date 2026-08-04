@@ -35,11 +35,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 class DocumentAnalysisServiceTest extends AbstractUnitTestCase
 {
     private const PDF = "%PDF-1.7\nfake-document-bytes";
+
     private const PROMPT = 'Summarize this document.';
 
     private LlmServiceManagerInterface&MockObject $llmManager;
+
     private VisionServiceInterface&MockObject $visionService;
+
     private PdfRasterizerInterface&MockObject $rasterizer;
+
     private DocumentAnalysisService $subject;
 
     protected function setUp(): void

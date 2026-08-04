@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Retrieval;
 
 use Netresearch\NrLlm\Service\Retrieval\AccessContext;
 use Netresearch\NrLlm\Service\Retrieval\DatabaseSearchBackend;
+use Netresearch\NrLlm\Service\Retrieval\EvidenceSource;
 use Netresearch\NrLlm\Service\Retrieval\RetrievalQuery;
 use Netresearch\NrLlm\Service\Retrieval\SourceReference;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -174,7 +175,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:0', $ids);
 
         $migration = null;
@@ -183,6 +184,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
                 $migration = $source;
             }
         }
+
         self::assertNotNull($migration);
         self::assertSame('Aikido Migration Services', $migration->title);
         self::assertSame('http://localhost:59999/migration', $migration->url);
@@ -198,7 +200,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('database:3:0', $ids, 'hidden page leaked');
         self::assertNotContains('database:4:0', $ids, 'fe_group-protected page leaked');
         self::assertNotContains('database:5:0', $ids, 'no_search page leaked');
@@ -212,7 +214,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:1', $ids);
 
         foreach ($result->sources as $source) {
@@ -238,7 +240,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame(['database:2:1'], $ids, 'untranslated page cited under a language-routed URL');
     }
 
@@ -250,7 +252,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertNotContains('database:7:0', $ids, 'child of fe_group-restricted section leaked');
         self::assertNotContains('database:9:0', $ids, 'child of hidden section leaked');
 
@@ -300,7 +302,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertContains('database:2:0', $ids);
     }
 
@@ -312,7 +314,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
             AccessContext::publicOnly(),
         );
 
-        $ids = array_map(static fn($source): string => $source->sourceId, $result->sources);
+        $ids = array_map(static fn(EvidenceSource $source): string => $source->sourceId, $result->sources);
         self::assertSame('database:2:0', $ids[0] ?? null, 'page covering all three words must rank first');
         self::assertContains('database:30:0', $ids, 'single-word match missing entirely');
     }
@@ -336,6 +338,7 @@ final class DatabaseSearchBackendTest extends AbstractFunctionalTestCase
                 return;
             }
         }
+
         self::fail('database:31:0 missing from the result');
     }
 

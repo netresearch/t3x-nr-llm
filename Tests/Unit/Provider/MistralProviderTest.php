@@ -31,6 +31,7 @@ use Psr\Http\Message\StreamInterface;
 class MistralProviderTest extends AbstractUnitTestCase
 {
     private MistralProvider $subject;
+
     private ClientInterface&Stub $httpClientStub;
 
     protected function setUp(): void

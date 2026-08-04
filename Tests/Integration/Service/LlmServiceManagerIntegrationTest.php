@@ -37,8 +37,11 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 {
     use LlmServiceManagerTestFactory;
+
     private LlmServiceManager $subject;
+
     private ExtensionConfiguration&MockObject $extensionConfigStub;
+
     private ProviderAdapterRegistryInterface&Stub $adapterRegistryStub;
 
     protected function setUp(): void
@@ -272,7 +275,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
 
         $this->subject->chat(
             [['role' => 'user', 'content' => 'Hello']],
-            new ChatOptions(provider: 'openai', temperature: 0.5, maxTokens: 100),
+            new ChatOptions(temperature: 0.5, maxTokens: 100, provider: 'openai'),
         );
 
         self::assertCount(1, $clientSetup['requests']);

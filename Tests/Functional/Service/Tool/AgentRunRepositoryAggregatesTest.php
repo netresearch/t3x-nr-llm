@@ -30,6 +30,7 @@ final class AgentRunRepositoryAggregatesTest extends AbstractFunctionalTestCase
     private const TABLE = 'tx_nrllm_agentrun';
 
     private AgentRunRepository $repository;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

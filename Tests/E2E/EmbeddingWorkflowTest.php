@@ -34,6 +34,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 class EmbeddingWorkflowTest extends AbstractE2ETestCase
 {
     use LlmServiceManagerTestFactory;
+
     #[Test]
     public function completeEmbeddingWorkflow(): void
     {
@@ -89,7 +90,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
         // CacheMiddleware persists) and is reconstructed via fromArray().
         $cachedResponse = (new EmbeddingResponse(
             embeddings: [
-                array_map(fn() => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
+                array_map(fn(): float => $this->faker->randomFloat(8, -1, 1), range(1, 1536)),
             ],
             model: 'text-embedding-3-small',
             usage: new UsageStatistics(10, 0, 10),
@@ -138,7 +139,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'object' => 'embedding',
                     'index' => 0,
                     'embedding' => array_map(
-                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        fn(): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
@@ -146,7 +147,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'object' => 'embedding',
                     'index' => 1,
                     'embedding' => array_map(
-                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        fn(): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
@@ -154,7 +155,7 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
                     'object' => 'embedding',
                     'index' => 2,
                     'embedding' => array_map(
-                        fn() => $this->faker->randomFloat(8, -1, 1),
+                        fn(): float => $this->faker->randomFloat(8, -1, 1),
                         range(1, 1536),
                     ),
                 ],
@@ -209,8 +210,8 @@ class EmbeddingWorkflowTest extends AbstractE2ETestCase
     public function semanticSimilarityWorkflow(): void
     {
         // Arrange: Create two embeddings that would be similar
-        $embedding1 = array_map(fn() => $this->faker->randomFloat(8, 0, 1), range(1, 1536));
-        $embedding2 = array_map(fn($i) => $embedding1[$i - 1] + $this->faker->randomFloat(8, -0.1, 0.1), range(1, 1536));
+        $embedding1 = array_map(fn(): float => $this->faker->randomFloat(8, 0, 1), range(1, 1536));
+        $embedding2 = array_map(fn($i): float => $embedding1[$i - 1] + $this->faker->randomFloat(8, -0.1, 0.1), range(1, 1536));
 
         $response1 = [
             'object' => 'list',

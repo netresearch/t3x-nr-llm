@@ -100,7 +100,11 @@ final class PrivacyRetentionConfigurationTest extends AbstractUnitTestCase
 
         foreach (explode("\n", $contents) as $number => $line) {
             $position = strpos($line, 'label=');
-            if (!str_starts_with($line, '# cat=') || $position === false) {
+            if (!str_starts_with($line, '# cat=')) {
+                continue;
+            }
+
+            if ($position === false) {
                 continue;
             }
 

@@ -282,8 +282,17 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelId = $model['id'] ?? '';
-                if (!is_string($modelId) || $modelId === '' || !$this->isRelevantOpenAIModel($modelId)) {
+                if (!is_string($modelId)) {
+                    continue;
+                }
+
+                if ($modelId === '') {
+                    continue;
+                }
+
+                if (!$this->isRelevantOpenAIModel($modelId)) {
                     continue;
                 }
 
@@ -291,7 +300,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             // Sort by recommendation
-            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b) => $b->recommended <=> $a->recommended);
+            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b): int => $b->recommended <=> $a->recommended);
 
             return $models !== [] ? $models : $this->asFallback($this->getOpenAIFallbackModels());
         } catch (Throwable $e) {
@@ -521,10 +530,10 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 'recommended' => false,
             ],
             // Specialized models — see specializedSpec() for the shared shape.
-            'gpt-image-2' => self::specializedSpec('GPT Image 2', 'Image generation model', 'image'),
-            'tts-1' => self::specializedSpec('TTS-1', 'Text-to-speech model optimized for speed', 'text_to_speech'),
-            'tts-1-hd' => self::specializedSpec('TTS-1 HD', 'Text-to-speech model optimized for quality', 'text_to_speech'),
-            'whisper-1' => self::specializedSpec('Whisper', 'Speech-to-text transcription model', 'transcription'),
+            'gpt-image-2' => $this->specializedSpec('GPT Image 2', 'Image generation model', 'image'),
+            'tts-1' => $this->specializedSpec('TTS-1', 'Text-to-speech model optimized for speed', 'text_to_speech'),
+            'tts-1-hd' => $this->specializedSpec('TTS-1 HD', 'Text-to-speech model optimized for quality', 'text_to_speech'),
+            'whisper-1' => $this->specializedSpec('Whisper', 'Speech-to-text transcription model', 'transcription'),
         ];
     }
 
@@ -557,7 +566,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
      *
      * @return array{name: string, description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int, costInput: int, costOutput: int, recommended: bool}
      */
-    private static function specializedSpec(string $name, string $description, string $capability): array
+    private function specializedSpec(string $name, string $description, string $capability): array
     {
         return [
             'name' => $name,
@@ -626,8 +635,13 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelId = $model['id'] ?? '';
-                if (!is_string($modelId) || $modelId === '') {
+                if (!is_string($modelId)) {
+                    continue;
+                }
+
+                if ($modelId === '') {
                     continue;
                 }
 
@@ -636,7 +650,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
             }
 
             // Sort: recommended first, then by name
-            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b) => $b->recommended <=> $a->recommended);
+            usort($models, fn(DiscoveredModel $a, DiscoveredModel $b): int => $b->recommended <=> $a->recommended);
 
             return $models !== [] ? $models : $this->asFallback($this->getAnthropicFallbackModels());
         } catch (Throwable $e) {
@@ -814,12 +828,18 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelName = $model['name'] ?? '';
                 if (!is_string($modelName)) {
                     continue;
                 }
+
                 $modelId = str_replace('models/', '', $modelName);
-                if ($modelId === '' || !$this->isRelevantGeminiModel($modelId)) {
+                if ($modelId === '') {
+                    continue;
+                }
+
+                if (!$this->isRelevantGeminiModel($modelId)) {
                     continue;
                 }
 
@@ -847,14 +867,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
 
         // Exclude embedding models (not usable for chat)
         // and very old models (gemini-1.0, gemini-pro)
-        if (str_contains($modelId, 'embedding')
-            || str_starts_with($modelId, 'gemini-1.0')
-            || str_starts_with($modelId, 'gemini-pro')
-        ) {
-            return false;
-        }
-
-        return true;
+        return !(str_contains($modelId, 'embedding') || str_starts_with($modelId, 'gemini-1.0') || str_starts_with($modelId, 'gemini-pro'));
     }
 
     /**
@@ -1014,6 +1027,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelId = isset($model['name']) && is_string($model['name']) ? $model['name'] : '';
                 if ($modelId === '') {
                     continue;
@@ -1251,8 +1265,9 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $discovered = $this->mapOpenRouterModel($model);
-                if ($discovered !== null) {
+                if ($discovered instanceof DiscoveredModel) {
                     $models[] = $discovered;
                 }
             }
@@ -1323,6 +1338,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelId = isset($model['id']) && is_string($model['id']) ? $model['id'] : '';
                 if ($modelId === '') {
                     continue;
@@ -1400,6 +1416,7 @@ final class ModelDiscovery implements ModelDiscoveryInterface
                 if (!is_array($model)) {
                     continue;
                 }
+
                 $modelId = isset($model['id']) && is_string($model['id']) ? $model['id'] : '';
                 if ($modelId === '') {
                     continue;

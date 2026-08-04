@@ -83,6 +83,7 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 {
     use LlmServiceManagerTestFactory;
+
     protected function tearDown(): void
     {
         unset($GLOBALS['BE_USER'], $GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
@@ -255,6 +256,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 self::assertIsArray($step['messagesSent'] ?? null);
             }
         }
+
         self::assertSame(2, $llmSteps);
         // Each round's request precedes its response; the tool runs in between.
         self::assertSame(['request', 'llm', 'tool', 'request', 'llm'], $kinds);
@@ -571,6 +573,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 $stepKinds[] = $event['step']['kind'] ?? '';
             }
         }
+
         self::assertSame(['request', 'llm', 'tool', 'request', 'llm'], $stepKinds);
 
         $last = end($events);
@@ -589,6 +592,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('blocked by test policy');
@@ -618,6 +622,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::requireApproval('needs a human');
@@ -645,6 +650,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return GuardrailResult::deny('blocked by test policy');
@@ -684,6 +690,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 $blocked = $event;
             }
         }
+
         self::assertIsArray($blocked);
         self::assertFalse($blocked['success']);
         self::assertSame($guardrail::class, $blocked['guardrail']);
@@ -705,11 +712,13 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $repo                = new RecordingAgentRunRepository();
         $repo->findResult    = $run;
-        $repo->claimsGranted = 1; // the next claim loses
+        $repo->claimsGranted = 1;
+        // the next claim loses
         $persister           = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
+
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($config);
 
@@ -749,10 +758,12 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $repo             = new RecordingAgentRunRepository();
         $repo->findResult = $run;
+
         $persister        = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
+
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($config);
 
@@ -795,11 +806,13 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
 
         $repo                     = new RecordingAgentRunRepository();
         $repo->findResult         = $run;
-        $repo->inputClaimsGranted = 1; // the next input claim loses
+        $repo->inputClaimsGranted = 1;
+        // the next input claim loses
         $persister                = new AgentRunPersister($repo, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
 
         $config = new LlmConfiguration();
         $config->setIdentifier('cfg');
+
         $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($config);
 

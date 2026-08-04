@@ -97,7 +97,7 @@ final readonly class RenderedPrompt
     {
         $messages = [];
 
-        if (!empty($this->systemPrompt)) {
+        if ($this->systemPrompt !== '' && $this->systemPrompt !== '0') {
             $messages[] = [
                 'role' => 'system',
                 'content' => $this->systemPrompt,

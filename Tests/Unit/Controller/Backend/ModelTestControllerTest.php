@@ -41,9 +41,13 @@ use TYPO3\CMS\Core\Http\ServerRequest;
 final class ModelTestControllerTest extends TestCase
 {
     private ModelRepository&MockObject $modelRepository;
+
     private ProviderAdapterRegistryInterface&MockObject $providerAdapterRegistry;
+
     private TestPromptResolverInterface&MockObject $testPromptResolver;
+
     private ModelTestController $subject;
+
     private mixed $previousBeUser;
 
     protected function setUp(): void
@@ -78,6 +82,7 @@ final class ModelTestControllerTest extends TestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 
@@ -180,8 +185,10 @@ final class ModelTestControllerTest extends TestCase
         $providerReflection = new ReflectionClass($provider);
         $providerUidProp = $providerReflection->getProperty('uid');
         $providerUidProp->setValue($provider, 1);
+
         $provider->setName('OpenAI');
         $provider->setAdapterType('openai');
+
         $model->setProvider($provider);
 
         $this->modelRepository
@@ -232,8 +239,10 @@ final class ModelTestControllerTest extends TestCase
         $providerReflection = new ReflectionClass($provider);
         $providerUidProp = $providerReflection->getProperty('uid');
         $providerUidProp->setValue($provider, 1);
+
         $provider->setName('OpenAI');
         $provider->setAdapterType('openai');
+
         $model->setProvider($provider);
 
         $this->modelRepository
@@ -428,6 +437,7 @@ final class ModelTestControllerTest extends TestCase
         $reflection = new ReflectionClass($model);
         $uidProperty = $reflection->getProperty('uid');
         $uidProperty->setValue($model, $uid);
+
         $model->setIsActive($isActive);
         $model->setIsDefault($isDefault);
         return $model;

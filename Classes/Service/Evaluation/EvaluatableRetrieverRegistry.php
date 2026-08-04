@@ -39,6 +39,7 @@ final class EvaluatableRetrieverRegistry
                     1794000060,
                 );
             }
+
             $this->byIdentifier[$identifier] = $retriever;
         }
     }

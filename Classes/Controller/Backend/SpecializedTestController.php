@@ -64,7 +64,7 @@ final readonly class SpecializedTestController
      */
     public function translateAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -130,7 +130,7 @@ final readonly class SpecializedTestController
      */
     public function translatorsAction(): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -149,7 +149,7 @@ final readonly class SpecializedTestController
      */
     public function generateImageAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 

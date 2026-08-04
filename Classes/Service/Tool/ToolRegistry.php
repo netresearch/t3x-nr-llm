@@ -49,7 +49,7 @@ final class ToolRegistry
     private array $byName = [];
 
     /** @var list<string> */
-    private array $builtinNames = [];
+    private readonly array $builtinNames;
 
     private bool $providersHydrated = false;
 
@@ -74,6 +74,7 @@ final class ToolRegistry
                     1782700001,
                 );
             }
+
             // ADR-105 M1: a tool may not be both approval- and input-gated. The
             // approval-resume path carries no user input and would silently drop
             // the mandatory data; the combination is unsupported, so reject it
@@ -87,6 +88,7 @@ final class ToolRegistry
                     1784600104,
                 );
             }
+
             $this->byName[$name] = $tool;
         }
 
@@ -106,6 +108,7 @@ final class ToolRegistry
         if ($this->providersHydrated) {
             return;
         }
+
         $this->providersHydrated = true;
 
         foreach ($this->providers as $provider) {
@@ -193,6 +196,7 @@ final class ToolRegistry
             if ($allowedNames !== null && !in_array($name, $allowedNames, true)) {
                 continue;
             }
+
             $specs[] = $tool->getSpec();
         }
 

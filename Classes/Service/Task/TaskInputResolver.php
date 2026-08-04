@@ -40,6 +40,7 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 final readonly class TaskInputResolver implements TaskInputResolverInterface
 {
     private const SYSLOG_DEFAULT_LIMIT = 50;
+
     private const TABLE_DEFAULT_LIMIT = 50;
 
     public function __construct(

@@ -162,7 +162,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         ?string $sourceLanguage = null,
         array $options = [],
     ): array {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 

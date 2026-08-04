@@ -35,6 +35,7 @@ use Psr\Http\Message\StreamInterface;
 class GeminiProviderTest extends AbstractUnitTestCase
 {
     private GeminiProvider $subject;
+
     private ClientInterface&Stub $httpClientStub;
 
     protected function setUp(): void
@@ -1040,10 +1041,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
             $readCount++;
             return $sseData;
         });
@@ -1074,10 +1075,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
             $readCount++;
             return $sseData;
         });
@@ -1114,10 +1115,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
             $readCount++;
             return $sseData;
         });
@@ -1149,10 +1150,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
             $readCount++;
             return $sseData;
         });
@@ -1688,10 +1689,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
     {
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 1; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $sseData): string {
             $readCount++;
             return $sseData;
         });
@@ -1743,7 +1744,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
      *
      * @return array<string, mixed>
      */
-    private static function okCandidateResponse(): array
+    private function okCandidateResponse(): array
     {
         return [
             'candidates' => [[
@@ -2152,7 +2153,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2181,7 +2182,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2207,7 +2208,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2239,7 +2240,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2266,7 +2267,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2299,7 +2300,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2366,7 +2367,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2403,7 +2404,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2449,7 +2450,7 @@ class GeminiProviderTest extends AbstractUnitTestCase
         $capturedBody   = null;
 
         $subject = $this->createCapturingSubject(
-            self::okCandidateResponse(),
+            $this->okCandidateResponse(),
             $capturedMethod,
             $capturedUri,
             $capturedBody,
@@ -2636,10 +2637,10 @@ class GeminiProviderTest extends AbstractUnitTestCase
 
         $streamStub = self::createStub(StreamInterface::class);
         $readCount = 0;
-        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount) {
+        $streamStub->method('eof')->willReturnCallback(function () use (&$readCount): bool {
             return $readCount >= 2; // @phpstan-ignore greaterOrEqual.alwaysFalse
         });
-        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $chunkOne, $chunkTwo) {
+        $streamStub->method('read')->willReturnCallback(function () use (&$readCount, $chunkOne, $chunkTwo): string {
             $readCount++;
             return $readCount === 1 ? $chunkOne : $chunkTwo;
         });

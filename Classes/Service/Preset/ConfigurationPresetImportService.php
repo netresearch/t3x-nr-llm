@@ -70,7 +70,7 @@ final readonly class ConfigurationPresetImportService
     public function preflight(ConfigurationPreset $preset): PresetPreflightResult
     {
         $model = $this->modelSelectionService->findMatchingModel($preset->criteria->toArray());
-        if ($model !== null) {
+        if ($model instanceof Model) {
             $label = $model->getName() !== '' ? $model->getName() : $model->getModelId();
 
             return PresetPreflightResult::satisfiable($label);
@@ -91,7 +91,7 @@ final readonly class ConfigurationPresetImportService
      */
     public function import(ConfigurationPreset $preset): LlmConfiguration
     {
-        if ($this->configurationRepository->findOneByIdentifier($preset->identifier) !== null) {
+        if ($this->configurationRepository->findOneByIdentifier($preset->identifier) instanceof LlmConfiguration) {
             throw new InvalidArgumentException(
                 sprintf('A configuration with the identifier "%s" already exists.', $preset->identifier),
                 1789347005,
@@ -119,24 +119,31 @@ final readonly class ConfigurationPresetImportService
         if ($preset->systemPrompt !== null) {
             $configuration->setSystemPrompt($preset->systemPrompt);
         }
+
         if ($preset->temperature !== null) {
             $configuration->setTemperature($preset->temperature);
         }
+
         if ($preset->maxTokens !== null) {
             $configuration->setMaxTokens($preset->maxTokens);
         }
+
         if ($preset->maxRequestsPerDay !== null) {
             $configuration->setMaxRequestsPerDay($preset->maxRequestsPerDay);
         }
+
         if ($preset->maxTokensPerDay !== null) {
             $configuration->setMaxTokensPerDay($preset->maxTokensPerDay);
         }
+
         if ($preset->maxCostPerDay !== null) {
             $configuration->setMaxCostPerDay($preset->maxCostPerDay);
         }
+
         if ($preset->allowedToolGroups !== []) {
             $configuration->setAllowedToolGroups(implode(',', $preset->allowedToolGroups));
         }
+
         $configuration->setIsActive(true);
         $configuration->setPresetChecksum($preset->checksum());
 
@@ -185,24 +192,31 @@ final readonly class ConfigurationPresetImportService
         if ($preset->systemPrompt !== null) {
             $record->setSystemPrompt($preset->systemPrompt);
         }
+
         if ($preset->temperature !== null) {
             $record->setTemperature($preset->temperature);
         }
+
         if ($preset->maxTokens !== null) {
             $record->setMaxTokens($preset->maxTokens);
         }
+
         if ($preset->maxRequestsPerDay !== null) {
             $record->setMaxRequestsPerDay($preset->maxRequestsPerDay);
         }
+
         if ($preset->maxTokensPerDay !== null) {
             $record->setMaxTokensPerDay($preset->maxTokensPerDay);
         }
+
         if ($preset->maxCostPerDay !== null) {
             $record->setMaxCostPerDay($preset->maxCostPerDay);
         }
+
         if ($preset->allowedToolGroups !== []) {
             $record->setAllowedToolGroups(implode(',', $preset->allowedToolGroups));
         }
+
         $record->setPresetChecksum($preset->checksum());
 
         $this->configurationRepository->update($record);
@@ -324,7 +338,11 @@ final readonly class ConfigurationPresetImportService
         // round.
         $inactiveMatches = [];
         foreach ($this->modelRepository->findAll()->toArray() as $model) {
-            if (!$model instanceof Model || $model->isActive()) {
+            if (!$model instanceof Model) {
+                continue;
+            }
+
+            if ($model->isActive()) {
                 continue;
             }
 

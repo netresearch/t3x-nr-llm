@@ -41,6 +41,7 @@ final class GoldenPromptSetRegistry
                         1794000030,
                     );
                 }
+
                 $this->byIdentifier[$set->identifier] = $set;
             }
         }

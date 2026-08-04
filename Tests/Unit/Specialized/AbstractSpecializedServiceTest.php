@@ -44,6 +44,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
@@ -134,7 +135,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // does not run.
         $budget->expects(self::once())->method('check')->willReturn(BudgetCheckResult::allowed());
 
-        $this->createSubject(budgetService: $budget)->callEnforceBudget(42, 0.5, null);
+        $this->createSubject(budgetService: $budget)->callEnforceBudget(42, 0.5);
     }
 
     #[Test]
@@ -150,7 +151,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $this->expectException(BudgetExceededException::class);
 
-        $subject->callEnforceBudget(42, 0.5, null);
+        $subject->callEnforceBudget(42, 0.5);
     }
 
     #[Test]
@@ -164,7 +165,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $subject = $this->createSubject(budgetService: $budget);
 
-        $subject->callEnforceBudget(7, 0.25, null);
+        $subject->callEnforceBudget(7, 0.25);
 
         $this->addToAssertionCount(1);
     }
@@ -180,7 +181,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $subject = $this->createSubject(budgetService: $budget);
 
-        $subject->callEnforceBudget(null, null, null);
+        $subject->callEnforceBudget(null, null);
 
         $this->addToAssertionCount(1);
     }
@@ -243,7 +244,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$captured) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$captured): ResponseInterface {
                 $captured = $request;
 
                 return $this->createJsonResponseMock(['result' => 'ok'], 200);
@@ -286,7 +287,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$captured) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$captured): ResponseInterface {
                 $captured = $request;
                 return $this->createJsonResponseMock([], 200);
             });
@@ -333,7 +334,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 return $vaultHttpClient;
             },
         );
-        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         $vault = self::createStub(VaultServiceInterface::class);
         $vault->method('exists')->willReturn(true);
@@ -412,7 +413,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $client->expects(self::never())->method('withTimeout');
         $client->method('withAuthentication')->willReturn($client);
         $client->method('withReason')->willReturn($client);
-        $client->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+        $client->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         $subject = $this->createSubjectWithVaultClient(
             $client,
@@ -637,7 +638,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $httpClient = $this->createMock(ClientInterface::class);
         $httpClient->expects(self::once())
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$captured) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$captured): ResponseInterface {
                 $captured = $request;
                 return $this->createJsonResponseMock([], 200);
             });
@@ -754,6 +755,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // record precedes it in the result.
         $lowerSorting = new Model();
         $lowerSorting->setModelId('gpt-image-1');
+
         $default = new Model();
         $default->setModelId('gpt-image-2');
         $default->setIsDefault(true);
@@ -776,6 +778,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         // first usable one wins when no record is flagged as default.
         $first = new Model();
         $first->setModelId('tts-1-hd');
+
         $second = new Model();
         $second->setModelId('tts-1');
 
@@ -927,6 +930,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $registryDefault = new Model();
         $registryDefault->setModelId('gpt-image-1');
+
         $modelRepository = self::createStub(ModelRepository::class);
         $modelRepository->method('findByCapability')
             ->willReturn(new InMemoryQueryResult([$registryDefault]));
@@ -950,6 +954,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
 
         $registryDefault = new Model();
         $registryDefault->setModelId('gpt-image-1');
+
         $modelRepository = self::createStub(ModelRepository::class);
         $modelRepository->method('findByCapability')
             ->willReturn(new InMemoryQueryResult([$registryDefault]));
@@ -1047,7 +1052,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findOneByIdentifier')
-            ->willReturn($this->createConfiguration(systemPrompt: 'Hidden prompt.', active: false));
+            ->willReturn($this->createConfiguration(active: false, systemPrompt: 'Hidden prompt.'));
 
         $subject = $this->createSubject(configurationRepository: $configurationRepository);
 
@@ -1232,7 +1237,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 return $client;
             },
         );
-        $client->method('sendRequest')->willReturnCallback(fn() => $this->createJsonResponseMock([], 200));
+        $client->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createJsonResponseMock([], 200));
 
         return $client;
     }
@@ -1282,6 +1287,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
                 } else {
                     $uriString = '';
                 }
+
                 return new TestableRequest($method, $uriString);
             });
         return $stub;
@@ -1505,9 +1511,10 @@ final class TestableRequest implements RequestInterface
 
     public function getBody(): StreamInterface
     {
-        if ($this->body === null) {
+        if (!$this->body instanceof StreamInterface) {
             throw new LogicException('No body set', 3134810639);
         }
+
         return $this->body;
     }
 
@@ -1515,32 +1522,39 @@ final class TestableRequest implements RequestInterface
     {
         return '1.1';
     }
+
     public function withProtocolVersion(string $version): static
     {
         return $this;
     }
+
     public function withAddedHeader(string $name, $value): static
     {
         return $this->withHeader($name, $value);
     }
+
     public function withoutHeader(string $name): static
     {
         $clone = clone $this;
         unset($clone->headers[$name]);
         return $clone;
     }
+
     public function withRequestTarget(string $requestTarget): static
     {
         return $this;
     }
+
     public function withMethod(string $method): static
     {
         return $this;
     }
+
     public function getUri(): UriInterface
     {
         throw new LogicException('Not implemented', 4146456712);
     }
+
     public function withUri(UriInterface $uri, bool $preserveHost = false): static
     {
         return $this;

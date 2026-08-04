@@ -35,8 +35,11 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 class WizardGeneratorServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
+
     private LlmConfigurationRepository&MockObject $configurationRepository;
+
     private ModelRepository&MockObject $modelRepository;
+
     private WizardGeneratorService $subject;
 
     protected function setUp(): void
@@ -123,11 +126,11 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $iterator = new ArrayIterator($items);
         $stub = self::createStub(QueryResultInterface::class);
-        $stub->method('current')->willReturnCallback(fn() => $iterator->current());
-        $stub->method('key')->willReturnCallback(fn() => $iterator->key());
-        $stub->method('next')->willReturnCallback(fn() => $iterator->next());
-        $stub->method('rewind')->willReturnCallback(fn() => $iterator->rewind());
-        $stub->method('valid')->willReturnCallback(fn() => $iterator->valid());
+        $stub->method('current')->willReturnCallback(fn(): object => $iterator->current());
+        $stub->method('key')->willReturnCallback(fn(): int|string => $iterator->key());
+        $stub->method('next')->willReturnCallback(fn(): null => $iterator->next());
+        $stub->method('rewind')->willReturnCallback(fn(): null => $iterator->rewind());
+        $stub->method('valid')->willReturnCallback(fn(): bool => $iterator->valid());
         $stub->method('count')->willReturn(count($items));
         $stub->method('toArray')->willReturn($items);
         $stub->method('getFirst')->willReturn($items[0] ?? null);
@@ -174,7 +177,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $defaultConfig = $this->createConfigurationWithModel();
         $this->stubDefaultConfig($defaultConfig);
 
-        $result = $this->subject->resolveConfiguration(null);
+        $result = $this->subject->resolveConfiguration();
 
         self::assertSame($defaultConfig, $result);
     }
@@ -202,7 +205,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $this->stubNoDefaultConfig();
 
-        $result = $this->subject->resolveConfiguration(null);
+        $result = $this->subject->resolveConfiguration();
 
         self::assertNull($result);
     }
@@ -1780,6 +1783,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $m->setDescription('Description ' . $i);
             $models[] = $m;
         }
+
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub($models));
 
         // Non-LlmConfiguration item FIRST: with `continue` the valid one is still collected;
@@ -2320,6 +2324,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         } catch (JsonException $e) {
             $expectedError = $e->getMessage();
         }
+
         self::assertNotSame('', $expectedError);
 
         $config = $this->createConfigurationWithModel();
@@ -2707,6 +2712,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $m->setDescription('Desc ' . $i);
             $models[] = $m;
         }
+
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub($models));
 
         $existingConfig = new LlmConfiguration();

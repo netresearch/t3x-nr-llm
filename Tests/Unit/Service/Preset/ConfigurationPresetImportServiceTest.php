@@ -36,10 +36,15 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ConfigurationPresetImportServiceTest extends TestCase
 {
     private ModelSelectionServiceInterface&MockObject $modelSelectionService;
+
     private LlmConfigurationRepository&MockObject $configurationRepository;
+
     private PersistenceManagerInterface&MockObject $persistenceManager;
+
     private ModelRepository&MockObject $modelRepository;
+
     private ProviderRepository&MockObject $providerRepository;
+
     private ConfigurationPresetImportService $subject;
 
     protected function setUp(): void
@@ -68,7 +73,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         );
     }
 
-    private static function preset(): ConfigurationPreset
+    private function preset(): ConfigurationPreset
     {
         return new ConfigurationPreset(
             identifier: 'ext.chat',
@@ -92,7 +97,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $model->setName('Claude Sonnet');
         $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertTrue($result->satisfiable);
         self::assertSame('Claude Sonnet', $result->matchedModelLabel);
@@ -106,7 +111,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $model->setModelId('claude-sonnet-4-5');
         $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertSame('claude-sonnet-4-5', $result->matchedModelLabel);
     }
@@ -117,7 +122,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertFalse($result->satisfiable);
         self::assertSame('capabilities: chat, tools', $result->missingRequirement);
@@ -132,7 +137,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
             static fn(array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
         );
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertFalse($result->satisfiable);
         self::assertSame('minimum context length: 8000', $result->missingRequirement);
@@ -141,7 +146,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function importCreatesActiveCriteriaModeRecordWithChecksum(): void
     {
-        $preset = self::preset();
+        $preset = $this->preset();
         $model = new Model();
         $model->setName('Claude Sonnet');
         $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
@@ -208,7 +213,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347005);
 
-        $this->subject->import(self::preset());
+        $this->subject->import($this->preset());
     }
 
     #[Test]
@@ -222,14 +227,14 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1789347006);
 
-        $this->subject->import(self::preset());
+        $this->subject->import($this->preset());
     }
 
     /**
      * A changed declaration for the same identifier: name, description,
      * temperature and criteria all differ from {@see preset()}.
      */
-    private static function changedPreset(): ConfigurationPreset
+    private function changedPreset(): ConfigurationPreset
     {
         return new ConfigurationPreset(
             identifier: 'ext.chat',
@@ -251,7 +256,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
      * checksum is that declaration's, so passing a *different* declaration to
      * update() makes it drifted.
      */
-    private static function recordImportedFrom(ConfigurationPreset $importedFrom): LlmConfiguration
+    private function recordImportedFrom(ConfigurationPreset $importedFrom): LlmConfiguration
     {
         $record = new LlmConfiguration();
         $record->setIdentifier($importedFrom->identifier);
@@ -262,24 +267,31 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         if ($importedFrom->systemPrompt !== null) {
             $record->setSystemPrompt($importedFrom->systemPrompt);
         }
+
         if ($importedFrom->temperature !== null) {
             $record->setTemperature($importedFrom->temperature);
         }
+
         if ($importedFrom->maxTokens !== null) {
             $record->setMaxTokens($importedFrom->maxTokens);
         }
+
         if ($importedFrom->maxRequestsPerDay !== null) {
             $record->setMaxRequestsPerDay($importedFrom->maxRequestsPerDay);
         }
+
         if ($importedFrom->maxTokensPerDay !== null) {
             $record->setMaxTokensPerDay($importedFrom->maxTokensPerDay);
         }
+
         if ($importedFrom->maxCostPerDay !== null) {
             $record->setMaxCostPerDay($importedFrom->maxCostPerDay);
         }
+
         if ($importedFrom->allowedToolGroups !== []) {
             $record->setAllowedToolGroups(implode(',', $importedFrom->allowedToolGroups));
         }
+
         $record->setPresetChecksum($importedFrom->checksum());
 
         return $record;
@@ -288,8 +300,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateAppliesDeclaredFieldsAndRestampsChecksum(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
         $this->configurationRepository->expects(self::once())->method('update')->with($record);
         $this->persistenceManager->expects(self::once())->method('persistAll');
@@ -310,8 +322,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateLeavesAdminOwnedFieldsUntouched(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $record->setIsActive(true);
         $record->setIsDefault(true);
         $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
@@ -334,10 +346,9 @@ final class ConfigurationPresetImportServiceTest extends TestCase
             description: 'A chat preset.',
             criteria: new ModelSelectionCriteria(capabilities: ['chat', 'tools'], minContextLength: 8000),
             systemPrompt: 'You are helpful.',
-            temperature: null,
             maxTokens: 2000,
         );
-        $record = self::recordImportedFrom(self::preset());
+        $record = $this->recordImportedFrom($this->preset());
         $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
 
         $diff = $this->subject->update($preset, $record);
@@ -350,8 +361,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateRefusesWhenRecordIsNotDrifted(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom($preset); // stored checksum equals current declaration
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($preset); // stored checksum equals current declaration
         $this->configurationRepository->expects(self::never())->method('update');
 
         $this->expectException(InvalidArgumentException::class);
@@ -363,8 +374,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateRefusesWhenRecordCarriesNoStoredChecksum(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $record->setPresetChecksum('');
         $this->configurationRepository->expects(self::never())->method('update');
 
@@ -377,8 +388,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateRefusesWhenModeSwitchedToFixed(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $record->setModelSelectionMode(ModelSelectionMode::FIXED->value);
         $this->configurationRepository->expects(self::never())->method('update');
 
@@ -391,8 +402,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateRefusesWhenUpdatedCriteriaUnsatisfiable(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
         $this->configurationRepository->expects(self::never())->method('update');
@@ -406,8 +417,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function updateRefusesWhenRecordBelongsToAnotherIdentifier(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $record->setIdentifier('ext.other');
         $this->configurationRepository->expects(self::never())->method('update');
 
@@ -420,8 +431,8 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     #[Test]
     public function previewUpdateReturnsDiffWithoutPersisting(): void
     {
-        $preset = self::changedPreset();
-        $record = self::recordImportedFrom(self::preset());
+        $preset = $this->changedPreset();
+        $record = $this->recordImportedFrom($this->preset());
         $this->modelSelectionService->method('findMatchingModel')->willReturn(new Model());
         $this->configurationRepository->expects(self::never())->method('update');
         $this->persistenceManager->expects(self::never())->method('persistAll');
@@ -466,7 +477,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
 
-        $result = $subject->preflight(self::preset());
+        $result = $subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::AddProvider, $result->remedy);
         self::assertNull($result->remedySubject);
@@ -499,7 +510,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
         $this->modelSelectionService->method('modelMatchesCriteria')->willReturn(true);
 
-        $result = $subject->preflight(self::preset());
+        $result = $subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::ActivateModel, $result->remedy);
         self::assertSame('gpt-4o (OpenAI)', $result->remedySubject);
@@ -528,7 +539,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
         $this->modelSelectionService->method('modelMatchesCriteria')->willReturn(true);
 
-        $result = $subject->preflight(self::preset());
+        $result = $subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::AddModel, $result->remedy);
     }
@@ -538,6 +549,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
     {
         $openAi = new Provider();
         $openAi->setName('OpenAI');
+
         $ollama = new Provider();
         $ollama->setName('Ollama');
 
@@ -556,7 +568,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
 
-        $result = $subject->preflight(self::preset());
+        $result = $subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::AddModel, $result->remedy);
         self::assertSame('OpenAI, Ollama', $result->remedySubject);
@@ -571,7 +583,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
             static fn(array $criteria): array => isset($criteria['minContextLength']) ? [] : [new Model()],
         );
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::AdjustSetup, $result->remedy);
         self::assertNull($result->remedySubject);
@@ -584,7 +596,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $model->setName('gpt-4o');
         $this->modelSelectionService->method('findMatchingModel')->willReturn($model);
 
-        $result = $this->subject->preflight(self::preset());
+        $result = $this->subject->preflight($this->preset());
 
         self::assertTrue($result->satisfiable);
         self::assertNull($result->remedy);
@@ -612,7 +624,7 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
         $this->modelSelectionService->method('findCandidates')->willReturn([]);
 
-        $result = $subject->preflight(self::preset());
+        $result = $subject->preflight($this->preset());
 
         self::assertSame(PresetRemedy::AddProvider, $result->remedy);
     }

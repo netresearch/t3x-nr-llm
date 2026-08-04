@@ -169,7 +169,7 @@ final readonly class AgentRunExecutor
      */
     private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null): RunTrace
     {
-        if ($handle === null && $onStep === null) {
+        if (!$handle instanceof AgentRunHandle && !$onStep instanceof Closure) {
             return new RunTrace(captureRaw: $captureRaw);
         }
 
@@ -179,10 +179,11 @@ final readonly class AgentRunExecutor
                 // The live observer sees the step FIRST (emit-before-persist),
                 // so a step is shown even when its persistence or the checks
                 // below abort the loop.
-                if ($onStep !== null) {
+                if ($onStep instanceof Closure) {
                     $onStep($step);
                 }
-                if ($handle === null) {
+
+                if (!$handle instanceof AgentRunHandle) {
                     return;
                 }
 
@@ -213,7 +214,7 @@ final readonly class AgentRunExecutor
 
                 $this->recordStepFailClosedForWrites($handle, $step);
             },
-            onBeforeTool: $leaseOwner === null || $handle === null ? null : function (string $toolName) use ($handle, $leaseOwner): void {
+            onBeforeTool: $leaseOwner === null || !$handle instanceof AgentRunHandle ? null : function (string $toolName) use ($handle, $leaseOwner): void {
                 // Fence a WRITE before it runs (ADR-111): stamp its effect and
                 // renew the lease so a reap mid non-idempotent-write dead-letters
                 // instead of retrying. Read-only tools need no fence — repeating
@@ -283,7 +284,7 @@ final readonly class AgentRunExecutor
      */
     private function stepEffect(RunStep $step): ToolEffect
     {
-        if ($step->kind !== RunStep::KIND_TOOL || $this->toolEffectResolver === null) {
+        if ($step->kind !== RunStep::KIND_TOOL || !$this->toolEffectResolver instanceof ToolEffectResolver) {
             return ToolEffect::READ_ONLY;
         }
 
@@ -311,13 +312,13 @@ final readonly class AgentRunExecutor
      */
     private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null, ?string $ownerGuard = null): AgentRunResult
     {
-        $runUuid = $handle !== null ? $handle->uuid : '';
+        $runUuid = $handle instanceof AgentRunHandle ? $handle->uuid : '';
         $settled = false;
 
         try {
             $result = $loopCall();
 
-            if ($handle !== null) {
+            if ($handle instanceof AgentRunHandle) {
                 $settledOk = $this->persister->settleCompleted($handle, $result, $ownerGuard);
                 // Ownership-guarded on the queued path: if the run was reclaimed
                 // to another worker mid-loop, this completion must not overwrite
@@ -328,6 +329,7 @@ final readonly class AgentRunExecutor
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
                 }
             }
+
             $settled = true;
 
             return new AgentRunResult(
@@ -357,7 +359,7 @@ final readonly class AgentRunExecutor
             // finally-guard must not run either way.
             $settled = true;
 
-            if ($handle !== null && $this->persister->suspend($handle, $approval->state)) {
+            if ($handle instanceof AgentRunHandle && $this->persister->suspend($handle, $approval->state)) {
                 return new AgentRunResult(
                     outcome: AgentRunOutcome::AWAITING_APPROVAL,
                     runUuid: $runUuid,
@@ -374,11 +376,12 @@ final readonly class AgentRunExecutor
             // since ADR-101 (the old code silently ignored a failed
             // re-suspension AND announced awaiting-approval for unpersisted
             // runs).
-            if ($handle !== null) {
+            if ($handle instanceof AgentRunHandle) {
                 // Ownership-guarded so a reclaimed queued run is not clobbered by
                 // this worker's fail-closed settle.
                 $this->persister->settleFailed($handle, $approval, $ownerGuard);
             }
+
             $this->logger?->error('Agent run could not be suspended for approval; no resume is possible', ['run' => $runUuid]);
 
             return new AgentRunResult(
@@ -397,7 +400,7 @@ final readonly class AgentRunExecutor
             // must not be flipped to FAILED.
             $settled = true;
 
-            if ($handle !== null && $this->persister->suspendForInput($handle, $input->state)) {
+            if ($handle instanceof AgentRunHandle && $this->persister->suspendForInput($handle, $input->state)) {
                 return new AgentRunResult(
                     outcome: AgentRunOutcome::AWAITING_INPUT,
                     runUuid: $runUuid,
@@ -410,11 +413,12 @@ final readonly class AgentRunExecutor
             // refused or errored, a concurrent cancel terminated the row, or the
             // run was never persisted (null handle) — there is nothing to resume,
             // so promising an input flow would strand the client.
-            if ($handle !== null) {
+            if ($handle instanceof AgentRunHandle) {
                 // Ownership-guarded so a reclaimed queued run is not clobbered by
                 // this worker's fail-closed settle.
                 $this->persister->settleFailed($handle, $input, $ownerGuard);
             }
+
             $this->logger?->error('Agent run could not be suspended for input; no resume is possible', ['run' => $runUuid]);
 
             return new AgentRunResult(
@@ -427,7 +431,7 @@ final readonly class AgentRunExecutor
             // ADR-085/086: a guardrail verdict is a policy outcome, not a
             // failure — and an approval that was required but never obtained
             // is not recorded as an outright denial (ADR-092).
-            if ($handle !== null) {
+            if ($handle instanceof AgentRunHandle) {
                 $settledOk = $this->persister->settlePolicyStopped(
                     $handle,
                     $guardrail,
@@ -446,6 +450,7 @@ final readonly class AgentRunExecutor
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $guardrail);
                 }
             }
+
             $settled = true;
             $this->logger?->warning('Agent run blocked by guardrail', ['exception' => $guardrail, 'run' => $runUuid]);
 
@@ -477,7 +482,7 @@ final readonly class AgentRunExecutor
             // when it handles the failure, settles the row itself and returns
             // the replacement outcome. Only an interactive run (no recover) or a
             // recover that declines (null) falls through to the default settle.
-            if ($recover !== null) {
+            if ($recover instanceof Closure) {
                 $recovery = $recover($e, $trace->getSteps());
                 if ($recovery instanceof AgentRunResult) {
                     $settled = true;
@@ -486,7 +491,7 @@ final readonly class AgentRunExecutor
                 }
             }
 
-            if ($handle !== null) {
+            if ($handle instanceof AgentRunHandle) {
                 $settledOk = $this->persister->settleFailed($handle, $e, $ownerGuard);
                 if ($ownerGuard !== null && !$settledOk) {
                     $settled = true;
@@ -495,6 +500,7 @@ final readonly class AgentRunExecutor
                     return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps(), error: $e);
                 }
             }
+
             $settled = true;
             $this->logger?->error('Agent run failed', ['exception' => $e, 'run' => $runUuid]);
 
@@ -511,7 +517,7 @@ final readonly class AgentRunExecutor
             // finally-block settle. Guarded by $settled: a suspended run is
             // WAITING_FOR_APPROVAL or WAITING_FOR_INPUT — both non-terminal — and
             // settling it here would destroy its resumable state.
-            if ($handle !== null && !$settled) {
+            if ($handle instanceof AgentRunHandle && !$settled) {
                 // Ownership-guarded so this safety-net settle cannot clobber a
                 // queued run the reaper reclaimed to another worker.
                 $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);

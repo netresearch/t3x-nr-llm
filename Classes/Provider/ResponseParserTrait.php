@@ -53,6 +53,7 @@ trait ResponseParserTrait
             );
         }
     }
+
     /**
      * Get a string value from array, with optional default.
      *
@@ -144,6 +145,7 @@ trait ResponseParserTrait
         if (!is_array($value)) {
             return $default;
         }
+
         /** @var array<string, mixed> $value */
         return $value;
     }
@@ -162,6 +164,7 @@ trait ResponseParserTrait
         if (!is_array($value)) {
             return [];
         }
+
         /** @var array<int, array<string, mixed>> $value */
         return $value;
     }
@@ -223,12 +226,14 @@ trait ResponseParserTrait
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 return $default;
             }
+
             $current = $current[$key];
         }
 
         if (!is_array($current)) {
             return $default;
         }
+
         /** @var array<string, mixed> $current */
         return $current;
     }
@@ -247,6 +252,7 @@ trait ResponseParserTrait
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 return $default;
             }
+
             $current = $current[$key];
         }
 
@@ -267,6 +273,7 @@ trait ResponseParserTrait
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 return $default;
             }
+
             $current = $current[$key];
         }
 
@@ -287,6 +294,7 @@ trait ResponseParserTrait
         if (!is_array($value)) {
             return $default;
         }
+
         /** @var array<string, mixed> $value */
         return $value;
     }
@@ -303,6 +311,7 @@ trait ResponseParserTrait
         if (!is_array($value)) {
             return [];
         }
+
         /** @var array<int, array<string, mixed>> $value */
         return $value;
     }

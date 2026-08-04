@@ -25,9 +25,10 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
 
     private function getCache(): FrontendInterface
     {
-        if ($this->cache === null) {
+        if (!$this->cache instanceof FrontendInterface) {
             $this->cache = $this->cacheManager->getCache(self::CACHE_IDENTIFIER);
         }
+
         return $this->cache;
     }
 
@@ -65,6 +66,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
         if ($data === false || !is_array($data)) {
             return null;
         }
+
         /** @var array<string, mixed> $data */
         return $data;
     }
@@ -276,6 +278,7 @@ final class CacheManager implements CacheManagerInterface, SingletonInterface
                 $this->sortRecursive($value);
             }
         }
+
         ksort($array);
     }
 }

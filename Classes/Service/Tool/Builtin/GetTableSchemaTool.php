@@ -48,7 +48,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
     {
         return ToolSpec::function(
             'get_table_schema',
-            'Describe one TYPO3 table\'s schema in a readable form: control settings plus, per field, its type '
+            "Describe one TYPO3 table's schema in a readable form: control settings plus, per field, its type "
             . 'and — for relations — the foreign table and relation kind. Richer than get_tca. Schema only, no data.',
             [
                 'type'       => 'object',
@@ -91,6 +91,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
         if ($title !== '') {
             $lines[] = sprintf('Title: %s', $title);
         }
+
         $lines[] = 'Control: ' . $this->ctrlSummary($ctrl);
         $lines[] = '';
         $lines[] = 'Fields:';
@@ -101,6 +102,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
                 $lines[] = sprintf('… [%d fields not shown]', count($tca['columns']) - self::MAX_COLUMNS);
                 break;
             }
+
             $lines[] = '- ' . $this->describeField((string)$field, $config);
             ++$count;
         }
@@ -135,6 +137,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
                 $parts[] = sprintf('%s=%s', $key, $value);
             }
         }
+
         $enablecolumns = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
         if ($enablecolumns !== []) {
             $parts[] = 'enable=' . implode('/', array_map(
@@ -142,6 +145,7 @@ final readonly class GetTableSchemaTool implements ToolInterface
                 $enablecolumns,
             ));
         }
+
         // versioningWS may be a bool or an int (legacy 1/2) — !empty() catches
         // both; a strict === true would miss integer-configured tables.
         if (!empty($ctrl['versioningWS'])) {

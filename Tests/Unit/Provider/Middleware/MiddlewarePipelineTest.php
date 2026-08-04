@@ -32,7 +32,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config !== null);
+                \assert($config instanceof LlmConfiguration);
 
                 return 'terminal:' . $config->getIdentifier();
             },
@@ -51,7 +51,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config !== null);
+                \assert($config instanceof LlmConfiguration);
 
                 return 'terminal:' . $config->getIdentifier();
             },
@@ -73,7 +73,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config !== null);
+                \assert($config instanceof LlmConfiguration);
 
                 return 'T(' . $config->getIdentifier() . ')';
             },
@@ -131,7 +131,7 @@ final class MiddlewarePipelineTest extends TestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration('primary')),
             terminal: static function (ProviderCallContext $ctx): string {
                 $config = $ctx->configuration;
-                \assert($config !== null);
+                \assert($config instanceof LlmConfiguration);
 
                 return $config->getIdentifier();
             },

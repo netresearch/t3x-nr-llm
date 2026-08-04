@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -89,11 +90,13 @@ final class LlmModuleController extends ActionController
         foreach ($providerBreakdown as $row) {
             $maxProviderRequests = max($maxProviderRequests, $row['requests']);
         }
+
         foreach ($providerBreakdown as &$providerRow) {
             $providerRow['percentage'] = $maxProviderRequests > 0
                 ? (int)round($providerRow['requests'] * 100 / $maxProviderRequests)
                 : 0;
         }
+
         unset($providerRow);
 
         // 30-day daily request history for the sparkline. Bar heights are
@@ -104,6 +107,7 @@ final class LlmModuleController extends ActionController
         foreach ($dailyTrend as $day) {
             $maxDailyRequests = max($maxDailyRequests, $day['requests']);
         }
+
         $dailyBars = [];
         foreach ($dailyTrend as $day) {
             $dailyBars[] = [
@@ -158,7 +162,7 @@ final class LlmModuleController extends ActionController
      */
     public function reachabilityAction(): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -191,7 +195,7 @@ final class LlmModuleController extends ActionController
 
         $moduleTemplate->assignMultiple([
             'providers' => array_map(
-                fn($p) => ['identifier' => $p->getIdentifier(), 'name' => $p->getName()],
+                fn(ProviderInterface $p): array => ['identifier' => $p->getIdentifier(), 'name' => $p->getName()],
                 $providers,
             ),
         ]);
@@ -201,9 +205,10 @@ final class LlmModuleController extends ActionController
 
     public function executeTestAction(): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $this->request->getParsedBody();
         $provider = $this->extractStringFromBody($body, 'provider');
         $prompt = $this->extractStringFromBody($body, 'prompt', $this->testPromptResolver->resolve());
@@ -272,6 +277,7 @@ final class LlmModuleController extends ActionController
         if ($activeTab === 'dashboard') {
             $dashboardItem->setActive(true);
         }
+
         $menu->addMenuItem($dashboardItem);
 
         $helpItem = $menu->makeMenuItem()
@@ -280,6 +286,7 @@ final class LlmModuleController extends ActionController
         if ($activeTab === 'help') {
             $helpItem->setActive(true);
         }
+
         $menu->addMenuItem($helpItem);
 
         $menuRegistry->addMenu($menu);

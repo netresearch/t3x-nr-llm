@@ -35,7 +35,7 @@ final readonly class CircuitState
      */
     public static function closed(): self
     {
-        return new self(0, null);
+        return new self(0);
     }
 
     /**

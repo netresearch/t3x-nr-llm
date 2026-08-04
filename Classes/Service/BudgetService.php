@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service;
 use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UserBudget;
 use Netresearch\NrLlm\Domain\Repository\UserBudgetRepository;
 use Netresearch\NrLlm\Service\Budget\BudgetUsageWindowsInterface;
 
@@ -63,8 +64,8 @@ final readonly class BudgetService implements BudgetServiceInterface
 
         $result = $this->checkUserBudget($beUserUid, $plannedCost);
 
-        if ($result->allowed && $configuration !== null) {
-            $result = $this->checkConfigurationLimits($configuration, $plannedCost);
+        if ($result->allowed && $configuration instanceof LlmConfiguration) {
+            return $this->checkConfigurationLimits($configuration, $plannedCost);
         }
 
         return $result;
@@ -73,7 +74,7 @@ final readonly class BudgetService implements BudgetServiceInterface
     private function checkUserBudget(int $beUserUid, float $plannedCost): BudgetCheckResult
     {
         $budget = $beUserUid > 0 ? $this->repository->findOneByBeUser($beUserUid) : null;
-        if ($budget === null || !$budget->isActive() || !$budget->hasAnyLimit()) {
+        if (!$budget instanceof UserBudget || !$budget->isActive() || !$budget->hasAnyLimit()) {
             return BudgetCheckResult::allowed();
         }
 
@@ -113,7 +114,7 @@ final readonly class BudgetService implements BudgetServiceInterface
         }
 
         if ($result->allowed && $hasMonthlyLimits) {
-            $result = $this->compare(
+            return $this->compare(
                 usage: $windows['monthly'],
                 plannedCost: $plannedCost,
                 requestLimit: $budget->getMaxRequestsPerMonth(),
@@ -198,6 +199,7 @@ final readonly class BudgetService implements BudgetServiceInterface
                 $costLimit,
             );
         }
+
         return $result;
     }
 }

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
@@ -54,7 +55,7 @@ final readonly class QueuedRunCoordinator
 
     public function enqueue(AgentRunRequest $request): string
     {
-        if ($this->messageBus === null) {
+        if (!$this->messageBus instanceof MessageBusInterface) {
             throw RunEnqueueFailedException::forRun('');
         }
 
@@ -75,7 +76,7 @@ final readonly class QueuedRunCoordinator
         // Fail-closed, unlike run(): a live run can proceed unpersisted, but a
         // queued run without a stored row simply does not exist.
         $handle = $this->persister->enqueue($request->configuration, $request->actor->backendUserUid, $requestJson);
-        if ($handle === null) {
+        if (!$handle instanceof AgentRunHandle) {
             throw RunEnqueueFailedException::forRun('');
         }
 
@@ -112,7 +113,7 @@ final readonly class QueuedRunCoordinator
     public function runQueued(string $runUuid, ?Closure $onStep = null): ?AgentRunResult
     {
         $run = $this->persister->findRun($runUuid);
-        if ($run === null || $run->statusEnum() !== AgentRunStatus::QUEUED || $run->queuedRequest === null) {
+        if (!$run instanceof AgentRun || $run->statusEnum() !== AgentRunStatus::QUEUED || $run->queuedRequest === null) {
             return null;
         }
 
@@ -130,8 +131,8 @@ final readonly class QueuedRunCoordinator
         // like AgentRuntime::approve(): a null position settles the run FAILED rather than
         // stranding it RUNNING (the claim is already won).
         $claimed = $this->persister->findRun($runUuid);
-        $handle  = $claimed !== null ? $this->persister->resumeHandle($claimed) : null;
-        if ($handle === null) {
+        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$handle instanceof AgentRunHandle) {
             $fallback = new AgentRunHandle($run->uid, $run->uuid);
             $this->persister->settleFailed(
                 $fallback,

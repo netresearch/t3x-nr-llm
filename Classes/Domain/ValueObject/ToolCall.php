@@ -59,12 +59,14 @@ final readonly class ToolCall implements JsonSerializable
                 1745411001,
             );
         }
+
         if ($this->name === '') {
             throw new InvalidArgumentException(
                 'ToolCall name must not be empty.',
                 1745411002,
             );
         }
+
         if ($this->type === '') {
             throw new InvalidArgumentException(
                 'ToolCall type must not be empty.',
@@ -198,6 +200,7 @@ final readonly class ToolCall implements JsonSerializable
             /** @var array<string, mixed> $raw */
             return $raw;
         }
+
         if (\is_string($raw) && $raw !== '') {
             $decoded = \json_decode($raw, true);
             if (\is_array($decoded)) {

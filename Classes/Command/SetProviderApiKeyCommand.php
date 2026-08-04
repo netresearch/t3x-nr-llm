@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -94,7 +95,7 @@ final class SetProviderApiKeyCommand extends Command
         $providerIdentifier = is_string($providerIdentifier) ? $providerIdentifier : '';
 
         $provider = $this->providerRepository->findOneByIdentifier($providerIdentifier);
-        if ($provider === null) {
+        if (!$provider instanceof Provider) {
             $io->error(sprintf('No provider record has the identifier "%s".', $providerIdentifier));
 
             return Command::FAILURE;
@@ -126,6 +127,7 @@ final class SetProviderApiKeyCommand extends Command
                 if ($identifier === '') {
                     $identifier = Uuid::v7()->toRfc4122();
                 }
+
                 $this->vault->store($identifier, $secret, self::SECRET_OPTIONS);
             } else {
                 $this->vault->rotate($identifier, $secret, 'nrllm:provider:set-key');
@@ -173,6 +175,7 @@ final class SetProviderApiKeyCommand extends Command
             if (!defined('STDIN')) {
                 return null;
             }
+
             $stream = STDIN;
         }
 

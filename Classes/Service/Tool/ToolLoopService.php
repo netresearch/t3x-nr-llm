@@ -186,10 +186,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
                 return $this->contextTruncatedResult([], $seedIterations + 1, $seedPromptTokens, $seedCompletionTokens);
             }
+
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
-            $runTrace?->recordLlmCall(1, self::elapsedMs($t0), $resp);
+            $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
 
             // Fold in any carried-over counters (a resume whose continuation has
             // no offered tools still ran this synthesis round on top of the
@@ -237,7 +238,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0   = hrtime(true);
                 $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
-                $runTrace?->recordLlmCall($iterations, self::elapsedMs($t0), $resp);
+                $runTrace?->recordLlmCall($iterations, $this->elapsedMs($t0), $resp);
                 $lastUsage         = $resp->usage;
                 $promptTokens     += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
@@ -301,6 +302,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                                 1784600105,
                             );
                         }
+
                         throw ToolInputRequiredException::fromState(new SuspendedRunState(
                             array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
                             array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
@@ -325,7 +327,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
-                    $runTrace?->recordToolExecution($iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                    $runTrace?->recordToolExecution($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
                 }
             }
 
@@ -348,7 +350,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $configuration,
                 $this->budgetMetadata($options),
             );
-            $runTrace?->recordLlmCall($iterations + 1, self::elapsedMs($t0), $final);
+            $runTrace?->recordLlmCall($iterations + 1, $this->elapsedMs($t0), $final);
             $promptTokens     += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
 
@@ -411,7 +413,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $iteration,
         array $toolSpecs,
     ): array {
-        if ($this->contextWindow === null) {
+        if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
             return $messages;
         }
 
@@ -512,8 +514,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
+
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
@@ -583,7 +586,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // A second input-requiring call in the same turn got no data —
                 // one submission satisfies one tool. Fail-closed refusal.
@@ -594,8 +597,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, self::elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
+
             $messages[] = ChatMessage::toolResult($call->id, $result);
         }
 
@@ -658,10 +662,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?RunAugmentation $augmentation,
     ): array {
         $configSkills = SkillInjectionService::toList($configuration->getSkills());
-        $forcedSkills = $augmentation !== null ? $augmentation->forcedSkills : [];
+        $forcedSkills = $augmentation instanceof RunAugmentation ? $augmentation->forcedSkills : [];
         $messages     = $this->skillInjection?->augmentMessages($messages, $configSkills, $forcedSkills) ?? $messages;
 
-        if ($augmentation === null) {
+        if (!$augmentation instanceof RunAugmentation) {
             return [$messages, false];
         }
 
@@ -691,7 +695,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         return [$messages, $augmentation->dryRun];
     }
 
-    private static function elapsedMs(int $startNs): float
+    private function elapsedMs(int $startNs): float
     {
         return (hrtime(true) - $startNs) / 1_000_000;
     }
@@ -781,9 +785,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     private function invoke(ToolCall $call, array $allowedNames, ToolExecutionContext $context): ToolResult
     {
         $tool = $this->registry->get($call->name);
-        if ($tool === null) {
+        if (!$tool instanceof ToolInterface) {
             return ToolResult::error(sprintf('Error: unknown tool "%s"', $call->name));
         }
+
         if (!in_array($call->name, $allowedNames, true)) {
             return ToolResult::error(sprintf('Error: tool "%s" not permitted', $call->name));
         }
@@ -940,7 +945,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Cast defends the string return type: mb_convert_encoding is typed
         // string|false, and false (unreachable for the literal 'UTF-8' names)
         // would otherwise be a TypeError.
-        return (string)mb_convert_encoding($result, 'UTF-8', 'UTF-8');
+        return mb_convert_encoding($result, 'UTF-8', 'UTF-8');
     }
 
     /**
@@ -952,7 +957,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private function budgetMetadata(?ToolOptions $options): array
     {
-        if ($options === null) {
+        if (!$options instanceof ToolOptions) {
             return [];
         }
 

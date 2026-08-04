@@ -53,7 +53,9 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 final readonly class TranslationService implements TranslationServiceInterface
 {
     private const EMPTY_TEXT_ERROR = 'Text cannot be empty';
+
     private const SUPPORTED_FORMALITIES = ['default', 'formal', 'informal'];
+
     private const SUPPORTED_DOMAINS = ['general', 'technical', 'medical', 'legal', 'marketing'];
 
     public function __construct(
@@ -180,9 +182,11 @@ final readonly class TranslationService implements TranslationServiceInterface
         if ($options->getTemperature() !== null) {
             $overrides['temperature'] = $options->getTemperature();
         }
+
         if ($options->getMaxTokens() !== null) {
             $overrides['max_tokens'] = $options->getMaxTokens();
         }
+
         if ($options->getModel() !== null) {
             $overrides['model'] = $options->getModel();
         }
@@ -213,7 +217,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?string $sourceLanguage = null,
         ?TranslationOptions $options = null,
     ): array {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 
@@ -286,7 +290,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         // to be marked just to auto-detect (issue #520). Only the generic
         // translate() path (no configuration) uses the default-resolving chat()
         // entry point. Suppression is carried as pipeline metadata (issue #473).
-        if ($configuration !== null) {
+        if ($configuration instanceof LlmConfiguration) {
             $metadata = $this->budgetMetadata($options);
             if (!$countsAsRequest) {
                 $metadata[UsageMiddleware::METADATA_SKIP_REQUEST_COUNT] = true;
@@ -390,7 +394,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         $options ??= new TranslationOptions();
         $optionsArray = $this->attachBeUserUid($options->toArray(), $options);
 
-        if (empty($text)) {
+        if ($text === '' || $text === '0') {
             throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, 3459949413);
         }
 
@@ -421,7 +425,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         ?string $sourceLanguage = null,
         ?TranslationOptions $options = null,
     ): array {
-        if (empty($texts)) {
+        if ($texts === []) {
             return [];
         }
 
@@ -559,7 +563,7 @@ final readonly class TranslationService implements TranslationServiceInterface
         int $emptyTextErrorCode,
         ?LlmConfiguration $configuration = null,
     ): array {
-        if (empty($text)) {
+        if ($text === '' || $text === '0') {
             throw new InvalidArgumentException(self::EMPTY_TEXT_ERROR, $emptyTextErrorCode);
         }
 

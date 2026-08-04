@@ -233,7 +233,7 @@ final class GroqProvider extends AbstractProvider implements
                 // Untrusted provider output: skip a malformed tool call (missing
                 // id/name) instead of crashing the whole completion.
                 $call = ToolCall::tryFromArray($this->asArray($tc));
-                if ($call !== null) {
+                if ($call instanceof ToolCall) {
                     $toolCalls[] = $call;
                 }
             }

@@ -25,6 +25,7 @@ use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
 {
     private LlmConfigurationRepository $subject;
+
     private PersistenceManager $persistenceManager;
 
     protected function setUp(): void

@@ -94,9 +94,9 @@ abstract class AbstractUnitTestCase extends TestCase
         $request = self::createStub(RequestInterface::class);
 
         // Use callback to return the same stub for chaining methods
-        $request->method('withHeader')->willReturnCallback(fn() => $request);
-        $request->method('withBody')->willReturnCallback(fn() => $request);
-        $request->method('withoutHeader')->willReturnCallback(fn() => $request);
+        $request->method('withHeader')->willReturnCallback(fn(): Stub => $request);
+        $request->method('withBody')->willReturnCallback(fn(): Stub => $request);
+        $request->method('withoutHeader')->willReturnCallback(fn(): Stub => $request);
         $request->method('getMethod')->willReturn($method);
         $request->method('getUri')->willReturn($uriStub);
 
@@ -110,7 +110,7 @@ abstract class AbstractUnitTestCase extends TestCase
     {
         $stub = self::createStub(StreamFactoryInterface::class);
         $stub->method('createStream')
-            ->willReturnCallback(function (string $content) {
+            ->willReturnCallback(function (string $content): Stub {
                 $stream = $this->createStub(StreamInterface::class);
                 $stream->method('__toString')->willReturn($content);
                 $stream->method('getContents')->willReturn($content);
@@ -153,7 +153,7 @@ abstract class AbstractUnitTestCase extends TestCase
         $vaultHttpClient->method('withAuthentication')->willReturn($vaultHttpClient);
         $vaultHttpClient->method('withReason')->willReturn($vaultHttpClient);
         $vaultHttpClient->method('withTimeout')->willReturn($vaultHttpClient);
-        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn() => $this->createHttpResponseMock(200, '{}'));
+        $vaultHttpClient->method('sendRequest')->willReturnCallback(fn(): ResponseInterface => $this->createHttpResponseMock(200, '{}'));
 
         $stub = self::createStub(VaultServiceInterface::class);
         $stub->method('retrieve')->willReturnCallback(fn(string $id) => $secrets[$id] ?? 'test-secret');
@@ -163,7 +163,7 @@ abstract class AbstractUnitTestCase extends TestCase
         if ($secrets === null) {
             $stub->method('exists')->willReturn(true);
         } else {
-            $stub->method('exists')->willReturnCallback(fn(string $id) => isset($secrets[$id]));
+            $stub->method('exists')->willReturnCallback(fn(string $id): bool => isset($secrets[$id]));
         }
 
         $stub->method('http')->willReturn($vaultHttpClient);
@@ -204,7 +204,7 @@ abstract class AbstractUnitTestCase extends TestCase
             fn(string $name) => $headers[$name] ?? [],
         );
         $response->method('hasHeader')->willReturnCallback(
-            fn(string $name) => isset($headers[$name]),
+            fn(string $name): bool => isset($headers[$name]),
         );
 
         return $response;

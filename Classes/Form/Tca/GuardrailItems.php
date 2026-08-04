@@ -50,6 +50,7 @@ final class GuardrailItems
         } else {
             $stored = (string)$stored;
         }
+
         foreach (GeneralUtility::trimExplode(',', $stored, true) as $known) {
             $ids[$known] ??= true;
         }

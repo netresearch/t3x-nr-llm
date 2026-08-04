@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Command;
 
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationService;
+use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSet;
 use Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetRegistry;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Evaluation\RegressionDetector;
@@ -68,7 +69,7 @@ final class EvalRunCommand extends Command
         $setArgument = $input->getArgument('set');
         $setIdentifier = is_string($setArgument) ? $setArgument : '';
         $set = $this->registry->findByIdentifier($setIdentifier);
-        if ($set === null) {
+        if (!$set instanceof GoldenPromptSet) {
             $io->error(sprintf('Unknown golden prompt set "%s".', $setIdentifier));
             $available = $this->registry->identifiers();
             if ($available !== []) {
@@ -130,6 +131,7 @@ final class EvalRunCommand extends Command
                 $evaluation->result->reason,
             ];
         }
+
         $io->table(['Prompt', 'Result', 'Score', 'Latency (ms)', 'Detail'], $rows);
 
         $io->writeln(sprintf('Model:      %s', $result->model !== '' ? $result->model : '(unknown)'));
@@ -150,8 +152,9 @@ final class EvalRunCommand extends Command
         if (is_string($model) && $model !== '') {
             $options = $options->withModel($model);
         }
+
         if (is_string($provider) && $provider !== '') {
-            $options = $options->withProvider($provider);
+            return $options->withProvider($provider);
         }
 
         return $options;

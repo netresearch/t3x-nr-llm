@@ -64,7 +64,8 @@ final readonly class RetrievalEvaluationService
             $documents = $this->distinctTopDocuments($ranked);
 
             if ($question->expectsNoResult()) {
-                $top1Hit = $top3Hit = $documents === [];
+                $top1Hit = $documents === [];
+                $top3Hit = $documents === [];
             } else {
                 $top1Hit = $documents !== [] && in_array($documents[0], $question->expectedDocumentIds, true);
                 $top3Hit = array_intersect($documents, $question->expectedDocumentIds) !== [];
@@ -97,9 +98,14 @@ final readonly class RetrievalEvaluationService
     {
         $documents = [];
         foreach ($ranked as $documentId) {
-            if ($documentId === '' || in_array($documentId, $documents, true)) {
+            if ($documentId === '') {
                 continue;
             }
+
+            if (in_array($documentId, $documents, true)) {
+                continue;
+            }
+
             $documents[] = $documentId;
             if (count($documents) === self::TOP_K) {
                 break;

@@ -16,7 +16,6 @@ use Netresearch\NrLlm\Controller\Backend\Response\ModelListResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
@@ -110,6 +109,7 @@ final class ModelController extends ActionController
             if ($uid === null) {
                 continue;
             }
+
             $editUrls[$uid] = $this->buildEditUrl($uid);
         }
 
@@ -125,7 +125,7 @@ final class ModelController extends ActionController
             'editUrls' => $editUrls,
             'newUrl' => $this->buildNewUrl(),
             'wizardUrl' => (string)$this->backendUriBuilder->buildUriFromRoute('nrllm_wizard'),
-            'hasDefaultModel' => $this->modelRepository->findDefault() !== null,
+            'hasDefaultModel' => $this->modelRepository->findDefault() instanceof Model,
             'costByModel' => $usage['cost'],
             'reqByModel' => $usage['requests'],
             'tokByModel' => $usage['tokens'],
@@ -155,9 +155,10 @@ final class ModelController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -190,9 +191,10 @@ final class ModelController extends ActionController
      */
     public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -221,9 +223,10 @@ final class ModelController extends ActionController
      */
     public function getByProviderAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 

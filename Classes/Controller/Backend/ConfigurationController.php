@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Controller\Backend\Response\SuccessResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TestConfigurationResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -125,6 +127,7 @@ final class ConfigurationController extends ActionController
             if ($uid === null) {
                 continue;
             }
+
             $editUrls[$uid] = $this->buildEditUrl($uid);
         }
 
@@ -204,6 +207,7 @@ final class ConfigurationController extends ActionController
             );
             return $this->redirect('wizardForm');
         }
+
         if (mb_strlen($description) > 2000) {
             $description = mb_substr($description, 0, 2000);
         }
@@ -246,9 +250,10 @@ final class ConfigurationController extends ActionController
      */
     public function toggleActiveAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -279,9 +284,10 @@ final class ConfigurationController extends ActionController
      */
     public function setDefaultAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -309,9 +315,10 @@ final class ConfigurationController extends ActionController
      */
     public function getModelsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $providerKey = $this->extractStringFromBody($body, 'provider');
 
@@ -356,9 +363,10 @@ final class ConfigurationController extends ActionController
      */
     public function testConfigurationAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $uid = $this->extractIntFromBody($body, 'uid');
 
@@ -375,7 +383,7 @@ final class ConfigurationController extends ActionController
             // records, is what the runtime does; testing only getLlmModel()
             // reported "has no model assigned" for a configuration that works.
             $model = $this->modelSelectionService->resolveModel($configuration);
-            if ($model === null || $model->getProvider() === null) {
+            if (!$model instanceof Model || !$model->getProvider() instanceof Provider) {
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {
                 $testPrompt = $this->testPromptResolver->resolve();
@@ -430,9 +438,10 @@ final class ConfigurationController extends ActionController
      */
     public function getModelConstraintsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $modelUid = $this->extractIntFromBody($body, 'modelUid');
 
@@ -484,6 +493,7 @@ final class ConfigurationController extends ActionController
         if (in_array($adapterType, ['openai', 'azure_openai', 'openrouter', 'groq', 'custom'], true)) {
             return (bool)preg_match('/^(o[1-9]|gpt-5)/', $modelId);
         }
+
         return false;
     }
 
@@ -651,6 +661,7 @@ final class ConfigurationController extends ActionController
                 $params['defVals[' . $table . '][' . $key . ']'] = is_string($value) || is_numeric($value) ? (string)$value : '';
             }
         }
+
         return (string)$this->backendUriBuilder->buildUriFromRoute('record_edit', $params);
     }
 

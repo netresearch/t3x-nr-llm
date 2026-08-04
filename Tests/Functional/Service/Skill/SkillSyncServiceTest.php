@@ -30,15 +30,25 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class SkillSyncServiceTest extends AbstractFunctionalTestCase
 {
     private const REPO_URL = 'https://github.com/acme/skills';
+
     private const SINGLE_FILE_URL = 'https://github.com/acme/skills/blob/main/SKILL.md';
+
     private const MARKET_URL = 'https://raw.githubusercontent.com/acme/market/main/marketplace.json';
+
     private const SKILL_A_PATH = 'skills/a/SKILL.md';
+
     private const SKILL_B_PATH = 'skills/b/SKILL.md';
+
     private const SKILL_A_ID = '10:skills/a/SKILL.md';
+
     private const SKILL_B_ID = '10:skills/b/SKILL.md';
+
     private const PLUGIN_A = 'p1/repoa';
+
     private const PLUGIN_B = 'p2/repob';
+
     private const MARKET_A_ID = '30:' . self::PLUGIN_A . '/' . self::SKILL_A_PATH;
+
     private const MARKET_B_ID = '30:' . self::PLUGIN_B . '/' . self::SKILL_A_PATH;
 
     private function service(FakeGitHubClient $gitHub, int $maxFiles = 500, int $maxSeconds = 120, int $heartbeatSeconds = 30): SkillSyncService
@@ -137,6 +147,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
                 'bodies' => [self::SKILL_A_PATH => $this->md('M' . $i, 'body ' . $i)],
             ];
         }
+
         return new FakeGitHubClient(
             repos: $repos,
             repoErrors: $repoErrors,
@@ -341,7 +352,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time()); // fresh heartbeat → lock is considered active
+        $source->setLastSynced(time());
+        // fresh heartbeat → lock is considered active
         $result = $this->service(new FakeGitHubClient('sha1', [], []))->sync($source);
         self::assertSame(SyncStatus::SYNCING, $result->status);
         self::assertSame(['A sync is already running for this source.'], $result->errors);
@@ -352,7 +364,8 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
     {
         $source = $this->repoSource();
         $source->setSyncStatus(SyncStatus::SYNCING->value);
-        $source->setLastSynced(time() - 3600); // older than STALE_LOCK_SECONDS → stale, proceed
+        $source->setLastSynced(time() - 3600);
+        // older than STALE_LOCK_SECONDS → stale, proceed
         $gitHub = new FakeGitHubClient('sha1', [self::SKILL_A_PATH], [
             self::SKILL_A_PATH => $this->md('A', 'body'),
         ]);
@@ -454,6 +467,7 @@ final class SkillSyncServiceTest extends AbstractFunctionalTestCase
         $source->setType(SkillSourceType::REPO->value);
         $source->setUrl(self::REPO_URL);
         $source->setRef('main');
+
         $sourceRepository = $this->get(SkillSourceRepository::class);
         $sourceRepository->add($source);
         $this->get(PersistenceManagerInterface::class)->persistAll();

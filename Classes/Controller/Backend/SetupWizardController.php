@@ -139,9 +139,10 @@ final class SetupWizardController extends ActionController
      */
     public function detectAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
 
@@ -164,9 +165,10 @@ final class SetupWizardController extends ActionController
      */
     public function testAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
@@ -197,9 +199,10 @@ final class SetupWizardController extends ActionController
      */
     public function discoverAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
@@ -233,14 +236,16 @@ final class SetupWizardController extends ActionController
      */
     public function generateAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         try {
             $body = $this->parseRequestBody($request);
         } catch (InvalidArgumentException $e) {
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
         }
+
         $endpoint = $this->extractStringFromBody($body, 'endpoint');
         $apiKey = $this->extractStringFromBody($body, 'apiKey');
         $adapterType = $this->extractStringFromBody($body, 'adapterType', 'openai');
@@ -278,14 +283,16 @@ final class SetupWizardController extends ActionController
      */
     public function saveAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         try {
             $body = $this->parseRequestBody($request);
         } catch (InvalidArgumentException $e) {
             return new JsonResponse((new ErrorResponse($e->getMessage()))->jsonSerialize(), 400);
         }
+
         $providerData = $this->extractArrayFromBody($body, 'provider');
         $modelsData = $this->extractArrayFromBody($body, 'models');
         $configurationsData = $this->extractArrayFromBody($body, 'configurations');
@@ -327,6 +334,7 @@ final class SetupWizardController extends ActionController
         if ($providerEndpoint !== '') {
             $providerEndpoint = $this->providerDetector->normalizeEndpointForAdapter($providerEndpoint, $providerAdapter);
         }
+
         $providerApiKey = is_string($providerData['apiKey'] ?? null) ? $providerData['apiKey'] : '';
 
         // Store the API key in the vault and use the vault identifier
@@ -404,6 +412,7 @@ final class SetupWizardController extends ActionController
             if (!is_array($modelData)) {
                 continue;
             }
+
             if (!($modelData['selected'] ?? false)) {
                 continue;
             }
@@ -476,6 +485,7 @@ final class SetupWizardController extends ActionController
             if (!is_array($configData)) {
                 continue;
             }
+
             if (!($configData['selected'] ?? false)) {
                 continue;
             }
@@ -483,7 +493,7 @@ final class SetupWizardController extends ActionController
             $recommendedModelId = is_string($configData['recommendedModelId'] ?? null) ? $configData['recommendedModelId'] : '';
             // Prefer the recommended model; otherwise fall back to the first
             // saved model, or null when none were saved.
-            $model = $savedModels[$recommendedModelId] ?? (empty($savedModels) ? null : reset($savedModels));
+            $model = $savedModels[$recommendedModelId] ?? ($savedModels === [] ? null : reset($savedModels));
 
             if ($model === null) {
                 continue;
@@ -548,6 +558,7 @@ final class SetupWizardController extends ActionController
             if (!is_array($modelData)) {
                 continue;
             }
+
             $models[] = new DiscoveredModel(
                 modelId: is_string($modelData['modelId'] ?? null) ? $modelData['modelId'] : '',
                 name: is_string($modelData['name'] ?? null) ? $modelData['name'] : '',
@@ -591,6 +602,7 @@ final class SetupWizardController extends ActionController
                 } catch (JsonException $e) {
                     throw new InvalidArgumentException('Invalid JSON request body: ' . $e->getMessage(), 1751280101, $e);
                 }
+
                 if (is_array($decoded)) {
                     /** @var array<string, mixed> $decoded */
                     return $decoded;
@@ -612,6 +624,7 @@ final class SetupWizardController extends ActionController
         if (!is_array($body)) {
             return $default;
         }
+
         $value = $body[$key] ?? $default;
         return is_scalar($value) ? trim((string)$value) : $default;
     }
@@ -626,6 +639,7 @@ final class SetupWizardController extends ActionController
         if (!is_array($body)) {
             return [];
         }
+
         $value = $body[$key] ?? [];
         return is_array($value) ? $value : [];
     }
@@ -638,6 +652,7 @@ final class SetupWizardController extends ActionController
         if (!is_array($body)) {
             return $default;
         }
+
         $value = $body[$key] ?? $default;
         return is_numeric($value) ? (int)$value : $default;
     }

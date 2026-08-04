@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
@@ -104,7 +105,7 @@ final class AgentRunController extends ActionController
         // Stale-review guard: reload the CURRENT state and refuse to approve a
         // turn the operator did not review (a stale tab or a second admin).
         $run = $this->persister->findRun($runUuid);
-        if ($run === null) {
+        if (!$run instanceof AgentRun) {
             $this->flash('runs.flash.error', ContextualFeedbackSeverity::ERROR);
 
             return $this->redirect('list');
@@ -116,6 +117,7 @@ final class AgentRunController extends ActionController
 
             return $this->redirect('list');
         }
+
         if ($currentDigest !== $turnDigest) {
             $this->flash('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
 
@@ -159,7 +161,7 @@ final class AgentRunController extends ActionController
         // Reload the CURRENT schema and coerce the all-strings POST against it,
         // so the no-JS path validates. Never coerce against a broken schema.
         $run = $this->persister->findRun($runUuid);
-        $schema = $run !== null ? $this->viewFactory->inputSchemaForRun($run) : null;
+        $schema = $run instanceof AgentRun ? $this->viewFactory->inputSchemaForRun($run) : null;
         if ($schema === null) {
             $this->flash('runs.unreadable', ContextualFeedbackSeverity::ERROR);
 

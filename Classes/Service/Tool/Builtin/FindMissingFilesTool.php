@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -88,7 +89,7 @@ final readonly class FindMissingFilesTool implements ToolInterface
         $limit = self::toInt($arguments['limit'] ?? self::DEFAULT_LIMIT);
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
-        $isAdmin = $user !== null && $user->isAdmin();
+        $isAdmin = $user instanceof BackendUserAuthentication && $user->isAdmin();
 
         $countQuery = $this->connectionPool->getQueryBuilderForTable('sys_file');
         $countQuery->getRestrictions()->removeAll();

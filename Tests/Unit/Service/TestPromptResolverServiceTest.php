@@ -36,6 +36,7 @@ final class TestPromptResolverServiceTest extends AbstractUnitTestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 

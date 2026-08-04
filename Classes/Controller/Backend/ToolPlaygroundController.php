@@ -19,7 +19,9 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
@@ -103,6 +105,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/ToolPlayground.js');
         $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Playground.css');
+
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
@@ -132,7 +135,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     public function runAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -159,6 +162,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         if ($temperature !== null) {
             $temperature = max(0.0, min(2.0, $temperature));
         }
+
         // Tri-state reasoning toggle (#312): '1' forces thinking on, '0'
         // off, anything else keeps the provider/model default.
         $think = match ($this->stringFromBody($body, 'think')) {
@@ -171,8 +175,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             maxTokens: $maxTokens > 0 ? $maxTokens : null,
             systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
             beUserUid: $this->currentBackendUserUid(),
-            captureRaw: $captureRaw,
             think: $think,
+            captureRaw: $captureRaw,
         );
 
         // The checked tool boxes restrict this run; absent any selection, fall
@@ -183,6 +187,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $agentRequest = new AgentRunRequest(
             configuration: $config,
             messages: [ChatMessage::user($prompt)],
+            actor: $this->currentActor(),
             allowedToolNames: $selected,
             options: $options,
             maxIterations: $maxRounds > 0 ? $maxRounds : null,
@@ -192,7 +197,6 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 dryRun: $dryRun,
             ),
             captureRaw: $captureRaw,
-            actor: $this->currentActor(),
         );
 
         // Live path: stream each recorded step to the browser as it happens.
@@ -216,7 +220,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     public function resumeAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -254,7 +258,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     public function submitInputAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -340,7 +344,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         $loop = $result->loopResult;
-        if ($loop === null) {
+        if (!$loop instanceof ToolLoopResult) {
             // Contract violation: a COMPLETED result always carries the loop
             // result. Surface it as a failure instead of fabricating a payload.
             $this->logger?->error('Completed agent run carried no loop result', ['run' => $result->runUuid]);
@@ -407,8 +411,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'status'       => 'awaiting_input',
             'runUuid'      => $result->runUuid,
             'inputRequest' => [
-                'tool'   => $state !== null ? ($state->inputToolName ?? '') : '',
-                'schema' => $state !== null ? $state->inputSchema : [],
+                'tool'   => $state instanceof SuspendedRunState ? ($state->inputToolName ?? '') : '',
+                'schema' => $state instanceof SuspendedRunState ? $state->inputSchema : [],
             ],
             'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
         ];
@@ -471,6 +475,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         while (ob_get_level() > 0) {
             ob_end_flush();
         }
+
         if (!headers_sent()) {
             header('Content-Type: application/x-ndjson; charset=utf-8');
             header('Cache-Control: no-cache, no-transform');
@@ -530,8 +535,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'success'      => true,
                     'runUuid'      => $result->runUuid,
                     'inputRequest' => [
-                        'tool'   => $inputState !== null ? ($inputState->inputToolName ?? '') : '',
-                        'schema' => $inputState !== null ? $inputState->inputSchema : [],
+                        'tool'   => $inputState instanceof SuspendedRunState ? ($inputState->inputToolName ?? '') : '',
+                        'schema' => $inputState instanceof SuspendedRunState ? $inputState->inputSchema : [],
                     ],
                 ]);
 
@@ -591,7 +596,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         $loop = $result->loopResult;
-        if ($loop === null) {
+        if (!$loop instanceof ToolLoopResult) {
             // Contract violation: a COMPLETED result always carries the loop
             // result. Emit an error line instead of fabricating a done event.
             $this->logger?->error('Completed agent run carried no loop result', ['run' => $result->runUuid]);
@@ -664,6 +669,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         if (!is_array($body)) {
             return 0;
         }
+
         $value = $body[$key] ?? 0;
         return is_numeric($value) ? (int)$value : 0;
     }
@@ -686,6 +692,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         if (!is_array($body)) {
             return '';
         }
+
         $value = $body[$key] ?? '';
         return is_scalar($value) ? (string)$value : '';
     }
@@ -718,9 +725,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         if (!is_array($body)) {
             return false;
         }
+
         $value = $body[$key] ?? false;
 
-        return $value === true || $value === 1 || $value === '1' || $value === 'true';
+        return in_array($value, [true, 1, '1', 'true'], true);
     }
 
     /**
@@ -823,7 +831,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     private function diagnoseRunFailure(?Throwable $e): string
     {
-        if ($e === null) {
+        if (!$e instanceof Throwable) {
             return 'Unknown error';
         }
 
@@ -835,6 +843,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             if ($e->httpStatus > 0) {
                 $detail .= sprintf(' (HTTP %d)', $e->httpStatus);
             }
+
             $body = trim($e->responseBody);
             if ($body !== '') {
                 $snippet = $this->sanitizeErrorMessage(mb_substr($body, 0, 500));

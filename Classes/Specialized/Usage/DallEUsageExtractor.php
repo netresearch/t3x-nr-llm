@@ -48,7 +48,7 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
     public function extract(ProviderCallContext $context, mixed $result): ?ProviderUsageRecord
     {
         $intent = SpecializedUsageIntent::fromContext($context);
-        if ($intent === null) {
+        if (!$intent instanceof SpecializedUsageIntent) {
             return null;
         }
 
@@ -57,11 +57,13 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
         // and variation endpoints carry the n requested.
         $data       = is_array($result) && is_array($result['data'] ?? null) ? $result['data'] : [];
         $imageCount = count($data);
-
         // gpt-image-* responses include a `usage` token object; dall-e-2/3 never
         // send one — token metrics are omitted then (all-zero) so the cost falls
         // back to the per-image catalog instead of a fabricated token price.
-        $input = $output = $total = $imageInput = 0;
+        $input = 0;
+        $output = 0;
+        $total = 0;
+        $imageInput = 0;
         $usage = is_array($result) ? ($result['usage'] ?? null) : null;
         if (is_array($usage)) {
             $input  = is_numeric($usage['input_tokens'] ?? null) ? (int)$usage['input_tokens'] : 0;
@@ -80,6 +82,7 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
             $metrics['promptTokens']     = $input;
             $metrics['completionTokens'] = $output;
         }
+
         $metrics['cost'] = $this->costCalculator->estimateImageCost(
             $intent->modelId,
             $intent->quality ?? 'standard',

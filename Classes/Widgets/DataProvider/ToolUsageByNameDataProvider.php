@@ -71,9 +71,14 @@ final readonly class ToolUsageByNameDataProvider implements ChartDataProviderInt
         $labels = [];
         $data   = [];
         foreach ($counts as $toolName => $count) {
-            if ($toolName === '' || $count <= 0) {
+            if ($toolName === '') {
                 continue;
             }
+
+            if ($count <= 0) {
+                continue;
+            }
+
             $labels[] = $toolName;
             $data[]   = $count;
         }

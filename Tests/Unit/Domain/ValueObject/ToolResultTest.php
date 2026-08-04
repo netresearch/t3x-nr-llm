@@ -72,6 +72,7 @@ final class ToolResultTest extends TestCase
                 $stringProps[] = $property->getName();
             }
         }
+
         self::assertSame(['content'], $stringProps);
     }
 }

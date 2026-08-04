@@ -29,7 +29,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class FetchLogsToolTest extends AbstractFunctionalTestCase
 {
     private const RAW_IP = '203.0.113.55';
+
     private const USER_ID = '4242';
+
     private const PAYLOAD_USERNAME = 'secretadmin';
 
     private FetchLogsTool $tool;

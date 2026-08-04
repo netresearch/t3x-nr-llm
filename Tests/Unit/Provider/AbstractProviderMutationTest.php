@@ -26,6 +26,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use ReflectionException;
 use Throwable;
@@ -68,9 +69,10 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         try {
             return $method->invoke($object, ...$args);
         } catch (ReflectionException $e) {
-            if ($e->getPrevious() !== null) {
+            if ($e->getPrevious() instanceof Throwable) {
                 throw $e->getPrevious();
             }
+
             throw $e;
         }
     }
@@ -242,7 +244,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
                 $capturedUrl = (string)$request->getUri();
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -277,7 +279,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedUrl): ResponseInterface {
                 $capturedUrl = (string)$request->getUri();
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -313,7 +315,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function () use (&$attempts) {
+            ->willReturnCallback(function () use (&$attempts): ResponseInterface {
                 $attempts++;
                 if ($attempts < 3) {
                     throw new class ('Connection failed', 6712573549) extends Exception implements ClientExceptionInterface {};
@@ -386,7 +388,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function () use (&$attempts) {
+            ->willReturnCallback(function () use (&$attempts): ResponseInterface {
                 $attempts++;
 
                 return $this->createJsonResponseMock(['error' => ['message' => 'Bad request']], 400);
@@ -636,7 +638,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
                 $capturedBody = (string)$request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -671,7 +673,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
                 $capturedBody = (string)$request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -706,7 +708,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedBody): ResponseInterface {
                 $capturedBody = (string)$request->getBody();
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -743,7 +745,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest) {
+            ->willReturnCallback(function (RequestInterface $request) use (&$capturedRequest): ResponseInterface {
                 $capturedRequest = $request;
 
                 return $this->createJsonResponseMock(['ok' => true]);
@@ -809,7 +811,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function () use (&$attempts) {
+            ->willReturnCallback(function () use (&$attempts): ResponseInterface {
                 $attempts++;
                 // Return a server error that causes retry
                 return $this->createJsonResponseMock(['error' => 'Server error'], 500);
@@ -880,7 +882,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         $httpClient = self::createStub(ClientInterface::class);
         $httpClient
             ->method('sendRequest')
-            ->willReturnCallback(function () use (&$attempts) {
+            ->willReturnCallback(function () use (&$attempts): ResponseInterface {
                 $attempts++;
 
                 return $this->createJsonResponseMock(['success' => true]);

@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
-use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface;
@@ -139,7 +139,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         mixed $result,
     ): void {
         [$usage, $provider, $responseModel] = $this->extractUsage($result);
-        if ($usage === null) {
+        if (!$usage instanceof UsageStatistics) {
             // Not a token-shaped response — a specialized operation (image /
             // speech / translation) records through its tagged extractor instead
             // (ADR-100).
@@ -169,7 +169,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
         // Cost: prefer a cost the provider already computed; otherwise derive
         // it from the model's pricing and the prompt/completion token split.
         $cost = $usage->estimatedCost;
-        if ($cost === null && $model !== null && $model->hasPricing()) {
+        if ($cost === null && $model instanceof Model && $model->hasPricing()) {
             $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
         }
 

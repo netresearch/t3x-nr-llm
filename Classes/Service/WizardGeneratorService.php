@@ -51,7 +51,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     {
         if ($configurationUid !== null && $configurationUid > 0) {
             $config = $this->configurationRepository->findByUid($configurationUid);
-            if ($config instanceof LlmConfiguration && $config->getLlmModel() !== null) {
+            if ($config instanceof LlmConfiguration && $config->getLlmModel() instanceof Model) {
                 return $config;
             }
         }
@@ -67,7 +67,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     public function generateConfiguration(string $description, ?LlmConfiguration $config = null): array
     {
         $config ??= $this->getDefaultConfiguration();
-        if ($config === null) {
+        if (!$config instanceof LlmConfiguration) {
             return $this->fallbackConfiguration($description);
         }
 
@@ -103,7 +103,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     public function generateTask(string $description, ?LlmConfiguration $config = null): array
     {
         $config ??= $this->getDefaultConfiguration();
-        if ($config === null) {
+        if (!$config instanceof LlmConfiguration) {
             return $this->fallbackTask($description);
         }
 
@@ -142,7 +142,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     public function generateTaskWithChain(string $description, ?LlmConfiguration $config = null): array
     {
         $config ??= $this->getDefaultConfiguration();
-        if ($config === null) {
+        if (!$config instanceof LlmConfiguration) {
             return $this->fallbackTaskChain($description);
         }
 
@@ -224,13 +224,13 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function getDefaultConfiguration(): ?LlmConfiguration
     {
         $config = $this->configurationRepository->findDefault();
-        if ($config instanceof LlmConfiguration && $config->getLlmModel() !== null) {
+        if ($config instanceof LlmConfiguration && $config->getLlmModel() instanceof Model) {
             return $config;
         }
 
         // Try first active config
         foreach ($this->configurationRepository->findAll() as $c) {
-            if ($c instanceof LlmConfiguration && $c->isActive() && $c->getLlmModel() !== null) {
+            if ($c instanceof LlmConfiguration && $c->isActive() && $c->getLlmModel() instanceof Model) {
                 return $c;
             }
         }
@@ -317,6 +317,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if (!$config instanceof LlmConfiguration) {
                 continue;
             }
+
             $configs[] = sprintf('- %s: %s', $config->getName(), $config->getDescription());
         }
 
@@ -324,6 +325,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         if ($models !== []) {
             $parts[] = "Available models:\n" . implode("\n", array_slice($models, 0, 10));
         }
+
         if ($configs !== []) {
             $parts[] = "Existing configurations (avoid duplicates):\n" . implode("\n", $configs);
         }
@@ -338,6 +340,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if (!$config instanceof LlmConfiguration) {
                 continue;
             }
+
             $configs[] = sprintf('- %s (identifier: %s)', $config->getName(), $config->getIdentifier());
         }
 
@@ -410,7 +413,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         // Every strategy failed to yield a usable object: log the last parse error with a
         // content sample so a malformed LLM response is distinguishable from an empty one.
         // The caller still falls back to its defaults (behaviour unchanged on the happy path).
-        if ($result === null && $lastError !== null) {
+        if ($result === null && $lastError instanceof JsonException) {
             $this->logger->warning('Wizard could not parse LLM JSON response', [
                 'exception' => $lastError->getMessage(),
                 'sample'    => substr($content, 0, 200),
@@ -579,6 +582,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
             if (!$config instanceof LlmConfiguration) {
                 continue;
             }
+
             $configs[] = sprintf(
                 '- %s (identifier: %s): %s',
                 $config->getName(),
@@ -594,6 +598,7 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         if ($models !== []) {
             $parts[] = "Available models (prefer these):\n" . implode("\n", array_slice($models, 0, 10));
         }
+
         if ($configs !== []) {
             $parts[] = "Existing configurations (for reference, avoid duplicate names):\n" . implode("\n", $configs);
         }

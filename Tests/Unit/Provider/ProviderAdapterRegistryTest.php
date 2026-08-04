@@ -34,6 +34,7 @@ use stdClass;
 class ProviderAdapterRegistryTest extends AbstractUnitTestCase
 {
     private ProviderAdapterRegistry $subject;
+
     private LoggerInterface&Stub $loggerStub;
 
     protected function setUp(): void

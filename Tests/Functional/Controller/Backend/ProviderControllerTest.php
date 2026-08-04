@@ -35,11 +35,15 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class ProviderControllerTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_PROVIDER_TOGGLE = '/ajax/nrllm/provider/toggle';
+
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+
     private const AJAX_NRLLM_PROVIDER_TEST = '/ajax/nrllm/provider/test';
 
     private ProviderController $controller;
+
     private ProviderRepository $providerRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void

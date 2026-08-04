@@ -257,7 +257,7 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
                 ->executeStatement();
 
             $deleteBuilder = $sessionConnection->createQueryBuilder();
-            $deleted += (int)$deleteBuilder
+            $deleted += $deleteBuilder
                 ->delete(self::TABLE_SESSION)
                 ->where($deleteBuilder->expr()->in('uid', $deleteBuilder->createNamedParameter($chunk, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();

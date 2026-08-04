@@ -31,7 +31,9 @@ final readonly class VisionService implements VisionServiceInterface
     use AutoPopulatesBeUserUidTrait;
 
     private const PROMPT_ALT_TEXT = 'Generate a concise alt text for this image, under 125 characters, focused on essential information for screen readers. Be descriptive but brief.';
+
     private const PROMPT_SEO_TITLE = 'Generate an SEO-optimized title for this image, under 60 characters, that is compelling and keyword-rich for search rankings.';
+
     private const PROMPT_DESCRIPTION = 'Provide a comprehensive description of this image including subjects, setting, colors, mood, composition, and notable details.';
 
     public function __construct(
@@ -55,6 +57,7 @@ final readonly class VisionService implements VisionServiceInterface
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(100);
         }
+
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(0.5);
         }
@@ -82,6 +85,7 @@ final readonly class VisionService implements VisionServiceInterface
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(50);
         }
+
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(0.7);
         }
@@ -109,6 +113,7 @@ final readonly class VisionService implements VisionServiceInterface
         if ($options->getMaxTokens() === null) {
             $options = $options->withMaxTokens(500);
         }
+
         if ($options->getTemperature() === null) {
             $options = $options->withTemperature(0.7);
         }

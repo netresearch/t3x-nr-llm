@@ -50,6 +50,6 @@ final readonly class ToolEffectResolver
     {
         $tool = $this->registry->get($toolName);
 
-        return $tool === null ? ToolEffect::NON_IDEMPOTENT_WRITE : $this->effectForTool($tool);
+        return $tool instanceof ToolInterface ? $this->effectForTool($tool) : ToolEffect::NON_IDEMPOTENT_WRITE;
     }
 }

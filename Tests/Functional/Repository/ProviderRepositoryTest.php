@@ -29,6 +29,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ProviderRepositoryTest extends AbstractFunctionalTestCase
 {
     private ProviderRepository $repository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -187,6 +188,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
             $provider->setIsActive(false);
             $this->repository->update($provider);
         }
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 

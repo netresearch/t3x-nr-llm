@@ -46,6 +46,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 final class SkillConfigInjectionTest extends AbstractUnitTestCase
 {
     use LlmServiceManagerTestFactory;
+
     private const SKILL_NEEDLE = '### Skill: Config Skill';
 
     private const SYSTEM_PROMPT = 'You are a translator.';
@@ -234,6 +235,7 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $skill->setSupportStatus(SupportStatus::FULL->value);
         $skill->setEnabled(true);
         $skill->setOrphaned(false);
+
         $configuration->addSkill($skill);
 
         return $configuration;

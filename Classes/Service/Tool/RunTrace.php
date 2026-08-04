@@ -68,7 +68,7 @@ final class RunTrace
      */
     public function beforeToolExecution(string $toolName): void
     {
-        if ($this->onBeforeTool !== null) {
+        if ($this->onBeforeTool instanceof Closure) {
             ($this->onBeforeTool)($toolName);
         }
     }
@@ -89,7 +89,7 @@ final class RunTrace
             kind: RunStep::KIND_REQUEST,
             round: $round,
             durationMs: 0.0,
-            messagesSent: self::snapshotMessages($messagesSent),
+            messagesSent: $this->snapshotMessages($messagesSent),
             toolSpecs: $toolSpecs,
         ));
     }
@@ -180,7 +180,7 @@ final class RunTrace
             kind: RunStep::KIND_ASSEMBLED,
             round: 0,
             durationMs: 0.0,
-            messagesSent: self::snapshotMessages($messages),
+            messagesSent: $this->snapshotMessages($messages),
         ));
     }
 
@@ -199,7 +199,7 @@ final class RunTrace
     private function add(RunStep $step): void
     {
         $this->steps[] = $step;
-        if ($this->onRecord !== null) {
+        if ($this->onRecord instanceof Closure) {
             ($this->onRecord)($step);
         }
     }
@@ -212,7 +212,7 @@ final class RunTrace
      *
      * @return list<array<string, mixed>>
      */
-    private static function snapshotMessages(array $messages): array
+    private function snapshotMessages(array $messages): array
     {
         $out = [];
         foreach ($messages as $message) {

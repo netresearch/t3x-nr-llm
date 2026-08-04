@@ -42,7 +42,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     {
         $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
 
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException(
                 sprintf('LLM configuration "%s" not found', $identifier),
                 8232736809,
@@ -71,7 +71,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
     {
         $configuration = $this->configurationRepository->findDefault();
 
-        if ($configuration === null) {
+        if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException('No default LLM configuration found', 7230464472);
         }
 
@@ -139,7 +139,7 @@ final readonly class LlmConfigurationService implements LlmConfigurationServiceI
             $allowedGroupIds = $this->getConfigurationGroupIds($configuration);
 
             // Check if user is in any allowed group
-            $hasAccess = !empty(array_intersect($userGroupIds, $allowedGroupIds));
+            $hasAccess = array_intersect($userGroupIds, $allowedGroupIds) !== [];
         }
 
         return $hasAccess;

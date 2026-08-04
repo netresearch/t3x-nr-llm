@@ -40,8 +40,11 @@ use ReflectionClass;
 class TranslationServiceTest extends AbstractUnitTestCase
 {
     private LlmServiceManagerInterface&Stub $llmManagerStub;
+
     private TranslatorRegistryInterface&MockObject $translatorRegistryMock;
+
     private LlmConfigurationServiceInterface&Stub $configServiceStub;
+
     private TranslationService $subject;
 
     protected function setUp(): void
@@ -1056,7 +1059,7 @@ class TranslationServiceTest extends AbstractUnitTestCase
             ->method('get')
             ->willReturn($translatorStub);
 
-        $result = $this->subject->translateBatchWithTranslator(['Hello', 'World'], 'de', null);
+        $result = $this->subject->translateBatchWithTranslator(['Hello', 'World'], 'de');
 
         self::assertCount(2, $result);
     }

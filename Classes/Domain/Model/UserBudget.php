@@ -26,16 +26,21 @@ class UserBudget extends AbstractEntity
     protected int $beUser = 0;
 
     protected int $maxRequestsPerDay = 0;
+
     protected int $maxTokensPerDay = 0;
+
     protected float $maxCostPerDay = 0.0;
 
     protected int $maxRequestsPerMonth = 0;
+
     protected int $maxTokensPerMonth = 0;
+
     protected float $maxCostPerMonth = 0.0;
 
     protected bool $isActive = true;
 
     protected int $tstamp = 0;
+
     protected int $crdate = 0;
 
     public function getBeUser(): int

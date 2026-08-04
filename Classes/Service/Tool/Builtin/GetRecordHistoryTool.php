@@ -104,7 +104,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         // Non-admins must hold PAGE_SHOW on the record's page (same gate as
         // read_records) — history values must not leak from unreadable pages.
         // Fail-closed: an unresolvable record (e.g. hard-deleted) denies too.
-        if ($user !== null && !$user->isAdmin() && !$this->recordPageIsReadable($user, $table, $uid)) {
+        if ($user instanceof BackendUserAuthentication && !$user->isAdmin() && !$this->recordPageIsReadable($user, $table, $uid)) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
@@ -243,6 +243,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
                 }
             }
         }
+
         if ($uids === []) {
             return [];
         }
@@ -298,11 +299,13 @@ final readonly class GetRecordHistoryTool implements ToolInterface
             if ($fieldFilter !== '' && $fieldName !== $fieldFilter) {
                 continue;
             }
+
             // Credential-like fields: the change is visible, the values are not.
             if ($this->tableAccess->isSensitiveField($fieldName)) {
                 $parts[] = sprintf('%s: [changed — detail withheld]', $fieldName);
                 continue;
             }
+
             $parts[] = sprintf(
                 "%s: '%s' → '%s'",
                 $fieldName,
@@ -323,6 +326,7 @@ final readonly class GetRecordHistoryTool implements ToolInterface
         if ($value === null) {
             return '(unset)';
         }
+
         if (!is_scalar($value)) {
             return '[complex value]';
         }

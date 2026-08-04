@@ -47,7 +47,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 100),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 100),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -64,7 +64,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 200),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 200),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -82,7 +82,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.5),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.5),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -99,7 +99,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.8),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.8),
             )
             ->willReturn($this->createMockVisionResponse('Alt text'));
 
@@ -117,7 +117,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 50),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 50),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -134,7 +134,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 75),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 75),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -152,7 +152,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Title'));
 
@@ -169,7 +169,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getMaxTokens() === 500),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getMaxTokens() === 500),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -186,7 +186,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
             ->method('vision')
             ->with(
                 self::anything(),
-                self::callback(fn(VisionOptions $opts) => $opts->getTemperature() === 0.7),
+                self::callback(fn(VisionOptions $opts): bool => $opts->getTemperature() === 0.7),
             )
             ->willReturn($this->createMockVisionResponse('Description'));
 
@@ -489,7 +489,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerMock);
 
         // Pass null explicitly
-        $result = $service->generateAltText('https://example.com/image.jpg', null);
+        $result = $service->generateAltText('https://example.com/image.jpg');
 
         self::assertEquals('Alt text', $result);
     }
@@ -506,7 +506,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerMock);
 
         // Pass null explicitly
-        $result = $service->generateTitle('https://example.com/image.jpg', null);
+        $result = $service->generateTitle('https://example.com/image.jpg');
 
         self::assertEquals('Title', $result);
     }
@@ -523,7 +523,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerMock);
 
         // Pass null explicitly
-        $result = $service->generateDescription('https://example.com/image.jpg', null);
+        $result = $service->generateDescription('https://example.com/image.jpg');
 
         self::assertEquals('Description', $result);
     }
@@ -540,7 +540,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerMock);
 
         // Pass null explicitly
-        $result = $service->analyzeImage('https://example.com/image.jpg', 'Prompt', null);
+        $result = $service->analyzeImage('https://example.com/image.jpg', 'Prompt');
 
         self::assertEquals('Analysis', $result);
     }
@@ -557,7 +557,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerMock);
 
         // Pass null explicitly
-        $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Prompt', null);
+        $result = $service->analyzeImageFull('https://example.com/image.jpg', 'Prompt');
 
         self::assertInstanceOf(VisionResponse::class, $result);
     }

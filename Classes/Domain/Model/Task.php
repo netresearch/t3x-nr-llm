@@ -34,12 +34,16 @@ class Task extends AbstractEntity
      * @deprecated Use TaskInputType enum instead
      */
     public const INPUT_MANUAL = 'manual';
+
     /** @deprecated Use TaskInputType enum instead */
     public const INPUT_SYSLOG = 'syslog';
+
     /** @deprecated Use TaskInputType enum instead */
     public const INPUT_DEPRECATION_LOG = 'deprecation_log';
+
     /** @deprecated Use TaskInputType enum instead */
     public const INPUT_TABLE = 'table';
+
     /** @deprecated Use TaskInputType enum instead */
     public const INPUT_FILE = 'file';
 
@@ -49,10 +53,13 @@ class Task extends AbstractEntity
      * @deprecated Use TaskOutputFormat enum instead
      */
     public const OUTPUT_MARKDOWN = 'markdown';
+
     /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_JSON = 'json';
+
     /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_PLAIN = 'plain';
+
     /** @deprecated Use TaskOutputFormat enum instead */
     public const OUTPUT_HTML = 'html';
 
@@ -62,28 +69,45 @@ class Task extends AbstractEntity
      * @deprecated Use TaskCategory enum instead
      */
     public const CATEGORY_LOG_ANALYSIS = 'log_analysis';
+
     /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_CONTENT = 'content';
+
     /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_SYSTEM = 'system';
+
     /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_DEVELOPER = 'developer';
+
     /** @deprecated Use TaskCategory enum instead */
     public const CATEGORY_GENERAL = 'general';
 
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
+
     protected string $category = TaskCategory::GENERAL->value;
+
     protected ?LlmConfiguration $configuration = null;
+
     protected string $promptTemplate = '';
+
     protected string $inputType = TaskInputType::MANUAL->value;
+
     protected string $inputSource = '';
+
     protected string $outputFormat = TaskOutputFormat::MARKDOWN->value;
+
     protected bool $isActive = true;
+
     protected bool $isSystem = false;
+
     protected int $sorting = 0;
+
     protected int $tstamp = 0;
+
     protected int $crdate = 0;
 
     /**
@@ -168,10 +192,12 @@ class Task extends AbstractEntity
         if ($this->inputSource === '') {
             return [];
         }
+
         $decoded = json_decode($this->inputSource, true);
         if (!is_array($decoded)) {
             return [];
         }
+
         /** @var array<string, mixed> $decoded */
         return $decoded;
     }
@@ -234,6 +260,7 @@ class Task extends AbstractEntity
         if (!isset($this->skills)) { // @phpstan-ignore isset.initializedProperty (Extbase reconstitution skips the constructor)
             $this->skills = new ObjectStorage();
         }
+
         return $this->skills;
     }
 

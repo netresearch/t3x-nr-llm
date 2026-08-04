@@ -56,9 +56,10 @@ final class ModelDiscoveryController extends ActionController
      */
     public function fetchAvailableModelsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
 
@@ -145,15 +146,16 @@ final class ModelDiscoveryController extends ActionController
      */
     public function detectLimitsAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) !== null) {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
             return $deny;
         }
+
         $body = $request->getParsedBody();
         $providerUid = $this->extractIntFromBody($body, 'providerUid');
         $modelId = $this->extractStringFromBody($body, 'modelId');
 
         $validationError = $this->validateDetectLimitsInput($providerUid, $modelId);
-        if ($validationError !== null) {
+        if ($validationError instanceof ResponseInterface) {
             return $validationError;
         }
 

@@ -89,9 +89,7 @@ trait MultipartBodyBuilderTrait
                 : $this->encodeFieldPart($part, $name);
         }
 
-        $body .= "--{$boundary}--\r\n";
-
-        return $body;
+        return $body . "--{$boundary}--\r\n";
     }
 
     /**

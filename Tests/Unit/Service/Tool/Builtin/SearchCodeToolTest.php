@@ -32,6 +32,7 @@ final class SearchCodeToolTest extends TestCase
         foreach (['Classes', 'vendor/acme', '.git', 'var/log', 'Resources'] as $dir) {
             mkdir($this->root . '/' . $dir, 0o777, true);
         }
+
         file_put_contents($this->root . '/Classes/Alpha.php', "<?php\nfunction findMeHere() {}\n\$apiKey = 'topsecret-findMeHere';\n");
         file_put_contents($this->root . '/Resources/notes.md', "findMeHere in docs\n");
         file_put_contents($this->root . '/Classes/binary.png', 'findMeHere-in-binary');

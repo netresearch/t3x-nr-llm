@@ -158,7 +158,7 @@ final class ContextWindowManagerTest extends TestCase
     private function turn(string $callId, string $result): array
     {
         return [
-            ChatMessage::assistantToolCalls([new ToolCall($callId, 'fetch', ['q' => 'x'])], null),
+            ChatMessage::assistantToolCalls([new ToolCall($callId, 'fetch', ['q' => 'x'])]),
             ChatMessage::toolResult($callId, $result),
         ];
     }

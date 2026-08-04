@@ -32,8 +32,8 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function returnsQueuedResponsesInFifoOrderAcrossTheResponseMethods(): void
     {
-        $first  = self::response('first');
-        $second = self::response('second');
+        $first  = $this->response('first');
+        $second = $this->response('second');
 
         $subject = new FakeCompletionService();
         $subject->responses = [$first, $second];
@@ -45,8 +45,8 @@ final class FakeCompletionServiceTest extends TestCase
     #[Test]
     public function factualAndCreativeAlsoDrawFromTheResponseQueue(): void
     {
-        $first  = self::response('factual');
-        $second = self::response('creative');
+        $first  = $this->response('factual');
+        $second = $this->response('creative');
 
         $subject = new FakeCompletionService();
         $subject->responses = [$first, $second];
@@ -79,7 +79,7 @@ final class FakeCompletionServiceTest extends TestCase
     public function recordsPromptAndOptionsPerMethod(): void
     {
         $subject = new FakeCompletionService();
-        $subject->responses = [self::response('ok')];
+        $subject->responses = [$this->response('ok')];
 
         $subject->complete('the prompt');
 
@@ -94,7 +94,7 @@ final class FakeCompletionServiceTest extends TestCase
         $configuration = new LlmConfiguration();
 
         $subject = new FakeCompletionService();
-        $subject->responses = [self::response('ok')];
+        $subject->responses = [$this->response('ok')];
 
         $subject->completeForConfiguration('p', $configuration);
 
@@ -106,7 +106,7 @@ final class FakeCompletionServiceTest extends TestCase
     public function throwsConfiguredThrowableInsteadOfReturning(): void
     {
         $subject = new FakeCompletionService();
-        $subject->responses = [self::response('unused')];
+        $subject->responses = [$this->response('unused')];
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
@@ -144,7 +144,7 @@ final class FakeCompletionServiceTest extends TestCase
         $subject->complete('a');
     }
 
-    private static function response(string $content): CompletionResponse
+    private function response(string $content): CompletionResponse
     {
         return new CompletionResponse($content, 'fake-model', new UsageStatistics(0, 0, 0));
     }

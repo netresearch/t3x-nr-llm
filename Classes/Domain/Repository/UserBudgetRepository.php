@@ -36,6 +36,7 @@ class UserBudgetRepository extends Repository
         if ($beUser <= 0) {
             return null;
         }
+
         $query = $this->createQuery();
         $query->matching($query->equals('beUser', $beUser));
         /** @var UserBudget|null $result */
@@ -70,6 +71,7 @@ class UserBudgetRepository extends Repository
             if (!$budget instanceof UserBudget) {
                 continue;
             }
+
             $uid = $budget->getBeUser();
             // First budget per user wins (matches findOneByBeUser()'s getFirst()).
             if (!isset($map[$uid])) {

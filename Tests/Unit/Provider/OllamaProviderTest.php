@@ -36,6 +36,7 @@ use RuntimeException;
 class OllamaProviderTest extends AbstractUnitTestCase
 {
     private OllamaProvider $subject;
+
     private ClientInterface&Stub $httpClientStub;
 
     protected function setUp(): void

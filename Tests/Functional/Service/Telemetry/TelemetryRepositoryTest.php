@@ -23,6 +23,7 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
     private const TABLE = 'tx_nrllm_telemetry';
 
     private TelemetryRepository $repository;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

@@ -39,6 +39,7 @@ use Psr\Http\Message\StreamInterface;
 class OpenAiProviderTest extends AbstractUnitTestCase
 {
     private OpenAiProvider $subject;
+
     private ClientInterface&Stub $httpClientStub;
 
     protected function setUp(): void
@@ -797,7 +798,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -827,7 +828,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -858,7 +859,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -1272,7 +1273,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);
@@ -1305,7 +1306,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
 
         $stream = self::createStub(StreamInterface::class);
         $eofCallCount = 0;
-        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount) {
+        $stream->method('eof')->willReturnCallback(function () use (&$eofCallCount): bool {
             return ++$eofCallCount > 1;
         });
         $stream->method('read')->willReturn($streamData);

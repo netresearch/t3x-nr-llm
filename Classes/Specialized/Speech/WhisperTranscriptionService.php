@@ -47,7 +47,9 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
     use MultipartBodyBuilderTrait;
 
     private const API_URL = 'https://api.openai.com/v1/audio';
+
     private const DEFAULT_MODEL = 'whisper-1';
+
     private const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 
     /** Supported input audio formats. */
@@ -279,6 +281,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 ['audioPath' => $audioPath],
             );
         }
+
         $parts = $this->buildTranscriptionParts(basename($audioPath), $content, $options);
 
         return $this->dispatchMultipart('transcriptions', $parts, $options);
@@ -316,6 +319,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 ['audioPath' => $audioPath],
             );
         }
+
         $parts = $this->buildTranscriptionParts(basename($audioPath), $content, $options);
 
         return $this->dispatchMultipart('translations', $parts, $options);
@@ -349,12 +353,15 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         if ($options->language !== null) {
             $parts[] = ['name' => 'language', 'value' => $options->language];
         }
+
         if ($options->format !== null) {
             $parts[] = ['name' => 'response_format', 'value' => $options->format];
         }
+
         if ($options->prompt !== null) {
             $parts[] = ['name' => 'prompt', 'value' => $options->prompt];
         }
+
         if ($options->temperature !== null) {
             $parts[] = ['name' => 'temperature', 'value' => (string)$options->temperature];
         }
@@ -395,6 +402,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         foreach ($this->getAdditionalHeaders() as $name => $value) {
             $request = $request->withHeader($name, $value);
         }
+
         $request = $request->withBody($this->streamFactory->createStream($body));
 
         // Fail closed before the try (see AbstractSpecializedService, ADR-099).

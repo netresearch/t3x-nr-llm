@@ -65,6 +65,7 @@ final class OpenRouterProvider extends AbstractProvider implements
     private const ENDPOINT_CHAT_COMPLETIONS = 'chat/completions';
 
     private const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4-5';
+
     private const DEFAULT_EMBEDDING_MODEL = 'openai/text-embedding-3-small';
 
     /** @var array<int, string> */
@@ -406,7 +407,7 @@ final class OpenRouterProvider extends AbstractProvider implements
                 // Untrusted provider output: skip a malformed tool call (missing
                 // id/name) instead of crashing the whole completion.
                 $call = ToolCall::tryFromArray($this->asArray($tc));
-                if ($call !== null) {
+                if ($call instanceof ToolCall) {
                     $toolCalls[] = $call;
                 }
             }
@@ -657,6 +658,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($this->siteUrl !== '') {
             $request = $request->withHeader('HTTP-Referer', $this->siteUrl);
         }
+
         if ($this->appName !== '') {
             $request = $request->withHeader('X-Title', $this->appName);
         }
@@ -754,7 +756,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($minContext > 0) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => $model['context_length'] >= $minContext,
+                static fn(array $model): bool => $model['context_length'] >= $minContext,
             );
         }
 
@@ -762,15 +764,15 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($this->getBool($options, 'vision_required')) {
             $filtered = array_filter(
                 $filtered,
-                static fn($model) => $model['capabilities']['vision'] ?? false,
+                static fn(array $model) => $model['capabilities']['vision'] ?? false,
             );
         }
 
         // Function calling
         if ($this->getBool($options, 'function_calling')) {
-            $filtered = array_filter(
+            return array_filter(
                 $filtered,
-                static fn($model) => $model['capabilities']['function_calling'] ?? false,
+                static fn(array $model) => $model['capabilities']['function_calling'] ?? false,
             );
         }
 
@@ -900,6 +902,7 @@ final class OpenRouterProvider extends AbstractProvider implements
         if ($this->siteUrl !== '') {
             $request = $request->withHeader('HTTP-Referer', $this->siteUrl);
         }
+
         if ($this->appName !== '') {
             $request = $request->withHeader('X-Title', $this->appName);
         }

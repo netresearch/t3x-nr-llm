@@ -39,15 +39,23 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
 {
     private const AJAX_TASK_REFRESH_INPUT = '/ajax/task/refresh-input';
+
     private const AJAX_TASK_LOAD_RECORD = '/ajax/task/load-record';
+
     private const AJAX_TASK_EXECUTE = '/ajax/task/execute';
+
     private const AJAX_TASK_RECORDS = '/ajax/task/records';
+
     private const TEST_INPUT = 'Test input';
+
     private const INPUT = '{{input}}';
 
     private TaskExecutionController $executionController;
+
     private TaskRecordsController $recordsController;
+
     private TaskRepository $taskRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -2074,6 +2082,7 @@ final class TaskExecutionE2ETest extends AbstractBackendE2ETestCase
         // Update
         $retrieved->setName('Updated Task Name');
         $retrieved->setDescription('Added description');
+
         $this->taskRepository->update($retrieved);
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();

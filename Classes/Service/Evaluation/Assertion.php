@@ -33,7 +33,8 @@ final readonly class Assertion
                 1794000001,
             );
         }
-        if ($type === AssertionType::REGEX && !self::isValidPattern($value)) {
+
+        if ($type === AssertionType::REGEX && !$this->isValidPattern($value)) {
             throw new InvalidArgumentException(
                 sprintf('Assertion regex "%s" is not a valid PCRE pattern.', $value),
                 1794000002,
@@ -46,7 +47,7 @@ final readonly class Assertion
      * `@` suppression operator (a temporary error handler swallows the
      * warning an invalid pattern would emit).
      */
-    private static function isValidPattern(string $pattern): bool
+    private function isValidPattern(string $pattern): bool
     {
         set_error_handler(static fn(): bool => true);
         try {

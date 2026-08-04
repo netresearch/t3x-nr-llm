@@ -22,24 +22,40 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 class Model extends AbstractEntity
 {
     protected string $identifier = '';
+
     protected string $name = '';
+
     protected string $description = '';
+
     protected ?Provider $provider = null;
+
     protected string $modelId = '';
+
     protected int $contextLength = 0;
+
     protected int $maxOutputTokens = 0;
 
     /** Embedding vector dimensionality of the model (0 = unknown). */
     protected int $dimensions = 0;
+
     protected string $capabilities = '';
+
     protected int $defaultTimeout = 120;
+
     protected int $costInput = 0;
+
     protected int $costOutput = 0;
+
     protected bool $isActive = true;
+
     protected bool $isDefault = false;
+
     protected int $sorting = 0;
+
     protected int $tstamp = 0;
+
     protected int $crdate = 0;
+
     // ========================================
     // Getters
     // ========================================
@@ -119,6 +135,7 @@ class Model extends AbstractEntity
         if ($this->capabilities === '') {
             return [];
         }
+
         return array_map(trim(...), explode(',', $this->capabilities));
     }
 
@@ -153,6 +170,7 @@ class Model extends AbstractEntity
                 $enums[] = $enum;
             }
         }
+
         return $enums;
     }
 
@@ -487,9 +505,10 @@ class Model extends AbstractEntity
      */
     public function getDisplayName(): string
     {
-        if ($this->provider !== null) {
+        if ($this->provider instanceof Provider) {
             return sprintf('%s (%s)', $this->name, $this->provider->getName());
         }
+
         return $this->name;
     }
 

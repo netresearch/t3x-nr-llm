@@ -49,6 +49,7 @@ final class GuardrailMiddlewareTest extends TestCase
             // A second guardrail sees the redacted content and allows it.
             new class implements GuardrailInterface {
                 use GuardrailIdentityDoubleTrait;
+
                 public function checkOutput(CompletionResponse $response): GuardrailResult
                 {
                     return $response->content === '[redacted]'
@@ -122,6 +123,7 @@ final class GuardrailMiddlewareTest extends TestCase
         // Retry while the content is 'first'; allow the fresh 'second'.
         $guardrail = new class implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function checkOutput(CompletionResponse $response): GuardrailResult
             {
                 return $response->content === 'first'
@@ -216,6 +218,7 @@ final class GuardrailMiddlewareTest extends TestCase
 
         $config = new LlmConfiguration();
         $config->setAllowedGuardrails('some-other-guardrail');
+
         $context = ProviderCallContext::forConfiguration(ProviderOperation::Chat, $config);
 
         $result = $middleware->handle($context, fn(): CompletionResponse => $this->response('hello'));
@@ -314,6 +317,7 @@ final class GuardrailMiddlewareTest extends TestCase
     {
         return new class ($result) implements GuardrailInterface {
             use GuardrailIdentityDoubleTrait;
+
             public function __construct(private readonly GuardrailResult $result) {}
 
             public function checkOutput(CompletionResponse $response): GuardrailResult

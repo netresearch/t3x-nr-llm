@@ -72,7 +72,7 @@ final readonly class ToolExecutionContext
      */
     public static function none(): self
     {
-        return new self(AiActorContext::anonymous(), null);
+        return new self(AiActorContext::anonymous());
     }
 
     /**

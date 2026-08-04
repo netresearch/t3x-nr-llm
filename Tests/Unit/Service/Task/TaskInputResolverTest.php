@@ -32,9 +32,13 @@ use RuntimeException;
 final class TaskInputResolverTest extends AbstractUnitTestCase
 {
     private SystemLogReaderInterface&MockObject $systemLogReader;
+
     private DeprecationLogReaderInterface&MockObject $deprecationLogReader;
+
     private RecordTableReaderInterface&MockObject $recordTableReader;
+
     private LoggerInterface&MockObject $logger;
+
     private TaskInputResolver $subject;
 
     protected function setUp(): void
@@ -53,7 +57,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
         );
     }
 
-    private static function makeTask(string $inputType, string $inputSourceJson = ''): Task
+    private function makeTask(string $inputType, string $inputSourceJson = ''): Task
     {
         $task = new Task();
         $task->setInputType($inputType);
@@ -70,7 +74,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
         $this->recordTableReader->expects(self::never())->method('fetchAll');
         $this->logger->expects(self::never())->method(self::anything());
 
-        self::assertSame('', $this->subject->resolve(self::makeTask('unknown')));
+        self::assertSame('', $this->subject->resolve($this->makeTask('unknown')));
     }
 
     #[Test]
@@ -84,7 +88,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
 
         self::assertSame(
             'deprecation-log-content',
-            $this->subject->resolve(self::makeTask(Task::INPUT_DEPRECATION_LOG)),
+            $this->subject->resolve($this->makeTask(Task::INPUT_DEPRECATION_LOG)),
         );
     }
 
@@ -101,7 +105,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG));
 
         // Exact rendering pins the timestamp formatting, the type-label
         // lookup (1 -> DB, 5 -> ERROR), the error marker threshold
@@ -128,7 +132,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->willReturn([[]]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG));
 
         self::assertSame('[' . date('Y-m-d H:i:s', 0) . '] [OTHER]  ', $output);
     }
@@ -148,7 +152,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG));
 
         self::assertSame('[' . date('Y-m-d H:i:s', 1714521600) . '] [FILE]  x', $output);
     }
@@ -175,7 +179,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG));
 
         $time  = date('Y-m-d H:i:s', 0);
         $lines = [
@@ -202,10 +206,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->with(25, false)
             ->willReturn([]);
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_SYSLOG,
-            '{"limit":25,"error_only":false}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG, '{"limit":25,"error_only":false}'));
 
         self::assertSame('', $output);
     }
@@ -225,10 +226,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->with(25, true)
             ->willReturn([]);
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_SYSLOG,
-            '{"limit":"25","error_only":1}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG, '{"limit":"25","error_only":1}'));
 
         self::assertSame('', $output);
     }
@@ -268,7 +266,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
                 }),
             );
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_SYSLOG));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_SYSLOG));
 
         self::assertStringNotContainsString('SQLSTATE', $output);
         self::assertStringNotContainsString('sys_log_secret', $output);
@@ -282,7 +280,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
         $this->recordTableReader->expects(self::never())->method('fetchAll');
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(Task::INPUT_TABLE, '{"limit":10}'));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"limit":10}'));
 
         self::assertSame('No table configured.', $output);
     }
@@ -300,10 +298,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_TABLE,
-            '{"table":"be_users","limit":5}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"table":"be_users","limit":5}'));
 
         self::assertJson($output);
         $decoded = json_decode($output, true);
@@ -326,10 +321,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->willReturn([['uid' => 1, 'username' => 'admin']]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_TABLE,
-            '{"table":"be_users","limit":"7"}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"table":"be_users","limit":"7"}'));
 
         self::assertSame(
             json_encode([['uid' => 1, 'username' => 'admin']], JSON_PRETTY_PRINT),
@@ -351,10 +343,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
             ->willReturn([['uid' => 1]]);
         $this->logger->expects(self::never())->method(self::anything());
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_TABLE,
-            '{"table":123,"limit":5}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"table":123,"limit":5}'));
 
         self::assertSame(
             json_encode([['uid' => 1]], JSON_PRETTY_PRINT),
@@ -395,10 +384,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
                 }),
             );
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_TABLE,
-            '{"table":"be_users"}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"table":"be_users"}'));
 
         self::assertStringNotContainsString('SQLSTATE', $output);
         self::assertStringNotContainsString('secret_table', $output);
@@ -435,10 +421,7 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
                 }),
             );
 
-        $output = $this->subject->resolve(self::makeTask(
-            Task::INPUT_TABLE,
-            '{"table":"be_groups"}',
-        ));
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, '{"table":"be_groups"}'));
 
         self::assertSame('Error reading table. See system log for details.', $output);
     }

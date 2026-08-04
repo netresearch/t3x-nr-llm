@@ -113,6 +113,6 @@ abstract class AbstractOptions
      */
     protected function filterNull(array $array): array
     {
-        return array_filter($array, static fn($v) => $v !== null);
+        return array_filter($array, static fn($v): bool => $v !== null);
     }
 }

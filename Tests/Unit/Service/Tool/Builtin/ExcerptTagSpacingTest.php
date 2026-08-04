@@ -36,7 +36,7 @@ final class ExcerptTagSpacingTest extends TestCase
      * @param class-string $class
      * @param list<mixed>  $arguments
      */
-    private static function invokeExcerptHelper(string $class, string $method, array $arguments): string
+    private function invokeExcerptHelper(string $class, string $method, array $arguments): string
     {
         $reflection = new ReflectionClass($class);
         $instance   = $reflection->newInstanceWithoutConstructor();
@@ -56,11 +56,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function probeUrlBodyExcerptSeparatesAdjacentTableCells(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            ProbeUrlTool::class,
-            'bodyExcerpt',
-            ['<table><tr><td>Price</td><td>100</td></tr></table>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(ProbeUrlTool::class, 'bodyExcerpt', ['<table><tr><td>Price</td><td>100</td></tr></table>']);
 
         self::assertSame('Price 100', $excerpt);
     }
@@ -68,11 +64,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function probeUrlBodyExcerptSeparatesAdjacentBlockElementsWithoutDoubleSpaces(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            ProbeUrlTool::class,
-            'bodyExcerpt',
-            ["<h1>Title</h1>\n<p>Intro <b>text</b></p><p>Next</p>"],
-        );
+        $excerpt = $this->invokeExcerptHelper(ProbeUrlTool::class, 'bodyExcerpt', ["<h1>Title</h1>\n<p>Intro <b>text</b></p><p>Next</p>"]);
 
         self::assertSame('Title Intro text Next', $excerpt);
         self::assertStringNotContainsString('  ', $excerpt);
@@ -81,11 +73,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function probeUrlBodyExcerptKeepsInlineJoinedWordsIntact(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            ProbeUrlTool::class,
-            'bodyExcerpt',
-            ['<p>cyber<b>security</b> report</p>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(ProbeUrlTool::class, 'bodyExcerpt', ['<p>cyber<b>security</b> report</p>']);
 
         self::assertSame('cybersecurity report', $excerpt);
     }
@@ -93,11 +81,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function probeUrlBodyExcerptKeepsTheByteCap(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            ProbeUrlTool::class,
-            'bodyExcerpt',
-            ['<td>' . str_repeat('a', 3000) . '</td>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(ProbeUrlTool::class, 'bodyExcerpt', ['<td>' . str_repeat('a', 3000) . '</td>']);
 
         // 2048 capped bytes plus the appended ellipsis.
         self::assertSame(2048 + strlen('…'), strlen($excerpt));
@@ -107,11 +91,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function pageContentExcerptSeparatesAdjacentTableCells(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            GetPageContentTool::class,
-            'excerpt',
-            ['<tr><td>Price</td><td>100</td></tr><tr><td>Total</td><td>200</td></tr>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(GetPageContentTool::class, 'excerpt', ['<tr><td>Price</td><td>100</td></tr><tr><td>Total</td><td>200</td></tr>']);
 
         self::assertSame('Price 100 Total 200', $excerpt);
     }
@@ -119,11 +99,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function pageContentExcerptKeepsInlineJoinedWordsIntact(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            GetPageContentTool::class,
-            'excerpt',
-            ['<p>cyber<b>security</b> report</p>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(GetPageContentTool::class, 'excerpt', ['<p>cyber<b>security</b> report</p>']);
 
         self::assertSame('cybersecurity report', $excerpt);
     }
@@ -131,11 +107,7 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function pageContentExcerptKeepsTheLengthCap(): void
     {
-        $excerpt = self::invokeExcerptHelper(
-            GetPageContentTool::class,
-            'excerpt',
-            ['<p>' . str_repeat('a', 250) . '</p>'],
-        );
+        $excerpt = $this->invokeExcerptHelper(GetPageContentTool::class, 'excerpt', ['<p>' . str_repeat('a', 250) . '</p>']);
 
         // 200 capped characters plus the appended ellipsis.
         self::assertSame(201, mb_strlen($excerpt));
@@ -145,16 +117,12 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function searchRecordsMatchExcerptSeparatesAdjacentTableCells(): void
     {
-        $hit = self::invokeExcerptHelper(
-            SearchRecordsTool::class,
-            'formatHit',
-            [
-                'tt_content',
-                ['uid' => 7, 'pid' => 1, 'bodytext' => '<tr><td>Price</td><td>100</td></tr>'],
-                ['bodytext'],
-                'Price 100',
-            ],
-        );
+        $hit = $this->invokeExcerptHelper(SearchRecordsTool::class, 'formatHit', [
+            'tt_content',
+            ['uid' => 7, 'pid' => 1, 'bodytext' => '<tr><td>Price</td><td>100</td></tr>'],
+            ['bodytext'],
+            'Price 100',
+        ]);
 
         // Before the fix the plain text was 'Price100', so a query spanning
         // the cell boundary produced no match excerpt at all.
@@ -165,16 +133,12 @@ final class ExcerptTagSpacingTest extends TestCase
     #[Test]
     public function searchRecordsMatchExcerptKeepsInlineJoinedWordsIntact(): void
     {
-        $hit = self::invokeExcerptHelper(
-            SearchRecordsTool::class,
-            'formatHit',
-            [
-                'tt_content',
-                ['uid' => 7, 'pid' => 1, 'bodytext' => '<p>cyber<b>security</b> report</p>'],
-                ['bodytext'],
-                'cybersecurity',
-            ],
-        );
+        $hit = $this->invokeExcerptHelper(SearchRecordsTool::class, 'formatHit', [
+            'tt_content',
+            ['uid' => 7, 'pid' => 1, 'bodytext' => '<p>cyber<b>security</b> report</p>'],
+            ['bodytext'],
+            'cybersecurity',
+        ]);
 
         // A word joined by an inline element must stay searchable as one word.
         self::assertStringContainsString('match(bodytext): cybersecurity report', $hit);

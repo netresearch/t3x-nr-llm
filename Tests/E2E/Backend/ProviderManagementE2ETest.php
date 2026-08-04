@@ -33,15 +33,23 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 {
     private const LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F = '0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f';
+
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+
     private const HTTPS_API_OPENAI_COM_V1 = 'https://api.openai.com/v1';
+
     private const HTTP_LOCALHOST_11434 = 'http://localhost:11434';
+
     private const AJAX_PROVIDER_TOGGLE = '/ajax/provider/toggle';
+
     private const AJAX_PROVIDER_TEST = '/ajax/provider/test';
 
     private ProviderController $controller;
+
     private ProviderRepository $providerRepository;
+
     private ModelRepository $modelRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -307,6 +315,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         // Restore original values
         $reloaded->setName($originalName);
         $reloaded->setTimeout($originalTimeout);
+
         $this->providerRepository->update($reloaded);
         $this->persistenceManager->persistAll();
     }
@@ -392,7 +401,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($activeProviders), 'Should have at least one active provider');
 
         // Each provider should have unique identifier
-        $identifiers = array_map(fn($p) => $p->getIdentifier(), $activeProviders);
+        $identifiers = array_map(fn(Provider $p): string => $p->getIdentifier(), $activeProviders);
         self::assertCount(count($activeProviders), array_unique($identifiers));
 
         // If only one provider, create another to test multi-provider scenario
@@ -419,7 +428,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         // Get provider by priority
         $highestPriority = $this->providerRepository->findHighestPriority();
 
-        if ($highestPriority !== null) {
+        if ($highestPriority instanceof Provider) {
             // Verify it's actually the highest
             foreach ($this->providerRepository->findActive() as $provider) {
                 self::assertLessThanOrEqual(
@@ -478,6 +487,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         // Identifier is required - setting empty should be handled
 
         $provider->setIdentifier('required-id-test-' . time());
+
         $this->providerRepository->add($provider);
         $this->persistenceManager->persistAll();
 
@@ -736,11 +746,11 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertGreaterThanOrEqual(1, count($providers));
 
         // Verify providers can be sorted by priority
-        usort($providers, fn(Provider $a, Provider $b) => $b->getPriority() <=> $a->getPriority());
+        usort($providers, fn(Provider $a, Provider $b): int => $b->getPriority() <=> $a->getPriority());
 
         // First element should have highest priority
         $highest = $this->providerRepository->findHighestPriority();
-        if ($highest !== null && $providers !== []) {
+        if ($highest instanceof Provider && $providers !== []) {
             self::assertSame($providers[0]->getUid(), $highest->getUid());
         }
     }
@@ -770,6 +780,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider2->setPriority($originalPriority1);
         $this->providerRepository->update($provider1);
         $this->providerRepository->update($provider2);
+
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
@@ -786,6 +797,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $reloaded2->setPriority($originalPriority2);
         $this->providerRepository->update($reloaded1);
         $this->providerRepository->update($reloaded2);
+
         $this->persistenceManager->persistAll();
     }
 

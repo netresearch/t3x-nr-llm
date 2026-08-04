@@ -50,6 +50,7 @@ use Throwable;
 class ProviderResponseException extends ProviderException
 {
     public readonly int $httpStatus;
+
     public readonly string $endpoint;
 
     public function __construct(
@@ -61,7 +62,7 @@ class ProviderResponseException extends ProviderException
     ) {
         parent::__construct($message, $httpStatus, $previous);
         $this->httpStatus = $httpStatus;
-        $this->endpoint   = self::sanitizeEndpoint($endpoint);
+        $this->endpoint   = $this->sanitizeEndpoint($endpoint);
     }
 
     /**
@@ -70,12 +71,13 @@ class ProviderResponseException extends ProviderException
      * endpoint field is meant for diagnostic purposes only and must
      * never leak credentials downstream.
      */
-    private static function sanitizeEndpoint(string $endpoint): string
+    private function sanitizeEndpoint(string $endpoint): string
     {
         $queryStart = strpos($endpoint, '?');
         if ($queryStart === false) {
             return $endpoint;
         }
+
         return substr($endpoint, 0, $queryStart);
     }
 }

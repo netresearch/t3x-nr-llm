@@ -60,6 +60,7 @@ final class BeGroupAccessControlTest extends AbstractFunctionalTestCase
         foreach ($config->getBeGroups() as $group) {
             $uids[] = $group->getUid();
         }
+
         self::assertSame([5], $uids);
     }
 

@@ -103,6 +103,7 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
             $this->sessions[$sessionUid]['messageCount'] = max($this->sessions[$sessionUid]['messageCount'], $messageCount);
             $this->sessions[$sessionUid]['lastActivity'] = 1;
         }
+
         $this->touchCalls[] = ['session' => $sessionUid, 'messageCount' => $messageCount];
     }
 
@@ -145,6 +146,7 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
                 );
             }
         }
+
         usort($out, static fn(AiSessionMessage $a, AiSessionMessage $b): int => $a->sequence <=> $b->sequence);
 
         return $out;

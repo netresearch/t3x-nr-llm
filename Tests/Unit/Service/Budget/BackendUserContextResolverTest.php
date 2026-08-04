@@ -34,6 +34,7 @@ final class BackendUserContextResolverTest extends AbstractUnitTestCase
         } else {
             $GLOBALS['BE_USER'] = $this->previousBeUser;
         }
+
         parent::tearDown();
     }
 

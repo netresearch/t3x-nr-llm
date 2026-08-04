@@ -248,7 +248,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 'test_key',
                 $data,
                 self::callback(
-                    fn(array $tags)
+                    fn(array $tags): bool
                     => in_array('nrllm', $tags, true)
                     && in_array('nrllm_response', $tags, true),
                 ),
@@ -276,7 +276,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 'test_key',
                 $data,
                 self::callback(
-                    fn(array $tags)
+                    fn(array $tags): bool
                     => in_array('nrllm', $tags, true)
                     && in_array('nrllm_response', $tags, true)
                     && in_array('custom_tag', $tags, true),
@@ -386,7 +386,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 self::isString(),
                 $response,
                 self::callback(
-                    fn(array $tags)
+                    fn(array $tags): bool
                     => in_array('nrllm_completion', $tags, true)
                     && in_array('nrllm_provider_openai', $tags, true),
                 ),
@@ -417,7 +417,7 @@ class CacheManagerTest extends AbstractUnitTestCase
                 self::anything(),
                 self::anything(),
                 self::callback(
-                    fn(array $tags)
+                    fn(array $tags): bool
                     => in_array('nrllm_model_gpt_4o', $tags, true),
                 ),
                 self::anything(),

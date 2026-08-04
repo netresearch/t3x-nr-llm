@@ -20,11 +20,13 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
 {
     private const LIT_2026_06_01 = '2026-06-01';
+
     private const LIT_2026_06_02 = '2026-06-02';
 
     private const TABLE = 'tx_nrllm_service_usage';
 
     private UsageAnalyticsService $service;
+
     private ConnectionPool $connectionPool;
 
     protected function setUp(): void

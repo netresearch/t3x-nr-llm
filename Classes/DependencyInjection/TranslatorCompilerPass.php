@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\DependencyInjection;
 
 use Netresearch\NrLlm\Attribute\AsTranslator;
+use ReflectionClass;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
@@ -54,12 +55,20 @@ final readonly class TranslatorCompilerPass implements CompilerPassInterface
             }
 
             $class = $definition->getClass() ?? $serviceId;
-            if (!is_string($class) || $class === '' || !str_starts_with($class, $this->scanNamespacePrefix)) {
+            if (!is_string($class)) {
+                continue;
+            }
+
+            if ($class === '') {
+                continue;
+            }
+
+            if (!str_starts_with($class, $this->scanNamespacePrefix)) {
                 continue;
             }
 
             $reflection = $container->getReflectionClass($class, false);
-            if ($reflection === null) {
+            if (!$reflection instanceof ReflectionClass) {
                 continue;
             }
 

@@ -53,7 +53,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 
-        return (int)$queryBuilder
+        return $queryBuilder
             ->delete(self::TABLE)
             ->where($queryBuilder->expr()->lt('crdate', $queryBuilder->createNamedParameter($timestamp)))
             ->executeStatement();
@@ -75,6 +75,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
         if (!is_array($row)) {
             return 0;
         }
+
         $total = is_numeric($row['total'] ?? null) ? (int)$row['total'] : 0;
         $ok    = is_numeric($row['ok'] ?? null) ? (int)$row['ok'] : 0;
 

@@ -248,6 +248,7 @@ final class TaskWizardControllerTest extends AbstractFunctionalTestCase
         if ($parsedBody !== null) {
             $serverRequest = $serverRequest->withParsedBody($parsedBody);
         }
+
         $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 

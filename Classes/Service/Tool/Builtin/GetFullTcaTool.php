@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Navigation index over the whole TCA (ADR-045).
@@ -47,7 +48,7 @@ final readonly class GetFullTcaTool implements ToolInterface
         return ToolSpec::function(
             'get_full_tca',
             'List all accessible TYPO3 tables (the TCA index) with their titles. Use this to discover which '
-            . 'tables exist, then call get_table_schema(table) for a table\'s fields and relations. Names only, no data.',
+            . "tables exist, then call get_table_schema(table) for a table's fields and relations. Names only, no data.",
             [
                 'type'       => 'object',
                 'properties' => [
@@ -72,7 +73,7 @@ final readonly class GetFullTcaTool implements ToolInterface
         }
 
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::text('Accessible tables (0).');
         }
 
@@ -92,9 +93,11 @@ final readonly class GetFullTcaTool implements ToolInterface
             if ($filter !== '' && !str_contains(mb_strtolower($table), $filter)) {
                 continue;
             }
+
             if ($extPrefix !== '' && !str_starts_with($table, $extPrefix)) {
                 continue;
             }
+
             if (!$this->tableAccess->canReadTable($user, $table)) {
                 continue;
             }

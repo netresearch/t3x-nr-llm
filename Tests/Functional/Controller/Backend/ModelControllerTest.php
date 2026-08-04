@@ -43,19 +43,31 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 final class ModelControllerTest extends AbstractFunctionalTestCase
 {
     private const AJAX_NRLLM_MODEL_GET_BY_PROVIDER = '/ajax/nrllm/model/get-by-provider';
+
     private const AJAX_NRLLM_MODEL_FETCH_AVAILABLE = '/ajax/nrllm/model/fetch-available';
+
     private const AJAX_NRLLM_MODEL_DETECT_LIMITS = '/ajax/nrllm/model/detect-limits';
+
     private const AJAX_NRLLM_MODEL_SET_DEFAULT = '/ajax/nrllm/model/set-default';
+
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+
     private const AJAX_NRLLM_MODEL_TOGGLE = '/ajax/nrllm/model/toggle';
+
     private const NO_MODEL_UID_SPECIFIED = 'No model UID specified';
+
     private const AJAX_NRLLM_MODEL_TEST = '/ajax/nrllm/model/test';
+
     private const MODEL_NOT_FOUND = 'Model not found';
 
     private ModelController $controller;
+
     private ModelTestController $testController;
+
     private ModelDiscoveryController $discoveryController;
+
     private ModelRepository $modelRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void

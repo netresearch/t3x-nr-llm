@@ -154,7 +154,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $result = $service->normalize($vector);
 
         // Calculate magnitude of result
-        $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $result)));
+        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $result)));
 
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
     }
@@ -190,7 +190,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $service = new EmbeddingService($llmManagerMock);
 
         // Pass null options
-        $result = $service->embedFull('test text', null);
+        $result = $service->embedFull('test text');
 
         self::assertInstanceOf(EmbeddingResponse::class, $result);
     }
@@ -219,7 +219,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
 
         $service = new EmbeddingService($llmManagerMock);
 
-        $result = $service->embedBatch(['text1', 'text2'], null);
+        $result = $service->embedBatch(['text1', 'text2']);
 
         self::assertCount(2, $result);
     }
@@ -362,7 +362,7 @@ class EmbeddingServiceMutationTest extends AbstractUnitTestCase
         $result = $service->normalize($vector);
 
         // Magnitude of result should still be 1.0
-        $magnitude = sqrt(array_sum(array_map(fn($x) => $x * $x, $result)));
+        $magnitude = sqrt(array_sum(array_map(fn(float $x): float => $x * $x, $result)));
         self::assertEqualsWithDelta(1.0, $magnitude, 0.0001);
 
         // Signs should be preserved

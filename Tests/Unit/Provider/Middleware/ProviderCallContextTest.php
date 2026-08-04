@@ -107,6 +107,7 @@ final class ProviderCallContextTest extends TestCase
     {
         $primary  = (new LlmConfiguration());
         $primary->setIdentifier('primary');
+
         $fallback = (new LlmConfiguration());
         $fallback->setIdentifier('fallback');
 

@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
@@ -59,8 +60,8 @@ final readonly class ReadRecordsTool implements ToolInterface
     private const VALUE_CAP = 300;
 
     public function __construct(
-        protected ConnectionPool $connectionPool,
-        protected TableReadAccessService $tableAccess,
+        private ConnectionPool $connectionPool,
+        private TableReadAccessService $tableAccess,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -112,7 +113,7 @@ final readonly class ReadRecordsTool implements ToolInterface
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         $user = $context->actingBackendUser();
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return ToolResult::text(self::NOT_PERMITTED);
         }
 
@@ -146,6 +147,7 @@ final readonly class ReadRecordsTool implements ToolInterface
         if ($limit < 1) {
             $limit = self::DEFAULT_LIMIT;
         }
+
         $limit = min($limit, self::MAX_LIMIT);
 
         $offset = self::toInt($arguments['offset'] ?? 0);
@@ -194,6 +196,7 @@ final readonly class ReadRecordsTool implements ToolInterface
                     $lines[] = sprintf('  %s: %s', $field, $value);
                 }
             }
+
             $artifactRows[] = $artifactRow;
         }
 
@@ -258,12 +261,18 @@ final readonly class ReadRecordsTool implements ToolInterface
         if (is_array($requested) && $requested !== []) {
             foreach ($requested as $field) {
                 $field = trim(self::toStr($field));
-                if ($field === '' || $this->tableAccess->isSensitiveField($field)) {
+                if ($field === '') {
                     continue;
                 }
+
+                if ($this->tableAccess->isSensitiveField($field)) {
+                    continue;
+                }
+
                 if ($field !== 'uid' && $field !== 'pid' && !isset($columns[$field])) {
                     continue;
                 }
+
                 $fields[] = $field;
             }
         } else {
@@ -274,6 +283,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             if ($label !== '' && isset($columns[$label]) && !$this->tableAccess->isSensitiveField($label)) {
                 $fields[] = $label;
             }
+
             foreach (explode(',', self::toStr($ctrl['label_alt'] ?? '')) as $alt) {
                 $alt = trim($alt);
                 if ($alt !== '' && isset($columns[$alt]) && !$this->tableAccess->isSensitiveField($alt)) {
@@ -320,16 +330,20 @@ final readonly class ReadRecordsTool implements ToolInterface
                 if (++$count > self::MAX_FILTERS) {
                     return null;
                 }
+
                 $field = trim(self::toStr($field));
                 if ($field === '' || $this->tableAccess->isSensitiveField($field)) {
                     return null;
                 }
+
                 if ($field !== 'uid' && $field !== 'pid' && !isset($columns[$field])) {
                     return null;
                 }
+
                 if (!is_scalar($value)) {
                     return null;
                 }
+
                 $filters[$field] = is_int($value) ? $value : self::toStr($value);
             }
         }
@@ -399,6 +413,7 @@ final readonly class ReadRecordsTool implements ToolInterface
         if ($value === null) {
             return 'null';
         }
+
         if (is_bool($value)) {
             return $value ? 'true' : 'false';
         }

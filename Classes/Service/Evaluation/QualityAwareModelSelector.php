@@ -54,6 +54,7 @@ final readonly class QualityAwareModelSelector
             if ($minQuality > 0.0 && ($score === null || $score < $minQuality)) {
                 continue;
             }
+
             $ranked[] = ['model' => $model, 'score' => $score, 'order' => $order];
         }
 
@@ -66,12 +67,15 @@ final readonly class QualityAwareModelSelector
             if ($a['score'] === null && $b['score'] === null) {
                 return $a['order'] <=> $b['order'];
             }
+
             if ($a['score'] === null) {
                 return 1;
             }
+
             if ($b['score'] === null) {
                 return -1;
             }
+
             if ($a['score'] === $b['score']) {
                 return $a['order'] <=> $b['order'];
             }

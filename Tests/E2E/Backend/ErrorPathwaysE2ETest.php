@@ -59,30 +59,53 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
 {
     private const LIT_0190A5E0_7A1C_7B2D_8F3E_4A5B6C7D8E9F = '0190a5e0-7a1c-7b2d-8f3e-4a5b6c7d8e9f';
+
     private const AJAX_CONFIGURATION_TOGGLE = '/ajax/configuration/toggle';
+
     private const AJAX_MODEL_DETECT_LIMITS = '/ajax/model/detect-limits';
+
     private const NO_PROVIDER_UID_SPECIFIED = 'No provider UID specified';
+
     private const AJAX_MODEL_SETDEFAULT = '/ajax/model/setdefault';
+
     private const NO_MODEL_UID_SPECIFIED = 'No model UID specified';
+
     private const AJAX_PROVIDER_TOGGLE = '/ajax/provider/toggle';
+
     private const AJAX_PROVIDER_TEST = '/ajax/provider/test';
+
     private const AJAX_MODEL_TOGGLE = '/ajax/model/toggle';
+
     private const AJAX_TASK_EXECUTE = '/ajax/task/execute';
+
     private const AJAX_MODEL_TEST = '/ajax/model/test';
+
     private const MODEL_NOT_FOUND = 'Model not found';
+
     private const NOT_FOUND = 'not found';
 
     private ProviderController $providerController;
+
     private ModelController $modelController;
+
     private ModelTestController $modelTestController;
+
     private ModelDiscoveryController $modelDiscoveryController;
+
     private ConfigurationController $configController;
+
     private TaskExecutionController $taskController;
+
     private LlmModuleController $dashboardController;
+
     private ProviderRepository $providerRepository;
+
     private ModelRepository $modelRepository;
+
     private LlmConfigurationRepository $configurationRepository;
+
     private TaskRepository $taskRepository;
+
     private PersistenceManagerInterface $persistenceManager;
 
     protected function setUp(): void
@@ -945,6 +968,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
                 $defaultCount++;
             }
         }
+
         self::assertSame(1, $defaultCount, 'Only one model should be default');
     }
 
@@ -1340,6 +1364,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
                 self::assertSame($lastModelUid, $m->getUid());
             }
         }
+
         self::assertSame(1, $defaultCount);
     }
 

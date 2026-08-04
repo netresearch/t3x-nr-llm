@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 
 /**
@@ -47,7 +48,7 @@ final readonly class FalStorageGate
      */
     public function effectiveStorages(?BackendUserAuthentication $user): array
     {
-        if ($user === null) {
+        if (!$user instanceof BackendUserAuthentication) {
             return [];
         }
 
@@ -86,7 +87,7 @@ final readonly class FalStorageGate
      */
     public function isFileAccessible(?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
     {
-        if (!$this->isAllowed($user, $storageUid) || $user === null || $identifier === '') {
+        if (!$this->isAllowed($user, $storageUid) || !$user instanceof BackendUserAuthentication || $identifier === '') {
             return false;
         }
 
@@ -94,15 +95,16 @@ final readonly class FalStorageGate
             return true;
         }
 
-        if ($this->storageRepository === null) {
+        if (!$this->storageRepository instanceof StorageRepository) {
             return false;
         }
 
         try {
             $storage = $this->storageRepository->findByUid($storageUid);
-            if ($storage === null) {
+            if (!$storage instanceof ResourceStorage) {
                 return false;
             }
+
             // findByUid returns a request-shared, cached storage; restore its
             // prior evaluatePermissions so this check does not leak into other
             // consumers of the same instance in the request.

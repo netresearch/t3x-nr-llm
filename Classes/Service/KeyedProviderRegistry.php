@@ -89,7 +89,7 @@ final class KeyedProviderRegistry implements SingletonInterface
     {
         return array_filter(
             $this->providers,
-            static fn(ProviderInterface $provider) => $provider->isAvailable(),
+            static fn(ProviderInterface $provider): bool => $provider->isAvailable(),
         );
     }
 
@@ -110,6 +110,7 @@ final class KeyedProviderRegistry implements SingletonInterface
         foreach ($this->providers as $identifier => $provider) {
             $list[$identifier] = $provider->getName();
         }
+
         return $list;
     }
 
