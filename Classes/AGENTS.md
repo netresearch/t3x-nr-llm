@@ -48,7 +48,7 @@ Full test matrix in root `AGENTS.md` Setup section.
 | `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
 | `Service/Feature/` | CompletionService, EmbeddingService, TranslationService, VisionService |
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions |
-| `Service/SetupWizard/` | ProviderDetector, ModelDiscovery, ConfigurationGenerator + DTOs |
+| `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
 | `Utility/` | SafeCastTrait, ErrorMessageSanitizerTrait |
 | `Widgets/DataProvider/` | Backend dashboard widgets (MonthlyCost, RequestsByProvider) |

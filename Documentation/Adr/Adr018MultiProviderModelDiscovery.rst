@@ -55,24 +55,31 @@ Abstract model discovery behind
        public function discover(DetectedProvider $provider, string $apiKey): array;
    }
 
-The :php:`ModelDiscovery` implementation dispatches per adapter type:
+The :php:`ModelDiscovery` implementation routes per adapter type to one
+discoverer class per provider (extracted from the original single-class
+implementation in 2026-08; behaviour unchanged):
 
 .. code-block:: php
    :caption: Provider-specific dispatch
 
    public function discover(DetectedProvider $provider, string $apiKey): array
    {
-       return match ($provider->adapterType) {
-           'openai' => $this->discoverOpenAI($endpoint, $apiKey),
-           'anthropic' => $this->discoverAnthropic($endpoint, $apiKey),
-           'gemini' => $this->discoverGemini($endpoint, $apiKey),
-           'ollama' => $this->discoverOllama($endpoint),
-           'mistral' => $this->discoverMistral($endpoint, $apiKey),
-           'groq' => $this->discoverGroq($endpoint, $apiKey),
-           'openrouter' => $this->discoverOpenRouter($endpoint, $apiKey),
-           default => $this->getDefaultModels($provider->adapterType),
-       };
+       $discoverer = $this->discoverers[$provider->adapterType] ?? null;
+       if (!$discoverer instanceof AbstractModelDiscoverer) {
+           return $this->getDefaultModels($provider->adapterType);
+       }
+
+       $result = $discoverer->discover($endpoint, $apiKey);
+       $this->lastDiscoveryUsedFallback = $result->usedFallback;
+
+       return $result->models;
    }
+
+Each provider's listing, filtering, enrichment and fallback catalog live in
+:file:`Classes/Service/SetupWizard/Discovery/` as a
+:php:`*ModelDiscoverer extends AbstractModelDiscoverer`; whether a result is
+live API data or a canned catalog travels on the returned
+:php:`DiscoveryResult` rather than on shared service state.
 
 Key design elements:
 
@@ -141,6 +148,8 @@ Files changed
 
 - :file:`Classes/Service/SetupWizard/ModelDiscoveryInterface.php`
 - :file:`Classes/Service/SetupWizard/ModelDiscovery.php`
+  (since 2026-08 a facade over :file:`Classes/Service/SetupWizard/Discovery/`,
+  one discoverer class per provider)
 - :file:`Classes/Service/SetupWizard/ProviderDetector.php`
 - :file:`Classes/Service/SetupWizard/DTO/DetectedProvider.php`
 - :file:`Classes/Service/SetupWizard/DTO/DiscoveredModel.php`
