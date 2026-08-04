@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use LogicException;
-
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
+
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
 use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -63,6 +64,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(ToolLoopService::class)]
+#[CoversClass(ToolResultBounder::class)]
 final class ToolLoopServiceTest extends TestCase
 {
     #[Test]
