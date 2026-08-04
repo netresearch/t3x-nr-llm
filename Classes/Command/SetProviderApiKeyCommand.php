@@ -102,10 +102,11 @@ final class SetProviderApiKeyCommand extends Command
 
         $stream = $this->resolveInputStream($input);
         if ($stream === null) {
-            // The example carries a fixed placeholder rather than the argument
-            // just read: echoing it back into a copy-pasteable shell line would
-            // hand whitespace or metacharacters straight to the next shell.
-            $io->error('Refusing to read the key from a terminal. Pipe it in, for example: printf \'%s\' "$KEY" | vendor/bin/typo3 nrllm:provider:set-key <provider>');
+            // No shell line here on purpose. Echoing the argument back would
+            // hand whitespace or metacharacters to whoever pastes it, and a
+            // placeholder in angle brackets is formatter syntax to Symfony
+            // Console. The worked example lives in --help, once.
+            $io->error('Refusing to read the key from a terminal. Pipe the key in on STDIN; run this command with --help for a worked example.');
 
             return Command::INVALID;
         }
