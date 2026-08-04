@@ -62,6 +62,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`Provider/OpenRouter/ModelRouter`), the first per-adapter collaborator
   (ADR-125). Same strategies, same keyword heuristics, same fallbacks; a call
   that names its model explicitly still triggers no catalogue fetch. Purely
+
+- The byte caps on tool output live in their own class
+  (`Service/Tool/ToolResultBounder`): UTF-8 coercion plus the independent
+  content and artifact bounds, moved verbatim out of the agent loop. The loop
+  still applies them at its single invoke seam; the bounder is a defaulted,
+  non-nullable collaborator, so no wiring can leave the caps absent. Purely
   internal.
 
 - Model discovery is split into one discoverer class per provider
