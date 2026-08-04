@@ -145,6 +145,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         int $seedCompletionTokens = 0,
     ): ToolLoopResult {
         $max = $maxIterations ?? $this->defaultMaxIterations;
+        // Created HERE, per run, and passed down: this service is a container
+        // singleton and the queue worker outlives many runs, so a counter held
+        // anywhere but a local would bound the process instead (ADR-116).
+        $remoteCalls = new RemoteCallBudget();
 
         // Assemble the outgoing prompt once, before the loop: configuration
         // skills inject into the tool path here (the loop is the sole caller of
@@ -323,7 +327,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // runtime records the tool's effect and renews the lease so a
                     // reap mid non-idempotent-write can refuse to retry it.
                     $runTrace?->beforeToolExecution($call->name);
-                    $tr = $this->invoke($call, $allowedNames, $context);
+                    $tr = $this->invoke($call, $allowedNames, $context, $remoteCalls);
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
@@ -490,7 +494,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
-        $offered = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
+        $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
+        $remoteCalls = new RemoteCallBudget();
 
         foreach ($pendingCalls as $call) {
             if (!$approved) {
@@ -512,7 +517,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             } else {
                 $tt0 = hrtime(true);
                 $runTrace?->beforeToolExecution($call->name);
-                $tr     = $this->invoke($call, $offered, $context);
+                $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
@@ -576,6 +581,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $pendingCalls = $state->toolCalls();
         $options      = ToolOptions::fromArray($state->options, $beUserUid);
         $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
+        $remoteCalls  = new RemoteCallBudget();
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $offered, true)) {
@@ -584,7 +590,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             } elseif ($call->name === $state->inputToolName) {
                 $tt0 = hrtime(true);
                 $runTrace?->beforeToolExecution($call->name);
-                $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context);
+                $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context, $remoteCalls);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
@@ -595,7 +601,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             } else {
                 $tt0 = hrtime(true);
                 $runTrace?->beforeToolExecution($call->name);
-                $tr     = $this->invoke($call, $offered, $context);
+                $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
                 $result = $tr->content;
                 $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
             }
@@ -782,7 +788,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<string> $allowedNames
      */
-    private function invoke(ToolCall $call, array $allowedNames, ToolExecutionContext $context): ToolResult
+    private function invoke(ToolCall $call, array $allowedNames, ToolExecutionContext $context, RemoteCallBudget $remoteCalls): ToolResult
     {
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof ToolInterface) {
@@ -791,6 +797,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         if (!in_array($call->name, $allowedNames, true)) {
             return ToolResult::error(sprintf('Error: tool "%s" not permitted', $call->name));
+        }
+        // Charged after the permission checks and before execution, so a
+        // refused call costs nothing and a granted one is counted exactly once.
+        // The message says the budget is spent rather than that the tool is
+        // broken, so the model stops calling it instead of retrying.
+        if ($tool instanceof RemoteToolInterface && !$remoteCalls->tryConsume()) {
+            return ToolResult::error(sprintf(
+                'Error: this run has used its budget of %d calls to external tools; "%s" was not called.',
+                $remoteCalls->limit(),
+                $call->name,
+            ));
         }
 
         try {

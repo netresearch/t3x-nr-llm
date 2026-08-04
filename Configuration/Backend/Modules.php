@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\PromptSnippetController;
 use Netresearch\NrLlm\Controller\Backend\ProviderController;
@@ -216,6 +217,26 @@ return [
         'extensionName' => 'NrLlm',
         'controllerActions' => [
             ToolController::class => [
+                'list',
+            ],
+        ],
+    ],
+    // MCP servers - child of main module
+    // Admin-only: list the operator-configured MCP servers, what each one
+    // advertised at the last import, and trigger a fresh import. The import
+    // talks to a third party over the network, so it happens only on this
+    // explicit action; the AJAX route (nrllm_mcp_import) guards itself with
+    // RequiresBackendAdminTrait because a backend route bypasses this
+    // module's access setting (ADR-037).
+    'nrllm_mcp' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-tool',
+        'path' => '/module/nrllm/mcp',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            McpServerController::class => [
                 'list',
             ],
         ],

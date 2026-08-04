@@ -28,6 +28,15 @@ services:
       - '../Classes/Service/Rerank/HttpReranker.php'
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
+      - '../Classes/Service/Tool/Mcp/Exception/*'
+      # Built per catalogue row by McpToolProvider from a database row. Without
+      # this the `nr_llm.tool` autoconfigure tag on ToolInterface would have the
+      # container try to build it, and compilation fails on the scalar arguments.
+      - '../Classes/Service/Tool/Mcp/McpTool.php'
+      # Created inside a run method and passed down, never injected — the bound
+      # is per run, and a container-held instance would bound the process
+      # (ADR-116).
+      - '../Classes/Service/Tool/RemoteCallBudget.php'
       - '../Classes/Specialized/Exception/*'
       - '../Classes/Testing/*'
       - '../Classes/Widgets/*'

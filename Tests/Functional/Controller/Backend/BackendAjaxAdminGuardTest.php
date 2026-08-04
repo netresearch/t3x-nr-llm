@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 use GuzzleHttp\Psr7\ServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
 use Netresearch\NrLlm\Controller\Backend\ModelTestController;
@@ -52,6 +53,7 @@ use TYPO3\CMS\Core\Http\ServerRequest as Typo3ServerRequest;
 #[CoversClass(TaskExecutionController::class)]
 #[CoversClass(SetupWizardController::class)]
 #[CoversClass(LlmModuleController::class)]
+#[CoversClass(McpServerController::class)]
 final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
 {
     protected function setUp(): void
@@ -93,6 +95,23 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         // falls back to the English source) rather than a bare "Forbidden".
         self::assertIsString($payload['error']);
         self::assertStringContainsStringIgnoringCase('administrator', $payload['error']);
+    }
+
+    /**
+     * The MCP import is the one action in this extension that reaches an
+     * external server on request, so the guard matters most here: the module is
+     * admin-only, but this route is dispatched outside it (ADR-037/116).
+     */
+    #[Test]
+    public function mcpImportDeniedForNonAdmin(): void
+    {
+        $controller = $this->get(McpServerController::class);
+        self::assertInstanceOf(McpServerController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/mcp/import'))
+            ->withParsedBody(['server' => 1]);
+
+        $this->assertForbidden($controller->importAction($request));
     }
 
     #[Test]

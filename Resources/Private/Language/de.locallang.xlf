@@ -2312,6 +2312,10 @@
                 <source>Unknown tool group</source>
                 <target>Unbekannte Werkzeuggruppe</target>
             </trans-unit>
+            <trans-unit id="error.mcp.unknownServer">
+                <source>Unknown MCP server</source>
+                <target>Unbekannter MCP-Server</target>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
                 <target>Konfiguration(en) eingerichtet</target>
