@@ -1748,6 +1748,9 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.mcp.unknownServer">
+                <source>Unknown MCP server</source>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
             </trans-unit>

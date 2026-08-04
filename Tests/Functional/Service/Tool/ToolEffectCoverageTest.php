@@ -48,12 +48,12 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
     {
         $registry = $this->get(ToolRegistry::class);
         self::assertInstanceOf(ToolRegistry::class, $registry);
-        self::assertNotSame([], $registry->names(), 'The registry must not be empty, or this test proves nothing.');
+        self::assertNotSame([], $registry->builtinNames(), 'The builtin set must not be empty, or this test proves nothing.');
 
         $resolver = new ToolEffectResolver($registry);
 
         $writers = [];
-        foreach ($registry->names() as $name) {
+        foreach ($registry->builtinNames() as $name) {
             if ($resolver->effectFor($name)->isWrite()) {
                 $writers[] = $name;
             }

@@ -1,0 +1,123 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div id="nrllm-mcp-servers">
+        <h1>
+            <core:icon identifier="module-nrllm-tool" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:list.title" default="MCP Servers" />
+        </h1>
+
+        <f:be.infobox state="-2">
+            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:list.intro" default="Tools imported from an external MCP server run on that server, not here. Importing a catalogue only records what a server offers; each tool stays off until you enable it, and every one requires an administrator. This module is admin-only." /></p>
+        </f:be.infobox>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{be:moduleLink(route: 'nrllm_tools')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.manageTools" default="Manage tools" /></a>
+            <a href="{be:moduleLink(route: 'nrllm_playground')}" class="badge text-bg-secondary text-decoration-none"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:seeAlso.playground" default="Tool Playground" /></a>
+        </div>
+
+        <f:if condition="{f:count(subject: servers)}">
+            <f:then>
+                <f:for each="{servers}" as="entry">
+                    <div class="card mb-4" data-mcp-server="{entry.record.uid}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{entry.record.name}</strong>
+                                <code class="ms-2">{entry.record.identifier}</code>
+                                <f:if condition="{entry.record.enabled}">
+                                    <f:then><span class="badge text-bg-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
+                                    <f:else><span class="badge text-bg-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
+                                </f:if>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-sm btn-primary"
+                                    data-nrllm-mcp-import="{entry.record.uid}">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.import" default="Import catalogue" />
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-2">
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.url" default="Endpoint" /></dt>
+                                <dd class="col-sm-9"><code>{entry.record.url}</code></dd>
+
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.dataClass" default="Data class" /></dt>
+                                <dd class="col-sm-9">
+                                    <f:if condition="{entry.usable}">
+                                        <f:then><code>{entry.record.dataClass}</code></f:then>
+                                        <f:else><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.undeclared" default="No data class declared — this server supplies no tools until you declare one." /></span></f:else>
+                                    </f:if>
+                                </dd>
+
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastImport" default="Last import" /></dt>
+                                <dd class="col-sm-9">
+                                    <f:if condition="{entry.record.lastImported}">
+                                        <f:then><f:format.date format="Y-m-d H:i">@{entry.record.lastImported}</f:format.date> — {entry.record.importStatus}</f:then>
+                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.never" default="Never imported" /></f:else>
+                                    </f:if>
+                                </dd>
+                            </dl>
+
+                            <f:if condition="{entry.record.importError}">
+                                <f:be.infobox state="2">
+                                    <pre class="mb-0">{entry.record.importError}</pre>
+                                </f:be.infobox>
+                            </f:if>
+
+                            <h3 class="h6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.title" default="Imported tools" /></h3>
+                            <f:if condition="{f:count(subject: entry.tools)}">
+                                <f:then>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.localName" default="Local name" /></th>
+                                                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.remoteName" default="Name on the server" /></th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <f:for each="{entry.tools}" as="tool">
+                                                    <tr>
+                                                        <td><code>{tool.toolName}</code></td>
+                                                        <td><code>{tool.remoteName}</code></td>
+                                                        <td>
+                                                            <f:if condition="{tool.orphaned}">
+                                                                <span class="badge text-bg-warning"
+                                                                      title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphanedHint')}">
+                                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.orphaned" default="Gone from the server" />
+                                                                </span>
+                                                            </f:if>
+                                                        </td>
+                                                    </tr>
+                                                </f:for>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </f:then>
+                                <f:else>
+                                    <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:tools.none" default="No tools imported yet." /></p>
+                                </f:else>
+                            </f:if>
+                        </div>
+                    </div>
+                </f:for>
+            </f:then>
+            <f:else>
+                <f:be.infobox state="0">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:list.empty" default="No MCP server is configured. Add one as a record of type &quot;MCP Server&quot;." /></p>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>
+</html>

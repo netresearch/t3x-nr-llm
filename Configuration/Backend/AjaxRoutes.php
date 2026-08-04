@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
 use Netresearch\NrLlm\Controller\Backend\ModelDiscoveryController;
 use Netresearch\NrLlm\Controller\Backend\ModelTestController;
@@ -204,6 +205,12 @@ return [
     'nrllm_toolgroup_toggle' => [
         'path' => '/nrllm/toolgroup/toggle',
         'target' => ToolController::class . '::toggleToolGroupAction',
+    ],
+
+    // MCP catalogue import (admin-gated in the controller as well)
+    'nrllm_mcp_import' => [
+        'path' => '/nrllm/mcp/import',
+        'target' => McpServerController::class . '::importAction',
     ],
 
     // Setup Wizard routes

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+            <trans-unit id="mlang_labels_tablabel">
+                <source>MCP Servers</source>
+                <target>MCP-Server</target>
+            </trans-unit>
+            <trans-unit id="mlang_tabs_tab">
+                <source>MCP Servers</source>
+                <target>MCP-Server</target>
+            </trans-unit>
+            <trans-unit id="mlang_labels_tabdescr">
+                <source>Manage external MCP servers and import the tools they advertise</source>
+                <target>Externe MCP-Server verwalten und die von ihnen angebotenen Tools importieren</target>
+            </trans-unit>
+            <trans-unit id="list.title">
+                <source>MCP Servers</source>
+                <target>MCP-Server</target>
+            </trans-unit>
+            <trans-unit id="list.intro">
+                <source>Tools imported from an external MCP server run on that server, not here. Importing a catalogue only records what a server offers; each tool stays off until you enable it, and every one requires an administrator. This module is admin-only.</source>
+                <target>Tools von einem externen MCP-Server laufen auf diesem Server, nicht hier. Ein Import hält nur fest, was ein Server anbietet. Jedes Tool bleibt aus, bis Sie es aktivieren, und jedes setzt Administratorrechte voraus. Dieses Modul ist nur für Administratoren.</target>
+            </trans-unit>
+            <trans-unit id="list.empty">
+                <source>No MCP server is configured. Add one as a record of type "MCP Server".</source>
+                <target>Es ist kein MCP-Server eingerichtet. Legen Sie einen als Datensatz vom Typ „MCP-Server“ an.</target>
+            </trans-unit>
+            <trans-unit id="server.url">
+                <source>Endpoint</source>
+                <target>Endpunkt</target>
+            </trans-unit>
+            <trans-unit id="server.dataClass">
+                <source>Data class</source>
+                <target>Datenklasse</target>
+            </trans-unit>
+            <trans-unit id="server.enabled">
+                <source>Enabled</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="server.disabled">
+                <source>Disabled</source>
+                <target>Inaktiv</target>
+            </trans-unit>
+            <trans-unit id="server.undeclared">
+                <source>No data class declared — this server supplies no tools until you declare one.</source>
+                <target>Keine Datenklasse festgelegt — dieser Server liefert keine Tools, solange keine festgelegt ist.</target>
+            </trans-unit>
+            <trans-unit id="server.lastImport">
+                <source>Last import</source>
+                <target>Letzter Import</target>
+            </trans-unit>
+            <trans-unit id="server.never">
+                <source>Never imported</source>
+                <target>Nie importiert</target>
+            </trans-unit>
+            <trans-unit id="server.import">
+                <source>Import catalogue</source>
+                <target>Katalog importieren</target>
+            </trans-unit>
+            <trans-unit id="tools.title">
+                <source>Imported tools</source>
+                <target>Importierte Tools</target>
+            </trans-unit>
+            <trans-unit id="tools.none">
+                <source>No tools imported yet.</source>
+                <target>Noch keine Tools importiert.</target>
+            </trans-unit>
+            <trans-unit id="tools.localName">
+                <source>Local name</source>
+                <target>Lokaler Name</target>
+            </trans-unit>
+            <trans-unit id="tools.remoteName">
+                <source>Name on the server</source>
+                <target>Name auf dem Server</target>
+            </trans-unit>
+            <trans-unit id="tools.orphaned">
+                <source>Gone from the server</source>
+                <target>Auf dem Server verschwunden</target>
+            </trans-unit>
+            <trans-unit id="tools.orphanedHint">
+                <source>This tool was in an earlier import and the server no longer offers it. The row is kept so the change is visible; the tool is not available to a run.</source>
+                <target>Dieses Tool war in einem früheren Import enthalten, der Server bietet es nicht mehr an. Der Eintrag bleibt stehen, damit die Änderung sichtbar ist. Für einen Lauf steht das Tool nicht zur Verfügung.</target>
+            </trans-unit>
+            <trans-unit id="import.skipped">
+                <source>Skipped</source>
+                <target>Übersprungen</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

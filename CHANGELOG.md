@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Tools from an external MCP server can be used in an agent run. An
+  administrator configures a server, imports the catalogue it advertises and
+  enables individual tools; import is the only network call outside a run and
+  happens on an explicit action, never because a page rendered. Each server
+  declares what class of data its tools may see, and a server without that
+  declaration supplies nothing rather than falling back to a default nobody
+  chose. A remote tool always requires an administrator, counts as a write that
+  is not replayed on a retry, and is never waved through the trust-zone gate in
+  observe mode. The number of remote calls one run may make is bounded, because
+  a remote call crosses the network while a backend user waits and nothing else
+  limits how many a model asks for at once.
+
 - Translation and image generation can be tried from the backend. The test page
   gained two cards: translate a snippet with a chosen translator, or generate a
   single image with the OpenAI or the FAL service. Until now nothing in the

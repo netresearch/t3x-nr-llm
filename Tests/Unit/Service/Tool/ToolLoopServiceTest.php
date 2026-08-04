@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
@@ -37,6 +38,8 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Netresearch\NrLlm\Service\Tool\RemoteCallBudget;
+use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
@@ -1299,6 +1302,146 @@ final class ToolLoopServiceTest extends TestCase
      * would assert the double's behaviour, which is precisely the substitution
      * the mandatory-collaborator work exists to remove.
      */
+    /**
+     * Nothing bounds how many tool calls a model may emit in a single round, and
+     * a remote call is not a local one: it crosses the network three times and
+     * each leg may sit at the transport timeout while a backend user waits. The
+     * budget is what keeps a model looping on one MCP tool from holding a
+     * request open far longer than the iteration cap suggests.
+     */
+    #[Test]
+    public function boundsHowManyRemoteToolsOneRunMayCall(): void
+    {
+        $overBudget = RemoteCallBudget::DEFAULT_LIMIT + 3;
+
+        $calls = [];
+        for ($i = 0; $i < $overBudget; ++$i) {
+            $calls[] = new ToolCall('call_' . $i, 'remote_thing', []);
+        }
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnOnConsecutiveCalls(
+            $this->response('', $calls),
+            $this->response('done'),
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->remoteTool()]));
+        $result  = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        $refused = array_filter(
+            $result->trace,
+            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+        );
+
+        self::assertCount(3, $refused, 'every call past the budget is refused');
+        self::assertCount($overBudget, $result->trace, 'a refused call is still recorded');
+    }
+
+    /**
+     * The budget lives on the run, not on the service. The service is a
+     * container singleton and the queue worker outlives many runs, so a second
+     * run must start with a full budget.
+     */
+    #[Test]
+    public function aSecondRunStartsWithAFreshRemoteBudget(): void
+    {
+        $spend = static function (): array {
+            $calls = [];
+            for ($i = 0; $i < RemoteCallBudget::DEFAULT_LIMIT; ++$i) {
+                $calls[] = new ToolCall('call_' . $i, 'remote_thing', []);
+            }
+
+            return $calls;
+        };
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnOnConsecutiveCalls(
+            $this->response('', $spend()),
+            $this->response('first done'),
+            $this->response('', $spend()),
+            $this->response('second done'),
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->remoteTool()]));
+
+        $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        $second = $service->runLoop([$this->userTurn('again')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        $refused = array_filter(
+            $second->trace,
+            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+        );
+
+        self::assertSame([], $refused, 'the second run got its own budget');
+    }
+
+    /**
+     * A builtin is local and returns in milliseconds; the iteration cap already
+     * bounds it, so the remote budget must not touch it.
+     */
+    #[Test]
+    public function theRemoteBudgetDoesNotApplyToBuiltins(): void
+    {
+        $calls = [];
+        for ($i = 0; $i < RemoteCallBudget::DEFAULT_LIMIT + 5; ++$i) {
+            $calls[] = new ToolCall('call_' . $i, 'local_thing', []);
+        }
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnOnConsecutiveCalls(
+            $this->response('', $calls),
+            $this->response('done'),
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([new FakeTool('local_thing')]));
+        $result  = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        $refused = array_filter(
+            $result->trace,
+            static fn(ToolInvocation $t): bool => str_contains($t->result, 'budget'),
+        );
+
+        self::assertSame([], $refused);
+    }
+
+    /**
+     * A tool marked as living outside this codebase, which is the only thing
+     * the budget keys on.
+     */
+    private function remoteTool(): ToolInterface
+    {
+        return new class implements ToolInterface, RemoteToolInterface {
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('remote_thing', "a tool on someone else's server", ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+            {
+                return ToolResult::text('remote ok');
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+        };
+    }
+
     private function realPolicy(ToolRegistry $registry, FakeToolAvailability $availability): ToolCallPolicy
     {
         return new ToolCallPolicy(

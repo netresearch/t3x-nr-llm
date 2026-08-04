@@ -75,7 +75,12 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         }
 
         if (!$zone->permits($dataClass)) {
-            $enforcing = $this->enforcing();
+            // A remote tool never benefits from observe mode. Observe exists so
+            // an UPGRADE does not silently start dropping tools that already
+            // worked (ADR-115); no remote tool worked before, so there is
+            // nothing to preserve, and an upgraded install must not end up more
+            // permissive than a fresh one.
+            $enforcing = $this->enforcing() || $tool instanceof RemoteToolInterface;
 
             return new ToolPolicyDecision(
                 $toolName,
