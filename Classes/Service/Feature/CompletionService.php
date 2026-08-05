@@ -110,17 +110,32 @@ final readonly class CompletionService implements CompletionServiceInterface
      * {@see JsonSchemaValidator}. A native provider structured-output guarantee
      * is a separate concern (see ADR-082).
      *
-     * @param array<string, mixed> $schema Subset JSON Schema: top-level `type`,
-     *                                     object `required` keys and per-key
-     *                                     `properties` types are enforced.
+     * @param array<string, mixed> $schema JSON Schema inside the strict named
+     *                                     subset (ADR-126): type/enum/const/
+     *                                     pattern/bounds/items/oneOf and
+     *                                     friends are enforced, unknown
+     *                                     keywords are rejected up front.
      *
-     * @throws InvalidArgumentException when the response still fails to match the
-     *                                  schema after one repair attempt
+     * @throws InvalidArgumentException when the schema lies outside the
+     *                                  supported subset (code 1784500003 —
+     *                                  thrown BEFORE any provider call), or
+     *                                  when the response still fails to match
+     *                                  after one repair attempt (1784500001)
      *
      * @return array<string, mixed> The decoded, schema-valid JSON payload
      */
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
+        // Pre-flight BEFORE the first provider call: a schema outside the
+        // subset fails validation for every possible response, and finding
+        // that out after the repair round-trip costs two paid requests.
+        if (!$this->schemaValidator->supportsSchema($schema)) {
+            throw new InvalidArgumentException(
+                'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
+                1784500003,
+            );
+        }
+
         $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
         $schemaJson = $this->encodeSchema($schema);
 
@@ -209,6 +224,15 @@ final readonly class CompletionService implements CompletionServiceInterface
      */
     public function completeStructuredForConfiguration(string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null): array
     {
+        // Same pre-flight as completeStructured(): never pay for a schema
+        // that cannot be satisfied.
+        if (!$this->schemaValidator->supportsSchema($schema)) {
+            throw new InvalidArgumentException(
+                'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
+                1784500003,
+            );
+        }
+
         $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
         $schemaJson = $this->encodeSchema($schema);
 
@@ -276,7 +300,7 @@ final readonly class CompletionService implements CompletionServiceInterface
             return null;
         }
 
-        if (!$this->schemaValidator->validate($decoded, $schema)) {
+        if (!$this->schemaValidator->validateStrict($decoded, $schema)) {
             return null;
         }
 

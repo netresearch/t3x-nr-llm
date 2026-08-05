@@ -423,3 +423,4 @@ Tools
    Adr123OneSecretShapeCatalogue
    Adr124ProviderKeyFromTheCommandLine
    Adr125PerAdapterCollaborators
+   Adr126StrictSchemaSubset
