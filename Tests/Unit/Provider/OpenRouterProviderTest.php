@@ -1838,6 +1838,25 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         self::assertArrayNotHasKey('stop', $body);
         self::assertArrayNotHasKey('transforms', $body);
         self::assertArrayNotHasKey('top_p', $body);
+        // Without a response_format/response_schema option no response_format
+        // key may appear (ADR-128).
+        self::assertArrayNotHasKey('response_format', $body);
+    }
+
+    #[Test]
+    public function chatCompletionEmitsResponseFormatForJsonMode(): void
+    {
+        $captured = [];
+        $provider = $this->createCapturingProvider([], $this->chatResponse(), $captured);
+
+        $provider->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['model' => 'openai/gpt-4o', 'response_format' => 'json'],
+        );
+
+        self::assertCount(1, $captured);
+        $body = $this->decodeCapturedBody($captured[0]['body']);
+        self::assertSame(['type' => 'json_object'], $body['response_format'] ?? null);
     }
 
     #[Test]

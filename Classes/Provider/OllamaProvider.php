@@ -197,6 +197,16 @@ final class OllamaProvider extends AbstractProvider implements StreamingCapableI
             $payload['think'] = $options['think'];
         }
 
+        // Also a top-level field, like `think`: a JSON schema Ollama enforces
+        // during generation, or the string 'json' for plain JSON mode
+        // (ADR-128). The local strict validation remains authoritative.
+        $responseSchema = $options['response_schema'] ?? null;
+        if (is_array($responseSchema) && $responseSchema !== []) {
+            $payload['format'] = $responseSchema;
+        } elseif (($options['response_format'] ?? null) === 'json') {
+            $payload['format'] = 'json';
+        }
+
         if ($payloadOptions !== []) {
             $payload['options'] = $payloadOptions;
         }

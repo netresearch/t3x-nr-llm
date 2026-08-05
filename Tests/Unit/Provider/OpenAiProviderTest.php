@@ -210,6 +210,48 @@ class OpenAiProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionEmitsStrictJsonSchemaWhenTheSchemaQualifies(): void
+    {
+        $schema = [
+            'type'                 => 'object',
+            'additionalProperties' => false,
+            'properties'           => ['name' => ['type' => 'string']],
+            'required'             => ['name'],
+        ];
+
+        $payload = $this->captureChatCompletionPayload([
+            'response_format' => 'json',
+            'response_schema' => $schema,
+        ]);
+
+        self::assertSame([
+            'type'        => 'json_schema',
+            'json_schema' => [
+                'name'   => 'structured_output',
+                'strict' => true,
+                'schema' => $schema,
+            ],
+        ], $payload['response_format'] ?? null);
+    }
+
+    #[Test]
+    public function chatCompletionFallsBackToJsonObjectForANonStrictQualifiedSchema(): void
+    {
+        // No additionalProperties:false — OpenAI strict mode would 400 this
+        // request; the correct degradation is plain JSON mode (ADR-128).
+        $payload = $this->captureChatCompletionPayload([
+            'response_format' => 'json',
+            'response_schema' => [
+                'type'       => 'object',
+                'properties' => ['name' => ['type' => 'string']],
+                'required'   => ['name'],
+            ],
+        ]);
+
+        self::assertSame(['type' => 'json_object'], $payload['response_format'] ?? null);
+    }
+
+    #[Test]
     public function chatCompletionOmitsResponseFormatForTextAndWhenUnset(): void
     {
         self::assertArrayNotHasKey(

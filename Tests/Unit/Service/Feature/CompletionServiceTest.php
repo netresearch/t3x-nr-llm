@@ -1080,6 +1080,34 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function completeStructuredAttachesTheSchemaToTheOptions(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+
+        $schema = [
+            'type'       => 'object',
+            'required'   => ['title'],
+            'properties' => ['title' => ['type' => 'string']],
+        ];
+
+        $capturedOptions = null;
+        $llmManagerMock->expects(self::once())->method('chat')
+            ->willReturnCallback(function (mixed $messages, mixed $options) use (&$capturedOptions): CompletionResponse {
+                $capturedOptions = $options;
+
+                return $this->createMockResponse('{"title": "Hello"}');
+            });
+
+        $subject->completeStructured('Generate metadata', $schema);
+
+        // The pre-flighted schema must ride along so adapters can enforce it
+        // natively (ADR-128); JSON mode stays set alongside.
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions);
+        self::assertSame($schema, $capturedOptions->getResponseSchema());
+        self::assertSame('json', $capturedOptions->getResponseFormat());
+    }
+
+    #[Test]
     public function completeStructuredRepairsOnceWhenTheFirstResponseFailsTheSchema(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();

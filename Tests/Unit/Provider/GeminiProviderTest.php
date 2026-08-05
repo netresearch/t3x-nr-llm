@@ -1816,6 +1816,118 @@ class GeminiProviderTest extends AbstractUnitTestCase
         self::assertSame(0.7, $body['generationConfig']['temperature']);
         self::assertArrayHasKey('maxOutputTokens', $body['generationConfig']);
         self::assertSame(4096, $body['generationConfig']['maxOutputTokens']);
+        // Without response_format/response_schema neither native structured-
+        // output field may appear (ADR-128).
+        self::assertArrayNotHasKey('responseMimeType', $body['generationConfig']);
+        self::assertArrayNotHasKey('responseSchema', $body['generationConfig']);
+    }
+
+    #[Test]
+    public function chatCompletionEmitsResponseMimeTypeForJsonMode(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            $this->okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_format' => 'json'],
+        );
+
+        $body   = $this->decodeCapturedBody($capturedBody);
+        $config = $body['generationConfig'];
+        assert(is_array($config));
+        self::assertSame('application/json', $config['responseMimeType'] ?? null);
+        self::assertArrayNotHasKey('responseSchema', $config);
+    }
+
+    #[Test]
+    public function chatCompletionEmitsResponseSchemaInGeminiDialect(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            $this->okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_format' => 'json', 'response_schema' => [
+                'type'       => 'object',
+                'properties' => [
+                    'kind' => ['type' => 'string', 'enum' => ['a', 'b']],
+                    'tags' => ['type' => 'array', 'items' => ['type' => 'string']],
+                    // pattern is not expressible in Gemini's dialect: the
+                    // KEYWORD is dropped, the property survives (dropping
+                    // only ever widens — ADR-128).
+                    'code' => ['type' => 'string', 'pattern' => '^[a-z]+$'],
+                ],
+                'required'             => ['kind', 'code'],
+                'additionalProperties' => false,
+            ]],
+        );
+
+        $body   = $this->decodeCapturedBody($capturedBody);
+        $config = $body['generationConfig'];
+        assert(is_array($config));
+        self::assertSame('application/json', $config['responseMimeType'] ?? null);
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => [
+                'kind' => ['type' => 'STRING', 'enum' => ['a', 'b']],
+                'tags' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']],
+                'code' => ['type' => 'STRING'],
+            ],
+            'required' => ['kind', 'code'],
+        ], $config['responseSchema'] ?? null);
+    }
+
+    #[Test]
+    public function chatCompletionDropsAnInexpressibleEnumWhole(): void
+    {
+        $capturedMethod = null;
+        $capturedUri    = null;
+        $capturedBody   = null;
+
+        $subject = $this->createCapturingSubject(
+            $this->okCandidateResponse(),
+            $capturedMethod,
+            $capturedUri,
+            $capturedBody,
+        );
+
+        // Gemini enums are string-only; a partially-filtered enum would
+        // NARROW below the real schema and block the value 2 — the keyword
+        // must be dropped in full (ADR-128).
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_schema' => [
+                'type'       => 'object',
+                'properties' => ['level' => ['type' => 'integer', 'enum' => [1, 2]]],
+                'required'   => ['level'],
+            ]],
+        );
+
+        $body   = $this->decodeCapturedBody($capturedBody);
+        $config = $body['generationConfig'];
+        assert(is_array($config));
+        self::assertSame([
+            'type'       => 'OBJECT',
+            'properties' => ['level' => ['type' => 'INTEGER']],
+            'required'   => ['level'],
+        ], $config['responseSchema'] ?? null);
     }
 
     #[Test]

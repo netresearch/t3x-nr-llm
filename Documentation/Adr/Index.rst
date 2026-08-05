@@ -425,3 +425,4 @@ Tools
    Adr125PerAdapterCollaborators
    Adr126StrictSchemaSubset
    Adr127ApiSurfaceMarkers
+   Adr128ProviderNativeStructuredOutput

@@ -167,6 +167,8 @@ final class GeminiProvider extends AbstractProvider implements
             $payload['generationConfig']['stopSequences'] = $options['stop_sequences'];
         }
 
+        $payload['generationConfig'] = $this->applyResponseFormat($payload['generationConfig'], $options);
+
         $response = $this->sendRequest(
             "models/{$model}:generateContent",
             $payload,
@@ -817,6 +819,118 @@ final class GeminiProvider extends AbstractProvider implements
             'RECITATION' => 'content_filter',
             default => strtolower($reason),
         };
+    }
+
+    /**
+     * Emit Gemini's native structured-output fields (ADR-128).
+     *
+     * `response_schema` → `responseSchema` in Gemini's OpenAPI-flavoured
+     * dialect plus `responseMimeType: application/json`; plain
+     * `response_format: 'json'` → the mime type alone. The dialect keeps only
+     * keywords Gemini documents; a schema whose ROOT the dialect cannot
+     * express (union type) degrades to the mime type. Dropping keywords only
+     * ever WIDENS what the model may emit — safe, because the local strict
+     * validation (ADR-126) remains authoritative on the response.
+     *
+     * @param array<string, mixed> $generationConfig
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function applyResponseFormat(array $generationConfig, array $options): array
+    {
+        $schema = $options['response_schema'] ?? null;
+        $format = $options['response_format'] ?? null;
+
+        if (is_array($schema) && $schema !== []) {
+            $generationConfig['responseMimeType'] = 'application/json';
+            $dialectSchema                        = $this->toGeminiSchema($schema);
+            if ($dialectSchema !== null) {
+                $generationConfig['responseSchema'] = $dialectSchema;
+            }
+
+            return $generationConfig;
+        }
+
+        if ($format === 'json') {
+            $generationConfig['responseMimeType'] = 'application/json';
+        }
+
+        return $generationConfig;
+    }
+
+    /**
+     * Reduce an ADR-126 subset schema to Gemini's schema dialect: keep
+     * `type` (single string only), `enum`, `description`, `properties`,
+     * `required`, `items`; drop everything else. Null when the node has no
+     * expressible type.
+     *
+     * @param array<array-key, mixed> $schema
+     *
+     * @return array<string, mixed>|null
+     */
+    private function toGeminiSchema(array $schema): ?array
+    {
+        $type = $schema['type'] ?? null;
+        if (!is_string($type)) {
+            return null;
+        }
+
+        $result = ['type' => strtoupper($type)];
+
+        if (isset($schema['description']) && is_string($schema['description'])) {
+            $result['description'] = $schema['description'];
+        }
+
+        // Gemini enums are string-only. A partially-filtered enum would
+        // NARROW below the real schema and block valid values, so the
+        // keyword is kept only when it is expressible in full.
+        if ($type === 'string' && isset($schema['enum']) && is_array($schema['enum'])) {
+            $values = array_values(array_filter($schema['enum'], is_string(...)));
+            if (count($values) === count($schema['enum'])) {
+                $result['enum'] = $values;
+            }
+        }
+
+        if ($type === 'object' && isset($schema['properties']) && is_array($schema['properties'])) {
+            $properties = [];
+            foreach ($schema['properties'] as $name => $subSchema) {
+                if (!is_string($name)) {
+                    continue;
+                }
+
+                if (!is_array($subSchema)) {
+                    continue;
+                }
+
+                $converted = $this->toGeminiSchema($subSchema);
+                if ($converted !== null) {
+                    $properties[$name] = $converted;
+                }
+            }
+
+            if ($properties !== []) {
+                $result['properties'] = $properties;
+                $required             = array_values(array_filter(
+                    is_array($schema['required'] ?? null) ? $schema['required'] : [],
+                    // A required name whose property was dropped must not
+                    // survive — Gemini rejects required-without-property.
+                    static fn(mixed $name): bool => is_string($name) && isset($properties[$name]),
+                ));
+                if ($required !== []) {
+                    $result['required'] = $required;
+                }
+            }
+        }
+
+        if ($type === 'array' && isset($schema['items']) && is_array($schema['items'])) {
+            $items = $this->toGeminiSchema($schema['items']);
+            if ($items !== null) {
+                $result['items'] = $items;
+            }
+        }
+
+        return $result;
     }
 
     /**

@@ -275,6 +275,22 @@ class ChatOptionsTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function withResponseSchemaReturnsNewInstanceAndSurvivesToArray(): void
+    {
+        $schema = ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string']]];
+
+        $options1 = new ChatOptions();
+        $options2 = $options1->withResponseSchema($schema);
+
+        self::assertNull($options1->getResponseSchema());
+        self::assertSame($schema, $options2->getResponseSchema());
+        // Must reach the adapter through toArray() — the manager serialises
+        // options before dispatch (ADR-128).
+        self::assertSame($schema, $options2->toArray()['response_schema']);
+        self::assertArrayNotHasKey('response_schema', $options1->toArray());
+    }
+
+    #[Test]
     public function withSystemPromptReturnsNewInstance(): void
     {
         $options1 = new ChatOptions(systemPrompt: 'prompt1');
