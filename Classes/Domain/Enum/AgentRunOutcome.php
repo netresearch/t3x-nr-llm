@@ -24,6 +24,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * More cases may be added in minor releases (the queue epic will add
  * queue-related outcomes); consumers must not match exhaustively without a
  * default arm.
+ *
+ * @api
  */
 enum AgentRunOutcome: string
 {

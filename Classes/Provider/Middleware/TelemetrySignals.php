@@ -30,6 +30,8 @@ namespace Netresearch\NrLlm\Provider\Middleware;
  * A fresh, un-annotated instance reads as "nothing happened" (no cache hit,
  * zero fallback attempts), which is the correct default for any pipeline run
  * that never touches those layers.
+ *
+ * @api
  */
 final class TelemetrySignals
 {

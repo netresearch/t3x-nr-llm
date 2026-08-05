@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The `@api` surface (ADR-127) is frozen in `Tests/Unit/Api/api-surface.txt`:
+  a snapshot test renders every marked class's declared public signatures and
+  fails on an unintended change; the same pass asserts the closure rule —
+  every type an `@api` signature mentions is `@api` itself.
 - Every class states its API stability: `@api` for the callable surface
   (semver-covered, including every type its signatures mention), `@api`
   extension points for the interfaces third parties implement (no new
