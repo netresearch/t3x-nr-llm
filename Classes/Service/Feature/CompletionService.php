@@ -117,7 +117,7 @@ final readonly class CompletionService implements CompletionServiceInterface
      *                                     keywords are rejected up front.
      *
      * @throws InvalidArgumentException when the schema lies outside the
-     *                                  supported subset (code 1784500002 —
+     *                                  supported subset (code 1784500003 —
      *                                  thrown BEFORE any provider call), or
      *                                  when the response still fails to match
      *                                  after one repair attempt (1784500001)
@@ -132,7 +132,7 @@ final readonly class CompletionService implements CompletionServiceInterface
         if (!$this->schemaValidator->supportsSchema($schema)) {
             throw new InvalidArgumentException(
                 'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
-                1784500002,
+                1784500003,
             );
         }
 
@@ -229,7 +229,7 @@ final readonly class CompletionService implements CompletionServiceInterface
         if (!$this->schemaValidator->supportsSchema($schema)) {
             throw new InvalidArgumentException(
                 'The schema lies outside the supported strict subset (ADR-126); it would reject every response.',
-                1784500002,
+                1784500003,
             );
         }
 

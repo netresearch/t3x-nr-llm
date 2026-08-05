@@ -51,6 +51,7 @@ final class JsonSchemaValidatorStrictTest extends TestCase
         yield 'additionalProperties as schema' => [['type' => 'object', 'additionalProperties' => ['type' => 'string']], true];
 
         yield 'empty schema is degenerate' => [[], false];
+        yield 'annotations alone assert nothing' => [['description' => 'x', 'title' => 't'], false];
         yield 'unknown keyword' => [['type' => 'string', 'if' => ['type' => 'string']], false];
         yield '$ref is out of subset' => [['$ref' => '#/definitions/x'], false];
         yield 'definitions are out of subset' => [['type' => 'object', 'definitions' => []], false];

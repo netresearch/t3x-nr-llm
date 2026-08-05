@@ -43,7 +43,7 @@ Its contract is a **named subset**, owned by :php:`StrictSchemaSubset`:
   decision stands.
 
 :php:`completeStructured()` **pre-flights** the schema against the subset and
-throws (code ``1784500002``) before the first provider call: an out-of-subset
+throws (code ``1784500003``) before the first provider call: an out-of-subset
 schema fails for every possible response, and discovering that after the
 repair round-trip would cost two paid requests.
 

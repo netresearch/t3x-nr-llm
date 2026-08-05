@@ -80,6 +80,7 @@ final readonly class StrictSchemaSubset
             return false;
         }
 
+        $hasAssertion = false;
         foreach ($schema as $keyword => $value) {
             if (!is_string($keyword)) {
                 return false;
@@ -96,9 +97,14 @@ final readonly class StrictSchemaSubset
             if (!$this->keywordValueSupported($keyword, $value)) {
                 return false;
             }
+
+            $hasAssertion = true;
         }
 
-        return true;
+        // Annotations alone assert nothing: a schema of only description/
+        // title/format would let strict validation accept every response,
+        // which is the degenerate case in prettier clothes.
+        return $hasAssertion;
     }
 
     /**

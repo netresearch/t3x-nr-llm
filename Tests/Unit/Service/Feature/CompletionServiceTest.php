@@ -1019,7 +1019,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $llmManagerMock->expects(self::never())->method('chat');
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionCode(1784500002);
+        $this->expectExceptionCode(1784500003);
 
         $subject->completeStructured('Generate metadata', [
             'type' => 'object',
