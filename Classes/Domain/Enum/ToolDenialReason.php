@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * Reported in the order the gates are evaluated — cheapest and least revealing
  * first — so a caller who was already blocked by enablement never learns that a
  * trust-zone axis exists.
+ *
+ * @api
  */
 enum ToolDenialReason: string
 {

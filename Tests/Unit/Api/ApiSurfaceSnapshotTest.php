@@ -112,6 +112,24 @@ final class ApiSurfaceSnapshotTest extends TestCase
                     }
                 }
             }
+
+            // Public property types are surface too — a promoted readonly
+            // property leaks its type exactly like a getter would.
+            foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
+                if ($property->getDeclaringClass()->getName() !== $reflection->getName()) {
+                    continue;
+                }
+
+                if ($property->isStatic()) {
+                    continue;
+                }
+
+                foreach ($this->ownNamespaceOnly($this->namedClassTypes($property->getType())) as $type) {
+                    if (!isset($apiSet[$type])) {
+                        $violations[] = sprintf('%s::$%s mentions %s', $fqcn, $property->getName(), $type);
+                    }
+                }
+            }
         }
 
         self::assertSame(
@@ -377,8 +395,18 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
         $types = [...$types, ...$this->namedClassTypes($method->getReturnType())];
 
+        return $this->ownNamespaceOnly($types);
+    }
+
+    /**
+     * @param list<string> $names
+     *
+     * @return list<string>
+     */
+    private function ownNamespaceOnly(array $names): array
+    {
         return array_values(array_unique(array_filter(
-            $types,
+            $names,
             static fn(string $name): bool => str_starts_with($name, self::NAMESPACE_PREFIX),
         )));
     }

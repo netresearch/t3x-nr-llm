@@ -25,6 +25,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * migration. TREE specifically is a documented follow-up (a page-tree emitter),
  * intentionally NOT shipped in v1 so no enum case exists without a committed
  * producer.
+ *
+ * @api
  */
 enum ArtifactType: string
 {

@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * Richer than a boolean so a guardrail can express the full range of policy
  * outcomes: pass it, rewrite it, block it, ask for it again, or route it to a
  * human.
+ *
+ * @api
  */
 enum GuardrailVerdict: string
 {

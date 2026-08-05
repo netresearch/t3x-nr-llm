@@ -86,6 +86,23 @@ Netresearch\NrLlm\Domain\DTO\ProviderOptions (class)
   property readonly extra: array
   property readonly proxy: ?string
 
+Netresearch\NrLlm\Domain\Enum\AgentRunOutcome (enum)
+  case AWAITING_APPROVAL
+  case AWAITING_INPUT
+  case CANCELLED
+  case COMPLETED
+  case FAILED
+  case GUARDRAIL_APPROVAL_REQUIRED
+  case GUARDRAIL_BLOCKED
+  case LEASE_LOST
+  case REQUEUED
+  case SUSPEND_FAILED
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\AgentRunStatus (enum)
   case CANCELLED
   case COMPLETED
@@ -123,6 +140,29 @@ Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
   method static from(int|string $value): static
   method static tryFrom(int|string $value): ?static
   method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
+  case TABLE
+  case TEXT
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
+  case ALLOW
+  case DENY
+  case REDACT
+  case REQUIRE_APPROVAL
+  case RETRY
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
   method static values(): array
   property readonly name: string
   property readonly value: string
@@ -232,6 +272,20 @@ Netresearch\NrLlm\Domain\Enum\ToolDataClass (enum)
   method static strictest(self $a, self $b): self
   method static tryFrom(int|string $value): ?static
   method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ToolDenialReason (enum)
+  case CONFIGURATION_GROUP
+  case NONE
+  case NOT_REGISTERED
+  case REQUIRES_ADMIN
+  case TOOL_DISABLED
+  case TRUST_ZONE
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
   method static values(): array
   property readonly name: string
   property readonly value: string
@@ -871,6 +925,12 @@ Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
   method static tryFrom(int|string $value): ?static
   property readonly name: string
   property readonly value: string
+
+Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
+  method recordCacheHit(): void
+  method recordFallbackAttempt(): void
+  property cacheHit: bool
+  property fallbackAttempts: int
 
 Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord (class)
   property readonly beUserUid: ?int
