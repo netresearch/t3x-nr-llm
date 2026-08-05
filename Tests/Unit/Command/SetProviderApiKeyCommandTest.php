@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Command;
 
+use Closure;
 use Netresearch\NrLlm\Command\SetProviderApiKeyCommand;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -125,6 +126,46 @@ final class SetProviderApiKeyCommandTest extends TestCase
     }
 
     #[Test]
+    public function refusesToReadFromATerminal(): void
+    {
+        // A provisioning script that reaches a prompt hangs, and a hang reads
+        // as a broken deploy rather than as a missing key. There is no portable
+        // way to hand a unit test a real TTY, so the detector is substituted.
+        $provider = $this->provider('openai', apiKey: '');
+        $vault    = new InMemoryVaultService();
+
+        $exit = $this->runCommand(
+            $this->command($provider, $vault, static fn($stream): bool => true),
+            'openai',
+            self::SECRET,
+        );
+
+        self::assertSame(Command::INVALID, $exit);
+        self::assertStringContainsString('Refusing to read the key from a terminal', $this->output->fetch());
+        self::assertSame('', $provider->getApiKey(), 'nothing may be linked when the key was never read');
+        self::assertSame([], $vault->storeCalls);
+        self::assertSame([], $vault->rotateCalls);
+    }
+
+    #[Test]
+    public function readsThePipeWhenTheDetectorSaysItIsNotATerminal(): void
+    {
+        // The twin of the case above: same substituted detector, opposite
+        // answer, so a detector wired backwards cannot pass both.
+        $provider = $this->provider('openai', apiKey: '');
+        $vault    = new InMemoryVaultService();
+
+        $exit = $this->runCommand(
+            $this->command($provider, $vault, static fn($stream): bool => false),
+            'openai',
+            self::SECRET,
+        );
+
+        self::assertSame(Command::SUCCESS, $exit);
+        self::assertSame(self::SECRET, $vault->secrets[$provider->getApiKey()] ?? null);
+    }
+
+    #[Test]
     public function stripsTrailingLineBreaksButKeepsEveryOtherCharacter(): void
     {
         $provider = $this->provider('openai', apiKey: '');
@@ -184,8 +225,14 @@ final class SetProviderApiKeyCommandTest extends TestCase
         }
     }
 
-    private function command(?Provider $provider, InMemoryVaultService $vault): SetProviderApiKeyCommand
-    {
+    /**
+     * @param (Closure(resource): bool)|null $isTerminal
+     */
+    private function command(
+        ?Provider $provider,
+        InMemoryVaultService $vault,
+        ?Closure $isTerminal = null,
+    ): SetProviderApiKeyCommand {
         $repository = $this->createMock(ProviderRepository::class);
         $repository->method('findOneByIdentifier')->willReturn($provider);
 
@@ -194,6 +241,7 @@ final class SetProviderApiKeyCommandTest extends TestCase
             self::createStub(PersistenceManagerInterface::class),
             $vault,
             new NullLogger(),
+            $isTerminal,
         );
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Command;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -61,11 +62,20 @@ final class SetProviderApiKeyCommand extends Command
         ],
     ];
 
+    /**
+     * @param (Closure(resource): bool)|null $isTerminal How to tell a terminal
+     *                                                   from a pipe. Substituted in tests only: there is no portable way
+     *                                                   to hand a unit test a real TTY, so the branch that refuses to read
+     *                                                   from one would otherwise be unreachable. Left null in production,
+     *                                                   where it falls back to `stream_isatty()`; the container has no
+     *                                                   service of this type and uses the default.
+     */
     public function __construct(
         private readonly ProviderRepository $providerRepository,
         private readonly PersistenceManagerInterface $persistenceManager,
         private readonly VaultServiceInterface $vault,
         private readonly LoggerInterface $logger,
+        private readonly ?Closure $isTerminal = null,
     ) {
         parent::__construct();
     }
@@ -184,6 +194,10 @@ final class SetProviderApiKeyCommand extends Command
 
         if (!is_resource($stream)) {
             return null;
+        }
+
+        if ($this->isTerminal instanceof Closure) {
+            return ($this->isTerminal)($stream) ? null : $stream;
         }
 
         return stream_isatty($stream) ? null : $stream;
