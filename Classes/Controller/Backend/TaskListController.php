@@ -91,7 +91,7 @@ final class TaskListController extends ActionController
             $groupedTasks[$category]['tasks'][] = $task;
         }
 
-        $groupedTasks = array_filter($groupedTasks, fn(array $group): bool => !empty($group['tasks']));
+        $groupedTasks = array_filter($groupedTasks, fn(array $group): bool => $group['tasks'] !== []);
 
         $period = AnalyticsPeriod::fromPreset('30d', new DateTimeImmutable());
         $usage = UsageAnalyticsService::formatUsageColumns(
