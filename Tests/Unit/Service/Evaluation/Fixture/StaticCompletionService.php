@@ -64,8 +64,12 @@ final class StaticCompletionService implements CompletionServiceInterface
         // Behave like the real service: the canned content, decoded. Callers
         // that seed plain text (deterministic-path tests) never reach this.
         $decoded = json_decode($this->content, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
 
-        return is_array($decoded) ? $decoded : [];
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string
