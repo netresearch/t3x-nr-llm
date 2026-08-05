@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Architecture;
 
+use Netresearch\NrLlm\Command\CancelAgentRunCommand;
+use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
+use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
+use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
+use Netresearch\NrLlm\Service\Evaluation\LexicalSearchRetriever;
+use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
@@ -166,5 +172,64 @@ final class ModuleSeamTest
                 Selector::inNamespace(self::NS_WIDGETS),
             )
             ->because('nr_llm_backend depends on the other packages; nothing outside it may depend on the backend (ADR-090).');
+    }
+
+    /**
+     * Core must not depend on the tool/agent/retrieval module — the remaining
+     * seam the roadmap names, and the prerequisite for the post-1.0 split:
+     * every feature package depends on core, so a core class reaching back
+     * into `nr_llm_tools` would make the two packages mutually dependent.
+     *
+     * "Core" here is the remainder: everything that is not one of the mapped
+     * module namespaces above. Six classes are excluded BY NAME rather than by
+     * directory, because they are the tool module's own operational surface
+     * living in shared directories — in a split each moves WITH its module,
+     * so their coupling is ownership, not leakage:
+     *
+     * - `CancelAgentRunCommand`, `ReapStaleAgentRunsCommand` — CLI entry
+     *   points of the agent runtime (→ nr_llm_tools)
+     * - `PurgePrivacyDataCommand` — sweeps, among others, the agent-run
+     *   tables through their repository (→ split into per-module sweeps when
+     *   the packages separate)
+     * - `ToolGroupItems` — the TCA itemsProcFunc that lists tool groups
+     *   (→ nr_llm_tools)
+     * - `LexicalSearchRetriever` — the evaluation harness's baseline over the
+     *   retrieval API (→ nr_llm_tools, retrieval scope)
+     * - `OverviewReadinessService` — feeds the backend Overview module's
+     *   readiness card (→ nr_llm_backend)
+     *
+     * A NEW core class that imports the tool module fails this rule; the
+     * named list is the complete, deliberate exception set. Do not grow it
+     * without recording where the class moves in a split.
+     */
+    public function testCoreDoesNotDependOnTheToolModule(): Rule
+    {
+        return PHPat::rule()
+            ->classes(Selector::AllOf(
+                Selector::inNamespace(self::NS_ROOT),
+                Selector::NoneOf(
+                    Selector::inNamespace(self::NS_SPECIALIZED),
+                    Selector::inNamespace(self::NS_TOOL),
+                    Selector::inNamespace(self::NS_AGENT),
+                    Selector::inNamespace(self::NS_RETRIEVAL),
+                    Selector::inNamespace(self::NS_GUARDRAIL),
+                    Selector::inNamespace(self::NS_CONTROLLER),
+                    Selector::inNamespace(self::NS_WIDGETS),
+                    Selector::inNamespace(self::NS_TESTS),
+                    Selector::classname(CancelAgentRunCommand::class),
+                    Selector::classname(PurgePrivacyDataCommand::class),
+                    Selector::classname(ReapStaleAgentRunsCommand::class),
+                    Selector::classname(ToolGroupItems::class),
+                    Selector::classname(LexicalSearchRetriever::class),
+                    Selector::classname(OverviewReadinessService::class),
+                ),
+            ))
+            ->shouldNotDependOn()
+            ->classes(
+                Selector::inNamespace(self::NS_TOOL),
+                Selector::inNamespace(self::NS_AGENT),
+                Selector::inNamespace(self::NS_RETRIEVAL),
+            )
+            ->because('Core is what every package depends on; core reaching back into nr_llm_tools would make the split circular (ADR-090).');
     }
 }
