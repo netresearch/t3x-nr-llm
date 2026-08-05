@@ -26,6 +26,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * is a criteria-mode configuration that ModelSelectionService resolves at
  * runtime against whatever providers/models the admin has configured
  * (ADR-056).
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface ConfigurationPresetProviderInterface

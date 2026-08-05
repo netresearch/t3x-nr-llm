@@ -44,6 +44,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:privacy:purge',
     description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs, governance events) past their retention window.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class PurgePrivacyDataCommand extends Command
 {
     public function __construct(

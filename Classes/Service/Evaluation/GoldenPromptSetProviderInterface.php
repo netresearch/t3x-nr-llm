@@ -21,6 +21,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * GoldenPromptSetRegistry through a tagged iterator. A consuming extension
  * only needs to implement this interface and register its class as a
  * service — no further wiring.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface GoldenPromptSetProviderInterface

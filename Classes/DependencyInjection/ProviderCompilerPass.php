@@ -16,6 +16,9 @@ use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class ProviderCompilerPass implements CompilerPassInterface
 {
     /**

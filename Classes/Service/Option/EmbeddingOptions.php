@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * Embeddings are deterministic, so caching is enabled by default.
  *
  * @phpstan-consistent-constructor
+ *
+ * @api
  */
 class EmbeddingOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

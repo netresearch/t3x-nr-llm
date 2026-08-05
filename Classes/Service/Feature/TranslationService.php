@@ -49,6 +49,8 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  * though: the resolved uid is re-attached to the translator options
  * array (`beUserUid` key, see `attachBeUserUid()`) and the
  * translators forward it to `trackUsage()` (ADR-052).
+ *
+ * @api
  */
 final readonly class TranslationService implements TranslationServiceInterface
 {

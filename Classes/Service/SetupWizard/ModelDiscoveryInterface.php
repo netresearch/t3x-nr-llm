@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
 
 /**
  * Interface for model discovery from LLM providers.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 interface ModelDiscoveryInterface
 {

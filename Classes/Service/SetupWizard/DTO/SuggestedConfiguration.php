@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 
 /**
  * DTO for a suggested LLM configuration use case.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class SuggestedConfiguration
 {

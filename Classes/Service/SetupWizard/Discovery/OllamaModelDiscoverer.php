@@ -16,6 +16,8 @@ use Throwable;
  * Ollama model discovery: unauthenticated /api/tags listing with per-model
  * /api/show enrichment capped per run; a failure yields an empty list, never
  * a canned catalog — a local daemon that is down has no models.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 {

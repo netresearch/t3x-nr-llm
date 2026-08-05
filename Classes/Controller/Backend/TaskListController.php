@@ -33,6 +33,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * Slice 13e of the `TaskController` split (ADR-027). Owns the
  * single `listAction()` that renders the grouped-by-category Task
  * dashboard.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class TaskListController extends ActionController

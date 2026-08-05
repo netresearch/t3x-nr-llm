@@ -35,6 +35,8 @@ use Throwable;
  * - Image editing and variations (DALL-E 2)
  *
  * @see https://platform.openai.com/docs/guides/images
+ *
+ * @api
  */
 final class DallEImageService extends AbstractSpecializedService implements ImageGeneratorInterface
 {

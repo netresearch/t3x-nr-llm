@@ -19,6 +19,8 @@ namespace Netresearch\NrLlm\Provider\Middleware\Usage;
  * so the middleware forwards it verbatim — the extractor owns the operation-
  * specific accounting (image count, characters, audio seconds, cost), the
  * middleware owns the single write.
+ *
+ * @api
  */
 final readonly class ProviderUsageRecord
 {

@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DiscoveredModel;
  * reach that flag, so fallback-ness travels with the models instead — which is
  * also the honest shape: whether a catalog is live or canned is a property of
  * the result, not of the service that produced it.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class DiscoveryResult
 {

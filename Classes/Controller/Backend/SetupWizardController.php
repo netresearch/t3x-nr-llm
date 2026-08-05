@@ -52,6 +52,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Provides a guided setup experience for configuring LLM providers,
  * models, and configurations with auto-detection and LLM-assisted
  * configuration generation.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class SetupWizardController extends ActionController

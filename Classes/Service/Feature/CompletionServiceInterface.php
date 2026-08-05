@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * should depend on this interface rather than the concrete
  * `CompletionService` so the implementation can be substituted without
  * inheritance.
+ *
+ * @api
  */
 interface CompletionServiceInterface
 {

@@ -19,6 +19,8 @@ use Throwable;
  * Carries the full BudgetCheckResult so consumers (controllers, logs,
  * flash messages) can surface which bucket tripped, the current usage,
  * and the limit without re-running the check.
+ *
+ * @api
  */
 final class BudgetExceededException extends RuntimeException implements NrLlmExceptionInterface
 {

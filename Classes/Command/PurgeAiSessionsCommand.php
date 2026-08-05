@@ -33,6 +33,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:session:purge',
     description: 'Delete conversation sessions inactive for longer than the configured retention window.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class PurgeAiSessionsCommand extends Command
 {
     public function __construct(

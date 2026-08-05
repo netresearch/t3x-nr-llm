@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\Model\PromptSnippet;
  * Consuming extensions resolve snippets (e.g. via
  * PromptSnippetRepository::findActiveByTag()) and pass them here to
  * build the snippet-backed part of their prompt.
+ *
+ * @api
  */
 final class PromptSnippetComposer
 {

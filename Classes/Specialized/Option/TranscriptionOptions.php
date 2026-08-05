@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Service\Option\BudgetFieldsTrait;
 
 /**
  * Options for speech-to-text transcription (Whisper).
+ *
+ * @api
  */
 final class TranscriptionOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

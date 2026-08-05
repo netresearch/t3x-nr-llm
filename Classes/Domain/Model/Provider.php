@@ -24,6 +24,8 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  *
  * Represents an API provider connection with endpoint, credentials, and adapter type.
  * Supports multiple provider instances of the same type (e.g., openai-prod, openai-dev).
+ *
+ * @api
  */
 class Provider extends AbstractEntity
 {

@@ -26,6 +26,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * public-only in this iteration (see AccessContext). Returned excerpts
  * egress to the external provider and the backend DOM — never include
  * content the anonymous visitor could not read.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface SearchBackendInterface

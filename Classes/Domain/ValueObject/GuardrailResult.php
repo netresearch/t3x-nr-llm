@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Domain\Enum\GuardrailVerdict;
  * Built through the named constructors so a guardrail never has to remember
  * which fields a verdict needs. A null `redactedThinking` on a REDACT means
  * "leave the thinking as-is".
+ *
+ * @api
  */
 final readonly class GuardrailResult
 {

@@ -15,6 +15,8 @@ use RuntimeException;
  * Thrown when the setup wizard refuses to dispatch an HTTP request because
  * the target host is not covered by the nr-vault SSRF host allowlist
  * (`SecureHttpClientFactory::isHostAllowed()`).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class HostNotAllowedException extends RuntimeException
 {

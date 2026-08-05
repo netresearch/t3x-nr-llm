@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  * Budget pre-flight (REC #4 slice 15b): mirrors `CompletionService`
  * (slice 15a). The resolver is optional so unit tests omit it;
  * production DI autowires it.
+ *
+ * @api
  */
 final readonly class VisionService implements VisionServiceInterface
 {

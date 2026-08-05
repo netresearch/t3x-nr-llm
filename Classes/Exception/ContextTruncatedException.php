@@ -21,6 +21,8 @@ use RuntimeException;
  * {@see \Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason::CONTEXT_TRUNCATED}
  * — a legible terminal state instead of a misclassified provider 4xx. Carries
  * the {@see ContextFitResult} for observability.
+ *
+ * @api
  */
 final class ContextTruncatedException extends RuntimeException implements NrLlmExceptionInterface
 {

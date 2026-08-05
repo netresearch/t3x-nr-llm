@@ -25,6 +25,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * provider test-calls that decrypt vault keys, task execution, and arbitrary
  * record reads. Each AJAX action calls {@see denyNonAdmin()} at its very top
  * so only a backend admin proceeds. See ADR-037.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 trait RequiresBackendAdminTrait
 {

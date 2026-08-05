@@ -18,6 +18,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * of the vocabulary from the outset so the human-in-the-loop and batch epics can
  * reuse this enum without a migration; the persistence layer added here only
  * ever writes RUNNING → COMPLETED/FAILED.
+ *
+ * @api
  */
 enum AgentRunStatus: string
 {

@@ -20,6 +20,8 @@ use RuntimeException;
  * concurrency claim. Run OUTCOMES (completion, suspension, guardrail block,
  * failure) are never exceptions; they come back as a settled
  * {@see \Netresearch\NrLlm\Service\Agent\AgentRunResult}.
+ *
+ * @api
  */
 abstract class AgentRuntimeException extends RuntimeException
 {

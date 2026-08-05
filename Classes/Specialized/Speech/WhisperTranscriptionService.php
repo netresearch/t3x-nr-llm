@@ -41,6 +41,8 @@ use Throwable;
  * construction (`encodeMultipartBody`) is shared via the trait.
  *
  * @see https://platform.openai.com/docs/guides/speech-to-text
+ *
+ * @api
  */
 final class WhisperTranscriptionService extends AbstractSpecializedService
 {

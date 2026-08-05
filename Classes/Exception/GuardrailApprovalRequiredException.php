@@ -19,6 +19,8 @@ use Throwable;
  * response is withheld from automatic use but not rejected — a consumer with a
  * run/review context catches this to route it to approval (the Epic-D /
  * review-queue seam), rather than to an error.
+ *
+ * @api
  */
 final class GuardrailApprovalRequiredException extends RuntimeException implements GuardrailPolicyException
 {

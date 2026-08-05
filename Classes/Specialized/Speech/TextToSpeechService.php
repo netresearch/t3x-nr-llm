@@ -37,6 +37,8 @@ use Throwable;
  * endpoint construction) comes from `AbstractSpecializedService`.
  *
  * @see https://platform.openai.com/docs/guides/text-to-speech
+ *
+ * @api
  */
 final class TextToSpeechService extends AbstractSpecializedService
 {

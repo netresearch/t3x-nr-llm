@@ -23,6 +23,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  * Repository for Model domain model.
  *
  * @extends Repository<Model>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class ModelRepository extends Repository
 {

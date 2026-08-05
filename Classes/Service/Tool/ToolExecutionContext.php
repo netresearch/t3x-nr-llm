@@ -29,6 +29,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * reconstructs it from the actor's uid; a service account, an anonymous actor or
  * a deleted/disabled user yields `null`, which every user-scoped tool treats as
  * "no permission" — fail-closed, exactly as an absent `$GLOBALS['BE_USER']` did.
+ *
+ * @api
  */
 final readonly class ToolExecutionContext
 {

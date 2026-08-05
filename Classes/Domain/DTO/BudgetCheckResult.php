@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Domain\DTO;
  * When allowed() is false, the remaining fields describe which bucket
  * was tripped so the caller can surface a meaningful message without
  * re-computing anything.
+ *
+ * @api
  */
 final readonly class BudgetCheckResult
 {

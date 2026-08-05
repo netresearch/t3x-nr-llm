@@ -12,4 +12,7 @@ namespace Netresearch\NrLlm\Provider\Exception;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use RuntimeException;
 
+/**
+ * @api
+ */
 class ProviderException extends RuntimeException implements NrLlmExceptionInterface {}

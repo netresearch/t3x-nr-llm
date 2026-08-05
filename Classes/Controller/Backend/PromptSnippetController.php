@@ -29,6 +29,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * by consuming extensions. See ADR-031.
  *
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class PromptSnippetController extends ActionController

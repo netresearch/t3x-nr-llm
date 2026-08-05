@@ -21,6 +21,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * regardless of context: RAG evidence is what the anonymous visitor could
  * read, so no additional per-user narrowing exists today — the variants
  * only preserve WHO asked for future widening.
+ *
+ * @api
  */
 final readonly class AccessContext
 {

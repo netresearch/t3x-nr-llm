@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Service\Option\AbstractOptions;
 
 /**
  * Options specific to DeepL translation service.
+ *
+ * @api
  */
 final class DeepLOptions extends AbstractOptions
 {

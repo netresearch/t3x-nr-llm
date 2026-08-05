@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Domain\Model;
 
 /**
  * Result object for translation requests.
+ *
+ * @api
  */
 final readonly class TranslationResult
 {

@@ -13,6 +13,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * Enum representing model capabilities.
  *
  * Used to define what features a model supports (chat, completion, embeddings, etc.).
+ *
+ * @api
  */
 enum ModelCapability: string
 {

@@ -14,6 +14,8 @@ namespace Netresearch\NrLlm\Specialized\Translation;
  *
  * Note: This is separate from Domain\Model\TranslationResult which is
  * used by LLM-based translation and includes UsageStatistics.
+ *
+ * @api
  */
 final readonly class TranslatorResult
 {

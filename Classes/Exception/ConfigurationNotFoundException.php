@@ -13,5 +13,7 @@ use RuntimeException;
 
 /**
  * Exception thrown when an LLM configuration cannot be found.
+ *
+ * @api
  */
 class ConfigurationNotFoundException extends RuntimeException implements NrLlmExceptionInterface {}

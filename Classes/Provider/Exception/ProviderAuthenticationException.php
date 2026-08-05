@@ -18,5 +18,7 @@ namespace Netresearch\NrLlm\Provider\Exception;
  * message text or the raw `httpStatus`. All typed fields (`httpStatus`,
  * `responseBody`, `endpoint`) and `getCode() === 401` are inherited unchanged,
  * so existing `catch (ProviderResponseException)` handlers keep matching.
+ *
+ * @api
  */
 final class ProviderAuthenticationException extends ProviderResponseException {}

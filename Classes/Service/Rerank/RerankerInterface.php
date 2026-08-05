@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Service\Rerank\Exception\RerankerException;
  * scores come back as plain ``id``/``score`` shapes — no consumer DTOs
  * cross this boundary. Consumers own DTO mapping, the ordering merge,
  * the degradation policy on failure, and any score-threshold gate.
+ *
+ * @api
  */
 interface RerankerInterface
 {

@@ -33,6 +33,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  *   backend users — a GDPR concern, not a secrecy level. Mapping them to
  *   {@see self::SECRET_ADJACENT} is conservative rather than semantically
  *   precise; a proper PERSONAL_DATA concept needs its own axis, not a rank.
+ *
+ * @api
  */
 enum ToolDataClass: string
 {

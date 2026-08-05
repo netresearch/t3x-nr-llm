@@ -22,6 +22,8 @@ namespace Netresearch\NrLlm\Service\Agent;
  *
  * Persisted only as an {@see \Netresearch\NrLlm\Domain\Enum\AgentEventKind::INPUT}
  * event recording ``{submittedBy: int}`` — never the values (ADR-064).
+ *
+ * @api
  */
 final readonly class InputSubmission
 {

@@ -16,6 +16,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * The immutable read model of one multi-turn conversation. Messages live in
  * `tx_nrllm_ai_session_message` and are read as {@see AiSessionMessage} value
  * objects; this row carries the session's identity, owner and activity summary.
+ *
+ * @api
  */
 final readonly class AiSession
 {

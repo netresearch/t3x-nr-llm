@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\RunAugmentation;
  * the queue epic lands — a worker rehydrating a queued request. Deliberately a
  * plain value object so it can later be serialised for queued execution without
  * changing the runtime interface.
+ *
+ * @api
  */
 final readonly class AgentRunRequest
 {

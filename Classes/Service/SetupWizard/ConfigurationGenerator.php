@@ -30,6 +30,8 @@ use Throwable;
  * gated via `SecureHttpClientFactory::isHostAllowed()` first, so the wizard
  * cannot be coerced into an SSRF request — the same hardened path the
  * providers and specialised services use.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class ConfigurationGenerator
 {

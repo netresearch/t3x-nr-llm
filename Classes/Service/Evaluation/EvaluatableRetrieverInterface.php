@@ -31,6 +31,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * DI tag (auto-applied by AutoconfigureTag) and collected by
  * EvaluatableRetrieverRegistry, so `nrllm:eval:retrieval` can address them
  * by identifier.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface EvaluatableRetrieverInterface

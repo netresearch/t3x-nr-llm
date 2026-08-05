@@ -31,6 +31,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
  * It is a mutable collector, deliberately NOT a readonly value object: the
  * readonly transport type is {@see RunStep}, which this hands out via
  * {@see self::getSteps()}.
+ *
+ * @api
  */
 final class RunTrace
 {

@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
  * capability, so a consumer's test double covers two methods instead
  * of the whole manager surface and does not break when the manager
  * interface grows unrelated methods (ADR-051).
+ *
+ * @api
  */
 interface ToolCallingServiceInterface
 {

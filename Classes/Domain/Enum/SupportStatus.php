@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Enum;
 
+/**
+ * @api
+ */
 enum SupportStatus: string
 {
     case FULL = 'full';

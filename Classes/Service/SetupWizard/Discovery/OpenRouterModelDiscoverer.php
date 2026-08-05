@@ -16,6 +16,8 @@ use Throwable;
  * OpenRouter model discovery via the shared Bearer listing; carries the
  * published per-token prices into the catalog. A failure yields an empty
  * list — the router's catalog is too large and volatile to can.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
 {

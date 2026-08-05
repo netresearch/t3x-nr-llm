@@ -20,6 +20,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * injection path enforce a configurable *minimum* trust fail-closed: an
  * unknown/invalid stored value resolves to the lowest rank, so it is gated out
  * whenever a minimum above `untrusted` is configured.
+ *
+ * @api
  */
 enum SkillTrustLevel: string
 {

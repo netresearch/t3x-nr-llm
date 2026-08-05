@@ -33,6 +33,8 @@ use Throwable;
  * - Fast inference with queue-based processing
  *
  * @see https://fal.ai/docs
+ *
+ * @api
  */
 final class FalImageService extends AbstractSpecializedService implements ImageGeneratorInterface
 {

@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
  * Passing the context explicitly keeps the decision auditable and testable, and
  * lets a queue consumer act on behalf of the user who queued the work rather
  * than inheriting whatever ambient user happens to be logged in.
+ *
+ * @api
  */
 final readonly class AiActorContext
 {

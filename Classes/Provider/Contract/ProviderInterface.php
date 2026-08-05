@@ -15,6 +15,10 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 
+/**
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
+ */
 interface ProviderInterface
 {
     public function getName(): string;

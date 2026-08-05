@@ -24,6 +24,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * per-installation matrix: a 6x4 grid is configuration nobody gets right, and
  * an operator who disagrees with a ceiling can move the provider to another
  * zone.
+ *
+ * @api
  */
 enum TrustZone: string
 {

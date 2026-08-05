@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Provider\Middleware;
  * Middleware uses this to decide whether it applies (e.g. a cache middleware
  * that caches deterministic embeddings but passes through stateful chat
  * completions) and to emit meaningful log / trace / metric labels.
+ *
+ * @api
  */
 enum ProviderOperation: string
 {

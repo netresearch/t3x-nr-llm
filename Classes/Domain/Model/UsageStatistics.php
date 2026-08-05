@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Domain\Model;
 
 /**
  * Token usage statistics from LLM requests.
+ *
+ * @api
  */
 final readonly class UsageStatistics
 {

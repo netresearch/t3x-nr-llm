@@ -20,6 +20,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  * Repository for Task domain model.
  *
  * @extends Repository<Task>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class TaskRepository extends Repository
 {

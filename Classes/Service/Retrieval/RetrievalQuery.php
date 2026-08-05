@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * Constructing an out-of-range query throws — callers that accept
  * model-chosen or user-supplied values MUST clamp before constructing
  * (the tools do; see SiteRagQueryTool).
+ *
+ * @api
  */
 final readonly class RetrievalQuery
 {

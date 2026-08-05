@@ -24,6 +24,8 @@ use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
  * usage limits, and access control.
  *
  * Uses the three-tier model: Configuration → Model → Provider.
+ *
+ * @api
  */
 class LlmConfiguration extends AbstractEntity
 {

@@ -16,6 +16,8 @@ use Throwable;
  * OpenAI model discovery: Bearer-authenticated /models listing, relevance
  * filter, spec-catalog enrichment, recommended-first sort; falls back to a
  * static catalog derived from the same spec table.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
 {

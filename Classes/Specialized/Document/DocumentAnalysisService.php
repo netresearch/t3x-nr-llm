@@ -38,6 +38,8 @@ use Netresearch\NrLlm\Specialized\Exception\UnsupportedFormatException;
  * capping. Budget attribution mirrors the feature services: `beUserUid`
  * is auto-populated from the backend user context when the caller did not
  * set it (REC #4).
+ *
+ * @api
  */
 final readonly class DocumentAnalysisService
 {

@@ -31,6 +31,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 #[AsController]
 final class SkillSourceController extends ActionController
 {

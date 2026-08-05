@@ -19,6 +19,8 @@ use TYPO3\CMS\Dashboard\Widgets\NumberWithIconDataProviderInterface;
  * aggregated from tx_nrllm_service_usage. Fractions of a dollar are
  * truncated deliberately — the dashboard tile is an at-a-glance indicator,
  * not an accounting source. Precise figures belong in the usage report.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class MonthlyCostDataProvider implements NumberWithIconDataProviderInterface
 {

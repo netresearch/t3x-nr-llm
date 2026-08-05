@@ -41,6 +41,9 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
     name: 'nrllm:provider:set-key',
     description: 'Store a provider API key read from STDIN and link it to the provider record.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class SetProviderApiKeyCommand extends Command
 {
     /**

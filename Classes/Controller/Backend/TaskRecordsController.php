@@ -45,6 +45,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Single dependency: `RecordTableReaderInterface`. The controller
  * itself is a thin coordinator — DTO parse, delegate to the reader,
  * wrap in a typed Response.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class TaskRecordsController extends ActionController

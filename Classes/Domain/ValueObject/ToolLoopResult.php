@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
  * answer is incomplete, the reason says what made it so. An iteration cap and
  * an exhausted budget both truncate, and only the reason tells them apart
  * (ADR-092).
+ *
+ * @api
  */
 final readonly class ToolLoopResult
 {

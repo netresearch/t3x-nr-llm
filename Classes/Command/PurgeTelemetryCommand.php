@@ -32,6 +32,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:telemetry:purge',
     description: 'Delete provider telemetry rows older than the configured retention window.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class PurgeTelemetryCommand extends Command
 {
     public function __construct(

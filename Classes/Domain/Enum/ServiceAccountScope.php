@@ -23,6 +23,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  *
  * Each case maps to exactly one enforcement point — there is no wildcard scope,
  * so a new automation must name precisely what it needs.
+ *
+ * @api
  */
 enum ServiceAccountScope: string
 {

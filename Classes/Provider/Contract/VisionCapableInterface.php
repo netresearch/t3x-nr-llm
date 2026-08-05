@@ -12,6 +12,10 @@ namespace Netresearch\NrLlm\Provider\Contract;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 
+/**
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
+ */
 interface VisionCapableInterface
 {
     /**

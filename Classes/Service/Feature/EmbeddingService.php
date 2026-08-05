@@ -32,6 +32,8 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  * having to remember the wiring. The resolver is optional so unit
  * tests omit it; production DI always autowires it via
  * `Configuration/Services.yaml`.
+ *
+ * @api
  */
 final readonly class EmbeddingService implements EmbeddingServiceInterface
 {

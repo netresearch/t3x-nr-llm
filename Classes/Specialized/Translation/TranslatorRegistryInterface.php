@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
  * Interface for translator registry.
  *
  * Extracted from TranslatorRegistry to enable testing with mocks.
+ *
+ * @api
  */
 interface TranslatorRegistryInterface
 {

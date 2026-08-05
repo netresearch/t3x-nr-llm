@@ -16,6 +16,8 @@ namespace Netresearch\NrLlm\Service\Retrieval;
  * `site_fetch_source` receives them back), so parsing is strict: a fixed
  * grammar, bounded length, no surprises. Anything else is rejected with
  * null — never an exception — because the input is model-chosen.
+ *
+ * @api
  */
 final readonly class SourceReference
 {

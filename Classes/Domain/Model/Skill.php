@@ -13,6 +13,9 @@ use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
+/**
+ * @api
+ */
 class Skill extends AbstractEntity
 {
     protected int $source = 0;

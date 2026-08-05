@@ -21,6 +21,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * string call sites (`new ChatMessage('user', ...)`) keep working because
  * `ChatMessage` accepts `string|MessageRole` and normalises through this
  * enum at construction time.
+ *
+ * @api
  */
 enum MessageRole: string
 {

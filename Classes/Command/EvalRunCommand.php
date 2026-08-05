@@ -39,6 +39,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:eval:run',
     description: 'Run a golden prompt set against a model and report grading and regression.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class EvalRunCommand extends Command
 {
     public function __construct(

@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 
 /**
  * Result from text-to-speech synthesis.
+ *
+ * @api
  */
 final readonly class SpeechSynthesisResult
 {

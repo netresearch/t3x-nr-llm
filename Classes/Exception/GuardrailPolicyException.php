@@ -21,5 +21,7 @@ namespace Netresearch\NrLlm\Exception;
  * records a policy exception as a SUCCESSFUL provider run — the provider
  * produced a response; the guardrail simply refused to release it — so guardrail
  * denials never distort the provider failure-rate.
+ *
+ * @api
  */
 interface GuardrailPolicyException extends NrLlmExceptionInterface {}

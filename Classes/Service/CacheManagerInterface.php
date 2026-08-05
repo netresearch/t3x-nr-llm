@@ -13,6 +13,8 @@ namespace Netresearch\NrLlm\Service;
  * Interface for cache management operations.
  *
  * Extracted from CacheManager to enable testing with mocks.
+ *
+ * @api
  */
 interface CacheManagerInterface
 {

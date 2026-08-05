@@ -35,6 +35,8 @@ use Throwable;
  * `steps` carries the trace recorded up to the end of the segment on every
  * outcome. `runUuid` is '' when the run could not be persisted (the run still
  * executed, unrecorded — the persister's fail-soft contract).
+ *
+ * @api
  */
 final readonly class AgentRunResult
 {

@@ -26,6 +26,8 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * successful-invocation volume; genuine successful tool usage still lives in
  * tx_nrllm_agentrun_event (kind = tool, name inside the payload). The widget is
  * labelled accordingly so the two are never conflated.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class ToolUsageByNameDataProvider implements ChartDataProviderInterface
 {

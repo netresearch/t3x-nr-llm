@@ -27,6 +27,8 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
  * REC #3 ("lock the registry, no public mutator"). Adding a new
  * built-in adapter type means adding a case to {@see \Netresearch\NrLlm\Domain\Model\AdapterType}
  * and an entry to `ProviderAdapterRegistry::ADAPTER_CLASS_MAP`.
+ *
+ * @api
  */
 interface ProviderAdapterRegistryInterface
 {

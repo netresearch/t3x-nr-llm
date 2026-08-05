@@ -18,6 +18,8 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
  *
  * Represents an available LLM model with capabilities, pricing, and provider relation.
  * Models can be reused across multiple configurations.
+ *
+ * @api
  */
 class Model extends AbstractEntity
 {

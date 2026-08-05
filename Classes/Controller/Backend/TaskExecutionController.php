@@ -59,6 +59,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * Constructor scope is narrow: only the dependencies these three
  * actions actually use.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class TaskExecutionController extends ActionController

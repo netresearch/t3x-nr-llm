@@ -30,6 +30,8 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * checked against the owner on every turn. CLI, scheduler and queue callers
  * identify themselves as a service account instead of borrowing whichever
  * backend user happens to be logged in.
+ *
+ * @api
  */
 interface ConversationServiceInterface
 {

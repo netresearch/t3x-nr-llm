@@ -33,6 +33,8 @@ use Throwable;
  * discoverers are an implementation detail of ModelDiscovery, and the
  * facade must be able to fan its test-only HTTP seam out to them
  * ({@see SecureHttpDispatchTrait::setHttpClient()}).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 abstract class AbstractModelDiscoverer
 {

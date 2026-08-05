@@ -22,6 +22,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * be un-selected. Values already stored on the record but no longer known (an
  * uninstalled extension's guardrail) are appended so the stored selection stays
  * visible and editable rather than silently dropped.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class GuardrailItems
 {

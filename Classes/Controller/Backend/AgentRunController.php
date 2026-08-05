@@ -50,6 +50,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * re-render that preserves the operator's raw input. The CSRF defence is the
  * backend module route token the `<f:form action=...>` URL carries (validated by
  * the RouteDispatcher), NOT `__trustedProperties`.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class AgentRunController extends ActionController

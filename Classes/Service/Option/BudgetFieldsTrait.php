@@ -33,6 +33,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * - NOT include these fields in `toArray()` — they are pipeline
  *   metadata, not provider wire payload, and must never reach the
  *   provider.
+ *
+ * @api
  */
 trait BudgetFieldsTrait
 {

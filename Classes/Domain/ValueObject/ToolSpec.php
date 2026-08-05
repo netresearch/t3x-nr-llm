@@ -32,6 +32,8 @@ use stdClass;
  * Pairs with :php:`ToolCall` on the response side: callers declare
  * `ToolSpec` instances; the model returns `ToolCall` instances pointing
  * back at one of those specs by name.
+ *
+ * @api
  */
 final readonly class ToolSpec implements JsonSerializable
 {

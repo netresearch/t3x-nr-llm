@@ -13,5 +13,7 @@ use RuntimeException;
 
 /**
  * Exception thrown when an LLM configuration exists but is deactivated.
+ *
+ * @api
  */
 class ConfigurationInactiveException extends RuntimeException implements NrLlmExceptionInterface {}

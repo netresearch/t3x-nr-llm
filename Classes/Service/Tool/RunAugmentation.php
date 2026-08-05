@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Domain\Model\Skill;
  *   system messages, one per snippet, before the user prompt.
  * - {@see self::$dryRun}: assemble the full message list (system prompt +
  *   snippets + skills + user) and record it WITHOUT calling the provider.
+ *
+ * @api
  */
 final readonly class RunAugmentation
 {

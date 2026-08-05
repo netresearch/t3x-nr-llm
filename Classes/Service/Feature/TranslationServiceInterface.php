@@ -33,6 +33,8 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
  *   `translateBatchWithTranslator`, plus registry queries — bypass the
  *   LLM pipeline and dispatch to translators registered via
  *   `#[AsTranslator]` (DeepL, etc.).
+ *
+ * @api
  */
 interface TranslationServiceInterface
 {

@@ -27,6 +27,8 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * request URLs as ``baseUrl + '/' + path`` and do not add the version segment
  * themselves. This DataHandler hook makes the manual write path store the same
  * canonical base URL as the wizard (#300).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class ProviderEndpointNormalizationHook
 {

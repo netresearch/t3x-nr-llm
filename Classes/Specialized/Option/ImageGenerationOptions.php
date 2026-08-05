@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Option\BudgetFieldsTrait;
 
 /**
  * Options for image generation (DALL-E).
+ *
+ * @api
  */
 final class ImageGenerationOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

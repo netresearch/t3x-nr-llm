@@ -9,4 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Exception;
 
+/**
+ * @api
+ */
 final class ProviderConfigurationException extends ProviderException {}

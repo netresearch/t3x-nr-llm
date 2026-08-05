@@ -13,6 +13,10 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 
+/**
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
+ */
 interface ToolCapableInterface
 {
     /**

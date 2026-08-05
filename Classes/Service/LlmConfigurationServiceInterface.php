@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
  * Consumers (controllers, feature services, tests) should depend on this
  * interface rather than the concrete `LlmConfigurationService` so the
  * implementation can be substituted without inheritance.
+ *
+ * @api
  */
 interface LlmConfigurationServiceInterface
 {

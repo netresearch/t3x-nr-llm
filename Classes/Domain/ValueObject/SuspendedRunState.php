@@ -26,6 +26,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * ({@see ChatMessage::toArray()} / {@see ToolCall::toArray()}) form so the state
  * is a plain JSON-encodable structure; {@see self::toolCalls()} rebuilds the
  * typed calls for execution on resume.
+ *
+ * @api
  */
 final readonly class SuspendedRunState
 {

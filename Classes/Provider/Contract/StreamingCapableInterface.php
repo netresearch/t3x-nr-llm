@@ -12,6 +12,10 @@ namespace Netresearch\NrLlm\Provider\Contract;
 use Generator;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 
+/**
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
+ */
 interface StreamingCapableInterface
 {
     /**

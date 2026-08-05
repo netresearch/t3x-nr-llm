@@ -36,6 +36,9 @@ use Attribute;
  * `tags: [{ name: nr_llm.provider, priority: N }]` in their own
  * Services.yaml — which remains fully supported and takes precedence when
  * both mechanisms are present on the same service.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class AsLlmProvider

@@ -15,6 +15,8 @@ use Netresearch\NrLlm\Service\Option\BudgetFieldsTrait;
 
 /**
  * Options for text-to-speech synthesis (OpenAI TTS).
+ *
+ * @api
  */
 final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

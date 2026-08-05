@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Domain\Model;
 
 /**
  * Response object for vision/image analysis requests.
+ *
+ * @api
  */
 final readonly class VisionResponse
 {

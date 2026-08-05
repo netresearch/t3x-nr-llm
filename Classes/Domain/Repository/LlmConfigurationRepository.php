@@ -18,6 +18,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  * Repository for LlmConfiguration domain model.
  *
  * @extends Repository<LlmConfiguration>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class LlmConfigurationRepository extends Repository
 {

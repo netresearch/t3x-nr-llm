@@ -32,6 +32,8 @@ namespace Netresearch\NrLlm\Service\Retrieval;
  * index-backed-only variant that excludes the fallback — for consumers
  * (e.g. hybrid dense+sparse fusion) that must see "index unavailable"
  * as empty rather than receive LIKE hits.
+ *
+ * @api
  */
 interface KeywordSearchInterface
 {

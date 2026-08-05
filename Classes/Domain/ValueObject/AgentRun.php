@@ -18,6 +18,8 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
  * The immutable read model of one run of {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}.
  * The mutable in-flight counterpart is {@see \Netresearch\NrLlm\Service\Tool\AgentRunHandle},
  * which the persister threads through a run before this read model exists.
+ *
+ * @api
  */
 final readonly class AgentRun
 {

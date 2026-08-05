@@ -43,6 +43,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * and so bypasses its `access => 'admin'`; the action calls denyNonAdmin()
  * first (ADR-037). That matters more here than elsewhere — the probe decrypts
  * the provider's vault API key.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ModelTestController extends ActionController

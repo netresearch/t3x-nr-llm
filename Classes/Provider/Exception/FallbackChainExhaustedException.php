@@ -15,6 +15,8 @@ use Throwable;
  * Thrown when every configuration in a fallback chain (primary + fallbacks)
  * failed with a retryable error. Carries per-attempt errors so callers can
  * reason about the full failure sequence.
+ *
+ * @api
  */
 final class FallbackChainExhaustedException extends ProviderException
 {

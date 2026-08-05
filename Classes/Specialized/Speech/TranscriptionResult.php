@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Specialized\Speech;
 
 /**
  * Result from speech-to-text transcription (Whisper).
+ *
+ * @api
  */
 final readonly class TranscriptionResult
 {

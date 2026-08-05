@@ -20,6 +20,8 @@ namespace Netresearch\NrLlm\Provider\Exception;
  * to the next configuration in the fallback chain rather than surfacing as a
  * hard error — the whole point of tripping fast is to free the request to try a
  * healthy provider.
+ *
+ * @api
  */
 final class CircuitOpenException extends ProviderException
 {

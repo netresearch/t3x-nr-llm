@@ -28,6 +28,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * preserved verbatim by `toArray()` so the migration of providers and
  * `CompletionResponse` can land in a follow-up slice without
  * disturbing this data model.
+ *
+ * @api
  */
 final readonly class ToolCall implements JsonSerializable
 {

@@ -27,6 +27,8 @@ use Symfony\Component\Uid\Uuid;
  * string fields are the source of truth for telemetry; when it is present they
  * are ignored and the entity wins. {@see FallbackMiddleware} swaps the
  * configuration on a retryable failure via {@see self::withConfiguration()}.
+ *
+ * @api
  */
 final readonly class ProviderCallContext
 {

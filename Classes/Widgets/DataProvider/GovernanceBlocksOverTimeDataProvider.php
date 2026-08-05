@@ -23,6 +23,8 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * content-filter blocks — the outcomes that were previously only logged or
  * reflected on a run. Bars are emitted in {@see GovernanceDecision} case order
  * so the chart is stable.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataProviderInterface
 {

@@ -13,6 +13,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * Enum representing model selection modes.
  *
  * Defines how a model is selected for a task (fixed model or criteria-based).
+ *
+ * @api
  */
 enum ModelSelectionMode: string
 {
