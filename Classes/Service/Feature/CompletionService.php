@@ -304,7 +304,18 @@ final readonly class CompletionService implements CompletionServiceInterface
     {
         $decoded = json_decode($content, true);
         if (!is_array($decoded)) {
-            return null;
+            // Models routed through providers that ignore JSON mode (an
+            // OpenRouter-routed third-party model, ADR-128) occasionally fence
+            // the JSON despite the instruction. Stripping one wrapping fence
+            // saves the paid repair round-trip; the strict validation below
+            // still decides.
+            if (preg_match('/^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/', $content, $matches) === 1) {
+                $decoded = json_decode($matches[1], true);
+            }
+
+            if (!is_array($decoded)) {
+                return null;
+            }
         }
 
         if (!$this->schemaValidator->validateStrict($decoded, $schema)) {

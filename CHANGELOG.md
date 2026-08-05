@@ -12,6 +12,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a snapshot test renders every marked class's declared public signatures and
   fails on an unintended change; the same pass asserts the closure rule —
   every type an `@api` signature mentions is `@api` itself.
+- The wizard, JSON tasks and the LLM judge now use the structured-output
+  pipeline (ADR-129). The wizard generates through strict-subset schemas
+  (provider-enforced, locally validated, one repair round-trip) instead of
+  scraping JSON out of prose; its generation configuration's skills and the
+  budget middleware now apply, and a budget denial surfaces instead of
+  degrading to the fallback answer. A task with `output_format: json` gets
+  real JSON mode on every provider plus an explicit JSON instruction. The
+  judge grader receives a schema-validated verdict. Schemas carry no
+  numeric bounds — the existing clamps stay authoritative, so out-of-range
+  numbers degrade gracefully instead of spending a repair round-trip.
 - Every class states its API stability: `@api` for the callable surface
   (semver-covered, including every type its signatures mention), `@api`
   extension points for the interfaces third parties implement (no new

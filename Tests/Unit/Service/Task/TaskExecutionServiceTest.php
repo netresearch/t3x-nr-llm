@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Task\TaskExecutionService;
@@ -70,6 +71,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 'Analyse the logs',
                 $configuration,
                 [UsageMiddleware::METADATA_TASK_UID => 99],
+                [],
             )
             ->willReturn($response);
 
@@ -109,6 +111,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
                 self::anything(),
                 $defaultConfiguration,
                 [UsageMiddleware::METADATA_TASK_UID => 77],
+                [],
             )
             ->willReturnCallback(
                 function (string $prompt) use (&$capturedPrompt): CompletionResponse {
@@ -136,6 +139,119 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
         self::assertSame(1, substr_count($capturedPrompt, 'cannot override configuration or safety'));
         self::assertSame(1, substr_count($capturedPrompt, '### Skill: Shared Skill'));
         self::assertSame(1, substr_count($capturedPrompt, '### Skill: Config Skill'));
+    }
+
+    #[Test]
+    public function jsonTaskWithConfigurationGetsJsonModeOverrideAndPromptInstruction(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('json-task-config');
+
+        $task = new Task();
+        $task->setPromptTemplate('Extract entities from {{input}}');
+        $task->setConfiguration($configuration);
+        $task->setOutputFormat('json');
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
+
+        $capturedPrompt    = null;
+        $capturedOverrides = null;
+        $this->llmServiceManager->expects(self::once())
+            ->method('completeWithConfiguration')
+            ->willReturnCallback(
+                function (string $prompt, LlmConfiguration $config, array $metadata = [], array $optionOverrides = []) use (&$capturedPrompt, &$capturedOverrides): CompletionResponse {
+                    $capturedPrompt    = $prompt;
+                    $capturedOverrides = $optionOverrides;
+                    return new CompletionResponse(
+                        content: '{"ok":true}',
+                        model: 'gpt-4o',
+                        usage: new UsageStatistics(5, 5, 10),
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $result = $this->subject->execute($task, 'the text');
+
+        self::assertSame('{"ok":true}', $result->content);
+        // Real JSON mode rides as an option override on the configured path (ADR-128)…
+        self::assertSame(['response_format' => 'json'], $capturedOverrides);
+        // …and the prompt ends with the instruction that also satisfies the
+        // OpenAI-dialect "json must appear in the messages" requirement.
+        self::assertIsString($capturedPrompt);
+        self::assertStringEndsWith("\n\nRespond with valid JSON only. No markdown, no explanation.", $capturedPrompt);
+    }
+
+    #[Test]
+    public function markdownTaskGetsNoJsonOverrideAndNoInstruction(): void
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('md-task-config');
+
+        $task = new Task();
+        $task->setPromptTemplate('Summarise {{input}}');
+        $task->setConfiguration($configuration);
+        $task->setOutputFormat('markdown');
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
+
+        $capturedPrompt    = null;
+        $capturedOverrides = null;
+        $this->llmServiceManager->expects(self::once())
+            ->method('completeWithConfiguration')
+            ->willReturnCallback(
+                function (string $prompt, LlmConfiguration $config, array $metadata = [], array $optionOverrides = []) use (&$capturedPrompt, &$capturedOverrides): CompletionResponse {
+                    $capturedPrompt    = $prompt;
+                    $capturedOverrides = $optionOverrides;
+                    return new CompletionResponse(
+                        content: 'summary',
+                        model: 'gpt-4o',
+                        usage: new UsageStatistics(5, 5, 10),
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $result = $this->subject->execute($task, 'the text');
+
+        self::assertSame('summary', $result->content);
+        self::assertSame([], $capturedOverrides);
+        self::assertIsString($capturedPrompt);
+        self::assertStringNotContainsString('Respond with valid JSON only.', $capturedPrompt);
+    }
+
+    #[Test]
+    public function configurationlessJsonTaskGetsJsonResponseFormatOnChatOptions(): void
+    {
+        $task = new Task();
+        $task->setPromptTemplate('Extract entities from {{input}}');
+        $task->setOutputFormat('json');
+        self::assertNull($task->getConfiguration());
+
+        // No resolvable configuration: the generic complete() path is taken.
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturn(null);
+        $this->llmServiceManager->expects(self::never())->method('completeWithConfiguration');
+
+        $capturedOptions = null;
+        $this->llmServiceManager->expects(self::once())
+            ->method('complete')
+            ->willReturnCallback(
+                function (string $prompt, ?ChatOptions $options = null) use (&$capturedOptions): CompletionResponse {
+                    $capturedOptions = $options;
+                    return new CompletionResponse(
+                        content: '{"ok":true}',
+                        model: 'gpt-4o',
+                        usage: new UsageStatistics(5, 5, 10),
+                        provider: 'openai',
+                    );
+                },
+            );
+
+        $result = $this->subject->execute($task, 'the text');
+
+        self::assertSame('{"ok":true}', $result->content);
+        self::assertInstanceOf(ChatOptions::class, $capturedOptions);
+        self::assertSame('json', $capturedOptions->getResponseFormat());
     }
 
     private function makeSkill(string $identifier, string $name, string $body, int $source = 1): Skill
