@@ -58,6 +58,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING for external `completeStructured()` callers:** the schema is now
+  validated against a named strict subset (ADR-126). Every subset keyword —
+  enum, pattern, bounds, `oneOf` and friends — is enforced on the response,
+  and a schema carrying unknown keywords (notably `$ref`) is rejected up
+  front with its own error code, before any provider call. Annotations
+  (`description`, `format`, `$schema`, …) stay accepted. The tool-input gate
+  and the evaluation grader are unchanged. No in-repo caller is affected.
+
 - OpenRouter's model routing lives in its own class
   (`Provider/OpenRouter/ModelRouter`), the first per-adapter collaborator
   (ADR-125). Same strategies, same keyword heuristics, same fallbacks; a call

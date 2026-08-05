@@ -42,9 +42,11 @@ operations dashboard with a queryable governance audit trail.
   administration, AI management, AI operation, editing) instead of the current
   admin-centric permissions, plus a purpose-built editor action API rather
   than generic record CRUD.
-- **Complete structured outputs.** Close the schema-feature gaps (enum,
-  pattern, `oneOf`, full draft support) and use provider-native structured
-  output where a provider offers it.
+- **Complete structured outputs.** The schema gaps are closed as a named,
+  fail-closed strict subset (enum, pattern, `oneOf`, bounds, combinators —
+  ADR-126); full draft support, i.e. `$ref` resolution, stays deliberately
+  out. Remaining: use provider-native structured output where a provider
+  offers it, behind the subset walker as the compatibility gate.
 - **A public, versioned API surface.** Mark the supported surface with `@api`,
   adopt an explicit backward-compatibility policy, and add upgrade tests so
   consumer extensions can rely on it.

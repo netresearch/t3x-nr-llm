@@ -1006,6 +1006,57 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $subject->completeForConfiguration('hello', $configuration);
     }
 
+    /**
+     * The pre-flight (ADR-126): a schema outside the strict subset throws
+     * BEFORE any provider call — never a paid request, never the repair
+     * round-trip, and a distinct code so "your schema is wrong" is not
+     * mistaken for "the model's data is wrong".
+     */
+    #[Test]
+    public function completeStructuredRejectsAnOutOfSubsetSchemaBeforeAnyProviderCall(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::never())->method('chat');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1784500002);
+
+        $subject->completeStructured('Generate metadata', [
+            'type' => 'object',
+            '$ref' => '#/definitions/thing',
+        ]);
+    }
+
+    /**
+     * Strict keywords are enforced on the response: an enum violation is a
+     * schema failure and triggers the repair round-trip, exactly like a
+     * missing required key did before ADR-126.
+     */
+    #[Test]
+    public function completeStructuredEnforcesEnumAndPatternOnTheResponse(): void
+    {
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::exactly(2))->method('chat')
+            ->willReturnOnConsecutiveCalls(
+                $this->createMockResponse('{"status": "unknown", "slug": "Hello World"}'),
+                $this->createMockResponse('{"status": "draft", "slug": "hello-world"}'),
+            );
+
+        $schema = [
+            'type'       => 'object',
+            'required'   => ['status', 'slug'],
+            'properties' => [
+                'status' => ['type' => 'string', 'enum' => ['draft', 'published']],
+                'slug'   => ['type' => 'string', 'pattern' => '^[a-z0-9-]+$'],
+            ],
+        ];
+
+        $result = $subject->completeStructured('Generate metadata', $schema);
+
+        self::assertSame('draft', $result['status']);
+        self::assertSame('hello-world', $result['slug']);
+    }
+
     #[Test]
     public function completeStructuredReturnsValidatedPayloadOnFirstAttempt(): void
     {

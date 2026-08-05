@@ -73,7 +73,10 @@ Consequences
 - Validation is *structural* (the documented subset), not full JSON Schema draft
   semantics — no ``enum``, ``minLength``, ``pattern``, ``oneOf`` etc. That is the
   same contract the grader has always offered; a full validator would add a
-  runtime dependency and is out of scope.
+  runtime dependency and is out of scope. *Superseded for structured
+  completions by* :ref:`adr-126`, *which enforces a named strict subset
+  including those keywords; the grader and the ADR-105 input gate keep this
+  lenient contract.*
 - The repair round-trip costs at most one extra provider call, only when the first
   response fails. It is capped at one attempt to bound cost.
 - `CompletionService` and `DeterministicGrader` take the validator as a
