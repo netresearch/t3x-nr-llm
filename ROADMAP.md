@@ -48,11 +48,12 @@ operations dashboard with a queryable governance audit trail.
 - **A public, versioned API surface.** Mark the supported surface with `@api`,
   adopt an explicit backward-compatibility policy, and add upgrade tests so
   consumer extensions can rely on it.
-- **Enforced horizontal boundaries.** Mostly shipped: `ModuleSeamTest` asserts
-  that specialized services and the tool/agent module do not depend on each
-  other, that guardrails depend on neither, and that nothing outside the
-  backend package depends on it. The remaining rule is core independent of the
-  tool module.
+- **Enforced horizontal boundaries.** Shipped: `ModuleSeamTest` asserts that
+  specialized services and the tool/agent module do not depend on each other,
+  that guardrails depend on neither, that nothing outside the backend package
+  depends on it, and that core does not depend on the tool module — six named
+  classes excepted as that module's own surface in shared directories, each
+  recorded with the package it moves to in a split.
 - **Re-evaluate a package split only after 1.0.** The seams from the runtime
   decomposition are the prerequisite; until they are stable, one package
   (ADR-090) stays the right call.
