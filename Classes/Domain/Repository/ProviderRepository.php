@@ -18,6 +18,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  * Repository for Provider domain model.
  *
  * @extends Repository<Provider>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class ProviderRepository extends Repository
 {

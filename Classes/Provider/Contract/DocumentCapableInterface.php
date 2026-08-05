@@ -9,6 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Provider\Contract;
 
+/**
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
+ */
 interface DocumentCapableInterface
 {
     public function supportsDocuments(): bool;

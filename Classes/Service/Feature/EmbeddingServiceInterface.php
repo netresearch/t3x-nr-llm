@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
  * extensions) should depend on this interface rather than the concrete
  * `EmbeddingService` so the implementation can be substituted without
  * inheritance.
+ *
+ * @api
  */
 interface EmbeddingServiceInterface
 {

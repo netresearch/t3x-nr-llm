@@ -15,6 +15,8 @@ use DateTimeInterface;
  * Interface for usage tracking services.
  *
  * Allows for mocking in tests while keeping UsageTrackerService final.
+ *
+ * @api
  */
 interface UsageTrackerServiceInterface
 {

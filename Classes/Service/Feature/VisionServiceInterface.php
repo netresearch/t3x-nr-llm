@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  * Most methods accept either a single image URL/data-URI or an array
  * of them; pass an array to batch in a single call. The full-response
  * variant `analyzeImageFull` always operates on a single image.
+ *
+ * @api
  */
 interface VisionServiceInterface
 {

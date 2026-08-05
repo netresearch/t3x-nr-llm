@@ -42,6 +42,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  *
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  * Custom actions for AJAX operations (toggle active, test connection).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ProviderController extends ActionController

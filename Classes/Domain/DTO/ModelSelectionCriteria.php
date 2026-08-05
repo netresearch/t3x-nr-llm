@@ -17,6 +17,8 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
  *
  * Encapsulates the criteria used for dynamic model selection,
  * including required capabilities, provider types, and cost constraints.
+ *
+ * @api
  */
 final readonly class ModelSelectionCriteria implements JsonSerializable
 {

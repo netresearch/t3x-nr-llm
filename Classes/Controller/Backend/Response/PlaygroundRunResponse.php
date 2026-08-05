@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
  * Built in {@see \Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController::runAction()}
  * from a {@see \Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult} and the
  * {@see \Netresearch\NrLlm\Service\Tool\RunTrace} steps.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class PlaygroundRunResponse
 {

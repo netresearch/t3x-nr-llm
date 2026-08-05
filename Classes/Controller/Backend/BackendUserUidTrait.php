@@ -20,6 +20,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * Shared by the controllers that continue a suspended agent run
  * ({@see ToolPlaygroundController}, {@see AgentRunController}) so the exact
  * null-safe extraction lives in one place.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 trait BackendUserUidTrait
 {

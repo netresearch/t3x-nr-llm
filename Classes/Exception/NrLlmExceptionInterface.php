@@ -21,5 +21,7 @@ use Throwable;
  * `AccessDeniedException`, `ConfigurationNotFoundException`,
  * `InvalidArgumentException`, ...) — an enumeration that silently goes
  * stale whenever a new exception type is added (ADR-053).
+ *
+ * @api
  */
 interface NrLlmExceptionInterface extends Throwable {}

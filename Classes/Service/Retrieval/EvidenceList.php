@@ -14,6 +14,8 @@ namespace Netresearch\NrLlm\Service\Retrieval;
  * answered, the curated sources, and human-readable degradation notes
  * (skipped backends, fallback reasons) so the model knows the evidence
  * quality.
+ *
+ * @api
  */
 final readonly class EvidenceList
 {

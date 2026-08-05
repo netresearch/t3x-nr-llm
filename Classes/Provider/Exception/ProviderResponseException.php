@@ -46,6 +46,8 @@ use Throwable;
  * the exception class, while `catch (ProviderResponseException)` still catches
  * every non-2xx decoded response (ADR-080). The constructor and typed fields
  * are inherited unchanged.
+ *
+ * @api
  */
 class ProviderResponseException extends ProviderException
 {

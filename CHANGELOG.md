@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Every class states its API stability: `@api` for the callable surface
+  (semver-covered, including every type its signatures mention), `@api`
+  extension points for the interfaces third parties implement (no new
+  abstract member within a major version), `@internal` for everything else.
+  `Documentation/Api/Stability.rst` states the promise in consumer terms;
+  ADR-127 records the rules. No runtime behaviour changes.
 - Tools from an external MCP server can be used in an agent run. An
   administrator configures a server, imports the catalogue it advertises and
   enables individual tools; import is the only network call outside a run and

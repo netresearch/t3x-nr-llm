@@ -33,6 +33,8 @@ use stdClass;
  * it is sourced from the enum's value, so the two cannot drift. New
  * code is encouraged to read `getRole(): MessageRole` instead of the
  * string field.
+ *
+ * @api
  */
 final readonly class ChatMessage implements JsonSerializable
 {

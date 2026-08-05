@@ -19,6 +19,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * true when even that floor still exceeds the budget: the caller must NOT send
  * it (a provider 4xx), and stops the run on
  * {@see \Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason::CONTEXT_TRUNCATED}.
+ *
+ * @api
  */
 final readonly class ContextFitResult
 {

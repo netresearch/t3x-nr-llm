@@ -32,6 +32,8 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * wizard the stored column is the single source of truth — nothing derives a
  * zone from the adapter type at runtime, because that would make the operator's
  * declaration optional.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[UpgradeWizard('nrLlm_stampProviderTrustZone')]
 final readonly class StampProviderTrustZoneUpdateWizard implements UpgradeWizardInterface

@@ -33,6 +33,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * list; the AJAX route needs its own check because a backend route bypasses the
  * module's `access` setting (ADR-037), and the import is exactly the kind of
  * outbound action that must not be reachable without it.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class McpServerController extends ActionController

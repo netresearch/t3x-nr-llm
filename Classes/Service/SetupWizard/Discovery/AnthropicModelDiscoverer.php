@@ -16,6 +16,8 @@ use Throwable;
  * Anthropic model discovery: x-api-key + anthropic-version listing, spec
  * enrichment with API display names, recommended-first sort; falls back to a
  * hand-maintained catalog.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class AnthropicModelDiscoverer extends AbstractModelDiscoverer
 {

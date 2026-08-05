@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
  * - Ollama (localhost:11434 or ollama in hostname)
  * - Azure OpenAI (*.openai.azure.com)
  * - Custom/Unknown endpoints
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class ProviderDetector
 {

@@ -22,6 +22,8 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  *   before egress.
  *
  * Fail-closed: {@see self::error()} carries NO artifacts.
+ *
+ * @api
  */
 final readonly class ToolResult
 {

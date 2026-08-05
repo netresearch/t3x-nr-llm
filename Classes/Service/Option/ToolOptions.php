@@ -15,6 +15,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * Extends ChatOptions with tool-specific configuration.
  *
  * @phpstan-consistent-constructor
+ *
+ * @api
  */
 class ToolOptions extends ChatOptions
 {

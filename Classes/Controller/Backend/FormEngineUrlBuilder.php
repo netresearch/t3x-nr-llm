@@ -17,6 +17,8 @@ use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
  * Centralizes the record_edit route construction every backend list
  * controller needs: edit and new-record links that send the user back
  * to the originating module after save/close.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class FormEngineUrlBuilder
 {

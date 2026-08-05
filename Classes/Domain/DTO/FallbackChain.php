@@ -26,6 +26,8 @@ use JsonSerializable;
  *
  * The constructor itself does NOT normalise — it trusts already-sanitised
  * input (see the sanitize() docblock).
+ *
+ * @api
  */
 final readonly class FallbackChain implements JsonSerializable
 {

@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 
 /**
  * Response object for text completion requests.
+ *
+ * @api
  */
 final readonly class CompletionResponse
 {

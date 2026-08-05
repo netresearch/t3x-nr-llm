@@ -45,6 +45,15 @@ ddev exec ".Build/bin/phpunit -c Build/phpunit.xml"
 ddev exec ".Build/bin/rector process --config=Build/rector/rector.php --dry-run"
 ```
 
+## API Stability Markers
+
+Every class-level docblock carries `@api`, `@api Extension point: …` or
+`@internal` (ADR-127, `Documentation/Api/Stability.rst`). New classes pick a
+marker at creation time. `@api` means the semver promise covers it — every
+type in its method signatures must be `@api` too. Extension-point interfaces
+must not gain a new abstract member within a major version. Everything else
+is `@internal`.
+
 ## Testing Requirements
 
 **All contributions MUST include appropriate tests.**

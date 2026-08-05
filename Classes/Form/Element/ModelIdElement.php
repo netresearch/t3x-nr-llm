@@ -20,6 +20,8 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * Renders an input field with a "Fetch Models" button and a dropdown
  * that populates from the selected provider's API. When a model is
  * selected, capabilities, context_length, and pricing are auto-filled.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class ModelIdElement extends AbstractFormElement
 {

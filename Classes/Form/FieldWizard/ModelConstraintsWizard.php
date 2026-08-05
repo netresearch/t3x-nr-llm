@@ -18,6 +18,8 @@ use TYPO3\CMS\Core\Page\JavaScriptModuleInstruction;
  *
  * Injects the ConfigurationConstraints JS module and provides
  * the AJAX URL for fetching model-specific parameter constraints.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class ModelConstraintsWizard extends AbstractNode
 {

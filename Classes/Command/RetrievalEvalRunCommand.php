@@ -40,6 +40,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:eval:retrieval',
     description: 'Run a golden question set against a retriever and report hit rates and regression.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class RetrievalEvalRunCommand extends Command
 {
     public function __construct(

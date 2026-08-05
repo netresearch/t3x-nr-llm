@@ -19,6 +19,8 @@ use TYPO3\CMS\Dashboard\Widgets\NumberWithIconDataProviderInterface;
  * A live gauge — no time window: an agent run suspended WAITING_FOR_APPROVAL
  * (ADR-084) from last week still needs a human decision now. Served by the
  * status_lookup index on tx_nrllm_agentrun.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class RunsAwaitingApprovalDataProvider implements NumberWithIconDataProviderInterface
 {

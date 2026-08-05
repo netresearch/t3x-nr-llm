@@ -28,6 +28,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  * are left untouched to avoid double-registration. Third-party
  * translators outside the scan namespace can opt in via the legacy yaml
  * tag path, which remains the supported escape hatch.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class TranslatorCompilerPass implements CompilerPassInterface
 {

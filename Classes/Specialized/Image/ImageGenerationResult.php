@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Specialized\Image;
 
 /**
  * Result from image generation services (DALL-E, FAL, etc.).
+ *
+ * @api
  */
 final readonly class ImageGenerationResult
 {

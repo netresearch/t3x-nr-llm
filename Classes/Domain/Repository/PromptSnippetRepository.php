@@ -17,6 +17,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  * Repository for PromptSnippet domain model.
  *
  * @extends Repository<PromptSnippet>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class PromptSnippetRepository extends Repository
 {

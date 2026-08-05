@@ -16,6 +16,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * for common use cases like factual, creative, and code generation.
  *
  * @phpstan-consistent-constructor
+ *
+ * @api
  */
 class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

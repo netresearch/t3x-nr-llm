@@ -13,6 +13,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * Options for translation requests.
  *
  * @phpstan-consistent-constructor
+ *
+ * @api
  */
 class TranslationOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

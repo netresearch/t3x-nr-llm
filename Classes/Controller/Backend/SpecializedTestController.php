@@ -39,6 +39,8 @@ use TYPO3\CMS\Core\Http\JsonResponse;
  *
  * Registered in AjaxRoutes.php, so the module's `access => admin` does not
  * apply — every action calls denyNonAdmin() first (ADR-037).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final readonly class SpecializedTestController

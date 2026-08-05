@@ -25,6 +25,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *
  * A provider must not perform network I/O. It reads what an explicit
  * administrator action already persisted; discovery is never on a request path.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: ToolProviderInterface::TAG_NAME)]
 interface ToolProviderInterface

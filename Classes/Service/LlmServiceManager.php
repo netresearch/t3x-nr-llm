@@ -37,6 +37,9 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use TYPO3\CMS\Core\SingletonInterface;
 
+/**
+ * @api
+ */
 final readonly class LlmServiceManager implements LlmServiceManagerInterface, SingletonInterface
 {
     public function __construct(

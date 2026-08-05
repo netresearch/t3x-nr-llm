@@ -33,6 +33,8 @@ use TYPO3\CMS\Core\SingletonInterface;
  * `$adapterOverrides` argument passed at construction time. Production
  * code uses the empty default; tests and edge-case extension scenarios
  * pass an override map. See audit 2026-04-23 REC #3.
+ *
+ * @api
  */
 final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface, SingletonInterface
 {

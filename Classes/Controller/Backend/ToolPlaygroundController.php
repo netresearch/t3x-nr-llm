@@ -67,6 +67,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * ActionController whose list action is the module entry point, gated to
  * admins via the module's ``access => admin`` and (for the AJAX actions) the
  * {@see RequiresBackendAdminTrait} guard.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ToolPlaygroundController extends ActionController implements LoggerAwareInterface

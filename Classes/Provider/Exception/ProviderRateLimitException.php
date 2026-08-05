@@ -19,5 +19,7 @@ namespace Netresearch\NrLlm\Provider\Exception;
  * `responseBody`, `endpoint`) are inherited unchanged, and — critically —
  * `getCode() === 429` is preserved, so the retry/fallback and circuit-breaker
  * middleware that key off code 429 keep firing.
+ *
+ * @api
  */
 final class ProviderRateLimitException extends ProviderResponseException {}

@@ -11,6 +11,7 @@ Complete API reference for the TYPO3 LLM extension.
 .. toctree::
    :maxdepth: 2
 
+   Stability
    LlmServiceManager
    CompletionService
    EmbeddingService

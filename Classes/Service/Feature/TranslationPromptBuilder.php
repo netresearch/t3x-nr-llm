@@ -14,6 +14,8 @@ namespace Netresearch\NrLlm\Service\Feature;
  *
  * Extracted from TranslationService so both translate() and
  * translateForConfiguration() share one prompt template.
+ *
+ * @api
  */
 final readonly class TranslationPromptBuilder
 {

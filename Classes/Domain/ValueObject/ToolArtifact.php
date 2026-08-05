@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Domain\Enum\ArtifactType;
  * and byte-bounds them before egress. An emitting tool MUST apply the SAME
  * redaction to `$data` that it applies to its text output — an artifact must
  * never re-expose a field the text path deliberately withheld.
+ *
+ * @api
  */
 final readonly class ToolArtifact
 {

@@ -18,6 +18,8 @@ use Throwable;
  * Carries the denying guardrail's class so operators can tell which policy
  * tripped; the message is the guardrail's reason. Mirrors
  * {@see BudgetExceededException} — a typed, catchable pipeline denial.
+ *
+ * @api
  */
 final class GuardrailViolationException extends RuntimeException implements GuardrailPolicyException
 {

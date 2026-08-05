@@ -31,6 +31,8 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * wizard does not fire. An operator who ALREADY chose a mode explicitly (the
  * stored config carries a value) is left untouched: an explicit ``enforce`` is
  * respected, an explicit ``observe`` already matches.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[UpgradeWizard('nrLlm_dataClassEnforcementObserveForExisting')]
 final readonly class DataClassEnforcementDefaultUpdateWizard implements UpgradeWizardInterface

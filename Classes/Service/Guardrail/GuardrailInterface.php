@@ -27,6 +27,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * than a stage of this pipeline: the pipeline context deliberately carries no
  * payload (ADR-026), so the prompt is screened at the call site before the
  * pipeline is entered (ADR-087).
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface GuardrailInterface extends GuardrailIdentity

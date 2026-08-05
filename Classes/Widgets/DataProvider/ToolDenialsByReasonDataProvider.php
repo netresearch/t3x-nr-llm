@@ -22,6 +22,8 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * their {@see ToolDenialReason}. Bars are emitted in enum order so the chart is
  * stable; the NONE case never carries a count (a denial always has a reason)
  * and is skipped with every other zero-count reason.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class ToolDenialsByReasonDataProvider implements ChartDataProviderInterface
 {

@@ -67,11 +67,12 @@ final class PublicServicesPolicyTest extends TestCase
      *   PromptSnippetComposer (ADR-031, no interface).
      * - Category D (Specialized standalone consumer API): 5 —
      *   Whisper, TextToSpeech, DallE, Fal, DocumentAnalysis (ADR-076).
-     * - Category E (resolved outside DI via makeInstance()): 2 —
-     *   ToolRegistry (TCA itemsProcFunc, ADR-042) and ProviderDetector
+     * - Category E (resolved outside DI via makeInstance()): 3 —
+     *   ToolRegistry (TCA itemsProcFunc, ADR-042), GuardrailRegistry
+     *   (TCA itemsProcFunc `GuardrailItems`, ADR-106) and ProviderDetector
      *   (ProviderEndpointNormalizationHook, a DataHandler hook).
      *
-     * Total: 19 + 8 + 1 + 5 + 2 = **35**.
+     * Total: 19 + 8 + 1 + 5 + 3 = **36**.
      *
      * To intentionally change this number: update both this
      * constant AND the matching breakdown in

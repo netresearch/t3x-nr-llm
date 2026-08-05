@@ -33,6 +33,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Reached only through AJAX routes, which dispatch outside the module route and
  * so bypass its `access => 'admin'`; every action calls denyNonAdmin() first
  * (ADR-037).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ModelDiscoveryController extends ActionController

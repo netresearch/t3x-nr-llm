@@ -14,6 +14,8 @@ namespace Netresearch\NrLlm\Domain\Model;
  *
  * Each case represents a distinct API provider with its own endpoint format,
  * authentication method, and request/response structure.
+ *
+ * @api
  */
 enum AdapterType: string
 {

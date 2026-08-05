@@ -25,6 +25,9 @@ namespace Netresearch\NrLlm\Service\Guardrail;
  * {@see GuardrailPolicyResolver} reads the registry's identifier-level verdict,
  * never a raw per-instance flag, so no selection can drop a mandatory guardrail
  * on any axis.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 interface GuardrailIdentity
 {

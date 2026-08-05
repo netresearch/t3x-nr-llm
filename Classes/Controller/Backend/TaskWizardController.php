@@ -48,6 +48,8 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * Constructor scope is wider than the sibling controllers (the
  * wizard touches every relevant repository) but narrower than the
  * pre-13e god class.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class TaskWizardController extends ActionController

@@ -21,6 +21,8 @@ namespace Netresearch\NrLlm\Service\Retrieval;
  * Newable utility, deliberately not a DI service (excluded from container
  * autoconfiguration): consumers construct it with `new`. nr_llm's own
  * retrieval cascade stays first-available-wins (ADR-049) and does not call it.
+ *
+ * @api
  */
 final readonly class ReciprocalRankFusion
 {

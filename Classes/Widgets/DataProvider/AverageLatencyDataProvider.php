@@ -20,6 +20,8 @@ use TYPO3\CMS\Dashboard\Widgets\NumberWithIconDataProviderInterface;
  * the last N days, from tx_nrllm_telemetry. Paired with the success-rate tile:
  * a percent and a millisecond figure are heterogeneous, so they are two tiles,
  * never one misleading shared axis.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class AverageLatencyDataProvider implements NumberWithIconDataProviderInterface
 {

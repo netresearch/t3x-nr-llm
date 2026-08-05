@@ -31,6 +31,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * the agent loop) are separate modules. {@see listAction()} renders the tool
  * table; the AJAX {@see toggleToolAction()} persists the global override that
  * the fail-closed runtime gate then enforces on every later run (ADR-038).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ToolController extends ActionController

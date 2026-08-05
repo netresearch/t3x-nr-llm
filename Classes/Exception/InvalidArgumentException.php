@@ -11,5 +11,7 @@ namespace Netresearch\NrLlm\Exception;
 
 /**
  * Exception thrown when invalid arguments are provided to services.
+ *
+ * @api
  */
 class InvalidArgumentException extends \InvalidArgumentException implements NrLlmExceptionInterface {}

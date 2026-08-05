@@ -34,6 +34,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * different typed responses (CompletionResponse, EmbeddingResponse,
  * VisionResponse, Generator for streaming, etc.). Concrete middleware should
  * keep the value unchanged unless its purpose is to transform it.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface ProviderMiddlewareInterface

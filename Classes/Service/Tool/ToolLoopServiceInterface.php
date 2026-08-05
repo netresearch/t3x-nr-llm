@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Option\ToolOptions;
  * {@see ToolLoopService} stays final, mirroring the pattern used by
  * {@see \Netresearch\NrLlm\Service\LlmServiceManagerInterface} and
  * {@see \Netresearch\NrLlm\Service\UsageTrackerServiceInterface}.
+ *
+ * @api
  */
 interface ToolLoopServiceInterface
 {

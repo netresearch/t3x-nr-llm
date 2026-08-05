@@ -34,6 +34,8 @@ use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
  * care about the messaging path can omit it; in production DI the
  * Symfony container always autowires it from
  * `Configuration/Services.yaml`.
+ *
+ * @api
  */
 final readonly class CompletionService implements CompletionServiceInterface
 {

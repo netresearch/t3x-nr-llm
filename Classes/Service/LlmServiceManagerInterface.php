@@ -27,6 +27,8 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
  * Interface for LLM service management.
  *
  * Extracted from LlmServiceManager to enable testing with mocks.
+ *
+ * @api
  */
 interface LlmServiceManagerInterface
 {

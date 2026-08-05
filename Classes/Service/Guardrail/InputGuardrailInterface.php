@@ -28,6 +28,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * middleware-side check could not). A DENY / REQUIRE_APPROVAL blocks the call
  * with the same typed exception the output side throws. RETRY has no meaning
  * before a provider call and is ignored.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface InputGuardrailInterface extends GuardrailIdentity

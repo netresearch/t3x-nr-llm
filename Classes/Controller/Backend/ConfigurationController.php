@@ -55,6 +55,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * Uses TYPO3 FormEngine for record editing (TCA-based forms).
  * Custom actions for AJAX operations (toggle active, set default, test).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class ConfigurationController extends ActionController

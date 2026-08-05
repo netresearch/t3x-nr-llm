@@ -14,6 +14,9 @@ namespace Netresearch\NrLlm\Specialized\Translation;
  *
  * Implement this interface to create a new translator (e.g., DeepL, Google Translate).
  * All translators are registered via the `nr_llm.translator` service tag.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 interface TranslatorInterface
 {

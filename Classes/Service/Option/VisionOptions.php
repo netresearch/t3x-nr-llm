@@ -13,6 +13,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * Options for vision/image analysis requests.
  *
  * @phpstan-consistent-constructor
+ *
+ * @api
  */
 class VisionOptions extends AbstractOptions implements BudgetAwareOptionsInterface
 {

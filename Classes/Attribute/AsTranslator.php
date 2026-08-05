@@ -43,6 +43,9 @@ use Attribute;
  * Third-party translators outside that namespace should keep using the
  * legacy yaml-tag path — `tags: [{ name: nr_llm.translator }]` in their
  * own Services.yaml — which remains fully supported.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class AsTranslator

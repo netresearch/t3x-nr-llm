@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 
 /**
  * DTO for detected provider information from endpoint URL.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class DetectedProvider
 {

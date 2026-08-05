@@ -42,6 +42,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * context (ADR-083), NEVER read from the ambient `$GLOBALS['BE_USER']`, so a
  * run authorises identically synchronously and in a queue worker. Both levels
  * fail CLOSED when the context has no `BackendUserAuthentication`.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 #[AutoconfigureTag(name: self::TAG_NAME)]
 interface ToolInterface

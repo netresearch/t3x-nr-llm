@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
  * Consumers (middleware, feature services, tests) should depend on this
  * interface rather than the concrete `BudgetService` so the
  * implementation can be substituted without inheritance.
+ *
+ * @api
  */
 interface BudgetServiceInterface
 {

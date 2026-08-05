@@ -16,6 +16,8 @@ use Throwable;
  * Gemini model discovery: x-goog-api-key listing with the models/ prefix
  * stripped, relevance filter, spec enrichment with API token limits, API
  * order preserved (deliberately unsorted); falls back to a static catalog.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final class GeminiModelDiscoverer extends AbstractModelDiscoverer
 {

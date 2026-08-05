@@ -34,6 +34,8 @@ namespace Netresearch\NrLlm\Service\Schema;
  * - No `$ref`/`$defs`: reference resolution is the point at which a subset
  *   becomes a JSON-Schema implementation, and ADR-082's no-runtime-dependency
  *   decision stands.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class StrictSchemaSubset
 {

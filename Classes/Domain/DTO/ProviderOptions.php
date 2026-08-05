@@ -51,6 +51,8 @@ use JsonSerializable;
  * TRUSTS its input. `fromArray()` and `fromJson()` are the safe entry
  * points for arbitrary input — they extract the well-known keys and
  * funnel the rest into `$extra` without throwing.
+ *
+ * @api
  */
 final readonly class ProviderOptions implements JsonSerializable
 {

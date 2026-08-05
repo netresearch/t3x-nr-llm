@@ -37,6 +37,8 @@ namespace Netresearch\NrLlm\Service\Schema;
  * strict accepts, lenient accepts. Strict only ever rejects MORE, which is
  * why its primitive type matcher byte-mirrors the lenient one (`5.0` is not
  * an integer here, unlike in the spec).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class JsonSchemaValidator
 {

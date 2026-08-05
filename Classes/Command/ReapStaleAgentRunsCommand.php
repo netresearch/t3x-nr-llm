@@ -47,6 +47,9 @@ use Throwable;
     name: 'nrllm:agent:reap',
     description: 'Reclaim or dead-letter queued agent runs whose worker lease has expired.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class ReapStaleAgentRunsCommand extends Command
 {
     /** Default upper bound on runs handled per invocation, so one tick is bounded. */

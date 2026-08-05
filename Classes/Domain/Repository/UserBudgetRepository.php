@@ -14,6 +14,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
 
 /**
  * @extends Repository<UserBudget>
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 class UserBudgetRepository extends Repository
 {

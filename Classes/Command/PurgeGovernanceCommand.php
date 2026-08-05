@@ -32,6 +32,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'nrllm:governance:purge',
     description: 'Delete governance-event rows older than the configured retention window.',
 )]
+/**
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
+ */
 final class PurgeGovernanceCommand extends Command
 {
     public function __construct(

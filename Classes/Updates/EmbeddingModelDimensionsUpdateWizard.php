@@ -25,6 +25,8 @@ use TYPO3\CMS\Install\Updates\UpgradeWizardInterface;
  * This wizard fills `dimensions` from the EmbeddingModelDimensions catalog
  * for rows whose model_id is a known embedding model and whose value is
  * still 0 — an explicitly configured value is never touched.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[UpgradeWizard('nrLlm_embeddingModelDimensions')]
 final readonly class EmbeddingModelDimensionsUpdateWizard implements UpgradeWizardInterface

@@ -22,6 +22,8 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * {@see AgentRunStatus} case order so the doughnut is stable regardless of which
  * statuses happen to be present, each labelled via XLIFF and coloured by a fixed
  * semantic map (terminal green/red/grey, waiting amber, running/queued blue).
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class AgentRunsByStatusDataProvider implements ChartDataProviderInterface
 {

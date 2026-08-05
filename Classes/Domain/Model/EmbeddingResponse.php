@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * Response object for embedding requests.
+ *
+ * @api
  */
 final readonly class EmbeddingResponse
 {

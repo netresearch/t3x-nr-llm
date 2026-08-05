@@ -18,6 +18,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * `truncated = true`, and without a reason an operator cannot tell a cost
  * problem from a prompt problem — nor can a retry policy decide whether
  * retrying is pointless.
+ *
+ * @api
  */
 enum AgentRunTerminationReason: string
 {

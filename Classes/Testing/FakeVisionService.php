@@ -34,6 +34,8 @@ use Throwable;
  * Not a DI service: excluded from container autoconfiguration in
  * `Configuration/Services.yaml`. It is a fixture for consumer test suites,
  * never wire it into production.
+ *
+ * @api
  */
 final class FakeVisionService implements VisionServiceInterface
 {

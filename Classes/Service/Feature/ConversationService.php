@@ -44,6 +44,8 @@ use Symfony\Component\Uid\Uuid;
  *   session was opened with, resolved fresh each time so a deactivated or
  *   newly restricted configuration stops the conversation instead of silently
  *   continuing on the installation default.
+ *
+ * @api
  */
 final readonly class ConversationService implements ConversationServiceInterface
 {

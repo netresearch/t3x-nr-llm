@@ -31,6 +31,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
  * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface} stays public
  * for consumers that want the bare loop without persistence or approval; this
  * runtime is the preferred surface.
+ *
+ * @api
  */
 interface AgentRuntimeInterface
 {

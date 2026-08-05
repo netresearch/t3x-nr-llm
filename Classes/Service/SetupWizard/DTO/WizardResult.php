@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 
 /**
  * Complete result from the setup wizard.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class WizardResult
 {

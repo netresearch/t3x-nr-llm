@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
  * playground and the run trace can tell an administrator why a tool they ticked
  * did not appear. Without it, a tool silently missing from a run looks like a
  * bug in the checkbox.
+ *
+ * @api
  */
 final readonly class ToolPolicyDecision
 {

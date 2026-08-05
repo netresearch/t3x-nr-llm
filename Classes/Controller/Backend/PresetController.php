@@ -36,6 +36,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * Both actions are admin-gated via {@see RequiresBackendAdminTrait} FIRST
  * (ADR-037) — AJAX routes bypass the module's `access => admin` check.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class PresetController extends ActionController

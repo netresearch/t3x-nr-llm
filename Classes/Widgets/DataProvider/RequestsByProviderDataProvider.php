@@ -20,6 +20,8 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
  * UsageTrackerService::getUsageReport() this spans every service_type
  * (chat, vision, translation, ...) because the widget gives an overall
  * provider-traffic view, not a per-service breakdown.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 final readonly class RequestsByProviderDataProvider implements ChartDataProviderInterface
 {

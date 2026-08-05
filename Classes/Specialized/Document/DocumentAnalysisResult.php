@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Specialized\Document;
 
 /**
  * Result of a document analysis (ADR-076).
+ *
+ * @api
  */
 final readonly class DocumentAnalysisResult
 {

@@ -27,6 +27,8 @@ namespace Netresearch\NrLlm\Service\Option;
  * narrowing to a concrete class. Implementers MUST keep these fields
  * out of `toArray()` — they are pipeline metadata, not provider wire
  * payload.
+ *
+ * @api
  */
 interface BudgetAwareOptionsInterface
 {

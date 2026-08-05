@@ -25,6 +25,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * Read-only: all data comes from UsageAnalyticsService (never a repository
  * directly — see Tests/Architecture/ControllerLayerTest). The date range is a
  * GET parameter (`range`), so the page is a plain reload with no AJAX.
+ *
+ * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
 #[AsController]
 final class AnalyticsController extends ActionController

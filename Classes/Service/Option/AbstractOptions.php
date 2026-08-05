@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  *
  * Provides common functionality for all option classes including
  * array conversion, merging, and validation helpers.
+ *
+ * @api
  */
 abstract class AbstractOptions
 {

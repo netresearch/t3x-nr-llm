@@ -45,6 +45,8 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
  * problem. The factories `fromCsv()` / `fromArray()` are the safe
  * entry points for arbitrary input; they dedupe and skip unknown
  * tokens. Tests can construct directly when they need a known shape.
+ *
+ * @api
  */
 final readonly class CapabilitySet implements Countable, JsonSerializable
 {

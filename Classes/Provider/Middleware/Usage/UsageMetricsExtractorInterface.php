@@ -28,6 +28,9 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
  * detection, or a metadata lookup) yields no record — {@see supports()} or
  * {@see extract()} returns false / null — so nothing is recorded, exactly as
  * before.
+ *
+ * @api Extension point: third parties implement this. No new abstract
+ * member within a major version (ADR-127).
  */
 interface UsageMetricsExtractorInterface
 {

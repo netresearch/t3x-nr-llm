@@ -27,6 +27,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * Consumers ask this rather than re-deriving the rules, so a new entry point
  * cannot accidentally ship with four of the five.
+ *
+ * @api
  */
 interface ToolCallPolicyInterface
 {

@@ -19,6 +19,8 @@ namespace Netresearch\NrLlm\Service\Agent;
  * best-effort, like every event write — so who approved or denied, and when, is
  * part of the run's audit stream. Deliberately no free-text note: the event
  * stream is privacy-filtered (ADR-064) and a prose field would bypass that.
+ *
+ * @api
  */
 final readonly class ApprovalDecision
 {
