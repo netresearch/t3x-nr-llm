@@ -28,7 +28,7 @@ and the typed exceptions they throw. Within a major version:
 Everything a marked method's signature mentions is itself ``@api`` — you
 never receive an object you are not allowed to rely on.
 
-``@api`` extension point — implement it
+``@api Extension point`` — implement it
 ---------------------------------------
 
 Interfaces and attributes third parties *implement*:
@@ -36,7 +36,8 @@ Interfaces and attributes third parties *implement*:
 and the capability interfaces, :php:`TranslatorInterface`,
 :php:`SearchBackendInterface`, the preset/evaluation providers, the
 middleware contracts, and the ``#[AsLlmProvider]`` / ``#[AsTranslator]``
-attributes. These carry the stricter promise implementation forces:
+attributes. These carry a stricter promise, forced by the direction of
+implementation:
 **no new abstract member within a major version** — adding one would break
 every existing implementation, not just callers.
 

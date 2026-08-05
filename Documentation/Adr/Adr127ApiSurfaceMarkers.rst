@@ -34,10 +34,11 @@ semver covers:
    itself ``@api`` (the response objects, option classes, value objects and
    typed exceptions a caller necessarily touches). A hand-curated list
    inevitably drifts; the closure rule is checkable.
-2. **``@api`` extension point** — interfaces and attributes third parties
-   *implement* rather than call (tool, guardrail, provider, translator,
-   search-backend, preset, evaluation and middleware contracts). These carry
-   the stricter promise the direction of implementation forces: **no new
+2. **``@api Extension point``** (the marker's literal casing) — interfaces
+   and attributes third parties *implement* rather than call (tool,
+   guardrail, provider, translator, search-backend, preset, evaluation and
+   middleware contracts). These carry a stricter promise, forced by the
+   direction of implementation: **no new
    abstract member within a major version**, because adding one breaks every
    existing implementor, not just callers.
 3. **``@internal``** — everything else, explicitly. Controllers, widgets,
