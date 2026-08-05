@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Task execution enforces the executing user's budget (audit REC #4,
+  closing the hook documented in `TaskExecutionService` since slice 13c).
+  The controller passes the backend user's uid; the `BudgetMiddleware`
+  pre-flights the per-user cap before the provider is paid and the
+  recorded usage is attributed to that user. A denial surfaces as its own
+  localized message instead of the generic failure text. Note: the task
+  module is admin-only, so this can now block an administrator whose
+  personal budget is exhausted — configuration limits applied before and
+  still do.
 - The `@api` surface (ADR-127) is frozen in `Tests/Unit/Api/api-surface.txt`:
   a snapshot test renders every marked class's declared public signatures and
   fails on an unintended change; the same pass asserts the closure rule —

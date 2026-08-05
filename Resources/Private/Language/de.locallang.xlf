@@ -1742,6 +1742,10 @@
                 <source>Task is not active</source>
                 <target>Aufgabe ist nicht aktiv</target>
             </trans-unit>
+            <trans-unit id="error.task.budgetExceeded">
+                <source>Execution denied: your usage budget is exhausted.</source>
+                <target>Ausführung abgelehnt: Ihr Nutzungsbudget ist aufgebraucht.</target>
+            </trans-unit>
             <trans-unit id="error.records.listTablesDbError">
                 <source>Database error while listing tables.</source>
                 <target>Datenbankfehler beim Auflisten der Tabellen.</target>

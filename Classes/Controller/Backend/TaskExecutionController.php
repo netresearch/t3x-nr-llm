@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 // thrown by `TaskExecutionService::execute()`, not PHP's built-in
 // (which is also raised in sibling controllers, e.g. by
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
+use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
@@ -65,6 +66,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class TaskExecutionController extends ActionController
 {
+    use BackendUserUidTrait;
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
 
@@ -217,8 +219,18 @@ final class TaskExecutionController extends ActionController
     private function runExecution(Task $task, string $input): array
     {
         try {
-            $result  = $this->taskExecutionService->execute($task, $input);
+            // REC #4: the executing admin's uid activates the per-user budget
+            // pre-flight and attributes the recorded usage to them.
+            $result  = $this->taskExecutionService->execute($task, $input, $this->currentBackendUserUid());
             $payload = TaskExecutionResponse::fromResult($result)->jsonSerialize();
+        } catch (BudgetExceededException $e) {
+            // A budget denial is an expected, user-actionable answer — surface
+            // it as such instead of the generic failure message.
+            $this->logger->notice('Task execution denied by budget pre-flight', [
+                'exception' => $e,
+                'task_uid'  => $task->getUid(),
+            ]);
+            $payload = (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.task.budgetExceeded', 'Execution denied: your usage budget is exhausted.')))->jsonSerialize();
         } catch (DomainInvalidArgumentException $e) {
             // Domain validation: message is vetted internal text safe to surface.
             $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
