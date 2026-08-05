@@ -55,7 +55,8 @@ or audited — one registry, one gate, one agent loop (ADR-116).
 Things nr_llm deliberately does not do, so the scope stays sharp:
 
 - **No general-purpose MCP server.** The direction matters: nr_llm *consumes*
-  MCP servers as a client and aggregates their tools (see Toward 1.0), but it
+  MCP servers as a client and aggregates their tools (shipped — see "Where we
+  are" and ADR-116), but it
   does not *expose* TYPO3 as an MCP server to third-party clients. That is a
   different product with a different security model.
 - **No backend coding agent.** The agent runtime automates editorial and
