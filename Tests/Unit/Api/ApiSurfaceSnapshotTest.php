@@ -268,7 +268,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
                 'property %s%s: %s',
                 $property->isReadOnly() ? 'readonly ' : '',
                 $property->getName(),
-                $this->renderType($property->getType()),
+                $this->renderType($property->getType(), $reflection->getName()),
             );
         }
 
@@ -277,7 +277,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
             foreach ($method->getParameters() as $parameter) {
                 $params[] = sprintf(
                     '%s%s$%s%s',
-                    $this->renderType($parameter->getType()),
+                    $this->renderType($parameter->getType(), $reflection->getName()),
                     $parameter->isVariadic() ? ' ...' : ' ',
                     $parameter->getName(),
                     $parameter->isOptional() ? ' = …' : '',
@@ -289,7 +289,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 implode(', ', $params),
-                $this->renderType($method->getReturnType()),
+                $this->renderType($method->getReturnType(), $reflection->getName()),
             );
         }
 
@@ -321,21 +321,21 @@ final class ApiSurfaceSnapshotTest extends TestCase
         return $methods;
     }
 
-    private function renderType(?ReflectionType $type): string
+    private function renderType(?ReflectionType $type, string $selfClass): string
     {
         if (!$type instanceof ReflectionType) {
             return 'mixed';
         }
 
         if ($type instanceof ReflectionNamedType) {
-            $name = $type->getName();
+            $name = $this->canonicalTypeName($type->getName(), $selfClass);
 
             return ($type->allowsNull() && $name !== 'null' && $name !== 'mixed' ? '?' : '') . $name;
         }
 
         if ($type instanceof ReflectionUnionType) {
             $parts = array_map(
-                $this->renderTypeBare(...),
+                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);
@@ -345,7 +345,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
         if ($type instanceof ReflectionIntersectionType) {
             $parts = array_map(
-                $this->renderTypeBare(...),
+                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);
@@ -357,18 +357,29 @@ final class ApiSurfaceSnapshotTest extends TestCase
     }
 
     /**
+     * PHP versions differ in whether a declared `self` survives reflection
+     * or comes back resolved to the class name (observed: 8.2 keeps `self`,
+     * 8.5 resolves it). Canonicalise to `self` so the snapshot is identical
+     * across the CI matrix. `static` is stable and passes through.
+     */
+    private function canonicalTypeName(string $name, string $selfClass): string
+    {
+        return $name === $selfClass ? 'self' : $name;
+    }
+
+    /**
      * Union/intersection members render WITHOUT the nullability marker —
      * `null` appears as its own sorted member instead.
      */
-    private function renderTypeBare(ReflectionType $type): string
+    private function renderTypeBare(ReflectionType $type, string $selfClass): string
     {
         if ($type instanceof ReflectionNamedType) {
-            return $type->getName();
+            return $this->canonicalTypeName($type->getName(), $selfClass);
         }
 
         if ($type instanceof ReflectionIntersectionType) {
             $parts = array_map(
-                $this->renderTypeBare(...),
+                fn(ReflectionType $part): string => $this->renderTypeBare($part, $selfClass),
                 $type->getTypes(),
             );
             sort($parts);
