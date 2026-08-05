@@ -1248,6 +1248,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method getPresencePenalty(): ?float
   method getProvider(): ?string
   method getResponseFormat(): ?string
+  method getResponseSchema(): ?array
   method getStopSequences(): ?array
   method getSuppressRequestCount(): bool
   method getSystemPrompt(): ?string
@@ -1269,6 +1270,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class)
   method withPresencePenalty(float $presencePenalty): static
   method withProvider(string $provider): static
   method withResponseFormat(string $responseFormat): static
+  method withResponseSchema(array $responseSchema): static
   method withStopSequences(array $stopSequences): static
   method withSuppressRequestCount(bool $suppressRequestCount): static
   method withSystemPrompt(string $systemPrompt): static
