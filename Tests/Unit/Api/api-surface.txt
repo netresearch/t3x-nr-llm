@@ -1,0 +1,1693 @@
+Netresearch\NrLlm\Attribute\AsLlmProvider (class)
+  const TAG_NAME = "nr_llm.provider"
+  property readonly priority: int
+
+Netresearch\NrLlm\Attribute\AsTranslator (class)
+  const TAG_NAME = "nr_llm.translator"
+
+Netresearch\NrLlm\Domain\DTO\BudgetCheckResult (class)
+  const LIMIT_CONFIGURATION_DAILY_COST = "configuration_daily_cost"
+  const LIMIT_CONFIGURATION_DAILY_REQUESTS = "configuration_daily_requests"
+  const LIMIT_CONFIGURATION_DAILY_TOKENS = "configuration_daily_tokens"
+  const LIMIT_DAILY_COST = "daily_cost"
+  const LIMIT_DAILY_REQUESTS = "daily_requests"
+  const LIMIT_DAILY_TOKENS = "daily_tokens"
+  const LIMIT_MONTHLY_COST = "monthly_cost"
+  const LIMIT_MONTHLY_REQUESTS = "monthly_requests"
+  const LIMIT_MONTHLY_TOKENS = "monthly_tokens"
+  const LIMIT_NONE = ""
+  method static allowed(): self
+  method static denied(string $exceededLimit, float $currentUsage, float $limit, string $reason = …): self
+  property readonly allowed: bool
+  property readonly currentUsage: float
+  property readonly exceededLimit: string
+  property readonly limit: float
+  property readonly reason: string
+
+Netresearch\NrLlm\Domain\DTO\CapabilitySet (class)
+  method count(): int
+  method has(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): bool
+  method isEmpty(): bool
+  method jsonSerialize(): array
+  method static fromArray(array $tokens): self
+  method static fromCsv(string $csv): self
+  method toCsv(): string
+  method toStringList(): array
+  method with(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): self
+  method without(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): self
+  property readonly capabilities: array
+
+Netresearch\NrLlm\Domain\DTO\FallbackChain (class)
+  method contains(string $identifier): bool
+  method count(): int
+  method isEmpty(): bool
+  method jsonSerialize(): array
+  method static fromArray(array $data): self
+  method static fromJson(string $json): self
+  method toArray(): array
+  method toJson(): string
+  method withLink(string $identifier): self
+  method without(string $identifier): self
+  property readonly configurationIdentifiers: array
+
+Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class)
+  method allowsAdapterType(string $adapterType): bool
+  method hasCriteria(): bool
+  method jsonSerialize(): array
+  method requiresCapability(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): bool
+  method static fromArray(array $data): self
+  method static fromJson(string $json): self
+  method toArray(): array
+  method toJson(): string
+  method withAdapterType(string $adapterType): self
+  method withCapability(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): self
+  method withLowestCostPreference(bool $preferLowestCost = …): self
+  method withMaxCostInput(int $maxCostInput): self
+  method withMinContextLength(int $minContextLength): self
+  property readonly adapterTypes: array
+  property readonly capabilities: array
+  property readonly maxCostInput: int
+  property readonly minContextLength: int
+  property readonly preferLowestCost: bool
+
+Netresearch\NrLlm\Domain\DTO\ProviderOptions (class)
+  method get(string $key, mixed $default = …): mixed
+  method has(string $key): bool
+  method isEmpty(): bool
+  method jsonSerialize(): array
+  method static fromArray(array $data): self
+  method static fromJson(string $json): self
+  method toArray(): array
+  method toJson(): string
+  method withCustomHeaders(array $headers): self
+  method withExtra(string $key, mixed $value): self
+  method withProxy(?string $proxy): self
+  property readonly customHeaders: array
+  property readonly extra: array
+  property readonly proxy: ?string
+
+Netresearch\NrLlm\Domain\Enum\AgentRunStatus (enum)
+  case CANCELLED
+  case COMPLETED
+  case FAILED
+  case QUEUED
+  case RUNNING
+  case WAITING_FOR_APPROVAL
+  case WAITING_FOR_INPUT
+  method isTerminal(): bool
+  method static awaitingValues(): array
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static nonTerminalValues(): array
+  method static terminalValues(): array
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
+  case APPROVAL_DENIED
+  case BUDGET_EXHAUSTED
+  case CANCELLED
+  case COMPLETED
+  case CONTEXT_TRUNCATED
+  case MAX_ITERATIONS
+  case NOT_RETRYABLE
+  case POLICY_DENIED
+  case PROVIDER_FAILED
+  case RETRIES_EXHAUSTED
+  method isRetryable(): bool
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\MessageRole (enum)
+  case ASSISTANT
+  case SYSTEM
+  case TOOL
+  case USER
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ModelCapability (enum)
+  case AUDIO
+  case CHAT
+  case COMPLETION
+  case EMBEDDINGS
+  case IMAGE
+  case JSON_MODE
+  case STREAMING
+  case TEXT_TO_SPEECH
+  case TOOLS
+  case TRANSCRIPTION
+  case VISION
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
+  case CRITERIA
+  case FIXED
+  method getDescription(): string
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
+  case AGENT_APPROVE
+  case AGENT_CANCEL
+  case AGENT_READ
+  case CONFIGURATION_USE
+  case CONVERSATION_ACCESS
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\SkillTrustLevel (enum)
+  case COMMUNITY
+  case FIRST_PARTY
+  case UNTRUSTED
+  case VERIFIED
+  method rank(): int
+  method satisfies(self $minimum): bool
+  method static cases(): array
+  method static from(int|string $value): static
+  method static fromStringOrUntrusted(string $value): self
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\SupportStatus (enum)
+  case FULL
+  case PARTIAL
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ToolDataClass (enum)
+  case EDITOR_CONTENT
+  case INTERNAL_CONFIGURATION
+  case PUBLIC_CONTENT
+  case SECRET_ADJACENT
+  case SOURCE_CODE
+  case SYSTEM_DIAGNOSTICS
+  method isAtMost(self $ceiling): bool
+  method rank(): int
+  method static cases(): array
+  method static from(int|string $value): static
+  method static strictest(self $a, self $b): self
+  method static tryFrom(int|string $value): ?static
+  method static tryFromString(string $value): ?self
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
+  case EXTERNAL_EU
+  case EXTERNAL_GLOBAL
+  case LOCAL
+  case PRIVATE_HOSTED
+  method maxDataClass(): Netresearch\NrLlm\Domain\Enum\ToolDataClass
+  method permits(Netresearch\NrLlm\Domain\Enum\ToolDataClass $class): bool
+  method rank(): int
+  method static cases(): array
+  method static from(int|string $value): static
+  method static fromStringOrStrictest(string $value): self
+  method static leastTrusted(self $a, self $b): self
+  method static tryFrom(int|string $value): ?static
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Model\AdapterType (enum)
+  case Anthropic
+  case AzureOpenAI
+  case Custom
+  case Fireworks
+  case Gemini
+  case Groq
+  case Mistral
+  case Ollama
+  case OpenAI
+  case OpenRouter
+  case Perplexity
+  case Together
+  method defaultEndpoint(): string
+  method label(): string
+  method requiresApiKey(): bool
+  method static cases(): array
+  method static from(int|string $value): static
+  method static toSelectArray(): array
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Model\CompletionResponse (class)
+  method getText(): string
+  method hasThinking(): bool
+  method hasToolCalls(): bool
+  method isComplete(): bool
+  method wasFiltered(): bool
+  method wasTruncated(): bool
+  property readonly content: string
+  property readonly finishReason: string
+  property readonly metadata: ?array
+  property readonly model: string
+  property readonly provider: string
+  property readonly thinking: ?string
+  property readonly toolCalls: ?array
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\Model\EmbeddingResponse (class)
+  method getCount(): int
+  method getDimensions(): int
+  method getEmbeddings(): array
+  method getVector(): array
+  method normalizeVector(array $vector): array
+  method static cosineSimilarity(array $vectorA, array $vectorB): float
+  method static fromArray(array $data): self
+  method toArray(): array
+  property readonly embeddings: array
+  property readonly model: string
+  property readonly provider: string
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
+  const SELECTION_MODE_CRITERIA = "criteria"
+  const SELECTION_MODE_FIXED = "fixed"
+  method addSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method getAllowedGroups(): int
+  method getAllowedGuardrails(): string
+  method getAllowedGuardrailsList(): array
+  method getAllowedToolGroups(): string
+  method getAllowedToolGroupsList(): array
+  method getBeGroups(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
+  method getCrdate(): int
+  method getDescription(): string
+  method getEffectiveTimeout(): int
+  method getFallbackChain(): string
+  method getFallbackChainDTO(): Netresearch\NrLlm\Domain\DTO\FallbackChain
+  method getFrequencyPenalty(): float
+  method getIdentifier(): string
+  method getIsActive(): bool
+  method getIsDefault(): bool
+  method getLlmModel(): ?Netresearch\NrLlm\Domain\Model\Model
+  method getMaxCostPerDay(): float
+  method getMaxRequestsPerDay(): int
+  method getMaxTokens(): int
+  method getMaxTokensPerDay(): int
+  method getModelId(): string
+  method getModelSelectionCriteria(): string
+  method getModelSelectionCriteriaArray(): array
+  method getModelSelectionCriteriaDTO(): Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria
+  method getModelSelectionMode(): string
+  method getModelSelectionModeEnum(): ?Netresearch\NrLlm\Domain\Enum\ModelSelectionMode
+  method getName(): string
+  method getOptions(): string
+  method getOptionsArray(): array
+  method getPresencePenalty(): float
+  method getPresetChecksum(): string
+  method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
+  method getProviderType(): string
+  method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
+  method getSystemPrompt(): string
+  method getTemperature(): float
+  method getTimeout(): int
+  method getTopP(): float
+  method getTranslator(): string
+  method getTstamp(): int
+  method hasAccessRestrictions(): bool
+  method hasFallbackChain(): bool
+  method hasLlmModel(): bool
+  method hasUsageLimits(): bool
+  method isActive(): bool
+  method isDefault(): bool
+  method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method setAllowedGuardrails(string $allowedGuardrails): void
+  method setAllowedToolGroups(string $allowedToolGroups): void
+  method setBeGroups(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $beGroups): void
+  method setDescription(string $description): void
+  method setFallbackChain(string $fallbackChain): void
+  method setFallbackChainDTO(Netresearch\NrLlm\Domain\DTO\FallbackChain $fallbackChain): void
+  method setFrequencyPenalty(float $frequencyPenalty): void
+  method setIdentifier(string $identifier): void
+  method setIsActive(bool $isActive): void
+  method setIsDefault(bool $isDefault): void
+  method setLlmModel(?Netresearch\NrLlm\Domain\Model\Model $llmModel): void
+  method setMaxCostPerDay(float $maxCostPerDay): void
+  method setMaxRequestsPerDay(int $maxRequestsPerDay): void
+  method setMaxTokens(int $maxTokens): void
+  method setMaxTokensPerDay(int $maxTokensPerDay): void
+  method setModelSelectionCriteria(string $modelSelectionCriteria): void
+  method setModelSelectionCriteriaArray(array $criteria): void
+  method setModelSelectionCriteriaDTO(Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria $criteria): void
+  method setModelSelectionMode(string $modelSelectionMode): void
+  method setName(string $name): void
+  method setOptions(string $options): void
+  method setOptionsArray(array $options): void
+  method setPresencePenalty(float $presencePenalty): void
+  method setPresetChecksum(string $presetChecksum): void
+  method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
+  method setSystemPrompt(string $systemPrompt): void
+  method setTemperature(float $temperature): void
+  method setTimeout(int $timeout): void
+  method setTopP(float $topP): void
+  method setTranslator(string $translator): void
+  method toChatOptions(): Netresearch\NrLlm\Service\Option\ChatOptions
+  method toOptionsArray(): array
+  method usesCriteriaSelection(): bool
+
+Netresearch\NrLlm\Domain\Model\Model (class)
+  method addCapability(string $capability): void
+  method estimateCost(int $inputTokens, int $outputTokens): float
+  method getCapabilities(): string
+  method getCapabilitiesArray(): array
+  method getCapabilitiesAsEnums(): array
+  method getCapabilitySet(): Netresearch\NrLlm\Domain\DTO\CapabilitySet
+  method getContextLength(): int
+  method getCostInput(): int
+  method getCostInputDollars(): float
+  method getCostOutput(): int
+  method getCostOutputDollars(): float
+  method getCrdate(): int
+  method getDefaultTimeout(): int
+  method getDescription(): string
+  method getDimensions(): int
+  method getDisplayName(): string
+  method getFormattedContextLength(): string
+  method getIdentifier(): string
+  method getIsActive(): bool
+  method getIsDefault(): bool
+  method getMaxOutputTokens(): int
+  method getModelId(): string
+  method getName(): string
+  method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
+  method getSorting(): int
+  method getTstamp(): int
+  method hasCapability(string $capability): bool
+  method hasPricing(): bool
+  method isActive(): bool
+  method isDefault(): bool
+  method removeCapability(string $capability): void
+  method setCapabilities(string $capabilities): void
+  method setCapabilitiesArray(array $capabilities): void
+  method setCapabilitySet(Netresearch\NrLlm\Domain\DTO\CapabilitySet $capabilitySet): void
+  method setContextLength(int $contextLength): void
+  method setCostInput(int $costInput): void
+  method setCostInputDollars(float $dollars): void
+  method setCostOutput(int $costOutput): void
+  method setCostOutputDollars(float $dollars): void
+  method setDefaultTimeout(int $defaultTimeout): void
+  method setDescription(string $description): void
+  method setDimensions(int $dimensions): void
+  method setIdentifier(string $identifier): void
+  method setIsActive(bool $isActive): void
+  method setIsDefault(bool $isDefault): void
+  method setMaxOutputTokens(int $maxOutputTokens): void
+  method setModelId(string $modelId): void
+  method setName(string $name): void
+  method setProvider(?Netresearch\NrLlm\Domain\Model\Provider $provider): void
+  method setSorting(int $sorting): void
+  method static getAllCapabilities(): array
+  method supportsAudio(): bool
+  method supportsChat(): bool
+  method supportsCompletion(): bool
+  method supportsEmbeddings(): bool
+  method supportsJsonMode(): bool
+  method supportsStreaming(): bool
+  method supportsTools(): bool
+  method supportsVision(): bool
+
+Netresearch\NrLlm\Domain\Model\Provider (class)
+  method getAdapterName(): string
+  method getAdapterType(): string
+  method getAdapterTypeEnum(): ?Netresearch\NrLlm\Domain\Model\AdapterType
+  method getApiKey(): string
+  method getApiTimeout(): int
+  method getCrdate(): int
+  method getDecryptedApiKey(): string
+  method getDescription(): string
+  method getEffectiveEndpointUrl(): string
+  method getEndpointUrl(): string
+  method getHasApiKey(): bool
+  method getIdentifier(): string
+  method getIsActive(): bool
+  method getMaxRetries(): int
+  method getModels(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
+  method getName(): string
+  method getOptions(): string
+  method getOptionsArray(): array
+  method getOptionsObject(): Netresearch\NrLlm\Domain\DTO\ProviderOptions
+  method getOrganizationId(): string
+  method getPriority(): int
+  method getSorting(): int
+  method getTimeout(): int
+  method getTrustZone(): string
+  method getTrustZoneEnum(): Netresearch\NrLlm\Domain\Enum\TrustZone
+  method getTstamp(): int
+  method hasApiKey(): bool
+  method hasCustomEndpoint(): bool
+  method isActive(): bool
+  method setAdapterType(string $adapterType): void
+  method setAdapterTypeEnum(Netresearch\NrLlm\Domain\Model\AdapterType $adapterType): void
+  method setApiKey(string $apiKey): void
+  method setApiTimeout(int $apiTimeout): void
+  method setDescription(string $description): void
+  method setEndpointUrl(string $endpointUrl): void
+  method setIdentifier(string $identifier): void
+  method setIsActive(bool $isActive): void
+  method setMaxRetries(int $maxRetries): void
+  method setModels(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $models): void
+  method setName(string $name): void
+  method setOptions(string $options): void
+  method setOptionsArray(array $options): void
+  method setOptionsObject(Netresearch\NrLlm\Domain\DTO\ProviderOptions $options): void
+  method setOrganizationId(string $organizationId): void
+  method setPriority(int $priority): void
+  method setSorting(int $sorting): void
+  method setTimeout(int $timeout): void
+  method setTrustZone(string $trustZone): void
+  method setTrustZoneEnum(Netresearch\NrLlm\Domain\Enum\TrustZone $trustZone): void
+  method static getAdapterTypes(): array
+  method static getDefaultEndpointForAdapter(Netresearch\NrLlm\Domain\Model\AdapterType|string $adapterType): string
+  method toAdapterConfig(): array
+
+Netresearch\NrLlm\Domain\Model\Skill (class)
+  method getAllowedTools(): string
+  method getAllowedToolsList(): ?array
+  method getBody(): string
+  method getBodyChecksum(): string
+  method getDescription(): string
+  method getIdentifier(): string
+  method getInjectionFindings(): array
+  method getInjectionScan(): string
+  method getIsEnabled(): bool
+  method getIsOrphaned(): bool
+  method getName(): string
+  method getRawFrontmatter(): string
+  method getRawFrontmatterArray(): array
+  method getSource(): int
+  method getSourceSha(): string
+  method getSupportStatus(): string
+  method getSupportStatusEnum(): ?Netresearch\NrLlm\Domain\Enum\SupportStatus
+  method getTrustLevel(): string
+  method getTrustLevelEnum(): Netresearch\NrLlm\Domain\Enum\SkillTrustLevel
+  method getUnsupportedNotes(): string
+  method hasInjectionFindings(): bool
+  method isEnabled(): bool
+  method isOrphaned(): bool
+  method setAllowedTools(string $allowedTools): void
+  method setBody(string $body): void
+  method setBodyChecksum(string $bodyChecksum): void
+  method setDescription(string $description): void
+  method setEnabled(bool $enabled): void
+  method setIdentifier(string $identifier): void
+  method setInjectionScan(string $injectionScan): void
+  method setName(string $name): void
+  method setOrphaned(bool $orphaned): void
+  method setRawFrontmatter(string $rawFrontmatter): void
+  method setSource(int $source): void
+  method setSourceSha(string $sourceSha): void
+  method setSupportStatus(string $supportStatus): void
+  method setTrustLevel(string $trustLevel): void
+  method setUnsupportedNotes(string $unsupportedNotes): void
+
+Netresearch\NrLlm\Domain\Model\TranslationResult (class)
+  method getAlternatives(): array
+  method getText(): string
+  method hasAlternatives(): bool
+  method isConfident(float $threshold = …): bool
+  property readonly alternatives: ?array
+  property readonly confidence: float
+  property readonly metadata: ?array
+  property readonly sourceLanguage: string
+  property readonly targetLanguage: string
+  property readonly translation: string
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\Model\UsageStatistics (class)
+  method getCost(): ?float
+  method getTotal(): int
+  method static fromArray(array $data): self
+  method static fromTokens(int $promptTokens, int $completionTokens, ?float $estimatedCost = …): self
+  method toArray(): array
+  property readonly completionTokens: int
+  property readonly estimatedCost: ?float
+  property readonly promptTokens: int
+  property readonly totalTokens: int
+
+Netresearch\NrLlm\Domain\Model\VisionResponse (class)
+  method getDescription(): string
+  method getText(): string
+  method meetsConfidence(float $threshold): bool
+  property readonly confidence: ?float
+  property readonly description: string
+  property readonly detectedObjects: ?array
+  property readonly metadata: ?array
+  property readonly model: string
+  property readonly provider: string
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
+  method statusEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunStatus
+  method terminationReasonEnum(): ?Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
+  method withoutSuspendedState(): self
+  property readonly beUser: int
+  property readonly claimedBy: string
+  property readonly configurationIdentifier: string
+  property readonly configurationUid: int
+  property readonly crdate: int
+  property readonly errorClass: string
+  property readonly estimatedCost: float
+  property readonly finishedAt: int
+  property readonly iterations: int
+  property readonly leaseExpires: int
+  property readonly pendingEffect: string
+  property readonly queuedRequest: ?string
+  property readonly requeueCount: int
+  property readonly startedAt: int
+  property readonly status: string
+  property readonly suspendedState: ?string
+  property readonly terminationReason: string
+  property readonly totalCompletionTokens: int
+  property readonly totalPromptTokens: int
+  property readonly totalTokens: int
+  property readonly truncated: bool
+  property readonly uid: int
+  property readonly uuid: string
+
+Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
+  method describe(): string
+  method hasScope(Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
+  method isAuthenticated(): bool
+  method isServiceAccount(): bool
+  method mayAccessSession(Netresearch\NrLlm\Domain\ValueObject\AiSession $session): bool
+  method mayActOnRun(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run, Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
+  method static anonymous(): self
+  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …): self
+  method static fromArray(array $data): self
+  method static serviceAccount(string $name, array $scopes = …): self
+  method toArray(): array
+  property readonly backendGroupIds: array
+  property readonly backendUserUid: int
+  property readonly isAdmin: bool
+  property readonly scopes: array
+  property readonly serviceAccount: ?string
+
+Netresearch\NrLlm\Domain\ValueObject\AiSession (class)
+  property readonly beUser: int
+  property readonly configurationIdentifier: string
+  property readonly crdate: int
+  property readonly lastActivity: int
+  property readonly messageCount: int
+  property readonly title: string
+  property readonly uid: int
+  property readonly uuid: string
+
+Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
+  method getRole(): Netresearch\NrLlm\Domain\Enum\MessageRole
+  method isAssistant(): bool
+  method isSystem(): bool
+  method isTool(): bool
+  method isUser(): bool
+  method jsonSerialize(): array
+  method static assistant(string $content): self
+  method static assistantToolCalls(array $toolCalls, ?string $content = …): self
+  method static fromArray(array $data): self
+  method static getValidRoles(): array
+  method static system(string $content): self
+  method static tool(string $content): self
+  method static toolResult(string $toolCallId, string $content): self
+  method static user(string $content): self
+  method toArray(): array
+  property readonly content: string
+  property readonly role: string
+  property readonly toolCallId: ?string
+  property readonly toolCalls: ?array
+
+Netresearch\NrLlm\Domain\ValueObject\ContextFitResult (class)
+  property readonly budget: int
+  property readonly calibration: float
+  property readonly droppedTurns: int
+  property readonly estimatedTokens: int
+  property readonly keptTurns: int
+  property readonly messages: array
+  property readonly overflowAtFloor: bool
+  property readonly pruned: bool
+
+Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
+  method static allow(): self
+  method static deny(string $reason): self
+  method static redact(string $redactedContent, string $reason = …, ?string $redactedThinking = …): self
+  method static requireApproval(string $reason): self
+  method static retry(string $reason = …): self
+  property readonly reason: string
+  property readonly redactedContent: ?string
+  property readonly redactedThinking: ?string
+  property readonly verdict: Netresearch\NrLlm\Domain\Enum\GuardrailVerdict
+
+Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
+  method static fromArray(array $data): self
+  method toArray(): array
+  method toolCalls(): array
+  property readonly allowedToolNames: ?array
+  property readonly completionTokens: int
+  property readonly inputSchema: array
+  property readonly inputToolName: ?string
+  property readonly iterations: int
+  property readonly messages: array
+  property readonly options: array
+  property readonly pendingCalls: array
+  property readonly promptTokens: int
+
+Netresearch\NrLlm\Domain\ValueObject\ToolArtifact (class)
+  method toArray(): array
+  property readonly data: array
+  property readonly label: string
+  property readonly type: Netresearch\NrLlm\Domain\Enum\ArtifactType
+
+Netresearch\NrLlm\Domain\ValueObject\ToolCall (class)
+  const TYPE_FUNCTION = "function"
+  method jsonSerialize(): array
+  method static fromArray(array $data): self
+  method static function(string $id, string $name, array $arguments): self
+  method static tryFromArray(array $data): ?self
+  method toArray(): array
+  property readonly arguments: array
+  property readonly id: string
+  property readonly name: string
+  property readonly type: string
+
+Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult (class)
+  property readonly finalContent: string
+  property readonly iterations: int
+  property readonly terminationReason: Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason
+  property readonly trace: array
+  property readonly truncated: bool
+  property readonly usage: Netresearch\NrLlm\Domain\Model\UsageStatistics
+
+Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision (class)
+  method message(): string
+  property readonly allowed: bool
+  property readonly ceiling: Netresearch\NrLlm\Domain\Enum\ToolDataClass
+  property readonly dataClass: Netresearch\NrLlm\Domain\Enum\ToolDataClass
+  property readonly observedOnly: bool
+  property readonly reason: Netresearch\NrLlm\Domain\Enum\ToolDenialReason
+  property readonly toolName: string
+  property readonly zone: Netresearch\NrLlm\Domain\Enum\TrustZone
+
+Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
+  method static error(string $content): self
+  method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
+  property readonly artifacts: array
+  property readonly content: string
+  property readonly isError: bool
+
+Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
+  const TYPE_FUNCTION = "function"
+  method jsonSerialize(): array
+  method static fromArray(array $data): self
+  method static function(string $name, string $description, array $parameters): self
+  method toArray(): array
+  property readonly description: string
+  property readonly name: string
+  property readonly parameters: array
+  property readonly type: string
+
+Netresearch\NrLlm\Exception\AccessDeniedException (class)
+
+Netresearch\NrLlm\Exception\BudgetExceededException (class)
+  property readonly result: Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
+
+Netresearch\NrLlm\Exception\ConfigurationInactiveException (class)
+
+Netresearch\NrLlm\Exception\ConfigurationNotFoundException (class)
+
+Netresearch\NrLlm\Exception\ContextTruncatedException (class)
+  method static fromFit(Netresearch\NrLlm\Domain\ValueObject\ContextFitResult $fit): self
+  property readonly fit: Netresearch\NrLlm\Domain\ValueObject\ContextFitResult
+
+Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException (class)
+  property readonly guardrail: string
+
+Netresearch\NrLlm\Exception\GuardrailPolicyException (interface)
+
+Netresearch\NrLlm\Exception\GuardrailViolationException (class)
+  property readonly guardrail: string
+
+Netresearch\NrLlm\Exception\InvalidArgumentException (class)
+
+Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface)
+
+Netresearch\NrLlm\Provider\Contract\DocumentCapableInterface (interface)
+  method getSupportedDocumentFormats(): array
+  method supportsDocuments(): bool
+
+Netresearch\NrLlm\Provider\Contract\ProviderInterface (interface)
+  method chatCompletion(array $messages, array $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method complete(string $prompt, array $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method configure(array $config): void
+  method embeddings(array|string $input, array $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method getAvailableModels(): array
+  method getDefaultModel(): string
+  method getIdentifier(): string
+  method getName(): string
+  method isAvailable(): bool
+  method supportsFeature(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $feature): bool
+  method testConnection(): array
+
+Netresearch\NrLlm\Provider\Contract\StreamingCapableInterface (interface)
+  method streamChatCompletion(array $messages, array $options = …): Generator
+  method supportsStreaming(): bool
+
+Netresearch\NrLlm\Provider\Contract\ToolCapableInterface (interface)
+  method chatCompletionWithTools(array $messages, array $tools, array $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method supportsTools(): bool
+
+Netresearch\NrLlm\Provider\Contract\VisionCapableInterface (interface)
+  method analyzeImage(array $content, array $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+  method getMaxImageSize(): int
+  method getSupportedImageFormats(): array
+  method supportsVision(): bool
+
+Netresearch\NrLlm\Provider\Exception\CircuitOpenException (class)
+  property readonly provider: string
+  property readonly retryAfterSeconds: int
+
+Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException (class)
+  method getAttemptErrors(): array
+  method getAttemptedConfigurations(): array
+  method static fromAttempts(array $attempts): self
+
+Netresearch\NrLlm\Provider\Exception\ProviderAuthenticationException (class)
+
+Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException (class)
+
+Netresearch\NrLlm\Provider\Exception\ProviderConnectionException (class)
+
+Netresearch\NrLlm\Provider\Exception\ProviderException (class)
+
+Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException (class)
+
+Netresearch\NrLlm\Provider\Exception\ProviderResponseException (class)
+  property readonly endpoint: string
+  property readonly httpStatus: int
+  property readonly responseBody: string
+
+Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException (class)
+
+Netresearch\NrLlm\Provider\Middleware\ProviderCallContext (class)
+  method static for(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, array $metadata = …): self
+  method static forConfiguration(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …): self
+  method static forService(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $provider, string $model, string $configurationIdentifier = …, array $metadata = …): self
+  method telemetryConfigurationIdentifier(): string
+  method telemetryModel(): string
+  method telemetryProvider(): string
+  method withConfiguration(?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): self
+  method withMetadata(array $metadata): self
+  property readonly configuration: ?Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  property readonly configurationIdentifier: string
+  property readonly correlationId: string
+  property readonly metadata: array
+  property readonly model: string
+  property readonly operation: Netresearch\NrLlm\Provider\Middleware\ProviderOperation
+  property readonly provider: string
+  property readonly telemetrySignals: Netresearch\NrLlm\Provider\Middleware\TelemetrySignals
+
+Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface (interface)
+  const TAG_NAME = "nr_llm.provider_middleware"
+  method handle(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context, callable $next): mixed
+
+Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
+  case Chat
+  case Completion
+  case Embedding
+  case ImageEdit
+  case ImageGeneration
+  case ImageVariation
+  case Metadata
+  case SpeechSynthesis
+  case Stream
+  case Tools
+  case Transcription
+  case Translation
+  case Vision
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord (class)
+  property readonly beUserUid: ?int
+  property readonly configurationUid: ?int
+  property readonly countsAsRequest: bool
+  property readonly metrics: array
+  property readonly modelId: string
+  property readonly modelUid: int
+  property readonly provider: string
+  property readonly serviceType: string
+  property readonly taskUid: int
+
+Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface (interface)
+  const TAG_NAME = "nr_llm.usage_metrics_extractor"
+  method extract(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context, mixed $result): ?Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord
+  method supports(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
+
+Netresearch\NrLlm\Provider\ProviderAdapterRegistry (class)
+  method clearCache(?int $providerUid = …): void
+  method createAdapterFromModel(Netresearch\NrLlm\Domain\Model\Model $model, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method createAdapterFromProvider(Netresearch\NrLlm\Domain\Model\Provider $provider, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getAdapterClass(string $adapterType): string
+  method getRegisteredAdapters(): array
+  method hasAdapter(string $adapterType): bool
+  method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
+
+Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface (interface)
+  method clearCache(?int $providerUid = …): void
+  method createAdapterFromModel(Netresearch\NrLlm\Domain\Model\Model $model, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method createAdapterFromProvider(Netresearch\NrLlm\Domain\Model\Provider $provider, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getAdapterClass(string $adapterType): string
+  method getRegisteredAdapters(): array
+  method hasAdapter(string $adapterType): bool
+  method testProviderConnection(Netresearch\NrLlm\Domain\Model\Provider $provider): array
+
+Netresearch\NrLlm\Service\Agent\AgentRunRequest (class)
+  property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
+  property readonly allowedToolNames: ?array
+  property readonly augmentation: ?Netresearch\NrLlm\Service\Tool\RunAugmentation
+  property readonly captureRaw: bool
+  property readonly configuration: Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  property readonly maxIterations: ?int
+  property readonly messages: array
+  property readonly options: ?Netresearch\NrLlm\Service\Option\ToolOptions
+
+Netresearch\NrLlm\Service\Agent\AgentRunResult (class)
+  property readonly error: ?Throwable
+  property readonly guardrailClass: ?string
+  property readonly loopResult: ?Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  property readonly outcome: Netresearch\NrLlm\Domain\Enum\AgentRunOutcome
+  property readonly runUuid: string
+  property readonly steps: array
+  property readonly suspendedState: ?Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState
+
+Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
+  method approve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
+  method cancel(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): bool
+  method enqueue(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
+  method events(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, int $afterSequence = …): array
+  method run(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
+  method runQueued(string $runUuid, ?Closure $onStep = …): ?Netresearch\NrLlm\Service\Agent\AgentRunResult
+  method status(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): ?Netresearch\NrLlm\Domain\ValueObject\AgentRun
+  method submitInput(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\InputSubmission $submission, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
+
+Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
+  property readonly approved: bool
+  property readonly decidedByBeUser: int
+
+Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
+  property readonly runUuid: string
+
+Netresearch\NrLlm\Service\Agent\InputSubmission (class)
+  property readonly data: array
+  property readonly submittedByBeUser: int
+
+Netresearch\NrLlm\Service\BudgetServiceInterface (interface)
+  method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
+
+Netresearch\NrLlm\Service\CacheManagerInterface (interface)
+  method cacheCompletion(string $provider, array $messages, array $options, array $response, int $lifetime = …): string
+  method cacheEmbeddings(string $provider, array|string $input, array $options, array $response, int $lifetime = …): string
+  method flush(): void
+  method flushByProvider(string $provider): void
+  method flushByTag(string $tag): void
+  method generateCacheKey(string $provider, string $operation, array $params): string
+  method get(string $cacheKey): ?array
+  method getCachedCompletion(string $provider, array $messages, array $options): ?array
+  method getCachedEmbeddings(string $provider, array|string $input, array $options): ?array
+  method has(string $cacheKey): bool
+  method remove(string $cacheKey): void
+  method sanitizeCacheTag(string $value): string
+  method set(string $cacheKey, array $data, int $lifetime = …, array $tags = …): void
+
+Netresearch\NrLlm\Service\Evaluation\EvaluatableRetrieverInterface (interface)
+  const TAG_NAME = "nr_llm.evaluatable_retriever"
+  method getIdentifier(): string
+  method retrieve(string $question, int $limit): array
+
+Netresearch\NrLlm\Service\Evaluation\GoldenPromptSetProviderInterface (interface)
+  const TAG_NAME = "nr_llm.golden_prompt_set"
+  method getGoldenPromptSets(): array
+
+Netresearch\NrLlm\Service\Evaluation\GoldenQuestionSetProviderInterface (interface)
+  const TAG_NAME = "nr_llm.golden_question_set"
+  method getGoldenQuestionSets(): array
+
+Netresearch\NrLlm\Service\Feature\CompletionService (class)
+  method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+
+Netresearch\NrLlm\Service\Feature\CompletionServiceInterface (interface)
+  method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+
+Netresearch\NrLlm\Service\Feature\ConversationService (class)
+  method send(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $sessionUuid, string $userMessage, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method startSession(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $title = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\ValueObject\AiSession
+
+Netresearch\NrLlm\Service\Feature\ConversationServiceInterface (interface)
+  method send(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $sessionUuid, string $userMessage, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method startSession(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $title = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\ValueObject\AiSession
+
+Netresearch\NrLlm\Service\Feature\EmbeddingService (class)
+  method cosineSimilarity(array $vectorA, array $vectorB): float
+  method embed(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatch(array $texts, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatchForConfiguration(array $texts, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedForConfiguration(string $text, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedFull(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method findMostSimilar(array $queryVector, array $candidateVectors, int $topK = …): array
+  method normalize(array $vector): array
+  method pairwiseSimilarities(array $vectors): array
+
+Netresearch\NrLlm\Service\Feature\EmbeddingServiceInterface (interface)
+  method cosineSimilarity(array $vectorA, array $vectorB): float
+  method embed(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatch(array $texts, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatchForConfiguration(array $texts, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedForConfiguration(string $text, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedFull(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method findMostSimilar(array $queryVector, array $candidateVectors, int $topK = …): array
+  method normalize(array $vector): array
+  method pairwiseSimilarities(array $vectors): array
+
+Netresearch\NrLlm\Service\Feature\ToolCallingService (class)
+  method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+
+Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface (interface)
+  method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+
+Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder (class)
+  method build(string $text, string $sourceLanguage, string $targetLanguage, array $options): array
+
+Netresearch\NrLlm\Service\Feature\TranslationService (class)
+  method detectLanguage(string $text, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): string
+  method findBestTranslator(string $sourceLanguage, string $targetLanguage): ?Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method getAvailableTranslators(): array
+  method getTranslator(string $identifier): Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method hasTranslator(string $identifier): bool
+  method scoreTranslationQuality(string $sourceText, string $translatedText, string $targetLanguage, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): float
+  method translate(string $text, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Domain\Model\TranslationResult
+  method translateBatch(array $texts, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): array
+  method translateBatchWithTranslator(array $texts, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): array
+  method translateForConfiguration(string $text, string $targetLanguage, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Domain\Model\TranslationResult
+  method translateWithTranslator(string $text, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Specialized\Translation\TranslatorResult
+
+Netresearch\NrLlm\Service\Feature\TranslationServiceInterface (interface)
+  method detectLanguage(string $text, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): string
+  method findBestTranslator(string $sourceLanguage, string $targetLanguage): ?Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method getAvailableTranslators(): array
+  method getTranslator(string $identifier): Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method hasTranslator(string $identifier): bool
+  method scoreTranslationQuality(string $sourceText, string $translatedText, string $targetLanguage, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): float
+  method translate(string $text, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Domain\Model\TranslationResult
+  method translateBatch(array $texts, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): array
+  method translateBatchWithTranslator(array $texts, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): array
+  method translateForConfiguration(string $text, string $targetLanguage, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Domain\Model\TranslationResult
+  method translateWithTranslator(string $text, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Specialized\Translation\TranslatorResult
+
+Netresearch\NrLlm\Service\Feature\VisionService (class)
+  method analyzeImage(array|string $imageUrl, string $customPrompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method analyzeImageFull(string $imageUrl, string $prompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+  method generateAltText(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateDescription(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateTitle(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+
+Netresearch\NrLlm\Service\Feature\VisionServiceInterface (interface)
+  method analyzeImage(array|string $imageUrl, string $customPrompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method analyzeImageFull(string $imageUrl, string $prompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+  method generateAltText(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateDescription(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateTitle(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+
+Netresearch\NrLlm\Service\Guardrail\GuardrailIdentity (interface)
+  method getIdentifier(): string
+  method isMandatory(): bool
+
+Netresearch\NrLlm\Service\Guardrail\GuardrailInterface (interface)
+  const TAG_NAME = "nr_llm.guardrail"
+  method checkOutput(Netresearch\NrLlm\Domain\Model\CompletionResponse $response): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
+
+Netresearch\NrLlm\Service\Guardrail\InputGuardrailInterface (interface)
+  const TAG_NAME = "nr_llm.input_guardrail"
+  method checkInput(string $text): Netresearch\NrLlm\Domain\ValueObject\GuardrailResult
+
+Netresearch\NrLlm\Service\LlmConfigurationServiceInterface (interface)
+  method checkAccess(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method create(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method delete(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method getAccessibleConfigurations(): array
+  method getConfiguration(string $identifier): Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  method getDefaultConfiguration(): Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  method hasAccess(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): bool
+  method isIdentifierAvailable(string $identifier, ?int $excludeUid = …): bool
+  method setAsDefault(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method toggleActive(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+  method update(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
+
+Netresearch\NrLlm\Service\LlmServiceManager (class)
+  method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method configureProvider(string $identifier, array $config): void
+  method embed(array|string $input, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method embedForConfiguration(array|string $input, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method getAdapterFromConfiguration(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getAdapterFromModel(Netresearch\NrLlm\Domain\Model\Model $model): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getAdapterRegistry(): Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface
+  method getAvailableProviders(): array
+  method getProvider(?string $identifier = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getProviderConfiguration(string $identifier): array
+  method getProviderList(): array
+  method hasAvailableProvider(): bool
+  method registerProvider(Netresearch\NrLlm\Provider\Contract\ProviderInterface $provider): void
+  method resolveEffectiveConfiguration(?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): ?Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  method streamChat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Generator
+  method streamChatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $optionOverrides = …, array $metadata = …): Generator
+  method supportsFeature(string $feature, ?string $provider = …): bool
+  method vision(array $content, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+
+Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
+  method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method configureProvider(string $identifier, array $config): void
+  method embed(array|string $input, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method embedForConfiguration(array|string $input, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method getAvailableProviders(): array
+  method getProvider(?string $identifier = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
+  method getProviderConfiguration(string $identifier): array
+  method getProviderList(): array
+  method hasAvailableProvider(): bool
+  method registerProvider(Netresearch\NrLlm\Provider\Contract\ProviderInterface $provider): void
+  method resolveEffectiveConfiguration(?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): ?Netresearch\NrLlm\Domain\Model\LlmConfiguration
+  method streamChat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Generator
+  method streamChatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $optionOverrides = …, array $metadata = …): Generator
+  method supportsFeature(string $feature, ?string $provider = …): bool
+  method vision(array $content, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+
+Netresearch\NrLlm\Service\Option\AbstractOptions (class)
+  method getIdempotencyKey(): ?string
+  method toArray(): array
+  method withIdempotencyKey(string $idempotencyKey): static
+
+Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface (interface)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
+
+Netresearch\NrLlm\Service\Option\BudgetFieldsTrait (trait)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
+
+Netresearch\NrLlm\Service\Option\ChatOptions (class)
+  method getBeUserUid(): ?int
+  method getFrequencyPenalty(): ?float
+  method getMaxTokens(): ?int
+  method getModel(): ?string
+  method getPlannedCost(): ?float
+  method getPresencePenalty(): ?float
+  method getProvider(): ?string
+  method getResponseFormat(): ?string
+  method getStopSequences(): ?array
+  method getSuppressRequestCount(): bool
+  method getSystemPrompt(): ?string
+  method getTemperature(): ?float
+  method getThink(): ?bool
+  method getTopP(): ?float
+  method merge(array $overrides): array
+  method static balanced(): static
+  method static code(): static
+  method static creative(): static
+  method static factual(): static
+  method static json(): static
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withFrequencyPenalty(float $frequencyPenalty): static
+  method withMaxTokens(int $maxTokens): static
+  method withModel(string $model): static
+  method withPlannedCost(float $plannedCost): static
+  method withPresencePenalty(float $presencePenalty): static
+  method withProvider(string $provider): static
+  method withResponseFormat(string $responseFormat): static
+  method withStopSequences(array $stopSequences): static
+  method withSuppressRequestCount(bool $suppressRequestCount): static
+  method withSystemPrompt(string $systemPrompt): static
+  method withTemperature(float $temperature): static
+  method withTopP(float $topP): static
+
+Netresearch\NrLlm\Service\Option\EmbeddingOptions (class)
+  method getBeUserUid(): ?int
+  method getCacheTtl(): int
+  method getDimensions(): ?int
+  method getModel(): ?string
+  method getPlannedCost(): ?float
+  method getProvider(): ?string
+  method static compact(): static
+  method static highPrecision(): static
+  method static noCache(): static
+  method static standard(): static
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withCacheTtl(int $cacheTtl): static
+  method withDimensions(int $dimensions): static
+  method withModel(string $model): static
+  method withPlannedCost(float $plannedCost): static
+  method withProvider(string $provider): static
+
+Netresearch\NrLlm\Service\Option\ToolOptions (class)
+  method getCaptureRaw(): bool
+  method getParallelToolCalls(): ?bool
+  method getToolChoice(): ?string
+  method static auto(): static
+  method static fromArray(array $data, ?int $beUserUid = …): static
+  method static noTools(): static
+  method static parallel(): static
+  method static required(): static
+  method toArray(): array
+  method withCaptureRaw(bool $captureRaw): static
+  method withParallelToolCalls(bool $parallelToolCalls): static
+  method withToolChoice(string $toolChoice): static
+
+Netresearch\NrLlm\Service\Option\TranslationOptions (class)
+  method getBeUserUid(): ?int
+  method getConfiguration(): ?string
+  method getContext(): ?string
+  method getDomain(): ?string
+  method getFormality(): ?string
+  method getGlossary(): ?array
+  method getMaxTokens(): ?int
+  method getModel(): ?string
+  method getPlannedCost(): ?float
+  method getPreserveFormatting(): ?bool
+  method getProvider(): ?string
+  method getTemperature(): ?float
+  method static formal(): static
+  method static informal(): static
+  method static legal(): static
+  method static marketing(): static
+  method static medical(): static
+  method static technical(): static
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withConfiguration(string $configuration): static
+  method withContext(string $context): static
+  method withDomain(string $domain): static
+  method withFormality(string $formality): static
+  method withGlossary(array $glossary): static
+  method withMaxTokens(int $maxTokens): static
+  method withModel(string $model): static
+  method withPlannedCost(float $plannedCost): static
+  method withPreserveFormatting(bool $preserveFormatting): static
+  method withProvider(string $provider): static
+  method withTemperature(float $temperature): static
+
+Netresearch\NrLlm\Service\Option\VisionOptions (class)
+  method getBeUserUid(): ?int
+  method getDetailLevel(): ?string
+  method getMaxTokens(): ?int
+  method getModel(): ?string
+  method getPlannedCost(): ?float
+  method getProvider(): ?string
+  method getTemperature(): ?float
+  method static altText(): static
+  method static comprehensive(): static
+  method static detailed(): static
+  method static quick(): static
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withDetailLevel(string $detailLevel): static
+  method withMaxTokens(int $maxTokens): static
+  method withModel(string $model): static
+  method withPlannedCost(float $plannedCost): static
+  method withProvider(string $provider): static
+  method withTemperature(float $temperature): static
+
+Netresearch\NrLlm\Service\Preset\ConfigurationPresetProviderInterface (interface)
+  const TAG_NAME = "nr_llm.configuration_preset"
+  method getPresets(): array
+
+Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer (class)
+  method composeSections(array $sectionsByLabel): string
+
+Netresearch\NrLlm\Service\Rerank\RerankerInterface (interface)
+  method rerank(string $query, array $candidates): array
+
+Netresearch\NrLlm\Service\Retrieval\AccessContext (class)
+  method static forBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
+  method static forFrontendGroups(array $frontendGroupIds): self
+  method static publicOnly(): self
+  property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
+  property readonly frontendGroupIds: array
+
+Netresearch\NrLlm\Service\Retrieval\EvidenceList (class)
+  method isEmpty(): bool
+  method withNotes(array $notes): self
+  property readonly backend: string
+  property readonly notes: array
+  property readonly sources: array
+
+Netresearch\NrLlm\Service\Retrieval\KeywordSearchInterface (interface)
+  method isAvailable(): bool
+  method search(string $query, int $limit, ?int $languageId = …): array
+
+Netresearch\NrLlm\Service\Retrieval\ReciprocalRankFusion (class)
+  method fuse(array $rankedKeyLists, int $k = …, array $weights = …): array
+
+Netresearch\NrLlm\Service\Retrieval\RetrievalQuery (class)
+  const MAX_QUERY_LENGTH = 200
+  const MAX_SOURCES = 20
+  const MIN_QUERY_LENGTH = 2
+  method static create(string $query, int $maxSources = …, ?string $siteIdentifier = …, int $languageId = …): self
+  property readonly languageId: int
+  property readonly maxSources: int
+  property readonly query: string
+  property readonly siteIdentifier: ?string
+
+Netresearch\NrLlm\Service\Retrieval\SearchBackendInterface (interface)
+  const TAG_NAME = "nr_llm.retrieval_backend"
+  method fetchSource(Netresearch\NrLlm\Service\Retrieval\SourceReference $reference, Netresearch\NrLlm\Service\Retrieval\AccessContext $context): ?string
+  method getIdentifier(): string
+  method getPriority(): int
+  method isAvailable(): bool
+  method search(Netresearch\NrLlm\Service\Retrieval\RetrievalQuery $query, Netresearch\NrLlm\Service\Retrieval\AccessContext $context): Netresearch\NrLlm\Service\Retrieval\EvidenceList
+
+Netresearch\NrLlm\Service\Retrieval\SourceReference (class)
+  method static parse(string $sourceId): ?self
+  method toString(): string
+  property readonly backend: string
+  property readonly parts: array
+
+Netresearch\NrLlm\Service\Tool\RunAugmentation (class)
+  property readonly dryRun: bool
+  property readonly forcedSkills: array
+  property readonly forcedSnippets: array
+
+Netresearch\NrLlm\Service\Tool\RunTrace (class)
+  method beforeToolExecution(string $toolName): void
+  method capturesRaw(): bool
+  method getSteps(): array
+  method recordAssembledMessages(array $messages): void
+  method recordLlmCall(int $round, float $durationMs, Netresearch\NrLlm\Domain\Model\CompletionResponse $response): void
+  method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
+  method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
+
+Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
+  method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision
+  method explain(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
+  method filterOfferable(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
+
+Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
+  method actingBackendUser(): ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
+  method isAdmin(): bool
+  method static forBackendUser(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
+  method static fromBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): self
+  method static none(): self
+  property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
+  property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
+
+Netresearch\NrLlm\Service\Tool\ToolInterface (interface)
+  const TAG_NAME = "nr_llm.tool"
+  method execute(array $arguments, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolResult
+  method getGroup(): string
+  method getSpec(): Netresearch\NrLlm\Domain\ValueObject\ToolSpec
+  method isEnabledByDefault(): bool
+  method requiresAdmin(): bool
+
+Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface (interface)
+  method resume(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, bool $approved, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  method resumeWithInput(Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState $state, array $inputData, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?int $beUserUid = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+  method runLoop(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context, ?array $allowedToolNames, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?int $maxIterations = …, ?Netresearch\NrLlm\Service\Tool\RunTrace $runTrace = …, ?Netresearch\NrLlm\Service\Tool\RunAugmentation $augmentation = …, bool $skipAssembly = …, int $seedIterations = …, int $seedPromptTokens = …, int $seedCompletionTokens = …): Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult
+
+Netresearch\NrLlm\Service\Tool\ToolProviderInterface (interface)
+  const TAG_NAME = "nr_llm.tool_provider"
+  method tools(): iterable
+
+Netresearch\NrLlm\Service\UsageTrackerServiceInterface (interface)
+  method getCurrentMonthCost(): float
+  method getTodayUsage(string $serviceType, string $provider): ?array
+  method getUsageReport(string $serviceType, DateTimeInterface $from, DateTimeInterface $to): array
+  method getUserUsage(int $beUserUid, DateTimeInterface $from, DateTimeInterface $to): array
+  method trackUsage(string $serviceType, string $provider, array $metrics = …, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …): void
+
+Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult (class)
+  property readonly model: string
+  property readonly provider: string
+  property readonly rasterizedPageCount: int
+  property readonly text: string
+  property readonly usedNativeDocumentPath: bool
+
+Netresearch\NrLlm\Specialized\Document\DocumentAnalysisService (class)
+  method analyzeDocument(string $pdf, string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult
+
+Netresearch\NrLlm\Specialized\Image\DallEImageService (class)
+  method createVariations(string $imagePath, int $count = …, string $size = …, ?int $beUserUid = …): array
+  method edit(string $imagePath, string $prompt, ?string $maskPath = …, string $size = …, ?int $beUserUid = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
+  method generate(string $prompt, Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions|array $options = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
+  method generateMultiple(string $prompt, int $count = …, Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions|array $options = …): array
+  method getAvailableModels(): array
+  method getSupportedSizes(string $model = …): array
+
+Netresearch\NrLlm\Specialized\Image\FalImageService (class)
+  method generate(string $prompt, string $model = …, array $options = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
+  method generateMultiple(string $prompt, int $count = …, string $model = …, array $options = …): array
+  method getAspectRatios(): array
+  method getAvailableModels(): array
+  method imageToImage(string $imageUrl, string $prompt, string $model = …, array $options = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
+
+Netresearch\NrLlm\Specialized\Image\ImageGenerationResult (class)
+  method downloadFromUrl(): ?string
+  method getBinaryContent(): ?string
+  method getDimensions(): array
+  method getEffectivePrompt(): string
+  method getHeight(): int
+  method getWidth(): int
+  method hasBase64(): bool
+  method isLandscape(): bool
+  method isPortrait(): bool
+  method isSquare(): bool
+  method saveToFile(string $path): bool
+  method toDataUrl(string $mimeType = …): ?string
+  method wasPromptRevised(): bool
+  property readonly base64: ?string
+  property readonly metadata: ?array
+  property readonly model: string
+  property readonly prompt: string
+  property readonly provider: string
+  property readonly revisedPrompt: ?string
+  property readonly size: string
+  property readonly url: string
+
+Netresearch\NrLlm\Specialized\Option\DeepLOptions (class)
+  method static formal(): self
+  method static fromArray(array $options): static
+  method static html(): self
+  method static informal(): self
+  method static withGlossary(string $glossaryId): self
+  method static xml(): self
+  method toArray(): array
+  property readonly formality: ?string
+  property readonly glossaryId: ?string
+  property readonly ignoreTags: ?array
+  property readonly nonSplittingTags: ?array
+  property readonly preserveFormatting: ?bool
+  property readonly splitSentences: ?bool
+  property readonly tagHandling: ?string
+
+Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions (class)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method static fromArray(array $options): static
+  method static getValidSizes(string $model = …): array
+  method static hd(string $size = …): self
+  method static landscape(): self
+  method static natural(): self
+  method static portrait(): self
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
+  property readonly configuration: ?string
+  property readonly format: ?string
+  property readonly model: ?string
+  property readonly quality: ?string
+  property readonly size: ?string
+  property readonly style: ?string
+
+Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions (class)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method static fast(string $voice = …): self
+  method static fromArray(array $options): static
+  method static getAvailableVoices(): array
+  method static hd(string $voice = …): self
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
+  property readonly configuration: ?string
+  property readonly format: ?string
+  property readonly model: ?string
+  property readonly speed: ?float
+  property readonly voice: ?string
+
+Netresearch\NrLlm\Specialized\Option\TranscriptionOptions (class)
+  method getBeUserUid(): ?int
+  method getPlannedCost(): ?float
+  method static fromArray(array $options): static
+  method static subtitles(?string $language = …): self
+  method static verbose(?string $language = …): self
+  method toArray(): array
+  method withBeUserUid(int $beUserUid): static
+  method withPlannedCost(float $plannedCost): static
+  property readonly configuration: ?string
+  property readonly format: ?string
+  property readonly language: ?string
+  property readonly model: ?string
+  property readonly prompt: ?string
+  property readonly temperature: ?float
+
+Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult (class)
+  method getFileExtension(): string
+  method getFormattedSize(): string
+  method getMimeType(): string
+  method getSize(): int
+  method isHd(): bool
+  method saveToFile(string $path): bool
+  method toBase64(): string
+  method toDataUrl(): string
+  property readonly audioContent: string
+  property readonly characterCount: int
+  property readonly format: string
+  property readonly metadata: ?array
+  property readonly model: string
+  property readonly voice: string
+
+Netresearch\NrLlm\Specialized\Speech\TextToSpeechService (class)
+  method getAvailableModels(): array
+  method getAvailableVoices(): array
+  method getMaxInputLength(): int
+  method getSupportedFormats(): array
+  method synthesize(string $text, Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions|array $options = …): Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult
+  method synthesizeLong(string $text, Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions|array $options = …): array
+  method synthesizeToFile(string $text, string $outputPath, Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions|array $options = …): Netresearch\NrLlm\Specialized\Speech\SpeechSynthesisResult
+
+Netresearch\NrLlm\Specialized\Speech\TranscriptionResult (class)
+  method getConfidencePercent(): ?string
+  method getFormattedDuration(): ?string
+  method getWordCount(): int
+  method hasSegments(): bool
+  method toSrt(): ?string
+  method toVtt(): ?string
+  property readonly confidence: ?float
+  property readonly duration: ?float
+  property readonly language: string
+  property readonly metadata: ?array
+  property readonly segments: ?array
+  property readonly text: string
+
+Netresearch\NrLlm\Specialized\Speech\WhisperTranscriptionService (class)
+  method getSupportedFormats(): array
+  method getSupportedResponseFormats(): array
+  method transcribe(string $audioPath, Netresearch\NrLlm\Specialized\Option\TranscriptionOptions|array $options = …): Netresearch\NrLlm\Specialized\Speech\TranscriptionResult
+  method transcribeFromContent(string $audioContent, string $filename, Netresearch\NrLlm\Specialized\Option\TranscriptionOptions|array $options = …): Netresearch\NrLlm\Specialized\Speech\TranscriptionResult
+  method translateToEnglish(string $audioPath, Netresearch\NrLlm\Specialized\Option\TranscriptionOptions|array $options = …): Netresearch\NrLlm\Specialized\Speech\TranscriptionResult
+
+Netresearch\NrLlm\Specialized\Translation\TranslatorInterface (interface)
+  method detectLanguage(string $text): string
+  method getIdentifier(): string
+  method getName(): string
+  method getSupportedLanguages(): array
+  method isAvailable(): bool
+  method static getPriority(): int
+  method supportsLanguagePair(string $sourceLanguage, string $targetLanguage): bool
+  method translate(string $text, string $targetLanguage, ?string $sourceLanguage = …, array $options = …): Netresearch\NrLlm\Specialized\Translation\TranslatorResult
+  method translateBatch(array $texts, string $targetLanguage, ?string $sourceLanguage = …, array $options = …): array
+
+Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface (interface)
+  method findBestTranslator(string $sourceLanguage, string $targetLanguage): ?Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method get(string $identifier): Netresearch\NrLlm\Specialized\Translation\TranslatorInterface
+  method getAvailable(): array
+  method getRegisteredIdentifiers(): array
+  method getTranslatorInfo(): array
+  method has(string $identifier): bool
+
+Netresearch\NrLlm\Specialized\Translation\TranslatorResult (class)
+  method getConfidencePercent(): ?string
+  method getText(): string
+  method getTranslatorName(): string
+  method hasAlternatives(): bool
+  method isFromDeepL(): bool
+  method isFromLlm(): bool
+  property readonly alternatives: ?array
+  property readonly charactersUsed: ?int
+  property readonly confidence: ?float
+  property readonly metadata: ?array
+  property readonly sourceLanguage: string
+  property readonly targetLanguage: string
+  property readonly translatedText: string
+  property readonly translator: string
+
+Netresearch\NrLlm\Testing\FakeBudgetService (class)
+  method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
+  property checkCalls: array
+  property checkResult: ?Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
+  property throwable: ?Throwable
+
+Netresearch\NrLlm\Testing\FakeCompletionService (class)
+  method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeCreativeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactual(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeFactualForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method completeJson(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeJsonForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeMarkdown(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeMarkdownForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): string
+  method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): array
+  property completeCalls: array
+  property completeCreativeCalls: array
+  property completeCreativeForConfigurationCalls: array
+  property completeFactualCalls: array
+  property completeFactualForConfigurationCalls: array
+  property completeForConfigurationCalls: array
+  property completeJsonCalls: array
+  property completeJsonForConfigurationCalls: array
+  property completeMarkdownCalls: array
+  property completeMarkdownForConfigurationCalls: array
+  property completeStructuredCalls: array
+  property completeStructuredForConfigurationCalls: array
+  property jsonResult: array
+  property markdownResult: string
+  property responses: array
+  property structuredResult: array
+  property throwable: ?Throwable
+
+Netresearch\NrLlm\Testing\FakeEmbeddingService (class)
+  method cosineSimilarity(array $vectorA, array $vectorB): float
+  method embed(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatch(array $texts, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedBatchForConfiguration(array $texts, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedForConfiguration(string $text, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
+  method embedFull(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  method findMostSimilar(array $queryVector, array $candidateVectors, int $topK = …): array
+  method normalize(array $vector): array
+  method pairwiseSimilarities(array $vectors): array
+  property cosineSimilarityResult: float
+  property embedBatchCalls: array
+  property embedBatchForConfigurationCalls: array
+  property embedBatchResult: array
+  property embedCalls: array
+  property embedForConfigurationCalls: array
+  property embedFullCalls: array
+  property embedFullResult: ?Netresearch\NrLlm\Domain\Model\EmbeddingResponse
+  property embedResult: array
+  property findMostSimilarResult: array
+  property normalizeResult: ?array
+  property pairwiseSimilaritiesResult: array
+  property throwable: ?Throwable
+
+Netresearch\NrLlm\Testing\FakeToolCallingService (class)
+  method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  property chatWithToolsCalls: array
+  property chatWithToolsForConfigurationCalls: array
+  property responses: array
+  property throwable: ?Throwable
+
+Netresearch\NrLlm\Testing\FakeVisionService (class)
+  method analyzeImage(array|string $imageUrl, string $customPrompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method analyzeImageFull(string $imageUrl, string $prompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
+  method generateAltText(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateDescription(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  method generateTitle(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
+  property altTextResult: string
+  property analyzeImageCalls: array
+  property analyzeImageFullCalls: array
+  property analyzeImageFullResult: ?Netresearch\NrLlm\Domain\Model\VisionResponse
+  property analyzeImageResult: string
+  property descriptionResult: string
+  property generateAltTextCalls: array
+  property generateDescriptionCalls: array
+  property generateTitleCalls: array
+  property throwable: ?Throwable
+  property titleResult: string

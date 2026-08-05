@@ -60,6 +60,15 @@ What is out of contract
   is fine — their constructors are part of the signature promise.
 - Anything reached by reflection or by reading private state.
 
+Enforcement
+===========
+
+The rendered ``@api`` surface is frozen in
+``Tests/Unit/Api/api-surface.txt``: an unintended signature change fails CI
+before review, and the same test asserts the closure rule (every type an
+``@api`` signature mentions is ``@api``). An intended change updates the
+snapshot in the same PR — the diff is the review artifact.
+
 Versioning during 0.x
 =====================
 
