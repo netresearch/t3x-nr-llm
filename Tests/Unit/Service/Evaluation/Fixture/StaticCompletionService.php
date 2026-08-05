@@ -57,8 +57,15 @@ final class StaticCompletionService implements CompletionServiceInterface
     public function completeStructured(string $prompt, array $schema, ?ChatOptions $options = null): array
     {
         $this->receivedPrompts[] = $prompt;
+        if ($this->throw) {
+            throw new RuntimeException('provider unavailable', 1794000099);
+        }
 
-        return [];
+        // Behave like the real service: the canned content, decoded. Callers
+        // that seed plain text (deterministic-path tests) never reach this.
+        $decoded = json_decode($this->content, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     public function completeMarkdown(string $prompt, ?ChatOptions $options = null): string

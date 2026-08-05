@@ -34,14 +34,17 @@ or audited — one registry, one gate, one agent loop (ADR-116).
   administration, AI management, AI operation, editing) instead of the current
   admin-centric permissions, plus a purpose-built editor action API rather
   than generic record CRUD.
-- **Complete structured outputs.** The schema gaps are closed as a named,
-  fail-closed strict subset (enum, pattern, `oneOf`, bounds, combinators —
-  ADR-126); full draft support, i.e. `$ref` resolution, stays deliberately
-  out. Remaining: use provider-native structured output where a provider
-  offers it, behind the subset walker as the compatibility gate.
-- **A public, versioned API surface.** Mark the supported surface with `@api`,
-  adopt an explicit backward-compatibility policy, and add upgrade tests so
-  consumer extensions can rely on it.
+- **Complete structured outputs.** Shipped end to end: a named, fail-closed
+  strict subset (enum, pattern, `oneOf`, bounds, combinators — ADR-126) with
+  `$ref` resolution deliberately out; provider-native enforcement on all
+  seven adapters behind a conservative compatibility profile (ADR-128); and
+  the in-repo consumers — wizard, JSON tasks, judge grader — on the
+  pipeline (ADR-129).
+- **A public, versioned API surface.** Shipped: the surface is marked
+  (`@api` / extension points / `@internal`, ADR-127), the promise is
+  documented in `Documentation/Api/Stability.rst`, and the rendered
+  signatures are frozen in a snapshot test that also asserts the closure
+  rule.
 - **Enforced horizontal boundaries.** Shipped: `ModuleSeamTest` asserts that
   specialized services and the tool/agent module do not depend on each other,
   that guardrails depend on neither, that nothing outside the backend package

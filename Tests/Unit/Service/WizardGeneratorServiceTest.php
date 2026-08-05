@@ -10,14 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use ArrayIterator;
-use JsonException;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
-use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -34,7 +35,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 #[AllowMockObjectsWithoutExpectations]
 class WizardGeneratorServiceTest extends AbstractUnitTestCase
 {
-    private LlmServiceManagerInterface&MockObject $llmServiceManager;
+    private CompletionServiceInterface&MockObject $completionService;
 
     private LlmConfigurationRepository&MockObject $configurationRepository;
 
@@ -46,12 +47,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         parent::setUp();
 
-        $this->llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
+        $this->completionService = $this->createMock(CompletionServiceInterface::class);
         $this->configurationRepository = $this->createMock(LlmConfigurationRepository::class);
         $this->modelRepository = $this->createMock(ModelRepository::class);
 
         $this->subject = new WizardGeneratorService(
-            $this->llmServiceManager,
+            $this->completionService,
             $this->configurationRepository,
             $this->modelRepository,
             $this->createLoggerMock(),
@@ -59,19 +60,6 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     // ==================== Helper methods ====================
-
-    private function createCompletionResponse(string $content): CompletionResponse
-    {
-        return new CompletionResponse(
-            content: $content,
-            model: 'gpt-5.2',
-            usage: new UsageStatistics(
-                promptTokens: 100,
-                completionTokens: 50,
-                totalTokens: 150,
-            ),
-        );
-    }
 
     private function createConfigurationWithModel(): LlmConfiguration
     {
@@ -116,6 +104,45 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     /**
+     * Stub the structured completion to return $result directly — since the
+     * ADR-126/128 rewrite the wizard receives the decoded, schema-validated
+     * array from completeStructuredForConfiguration(), never raw content.
+     *
+     * @param array<string, mixed> $result
+     */
+    private function stubStructuredResult(array $result): void
+    {
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willReturn($result);
+    }
+
+    /**
+     * Stub the structured completion to return $result and capture the outgoing
+     * call (prompt, configuration, schema, options) into $captured by reference.
+     *
+     * @param array<string, mixed>                                                                                                 $result
+     * @param array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ChatOptions|null}|null $captured
+     */
+    private function stubStructuredCapturing(array $result, ?array &$captured): void
+    {
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willReturnCallback(
+                function (string $prompt, LlmConfiguration $configuration, array $schema, ?ChatOptions $options = null) use (&$captured, $result): array {
+                    $captured = [
+                        'prompt' => $prompt,
+                        'configuration' => $configuration,
+                        'schema' => $schema,
+                        'options' => $options,
+                    ];
+
+                    return $result;
+                },
+            );
+    }
+
+    /**
      * Create a QueryResultInterface stub that iterates over the given items.
      *
      * @param array<object> $items
@@ -136,6 +163,21 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $stub->method('getFirst')->willReturn($items[0] ?? null);
 
         return $stub;
+    }
+
+    private function createBudgetExceededException(): BudgetExceededException
+    {
+        return new BudgetExceededException(
+            BudgetCheckResult::denied(BudgetCheckResult::LIMIT_DAILY_COST, 12.0, 10.0),
+        );
+    }
+
+    private function createStructuredValidationFailure(): InvalidArgumentException
+    {
+        return new InvalidArgumentException(
+            'Structured completion did not match the required schema after one repair attempt.',
+            1784500002,
+        );
     }
 
     // ==================== resolveConfiguration ====================
@@ -219,23 +261,21 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
-            'identifier' => 'blog-summarizer',
-            'name' => 'Blog Summarizer',
-            'description' => 'Summarizes blog posts into concise paragraphs.',
-            'system_prompt' => 'You are an expert content summarizer.',
-            'temperature' => 0.3,
-            'max_tokens' => 2048,
-            'top_p' => 0.9,
-            'frequency_penalty' => 0.1,
-            'presence_penalty' => 0.0,
-            'recommended_model' => 'gpt-5.2',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->willReturn([
+                'identifier' => 'blog-summarizer',
+                'name' => 'Blog Summarizer',
+                'description' => 'Summarizes blog posts into concise paragraphs.',
+                'system_prompt' => 'You are an expert content summarizer.',
+                'temperature' => 0.3,
+                'max_tokens' => 2048,
+                'top_p' => 0.9,
+                'frequency_penalty' => 0.1,
+                'presence_penalty' => 0.0,
+                'recommended_model' => 'gpt-5.2',
+            ]);
 
         $result = $this->subject->generateConfiguration('summarize blog posts', $config);
 
@@ -272,8 +312,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('LLM service unavailable'));
 
         $result = $this->subject->generateConfiguration('translate content', $config);
@@ -284,15 +324,18 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function testGenerateConfigurationFallbackOnInvalidJson(): void
+    public function testGenerateConfigurationFallbackOnStructuredValidationFailure(): void
     {
+        // A response that still fails the schema after the repair round-trip
+        // surfaces as InvalidArgumentException from the completion service —
+        // the wizard degrades to the fallback exactly like any other failure.
         $config = $this->createConfigurationWithModel();
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse('This is not JSON at all!'));
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createStructuredValidationFailure());
 
         $result = $this->subject->generateConfiguration('write poetry', $config);
 
@@ -301,36 +344,21 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function testGenerateConfigurationParsesMarkdownWrappedJson(): void
+    public function testGenerateConfigurationRethrowsBudgetExceededException(): void
     {
+        // A budget denial is an answer, not a generation failure — it must NOT
+        // be disguised as the generic fallback.
         $config = $this->createConfigurationWithModel();
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $jsonContent = json_encode([
-            'identifier' => 'seo-optimizer',
-            'name' => 'SEO Optimizer',
-            'description' => 'Optimizes content for search engines.',
-            'system_prompt' => 'You are an SEO expert.',
-            'temperature' => 0.5,
-            'max_tokens' => 4096,
-            'top_p' => 1.0,
-            'frequency_penalty' => 0.0,
-            'presence_penalty' => 0.0,
-            'recommended_model' => 'gpt-5.2',
-        ], JSON_THROW_ON_ERROR);
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createBudgetExceededException());
 
-        $markdownResponse = "Here is your configuration:\n```json\n{$jsonContent}\n```";
+        $this->expectException(BudgetExceededException::class);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($markdownResponse));
-
-        $result = $this->subject->generateConfiguration('optimize for seo', $config);
-
-        self::assertTrue($result['generated']);
-        self::assertSame('seo-optimizer', $result['identifier']);
-        self::assertSame('SEO Optimizer', $result['name']);
+        $this->subject->generateConfiguration('budget config', $config);
     }
 
     #[Test]
@@ -340,7 +368,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'camel-test',
             'name' => 'Camel Test',
             'description' => 'Test camelCase keys',
@@ -351,11 +379,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'frequencyPenalty' => 0.2,
             'presencePenalty' => 0.1,
             'recommendedModel' => 'gpt-5.2',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('test camel case', $config);
 
@@ -375,7 +399,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'clamp-test',
             'name' => 'Clamp Test',
             'description' => 'Test clamping',
@@ -385,11 +409,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'top_p' => 3.0,
             'frequency_penalty' => -5.0,
             'presence_penalty' => 10.0,
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('test clamping', $config);
 
@@ -419,16 +439,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'Test_Config With  Spaces!!!',
             'name' => 'Test Config',
             'description' => 'Test',
             'system_prompt' => 'Test.',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('test sanitize', $config);
 
@@ -443,18 +459,16 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
-            'identifier' => 'auto-config',
-            'name' => 'Auto Config',
-            'description' => 'Uses default config.',
-            'system_prompt' => 'Test.',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->with(self::anything(), $defaultConfig)
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $defaultConfig, self::anything(), self::anything())
+            ->willReturn([
+                'identifier' => 'auto-config',
+                'name' => 'Auto Config',
+                'description' => 'Uses default config.',
+                'system_prompt' => 'Test.',
+            ]);
 
         $result = $this->subject->generateConfiguration('auto config');
 
@@ -469,19 +483,17 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
-            'identifier' => 'summarize-article',
-            'name' => 'Summarize Article',
-            'description' => 'Summarizes articles into key points.',
-            'category' => 'content',
-            'prompt_template' => 'Summarize the following article:\n\n{{input}}',
-            'output_format' => 'markdown',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->willReturn([
+                'identifier' => 'summarize-article',
+                'name' => 'Summarize Article',
+                'description' => 'Summarizes articles into key points.',
+                'category' => 'content',
+                'prompt_template' => 'Summarize the following article:\n\n{{input}}',
+                'output_format' => 'markdown',
+            ]);
 
         $result = $this->subject->generateTask('summarize articles', $config);
 
@@ -514,8 +526,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('Connection timeout'));
 
         $result = $this->subject->generateTask('debug code', $config);
@@ -525,18 +537,33 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function testGenerateTaskFallbackOnInvalidJson(): void
+    public function testGenerateTaskFallbackOnStructuredValidationFailure(): void
     {
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse('Not valid JSON'));
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createStructuredValidationFailure());
 
         $result = $this->subject->generateTask('some task', $config);
 
         self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskRethrowsBudgetExceededException(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createBudgetExceededException());
+
+        $this->expectException(BudgetExceededException::class);
+
+        $this->subject->generateTask('budget task', $config);
     }
 
     #[Test]
@@ -545,18 +572,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'invalid-cat',
             'name' => 'Invalid Category',
             'description' => 'Test invalid category.',
             'category' => 'nonexistent_category',
             'prompt_template' => '{{input}}',
             'output_format' => 'markdown',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('test categories', $config);
 
@@ -570,18 +593,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'invalid-format',
             'name' => 'Invalid Format',
             'description' => 'Test invalid format.',
             'category' => 'content',
             'prompt_template' => '{{input}}',
             'output_format' => 'xml',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('test format', $config);
 
@@ -595,18 +614,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'camel-task',
             'name' => 'Camel Task',
             'description' => 'Test camelCase.',
             'category' => 'developer',
             'promptTemplate' => 'Do this: {{input}}',
             'outputFormat' => 'json',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('camel case task', $config);
 
@@ -635,39 +650,37 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
-            'task' => [
-                'identifier' => 'translate-text',
-                'name' => 'Translate Text',
-                'description' => 'Translates text between languages.',
-                'category' => 'content',
-                'prompt_template' => 'Translate the following:\n\n{{input}}',
-                'output_format' => 'plain',
-            ],
-            'configuration' => [
-                'identifier' => 'translator-config',
-                'name' => 'Translation Configuration',
-                'description' => 'Optimized for translation tasks.',
-                'system_prompt' => 'You are a professional translator.',
-                'temperature' => 0.2,
-                'max_tokens' => 8192,
-                'top_p' => 1.0,
-                'frequency_penalty' => 0.0,
-                'presence_penalty' => 0.0,
-            ],
-            'recommended_model_id' => 'gpt-5.2',
-            'suggested_model' => [
-                'name' => 'GPT-5.2',
-                'model_id' => 'gpt-5.2',
-                'description' => 'Best for translation tasks.',
-                'capabilities' => 'chat,streaming',
-            ],
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->willReturn([
+                'task' => [
+                    'identifier' => 'translate-text',
+                    'name' => 'Translate Text',
+                    'description' => 'Translates text between languages.',
+                    'category' => 'content',
+                    'prompt_template' => 'Translate the following:\n\n{{input}}',
+                    'output_format' => 'plain',
+                ],
+                'configuration' => [
+                    'identifier' => 'translator-config',
+                    'name' => 'Translation Configuration',
+                    'description' => 'Optimized for translation tasks.',
+                    'system_prompt' => 'You are a professional translator.',
+                    'temperature' => 0.2,
+                    'max_tokens' => 8192,
+                    'top_p' => 1.0,
+                    'frequency_penalty' => 0.0,
+                    'presence_penalty' => 0.0,
+                ],
+                'recommended_model_id' => 'gpt-5.2',
+                'suggested_model' => [
+                    'name' => 'GPT-5.2',
+                    'model_id' => 'gpt-5.2',
+                    'description' => 'Best for translation tasks.',
+                    'capabilities' => 'chat,streaming',
+                ],
+            ]);
 
         $result = $this->subject->generateTaskWithChain('translate content', $config);
 
@@ -724,8 +737,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('Service down'));
 
         $result = $this->subject->generateTaskWithChain('create tasks', $config);
@@ -737,19 +750,35 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function testGenerateTaskWithChainFallbackOnInvalidJson(): void
+    public function testGenerateTaskWithChainFallbackOnStructuredValidationFailure(): void
     {
         $config = $this->createConfigurationWithModel();
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse('completely invalid'));
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createStructuredValidationFailure());
 
         $result = $this->subject->generateTaskWithChain('something', $config);
 
         self::assertFalse($result['generated']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainRethrowsBudgetExceededException(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
+            ->willThrowException($this->createBudgetExceededException());
+
+        $this->expectException(BudgetExceededException::class);
+
+        $this->subject->generateTaskWithChain('budget chain', $config);
     }
 
     #[Test]
@@ -759,20 +788,16 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        // When LLM returns flat keys instead of nested task/configuration objects,
+        // When the LLM returns flat keys instead of nested task/configuration objects,
         // normalizeFullChainResult treats the whole data as task data
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'flat-task',
             'name' => 'Flat Task',
             'description' => 'Flat structure response.',
             'category' => 'developer',
             'prompt_template' => '{{input}}',
             'output_format' => 'plain',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTaskWithChain('flat structure test', $config);
 
@@ -802,11 +827,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testGenerateTaskWithChainClampsConfigValues(): void
     {
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-
-        $llmJson = json_encode([
+        $result = $this->generateTaskWithChainFromPayload([
             'task' => [
                 'identifier' => 'clamp-chain',
                 'name' => 'Clamp Chain',
@@ -833,13 +854,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'description' => 'Test',
                 'capabilities' => 'chat',
             ],
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
-
-        $result = $this->subject->generateTaskWithChain('clamp test', $config);
+        ]);
 
         self::assertTrue($result['generated']);
         /** @var array<string, mixed> $configuration */
@@ -1045,7 +1060,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'numeric-test',
             'name' => 'Numeric Test',
             'description' => 'Test numeric string handling.',
@@ -1055,11 +1070,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'top_p' => '0.9',
             'frequency_penalty' => '0.1',
             'presence_penalty' => '0.2',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('numeric strings', $config);
 
@@ -1076,7 +1087,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'non-numeric',
             'name' => 123,
             'description' => true,
@@ -1084,11 +1095,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'temperature' => 'not-a-number',
             'max_tokens' => 'high',
             'top_p' => [],
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('non-numeric test', $config);
 
@@ -1113,14 +1120,10 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        // Minimal JSON — most fields missing
-        $llmJson = json_encode([
+        // Minimal payload — most fields missing
+        $this->stubStructuredResult([
             'identifier' => 'minimal',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('minimal test', $config);
 
@@ -1135,54 +1138,6 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         self::assertSame(0.0, $result['frequency_penalty']);
         self::assertSame(0.0, $result['presence_penalty']);
         self::assertSame('', $result['recommended_model']);
-    }
-
-    // ==================== JSON parsing edge cases ====================
-
-    #[Test]
-    public function testParseJsonExtractsFromTextWithEmbeddedJson(): void
-    {
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-
-        $embeddedJson = 'Sure! Here is the configuration: {"identifier":"embedded","name":"Embedded Config","description":"Found in text.","system_prompt":"Test.","temperature":0.5,"max_tokens":2048}';
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($embeddedJson));
-
-        $result = $this->subject->generateConfiguration('embedded json', $config);
-
-        self::assertTrue($result['generated']);
-        self::assertSame('embedded', $result['identifier']);
-        self::assertSame('Embedded Config', $result['name']);
-    }
-
-    #[Test]
-    public function testParseJsonHandlesMarkdownWithoutLanguageTag(): void
-    {
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-
-        $jsonContent = json_encode([
-            'identifier' => 'no-lang-tag',
-            'name' => 'No Lang Tag',
-            'description' => 'Markdown without json tag.',
-            'system_prompt' => 'Test.',
-        ], JSON_THROW_ON_ERROR);
-
-        $markdownResponse = "Here:\n```\n{$jsonContent}\n```";
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($markdownResponse));
-
-        $result = $this->subject->generateConfiguration('no lang tag', $config);
-
-        self::assertTrue($result['generated']);
-        self::assertSame('no-lang-tag', $result['identifier']);
     }
 
     // ==================== getDefaultConfiguration edge cases ====================
@@ -1200,18 +1155,16 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$activeConfig]);
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
 
-        $llmJson = json_encode([
-            'identifier' => 'fallback-active',
-            'name' => 'Fallback Active',
-            'description' => 'Uses first active config.',
-            'system_prompt' => 'Test.',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->with(self::anything(), $activeConfig)
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->with(self::anything(), $activeConfig, self::anything(), self::anything())
+            ->willReturn([
+                'identifier' => 'fallback-active',
+                'name' => 'Fallback Active',
+                'description' => 'Uses first active config.',
+                'system_prompt' => 'Test.',
+            ]);
 
         $result = $this->subject->generateConfiguration('test fallback active');
 
@@ -1236,17 +1189,15 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->willReturn([$activeWithModel]);
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
 
-        $llmJson = json_encode([
-            'identifier' => 'skip-default',
-            'name' => 'Skip Default',
-            'description' => 'Skipped default without model.',
-            'system_prompt' => 'Test.',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
+        $this->completionService
             ->expects(self::once())
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+            ->method('completeStructuredForConfiguration')
+            ->willReturn([
+                'identifier' => 'skip-default',
+                'name' => 'Skip Default',
+                'description' => 'Skipped default without model.',
+                'system_prompt' => 'Test.',
+            ]);
 
         $result = $this->subject->generateConfiguration('test skip default');
 
@@ -1288,23 +1239,21 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $config = $this->createConfigurationWithModel();
             $this->configurationRepository->method('findAll')->willReturn([]);
 
-            $llmJson = json_encode([
-                'identifier' => 'cat-' . $category,
-                'name' => 'Category Test',
-                'description' => 'Test.',
-                'category' => $category,
-                'prompt_template' => '{{input}}',
-                'output_format' => 'markdown',
-            ], JSON_THROW_ON_ERROR);
-
             // Reset mock for each iteration
-            $llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
-            $llmServiceManager
-                ->method('chatWithConfiguration')
-                ->willReturn($this->createCompletionResponse($llmJson));
+            $completionService = $this->createMock(CompletionServiceInterface::class);
+            $completionService
+                ->method('completeStructuredForConfiguration')
+                ->willReturn([
+                    'identifier' => 'cat-' . $category,
+                    'name' => 'Category Test',
+                    'description' => 'Test.',
+                    'category' => $category,
+                    'prompt_template' => '{{input}}',
+                    'output_format' => 'markdown',
+                ]);
 
             $subject = new WizardGeneratorService(
-                $llmServiceManager,
+                $completionService,
                 $this->configurationRepository,
                 $this->modelRepository,
                 $this->createLoggerMock(),
@@ -1325,22 +1274,20 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             $config = $this->createConfigurationWithModel();
             $this->configurationRepository->method('findAll')->willReturn([]);
 
-            $llmJson = json_encode([
-                'identifier' => 'fmt-' . $format,
-                'name' => 'Format Test',
-                'description' => 'Test.',
-                'category' => 'general',
-                'prompt_template' => '{{input}}',
-                'output_format' => $format,
-            ], JSON_THROW_ON_ERROR);
-
-            $llmServiceManager = $this->createMock(LlmServiceManagerInterface::class);
-            $llmServiceManager
-                ->method('chatWithConfiguration')
-                ->willReturn($this->createCompletionResponse($llmJson));
+            $completionService = $this->createMock(CompletionServiceInterface::class);
+            $completionService
+                ->method('completeStructuredForConfiguration')
+                ->willReturn([
+                    'identifier' => 'fmt-' . $format,
+                    'name' => 'Format Test',
+                    'description' => 'Test.',
+                    'category' => 'general',
+                    'prompt_template' => '{{input}}',
+                    'output_format' => $format,
+                ]);
 
             $subject = new WizardGeneratorService(
-                $llmServiceManager,
+                $completionService,
                 $this->configurationRepository,
                 $this->modelRepository,
                 $this->createLoggerMock(),
@@ -1371,7 +1318,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'test-config',
             'name' => 'Test',
             'description' => 'A config',
@@ -1382,11 +1329,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'frequency_penalty' => 0.0,
             'presence_penalty' => 0.0,
             'recommended_model' => 'gpt-5.2',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('test config', $config);
 
@@ -1412,7 +1355,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findAll')
             ->willReturn([$existingConfig]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'new-config',
             'name' => 'New Config',
             'description' => 'Avoids duplicate',
@@ -1423,11 +1366,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'frequency_penalty' => 0.0,
             'presence_penalty' => 0.0,
             'recommended_model' => '',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('something new', $config);
 
@@ -1454,7 +1393,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findAll')
             ->willReturn([$validConfig, new stdClass()]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'gen-config',
             'name' => 'Generated',
             'description' => 'Works fine',
@@ -1465,11 +1404,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'frequency_penalty' => 0.0,
             'presence_penalty' => 0.0,
             'recommended_model' => '',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('test', $config);
 
@@ -1492,18 +1427,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findAll')
             ->willReturn([$existingConfig]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'summarize-text',
             'name' => 'Summarize Text',
             'description' => 'Summarizes text content',
             'category' => 'content',
             'prompt_template' => 'Summarize: {{input}}',
             'output_format' => 'markdown',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('summarize articles', $config);
 
@@ -1525,18 +1456,14 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findAll')
             ->willReturn([$validConfig, new stdClass()]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'task-x',
             'name' => 'Task X',
             'description' => 'Does X',
             'category' => 'general',
             'prompt_template' => '{{input}}',
             'output_format' => 'plain',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('task x', $config);
 
@@ -1570,7 +1497,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findActive')
             ->willReturn($this->createQueryResultStub([]));
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'task' => [
                 'identifier' => 'chain-task',
                 'name' => 'Chain Task',
@@ -1597,11 +1524,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'description' => 'Great model',
                 'capabilities' => 'chat,vision',
             ],
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTaskWithChain('chain task description', $config);
 
@@ -1635,7 +1558,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             ->method('findActive')
             ->willReturn($this->createQueryResultStub([]));
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'task' => [
                 'identifier' => 'skip-test',
                 'name' => 'Skip Test',
@@ -1662,11 +1585,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'description' => '',
                 'capabilities' => 'chat',
             ],
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTaskWithChain('skip test', $config);
 
@@ -1695,7 +1614,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->configurationRepository->method('findAll')->willReturn([]);
 
         // The LLM still gets called — the test verifies no error occurs
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'limited',
             'name' => 'Limited',
             'description' => 'Test',
@@ -1706,11 +1625,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'frequency_penalty' => 0.0,
             'presence_penalty' => 0.0,
             'recommended_model' => 'model-1',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateConfiguration('limit test', $config);
 
@@ -1718,49 +1633,6 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     // ==================== Outgoing request payload assertions ====================
-
-    /**
-     * Configure the LLM manager mock to capture the outgoing messages array and
-     * return $response. Captures into $captured by reference.
-     *
-     * @param array<int, mixed>|null $captured
-     */
-    private function stubChatCapturing(CompletionResponse $response, ?array &$captured): void
-    {
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturnCallback(
-                function (array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []) use (&$captured, $response): CompletionResponse {
-                    $captured = $messages;
-
-                    return $response;
-                },
-            );
-    }
-
-    /**
-     * Assert the message at $index has the expected role and a string 'content',
-     * returning that content for further inspection.
-     *
-     * @param array<int, mixed>|null $messages
-     */
-    private function messageContent(?array $messages, int $index, string $expectedRole): string
-    {
-        self::assertIsArray($messages);
-        self::assertCount(2, $messages);
-        self::assertArrayHasKey($index, $messages);
-
-        $message = $messages[$index];
-        self::assertIsArray($message);
-        self::assertArrayHasKey('role', $message);
-        self::assertSame($expectedRole, $message['role']);
-        self::assertArrayHasKey('content', $message);
-
-        $content = $message['content'];
-        self::assertIsString($content);
-
-        return $content;
-    }
 
     private function assertOccursBefore(string $haystack, string $first, string $second): void
     {
@@ -1771,8 +1643,23 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         self::assertLessThan($posSecond, $posFirst, "'{$first}' should occur before '{$second}'");
     }
 
+    /**
+     * Assert the captured options carry a system prompt containing $needle,
+     * returning nothing — the prompt itself is asserted by the caller.
+     *
+     * @param array{prompt: string, configuration: LlmConfiguration, schema: array<string, mixed>, options: ChatOptions|null}|null $captured
+     */
+    private function assertSystemPromptContains(?array $captured, string $needle): void
+    {
+        self::assertNotNull($captured);
+        self::assertInstanceOf(ChatOptions::class, $captured['options']);
+        $systemPrompt = $captured['options']->getSystemPrompt();
+        self::assertIsString($systemPrompt);
+        self::assertStringContainsString($needle, $systemPrompt);
+    }
+
     #[Test]
-    public function testGenerateConfigurationSendsSystemAndUserMessages(): void
+    public function testGenerateConfigurationSendsUserRequestPromptAndSystemPromptOption(): void
     {
         $config = $this->createConfigurationWithModel();
 
@@ -1793,44 +1680,42 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $existingConfig->setDescription('Avoid me');
         $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
 
-        $llmJson = json_encode([
+        $captured = null;
+        $this->stubStructuredCapturing([
             'identifier' => 'payload-config',
             'name' => 'Payload Config',
             'description' => 'Payload check.',
             'system_prompt' => 'Be helpful.',
-        ], JSON_THROW_ON_ERROR);
-
-        $captured = null;
-        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+        ], $captured);
 
         $result = $this->subject->generateConfiguration('generate config capture', $config);
 
         self::assertTrue($result['generated']);
 
-        // System message: exact role + the distinctive configuration-prompt text.
-        $systemContent = $this->messageContent($captured, 0, 'system');
-        self::assertStringContainsString('You are an expert at configuring LLM integrations', $systemContent);
+        // System prompt travels as a ChatOptions option, not as a message.
+        $this->assertSystemPromptContains($captured, 'You are an expert at configuring LLM integrations');
 
-        // User message: description + full built context.
-        $userContent = $this->messageContent($captured, 1, 'user');
-        self::assertStringContainsString('User request: generate config capture', $userContent);
+        // Prompt: "User request:" prefix + full built context.
+        self::assertNotNull($captured);
+        $prompt = $captured['prompt'];
+        self::assertStringContainsString('User request: generate config capture', $prompt);
 
         // Models section: label present, slice window [0,10) — models 1-10 in, 11-12 out.
-        self::assertStringContainsString('Available models:', $userContent);
-        self::assertStringContainsString('(model-1)', $userContent);
-        self::assertStringContainsString('(model-10)', $userContent);
-        self::assertStringNotContainsString('(model-11)', $userContent);
-        self::assertStringNotContainsString('(model-12)', $userContent);
-        $this->assertOccursBefore($userContent, 'Available models:', '(model-1)');
+        self::assertStringContainsString('Available models:', $prompt);
+        self::assertStringContainsString('(model-1)', $prompt);
+        self::assertStringContainsString('(model-10)', $prompt);
+        self::assertStringNotContainsString('(model-11)', $prompt);
+        self::assertStringNotContainsString('(model-12)', $prompt);
+        $this->assertOccursBefore($prompt, 'Available models:', '(model-1)');
 
         // Configs section: label present, collected config kept, correct concat order.
-        self::assertStringContainsString('Existing configurations (avoid duplicates):', $userContent);
-        self::assertStringContainsString('Existing One', $userContent);
-        $this->assertOccursBefore($userContent, 'Existing configurations (avoid duplicates):', 'Existing One');
+        self::assertStringContainsString('Existing configurations (avoid duplicates):', $prompt);
+        self::assertStringContainsString('Existing One', $prompt);
+        $this->assertOccursBefore($prompt, 'Existing configurations (avoid duplicates):', 'Existing One');
     }
 
     #[Test]
-    public function testGenerateTaskSendsSystemAndUserMessages(): void
+    public function testGenerateTaskSendsUserRequestPromptAndSystemPromptOption(): void
     {
         $config = $this->createConfigurationWithModel();
 
@@ -1840,36 +1725,34 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $existingConfig->setIdentifier('task-cfg');
         $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
 
-        $llmJson = json_encode([
+        $captured = null;
+        $this->stubStructuredCapturing([
             'identifier' => 'payload-task',
             'name' => 'Payload Task',
             'description' => 'Payload check.',
             'category' => 'content',
             'prompt_template' => '{{input}}',
             'output_format' => 'markdown',
-        ], JSON_THROW_ON_ERROR);
-
-        $captured = null;
-        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+        ], $captured);
 
         $result = $this->subject->generateTask('generate task capture', $config);
 
         self::assertTrue($result['generated']);
 
-        $systemContent = $this->messageContent($captured, 0, 'system');
-        self::assertStringContainsString('You are an expert at creating LLM task templates', $systemContent);
+        $this->assertSystemPromptContains($captured, 'You are an expert at creating LLM task templates');
 
-        $userContent = $this->messageContent($captured, 1, 'user');
-        self::assertStringContainsString('User request: generate task capture', $userContent);
-        self::assertStringContainsString('Task categories: content, log_analysis, system, developer, general', $userContent);
-        self::assertStringContainsString('Output formats: markdown, json, plain, html', $userContent);
-        self::assertStringContainsString('Available configurations:', $userContent);
-        self::assertStringContainsString('Task Cfg (identifier: task-cfg)', $userContent);
-        $this->assertOccursBefore($userContent, 'Available configurations:', 'Task Cfg (identifier: task-cfg)');
+        self::assertNotNull($captured);
+        $prompt = $captured['prompt'];
+        self::assertStringContainsString('User request: generate task capture', $prompt);
+        self::assertStringContainsString('Task categories: content, log_analysis, system, developer, general', $prompt);
+        self::assertStringContainsString('Output formats: markdown, json, plain, html', $prompt);
+        self::assertStringContainsString('Available configurations:', $prompt);
+        self::assertStringContainsString('Task Cfg (identifier: task-cfg)', $prompt);
+        $this->assertOccursBefore($prompt, 'Available configurations:', 'Task Cfg (identifier: task-cfg)');
     }
 
     #[Test]
-    public function testGenerateTaskWithChainSendsSystemAndUserMessages(): void
+    public function testGenerateTaskWithChainSendsUserRequestPromptAndSystemPromptOption(): void
     {
         $config = $this->createConfigurationWithModel();
 
@@ -1883,7 +1766,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $existingConfig->setDescription('Reference config');
         $this->configurationRepository->method('findAll')->willReturn([new stdClass(), $existingConfig]);
 
-        $llmJson = json_encode([
+        $captured = null;
+        $this->stubStructuredCapturing([
             'task' => [
                 'identifier' => 'chain-payload',
                 'name' => 'Chain Payload',
@@ -1910,24 +1794,89 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'description' => 'Fit',
                 'capabilities' => 'chat',
             ],
-        ], JSON_THROW_ON_ERROR);
-
-        $captured = null;
-        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+        ], $captured);
 
         $result = $this->subject->generateTaskWithChain('generate chain capture', $config);
 
         self::assertTrue($result['generated']);
 
-        $systemContent = $this->messageContent($captured, 0, 'system');
-        self::assertStringContainsString('You are an expert at creating complete LLM task setups', $systemContent);
+        $this->assertSystemPromptContains($captured, 'You are an expert at creating complete LLM task setups');
 
-        $userContent = $this->messageContent($captured, 1, 'user');
-        self::assertStringContainsString('User request: generate chain capture', $userContent);
-        self::assertStringContainsString('Available models (prefer these):', $userContent);
-        self::assertStringContainsString('(gpt-5.2)', $userContent);
-        self::assertStringContainsString('Existing configurations (for reference, avoid duplicate names):', $userContent);
-        self::assertStringContainsString('Chain Existing', $userContent);
+        self::assertNotNull($captured);
+        $prompt = $captured['prompt'];
+        self::assertStringContainsString('User request: generate chain capture', $prompt);
+        self::assertStringContainsString('Available models (prefer these):', $prompt);
+        self::assertStringContainsString('(gpt-5.2)', $prompt);
+        self::assertStringContainsString('Existing configurations (for reference, avoid duplicate names):', $prompt);
+        self::assertStringContainsString('Chain Existing', $prompt);
+    }
+
+    // ==================== Schemas qualify for provider strict mode (ADR-126/128) ====================
+
+    /**
+     * Assert the schema root is a strict object schema: additionalProperties
+     * is exactly false and `required` lists every `properties` key — the two
+     * conditions OpenAI-style strict mode demands.
+     *
+     * @param array<string, mixed> $schema
+     */
+    private function assertStrictRootSchema(array $schema): void
+    {
+        self::assertSame('object', $schema['type'] ?? null);
+        self::assertArrayHasKey('additionalProperties', $schema);
+        self::assertFalse($schema['additionalProperties']);
+
+        assert(isset($schema['properties'], $schema['required']));
+        self::assertIsArray($schema['properties']);
+        self::assertIsArray($schema['required']);
+        self::assertEqualsCanonicalizing(array_keys($schema['properties']), $schema['required']);
+    }
+
+    #[Test]
+    public function testGenerateConfigurationPassesStrictModeQualifiedSchema(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $captured = null;
+        $this->stubStructuredCapturing(['identifier' => 'schema-probe'], $captured);
+
+        $this->subject->generateConfiguration('schema probe', $config);
+
+        self::assertNotNull($captured);
+        $this->assertStrictRootSchema($captured['schema']);
+    }
+
+    #[Test]
+    public function testGenerateTaskPassesStrictModeQualifiedSchema(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $captured = null;
+        $this->stubStructuredCapturing(['identifier' => 'schema-probe'], $captured);
+
+        $this->subject->generateTask('schema probe', $config);
+
+        self::assertNotNull($captured);
+        $this->assertStrictRootSchema($captured['schema']);
+    }
+
+    #[Test]
+    public function testGenerateTaskWithChainPassesStrictModeQualifiedSchema(): void
+    {
+        $config = $this->createConfigurationWithModel();
+        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
+        $this->configurationRepository->method('findAll')->willReturn([]);
+
+        $captured = null;
+        $this->stubStructuredCapturing(['identifier' => 'schema-probe'], $captured);
+
+        $this->subject->generateTaskWithChain('schema probe', $config);
+
+        self::assertNotNull($captured);
+        $this->assertStrictRootSchema($captured['schema']);
     }
 
     // ==================== Exception path logs the cause ====================
@@ -1937,8 +1886,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('boom'));
 
         $logger = $this->createMock(LoggerInterface::class);
@@ -1954,7 +1903,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             );
 
         $subject = new WizardGeneratorService(
-            $this->llmServiceManager,
+            $this->completionService,
             $this->configurationRepository,
             $this->modelRepository,
             $logger,
@@ -1969,8 +1918,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     public function testGenerateTaskLogsExceptionCauseOnFailure(): void
     {
         $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('boom'));
 
         $logger = $this->createMock(LoggerInterface::class);
@@ -1986,7 +1935,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             );
 
         $subject = new WizardGeneratorService(
-            $this->llmServiceManager,
+            $this->completionService,
             $this->configurationRepository,
             $this->modelRepository,
             $logger,
@@ -2002,8 +1951,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     {
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
+        $this->completionService
+            ->method('completeStructuredForConfiguration')
             ->willThrowException(new RuntimeException('boom'));
 
         $logger = $this->createMock(LoggerInterface::class);
@@ -2019,7 +1968,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             );
 
         $subject = new WizardGeneratorService(
-            $this->llmServiceManager,
+            $this->completionService,
             $this->configurationRepository,
             $this->modelRepository,
             $logger,
@@ -2084,10 +2033,10 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
 
         // The only candidate is inactive: getDefaultConfiguration() must return null and the
         // wizard must fall back WITHOUT ever calling the LLM. Both `&&`→`||` mutations would
-        // wrongly accept this config and reach chatWithConfiguration().
-        $this->llmServiceManager
+        // wrongly accept this config and reach completeStructuredForConfiguration().
+        $this->completionService
             ->expects(self::never())
-            ->method('chatWithConfiguration');
+            ->method('completeStructuredForConfiguration');
 
         $result = $this->subject->generateConfiguration('inactive only');
 
@@ -2101,7 +2050,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
      *
      * Without the early `return $this->fallback…()` the code proceeds into the
      * LLM call with a null config, which always ends in a logged warning
-     * (either the caught Throwable or the unparseable stub response).
+     * (the stub completion mock returns an empty array only for a real config;
+     * with null the call itself is a TypeError caught as Throwable).
      */
     private function createSubjectExpectingNoWarning(): WizardGeneratorService
     {
@@ -2109,7 +2059,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $logger->expects(self::never())->method('warning');
 
         return new WizardGeneratorService(
-            $this->llmServiceManager,
+            $this->completionService,
             $this->configurationRepository,
             $this->modelRepository,
             $logger,
@@ -2148,222 +2098,30 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         self::assertFalse($result['generated']);
     }
 
-    // ==================== parseJsonResponse: depth limit and strategy boundaries ====================
+    // ==================== Normalization: snake_case wins over camelCase when both present ====================
 
     /**
-     * Run generateConfiguration with a fixed LLM response content and return the result.
+     * Run generateConfiguration with a fixed structured-completion result.
+     *
+     * @param array<string, mixed> $parsed
      *
      * @return array<string, mixed>
      */
-    private function generateConfigurationFromContent(string $content): array
+    private function generateConfigurationFromResult(array $parsed): array
     {
         $config = $this->createConfigurationWithModel();
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($content));
+        $this->stubStructuredResult($parsed);
 
-        return $this->subject->generateConfiguration('depth probe request', $config);
+        return $this->subject->generateConfiguration('normalize probe request', $config);
     }
-
-    #[Test]
-    public function testParseJsonDirectParseAcceptsNestingWithinDepthLimit(): void
-    {
-        // 511 nested arrays decode fine at depth 512 but fail at 511 (the
-        // DecrementInteger mutant). No braces/fences: no other strategy can rescue.
-        $content = str_repeat('[', 511) . str_repeat(']', 511);
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonDirectParseRejectsNestingBeyondDepthLimit(): void
-    {
-        // 512 nested arrays exceed depth 512 (need 513) — must fall back. The
-        // IncrementInteger mutant (depth 513) would accept them.
-        $content = str_repeat('[', 512) . str_repeat(']', 512);
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertFalse($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonDirectParseAcceptsTopLevelJsonArray(): void
-    {
-        // A JSON list has no braces and no fences: only the direct-parse is_array
-        // branch can accept it. The negated-if mutant loses the result entirely.
-        $result = $this->generateConfigurationFromContent('["a","b"]');
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonMarkdownBlockAcceptsJsonArray(): void
-    {
-        // Fenced JSON list: direct parse fails (fences), brace strategy cannot
-        // match (no braces) — only the markdown branch's is_array assignment works.
-        $result = $this->generateConfigurationFromContent("note\n```json\n[1, 2]\n```");
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonMarkdownBlockUsesTrimmedCaptureGroup(): void
-    {
-        // Direct parse fails (fences + prefix). The stray '{' in the prefix makes the
-        // greedy brace strategy capture invalid JSON, so ONLY the markdown branch can
-        // succeed — and only via trim(): the trailing \x0B (vertical tab) is inside
-        // the capture group, is NOT valid JSON whitespace, but IS removed by trim().
-        // Kills: skipped-strategy mutants, $matches[0] (includes fences), UnwrapTrim.
-        $content = "junk { noise\n```json\n{\"a\":1}\x0B```";
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonMarkdownBlockAcceptsNestingWithinDepthLimit(): void
-    {
-        $content = "Note:\n```json\n" . str_repeat('[', 511) . str_repeat(']', 511) . "\n```";
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonMarkdownBlockRejectsNestingBeyondDepthLimit(): void
-    {
-        $content = "Note:\n```json\n" . str_repeat('[', 512) . str_repeat(']', 512) . "\n```";
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertFalse($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonEmbeddedObjectAcceptsNestingWithinDepthLimit(): void
-    {
-        // 511 nested objects: the "Result: " prefix breaks the direct parse, there
-        // are no fences, so only the brace-extraction strategy (depth 512) succeeds.
-        $content = 'Result: ' . str_repeat('{"a":', 511) . '1' . str_repeat('}', 511);
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertTrue($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonEmbeddedObjectRejectsNestingBeyondDepthLimit(): void
-    {
-        $content = 'Result: ' . str_repeat('{"a":', 512) . '1' . str_repeat('}', 512);
-
-        $result = $this->generateConfigurationFromContent($content);
-
-        self::assertFalse($result['generated']);
-    }
-
-    // ==================== parseJsonResponse: warning is logged exactly when parsing fails ====================
-
-    #[Test]
-    public function testParseJsonSuccessViaMarkdownBlockDoesNotLogParseWarning(): void
-    {
-        // Direct parse fails (lastError set) but the markdown block succeeds:
-        // the parse warning fires only for `result === null` — the flipped
-        // comparison mutant would log despite the successful parse.
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse("Here:\n```json\n{\"name\":\"Wrapped Name\"}\n```"));
-
-        $subject = $this->createSubjectExpectingNoWarning();
-        $result = $subject->generateConfiguration('markdown no warning', $config);
-
-        self::assertTrue($result['generated']);
-        self::assertSame('Wrapped Name', $result['name']);
-    }
-
-    #[Test]
-    public function testParseJsonScalarResponseWithoutParseErrorDoesNotLog(): void
-    {
-        // '42' is valid JSON but not an array: every strategy yields null WITHOUT
-        // a JsonException, so lastError stays null and nothing may be logged.
-        // The `lastError === null` / `||` mutants would dereference null here.
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse('42'));
-
-        $subject = $this->createSubjectExpectingNoWarning();
-        $result = $subject->generateConfiguration('scalar response', $config);
-
-        self::assertFalse($result['generated']);
-    }
-
-    #[Test]
-    public function testParseJsonFailureLogsExceptionMessageAndContentSample(): void
-    {
-        // Content > 201 chars so every substr mutation (offset ±1, length 199/201,
-        // unwrap) produces a different sample. Expected values are derived from the
-        // same json_decode call and substr window the source uses.
-        $content = 'unparseable ' . str_repeat('y', 250);
-
-        $expectedError = '';
-        try {
-            json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            $expectedError = $e->getMessage();
-        }
-
-        self::assertNotSame('', $expectedError);
-
-        $config = $this->createConfigurationWithModel();
-        $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
-        $this->configurationRepository->method('findAll')->willReturn([]);
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($content));
-
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger
-            ->expects(self::once())
-            ->method('warning')
-            ->with(
-                'Wizard could not parse LLM JSON response',
-                [
-                    'exception' => $expectedError,
-                    'sample' => substr($content, 0, 200),
-                ],
-            );
-
-        $subject = new WizardGeneratorService(
-            $this->llmServiceManager,
-            $this->configurationRepository,
-            $this->modelRepository,
-            $logger,
-        );
-
-        $result = $subject->generateConfiguration('log parse failure', $config);
-
-        self::assertFalse($result['generated']);
-    }
-
-    // ==================== Normalization: snake_case wins over camelCase when both present ====================
 
     #[Test]
     public function testNormalizeConfigurationPrefersSnakeCaseOverCamelCase(): void
     {
-        $llmJson = json_encode([
+        $result = $this->generateConfigurationFromResult([
             'identifier' => 'prec-config',
             'name' => 'Precedence Config',
             'description' => 'Polished config description.',
@@ -2379,9 +2137,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'presencePenalty' => 1.75,
             'recommended_model' => 'snake-model',
             'recommendedModel' => 'camel-model',
-        ], JSON_THROW_ON_ERROR);
-
-        $result = $this->generateConfigurationFromContent($llmJson);
+        ]);
 
         self::assertTrue($result['generated']);
         // The LLM's polished description wins over the raw user request.
@@ -2400,7 +2156,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $config = $this->createConfigurationWithModel();
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $llmJson = json_encode([
+        $this->stubStructuredResult([
             'identifier' => 'prec-task',
             'name' => 'Precedence Task',
             'description' => 'Polished task description.',
@@ -2409,11 +2165,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
             'promptTemplate' => 'Camel template {{input}}',
             'output_format' => 'json',
             'outputFormat' => 'html',
-        ], JSON_THROW_ON_ERROR);
-
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse($llmJson));
+        ]);
 
         $result = $this->subject->generateTask('raw task request', $config);
 
@@ -2424,7 +2176,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     }
 
     /**
-     * Run generateTaskWithChain with a fixed LLM response payload.
+     * Run generateTaskWithChain with a fixed structured-completion payload.
      *
      * @param array<string, mixed> $payload
      *
@@ -2436,9 +2188,7 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $this->modelRepository->method('findActive')->willReturn($this->createQueryResultStub([]));
         $this->configurationRepository->method('findAll')->willReturn([]);
 
-        $this->llmServiceManager
-            ->method('chatWithConfiguration')
-            ->willReturn($this->createCompletionResponse(json_encode($payload, JSON_THROW_ON_ERROR)));
+        $this->stubStructuredResult($payload);
 
         return $this->subject->generateTaskWithChain('raw chain request', $config);
     }
@@ -2721,7 +2471,8 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
         $existingConfig->setDescription('Ref desc');
         $this->configurationRepository->method('findAll')->willReturn([$existingConfig]);
 
-        $llmJson = json_encode([
+        $captured = null;
+        $this->stubStructuredCapturing([
             'task' => [
                 'identifier' => 'ctx-chain',
                 'name' => 'Ctx Chain',
@@ -2743,31 +2494,29 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
                 'description' => 'd',
                 'capabilities' => 'chat',
             ],
-        ], JSON_THROW_ON_ERROR);
-
-        $captured = null;
-        $this->stubChatCapturing($this->createCompletionResponse($llmJson), $captured);
+        ], $captured);
 
         $result = $this->subject->generateTaskWithChain('chain context capture', $config);
 
         self::assertTrue($result['generated']);
 
-        $userContent = $this->messageContent($captured, 1, 'user');
+        self::assertNotNull($captured);
+        $prompt = $captured['prompt'];
 
         // Label directly precedes the first model line (Concat order) and the
         // slice window is [0, 10): model 1 and 10 in, model 11 out. The needles
         // include the ':' so '(model-1)' cannot false-match inside '(model-11)'.
         self::assertStringContainsString(
             "Available models (prefer these):\n- Model 1 (model-1): Desc 1",
-            $userContent,
+            $prompt,
         );
-        self::assertStringContainsString('(model-10):', $userContent);
-        self::assertStringNotContainsString('(model-11)', $userContent);
+        self::assertStringContainsString('(model-10):', $prompt);
+        self::assertStringNotContainsString('(model-11)', $prompt);
 
         // Configs label directly precedes the config line (Concat order).
         self::assertStringContainsString(
             "Existing configurations (for reference, avoid duplicate names):\n- Chain Ref (identifier: chain-ref): Ref desc",
-            $userContent,
+            $prompt,
         );
     }
 
@@ -2776,14 +2525,12 @@ class WizardGeneratorServiceTest extends AbstractUnitTestCase
     #[Test]
     public function testGenerateConfigurationTrimsHyphensFromIdentifier(): void
     {
-        $llmJson = json_encode([
+        $result = $this->generateConfigurationFromResult([
             'identifier' => '--wrapped--',
             'name' => 'Wrapped',
             'description' => 'Wrapped identifier.',
             'system_prompt' => 'Help.',
-        ], JSON_THROW_ON_ERROR);
-
-        $result = $this->generateConfigurationFromContent($llmJson);
+        ]);
 
         self::assertTrue($result['generated']);
         self::assertSame('wrapped', $result['identifier']);

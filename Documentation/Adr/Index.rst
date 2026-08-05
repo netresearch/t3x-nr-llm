@@ -426,3 +426,4 @@ Tools
    Adr126StrictSchemaSubset
    Adr127ApiSurfaceMarkers
    Adr128ProviderNativeStructuredOutput
+   Adr129StructuredConsumers

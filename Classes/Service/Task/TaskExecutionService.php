@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Task;
 
+use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -78,11 +79,32 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
             SkillInjectionService::toList($task->getSkills()),
         );
 
+        // A JSON task gets real JSON mode (ADR-128) instead of hoping the
+        // prompt says so. The appended instruction is load-bearing twice: it
+        // tells the model what shape is wanted, and OpenAI-dialect JSON mode
+        // requires the word "json" in the messages — a user-authored
+        // prompt_template cannot guarantee that.
+        $jsonOutput = $task->getOutputFormatEnum() === TaskOutputFormat::JSON;
+        if ($jsonOutput) {
+            $prompt .= "\n\nRespond with valid JSON only. No markdown, no explanation.";
+        }
+
         // With no resolvable configuration the task cannot run; the generic path
         // raises the existing "no provider specified" error — preserve that.
+        // completeWithConfiguration() takes plain option-override arrays, not
+        // ChatOptions — the fourth argument merges over the configuration's
+        // stored defaults.
         $response = $configuration instanceof LlmConfiguration
-            ? $this->llmServiceManager->completeWithConfiguration($prompt, $configuration, $metadata)
-            : $this->llmServiceManager->complete($prompt, new ChatOptions());
+            ? $this->llmServiceManager->completeWithConfiguration(
+                $prompt,
+                $configuration,
+                $metadata,
+                $jsonOutput ? ['response_format' => 'json'] : [],
+            )
+            : $this->llmServiceManager->complete(
+                $prompt,
+                $jsonOutput ? (new ChatOptions())->withResponseFormat('json') : new ChatOptions(),
+            );
 
         // The skills injected above contributed to the prompt the provider
         // tokenised, so their cost is already part of $response->usage. Surface

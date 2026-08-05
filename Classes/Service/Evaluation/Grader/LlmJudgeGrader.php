@@ -30,6 +30,20 @@ final readonly class LlmJudgeGrader implements GraderInterface
 {
     public const IDENTIFIER = 'llm_judge';
 
+    // No numeric bounds in the schema, deliberately: the clamp in
+    // parseVerdict() keeps today's forgiving semantics for a judge that
+    // scores "8.5" on an imagined 10-scale, where a schema bound would
+    // spend a paid repair round-trip and then fail the grading (ADR-128).
+    private const VERDICT_SCHEMA = [
+        'type'                 => 'object',
+        'additionalProperties' => false,
+        'properties'           => [
+            'score'  => ['type' => 'number'],
+            'reason' => ['type' => 'string'],
+        ],
+        'required' => ['score', 'reason'],
+    ];
+
     public function __construct(
         private CompletionServiceInterface $completionService,
         private float $passThreshold = 0.6,
@@ -43,7 +57,6 @@ final readonly class LlmJudgeGrader implements GraderInterface
     public function grade(string $response, GoldenPrompt $prompt): GradingResult
     {
         $options = (new ChatOptions())
-            ->withResponseFormat('json')
             ->withTemperature(0.0)
             ->withSystemPrompt(
                 'You are a strict evaluation judge. You score how well an AI response fulfils a task '
@@ -52,12 +65,16 @@ final readonly class LlmJudgeGrader implements GraderInterface
             );
 
         try {
-            $judgeResponse = $this->completionService->complete($this->buildJudgePrompt($response, $prompt), $options);
+            $verdict = $this->completionService->completeStructured(
+                $this->buildJudgePrompt($response, $prompt),
+                self::VERDICT_SCHEMA,
+                $options,
+            );
         } catch (Throwable $e) {
             return new GradingResult(false, 0.0, self::IDENTIFIER, 'Judge call failed: ' . $e->getMessage());
         }
 
-        return $this->parseVerdict($judgeResponse->content);
+        return $this->parseVerdict($verdict);
     }
 
     private function buildJudgePrompt(string $response, GoldenPrompt $prompt): string
@@ -79,10 +96,12 @@ final readonly class LlmJudgeGrader implements GraderInterface
         return implode("\n", $parts);
     }
 
-    private function parseVerdict(string $content): GradingResult
+    /**
+     * @param array<string, mixed> $verdict schema-validated by completeStructured()
+     */
+    private function parseVerdict(array $verdict): GradingResult
     {
-        $decoded = json_decode($content, true);
-        if (!is_array($decoded) || !isset($decoded['score']) || !is_numeric($decoded['score'])) {
+        if (!isset($verdict['score']) || !is_numeric($verdict['score'])) {
             return new GradingResult(
                 false,
                 0.0,
@@ -91,8 +110,8 @@ final readonly class LlmJudgeGrader implements GraderInterface
             );
         }
 
-        $score = max(0.0, min(1.0, (float)$decoded['score']));
-        $reason = isset($decoded['reason']) && is_string($decoded['reason']) ? $decoded['reason'] : '';
+        $score = max(0.0, min(1.0, (float)$verdict['score']));
+        $reason = isset($verdict['reason']) && is_string($verdict['reason']) ? $verdict['reason'] : '';
 
         return new GradingResult($score >= $this->passThreshold, $score, self::IDENTIFIER, $reason);
     }

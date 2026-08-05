@@ -1160,6 +1160,28 @@ class CompletionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function completeStructuredAcceptsAFencedFirstResponseWithoutRepair(): void
+    {
+        // Models routed through providers that ignore JSON mode occasionally
+        // fence the JSON despite the instruction (ADR-128): one wrapping
+        // ```json fence is stripped locally instead of paying for a repair
+        // round-trip — chat() must be called exactly once.
+        ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();
+        $llmManagerMock->expects(self::once())->method('chat')
+            ->willReturn($this->createMockResponse("```json\n{\"title\":\"x\"}\n```"));
+
+        $schema = [
+            'type'       => 'object',
+            'required'   => ['title'],
+            'properties' => ['title' => ['type' => 'string']],
+        ];
+
+        $result = $subject->completeStructured('Generate metadata', $schema);
+
+        self::assertSame(['title' => 'x'], $result);
+    }
+
+    #[Test]
     public function completeStructuredForConfigurationValidatesAgainstTheSchema(): void
     {
         ['subject' => $subject, 'llmManager' => $llmManagerMock] = $this->createSubjectWithMockManager();

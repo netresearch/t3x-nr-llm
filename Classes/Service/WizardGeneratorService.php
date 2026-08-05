@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
-use JsonException;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -24,6 +26,14 @@ use Throwable;
  * Uses the default LLM configuration to generate new configurations or tasks
  * from a natural-language description. Falls back to sensible defaults when
  * no LLM is available.
+ *
+ * Since ADR-126/128 the generation runs through structured completions: the
+ * expected shape is a strict-subset JSON schema the provider enforces
+ * natively where it can, with local validation and one repair round-trip.
+ * The schemas deliberately carry NO numeric bounds — the normalize*()
+ * clamps remain the authority on ranges, so an out-of-range number degrades
+ * to a clamped value (as before) instead of a paid repair round-trip. A
+ * budget denial is rethrown rather than disguised as the generic fallback.
  */
 final readonly class WizardGeneratorService implements WizardGeneratorServiceInterface
 {
@@ -35,8 +45,92 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
 
     private const DEFAULT_TASK_NAME = 'New Task';
 
+    private const CATEGORY_ENUM = ['content', 'log_analysis', 'system', 'developer', 'general'];
+
+    private const OUTPUT_FORMAT_ENUM = ['markdown', 'json', 'plain', 'html'];
+
+    // All properties required + additionalProperties:false on every object:
+    // that is what qualifies these schemas for OpenAI's strict mode
+    // (OpenAiResponseFormatTrait) — empty strings are valid values, so
+    // "required" does not force the model to invent content.
+    private const CONFIGURATION_SCHEMA = [
+        'type'                 => 'object',
+        'additionalProperties' => false,
+        'properties'           => [
+            'identifier'        => ['type' => 'string'],
+            'name'              => ['type' => 'string'],
+            'description'       => ['type' => 'string'],
+            'system_prompt'     => ['type' => 'string'],
+            'temperature'       => ['type' => 'number'],
+            'max_tokens'        => ['type' => 'number'],
+            'top_p'             => ['type' => 'number'],
+            'frequency_penalty' => ['type' => 'number'],
+            'presence_penalty'  => ['type' => 'number'],
+            'recommended_model' => ['type' => 'string'],
+        ],
+        'required' => [
+            'identifier', 'name', 'description', 'system_prompt', 'temperature',
+            'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+            'recommended_model',
+        ],
+    ];
+
+    private const TASK_SCHEMA = [
+        'type'                 => 'object',
+        'additionalProperties' => false,
+        'properties'           => [
+            'identifier'      => ['type' => 'string'],
+            'name'            => ['type' => 'string'],
+            'description'     => ['type' => 'string'],
+            'category'        => ['type' => 'string', 'enum' => self::CATEGORY_ENUM],
+            'prompt_template' => ['type' => 'string'],
+            'output_format'   => ['type' => 'string', 'enum' => self::OUTPUT_FORMAT_ENUM],
+        ],
+        'required' => ['identifier', 'name', 'description', 'category', 'prompt_template', 'output_format'],
+    ];
+
+    private const FULL_CHAIN_SCHEMA = [
+        'type'                 => 'object',
+        'additionalProperties' => false,
+        'properties'           => [
+            'task' => self::TASK_SCHEMA,
+            'configuration' => [
+                'type'                 => 'object',
+                'additionalProperties' => false,
+                'properties'           => [
+                    'identifier'        => ['type' => 'string'],
+                    'name'              => ['type' => 'string'],
+                    'description'       => ['type' => 'string'],
+                    'system_prompt'     => ['type' => 'string'],
+                    'temperature'       => ['type' => 'number'],
+                    'max_tokens'        => ['type' => 'number'],
+                    'top_p'             => ['type' => 'number'],
+                    'frequency_penalty' => ['type' => 'number'],
+                    'presence_penalty'  => ['type' => 'number'],
+                ],
+                'required' => [
+                    'identifier', 'name', 'description', 'system_prompt', 'temperature',
+                    'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+                ],
+            ],
+            'recommended_model_id' => ['type' => 'string'],
+            'suggested_model'      => [
+                'type'                 => 'object',
+                'additionalProperties' => false,
+                'properties'           => [
+                    'name'         => ['type' => 'string'],
+                    'model_id'     => ['type' => 'string'],
+                    'description'  => ['type' => 'string'],
+                    'capabilities' => ['type' => 'string'],
+                ],
+                'required' => ['name', 'model_id', 'description', 'capabilities'],
+            ],
+        ],
+        'required' => ['task', 'configuration', 'recommended_model_id', 'suggested_model'],
+    ];
+
     public function __construct(
-        private LlmServiceManagerInterface $llmServiceManager,
+        private CompletionServiceInterface $completionService,
         private LlmConfigurationRepository $configurationRepository,
         private ModelRepository $modelRepository,
         private LoggerInterface $logger,
@@ -75,18 +169,18 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         $prompt = $this->buildConfigurationPrompt($description, $context);
 
         try {
-            $response = $this->llmServiceManager->chatWithConfiguration(
-                [
-                    ['role' => 'system', 'content' => $this->getConfigurationSystemPrompt()],
-                    ['role' => 'user', 'content' => $prompt],
-                ],
+            $parsed = $this->completionService->completeStructuredForConfiguration(
+                $prompt,
                 $config,
+                self::CONFIGURATION_SCHEMA,
+                (new ChatOptions())->withSystemPrompt($this->getConfigurationSystemPrompt()),
             );
 
-            $parsed = $this->parseJsonResponse($response->content);
-            if ($parsed !== null) {
-                return $this->normalizeConfigurationResult($parsed, $description);
-            }
+            return $this->normalizeConfigurationResult($parsed, $description);
+        } catch (BudgetExceededException $e) {
+            // A budget denial is an answer, not a generation failure — the
+            // fallback would disguise it as "the LLM produced nothing".
+            throw $e;
         } catch (Throwable $e) {
             // Fall through to fallback, but keep the cause for debugging.
             $this->logger->warning('Wizard configuration generation failed; using fallback', ['exception' => $e]);
@@ -111,18 +205,16 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         $prompt = $this->buildTaskPrompt($description, $context);
 
         try {
-            $response = $this->llmServiceManager->chatWithConfiguration(
-                [
-                    ['role' => 'system', 'content' => $this->getTaskSystemPrompt()],
-                    ['role' => 'user', 'content' => $prompt],
-                ],
+            $parsed = $this->completionService->completeStructuredForConfiguration(
+                $prompt,
                 $config,
+                self::TASK_SCHEMA,
+                (new ChatOptions())->withSystemPrompt($this->getTaskSystemPrompt()),
             );
 
-            $parsed = $this->parseJsonResponse($response->content);
-            if ($parsed !== null) {
-                return $this->normalizeTaskResult($parsed, $description);
-            }
+            return $this->normalizeTaskResult($parsed, $description);
+        } catch (BudgetExceededException $e) {
+            throw $e;
         } catch (Throwable $e) {
             // Fall through to fallback, but keep the cause for debugging.
             $this->logger->warning('Wizard task generation failed; using fallback', ['exception' => $e]);
@@ -150,18 +242,16 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
         $prompt = sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
 
         try {
-            $response = $this->llmServiceManager->chatWithConfiguration(
-                [
-                    ['role' => 'system', 'content' => $this->getFullChainSystemPrompt()],
-                    ['role' => 'user', 'content' => $prompt],
-                ],
+            $parsed = $this->completionService->completeStructuredForConfiguration(
+                $prompt,
                 $config,
+                self::FULL_CHAIN_SCHEMA,
+                (new ChatOptions())->withSystemPrompt($this->getFullChainSystemPrompt()),
             );
 
-            $parsed = $this->parseJsonResponse($response->content);
-            if ($parsed !== null) {
-                return $this->normalizeFullChainResult($parsed, $description);
-            }
+            return $this->normalizeFullChainResult($parsed, $description);
+        } catch (BudgetExceededException $e) {
+            throw $e;
         } catch (Throwable $e) {
             // Fall through to fallback, but keep the cause for debugging.
             $this->logger->warning('Wizard task-chain generation failed; using fallback', ['exception' => $e]);
@@ -363,64 +453,6 @@ final readonly class WizardGeneratorService implements WizardGeneratorServiceInt
     private function buildTaskPrompt(string $description, string $context): string
     {
         return sprintf(self::USER_REQUEST_TEMPLATE, $description, $context);
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function parseJsonResponse(string $content): ?array
-    {
-        $result = null;
-        $lastError = null;
-
-        // Direct parse
-        try {
-            $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-            if (is_array($decoded)) {
-                /** @var array<string, mixed> $decoded */
-                $result = $decoded;
-            }
-        } catch (JsonException $e) {
-            $lastError = $e;
-        }
-
-        // Extract from markdown code block
-        if ($result === null && preg_match('/```(?:json)?\s*([\s\S]*?)```/', $content, $matches)) {
-            try {
-                $decoded = json_decode(trim($matches[1]), true, 512, JSON_THROW_ON_ERROR);
-                if (is_array($decoded)) {
-                    /** @var array<string, mixed> $decoded */
-                    $result = $decoded;
-                }
-            } catch (JsonException $e) {
-                $lastError = $e;
-            }
-        }
-
-        // Find JSON object in text
-        if ($result === null && preg_match('/(\{[\s\S]*\})/', $content, $matches)) {
-            try {
-                $decoded = json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR);
-                if (is_array($decoded)) {
-                    /** @var array<string, mixed> $decoded */
-                    $result = $decoded;
-                }
-            } catch (JsonException $e) {
-                $lastError = $e;
-            }
-        }
-
-        // Every strategy failed to yield a usable object: log the last parse error with a
-        // content sample so a malformed LLM response is distinguishable from an empty one.
-        // The caller still falls back to its defaults (behaviour unchanged on the happy path).
-        if ($result === null && $lastError instanceof JsonException) {
-            $this->logger->warning('Wizard could not parse LLM JSON response', [
-                'exception' => $lastError->getMessage(),
-                'sample'    => substr($content, 0, 200),
-            ]);
-        }
-
-        return $result;
     }
 
     /**
