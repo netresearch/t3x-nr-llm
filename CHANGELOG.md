@@ -14,6 +14,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   abstract member within a major version), `@internal` for everything else.
   `Documentation/Api/Stability.rst` states the promise in consumer terms;
   ADR-127 records the rules. No runtime behaviour changes.
+- Structured completions are enforced natively where the provider can
+  (ADR-128). The pre-flighted schema rides along as
+  `ChatOptions::withResponseSchema()` and each adapter emits its dialect:
+  OpenAI/Groq/Mistral/OpenRouter send `json_schema` strict mode when the
+  schema qualifies for it (JSON mode otherwise), Gemini sets
+  `responseSchema` + `responseMimeType`, Ollama the `format` field, Claude
+  a single forced tool whose input is the answer. Plain JSON mode
+  (`completeJson()`) now reaches all seven providers instead of OpenAI
+  alone. The local strict validation stays authoritative; the prompt
+  instruction and repair round-trip are unchanged.
 - Tools from an external MCP server can be used in an agent run. An
   administrator configures a server, imports the catalogue it advertises and
   enables individual tools; import is the only network call outside a run and

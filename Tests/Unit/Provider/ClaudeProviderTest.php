@@ -225,6 +225,71 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function chatCompletionForcesAStructuredOutputToolForAnObjectSchema(): void
+    {
+        $schema = [
+            'type'       => 'object',
+            'properties' => ['name' => ['type' => 'string']],
+            'required'   => ['name'],
+        ];
+
+        $payload = $this->captureChatPayload(['response_schema' => $schema]);
+
+        // The Messages API has no response_format; the schema travels as a
+        // single forced tool (ADR-128).
+        self::assertSame([[
+            'name'         => 'emit_structured_output',
+            'description'  => 'Record the answer as JSON matching the schema. Always use this tool.',
+            'input_schema' => $schema,
+        ]], $payload['tools'] ?? null);
+        self::assertSame(['type' => 'tool', 'name' => 'emit_structured_output'], $payload['tool_choice'] ?? null);
+    }
+
+    #[Test]
+    public function chatCompletionOmitsToolForcingForANonObjectSchema(): void
+    {
+        // Claude requires an object root on input_schema; anything else
+        // stays prompt-only (ADR-128).
+        $payload = $this->captureChatPayload(['response_schema' => ['enum' => ['a', 'b']]]);
+
+        self::assertArrayNotHasKey('tools', $payload);
+        self::assertArrayNotHasKey('tool_choice', $payload);
+    }
+
+    #[Test]
+    public function chatCompletionReturnsTheForcedToolInputAsJsonContent(): void
+    {
+        $apiResponse = [
+            'id' => 'msg_test',
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [
+                // Preamble prose must NOT survive into the structured answer.
+                ['type' => 'text', 'text' => 'Here is the result:'],
+                ['type' => 'tool_use', 'id' => 'tu_1', 'name' => 'emit_structured_output', 'input' => ['name' => 'Ada']],
+            ],
+            'model' => 'claude-sonnet-4-20250514',
+            'stop_reason' => 'tool_use',
+            'usage' => ['input_tokens' => 5, 'output_tokens' => 2],
+        ];
+
+        $this->httpClientStub
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($apiResponse));
+
+        $result = $this->subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Emit']],
+            ['response_schema' => [
+                'type'       => 'object',
+                'properties' => ['name' => ['type' => 'string']],
+                'required'   => ['name'],
+            ]],
+        );
+
+        self::assertSame('{"name":"Ada"}', $result->content);
+    }
+
+    #[Test]
     public function chatCompletionThrowsProviderResponseExceptionOn401(): void
     {
         $errorResponse = [

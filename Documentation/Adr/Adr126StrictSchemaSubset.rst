@@ -88,5 +88,6 @@ Consequences
 - ADR-082's "no enum/pattern/oneOf" consequence is superseded by this ADR;
   its no-runtime-dependency decision and the repair round-trip stand.
 - Provider-native structured output (OpenAI ``json_schema``, Gemini
-  ``responseSchema``, Ollama ``format``) remains the separate follow-up
-  ADR-082 named; the subset walker is the compatibility gate it will need.
+  ``responseSchema``, Ollama ``format``) was the separate follow-up ADR-082
+  named; :ref:`ADR-128 <adr-128>` delivered it, with the subset walker as
+  its pre-flight gate.

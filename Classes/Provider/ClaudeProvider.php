@@ -49,6 +49,10 @@ final class ClaudeProvider extends AbstractProvider implements
 
     private const API_VERSION = '2023-06-01';
 
+    // The forced single tool that carries a `response_schema` natively
+    // (ADR-128); its tool_use input is the structured answer.
+    private const STRUCTURED_OUTPUT_TOOL = 'emit_structured_output';
+
     public function getName(): string
     {
         return 'Anthropic Claude';
@@ -188,9 +192,26 @@ final class ClaudeProvider extends AbstractProvider implements
 
         $payload = array_merge($payload, $this->buildSamplingParams($options));
 
+        // The Messages API has no response_format; the native way to enforce
+        // a schema is a single forced tool whose input_schema IS the schema
+        // (ADR-128). Claude requires an object root; anything else falls back
+        // to the prompt instruction, which the caller sends either way.
+        $responseSchema  = $options['response_schema'] ?? null;
+        $forcedStructure = is_array($responseSchema)
+            && ($responseSchema['type'] ?? null) === 'object';
+        if ($forcedStructure) {
+            $payload['tools'] = [[
+                'name'         => self::STRUCTURED_OUTPUT_TOOL,
+                'description'  => 'Record the answer as JSON matching the schema. Always use this tool.',
+                'input_schema' => $responseSchema,
+            ]];
+            $payload['tool_choice'] = ['type' => 'tool', 'name' => self::STRUCTURED_OUTPUT_TOOL];
+        }
+
         $response = $this->sendRequest('messages', $payload, timeout: $this->resolveRequestTimeout($options));
 
         $content = '';
+        $structuredContent = null;
         $nativeThinkingBlocks = [];
         $contentBlocks = $this->getList($response, 'content');
         foreach ($contentBlocks as $block) {
@@ -200,8 +221,19 @@ final class ClaudeProvider extends AbstractProvider implements
                 $content .= $this->getString($blockArray, 'text');
             } elseif ($blockType === 'thinking') {
                 $nativeThinkingBlocks[] = $this->getString($blockArray, 'thinking');
+            } elseif (
+                $forcedStructure
+                && $blockType === 'tool_use'
+                && $this->getString($blockArray, 'name') === self::STRUCTURED_OUTPUT_TOOL
+            ) {
+                // The forced tool's input IS the structured answer; hand it
+                // back as the JSON string every other provider returns.
+                $structuredContent = json_encode($this->getArray($blockArray, 'input'), JSON_THROW_ON_ERROR);
             }
         }
+
+        // The structured answer wins over any preamble/trailing prose.
+        $content = $structuredContent ?? $content;
 
         $nativeThinking = implode("\n", $nativeThinkingBlocks);
         [$content, $inlineThinking] = $this->extractThinkingBlocks($content);

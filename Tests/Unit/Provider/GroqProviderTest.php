@@ -1111,6 +1111,36 @@ class GroqProviderTest extends AbstractUnitTestCase
         // Without stop/stop_sequences options no `stop` key may appear: pins
         // the `is_array(...)` guard against its `||` mutant (null would leak).
         self::assertArrayNotHasKey('stop', $body);
+        // Without a response_format/response_schema option no response_format
+        // key may appear (ADR-128).
+        self::assertArrayNotHasKey('response_format', $body);
+    }
+
+    #[Test]
+    public function chatCompletionEmitsResponseFormatForJsonMode(): void
+    {
+        $capturedMethod = null;
+        $capturedUrl    = null;
+        $capturedBody   = null;
+
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createCapturingSubject(
+            $capturedMethod,
+            $capturedUrl,
+            $capturedBody,
+        );
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock($this->chatApiResponseFixture()));
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_format' => 'json'],
+        );
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(['type' => 'json_object'], $body['response_format'] ?? null);
     }
 
     #[Test]

@@ -50,6 +50,10 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
     // constructor parameter would collide with the subclass's own parameters.
     private ?bool $suppressRequestCount = null;
 
+    // Same constructor constraint as suppressRequestCount.
+    /** @var array<string, mixed>|null */
+    private ?array $responseSchema = null;
+
     // ========================================
     // Factory Presets
     // ========================================
@@ -173,6 +177,23 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         return $clone;
     }
 
+    /**
+     * Attach a JSON schema the provider should enforce natively where it can
+     * (ADR-128). The schema must lie inside the strict subset (ADR-126) —
+     * CompletionService pre-flights that before any provider call; adapters
+     * treat the value as opaque and emit their provider's dialect from it.
+     * Native enforcement narrows what the model can emit; the local strict
+     * validation on the response remains authoritative either way.
+     *
+     * @param array<string, mixed> $responseSchema
+     */
+    public function withResponseSchema(array $responseSchema): static
+    {
+        $clone = clone $this;
+        $clone->responseSchema = $responseSchema;
+        return $clone;
+    }
+
     public function withSystemPrompt(string $systemPrompt): static
     {
         $clone = clone $this;
@@ -280,6 +301,14 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
         return $this->responseFormat;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getResponseSchema(): ?array
+    {
+        return $this->responseSchema;
+    }
+
     public function getSystemPrompt(): ?string
     {
         return $this->systemPrompt;
@@ -319,6 +348,7 @@ class ChatOptions extends AbstractOptions implements BudgetAwareOptionsInterface
             'frequency_penalty' => $this->frequencyPenalty,
             'presence_penalty' => $this->presencePenalty,
             'response_format' => $this->responseFormat,
+            'response_schema' => $this->responseSchema,
             'system_prompt' => $this->systemPrompt,
             'stop_sequences' => $this->stopSequences,
             'provider' => $this->provider,

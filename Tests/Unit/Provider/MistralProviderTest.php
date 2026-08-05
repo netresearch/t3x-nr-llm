@@ -953,6 +953,42 @@ class MistralProviderTest extends AbstractUnitTestCase
         self::assertSame(0.7, $body['temperature']);
         self::assertArrayHasKey('max_tokens', $body);
         self::assertSame(4096, $body['max_tokens']);
+        // Without a response_format/response_schema option no response_format
+        // key may appear (ADR-128).
+        self::assertArrayNotHasKey('response_format', $body);
+    }
+
+    #[Test]
+    public function chatCompletionEmitsResponseFormatForJsonMode(): void
+    {
+        $capturedMethod = null;
+        $capturedUrl    = null;
+        $capturedBody   = null;
+
+        ['subject' => $subject, 'httpClient' => $httpClientMock] = $this->createCapturingSubject(
+            $capturedMethod,
+            $capturedUrl,
+            $capturedBody,
+        );
+
+        $httpClientMock
+            ->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock([
+                'model' => 'mistral-large-latest',
+                'choices' => [
+                    ['message' => ['role' => 'assistant', 'content' => '{}'], 'finish_reason' => 'stop'],
+                ],
+                'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            ]));
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_format' => 'json'],
+        );
+
+        $body = $this->decodeCapturedBody($capturedBody);
+        self::assertSame(['type' => 'json_object'], $body['response_format'] ?? null);
     }
 
     #[Test]

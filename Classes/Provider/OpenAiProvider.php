@@ -31,6 +31,8 @@ final class OpenAiProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    use OpenAiResponseFormatTrait;
+
     /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
@@ -467,27 +469,9 @@ final class OpenAiProvider extends AbstractProvider implements
         return (bool)preg_match('/^(o[1-9]|gpt-5)/', $model);
     }
 
-    /**
-     * Map the high-level `response_format` option to OpenAI's payload field.
-     *
-     * `completeJson()` requests `'json'` and then strictly `json_decode`s the
-     * reply, so the request MUST carry `response_format: {type: json_object}`
-     * — otherwise the model is free to wrap the JSON in prose/Markdown fences
-     * and the decode throws "Failed to decode JSON response". OpenAI's JSON
-     * mode requires the word "json" somewhere in the messages, which the
-     * callers (e.g. nr_repurpose's DocumentAnalyzer) already guarantee. `text`
-     * and `markdown` map to plain text, so we leave the field unset.
-     *
-     * @param array<string, mixed> $options
-     *
-     * @return array{type: string}|null
-     */
-    private function buildResponseFormat(array $options): ?array
-    {
-        return $this->getString($options, 'response_format') === 'json'
-            ? ['type' => 'json_object']
-            : null;
-    }
+    // buildResponseFormat() is provided by OpenAiResponseFormatTrait
+    // (ADR-128): json_schema strict when the schema qualifies, json_object
+    // otherwise / for plain `'json'`.
 
     /**
      * Build sampling parameters, stripping them for reasoning models.

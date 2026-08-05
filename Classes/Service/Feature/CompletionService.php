@@ -138,7 +138,10 @@ final readonly class CompletionService implements CompletionServiceInterface
             );
         }
 
-        $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
+        // The schema rides along for providers that can enforce it natively
+        // (ADR-128); the prompt instruction and the strict validation below
+        // stay — native enforcement narrows, local validation decides.
+        $options    = ($options ?? new ChatOptions())->withResponseFormat('json')->withResponseSchema($schema);
         $schemaJson = $this->encodeSchema($schema);
 
         $first  = $this->complete($this->withSchemaInstruction($prompt, $schemaJson), $options)->content;
@@ -235,7 +238,9 @@ final readonly class CompletionService implements CompletionServiceInterface
             );
         }
 
-        $options    = ($options ?? new ChatOptions())->withResponseFormat('json');
+        // Same ride-along as completeStructured(): native enforcement narrows,
+        // local strict validation decides.
+        $options    = ($options ?? new ChatOptions())->withResponseFormat('json')->withResponseSchema($schema);
         $schemaJson = $this->encodeSchema($schema);
 
         $first  = $this->completeForConfiguration($this->withSchemaInstruction($prompt, $schemaJson), $configuration, $options)->content;

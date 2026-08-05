@@ -1129,6 +1129,66 @@ class OllamaProviderTest extends AbstractUnitTestCase
         // `think` is a top-level field (not an `options` entry) and is only
         // emitted when it is a real bool.
         self::assertTrue($payload['think']);
+        // Without response_format/response_schema no `format` key (ADR-128).
+        self::assertArrayNotHasKey('format', $payload);
+    }
+
+    #[Test]
+    public function chatCompletionSendsResponseSchemaAsTopLevelFormat(): void
+    {
+        $capturedBody   = '';
+        $capturedUrl    = '';
+        $capturedMethod = '';
+
+        $apiResponse = [
+            'model'   => 'llama3.2',
+            'message' => ['role' => 'assistant', 'content' => '{}'],
+            'done'    => true,
+        ];
+
+        $subject = $this->subjectCapturingRequest($apiResponse, $capturedBody, $capturedUrl, $capturedMethod);
+
+        $schema = [
+            'type'       => 'object',
+            'properties' => ['name' => ['type' => 'string']],
+            'required'   => ['name'],
+        ];
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Test']],
+            ['response_format' => 'json', 'response_schema' => $schema],
+        );
+
+        $payload = $this->decodeCapturedPayload($capturedBody);
+
+        // The schema wins over plain JSON mode and is a top-level field,
+        // like `think` (ADR-128).
+        self::assertSame($schema, $payload['format']);
+    }
+
+    #[Test]
+    public function chatCompletionSendsJsonFormatWithoutASchema(): void
+    {
+        $capturedBody   = '';
+        $capturedUrl    = '';
+        $capturedMethod = '';
+
+        $apiResponse = [
+            'model'   => 'llama3.2',
+            'message' => ['role' => 'assistant', 'content' => '{}'],
+            'done'    => true,
+        ];
+
+        $subject = $this->subjectCapturingRequest($apiResponse, $capturedBody, $capturedUrl, $capturedMethod);
+
+        $subject->chatCompletion(
+            [['role' => 'user', 'content' => 'Reply as json']],
+            ['response_format' => 'json'],
+        );
+
+        $payload = $this->decodeCapturedPayload($capturedBody);
+
+        self::assertSame('json', $payload['format']);
     }
 
     #[Test]

@@ -58,7 +58,10 @@ requires *strict* schemas (``additionalProperties: false`` and every property
 required), which arbitrary consumer schemas do not satisfy and which would 400
 the request; Claude has no native parameter at all. Wiring native, per-provider
 enforcement — behind a schema-compatibility normaliser — is a separate, additive
-change and is noted as a follow-up, not a blocker.
+change and is noted as a follow-up, not a blocker. (:ref:`ADR-128 <adr-128>`
+delivered that follow-up: native emission behind a conservative
+compatibility profile, degrading to JSON mode; Claude via a forced tool.
+The prompt + local validation + repair architecture described here stands.)
 
 .. _adr-082-consequences:
 

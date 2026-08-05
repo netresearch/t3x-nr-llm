@@ -53,6 +53,8 @@ final class OpenRouterProvider extends AbstractProvider implements
     StreamingCapableInterface,
     ToolCapableInterface
 {
+    use OpenAiResponseFormatTrait;
+
     /** @var array<string> */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
@@ -300,6 +302,11 @@ final class OpenRouterProvider extends AbstractProvider implements
             'temperature' => $this->getFloat($options, 'temperature', 0.7),
             'max_tokens' => $this->getInt($options, 'max_tokens', 4096),
         ];
+
+        $responseFormat = $this->buildResponseFormat($options);
+        if ($responseFormat !== null) {
+            $payload['response_format'] = $responseFormat;
+        }
 
         // Optional parameters
         if (isset($options['top_p'])) {
