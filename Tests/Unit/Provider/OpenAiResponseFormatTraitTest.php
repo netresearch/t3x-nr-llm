@@ -127,6 +127,21 @@ final class OpenAiResponseFormatTraitTest extends TestCase
             'required'             => ['a'],
         ]];
         yield 'non-object root' => [['enum' => ['a', 'b']]];
+        yield 'a non-string entry in required' => [[
+            'type'                 => 'object',
+            'additionalProperties' => false,
+            'properties'           => ['a' => ['type' => 'string']],
+            // Filtering the 5 away would qualify a schema whose ORIGINAL
+            // form is sent — fail closed instead.
+            'required' => ['a', 5],
+        ]];
+        yield 'properties as a list' => [[
+            'type'                 => 'object',
+            'additionalProperties' => false,
+            // A list would JSON-encode as [] instead of {} and be rejected.
+            'properties' => [['type' => 'string']],
+            'required'   => ['0'],
+        ]];
         yield 'nested object breaks the rules' => [[
             'type'                 => 'object',
             'additionalProperties' => false,

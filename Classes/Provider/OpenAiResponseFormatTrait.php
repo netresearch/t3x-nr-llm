@@ -112,18 +112,31 @@ trait OpenAiResponseFormatTrait
                 return false;
             }
 
-            $propertyNames = array_map(strval(...), array_keys($properties));
+            // Fail closed on malformed maps instead of filtering them into
+            // shape: the ORIGINAL schema is what gets sent, so a dropped
+            // invalid entry would qualify a schema the API then rejects.
+            $propertyNames = [];
+            foreach ($properties as $name => $subSchema) {
+                if (!is_string($name) || !is_array($subSchema) || !$this->strictNodeQualifies($subSchema)) {
+                    return false;
+                }
+
+                $propertyNames[] = $name;
+            }
+
+            $requiredNames = [];
+            foreach ($required as $requiredName) {
+                if (!is_string($requiredName)) {
+                    return false;
+                }
+
+                $requiredNames[] = $requiredName;
+            }
+
             sort($propertyNames);
-            $requiredNames = array_values(array_filter($required, is_string(...)));
             sort($requiredNames);
             if ($propertyNames !== $requiredNames) {
                 return false;
-            }
-
-            foreach ($properties as $subSchema) {
-                if (!is_array($subSchema) || !$this->strictNodeQualifies($subSchema)) {
-                    return false;
-                }
             }
         }
 
