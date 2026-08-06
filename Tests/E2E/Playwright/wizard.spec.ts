@@ -73,7 +73,10 @@ test.describe('Setup Wizard - 5-Step Provider Onboarding', () => {
       // Endpoint URL input
       const endpointInput = moduleFrame.locator('#wizard-endpoint');
       await expect(endpointInput).toBeVisible();
-      await expect(endpointInput).toHaveAttribute('placeholder', /api\.openai\.com/);
+      // Exact value, not a substring match: an unanchored /api\.openai\.com/
+      // also passes for https://evil.example/api.openai.com/, so it asserted
+      // far less than it appeared to.
+      await expect(endpointInput).toHaveAttribute('placeholder', 'https://api.openai.com/v1');
 
       // API Key input
       const apiKeyInput = moduleFrame.locator('#wizard-apikey');
