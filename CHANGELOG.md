@@ -79,6 +79,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a remote call crosses the network while a backend user waits and nothing else
   limits how many a model asks for at once.
 
+- `TranslationOptions::withTranslator()` forces a specific translator by
+  identifier (e.g. `'deepl'`, `'llm'`) on `translateWithTranslator()` /
+  `translateBatchWithTranslator()`, bypassing configuration-based resolution.
+  Callers that already know which translator they want (e.g. having picked
+  one via `TranslationService::findBestTranslator()`) previously had no way
+  to act on that choice without pinning an entire `LlmConfiguration`. The new
+  `$translator` constructor parameter is appended after the budget fields
+  (`$beUserUid`/`$plannedCost`) rather than inserted before them, so a
+  positional caller relying on those being the last two arguments is
+  unaffected.
+
+- `LlmTranslator::IDENTIFIER` — the translator registry identifier (`'llm'`)
+  as a public constant, so a caller distinguishing "a specialized translator
+  was selected" from "the universal fallback was selected" (e.g. after
+  `TranslationService::findBestTranslator()`) doesn't have to hardcode the
+  string.
+
 - Translation and image generation can be tried from the backend. The test page
   gained two cards: translate a snippet with a chosen translator, or generate a
   single image with the OpenAI or the FAL service. Until now nothing in the
@@ -273,6 +290,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   has no boolean variant for it in either request-body form
   (`SplitSentencesOption` is `'0'|'1'|'nonewlines'` for both).
 
+- `LlmTranslator::getPriority()` returned `100`, higher than
+  `DeepLTranslator`'s `90`. Per the "higher priority sorts first" contract
+  on `TranslatorInterface::getPriority()`, that put the universal LLM
+  fallback ahead of every specialized translator in the tagged iterator —
+  and since `LlmTranslator::supportsLanguagePair()` always returns `true`,
+  `TranslatorRegistry::findBestTranslator()` always returned it first,
+  regardless of whether a specialized translator (DeepL) was actually
+  available. Lowered to `-1000` so the fallback sorts last, as its name
+  implies.
+
+- `DeepLTranslator::supportsLanguagePair()` rejected `'auto'` as a source
+  language — it isn't in `SUPPORTED_SOURCE_LANGUAGES` and
+  `normalizeLanguageCode()` doesn't map it to a real code, so the check
+  always failed and DeepL could never be selected by
+  `TranslationService::findBestTranslator($sourceLanguage, ...)` for a
+  caller doing source-language auto-detection. `'auto'` (case-insensitive)
+  and `''` are now treated as "any source is fine" — DeepL already
+  auto-detects whenever `source_lang` is omitted from the actual translate
+  request, so this only affects the selection check, not the request
+  itself. `TranslatorInterface::supportsLanguagePair()`'s docblock now
+  documents this as part of the contract for other implementations.
 - A requeued agent run no longer inherits the write fence of its previous
   attempt. The requeue cleared the worker claim and the lease but left
   `pending_effect` standing, so a later failure could be judged against a write

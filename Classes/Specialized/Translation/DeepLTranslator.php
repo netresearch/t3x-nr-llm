@@ -117,9 +117,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         );
 
         $targetLanguage = $this->normalizeLanguageCode($targetLanguage, false);
-        if ($sourceLanguage !== null) {
-            $sourceLanguage = $this->normalizeLanguageCode($sourceLanguage, true);
-        }
+        $sourceLanguage = $this->resolveSourceLanguage($sourceLanguage);
 
         $payload = $this->buildTranslatePayload($text, $targetLanguage, $sourceLanguage, $options);
 
@@ -183,9 +181,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         );
 
         $targetLanguage = $this->normalizeLanguageCode($targetLanguage, false);
-        if ($sourceLanguage !== null) {
-            $sourceLanguage = $this->normalizeLanguageCode($sourceLanguage, true);
-        }
+        $sourceLanguage = $this->resolveSourceLanguage($sourceLanguage);
 
         $payload = $this->buildBatchPayload($texts, $targetLanguage, $sourceLanguage, $options);
 
@@ -308,11 +304,24 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
 
     public function supportsLanguagePair(string $sourceLanguage, string $targetLanguage): bool
     {
-        $sourceLang = $this->normalizeLanguageCode($sourceLanguage, true);
         $targetLang = $this->normalizeLanguageCode($targetLanguage, false);
-
-        $sourceSupported = in_array(strtolower($sourceLang), self::SUPPORTED_SOURCE_LANGUAGES, true);
         $targetSupported = in_array(strtolower($targetLang), self::SUPPORTED_TARGET_LANGUAGES, true);
+
+        // 'auto' (case-insensitive) is a caller-side sentinel for "detect the
+        // source language", not a real DeepL language code — it will never
+        // appear in SUPPORTED_SOURCE_LANGUAGES and normalizeLanguageCode()
+        // doesn't map it to one either. DeepL auto-detects whenever
+        // source_lang is omitted from the request (buildTranslatePayload()
+        // already omits it for a null $sourceLanguage), so treating 'auto'
+        // as "any source is fine" here is faithful to the API, not a
+        // workaround. An empty string is treated the same way for callers
+        // that pass through a "no preference yet" state.
+        if ($sourceLanguage === '' || strtolower($sourceLanguage) === 'auto') {
+            return $targetSupported;
+        }
+
+        $sourceLang = $this->normalizeLanguageCode($sourceLanguage, true);
+        $sourceSupported = in_array(strtolower($sourceLang), self::SUPPORTED_SOURCE_LANGUAGES, true);
 
         return $sourceSupported && $targetSupported;
     }
@@ -521,6 +530,36 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
         }
 
         return parent::mapErrorStatus($statusCode, $errorMessage);
+    }
+
+    /**
+     * Resolve a caller-supplied source language for the actual translate
+     * request, applying the same 'auto'/'' → "not yet known" sentinel that
+     * supportsLanguagePair() advertises for translator selection (see the
+     * contract documented there and on TranslatorInterface).
+     *
+     * The documented, intended path (TranslationService::translateWith
+     * Translator()) already rejects a literal 'auto' before it gets here —
+     * its ISO-639-1 validation regex doesn't match a 4-letter string. This
+     * exists for the direct-TranslatorInterface-caller case: without it, a
+     * caller who follows supportsLanguagePair('auto', …) === true to its
+     * literal conclusion and calls translate($text, $target, 'auto') would
+     * have gotten a payload with source_lang="AUTO" — not a real DeepL
+     * language code, and not what buildTranslatePayload()'s "omit
+     * source_lang entirely" auto-detect path produces. Normalizing to null
+     * here routes both callers to the same, correct behavior.
+     *
+     * @return string|null Null triggers DeepL's own auto-detection
+     *                     (buildTranslatePayload()/buildBatchPayload()
+     *                     omit source_lang for a null value).
+     */
+    private function resolveSourceLanguage(?string $sourceLanguage): ?string
+    {
+        if ($sourceLanguage === null || $sourceLanguage === '' || strtolower($sourceLanguage) === 'auto') {
+            return null;
+        }
+
+        return $this->normalizeLanguageCode($sourceLanguage, true);
     }
 
     /**

@@ -402,6 +402,62 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
     }
 
     /**
+     * supportsLanguagePair() treats 'auto' (case-insensitive) and '' as
+     * "source not yet known" so a caller doing selection ahead of a
+     * translate($text, $target, sourceLanguage: null) call can express that
+     * (see the contract on TranslatorInterface::supportsLanguagePair()).
+     * A caller that instead passes the literal sentinel straight into
+     * translate()/translateBatch() must still reach DeepL's real
+     * auto-detection (source_lang omitted), not a literal source_lang=AUTO
+     * or source_lang= the API doesn't recognize.
+     */
+    #[Test]
+    #[DataProvider('autoSourceLanguageSentinelProvider')]
+    public function translateWithAutoSentinelOmitsSourceLangFromPayload(string $sentinel): void
+    {
+        $captured = [];
+        $subject = $this->createCapturingSubject(
+            $this->createJsonResponseMock(['translations' => [
+                ['text' => 'Bonjour', 'detected_source_language' => 'EN'],
+            ]]),
+            $captured,
+        );
+
+        $subject->translate('Hello', 'fr', $sentinel);
+
+        self::assertArrayNotHasKey('source_lang', $this->decodeCapturedBody($captured));
+    }
+
+    #[Test]
+    #[DataProvider('autoSourceLanguageSentinelProvider')]
+    public function translateBatchWithAutoSentinelOmitsSourceLangFromPayload(string $sentinel): void
+    {
+        $captured = [];
+        $subject = $this->createCapturingSubject(
+            $this->createJsonResponseMock(['translations' => [
+                ['text' => 'Bonjour', 'detected_source_language' => 'EN'],
+            ]]),
+            $captured,
+        );
+
+        $subject->translateBatch(['Hello'], 'fr', $sentinel);
+
+        self::assertArrayNotHasKey('source_lang', $this->decodeCapturedBody($captured));
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function autoSourceLanguageSentinelProvider(): array
+    {
+        return [
+            'lowercase auto' => ['auto'],
+            'uppercase AUTO' => ['AUTO'],
+            'empty string' => [''],
+        ];
+    }
+
+    /**
      * A malformed 2xx body (from a broken upstream or an intermediary proxy)
      * whose translation entry is not an object or lacks a string `text` must
      * raise the typed service error, not a raw TypeError -> 500.

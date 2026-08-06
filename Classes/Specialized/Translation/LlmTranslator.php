@@ -26,6 +26,15 @@ use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 #[AsTranslator]
 final readonly class LlmTranslator implements TranslatorInterface
 {
+    /**
+     * This translator's registry identifier. Public so callers that need to
+     * distinguish "a specialized translator was selected" from "the
+     * universal fallback was selected" (e.g. after
+     * TranslationService::findBestTranslator()) don't have to hardcode the
+     * string 'llm'.
+     */
+    public const IDENTIFIER = 'llm';
+
     private const SUPPORTED_LANGUAGES = [
         'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
         'ar', 'cs', 'da', 'fi', 'el', 'hu', 'id', 'no', 'ro', 'sk', 'sv', 'th',
@@ -51,7 +60,7 @@ final readonly class LlmTranslator implements TranslatorInterface
 
     public function getIdentifier(): string
     {
-        return 'llm';
+        return self::IDENTIFIER;
     }
 
     public function getName(): string
@@ -61,7 +70,13 @@ final readonly class LlmTranslator implements TranslatorInterface
 
     public static function getPriority(): int
     {
-        return 100;
+        // Lowest priority: this is the universal fallback — supportsLanguagePair()
+        // always returns true, so it must sort LAST behind any real specialized
+        // translator (e.g. DeepLTranslator, priority 90). The previous value
+        // (100, higher than DeepL's) made TranslatorRegistry::findBestTranslator()
+        // always return this translator first — a specialized translator could
+        // never be selected, regardless of availability.
+        return -1000;
     }
 
     public function isAvailable(): bool

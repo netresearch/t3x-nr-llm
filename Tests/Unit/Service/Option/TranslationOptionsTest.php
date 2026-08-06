@@ -369,6 +369,18 @@ class TranslationOptionsTest extends AbstractUnitTestCase
         self::assertSame('editorial', $options2->toArray()['configuration'] ?? null);
     }
 
+    #[Test]
+    public function withTranslatorReturnsNewInstanceAndIsEmittedInArray(): void
+    {
+        $options1 = new TranslationOptions();
+        $options2 = $options1->withTranslator('deepl');
+
+        self::assertNull($options1->getTranslator());
+        self::assertEquals('deepl', $options2->getTranslator());
+        self::assertArrayNotHasKey('translator', $options1->toArray());
+        self::assertSame('deepl', $options2->toArray()['translator'] ?? null);
+    }
+
     // Array Conversion
 
     #[Test]

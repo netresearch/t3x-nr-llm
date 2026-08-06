@@ -112,7 +112,13 @@ interface TranslatorInterface
     /**
      * Check if a specific language pair is supported.
      *
-     * @param string $sourceLanguage Source language code
+     * Implementations should treat `'auto'` (case-insensitive) and `''` as
+     * "source language not yet known, will be auto-detected" rather than as
+     * a literal unsupported language code — callers doing translator
+     * selection ahead of a `translate($text, $target, sourceLanguage: null)`
+     * call have no other way to express that.
+     *
+     * @param string $sourceLanguage Source language code, or 'auto'/'' for auto-detection
      * @param string $targetLanguage Target language code
      */
     public function supportsLanguagePair(string $sourceLanguage, string $targetLanguage): bool;

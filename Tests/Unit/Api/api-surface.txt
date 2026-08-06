@@ -1337,6 +1337,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method getPreserveFormatting(): ?bool
   method getProvider(): ?string
   method getTemperature(): ?float
+  method getTranslator(): ?string
   method static formal(): static
   method static informal(): static
   method static legal(): static
@@ -1356,6 +1357,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class)
   method withPreserveFormatting(bool $preserveFormatting): static
   method withProvider(string $provider): static
   method withTemperature(float $temperature): static
+  method withTranslator(string $translator): static
 
 Netresearch\NrLlm\Service\Option\VisionOptions (class)
   method getBeUserUid(): ?int
