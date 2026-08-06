@@ -55,6 +55,11 @@ final class InMemoryVaultService implements VaultServiceInterface
         return $this->secrets[$identifier] ?? null;
     }
 
+    public function retrieveForFrontend(string $identifier): ?string
+    {
+        throw new RuntimeException('not needed by these tests', 1754467301);
+    }
+
     public function exists(string $identifier): bool
     {
         return isset($this->secrets[$identifier]);
@@ -63,6 +68,13 @@ final class InMemoryVaultService implements VaultServiceInterface
     public function delete(string $identifier, string $reason = ''): void
     {
         unset($this->secrets[$identifier], $this->storeOptions[$identifier]);
+    }
+
+    public function assertDeletable(string $identifier): void {}
+
+    public function setEnabled(string $identifier, bool $enabled, string $reason = ''): void
+    {
+        throw new RuntimeException('not needed by these tests', 1754467302);
     }
 
     public function rotate(string $identifier, #[SensitiveParameter] string $newSecret, string $reason = ''): void
@@ -78,7 +90,7 @@ final class InMemoryVaultService implements VaultServiceInterface
     /**
      * @return list<SecretMetadata>
      */
-    public function list(?string $pattern = null): array
+    public function list(?string $pattern = null, bool $includeDisabled = false): array
     {
         // The command never enumerates secrets; assert against $secrets instead.
         return [];
@@ -88,8 +100,6 @@ final class InMemoryVaultService implements VaultServiceInterface
     {
         throw new RuntimeException('not needed by these tests', 9452800525);
     }
-
-    public function clearCache(): void {}
 
     public function http(): VaultHttpClientInterface
     {
