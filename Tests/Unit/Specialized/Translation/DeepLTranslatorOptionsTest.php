@@ -278,7 +278,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 
         self::assertNotNull($capturedBody, 'Expected withBody() to have been called with the JSON payload.');
         /** @var array<string, mixed> $decoded */
-        $decoded = json_decode((string)$capturedBody, true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue(
             $decoded['preserve_formatting'] ?? null,
@@ -332,7 +332,7 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 
         self::assertNotNull($capturedBody, 'Expected withBody() to have been called with the JSON payload.');
         /** @var array<string, mixed> $decoded */
-        $decoded = json_decode((string)$capturedBody, true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue(
             $decoded['preserve_formatting'] ?? null,
