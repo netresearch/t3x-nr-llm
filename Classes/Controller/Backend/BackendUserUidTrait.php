@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -17,9 +18,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * pre-flight — 0 when no real BE user is present (CLI/testing), which the budget
  * check treats as anonymous.
  *
- * Shared by the controllers that continue a suspended agent run
- * ({@see ToolPlaygroundController}, {@see AgentRunController}) so the exact
- * null-safe extraction lives in one place.
+ * Shared by the controllers that need the caller's identity
+ * ({@see ToolPlaygroundController}, {@see AgentRunController},
+ * {@see TaskExecutionController}) so the exact null-safe extraction lives in
+ * one place.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -60,6 +62,15 @@ trait BackendUserUidTrait
             static fn(int $g): bool => $g > 0,
         ));
 
-        return AiActorContext::backendUser($uid, $backendUser->isAdmin(), $groupIds);
+        // The grants are frozen here for the same reason as the admin flag:
+        // downstream consumers (mayActOnRun) read the actor, never the
+        // ambient user. check() is a per-request read of the live group
+        // permissions, so a revoked grant stops working with the next request.
+        $grants = array_values(array_filter(
+            BackendUserGrant::cases(),
+            static fn(BackendUserGrant $grant): bool => (bool)$backendUser->check('custom_options', $grant->permissionValue()),
+        ));
+
+        return AiActorContext::backendUser($uid, $backendUser->isAdmin(), $groupIds, $grants);
     }
 }

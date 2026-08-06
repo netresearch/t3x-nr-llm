@@ -153,6 +153,18 @@ Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\BackendUserGrant (enum)
+  case AGENT_APPROVE
+  case TASKS_USE
+  method permissionValue(): string
+  method static cases(): array
+  method static from(int|string $value): static
+  method static isValid(string $value): bool
+  method static tryFrom(int|string $value): ?static
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
   case ALLOW
   case DENY
@@ -666,18 +678,20 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
 
 Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method describe(): string
+  method hasGrant(Netresearch\NrLlm\Domain\Enum\BackendUserGrant $grant): bool
   method hasScope(Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
   method isAuthenticated(): bool
   method isServiceAccount(): bool
   method mayAccessSession(Netresearch\NrLlm\Domain\ValueObject\AiSession $session): bool
   method mayActOnRun(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run, Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
   method static anonymous(): self
-  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …): self
+  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …): self
   method static fromArray(array $data): self
   method static serviceAccount(string $name, array $scopes = …): self
   method toArray(): array
   property readonly backendGroupIds: array
   property readonly backendUserUid: int
+  property readonly grants: array
   property readonly isAdmin: bool
   property readonly scopes: array
   property readonly serviceAccount: ?string

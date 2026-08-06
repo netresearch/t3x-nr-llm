@@ -71,6 +71,7 @@ left-hand navigation:
    Tools
    Wizards
    UserBudgets
+   Permissions
    SpecializedServices
    Analytics
    AgentRuns

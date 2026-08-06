@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Capability grants for backend users (ADR-130). Two grants, assigned per
+  backend group through TYPO3's own permission mechanism (`be_groups`
+  access lists): `Execute AI tasks` opens the two task-execution AJAX
+  endpoints to non-admins (bounded by the per-user budget), `Approve
+  suspended AI runs` lets a granted user decide other users' suspended
+  runs. Nothing changes for anyone until a grant is ticked; admins hold
+  every grant implicitly. Grants live on `AiActorContext` — the door
+  ADR-117 left open — and `backendUser()` gained an optional `$grants`
+  parameter (additive; recorded in the API snapshot). The task module's
+  management surface and a non-admin editing module are the committed
+  follow-up milestone.
 - Task execution enforces the executing user's budget (audit REC #4,
   closing the hook documented in `TaskExecutionService` since slice 13c).
   The controller passes the backend user's uid; the `BudgetMiddleware`

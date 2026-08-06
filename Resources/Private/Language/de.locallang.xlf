@@ -234,6 +234,30 @@
                 <source>This action requires backend administrator privileges. Please contact your site administrator to enable LLM management for your account.</source>
                 <target>Diese Aktion erfordert Backend-Administratorrechte. Bitte wenden Sie sich an Ihren Website-Administrator, um die LLM-Verwaltung für Ihr Konto zu aktivieren.</target>
             </trans-unit>
+            <trans-unit id="error.grantRequired">
+                <source>This action requires a permission your backend account does not hold. Please contact your site administrator.</source>
+                <target>Diese Aktion erfordert eine Berechtigung, die Ihr Backend-Konto nicht besitzt. Bitte wenden Sie sich an Ihren Website-Administrator.</target>
+            </trans-unit>
+            <trans-unit id="grants.header">
+                <source>AI (nr_llm) permissions</source>
+                <target>KI-Berechtigungen (nr_llm)</target>
+            </trans-unit>
+            <trans-unit id="grants.tasksUse">
+                <source>Execute AI tasks</source>
+                <target>KI-Aufgaben ausführen</target>
+            </trans-unit>
+            <trans-unit id="grants.tasksUse.description">
+                <source>Run existing AI tasks and refresh their input data. What a task may read and which model it uses is defined by its manager; every run counts against the user's own usage budget.</source>
+                <target>Bestehende KI-Aufgaben ausführen und deren Eingabedaten aktualisieren. Was eine Aufgabe lesen darf und welches Modell sie nutzt, legt deren Verwalter fest; jede Ausführung zählt gegen das eigene Nutzungsbudget.</target>
+            </trans-unit>
+            <trans-unit id="grants.agentApprove">
+                <source>Approve suspended AI runs</source>
+                <target>Angehaltene KI-Läufe freigeben</target>
+            </trans-unit>
+            <trans-unit id="grants.agentApprove.description">
+                <source>Approve, deny or answer AI agent runs that are suspended for a human decision — including runs started by other users. Without this permission a user can only decide their own runs.</source>
+                <target>KI-Agentenläufe freigeben, ablehnen oder beantworten, die auf eine menschliche Entscheidung warten — auch Läufe anderer Benutzer. Ohne diese Berechtigung kann ein Benutzer nur über eigene Läufe entscheiden.</target>
+            </trans-unit>
             <trans-unit id="provider">
                 <source>Provider</source>
                 <target>Anbieter</target>

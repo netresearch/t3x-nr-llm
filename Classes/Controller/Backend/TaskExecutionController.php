@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Controller\Backend\DTO\RefreshInputRequest;
 use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
@@ -184,10 +185,15 @@ final class TaskExecutionController extends ActionController
 
     /**
      * Execute a task via AJAX.
+     *
+     * Gated by the TASKS_USE grant (ADR-130), not admin: executing an
+     * existing task is the one capability the editing role holds. The
+     * per-user budget pre-flight below bounds what a grant holder can
+     * spend, and what a task may read is defined by whoever manages it.
      */
     public function executeAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+        if (($deny = $this->denyWithoutGrant(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             return $deny;
         }
 
@@ -269,10 +275,13 @@ final class TaskExecutionController extends ActionController
 
     /**
      * Refresh input data for a task via AJAX.
+     *
+     * Same TASKS_USE gate as {@see executeAction()}: refreshing the input a
+     * task's MANAGER configured is part of using the task.
      */
     public function refreshInputAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+        if (($deny = $this->denyWithoutGrant(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
             return $deny;
         }
 
