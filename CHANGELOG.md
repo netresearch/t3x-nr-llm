@@ -117,6 +117,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`netresearch/nr-vault` is now required at `^0.14.0`** (was `^0.13.0`). 0.14
+  extends `VaultServiceInterface` with `retrieveForFrontend()`,
+  `assertDeletable()` and `setEnabled()`, adds `$includeDisabled` to `list()`
+  and removes `clearCache()`. No production class here implements that
+  interface, so only the in-memory test double changed. Operators upgrading a
+  site: 0.14 replaces nr-vault's admin-only model with grantable operation
+  permissions — backend users who reach an API key through nr-llm need
+  `tx_nrvault:secret.use`, and `secret.create` to store one. See nr-vault's
+  0.14.0 migration notes.
 - **BREAKING for external `completeStructured()` callers:** the schema is now
   validated against a named strict subset (ADR-126). Every subset keyword —
   enum, pattern, bounds, `oneOf` and friends — is enforced on the response,
