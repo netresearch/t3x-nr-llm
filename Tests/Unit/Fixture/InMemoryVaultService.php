@@ -37,6 +37,9 @@ final class InMemoryVaultService implements VaultServiceInterface
     /** @var list<array{identifier: string, reason: string}> */
     public array $rotateCalls = [];
 
+    /** @var array<string, bool> */
+    public array $enabledState = [];
+
     public ?string $throwOn = null;
 
     public function store(string $identifier, #[SensitiveParameter] string $secret, array $options = []): void
@@ -57,7 +60,8 @@ final class InMemoryVaultService implements VaultServiceInterface
 
     public function retrieveForFrontend(string $identifier): ?string
     {
-        throw new RuntimeException('not needed by these tests', 1754467301);
+        // The double carries no frontend allow-set, so nothing is published.
+        return null;
     }
 
     public function exists(string $identifier): bool
@@ -70,11 +74,14 @@ final class InMemoryVaultService implements VaultServiceInterface
         unset($this->secrets[$identifier], $this->storeOptions[$identifier]);
     }
 
-    public function assertDeletable(string $identifier): void {}
+    public function assertDeletable(string $identifier): void
+    {
+        // The double has no ACL or permission layer, so everything is deletable.
+    }
 
     public function setEnabled(string $identifier, bool $enabled, string $reason = ''): void
     {
-        throw new RuntimeException('not needed by these tests', 1754467302);
+        $this->enabledState[$identifier] = $enabled;
     }
 
     public function rotate(string $identifier, #[SensitiveParameter] string $newSecret, string $reason = ''): void
