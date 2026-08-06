@@ -76,7 +76,11 @@ Use cases
 Key features
 ------------
 
-- JSON response formatting.
+- JSON response formatting (native JSON mode on every provider,
+  :ref:`ADR-128 <adr-128>`).
+- Schema-validated structured output — a strict JSON-schema subset,
+  provider-enforced, with one repair round-trip (:ref:`ADR-126
+  <adr-126>`).
 - Markdown generation.
 - Factual mode (low creativity).
 - Creative mode (high creativity).
@@ -125,6 +129,16 @@ Methods
 
    // Creative (high creativity)
    $response = $completionService->completeCreative('Write a haiku about coding');
+
+   // Structured: schema-validated JSON (strict subset, ADR-126)
+   $data = $completionService->completeStructured('Rate this text', [
+       'type'       => 'object',
+       'required'   => ['score', 'reason'],
+       'properties' => [
+           'score'  => ['type' => 'number'],
+           'reason' => ['type' => 'string'],
+       ],
+   ]);
 
 .. _feature-services-vision:
 

@@ -152,6 +152,18 @@ High-level services for common AI tasks:
    Language translation with formality control,
    domain-specific terminology, and glossaries.
 
+.. _introduction-structured-outputs:
+
+Structured outputs
+------------------
+
+Schema-validated JSON from every provider:
+:php:`completeStructured()` takes a JSON schema from a named strict
+subset, enforces it provider-natively where the provider can (OpenAI
+``json_schema``, Gemini ``responseSchema``, Ollama ``format``, a forced
+tool on Claude), validates the response strictly and repairs a mismatch
+with one controlled round-trip. See :ref:`adr-126` and :ref:`adr-128`.
+
 .. _introduction-streaming-support:
 
 Streaming support
