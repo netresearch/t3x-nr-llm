@@ -37,6 +37,9 @@ final class InMemoryVaultService implements VaultServiceInterface
     /** @var list<array{identifier: string, reason: string}> */
     public array $rotateCalls = [];
 
+    /** @var array<string, bool> */
+    public array $enabledState = [];
+
     public ?string $throwOn = null;
 
     public function store(string $identifier, #[SensitiveParameter] string $secret, array $options = []): void
@@ -55,6 +58,12 @@ final class InMemoryVaultService implements VaultServiceInterface
         return $this->secrets[$identifier] ?? null;
     }
 
+    public function retrieveForFrontend(string $identifier): ?string
+    {
+        // The double carries no frontend allow-set, so nothing is published.
+        return null;
+    }
+
     public function exists(string $identifier): bool
     {
         return isset($this->secrets[$identifier]);
@@ -63,6 +72,16 @@ final class InMemoryVaultService implements VaultServiceInterface
     public function delete(string $identifier, string $reason = ''): void
     {
         unset($this->secrets[$identifier], $this->storeOptions[$identifier]);
+    }
+
+    public function assertDeletable(string $identifier): void
+    {
+        // The double has no ACL or permission layer, so everything is deletable.
+    }
+
+    public function setEnabled(string $identifier, bool $enabled, string $reason = ''): void
+    {
+        $this->enabledState[$identifier] = $enabled;
     }
 
     public function rotate(string $identifier, #[SensitiveParameter] string $newSecret, string $reason = ''): void
@@ -78,7 +97,7 @@ final class InMemoryVaultService implements VaultServiceInterface
     /**
      * @return list<SecretMetadata>
      */
-    public function list(?string $pattern = null): array
+    public function list(?string $pattern = null, bool $includeDisabled = false): array
     {
         // The command never enumerates secrets; assert against $secrets instead.
         return [];
@@ -88,8 +107,6 @@ final class InMemoryVaultService implements VaultServiceInterface
     {
         throw new RuntimeException('not needed by these tests', 9452800525);
     }
-
-    public function clearCache(): void {}
 
     public function http(): VaultHttpClientInterface
     {

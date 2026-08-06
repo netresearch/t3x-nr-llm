@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Form\Element\ModelIdElement;
 use Netresearch\NrLlm\Form\FieldWizard\ModelConstraintsWizard;
 use Netresearch\NrLlm\Hook\ProviderEndpointNormalizationHook;
@@ -98,5 +99,28 @@ defined('TYPO3') || die();
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['dashboard']['widgetGroups']['nrllm'] ??= [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widgetGroup.nrllm.title',
+    ];
+
+    // Capability grants for human backend users (ADR-130): assigned per
+    // backend GROUP through the be_groups access lists, checked via
+    // BackendUserAuthentication::check('custom_options', ...). Item keys must
+    // not contain ':', '|' or ',' — TYPO3 strips those when rendering the
+    // select, so a colon-namespaced key would be stored mangled and silently
+    // deny (see BackendUserGrant).
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['customPermOptions']['tx_nrllm_grants'] = [
+        'header' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.header',
+        'items'  => [
+            BackendUserGrant::TASKS_USE->value => [
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.tasksUse',
+                'module-nrllm',
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.tasksUse.description',
+            ],
+            BackendUserGrant::AGENT_APPROVE->value => [
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.agentApprove',
+                'module-nrllm',
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.agentApprove.description',
+            ],
+        ],
     ];
 })();

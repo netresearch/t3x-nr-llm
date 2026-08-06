@@ -16,8 +16,10 @@ automate most of the setup.
 The LLM backend module
 ======================
 
-All AI management happens in
-:guilabel:`Admin Tools > LLM`. The **Overview** is a guided starting point:
+All AI **management** happens in
+:guilabel:`Admin Tools > LLM`; editors run prepared tasks and decide
+approvals in the separate :guilabel:`Web > AI Tasks` module
+(:ref:`administration-permissions`). The **Overview** is a guided starting point:
 
 - a **usage & cost** band across the top — 30-day cost, requests and tokens,
   the per-provider request mix, and a daily-requests sparkline (empty until the
@@ -42,7 +44,7 @@ All AI management happens in
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The module has twelve sections accessible from the
+The admin module tree has thirteen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and
@@ -55,9 +57,15 @@ left-hand navigation:
 - **Setup wizard** — guided provider, model and configuration setup (admin-only)
 - **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
 - **Tools** — enable or disable the agent tools (admin-only)
+- **MCP servers** — configure external MCP servers and import their tool
+  catalogues (admin-only)
 - **Playground** — run the agent tool loop interactively (admin-only)
 - **Agent runs** — review and decide runs paused for approval or input (admin-only)
 - **Analytics** — usage and cost dashboard (admin-only)
+
+Editors do not use this tree: their surface is the separate
+:guilabel:`Web > AI Tasks` module, opened per backend group through the
+:ref:`permission grants <administration-permissions>`.
 
 .. toctree::
    :maxdepth: 2
@@ -69,8 +77,10 @@ left-hand navigation:
    PromptSnippets
    Skills
    Tools
+   McpServers
    Wizards
    UserBudgets
+   Permissions
    SpecializedServices
    Analytics
    AgentRuns

@@ -369,14 +369,22 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return $this->staleRunning;
     }
 
-    public function findAwaiting(int $limit = 100): array
+    public function findAwaiting(int $limit = 100, ?int $beUser = null): array
     {
-        return $this->awaiting;
+        if ($beUser === null) {
+            return $this->awaiting;
+        }
+
+        return array_values(array_filter($this->awaiting, static fn(AgentRun $run): bool => $run->beUser === $beUser));
     }
 
-    public function findRecentTerminal(int $limit = 20): array
+    public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array
     {
-        return $this->recentTerminal;
+        if ($beUser === null) {
+            return $this->recentTerminal;
+        }
+
+        return array_values(array_filter($this->recentTerminal, static fn(AgentRun $run): bool => $run->beUser === $beUser));
     }
 
     /** Simulates a run reclaimed by a heartbeat between SELECT and UPDATE. */

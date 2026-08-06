@@ -29,8 +29,14 @@ interface TaskExecutionServiceInterface
      * exists and is active before delegating here — the service
      * trusts its argument.
      *
+     * @param int|null $beUserUid backend user the call is executed for
+     *                            (REC #4): a positive uid activates the
+     *                            per-user budget pre-flight and usage
+     *                            attribution; null/0 skips the user cap
+     *                            (configuration limits still apply)
+     *
      * @throws Throwable on prompt-build / LLM failure (caller surfaces
      *                   the message)
      */
-    public function execute(Task $task, string $input): TaskExecutionResult;
+    public function execute(Task $task, string $input, ?int $beUserUid = null): TaskExecutionResult;
 }

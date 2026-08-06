@@ -521,20 +521,27 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $this->hydrateRun($row);
     }
 
-    public function findAwaiting(int $limit = 100): array
+    public function findAwaiting(int $limit = 100, ?int $beUser = null): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
         $queryBuilder->getRestrictions()->removeAll();
 
+        $constraints = [
+            $queryBuilder->expr()->in(
+                'status',
+                $queryBuilder->createNamedParameter(AgentRunStatus::awaitingValues(), Connection::PARAM_STR_ARRAY),
+            ),
+        ];
+        if ($beUser !== null) {
+            // Ownership view (ADR-131): a non-admin without the approval
+            // grant sees only the runs they initiated.
+            $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
+        }
+
         $rows = $queryBuilder
             ->select('*')
             ->from(self::TABLE_RUN)
-            ->where(
-                $queryBuilder->expr()->in(
-                    'status',
-                    $queryBuilder->createNamedParameter(AgentRunStatus::awaitingValues(), Connection::PARAM_STR_ARRAY),
-                ),
-            )
+            ->where(...$constraints)
             // Oldest first: act on the longest-waiting run first. The
             // status_lookup(status, crdate) index serves the status filter;
             // ordering across the two waiting values is a cheap filesort at this
@@ -547,20 +554,25 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return array_map($this->hydrateRun(...), $rows);
     }
 
-    public function findRecentTerminal(int $limit = 20): array
+    public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_RUN);
         $queryBuilder->getRestrictions()->removeAll();
 
+        $constraints = [
+            $queryBuilder->expr()->in(
+                'status',
+                $queryBuilder->createNamedParameter(AgentRunStatus::terminalValues(), Connection::PARAM_STR_ARRAY),
+            ),
+        ];
+        if ($beUser !== null) {
+            $constraints[] = $queryBuilder->expr()->eq('be_user', $queryBuilder->createNamedParameter($beUser, Connection::PARAM_INT));
+        }
+
         $rows = $queryBuilder
             ->select('*')
             ->from(self::TABLE_RUN)
-            ->where(
-                $queryBuilder->expr()->in(
-                    'status',
-                    $queryBuilder->createNamedParameter(AgentRunStatus::terminalValues(), Connection::PARAM_STR_ARRAY),
-                ),
-            )
+            ->where(...$constraints)
             ->orderBy('crdate', 'DESC')
             ->setMaxResults($limit)
             ->executeQuery()

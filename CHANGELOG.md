@@ -8,6 +8,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- An editor-facing **AI Tasks** backend module in the Web area (ADR-131).
+  Editors with the module permission AND the `Execute AI tasks` grant run
+  prepared tasks (minus table-input tasks, whose record picker stays
+  admin-only) through a slim surface without any management affordances;
+  the approvals inbox is shared with the admin module and scopes
+  visibility by actor — admins and `Approve suspended AI runs` holders
+  see every run, everyone else only their own. Both ADR-130 grants are
+  observable for the first time. The runs infobox now states the actual
+  visibility rule instead of claiming to be admin-only.
+- Capability grants for backend users (ADR-130). Two grants, assigned per
+  backend group through TYPO3's own permission mechanism (`be_groups`
+  access lists): `Execute AI tasks` opens the two task-execution AJAX
+  endpoints to non-admins (bounded by the per-user budget), `Approve
+  suspended AI runs` lets a granted user decide other users' suspended
+  runs. Nothing changes for anyone until a grant is ticked; admins hold
+  every grant implicitly. Grants live on `AiActorContext` — the door
+  ADR-117 left open — and `backendUser()` gained an optional `$grants`
+  parameter (additive; recorded in the API snapshot). The task module's
+  management surface and a non-admin editing module are the committed
+  follow-up milestone.
+- Task execution enforces the executing user's budget (audit REC #4,
+  closing the hook documented in `TaskExecutionService` since slice 13c).
+  The controller passes the backend user's uid; the `BudgetMiddleware`
+  pre-flights the per-user cap before the provider is paid and the
+  recorded usage is attributed to that user. A denial surfaces as its own
+  localized message instead of the generic failure text. Note: the task
+  module is admin-only, so this can now block an administrator whose
+  personal budget is exhausted — configuration limits applied before and
+  still do.
 - The `@api` surface (ADR-127) is frozen in `Tests/Unit/Api/api-surface.txt`:
   a snapshot test renders every marked class's declared public signatures and
   fails on an unintended change; the same pass asserts the closure rule —
@@ -88,6 +117,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`netresearch/nr-vault` is now required at `^0.14.0`** (was `^0.13.0`). 0.14
+  extends `VaultServiceInterface` with `retrieveForFrontend()`,
+  `assertDeletable()` and `setEnabled()`, adds `$includeDisabled` to `list()`
+  and removes `clearCache()`. No production class here implements that
+  interface, so only the in-memory test double changed. Operators upgrading a
+  site: 0.14 replaces nr-vault's admin-only model with grantable operation
+  permissions — backend users who reach an API key through nr-llm need
+  `tx_nrvault:secret.use`, and `secret.create` to store one. See nr-vault's
+  0.14.0 migration notes.
 - **BREAKING for external `completeStructured()` callers:** the schema is now
   validated against a named strict subset (ADR-126). Every subset keyword —
   enum, pattern, bounds, `oneOf` and friends — is enforced on the response,

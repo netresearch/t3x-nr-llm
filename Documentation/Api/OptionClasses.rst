@@ -69,6 +69,23 @@ ChatOptions
 
       Set system prompt.
 
+   .. php:method:: withResponseFormat(string $format): self
+
+      Request an output format: ``text``, ``json`` or ``markdown``.
+      ``json`` activates the provider's native JSON mode on every
+      adapter (:ref:`ADR-128 <adr-128>`).
+
+   .. php:method:: withResponseSchema(array $schema): self
+
+      Attach a strict-subset JSON schema (:ref:`ADR-126 <adr-126>`) the
+      provider should enforce natively where it can. Set automatically
+      by ``completeStructured()``; the local strict validation remains
+      authoritative either way.
+
+   .. php:method:: withStopSequences(array $sequences): self
+
+      Set stop sequences the model must not generate past.
+
    .. php:method:: withProvider(string $provider): self
 
       Set provider (openai, claude, gemini).

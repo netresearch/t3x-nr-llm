@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 
 /**
@@ -32,6 +33,7 @@ final readonly class AiActorContext
     /**
      * @param list<int>                 $backendGroupIds The actor's backend group uids, used to evaluate configuration access restrictions (ADR-070).
      * @param list<ServiceAccountScope> $scopes          The capabilities a service account is permitted (ADR-110); empty (and irrelevant) for a backend user, who is authorised by ownership and admin rights instead.
+     * @param list<BackendUserGrant>    $grants          The capability grants a human backend user holds (ADR-130), frozen from the live user's group permissions at the HTTP boundary; empty (and irrelevant) for a service account, whose mechanism is $scopes.
      */
     private function __construct(
         public int $backendUserUid,
@@ -39,16 +41,18 @@ final readonly class AiActorContext
         public array $backendGroupIds,
         public ?string $serviceAccount,
         public array $scopes = [],
+        public array $grants = [],
     ) {}
 
     /**
      * An authenticated backend user.
      *
-     * @param list<int> $backendGroupIds
+     * @param list<int>              $backendGroupIds
+     * @param list<BackendUserGrant> $grants
      */
-    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = []): self
+    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = []): self
     {
-        return new self($uid, $isAdmin, $backendGroupIds, null);
+        return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants));
     }
 
     /**
@@ -89,6 +93,7 @@ final readonly class AiActorContext
         $groupIds       = $data['backendGroupIds'] ?? [];
         $serviceAccount = $data['serviceAccount'] ?? null;
         $scopes         = $data['scopes'] ?? [];
+        $grants         = $data['grants'] ?? [];
 
         return new self(
             is_int($uid) ? $uid : 0,
@@ -96,6 +101,7 @@ final readonly class AiActorContext
             is_array($groupIds) ? array_values(array_filter($groupIds, is_int(...))) : [],
             is_string($serviceAccount) && $serviceAccount !== '' ? $serviceAccount : null,
             is_array($scopes) ? self::decodeScopes($scopes) : [],
+            is_array($grants) ? self::decodeGrants($grants) : [],
         );
     }
 
@@ -121,6 +127,27 @@ final readonly class AiActorContext
         return $scopes;
     }
 
+    /**
+     * Restore the grant set from its serialised string form, dropping anything
+     * that is not a known grant value — same fail-closed rule as the scopes.
+     *
+     * @param array<array-key, mixed> $values
+     *
+     * @return list<BackendUserGrant>
+     */
+    private static function decodeGrants(array $values): array
+    {
+        $grants = [];
+        foreach ($values as $value) {
+            $grant = is_string($value) ? BackendUserGrant::tryFrom($value) : null;
+            if ($grant !== null) {
+                $grants[] = $grant;
+            }
+        }
+
+        return $grants;
+    }
+
     public function isServiceAccount(): bool
     {
         return $this->serviceAccount !== null;
@@ -135,6 +162,22 @@ final readonly class AiActorContext
     public function hasScope(ServiceAccountScope $scope): bool
     {
         return in_array($scope, $this->scopes, true);
+    }
+
+    /**
+     * Whether a human backend user holds the given capability grant (ADR-130).
+     * Administrators hold every grant implicitly — mirroring both the core's
+     * `check()` and the admin-first branches of {@see mayAccessSession()} /
+     * {@see mayActOnRun()}. Always false for a service account (its mechanism
+     * is {@see hasScope()}) and for an anonymous caller.
+     */
+    public function hasGrant(BackendUserGrant $grant): bool
+    {
+        if ($this->isServiceAccount()) {
+            return false;
+        }
+
+        return $this->isAdmin || in_array($grant, $this->grants, true);
     }
 
     public function isAuthenticated(): bool
@@ -179,6 +222,14 @@ final readonly class AiActorContext
             return $this->hasScope($scope);
         }
 
+        // The human sibling of the AGENT_APPROVE scope (ADR-130): a backend
+        // user granted approval may decide OTHER users' suspended runs, not
+        // only their own. Deliberately the only scope with a grant
+        // equivalent — every other case stays owner-or-admin.
+        if ($scope === ServiceAccountScope::AGENT_APPROVE && $this->hasGrant(BackendUserGrant::AGENT_APPROVE)) {
+            return true;
+        }
+
         return $this->backendUserUid > 0 && $this->backendUserUid === $run->beUser;
     }
 
@@ -203,7 +254,7 @@ final readonly class AiActorContext
      * The serialised form persisted with a queued run so a worker can restore
      * the full actor (not just a backend-user id) via {@see fromArray()}.
      *
-     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>}
+     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>}
      */
     public function toArray(): array
     {
@@ -213,6 +264,7 @@ final readonly class AiActorContext
             'backendGroupIds' => $this->backendGroupIds,
             'serviceAccount'  => $this->serviceAccount,
             'scopes'          => array_map(static fn(ServiceAccountScope $s): string => $s->value, $this->scopes),
+            'grants'          => array_map(static fn(BackendUserGrant $g): string => $g->value, $this->grants),
         ];
     }
 }

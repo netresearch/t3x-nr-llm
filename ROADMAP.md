@@ -21,7 +21,7 @@ or audited — one registry, one gate, one agent loop (ADR-116).
 
 1. **A first-class contract for side-effecting tools — when one exists.**
    The effect classification, the write fence and the fail-closed audit are in
-   place, but all 44 builtin tools read; nothing exercises the write path. The
+   place, but all 41 builtin tools read; nothing exercises the write path. The
    proposed interface, idempotency scope and preview each had no reader and no
    display, so they are deferred rather than guessed at (ADR-122). The
    machinery and a coverage test that forces a new writer to declare itself are
@@ -30,10 +30,12 @@ or audited — one registry, one gate, one agent loop (ADR-116).
 
 ## Toward 1.0
 
-- **Role model and editor actions.** Distinct operational roles (system
-  administration, AI management, AI operation, editing) instead of the current
-  admin-centric permissions, plus a purpose-built editor action API rather
-  than generic record CRUD.
+- **Role model and editor actions.** Shipped as a grant-set: explicit
+  per-group capability grants on `AiActorContext` (ADR-130) and the
+  editor-facing AI Tasks module that makes them observable (ADR-131) —
+  run prepared tasks, decide approvals, budget-bounded per user.
+  Remaining: a management grant once a management surface exists, and a
+  purpose-built editor action API rather than generic record CRUD.
 - **Complete structured outputs.** Shipped end to end: a named, fail-closed
   strict subset (enum, pattern, `oneOf`, bounds, combinators — ADR-126) with
   `$ref` resolution deliberately out; provider-native enforcement on all

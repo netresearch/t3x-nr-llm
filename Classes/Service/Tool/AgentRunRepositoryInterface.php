@@ -163,7 +163,7 @@ interface AgentRunRepositoryInterface
      *
      * @return list<AgentRun>
      */
-    public function findAwaiting(int $limit = 100): array;
+    public function findAwaiting(int $limit = 100, ?int $beUser = null): array;
 
     /**
      * The most recent terminal runs (completed, failed, cancelled), newest
@@ -172,7 +172,7 @@ interface AgentRunRepositoryInterface
      *
      * @return list<AgentRun>
      */
-    public function findRecentTerminal(int $limit = 20): array;
+    public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array;
 
     /**
      * Count runs per lifecycle status created on/after $since (0 = all time).
