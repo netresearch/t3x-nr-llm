@@ -276,6 +276,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `DeepLTranslator` sent `preserve_formatting` as the string `"1"`/`"0"` in a
+  JSON request body. DeepL's `/v2/translate` accepts that string form only on
+  the classic form-encoded API (`PreserveFormattingOptionStr`); over JSON it
+  expects a genuine boolean (`PreserveFormattingOption`) and rejects the
+  string with `{"message":"Value for 'preserve_formatting' not supported."}`.
+  Since `TranslationOptions` defaults `preserveFormatting` to `true`, this
+  affected the specialized-translator path on effectively every call that
+  reached DeepL with default options, not just callers who opted into
+  formatting preservation explicitly. Both payload builders now pass the
+  native `bool` through unchanged; verified against the live API.
+  `split_sentences` is intentionally left as the string cast — DeepL's schema
+  has no boolean variant for it in either request-body form
+  (`SplitSentencesOption` is `'0'|'1'|'nonewlines'` for both).
+
 - `LlmTranslator::getPriority()` returned `100`, higher than
   `DeepLTranslator`'s `90`. Per the "higher priority sorts first" contract
   on `TranslatorInterface::getPriority()`, that put the universal LLM
@@ -297,7 +311,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   request, so this only affects the selection check, not the request
   itself. `TranslatorInterface::supportsLanguagePair()`'s docblock now
   documents this as part of the contract for other implementations.
-
 - A requeued agent run no longer inherits the write fence of its previous
   attempt. The requeue cleared the worker claim and the lease but left
   `pending_effect` standing, so a later failure could be judged against a write

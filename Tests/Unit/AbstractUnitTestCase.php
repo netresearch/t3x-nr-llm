@@ -71,19 +71,29 @@ abstract class AbstractUnitTestCase extends TestCase
 
     /**
      * Create a stub request factory.
+     *
+     * Pass a variable by reference in $capturedBody to capture the raw
+     * content of the last withBody() call on the produced request(s) — e.g.
+     * to assert on the actual JSON payload a specialized service sends.
+     * Without it, withBody() stays a no-op, as before.
      */
-    protected function createRequestFactoryMock(): RequestFactoryInterface
+    protected function createRequestFactoryMock(?string &$capturedBody = null): RequestFactoryInterface
     {
         $stub = self::createStub(RequestFactoryInterface::class);
         $stub->method('createRequest')
-            ->willReturnCallback(fn(string $method, string $uri): RequestInterface => $this->createRequestMock($method, $uri));
+            ->willReturnCallback(function (string $method, string $uri) use (&$capturedBody): RequestInterface {
+                return $this->createRequestMock($method, $uri, $capturedBody);
+            });
         return $stub;
     }
 
     /**
      * Create a stub HTTP request with proper chaining support.
+     *
+     * Pass a variable by reference in $capturedBody to capture the raw
+     * content passed to withBody() — otherwise withBody() stays a no-op.
      */
-    protected function createRequestMock(string $method = 'GET', string $uri = 'https://example.com'): RequestInterface
+    protected function createRequestMock(string $method = 'GET', string $uri = 'https://example.com', ?string &$capturedBody = null): RequestInterface
     {
         $uriStub = self::createStub(UriInterface::class);
         $uriStub->method('__toString')->willReturn($uri);
@@ -95,7 +105,12 @@ abstract class AbstractUnitTestCase extends TestCase
 
         // Use callback to return the same stub for chaining methods
         $request->method('withHeader')->willReturnCallback(fn(): Stub => $request);
-        $request->method('withBody')->willReturnCallback(fn(): Stub => $request);
+        $request->method('withBody')->willReturnCallback(
+            function (StreamInterface $body) use ($request, &$capturedBody): RequestInterface {
+                $capturedBody = $body->getContents();
+                return $request;
+            },
+        );
         $request->method('withoutHeader')->willReturnCallback(fn(): Stub => $request);
         $request->method('getMethod')->willReturn($method);
         $request->method('getUri')->willReturn($uriStub);
