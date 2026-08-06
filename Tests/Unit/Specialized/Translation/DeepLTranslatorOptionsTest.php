@@ -226,6 +226,120 @@ class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
         self::assertEquals('Formatted', $result->translatedText);
     }
 
+    /**
+     * Regression test for the JSON-vs-form-encoded API mismatch: DeepL's
+     * `/v2/translate` rejected `preserve_formatting` as the string "1"/"0"
+     * over JSON with `{"message":"Value for 'preserve_formatting' not
+     * supported."}` (verified against the live API) — it needs a genuine
+     * JSON boolean there (`PreserveFormattingOption`, `type: boolean`, per
+     * DeepLcom/openapi). `split_sentences` stays a string: unlike
+     * `preserve_formatting`, DeepL has no boolean variant for it at all —
+     * `SplitSentencesOption` (`'0'|'1'|'nonewlines'`) is the same string
+     * enum for both the JSON and form-encoded body.
+     *
+     * The other tests in this class use `createTranslatorWithMockClient()`,
+     * whose `createRequestMock()` call makes `withBody()` a no-op that
+     * discards the argument, so they cannot see this class of bug; this
+     * test passes the shared helper a by-reference capture variable instead
+     * to inspect the actual request body.
+     */
+    #[Test]
+    public function translateSendsPreserveFormattingAsJsonBooleanAndSplitSentencesAsString(): void
+    {
+        $capturedBody = null;
+
+        $httpClientMock = self::createStub(ClientInterface::class);
+        $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'translations' => [
+                ['text' => 'Formatted', 'detected_source_language' => 'EN'],
+            ],
+        ]));
+
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock($capturedBody),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock([
+                'translators' => [
+                    'deepl' => ['apiKeyIdentifier' => $this->randomApiKey(), 'timeout' => 30],
+                ],
+            ]),
+            self::createStub(UsageTrackerServiceInterface::class),
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
+        );
+        $translator->setHttpClient($httpClientMock);
+
+        $options = new DeepLOptions(preserveFormatting: true, splitSentences: false);
+        $translator->translate('Hello', 'de', null, ['deepl' => $options]);
+
+        self::assertNotNull($capturedBody, 'Expected withBody() to have been called with the JSON payload.');
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue(
+            $decoded['preserve_formatting'] ?? null,
+            'preserve_formatting must be a JSON boolean — DeepL rejects the string "1"/"0" over the JSON API.',
+        );
+        self::assertSame(
+            '0',
+            $decoded['split_sentences'] ?? null,
+            'split_sentences has no boolean variant in DeepL\'s schema — it must stay the string "0"/"1"/"nonewlines".',
+        );
+    }
+
+    /**
+     * Same regression, for the batch path (buildBatchPayload() /
+     * translateBatch()) — batch has no split_sentences option at all, so
+     * only preserve_formatting is asserted here.
+     */
+    #[Test]
+    public function translateBatchSendsPreserveFormattingAsJsonBoolean(): void
+    {
+        $capturedBody = null;
+
+        $httpClientMock = self::createStub(ClientInterface::class);
+        $httpClientMock->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'translations' => [
+                ['text' => 'Formatted 1', 'detected_source_language' => 'EN'],
+                ['text' => 'Formatted 2', 'detected_source_language' => 'EN'],
+            ],
+        ]));
+
+        $translator = new DeepLTranslator(
+            $this->createVaultServiceMock(),
+            $this->createRequestFactoryMock($capturedBody),
+            $this->createStreamFactoryMock(),
+            $this->createExtensionConfigurationMock([
+                'translators' => [
+                    'deepl' => ['apiKeyIdentifier' => $this->randomApiKey(), 'timeout' => 30],
+                ],
+            ]),
+            self::createStub(UsageTrackerServiceInterface::class),
+            $this->createLoggerMock(),
+            self::createStub(SpecializedCostCalculatorInterface::class),
+            new AllowingBudgetService(),
+            new MiddlewarePipeline([]),
+            new InputGuardrailScreener([]),
+        );
+        $translator->setHttpClient($httpClientMock);
+
+        $options = new DeepLOptions(preserveFormatting: true);
+        $translator->translateBatch(['Hello', 'World'], 'de', null, ['deepl' => $options]);
+
+        self::assertNotNull($capturedBody, 'Expected withBody() to have been called with the JSON payload.');
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($capturedBody, true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue(
+            $decoded['preserve_formatting'] ?? null,
+            'preserve_formatting must be a JSON boolean on the batch path too.',
+        );
+    }
+
     #[Test]
     public function translateWithTagHandlingIncludesInPayload(): void
     {
