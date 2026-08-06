@@ -181,6 +181,33 @@
             <trans-unit id="error.grantRequired">
                 <source>This action requires a permission your backend account does not hold. Please contact your site administrator.</source>
             </trans-unit>
+            <trans-unit id="task.card.editorModule">
+                <source>Editor module</source>
+            </trans-unit>
+            <trans-unit id="aitasks.title">
+                <source>AI tasks</source>
+            </trans-unit>
+            <trans-unit id="aitasks.intro">
+                <source>Run an AI task your administrators prepared. Every run counts against your personal usage budget.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.btn.run">
+                <source>Run</source>
+            </trans-unit>
+            <trans-unit id="aitasks.btn.approvals">
+                <source>Approvals</source>
+            </trans-unit>
+            <trans-unit id="aitasks.empty">
+                <source>No tasks are available to run yet. Ask your administrator to create and activate AI tasks.</source>
+            </trans-unit>
+            <trans-unit id="aitasks.notAvailable">
+                <source>This task is not available.</source>
+            </trans-unit>
+            <trans-unit id="runs.ownOnly">
+                <source>You see only the runs you started. Deciding other users' runs requires the approval permission.</source>
+            </trans-unit>
+            <trans-unit id="runs.allVisible">
+                <source>You see every run. Approving or denying continues the run under its owner's identity; your decision is recorded.</source>
+            </trans-unit>
             <trans-unit id="grants.header">
                 <source>AI (nr_llm) permissions</source>
             </trans-unit>

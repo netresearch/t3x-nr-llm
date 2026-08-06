@@ -795,4 +795,50 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         self::assertContains($cancelled->uuid, $uuids);
         self::assertNotContains($waiting->uuid, $uuids);
     }
+
+    #[Test]
+    public function findAwaitingScopedToABackendUserReturnsOnlyThatUsersRuns(): void
+    {
+        // ADR-131: the editor module's restricted runs view lists only the
+        // caller's own runs; the unscoped call stays the admin/approver view.
+        $mine = $this->persister->begin(null, 5);
+        self::assertNotNull($mine);
+        self::assertTrue($this->persister->suspend(
+            $mine,
+            new SuspendedRunState([], [ToolCall::function('c1', 'delete_thing', [])->toArray()], 1, 0, 0),
+        ));
+
+        $theirs = $this->persister->begin(null, 7);
+        self::assertNotNull($theirs);
+        self::assertTrue($this->persister->suspend(
+            $theirs,
+            new SuspendedRunState([], [ToolCall::function('c2', 'delete_thing', [])->toArray()], 1, 0, 0),
+        ));
+
+        $own = $this->repository->findAwaiting(beUser: 5);
+        self::assertSame([$mine->uuid], array_map(static fn(AgentRun $run): string => $run->uuid, $own));
+
+        $all = array_map(static fn(AgentRun $run): string => $run->uuid, $this->repository->findAwaiting());
+        self::assertContains($mine->uuid, $all);
+        self::assertContains($theirs->uuid, $all);
+    }
+
+    #[Test]
+    public function findRecentTerminalScopedToABackendUserReturnsOnlyThatUsersRuns(): void
+    {
+        $mine = $this->persister->begin(null, 5);
+        self::assertNotNull($mine);
+        $this->persister->settleCompleted($mine, new ToolLoopResult('x', [], 1, false, UsageStatistics::fromTokens(1, 1)));
+
+        $theirs = $this->persister->begin(null, 7);
+        self::assertNotNull($theirs);
+        $this->persister->settleFailed($theirs, new RuntimeException('boom', 1754500001));
+
+        $own = $this->repository->findRecentTerminal(beUser: 5);
+        self::assertSame([$mine->uuid], array_map(static fn(AgentRun $run): string => $run->uuid, $own));
+
+        $all = array_map(static fn(AgentRun $run): string => $run->uuid, $this->repository->findRecentTerminal());
+        self::assertContains($mine->uuid, $all);
+        self::assertContains($theirs->uuid, $all);
+    }
 }

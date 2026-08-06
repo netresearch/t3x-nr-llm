@@ -50,8 +50,8 @@ Roles are named grant bundles, not code:
 Preset           Grants
 ===============  ======================================================
 AI editor        ``tasks_use``
-AI operator      ``tasks_use`` (task management arrives with the
-                 non-admin editing module)
+AI operator      ``tasks_use`` (a management grant still awaits a
+                 management surface — ADR-131 adds none)
 ===============  ======================================================
 
 Approval (``agent_approve``) sits in no preset — add it deliberately
@@ -60,8 +60,11 @@ where the organisation wants non-admin approvers.
 Current reach
 =============
 
-Until the dedicated non-admin editing module ships, grant holders reach
-the granted actions through their endpoints, not through the admin
-modules (which stay admin-only). Everything else — configuration,
-providers, models, the playground, record browsing — remains
-administrator-only regardless of grants.
+Grant holders work in the dedicated **AI Tasks** module (``web`` group,
+:ref:`ADR-131 <adr-131>`). Reaching it takes BOTH switches: the module
+must be ticked in the group's module list (``access => user``) AND the
+grant must be held — the module switch alone never grants execution.
+Tasks with the ``table`` input type are not offered to editors (their
+record picker has no read boundary yet and stays admin-only).
+Everything else — configuration, providers, models, the playground,
+record browsing — remains administrator-only regardless of grants.

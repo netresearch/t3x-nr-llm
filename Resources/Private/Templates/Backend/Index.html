@@ -235,6 +235,7 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                     <f:if condition="{statuses.providers.stateValue} == 'ready'">
                         <a href="{taskWizardUrl}"><core:icon identifier="actions-bolt" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:taskAi.createWithAi" default="Create with AI" /></a>
                     </f:if>
+                    <a href="{be:moduleLink(route: 'nrllm_aitasks')}"><core:icon identifier="actions-user" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.card.editorModule" default="Editor module" /></a>
                 </div>
             </div>
 

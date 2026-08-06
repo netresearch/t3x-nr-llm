@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- An editor-facing **AI Tasks** backend module in the Web area (ADR-131).
+  Editors with the module permission AND the `Execute AI tasks` grant run
+  prepared tasks (minus table-input tasks, whose record picker stays
+  admin-only) through a slim surface without any management affordances;
+  the approvals inbox is shared with the admin module and scopes
+  visibility by actor — admins and `Approve suspended AI runs` holders
+  see every run, everyone else only their own. Both ADR-130 grants are
+  observable for the first time. The runs infobox now states the actual
+  visibility rule instead of claiming to be admin-only.
 - Capability grants for backend users (ADR-130). Two grants, assigned per
   backend group through TYPO3's own permission mechanism (`be_groups`
   access lists): `Execute AI tasks` opens the two task-execution AJAX

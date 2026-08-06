@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
@@ -37,12 +38,17 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * The "Agent Runs" approvals inbox (ADR-109): the human-facing surface for runs
  * suspended WAITING_FOR_APPROVAL (ADR-084) or WAITING_FOR_INPUT (ADR-105).
  *
- * All three actions are module-route controllerActions gated by the module's
- * `access => admin` (Configuration/Backend/Modules.php) — the sole authorization
- * gate. Unlike the AJAX endpoints on {@see ToolPlaygroundController}, a
- * module-route action cannot be reached without that access, so
- * RequiresBackendAdminTrait is not needed here (and its JSON 403 body would be
- * wrong for an HTML page). Any admin may act on any run; the recorded
+ * The three actions are module-route controllerActions, reachable through TWO
+ * modules since ADR-131: the admin inbox (`nrllm_runs`, `access => admin`) and
+ * the editor module (`nrllm_aitasks`, `access => user`). Unlike the AJAX
+ * endpoints on {@see ToolPlaygroundController}, a module-route action cannot
+ * be reached without module access, so RequiresBackendAdminTrait is not
+ * needed here (and its JSON 403 body would be wrong for an HTML page).
+ * Visibility is actor-scoped: an admin or an `agent_approve` grant holder
+ * sees every run, everyone else only their own — and the WRITE side is
+ * independently authorised per run by
+ * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()},
+ * so the list filter is a viewport, never the security boundary. The recorded
  * decidedBy/submittedBy uid is audit-only.
  *
  * The page works fully with JavaScript OFF: native `<f:form>` POST, a
@@ -204,17 +210,28 @@ final class AgentRunController extends ActionController
      */
     private function renderList(string $errorRunUuid, array $rawInput, string $errorSummary): ResponseInterface
     {
-        $waitingRuns  = $this->persister->findAwaitingRuns();
-        $terminalRuns = $this->persister->findRecentTerminalRuns();
+        // Actor-scoped viewport (ADR-131): admins and approval-grant holders
+        // see every run, everyone else only their own. The write side stays
+        // independently authorised per run by mayActOnRun(), so this filter
+        // shapes the list, never the security boundary. An absent BE user
+        // degrades to uid 0 = empty lists (fail-closed).
+        $actor      = $this->currentActor();
+        $restrictTo = ($actor->isAdmin || $actor->hasGrant(BackendUserGrant::AGENT_APPROVE))
+            ? null
+            : $actor->backendUserUid;
+
+        $waitingRuns  = $this->persister->findAwaitingRuns(beUser: $restrictTo);
+        $terminalRuns = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
         $dataLoadError = $waitingRuns === null || $terminalRuns === null;
 
         $this->moduleTemplate->assignMultiple([
-            'waiting'       => $this->viewFactory->buildWaiting($waitingRuns ?? []),
-            'terminal'      => $this->viewFactory->buildTerminal($terminalRuns ?? []),
-            'dataLoadError' => $dataLoadError,
-            'errorRunUuid'  => $errorRunUuid,
-            'rawInput'      => $rawInput,
-            'errorSummary'  => $errorSummary,
+            'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? []),
+            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? []),
+            'dataLoadError'  => $dataLoadError,
+            'errorRunUuid'   => $errorRunUuid,
+            'rawInput'       => $rawInput,
+            'errorSummary'   => $errorSummary,
+            'restrictedView' => $restrictTo !== null,
         ]);
 
         return $this->moduleTemplate->renderResponse('Backend/AgentRun/List');
