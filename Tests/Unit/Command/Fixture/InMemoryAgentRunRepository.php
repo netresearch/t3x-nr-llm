@@ -160,12 +160,12 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return null;
     }
 
-    public function findAwaiting(int $limit = 100): array
+    public function findAwaiting(int $limit = 100, ?int $beUser = null): array
     {
         return [];
     }
 
-    public function findRecentTerminal(int $limit = 20): array
+    public function findRecentTerminal(int $limit = 20, ?int $beUser = null): array
     {
         return [];
     }

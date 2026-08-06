@@ -178,4 +178,79 @@ final class RequiresBackendAdminTraitTest extends TestCase
         self::assertInstanceOf(ResponseInterface::class, $response);
         self::assertSame(403, $response->getStatusCode());
     }
+
+    /**
+     * Run the HTML grant guard via an anonymous class exposing the private method.
+     */
+    private function grantGuardHtmlResult(): ?ResponseInterface
+    {
+        $subject = new class {
+            use RequiresBackendAdminTrait;
+
+            public function expose(): ?ResponseInterface
+            {
+                return $this->denyWithoutGrantHtml(BackendUserGrant::TASKS_USE);
+            }
+        };
+
+        return $subject->expose();
+    }
+
+    #[Test]
+    public function denyWithoutGrantHtmlPassesAdminsWithoutAnyGrant(): void
+    {
+        $backendUser = self::createStub(BackendUserAuthentication::class);
+        $backendUser->method('isAdmin')->willReturn(true);
+        $backendUser->method('check')->willReturn(false);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        self::assertNull($this->grantGuardHtmlResult());
+    }
+
+    #[Test]
+    public function denyWithoutGrantHtmlPassesANonAdminHoldingTheGrant(): void
+    {
+        $backendUser = self::createStub(BackendUserAuthentication::class);
+        $backendUser->method('isAdmin')->willReturn(false);
+        $backendUser->method('check')->willReturnCallback(
+            static fn(string $type, string $value): bool => $type === 'custom_options'
+                && $value === BackendUserGrant::TASKS_USE->permissionValue(),
+        );
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        self::assertNull($this->grantGuardHtmlResult());
+    }
+
+    #[Test]
+    public function denyWithoutGrantHtmlReturnsAnHtmlForbiddenForAGrantlessNonAdmin(): void
+    {
+        $backendUser = self::createStub(BackendUserAuthentication::class);
+        $backendUser->method('isAdmin')->willReturn(false);
+        $backendUser->method('check')->willReturn(false);
+        $GLOBALS['BE_USER'] = $backendUser;
+
+        $response = $this->grantGuardHtmlResult();
+
+        self::assertInstanceOf(ResponseInterface::class, $response);
+        self::assertSame(403, $response->getStatusCode());
+        // Module-route actions render into a page, so the guard must answer
+        // with an HTML fragment — not the JSON shape of the AJAX guards.
+        self::assertStringContainsString('text/html', $response->getHeaderLine('Content-Type'));
+        $body = (string)$response->getBody();
+        self::assertStringStartsWith('<div', $body);
+        self::assertNull(json_decode($body), 'the body is a page fragment, not a JSON payload');
+        self::assertStringContainsStringIgnoringCase('permission', $body);
+    }
+
+    #[Test]
+    public function denyWithoutGrantHtmlReturnsForbiddenWhenNoBackendUserIsPresent(): void
+    {
+        unset($GLOBALS['BE_USER']);
+
+        $response = $this->grantGuardHtmlResult();
+
+        self::assertInstanceOf(ResponseInterface::class, $response);
+        self::assertSame(403, $response->getStatusCode());
+        self::assertStringContainsString('text/html', $response->getHeaderLine('Content-Type'));
+    }
 }

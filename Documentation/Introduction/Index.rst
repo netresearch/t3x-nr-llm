@@ -22,9 +22,10 @@ keys, or implement caching and streaming. Add AI
 capabilities to your extension with three lines
 of dependency injection.
 
-**For administrators**, it provides a single backend module to manage all AI
-connections, encrypted API keys, and provider
-configurations. Switch from OpenAI to Anthropic
+**For administrators**, it provides a backend module tree to manage all AI
+connections, encrypted API keys, and provider configurations — plus a
+dedicated **AI Tasks** module in the Web area where editors run prepared
+tasks and decide pending approvals, gated by explicit permissions. Switch from OpenAI to Anthropic
 without touching any extension code.
 
 **For agencies**, it means consistent AI architecture across client projects, no

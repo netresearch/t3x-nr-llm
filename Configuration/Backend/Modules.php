@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
+use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
@@ -290,6 +291,39 @@ return [
         'controllerActions' => [
             AnalyticsController::class => [
                 'index',
+            ],
+        ],
+    ],
+    // Editor-facing task/approvals module (ADR-131). Deliberately OUTSIDE the
+    // admin-only 'nrllm' tree: the menu filters out every top-level module
+    // whose own access check fails, so a child of 'nrllm' would be invisible
+    // to non-admins. Lives in the 'web' group where editors work.
+    //
+    // access => 'user' (NOT 'user,group': v14 resolves access strings through
+    // a gate registry that only knows user/admin/systemMaintainer — anything
+    // else denies EVERYONE, admins included). 'user' means the module must be
+    // ticked in be_groups; the tasks_use/agent_approve grants are checked per
+    // action on top — the module switch alone never grants execution.
+    'nrllm_aitasks' => [
+        'parent' => 'web',
+        'access' => 'user',
+        'iconIdentifier' => 'module-nrllm-task',
+        'path' => '/module/web/nrllm-aitasks',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_aitasks.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            AiTaskController::class => [
+                'list',
+                'executeForm',
+            ],
+            // The approvals inbox actions, shared with 'nrllm_runs': the
+            // controller scopes visibility by actor (admin/approval grant =>
+            // all runs, else own) and the write side is authorised per run by
+            // mayActOnRun() — no logic is duplicated for the second module.
+            AgentRunController::class => [
+                'list',
+                'approve',
+                'submitInput',
             ],
         ],
     ],

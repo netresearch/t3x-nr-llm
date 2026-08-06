@@ -238,6 +238,42 @@
                 <source>This action requires a permission your backend account does not hold. Please contact your site administrator.</source>
                 <target>Diese Aktion erfordert eine Berechtigung, die Ihr Backend-Konto nicht besitzt. Bitte wenden Sie sich an Ihren Website-Administrator.</target>
             </trans-unit>
+            <trans-unit id="task.card.editorModule">
+                <source>Editor module</source>
+                <target>Redakteurs-Modul</target>
+            </trans-unit>
+            <trans-unit id="aitasks.title">
+                <source>AI tasks</source>
+                <target>KI-Aufgaben</target>
+            </trans-unit>
+            <trans-unit id="aitasks.intro">
+                <source>Run an AI task your administrators prepared. Every run counts against your personal usage budget.</source>
+                <target>Führen Sie eine von Ihren Administratoren vorbereitete KI-Aufgabe aus. Jede Ausführung zählt gegen Ihr persönliches Nutzungsbudget.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.btn.run">
+                <source>Run</source>
+                <target>Ausführen</target>
+            </trans-unit>
+            <trans-unit id="aitasks.btn.approvals">
+                <source>Approvals</source>
+                <target>Freigaben</target>
+            </trans-unit>
+            <trans-unit id="aitasks.empty">
+                <source>No tasks are available to run yet. Ask your administrator to create and activate AI tasks.</source>
+                <target>Es sind noch keine ausführbaren Aufgaben verfügbar. Bitten Sie Ihren Administrator, KI-Aufgaben anzulegen und zu aktivieren.</target>
+            </trans-unit>
+            <trans-unit id="aitasks.notAvailable">
+                <source>This task is not available.</source>
+                <target>Diese Aufgabe ist nicht verfügbar.</target>
+            </trans-unit>
+            <trans-unit id="runs.ownOnly">
+                <source>You see only the runs you started. Deciding other users' runs requires the approval permission.</source>
+                <target>Sie sehen nur die Läufe, die Sie selbst gestartet haben. Läufe anderer Benutzer zu entscheiden erfordert die Freigabe-Berechtigung.</target>
+            </trans-unit>
+            <trans-unit id="runs.allVisible">
+                <source>You see every run. Approving or denying continues the run under its owner's identity; your decision is recorded.</source>
+                <target>Sie sehen alle Läufe. Freigeben oder Ablehnen setzt den Lauf unter der Identität seines Eigentümers fort; Ihre Entscheidung wird protokolliert.</target>
+            </trans-unit>
             <trans-unit id="grants.header">
                 <source>AI (nr_llm) permissions</source>
                 <target>KI-Berechtigungen (nr_llm)</target>

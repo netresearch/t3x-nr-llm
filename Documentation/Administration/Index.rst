@@ -42,7 +42,7 @@ All AI management happens in
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The module has twelve sections accessible from the
+The admin module tree has thirteen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and

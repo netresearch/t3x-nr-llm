@@ -1,0 +1,63 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <core:icon identifier="module-nrllm-task" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.title" default="AI tasks" />
+        </h1>
+        <f:if condition="{showApprovals}">
+            <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
+                <core:icon identifier="module-nrllm-runs" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
+            </f:link.action>
+        </f:if>
+    </div>
+
+    <p class="text-muted">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.intro" default="Run an AI task your administrators prepared. Every run counts against your personal usage budget." />
+    </p>
+
+    <f:if condition="{tasks}">
+        <f:then>
+            <f:for each="{tasks}" as="categoryTasks" key="category">
+                <h2 class="mt-4 text-capitalize">{category}</h2>
+                <div class="row">
+                    <f:for each="{categoryTasks}" as="task">
+                        <div class="col-md-6 col-xl-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="card-title h5">{task.name}</h3>
+                                    <f:if condition="{task.description}">
+                                        <p class="card-text text-muted small">{task.description}</p>
+                                    </f:if>
+                                </div>
+                                <div class="card-footer">
+                                    <f:link.action action="executeForm" controller="Backend\AiTask" arguments="{uid: task.uid}" class="btn btn-primary btn-sm">
+                                        <core:icon identifier="actions-play" size="small" />
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.run" default="Run" />
+                                    </f:link.action>
+                                </div>
+                            </div>
+                        </div>
+                    </f:for>
+                </div>
+            </f:for>
+        </f:then>
+        <f:else>
+            <div class="callout callout-info">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.empty" default="No tasks are available to run yet. Ask your administrator to create and activate AI tasks." /></p>
+            </div>
+        </f:else>
+    </f:if>
+</f:section>
+
+</html>
