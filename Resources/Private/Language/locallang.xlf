@@ -1320,6 +1320,9 @@
             <trans-unit id="error.task.notActive">
                 <source>Task is not active</source>
             </trans-unit>
+            <trans-unit id="error.task.budgetExceeded">
+                <source>Execution denied: your usage budget is exhausted.</source>
+            </trans-unit>
             <trans-unit id="error.records.listTablesDbError">
                 <source>Database error while listing tables.</source>
             </trans-unit>
