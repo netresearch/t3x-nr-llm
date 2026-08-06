@@ -118,6 +118,16 @@ configurations through the TYPO3 backend module.
       .. card-footer:: :ref:`Read more <configuration>`
          :button-style: btn btn-secondary stretched-link
 
+   .. card:: 🔐 Permissions & editor access
+
+      Grant editors exactly two capabilities —
+      run prepared tasks and approve suspended
+      runs — through the dedicated AI Tasks
+      module. Nothing is open by default.
+
+      .. card-footer:: :ref:`Read more <administration-permissions>`
+         :button-style: btn btn-secondary stretched-link
+
 ----
 
 For developers
@@ -159,7 +169,9 @@ of dependency injection, no API key handling.
    .. card:: 📚 API reference
 
       Complete class and method reference for
-      all public services and response objects.
+      all public services and response objects —
+      with a documented ``@api`` stability
+      promise, frozen in a snapshot test.
 
       .. card-footer:: :ref:`Read more <api-reference>`
          :button-style: btn btn-secondary stretched-link

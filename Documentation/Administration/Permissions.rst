@@ -24,6 +24,15 @@ hold. Notes:
 - Administrators hold every grant implicitly.
 - Revoking a grant takes effect with the user's next request.
 
+.. figure:: /Images/backend-permissions-grants.png
+   :alt: The AI (nr_llm) permissions section in a backend group's Options tab
+   :class: with-border with-shadow
+   :zoom: lightbox
+
+   The two grants in the backend group form (:guilabel:`Options` tab,
+   collapsible section "AI (nr_llm) permissions"), below the dashboard
+   widget permissions.
+
 Available grants
 ================
 
@@ -50,8 +59,9 @@ Roles are named grant bundles, not code:
 Preset           Grants
 ===============  ======================================================
 AI editor        ``tasks_use``
-AI operator      ``tasks_use`` (a management grant still awaits a
-                 management surface — ADR-131 adds none)
+AI operator      ``tasks_use`` — identical to *AI editor* on purpose: a
+                 management grant still awaits a management surface
+                 (ADR-131 adds none)
 ===============  ======================================================
 
 Approval (``agent_approve``) sits in no preset — add it deliberately
