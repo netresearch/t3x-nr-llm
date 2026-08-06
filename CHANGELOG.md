@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-08-06
+
 ### Added
 
 - An editor-facing **AI Tasks** backend module in the Web area (ADR-131).
@@ -2024,7 +2026,12 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.25.1...v0.26.0
+[0.25.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.25.0...v0.25.1
+[0.25.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.24.0...v0.25.0
+[0.24.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.23.1...v0.24.0
+[0.23.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.20.0...v0.21.0
