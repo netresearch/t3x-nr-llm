@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -45,6 +46,38 @@ trait RequiresBackendAdminTrait
         try {
             $message = LocalizationUtility::translate(
                 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.adminRequired',
+                'NrLlm',
+            ) ?? $fallback;
+        } catch (Throwable) {
+            // Outside a full TYPO3 request (e.g. an isolated unit context) the
+            // language service may be unavailable; fall back to the English message.
+            $message = $fallback;
+        }
+
+        return new JsonResponse(['success' => false, 'error' => $message], 403);
+    }
+
+    /**
+     * Returns a 403 JSON response unless the current backend user is an admin
+     * OR holds the given capability grant (ADR-130). The grant-set sibling of
+     * {@see denyNonAdmin()} for AJAX actions that a non-admin role may use;
+     * the core's `check()` reads the live group permissions per request, so a
+     * revoked grant stops working immediately.
+     */
+    private function denyWithoutGrant(BackendUserGrant $grant): ?ResponseInterface
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+        if ($backendUser instanceof BackendUserAuthentication
+            && ($backendUser->isAdmin() || $backendUser->check('custom_options', $grant->permissionValue()))
+        ) {
+            return null;
+        }
+
+        $fallback = 'This action requires a permission your backend account does not hold. Please contact your site administrator.';
+
+        try {
+            $message = LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.grantRequired',
                 'NrLlm',
             ) ?? $fallback;
         } catch (Throwable) {

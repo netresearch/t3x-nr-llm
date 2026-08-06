@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -146,6 +148,70 @@ final class AiActorContextTest extends TestCase
         self::assertFalse(
             AiActorContext::serviceAccount('w')->mayAccessSession($session),
             'scopeless service account is denied',
+        );
+    }
+
+    #[Test]
+    public function grantsSurviveTheQueueRoundTripAndUnknownValuesAreDropped(): void
+    {
+        $actor = AiActorContext::backendUser(9, grants: [BackendUserGrant::TASKS_USE]);
+
+        $restored = AiActorContext::fromArray($actor->toArray());
+        self::assertSame([BackendUserGrant::TASKS_USE], $restored->grants);
+
+        // A tampered or future row can never yield a grant this process does
+        // not define (fail-closed, same rule as scopes).
+        $tampered = AiActorContext::fromArray([
+            'backendUserUid' => 9,
+            'grants'         => ['tasks_use', 'root', 42, null],
+        ]);
+        self::assertSame([BackendUserGrant::TASKS_USE], $tampered->grants);
+    }
+
+    #[Test]
+    public function hasGrantIsImplicitForAdminsAndFailClosedOtherwise(): void
+    {
+        self::assertTrue(
+            AiActorContext::backendUser(9, grants: [BackendUserGrant::TASKS_USE])->hasGrant(BackendUserGrant::TASKS_USE),
+            'granted user',
+        );
+        self::assertFalse(
+            AiActorContext::backendUser(9)->hasGrant(BackendUserGrant::TASKS_USE),
+            'grantless user',
+        );
+        self::assertTrue(
+            AiActorContext::backendUser(9, isAdmin: true)->hasGrant(BackendUserGrant::TASKS_USE),
+            'admins hold every grant implicitly (ADR-130)',
+        );
+        self::assertFalse(
+            AiActorContext::serviceAccount('w', [ServiceAccountScope::AGENT_APPROVE])->hasGrant(BackendUserGrant::AGENT_APPROVE),
+            'grants never govern service accounts - their mechanism is scopes',
+        );
+        self::assertFalse(
+            AiActorContext::anonymous()->hasGrant(BackendUserGrant::TASKS_USE),
+            'anonymous caller',
+        );
+    }
+
+    #[Test]
+    public function theApproveGrantExtendsMayActOnRunToOtherUsersRunsOnly(): void
+    {
+        $someoneElsesRun = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 42, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+
+        $approver = AiActorContext::backendUser(7, grants: [BackendUserGrant::AGENT_APPROVE]);
+
+        // The human sibling of the AGENT_APPROVE scope (ADR-130): the granted
+        // user may decide runs they do not own...
+        self::assertTrue($approver->mayActOnRun($someoneElsesRun, ServiceAccountScope::AGENT_APPROVE));
+
+        // ...but the grant covers ONLY approval - every other operation stays
+        // owner-or-admin.
+        self::assertFalse($approver->mayActOnRun($someoneElsesRun, ServiceAccountScope::AGENT_CANCEL));
+        self::assertFalse($approver->mayActOnRun($someoneElsesRun, ServiceAccountScope::AGENT_READ));
+
+        // And without the grant, a stranger stays denied.
+        self::assertFalse(
+            AiActorContext::backendUser(7)->mayActOnRun($someoneElsesRun, ServiceAccountScope::AGENT_APPROVE),
         );
     }
 }
