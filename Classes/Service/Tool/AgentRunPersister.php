@@ -399,10 +399,10 @@ final readonly class AgentRunPersister
      *
      * @return list<AgentRun>|null null on a load error, else the (possibly empty) list
      */
-    public function findAwaitingRuns(int $limit = 100): ?array
+    public function findAwaitingRuns(int $limit = 100, ?int $beUser = null): ?array
     {
         try {
-            return $this->repository->findAwaiting($limit);
+            return $this->repository->findAwaiting($limit, $beUser);
         } catch (Throwable $exception) {
             $this->logger?->warning('Awaiting agent runs could not be loaded', ['exception' => $exception]);
 
@@ -416,10 +416,10 @@ final readonly class AgentRunPersister
      *
      * @return list<AgentRun>|null null on a load error, else the (possibly empty) list
      */
-    public function findRecentTerminalRuns(int $limit = 20): ?array
+    public function findRecentTerminalRuns(int $limit = 20, ?int $beUser = null): ?array
     {
         try {
-            return $this->repository->findRecentTerminal($limit);
+            return $this->repository->findRecentTerminal($limit, $beUser);
         } catch (Throwable $exception) {
             $this->logger?->warning('Recent terminal agent runs could not be loaded', ['exception' => $exception]);
 

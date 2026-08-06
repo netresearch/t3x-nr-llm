@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Task;
 use Netresearch\NrLlm\Domain\Enum\TaskOutputFormat;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -26,21 +27,12 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
  * (otherwise fall back to the global default chat options), and
  * package the response as a typed `TaskExecutionResult`.
  *
- * **REC #4 (audit) hook point.** The future automatic budget pre-flight
- * + usage tracking will plug in here — the natural sequence is:
- *
- *   1. read the calling backend user uid from the controller call
- *      (will need a small signature extension, e.g. an
- *      `ExecutionContext` argument carrying `beUserUid` and any
- *      planned-cost estimate);
- *   2. ask `BudgetServiceInterface::check()` whether the call is
- *      allowed and short-circuit with a typed exception on denial;
- *   3. let the existing pipeline middleware (`UsageMiddleware`,
- *      `BudgetMiddleware`) handle the rest via `LlmServiceManager`.
- *
- * Slice 13c intentionally keeps this surface lean — the controller
- * still passes `(Task, string $input)` and the service still proxies
- * to the manager directly. REC #4 will land in a follow-up.
+ * **REC #4 (audit), landed:** the controller passes the calling backend
+ * user's uid, which flows as budget metadata into the pipeline — the
+ * `BudgetMiddleware` pre-flights the per-user cap and denies with
+ * `BudgetExceededException` before the provider is paid, and the
+ * `UsageMiddleware` attributes the recorded usage to that user. A
+ * null/0 uid skips the user cap (configuration limits still apply).
  */
 final readonly class TaskExecutionService implements TaskExecutionServiceInterface
 {
@@ -49,12 +41,15 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         private SkillInjectionService $skillInjection,
     ) {}
 
-    public function execute(Task $task, string $input): TaskExecutionResult
+    public function execute(Task $task, string $input, ?int $beUserUid = null): TaskExecutionResult
     {
         $prompt = $task->buildPrompt(['input' => $input]);
 
         $taskUid  = $task->getUid();
         $metadata = ($taskUid !== null && $taskUid > 0) ? [UsageMiddleware::METADATA_TASK_UID => $taskUid] : [];
+        if ($beUserUid !== null && $beUserUid > 0) {
+            $metadata[BudgetMiddleware::METADATA_BE_USER_UID] = $beUserUid;
+        }
 
         // Resolve the effective configuration exactly once: the task's own
         // configuration when set, otherwise the backend-managed active default
@@ -93,7 +88,17 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
         // raises the existing "no provider specified" error — preserve that.
         // completeWithConfiguration() takes plain option-override arrays, not
         // ChatOptions — the fourth argument merges over the configuration's
-        // stored defaults.
+        // stored defaults. On the default path the uid travels as a ChatOptions
+        // budget field instead; the manager builds the same metadata from it.
+        $fallbackOptions = new ChatOptions();
+        if ($jsonOutput) {
+            $fallbackOptions = $fallbackOptions->withResponseFormat('json');
+        }
+
+        if ($beUserUid !== null && $beUserUid > 0) {
+            $fallbackOptions = $fallbackOptions->withBeUserUid($beUserUid);
+        }
+
         $response = $configuration instanceof LlmConfiguration
             ? $this->llmServiceManager->completeWithConfiguration(
                 $prompt,
@@ -101,10 +106,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
                 $metadata,
                 $jsonOutput ? ['response_format' => 'json'] : [],
             )
-            : $this->llmServiceManager->complete(
-                $prompt,
-                $jsonOutput ? (new ChatOptions())->withResponseFormat('json') : new ChatOptions(),
-            );
+            : $this->llmServiceManager->complete($prompt, $fallbackOptions);
 
         // The skills injected above contributed to the prompt the provider
         // tokenised, so their cost is already part of $response->usage. Surface

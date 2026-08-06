@@ -14,7 +14,9 @@ iteration cap is reached. The v1 consumer is the interactive
 :ref:`Tool Playground <administration-tools-playground>`.
 
 The :ref:`Tool Playground <administration-tools-playground>` — the only
-tool-running surface in this release — is **admin-only**. The runtime itself
+surface that runs the agent TOOL loop — is **admin-only** (editors run
+one-shot tasks and decide approvals in :guilabel:`Web > AI Tasks`, which
+never executes tools directly). The runtime itself
 applies a two-tier gate: each tool declares ``requiresAdmin()``, and
 :php:`ToolLoopService` drops admin-only tools when the acting backend user is
 not an administrator. Most built-in tools require admin because a tool runs

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -78,6 +79,105 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
         $result = $this->subject->execute($task, 'the logs');
 
         self::assertSame('result', $result->content);
+    }
+
+    #[Test]
+    public function passesBudgetUidMetadataForConfiguredTask(): void
+    {
+        $response = new CompletionResponse(
+            content: 'result',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(5, 5, 10),
+            provider: 'openai',
+        );
+
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('task-config');
+
+        $task = new Task();
+        $task->setPromptTemplate('Analyse {{input}}');
+        $task->setConfiguration($configuration);
+        $this->setUid($task, 99);
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
+
+        // REC #4: a positive uid rides along as budget metadata next to the
+        // task attribution — the BudgetMiddleware pre-flights the user cap.
+        $this->llmServiceManager->expects(self::once())
+            ->method('completeWithConfiguration')
+            ->with(
+                'Analyse the logs',
+                $configuration,
+                [
+                    UsageMiddleware::METADATA_TASK_UID     => 99,
+                    BudgetMiddleware::METADATA_BE_USER_UID => 42,
+                ],
+                [],
+            )
+            ->willReturn($response);
+
+        $this->subject->execute($task, 'the logs', 42);
+    }
+
+    #[Test]
+    public function omitsBudgetUidMetadataForAnonymousUid(): void
+    {
+        $response = new CompletionResponse(
+            content: 'result',
+            model: 'gpt-4o',
+            usage: new UsageStatistics(5, 5, 10),
+            provider: 'openai',
+        );
+
+        $configuration = new LlmConfiguration();
+
+        $task = new Task();
+        $task->setPromptTemplate('Analyse {{input}}');
+        $task->setConfiguration($configuration);
+        $this->setUid($task, 99);
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturnArgument(0);
+
+        // uid 0 means "anonymous / skip the user cap" (REC #4 contract):
+        // the budget key must not appear, exactly like a null uid.
+        $this->llmServiceManager->expects(self::once())
+            ->method('completeWithConfiguration')
+            ->with(
+                self::anything(),
+                $configuration,
+                [UsageMiddleware::METADATA_TASK_UID => 99],
+                [],
+            )
+            ->willReturn($response);
+
+        $this->subject->execute($task, 'the logs', 0);
+    }
+
+    #[Test]
+    public function passesBudgetUidAsChatOptionsFieldWithoutConfiguration(): void
+    {
+        $task = new Task();
+        $task->setPromptTemplate('Analyse {{input}}');
+        $this->setUid($task, 77);
+
+        $this->llmServiceManager->method('resolveEffectiveConfiguration')->willReturn(null);
+
+        // Default path: the uid travels as the ChatOptions budget field; the
+        // manager builds the same budget metadata from it.
+        $this->llmServiceManager->expects(self::once())
+            ->method('complete')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool => $options->getBeUserUid() === 42),
+            )
+            ->willReturn(new CompletionResponse(
+                content: 'result',
+                model: 'gpt-4o',
+                usage: new UsageStatistics(5, 5, 10),
+                provider: 'openai',
+            ));
+
+        $this->subject->execute($task, 'the logs', 42);
     }
 
     #[Test]

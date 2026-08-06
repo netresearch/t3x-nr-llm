@@ -12,9 +12,18 @@
     <div>
         <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mod_runs.title" default="Agent Runs" /></h1>
 
-        <f:be.infobox state="-1">
-            <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:module.adminOnly" default="This module is admin-only. Records and actions here affect every editor using LLM features." /></p>
-        </f:be.infobox>
+        <f:if condition="{restrictedView}">
+            <f:then>
+                <f:be.infobox state="-1">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.ownOnly" default="You see only the runs you started. Deciding other users' runs requires the approval permission." /></p>
+                </f:be.infobox>
+            </f:then>
+            <f:else>
+                <f:be.infobox state="-1">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.allVisible" default="You see every run. Approving or denying continues the run under its owner's identity; your decision is recorded." /></p>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
 
         <f:if condition="{dataLoadError}">
             <f:be.infobox state="2" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.dataLoadError', default: 'Runs could not be loaded. Some waiting runs may be hidden.')}">

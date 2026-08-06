@@ -1,0 +1,185 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:comment>
+    The editor sibling of Backend/Task/Execute.html (ADR-131): same
+    data-task-execute contract for TaskExecute.js, but WITHOUT the
+    management affordances — no FormEngine edit links, no database record
+    picker (its endpoints have no read boundary yet and stay admin-only),
+    and only a compact configuration summary.
+</f:comment>
+
+<f:section name="Content">
+    <div data-task-execute data-task-uid="{task.uid}">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <core:icon identifier="actions-play" size="medium" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.title" default="Execute" />: {task.name}
+            </h1>
+            <f:link.action action="list" controller="Backend\AiTask" class="btn btn-secondary btn-sm">
+                <core:icon identifier="actions-view-go-back" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.backToList" default="Back to List" />
+            </f:link.action>
+        </div>
+
+        <f:comment>Compact, read-only configuration summary</f:comment>
+        <f:if condition="{effectiveConfig}">
+            <p class="text-muted small mb-4">
+                <core:icon identifier="actions-system-extension-configure" size="small" />
+                {effectiveConfig.name}
+                <f:if condition="{effectiveConfig.llmModel}">
+                    &middot; {effectiveConfig.llmModel.name}
+                </f:if>
+                <f:if condition="{isUsingDefaultConfig}">
+                    <span class="badge text-bg-secondary ms-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.usingDefault" default="Using system default" /></span>
+                </f:if>
+            </p>
+        </f:if>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="card-title mb-0">
+                            <core:icon identifier="actions-upload" size="small" />
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.title" default="Input" />
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <f:if condition="{task.description}">
+                            <p class="text-muted mb-3">{task.description}</p>
+                        </f:if>
+
+                        <div class="mb-3">
+                            <label for="taskInput" class="form-label">
+                                <f:if condition="{requiresManualInput}">
+                                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.enterInput" default="Enter your input:" /></f:then>
+                                    <f:else>
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoFetched" default="Auto-fetched data" /> ({task.inputType}):
+                                        <span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.autoPopulated" default="Auto-populated" /></span>
+                                    </f:else>
+                                </f:if>
+                            </label>
+                            <textarea class="form-control font-monospace" id="taskInput" rows="15"
+                                      placeholder="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.placeholder', default: 'Enter the data to analyze...')}">{inputData}</textarea>
+
+                            <f:if condition="!{requiresManualInput}">
+                                <div id="emptyDataWarning" class="alert alert-warning mt-2 {f:if(condition: inputData, then: 'd-none')}">
+                                    <core:icon identifier="actions-exclamation-triangle" size="small" />
+                                    <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData" default="No data available." /></strong>
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.input.noData.manual" default="You can still enter data manually above." />
+                                </div>
+                            </f:if>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-lg" id="executeBtn">
+                                <span class="btn-content">
+                                    <core:icon identifier="actions-play" size="small" />
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.execute" default="Execute Task" />
+                                </span>
+                                <span class="btn-loading d-none">
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.executing" default="Executing..." />
+                                </span>
+                            </button>
+                            <f:if condition="!{requiresManualInput}">
+                                <button type="button" class="btn btn-secondary" id="refreshInputBtn">
+                                    <core:icon identifier="actions-refresh" size="small" />
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.btn.refreshData" default="Refresh Data" />
+                                </button>
+                            </f:if>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">
+                            <core:icon identifier="actions-download" size="small" />
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.title" default="Output" />
+                            <span class="badge text-bg-secondary ms-2">{task.outputFormat}</span>
+                        </h2>
+                        <div id="outputStatus" class="d-none">
+                            <span class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
+                            </span>
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." />
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="outputPlaceholder" class="text-center text-muted py-5">
+                            <core:icon identifier="actions-play" size="large" />
+                            <p class="mt-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.placeholder" default="Click &quot;Execute Task&quot; to run this task" /></p>
+                        </div>
+
+                        <div id="outputLoading" class="d-none text-center py-5">
+                            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.processing" default="Processing..." /></span>
+                            </div>
+                            <h4 class="text-primary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.title" default="Processing request..." /></h4>
+                            <p class="text-muted mb-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.loading.message" default="Sending to LLM and waiting for response" /></p>
+                            <div class="progress mx-auto" style="width: 200px; height: 4px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 100%"></div>
+                            </div>
+                            <p class="text-muted mt-3 small">
+                                <span id="elapsedTime">0</span>s elapsed
+                            </p>
+                        </div>
+
+                        <div id="outputError" class="d-none">
+                            <div class="alert alert-danger">
+                                <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.error" default="Error:" /></strong>
+                                <span id="errorMessage"></span>
+                            </div>
+                        </div>
+
+                        <div id="outputResult" class="d-none">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.formatAria', default: 'Output format')}" id="outputFormatToggle">
+                                    <button type="button" class="btn btn-outline-secondary active" data-format="plain" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plainTitle', default: 'Plain text')}">
+                                        <core:icon identifier="actions-code" size="small" />
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.plain" default="Plain" />
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" data-format="html" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.htmlTitle', default: 'Rendered HTML')}">
+                                        <core:icon identifier="actions-template-new" size="small" />
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.html" default="HTML" />
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" data-format="markdown" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdownTitle', default: 'Rendered Markdown')}">
+                                        <core:icon identifier="actions-file" size="small" />
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.format.markdown" default="Markdown" />
+                                    </button>
+                                </div>
+                                <small class="text-muted">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.modelLabel" default="Model:" /> <span id="outputModel">-</span>
+                                    &middot;
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.tokensLabel" default="Tokens:" /> <span id="outputTokens">-</span>
+                                </small>
+                            </div>
+                            <div id="outputContent" class="bg-light p-3 rounded" style="max-height: 500px; overflow-y: auto;"></div>
+
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-sm btn-secondary" id="copyOutputBtn">
+                                    <core:icon identifier="actions-clipboard" size="small" />
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.copy" default="Copy to Clipboard" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</f:section>
+
+</html>

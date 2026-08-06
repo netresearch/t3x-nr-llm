@@ -22,9 +22,10 @@ keys, or implement caching and streaming. Add AI
 capabilities to your extension with three lines
 of dependency injection.
 
-**For administrators**, it provides a single backend module to manage all AI
-connections, encrypted API keys, and provider
-configurations. Switch from OpenAI to Anthropic
+**For administrators**, it provides a backend module tree to manage all AI
+connections, encrypted API keys, and provider configurations — plus a
+dedicated **AI Tasks** module in the Web area where editors run prepared
+tasks and decide pending approvals, gated by explicit permissions. Switch from OpenAI to Anthropic
 without touching any extension code.
 
 **For agencies**, it means consistent AI architecture across client projects, no
@@ -150,6 +151,18 @@ High-level services for common AI tasks:
 :php:`TranslationService`
    Language translation with formality control,
    domain-specific terminology, and glossaries.
+
+.. _introduction-structured-outputs:
+
+Structured outputs
+------------------
+
+Schema-validated JSON from every provider:
+:php:`completeStructured()` takes a JSON schema from a named strict
+subset, enforces it provider-natively where the provider can (OpenAI
+``json_schema``, Gemini ``responseSchema``, Ollama ``format``, a forced
+tool on Claude), validates the response strictly and repairs a mismatch
+with one controlled round-trip. See :ref:`adr-126` and :ref:`adr-128`.
 
 .. _introduction-streaming-support:
 

@@ -164,15 +164,16 @@ The admin-only Playground runs the bounded agent loop against any configuration 
 
 ### Resilience
 
+- **Structured outputs** — Schema-validated JSON on all seven providers: a named strict JSON-schema subset, provider-native enforcement, strict local validation and one repair round-trip. See [ADR-126](Documentation/Adr/Adr126StrictSchemaSubset.rst) and [ADR-128](Documentation/Adr/Adr128ProviderNativeStructuredOutput.rst).
 - **Fallback chain** — Each configuration can list other configurations to retry against on a connection error, HTTP 5xx, or rate-limit. Streaming requests are excluded (chunks can't be replayed). See [ADR-021](Documentation/Adr/Adr021ProviderFallbackChain.rst).
-- **Per-capability permissions** — Every AI capability (chat, vision, tools, embeddings, …) is a native TYPO3 `customPermOptions` entry. Check a box per BE group; admins bypass. See [ADR-023](Documentation/Adr/Adr023BackendCapabilityPermissions.rst).
+- **Capability grants for editors** — Two explicit TYPO3 group permissions open the editor surface: *Execute AI tasks* (budget-bounded task runs) and *Approve suspended AI runs*. Nothing is granted by default; admins hold every grant implicitly. See [ADR-130](Documentation/Adr/Adr130BackendUserGrants.rst) and [Permissions](Documentation/Administration/Permissions.rst).
 - **Dashboard widgets** — When `typo3/cms-dashboard` is installed, "AI cost this month" and "AI requests by provider (7d)" show on the dashboard sourced from the existing usage table. See [ADR-024](Documentation/Adr/Adr024DashboardWidgets.rst).
 
 ### Security by default
 
 - **Encrypted API keys** — All keys stored as vault identifiers (UUIDs) via
   [nr-vault](https://github.com/netresearch/t3x-nr-vault) envelope encryption; nr-llm never stores raw keys
-- **Admin-only access** — Backend module restricted to administrators
+- **Admin-only by default** — Management stays restricted to administrators; editors reach only the dedicated AI Tasks module, and only with explicit grants ([ADR-131](Documentation/Adr/Adr131EditorModule.rst))
 - **No plaintext secrets** — Keys never stored or logged in plain text
 
 ### Setup in 2 minutes
@@ -206,7 +207,7 @@ available models, and generates a ready-to-use configuration. Paste your API key
 
 - **Reduce integration effort** — AI capabilities across client projects without per-project plumbing
 - **No vendor lock-in** — Switch from OpenAI to Anthropic (or a local model) without code changes
-- **Compliance-friendly** — Encrypted keys, admin-only access, SBOM and SLSA provenance on every release
+- **Compliance-friendly** — Encrypted keys, grant-based access control, SBOM and SLSA provenance on every release
 - **Local-first option** — Ollama support means AI features work without sending data to external APIs
 - **Production-proven** — Powers [t3x-cowriter](https://github.com/netresearch/t3x-cowriter),
   the CKEditor 5 AI writing assistant for TYPO3

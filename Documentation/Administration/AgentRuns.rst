@@ -12,10 +12,13 @@ wants to make, or to supply a piece of typed input it asked for. The
 :guilabel:`Agent Runs` module is the inbox where you make those decisions and
 review runs that have finished.
 
-Agent runs are **admin-only**. The module lives in
-:guilabel:`Admin Tools > LLM > Agent Runs`. Any admin may act on any run —
-there is no per-user ownership; the acting backend user is recorded for audit
-only. The page works fully with JavaScript off (JavaScript only adds focus and
+The admin inbox lives in :guilabel:`Admin Tools > LLM > Agent Runs`;
+the same actions are also reachable through the editor module
+:guilabel:`Web > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
+actor-scoped: an administrator or a holder of the *Approve suspended AI
+runs* grant sees every run, everyone else only the runs they started.
+Approving continues the run under its owner's identity; the deciding
+backend user is recorded for audit. The page works fully with JavaScript off (JavaScript only adds focus and
 a deny confirmation).
 
 .. _administration-agent-runs-inbox:
