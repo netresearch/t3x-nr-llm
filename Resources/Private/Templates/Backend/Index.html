@@ -290,6 +290,51 @@ when the module has entries but none is the default; nothing when empty.</f:comm
                 </div>
             </div>
 
+            <f:comment>MCP Servers</f:comment>
+            <div class="nrllm-ov-card">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_mcp')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:mlang_tabs_tab', default: 'MCP Servers')}"></a>
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-tool" size="medium" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:mlang_tabs_tab" default="MCP Servers" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:mlang_labels_tabdescr" default="Manage external MCP servers and import the tools they advertise" /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{be:moduleLink(route: 'nrllm_mcp')}"><core:icon identifier="module-nrllm-tool" size="small" /> Manage MCP servers</a>
+                </div>
+            </div>
+
+            <f:comment>Agent Runs</f:comment>
+            <div class="nrllm-ov-card">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_runs')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mlang_tabs_tab', default: 'Agent Runs')}"></a>
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-runs" size="medium" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mlang_tabs_tab" default="Agent Runs" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_runs.xlf:mlang_labels_tabdescr" default="Runs awaiting a human decision: approve or deny a pending tool call, or provide the requested typed input" /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{be:moduleLink(route: 'nrllm_runs')}"><core:icon identifier="module-nrllm-runs" size="small" /> Review agent runs</a>
+                </div>
+            </div>
+
+            <f:comment>Analytics</f:comment>
+            <div class="nrllm-ov-card">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_analytics')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf:mlang_tabs_tab', default: 'Analytics')}"></a>
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-analytics" size="medium" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf:mlang_tabs_tab" default="Analytics" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b"><p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_analytics.xlf:mlang_labels_tabdescr" default="LLM usage, cost trends, and per-model / per-user breakdowns" /></p></div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{be:moduleLink(route: 'nrllm_analytics')}"><core:icon identifier="module-nrllm-analytics" size="small" /> Open analytics</a>
+                </div>
+            </div>
+
             <f:comment>Help &amp; Documentation (neutral)</f:comment>
             <div class="nrllm-ov-card">
                 <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_overview', arguments: '{action: \'help\'}')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:help.card.title', default: 'Help')}"></a>
