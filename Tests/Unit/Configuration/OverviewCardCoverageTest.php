@@ -41,6 +41,31 @@ final class OverviewCardCoverageTest extends TestCase
      */
     private const CARD_PARENT = 'nrllm';
 
+    /**
+     * Both files are read as source rather than executed. This is a
+     * consistency check between two files a developer edits, and including
+     * Modules.php would drag in include-once semantics for no benefit: it
+     * returns its array on the first require and true on every later one.
+     *
+     * @var array<string, string> module name => its block of the array literal
+     */
+    private array $modules = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $source = \file_get_contents(self::MODULES_FILE);
+        self::assertIsString($source);
+
+        \preg_match_all("/^    '([a-z_]+)' => \[(.*?)^    \],/ms", $source, $matches, PREG_SET_ORDER);
+        self::assertNotSame([], $matches, 'No module blocks found — has Modules.php been reformatted?');
+
+        foreach ($matches as $match) {
+            $this->modules[$match[1]] = $match[2];
+        }
+    }
+
     #[Test]
     public function everyRegisteredModuleHasACardOnTheOverview(): void
     {
@@ -77,15 +102,7 @@ final class OverviewCardCoverageTest extends TestCase
      */
     private function allRegisteredModules(): array
     {
-        $modules = require self::MODULES_FILE;
-        self::assertIsArray($modules);
-
-        $names = [];
-        foreach (\array_keys($modules) as $name) {
-            if (\is_string($name)) {
-                $names[] = $name;
-            }
-        }
+        $names = \array_keys($this->modules);
         \sort($names);
 
         return $names;
@@ -96,19 +113,19 @@ final class OverviewCardCoverageTest extends TestCase
      */
     private function registeredModules(): array
     {
-        $modules = require self::MODULES_FILE;
-        self::assertIsArray($modules);
-
         $names = [];
-        foreach ($modules as $name => $definition) {
-            if (!\is_string($name) || $name === self::NOT_A_CARD_TARGET) {
+        foreach ($this->modules as $name => $block) {
+            if ($name === self::NOT_A_CARD_TARGET) {
                 continue;
             }
-            if (!\is_array($definition) || ($definition['parent'] ?? null) !== self::CARD_PARENT) {
+
+            if (!\str_contains($block, "'parent' => '" . self::CARD_PARENT . "'")) {
                 continue;
             }
+
             $names[] = $name;
         }
+
         \sort($names);
 
         return $names;
