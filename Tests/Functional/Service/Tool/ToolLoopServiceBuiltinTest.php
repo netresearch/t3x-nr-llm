@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -172,6 +173,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             new AllowedToolsResolver(new SkillComposer(), $registry),
             new ToolDataClassResolver($registry),
             new TrustZoneResolver(),
+            new DataClassEnforcementResolver(),
         );
 
         return new ToolLoopService($mgr, $registry, $policy);

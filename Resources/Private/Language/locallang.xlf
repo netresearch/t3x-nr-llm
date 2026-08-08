@@ -275,8 +275,40 @@
             <trans-unit id="tab.dashboard">
                 <source>Dashboard</source>
             </trans-unit>
+            <trans-unit id="tab.governance">
+                <source>Governance</source>
+            </trans-unit>
             <trans-unit id="tab.help">
                 <source>Help</source>
+            </trans-unit>
+
+            <!-- Effective policy readout (ADR-140) -->
+            <trans-unit id="governance.page.title">
+                <source>Effective policy</source>
+            </trans-unit>
+            <trans-unit id="governance.lead">
+                <source>The governance settings this installation actually applies right now, each read through the same resolver the runtime uses.</source>
+            </trans-unit>
+            <trans-unit id="governance.readonly.title">
+                <source>Read-only</source>
+            </trans-unit>
+            <trans-unit id="governance.readonly.text">
+                <source>These keys are instance-wide and are changed in the Install Tool under Settings &gt; Extension Configuration &gt; nr_llm. This page deliberately cannot change them: writing extension configuration rewrites the whole merged array and would materialise every shipped default (ADR-140).</source>
+            </trans-unit>
+            <trans-unit id="governance.column.key">
+                <source>Setting</source>
+            </trans-unit>
+            <trans-unit id="governance.column.value">
+                <source>Effective value</source>
+            </trans-unit>
+            <trans-unit id="governance.column.reader">
+                <source>Read by</source>
+            </trans-unit>
+            <trans-unit id="governance.value.unknown">
+                <source>unknown</source>
+            </trans-unit>
+            <trans-unit id="governance.unknown.note">
+                <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
             </trans-unit>
 
             <!-- Dashboard overview cards -->

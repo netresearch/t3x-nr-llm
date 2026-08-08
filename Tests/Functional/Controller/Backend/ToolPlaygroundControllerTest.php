@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -999,6 +1000,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 new AllowedToolsResolver(new SkillComposer(), $registry),
                 new ToolDataClassResolver($registry),
                 new TrustZoneResolver(),
+                new DataClassEnforcementResolver(),
             ),
             $logger,
         );

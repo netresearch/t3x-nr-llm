@@ -6,6 +6,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A read-only **Governance** tab on the LLM Overview showing the effective
+  value of the four governance keys that carry a decision —
+  `privacy.level`, `privacy.retentionDays`, `tools.dataClassEnforcement`
+  and `skills.minTrustLevel` — together with the FQCN of the resolver each
+  value came from (ADR-140). Every value is read through the same resolver
+  the runtime uses, so the view cannot drift from behaviour: a mistyped
+  `tools.dataClassEnforcement` reads as `enforce` because that is what the
+  gate applies. A resolver that cannot be asked yields "unknown", never a
+  substituted default. There is deliberately no apply path and no
+  provenance column — the Install Tool stays the place where instance-wide
+  keys are set; ADR-140 records why.
+
+### Changed
+
+- `ToolCallPolicy::enforcing()` moved verbatim into the new
+  `Service\Tool\DataClassEnforcementResolver`, which the tool gate and the
+  governance readout both ask. `ToolCallPolicy` no longer takes an optional
+  `ExtensionConfiguration` and instead requires the resolver; behaviour is
+  unchanged, including the fail-closed matrix of ADR-113.
+- `SkillComposerFactory::minTrustLevel()` is public so the readout can show
+  the level the composer is actually built with.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added

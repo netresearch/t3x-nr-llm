@@ -34,6 +34,20 @@ approvals in the separate :guilabel:`Web > AI Tasks` module
 - a **For developers** section showing how to call the same configuration from
   PHP via ``LlmServiceManager``.
 
+The Overview's docheader carries a :guilabel:`Governance` tab — the read-only
+**effective policy** readout (:ref:`ADR-140 <adr-140>`). It lists the four
+governance keys that carry a decision (``privacy.level``,
+``privacy.retentionDays``, ``tools.dataClassEnforcement``,
+``skills.minTrustLevel``) with the value the runtime applies right now and the
+class that resolved it. Two things it deliberately does not do: it never
+changes a value — instance-wide keys are set in the Install Tool under
+:guilabel:`Settings > Extension Configuration > nr_llm` — and it never shows a
+value it did not get from a resolver, so a row that cannot be answered reads
+``unknown`` rather than a default. Because the reads go through the runtime
+resolvers, the tab shows what is *in force*: a mistyped
+``tools.dataClassEnforcement`` reads ``enforce``, because the gate is
+fail-closed (:ref:`ADR-113 <adr-113>`).
+
 .. figure:: /Images/backend-dashboard.png
    :alt: The LLM Overview — a usage-and-cost band, a status-coloured module
        card grid, and a developer section

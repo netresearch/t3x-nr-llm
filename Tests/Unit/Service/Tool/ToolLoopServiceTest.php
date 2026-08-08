@@ -36,6 +36,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RemoteCallBudget;
@@ -1452,6 +1453,7 @@ final class ToolLoopServiceTest extends TestCase
             new AllowedToolsResolver(new SkillComposer(), $registry),
             new ToolDataClassResolver($registry),
             new TrustZoneResolver(),
+            new DataClassEnforcementResolver(),
         );
     }
 
