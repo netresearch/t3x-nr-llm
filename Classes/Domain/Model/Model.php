@@ -40,6 +40,23 @@ class Model extends AbstractEntity
     /** Embedding vector dimensionality of the model (0 = unknown). */
     protected int $dimensions = 0;
 
+    /**
+     * The `@var` below is load-bearing and must not be removed as "redundant
+     * with the property type" — its description is what keeps PHP-CS-Fixer's
+     * `no_superfluous_phpdoc_tags` from stripping it.
+     *
+     * Extbase's ClassSchema resolves property types through Symfony's
+     * PropertyInfo, whose ReflectionExtractor infers a COLLECTION from an
+     * adder/remover pair: `addCapability()` / `removeCapability()` below inflect
+     * to this property and made it resolve as `array`. Extbase's DataMapper has
+     * no array mapping (`'array' => null` in `thawProperties()`), so the column
+     * was silently dropped on every load — every repository-loaded model came
+     * back with an EMPTY capability set, which in turn made every `capabilities`
+     * selection criterion match nothing. PhpDocExtractor runs before
+     * ReflectionExtractor, so the tag restores the declared type (ADR-138).
+     *
+     * @var string Comma-separated capability tokens, exactly as persisted
+     */
     protected string $capabilities = '';
 
     protected int $defaultTimeout = 120;

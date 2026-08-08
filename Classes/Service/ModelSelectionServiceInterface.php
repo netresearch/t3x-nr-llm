@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 
 /**
  * Public surface of the dynamic model-selection service.
@@ -25,21 +27,32 @@ interface ModelSelectionServiceInterface
      * Resolve a model for the given configuration.
      *
      * If the configuration uses fixed mode, returns the configured model.
-     * If using criteria mode, finds the best matching model based on criteria.
+     * If using criteria mode, finds the best matching model based on criteria,
+     * additionally constrained by the capability `$operation` requires
+     * (ADR-138).
+     *
+     * `$operation` has no default on purpose. Every criteria-mode resolution
+     * that belongs to a concrete call must say which call it is, and the one
+     * caller that genuinely has no operation — a bare "give me the adapter" —
+     * has to say `null` out loud rather than inherit a silent skip.
+     *
+     * @throws UnsupportedFeatureException when enforcement is on and the
+     *                                     criteria match only models that
+     *                                     declare they cannot serve `$operation`
      */
-    public function resolveModel(LlmConfiguration $configuration): ?Model;
+    public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): ?Model;
 
     /**
      * Find a model matching the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     public function findMatchingModel(array $criteria): ?Model;
 
     /**
      * Find all models matching the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      *
      * @return Model[]
      */
@@ -48,7 +61,7 @@ interface ModelSelectionServiceInterface
     /**
      * Check if a model matches the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool;
 

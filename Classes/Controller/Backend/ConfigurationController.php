@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
@@ -384,7 +385,11 @@ final class ConfigurationController extends ActionController
             // returns the directly configured model unchanged for fixed-mode
             // records, is what the runtime does; testing only getLlmModel()
             // reported "has no model assigned" for a configuration that works.
-            $model = $this->modelSelectionService->resolveModel($configuration);
+            // The test below dispatches complete(), so the resolution is scoped
+            // to that operation (ADR-138) — testing a criteria-mode
+            // configuration must exercise the model a completion call would
+            // actually pick, not a differently-capable sibling.
+            $model = $this->modelSelectionService->resolveModel($configuration, ProviderOperation::Completion);
             if (!$model instanceof Model || !$model->getProvider() instanceof Provider) {
                 $response = new JsonResponse((new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.config.noModel', 'Configuration has no model assigned')))->jsonSerialize(), 400);
             } else {

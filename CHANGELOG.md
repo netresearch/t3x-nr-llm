@@ -6,6 +6,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Criteria-mode configurations no longer resolve a model that cannot serve
+  the running operation (ADR-138). The operation is merged into the criteria
+  before selection, so a tool call picks a tool-capable model instead of
+  failing later as a provider error. Only `chat`, `vision` and `tools` are
+  enforced — no model discoverer writes `completion` or `embeddings`, and
+  only four of seven write `streaming`, so requiring those would refuse
+  working models. A model whose capability field is empty counts as
+  undeclared and always passes. New extension setting
+  `routing.operationCapabilityEnforcement` (default `enforce`, fail-closed
+  like ADR-113) switches the axis to `observe`, which logs the mismatch and
+  leaves selection untouched. Fixed-mode configurations are unaffected.
+- `Model::$capabilities` was dropped on every load from the database.
+  Extbase resolved the property as an array (Symfony PropertyInfo infers a
+  collection from the `addCapability()` / `removeCapability()` pair) and its
+  DataMapper has no array mapping, so every repository-loaded model came
+  back with an empty capability set — which also made every `capabilities`
+  selection criterion match nothing. Anything reading `getCapabilities()`
+  off a repository-loaded model now sees the persisted value.
+- The embedding cache key and the embedding call can no longer resolve
+  different models for the same call. `embedForConfiguration()` resolves
+  twice — once outside the pipeline for the key, once inside the terminal —
+  and both now pass the same operation.
+
+### Changed
+
+- Internal signature change: `ModelSelectionServiceInterface::resolveModel()`
+  and `ConfigurationCallPlanner::resolveModel()` take a required
+  `?ProviderOperation`; `ConfigurationCallPlanner::adapterFor()` likewise.
+  Neither class is part of the frozen `@api` surface. Callers with no
+  operation pass `null` explicitly.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added
