@@ -163,6 +163,12 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 
             try {
                 $result = $next($context->withConfiguration($fallback));
+                // This sibling ANSWERED. Recorded only here, after $next
+                // returned, so the telemetry row never names a configuration
+                // that was merely dispatched (ADR-058 / issue #633): an
+                // exhausted chain leaves the signal untouched and the row keeps
+                // naming the requested primary.
+                $context->telemetrySignals->recordServedBy($fallback);
                 $this->logger->info(
                     'LLM fallback configuration succeeded',
                     [

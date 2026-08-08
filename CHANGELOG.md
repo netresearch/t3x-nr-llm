@@ -6,6 +6,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Telemetry records the configuration that actually SERVED a run, not only
+  the one that was requested: `tx_nrllm_telemetry` gains
+  `served_configuration_identifier`, `served_provider` and `served_model`.
+  Until now a fallback showed only as `fallback_attempts > 0`, so the row
+  credited a configuration that did not answer the call. Both paths write
+  the new columns — the pipeline through a new `TelemetrySignals` signal
+  (`recordServedBy()`, recorded in the API snapshot), the streaming
+  lifecycle from the configuration `openWithFallback()` returns. A run
+  nobody served (exhausted chain) keeps naming the requested configuration
+  on both sides, and so does a run that needed no fallback, so "which
+  configuration answered this call" is one column rather than a fallback
+  chain of two. Rows written before this release carry an empty
+  `served_configuration_identifier` and are not counted as a swap.
+  The analytics module reads them back as a **Fallback rescues** list: the
+  runs another configuration stepped in for. `ProviderHealthRepository` is
+  unchanged — its scores deliberately count only `fallback_attempts = 0`
+  rows, so a rescued run still counts against the primary.
+
 ### Changed
 
 - The candidate walk over a primary configuration's fallback chain is

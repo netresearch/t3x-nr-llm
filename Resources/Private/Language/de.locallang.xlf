@@ -628,6 +628,46 @@
                 <source>Tokens (30d)</source>
                 <target>Tokens (30 T.)</target>
             </trans-unit>
+            <trans-unit id="analytics.rescues.title">
+                <source>Fallback rescues</source>
+                <target>Eingesprungene Konfigurationen</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.description">
+                <source>Runs a different configuration answered after the requested one failed. Each line is a request the requested configuration did not serve.</source>
+                <target>Aufrufe, die eine andere Konfiguration beantwortet hat, nachdem die angefragte ausgefallen ist. Jede Zeile ist eine Anfrage, die die angefragte Konfiguration nicht bedient hat.</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.when">
+                <source>When</source>
+                <target>Zeitpunkt</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.operation">
+                <source>Operation</source>
+                <target>Operation</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.requested">
+                <source>Requested</source>
+                <target>Angefragt</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.served">
+                <source>Served by</source>
+                <target>Bedient von</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.attempts">
+                <source>Hops</source>
+                <target>Wechsel</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.latency">
+                <source>Latency</source>
+                <target>Laufzeit</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.outcome.failed">
+                <source>ended with an error</source>
+                <target>endete mit einem Fehler</target>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.empty">
+                <source>No configuration had to step in for another one in this period.</source>
+                <target>In diesem Zeitraum musste keine Konfiguration für eine andere einspringen.</target>
+            </trans-unit>
 
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">

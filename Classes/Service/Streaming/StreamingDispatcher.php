@@ -430,6 +430,7 @@ final readonly class StreamingDispatcher
             $this->recordTelemetry(
                 $context,
                 $requested,
+                $served,
                 $success,
                 $errorClass,
                 $this->elapsedMs($startNs),
@@ -587,6 +588,7 @@ final readonly class StreamingDispatcher
     private function recordTelemetry(
         ProviderCallContext $context,
         LlmConfiguration $requested,
+        LlmConfiguration $served,
         bool $success,
         string $errorClass,
         int $latencyMs,
@@ -597,10 +599,11 @@ final readonly class StreamingDispatcher
         }
 
         // Attribution mirrors the non-streaming TelemetryMiddleware: the row
-        // names the REQUESTED primary configuration; a fallback swap shows as
-        // fallback_attempts > 0, while the provider/model that actually served
-        // live in the usage table. cacheHit is always false — streaming never
-        // caches.
+        // names the REQUESTED primary configuration AND the one that served the
+        // stream. This path needs no scratchpad signal — openWithFallback()
+        // returns the serving configuration, and $served falls back to the
+        // requested one when nothing ever primed. cacheHit is always false —
+        // streaming never caches.
         $this->telemetryRepository->record(new TelemetryRecord(
             correlationId: $context->correlationId,
             operation: $context->operation->value,
@@ -613,6 +616,9 @@ final readonly class StreamingDispatcher
             latencyMs: $latencyMs,
             cacheHit: false,
             fallbackAttempts: $context->telemetrySignals->fallbackAttempts,
+            servedConfigurationIdentifier: $served->getIdentifier(),
+            servedProvider: $served->getProviderType(),
+            servedModel: $served->getModelId(),
             timeToFirstTokenMs: $timeToFirstTokenMs,
         ));
     }

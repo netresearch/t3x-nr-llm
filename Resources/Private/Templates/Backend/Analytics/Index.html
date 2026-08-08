@@ -117,6 +117,50 @@
                 </f:be.infobox>
             </f:else>
         </f:if>
+
+        <f:comment>Fallback rescues — from the telemetry log, not the usage table</f:comment>
+        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.title" /></h3>
+        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.description" /></p>
+        <f:if condition="{rescues}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.when" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.operation" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.requested" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.served" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.attempts" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.table.latency" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{rescues}" as="r">
+                                <tr>
+                                    <td><f:format.date format="Y-m-d H:i">@{r.when}</f:format.date></td>
+                                    <td>{r.operation}</td>
+                                    <td>
+                                        {r.requestedConfiguration}
+                                        <f:if condition="{r.requestedProvider}"><br /><span class="text-body-secondary">{r.requestedProvider} / {r.requestedModel}</span></f:if>
+                                    </td>
+                                    <td>
+                                        {r.servedConfiguration}
+                                        <f:if condition="{r.servedProvider}"><br /><span class="text-body-secondary">{r.servedProvider} / {r.servedModel}</span></f:if>
+                                        <f:if condition="{r.success}"><f:else><br /><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.outcome.failed" /></span></f:else></f:if>
+                                    </td>
+                                    <td>{r.fallbackAttempts}</td>
+                                    <td>{r.latencyMs} ms</td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.rescues.empty" /></p>
+            </f:else>
+        </f:if>
     </div>
 </f:section>
 

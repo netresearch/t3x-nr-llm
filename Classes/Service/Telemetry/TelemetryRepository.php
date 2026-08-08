@@ -43,6 +43,9 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             'latency_ms'               => $record->latencyMs,
             'cache_hit'                => $record->cacheHit ? 1 : 0,
             'fallback_attempts'        => $record->fallbackAttempts,
+            'served_configuration_identifier' => $record->servedConfigurationIdentifier,
+            'served_provider'          => $record->servedProvider,
+            'served_model'             => $record->servedModel,
             'time_to_first_token_ms'   => $record->timeToFirstTokenMs,
             'crdate'                   => time(),
         ]);
@@ -96,5 +99,77 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             ->fetchOne();
 
         return is_numeric($avg) ? (int)round((float)$avg) : 0;
+    }
+
+    public function recentFallbackHops(int $since, int $limit): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select(
+                'correlation_id',
+                'operation',
+                'configuration_identifier',
+                'provider',
+                'model',
+                'served_configuration_identifier',
+                'served_provider',
+                'served_model',
+                'success',
+                'fallback_attempts',
+                'latency_ms',
+                'crdate',
+            )
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
+                $queryBuilder->expr()->gt('fallback_attempts', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->orderBy('crdate', 'DESC')
+            ->addOrderBy('uid', 'DESC')
+            ->setMaxResults(max(1, $limit))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $hops = [];
+        foreach ($rows as $row) {
+            $hops[] = new FallbackHop(
+                correlationId: $this->str($row, 'correlation_id'),
+                operation: $this->str($row, 'operation'),
+                configurationIdentifier: $this->str($row, 'configuration_identifier'),
+                provider: $this->str($row, 'provider'),
+                model: $this->str($row, 'model'),
+                servedConfigurationIdentifier: $this->str($row, 'served_configuration_identifier'),
+                servedProvider: $this->str($row, 'served_provider'),
+                servedModel: $this->str($row, 'served_model'),
+                success: $this->int($row, 'success') === 1,
+                fallbackAttempts: $this->int($row, 'fallback_attempts'),
+                latencyMs: $this->int($row, 'latency_ms'),
+                crdate: $this->int($row, 'crdate'),
+            );
+        }
+
+        return $hops;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function str(array $row, string $column): string
+    {
+        $value = $row[$column] ?? null;
+
+        return is_scalar($value) ? (string)$value : '';
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function int(array $row, string $column): int
+    {
+        $value = $row[$column] ?? null;
+
+        return is_numeric($value) ? (int)$value : 0;
     }
 }

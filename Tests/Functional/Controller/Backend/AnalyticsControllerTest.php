@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
+use Netresearch\NrLlm\Service\Analytics\FallbackRescueReport;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,6 +21,7 @@ use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -61,6 +63,25 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function indexActionRendersTheFallbackRescueListFromRealTelemetryRows(): void
+    {
+        // Two rows a `fallback_attempts > 0` query cannot tell apart: one a
+        // sibling answered, one where the chain was exhausted. Rendering with
+        // real rows (not the empty state) is what exercises the table markup.
+        $this->insertTelemetryRow('rescued-corr', 'primary-config', 'sibling-config');
+        $this->insertTelemetryRow('exhausted-corr', 'primary-config', 'primary-config');
+
+        $body = (string)$this->dispatchIndex([])->getBody();
+
+        self::assertStringContainsString('sibling-config', $body, 'The rescue must be listed.');
+        self::assertSame(
+            1,
+            substr_count($body, 'primary-config'),
+            'Only the rescued run appears — the exhausted one names no other configuration.',
+        );
+    }
+
+    #[Test]
     public function indexActionNormalizesUnknownRangeParameter(): void
     {
         $response = $this->dispatchIndex(['range' => 'bogus-range']);
@@ -80,6 +101,7 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $controller = new AnalyticsController(
             $this->getService(ModuleTemplateFactory::class),
             $this->getService(UsageAnalyticsServiceInterface::class),
+            $this->getService(FallbackRescueReport::class),
             $this->getService(BackendUriBuilder::class),
             $this->getService(PageRenderer::class),
         );
@@ -107,6 +129,30 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
         $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
 
         return new ExtbaseRequest($serverRequest);
+    }
+
+    private function insertTelemetryRow(string $correlationId, string $requested, string $served): void
+    {
+        $this->getService(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrllm_telemetry')
+            ->insert('tx_nrllm_telemetry', [
+                'pid'                             => 0,
+                'correlation_id'                  => $correlationId,
+                'operation'                       => 'chat',
+                'provider'                        => 'openai',
+                'model'                           => 'gpt-5',
+                'configuration_identifier'        => $requested,
+                'served_configuration_identifier' => $served,
+                'served_provider'                 => 'ollama',
+                'served_model'                    => 'llama3.3:70b',
+                'be_user'                         => 1,
+                'success'                         => 1,
+                'error_class'                     => '',
+                'latency_ms'                      => 42,
+                'cache_hit'                       => 0,
+                'fallback_attempts'               => 1,
+                'crdate'                          => time(),
+            ]);
     }
 
     private function setPrivateProperty(object $object, string $property, mixed $value): void

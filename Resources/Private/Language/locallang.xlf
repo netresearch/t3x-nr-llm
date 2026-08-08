@@ -477,6 +477,36 @@
             <trans-unit id="analytics.col.tokens">
                 <source>Tokens (30d)</source>
             </trans-unit>
+            <trans-unit id="analytics.rescues.title">
+                <source>Fallback rescues</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.description">
+                <source>Runs a different configuration answered after the requested one failed. Each line is a request the requested configuration did not serve.</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.when">
+                <source>When</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.operation">
+                <source>Operation</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.requested">
+                <source>Requested</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.served">
+                <source>Served by</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.attempts">
+                <source>Hops</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.latency">
+                <source>Latency</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.outcome.failed">
+                <source>ended with an error</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.empty">
+                <source>No configuration had to step in for another one in this period.</source>
+            </trans-unit>
 
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">

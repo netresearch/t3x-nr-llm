@@ -114,6 +114,17 @@ Consequences
   the usage table (:php:`UsageMiddleware` sees the served config). Ad-hoc
   direct calls carry no attached model, so provider/model are empty and the
   provider is encoded in the ``ad-hoc:<operation>:<provider>`` identifier.
+
+  .. note::
+
+     **Overtaken.** The row no longer names only the requested configuration.
+     ``served_configuration_identifier``, ``served_provider`` and
+     ``served_model`` name the one that answered, carried out of the pipeline
+     through the same :php:`TelemetrySignals` scratchpad as the cache hit
+     (``recordServedBy()``, called only after the sibling's call *returned*).
+     ``fallback_attempts`` still counts the hops; it never said which
+     configuration answered, and an exhausted chain has hops but no swap.
+     The requested columns above are unchanged.
 * **Fail-soft.** A telemetry write error is logged and swallowed; it never
   breaks the call it observes.
 * **Streaming produces no telemetry row.** Streaming deliberately stays out of

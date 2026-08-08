@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Analytics\FallbackRescueReport;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
@@ -34,6 +35,7 @@ final class AnalyticsController extends ActionController
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly UsageAnalyticsServiceInterface $analytics,
+        private readonly FallbackRescueReport $fallbackRescues,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly PageRenderer $pageRenderer,
     ) {}
@@ -79,6 +81,9 @@ final class AnalyticsController extends ActionController
             'byModel'    => $byModel,
             'byService'  => $byService,
             'perUser'    => $this->analytics->getPerUserUsage($period->from, $period->to),
+            // Reads tx_nrllm_telemetry, not the usage table: the runs a sibling
+            // configuration answered for after the requested one failed.
+            'rescues'    => $this->fallbackRescues->rescuesSince($period->from),
             // JSON consumed by Analytics.js, embedded in a <script> tag via
             // f:format.raw(). JSON_HEX_* neutralises tag-breaking characters
             // (e.g. a model_id/provider label containing "</script>") so the

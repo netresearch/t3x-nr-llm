@@ -179,6 +179,44 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function namesTheRequestedConfigurationAsTheServingOneWhenNothingSwapped(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $this->pipeline($repository)->run(
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
+        );
+
+        $record = $repository->records[0];
+        self::assertSame('primary', $record->servedConfigurationIdentifier);
+        self::assertSame($record->configurationIdentifier, $record->servedConfigurationIdentifier);
+        self::assertSame($record->provider, $record->servedProvider);
+        self::assertSame($record->model, $record->servedModel);
+    }
+
+    #[Test]
+    public function readsTheServingConfigurationSignalSetByTheFallbackLayer(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $context = (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+            ->withConfiguration($this->configuration('primary'));
+        $context->telemetrySignals->recordFallbackAttempt();
+        $context->telemetrySignals->recordServedBy($this->configuration('sibling'));
+
+        $this->pipeline($repository)->run(
+            $context,
+            static fn(): string => 'x',
+        );
+
+        $record = $repository->records[0];
+        self::assertSame('primary', $record->configurationIdentifier, 'The row still names what was requested.');
+        self::assertSame('sibling', $record->servedConfigurationIdentifier);
+    }
+
+    #[Test]
     public function isNoOpWhenDisabled(): void
     {
         $repository = $this->recordingRepository();

@@ -54,6 +54,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1234,
             cacheHit: true,
             fallbackAttempts: 2,
+            servedConfigurationIdentifier: 'sibling',
+            servedProvider: 'ollama',
+            servedModel: 'llama3.3:70b',
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
@@ -70,6 +73,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(1234, (int)$row['latency_ms']);
         self::assertSame(1, (int)$row['cache_hit']);
         self::assertSame(2, (int)$row['fallback_attempts']);
+        self::assertSame('sibling', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
         self::assertGreaterThan(0, (int)$row['crdate']);
     }
 
@@ -88,6 +94,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 5,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
@@ -134,6 +143,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         // Purge everything older than 5 days: removes the old row, keeps the fresh one.
@@ -160,6 +172,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         // Cutoff far in the past: the only row is newer, so nothing is deleted.

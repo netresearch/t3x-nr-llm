@@ -116,6 +116,34 @@ have consumed.
 Requests made without an authenticated backend user (CLI, scheduler,
 ``be_user = 0``) are grouped under a **system** row.
 
+..  _administration-analytics-rescues:
+
+Fallback rescues
+================
+
+A table lists the runs a **different** configuration answered after the
+requested one failed — each line is one request the configuration you
+configured did not serve. It shows what was requested and what answered,
+each with its provider and model, how many configurations were tried, and
+how long the whole run took.
+
+Unlike the rest of this module the list is read from the telemetry log
+(``tx_nrllm_telemetry``), not from the usage table, so it also covers
+runs that produced no billable usage.
+
+Two things it deliberately does not show:
+
+*   **Runs nobody served.** A chain that was tried and exhausted names no
+    serving configuration — it is a failure, not a rescue, and appears in
+    the provider health scores instead.
+*   **Runs recorded before this feature existed.** Rows written by an
+    older version carry no serving configuration and are left out rather
+    than guessed at.
+
+A configuration appearing here repeatedly is the signal to look at: its
+calls are being answered by a sibling, which may use a different provider,
+model and price than the one you selected.
+
 ..  _administration-analytics-cost-note:
 
 A note on cost
