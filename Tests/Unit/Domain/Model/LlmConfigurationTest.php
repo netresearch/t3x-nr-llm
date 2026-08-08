@@ -781,4 +781,64 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
         $this->subject->setTemperature($input);
         self::assertSame($expected, $this->subject->getTemperature());
     }
+
+    #[Test]
+    public function snippetTagsDefaultToNone(): void
+    {
+        self::assertSame('', $this->subject->getSnippetTags());
+        self::assertSame([], $this->subject->getSnippetTagList());
+    }
+
+    #[Test]
+    public function snippetTagsGetterAndSetter(): void
+    {
+        $this->subject->setSnippetTags('persona,tone_of_voice');
+
+        self::assertSame('persona,tone_of_voice', $this->subject->getSnippetTags());
+    }
+
+    /**
+     * @return array<string, array{string, list<string>}>
+     */
+    public static function snippetTagNormalizationProvider(): array
+    {
+        return [
+            'empty stays empty' => ['', []],
+            'whitespace only stays empty' => ['   ', []],
+            'single tag' => ['persona', ['persona']],
+            'trims surrounding whitespace' => [' persona , layout ', ['persona', 'layout']],
+            'lowercases' => ['Persona,TONE_OF_VOICE', ['persona', 'tone_of_voice']],
+            'drops empty entries' => ['persona,,layout,', ['persona', 'layout']],
+            'drops duplicates after normalization' => ['persona,Persona, persona ', ['persona']],
+            'preserves selection order' => ['layout,audience,persona', ['layout', 'audience', 'persona']],
+        ];
+    }
+
+    /**
+     * @param list<string> $expected
+     */
+    #[Test]
+    #[DataProvider('snippetTagNormalizationProvider')]
+    public function getSnippetTagListNormalizesCsvTags(string $tags, array $expected): void
+    {
+        $this->subject->setSnippetTags($tags);
+
+        self::assertSame($expected, $this->subject->getSnippetTagList());
+    }
+
+    /**
+     * The snippet tags are NOT part of the options array — they are resolved
+     * against the snippet library by ConfigurationSnippetResolver, not carried
+     * to a provider. A configuration that only sets tags must still produce the
+     * same options as one that sets none.
+     */
+    #[Test]
+    public function toOptionsArrayCarriesNoSnippetTagKey(): void
+    {
+        $before = $this->subject->toOptionsArray();
+
+        $this->subject->setSnippetTags('persona');
+
+        self::assertSame($before, $this->subject->toOptionsArray());
+    }
 }

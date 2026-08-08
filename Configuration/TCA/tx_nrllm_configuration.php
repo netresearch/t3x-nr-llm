@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 use Netresearch\NrLlm\Form\Tca\GuardrailItems;
+use Netresearch\NrLlm\Form\Tca\SnippetTagItems;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 
 return [
@@ -39,6 +40,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.parameters,
                     --palette--;;parameters,
                     system_prompt,
+                    snippet_tags,
                     skills,
                     options,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.limits,
@@ -415,6 +417,16 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectCheckBox',
                 'itemsProcFunc' => GuardrailItems::class . '->addItems',
+                'default' => '',
+            ],
+        ],
+        'snippet_tags' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.snippet_tags.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectCheckBox',
+                'itemsProcFunc' => SnippetTagItems::class . '->addItems',
                 'default' => '',
             ],
         ],

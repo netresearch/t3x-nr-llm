@@ -44,6 +44,13 @@ Adding a configuration manually
       The system message that sets the AI's behavior
       and context.
 
+   :guilabel:`Prompt snippet tags`
+      Optional. Active :ref:`prompt snippets
+      <administration-snippets-configuration>`
+      carrying any ticked tag are appended to the
+      system prompt of every request made with this
+      configuration.
+
 4. Optionally adjust temperature (0.0-2.0), top_p,
    frequency/presence penalty, max tokens, and
    use-case type (``chat``, ``completion``,

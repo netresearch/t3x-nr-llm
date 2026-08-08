@@ -88,6 +88,14 @@ class LlmConfiguration extends AbstractEntity
      */
     protected string $allowedGuardrails = '';
 
+    /**
+     * Comma list of prompt-snippet tags (ADR-031); empty = no snippets.
+     * The active snippets carrying any of these tags are composed into the
+     * effective system prompt. See {@see getSnippetTagList()} and
+     * ConfigurationSnippetResolver.
+     */
+    protected string $snippetTags = '';
+
     protected int $maxRequestsPerDay = 0;
 
     protected int $maxTokensPerDay = 0;
@@ -868,6 +876,40 @@ class LlmConfiguration extends AbstractEntity
             $id = trim($id);
             if ($id !== '') {
                 $list[] = $id;
+            }
+        }
+
+        return $list;
+    }
+
+    public function getSnippetTags(): string
+    {
+        return $this->snippetTags;
+    }
+
+    public function setSnippetTags(string $snippetTags): void
+    {
+        $this->snippetTags = $snippetTags;
+    }
+
+    /**
+     * The selected prompt-snippet tags, normalized the same way
+     * {@see PromptSnippet::getTagList()} normalizes a snippet's own tags:
+     * trimmed, lowercased, empty entries dropped, duplicates removed. Empty
+     * list = no snippets are composed into the system prompt.
+     *
+     * Normalizing here (rather than in the resolver) keeps the tag comparison
+     * case-insensitive on both sides, which is what ADR-031 promises.
+     *
+     * @return list<string>
+     */
+    public function getSnippetTagList(): array
+    {
+        $list = [];
+        foreach (explode(',', $this->snippetTags) as $tag) {
+            $tag = strtolower(trim($tag));
+            if ($tag !== '' && !in_array($tag, $list, true)) {
+                $list[] = $tag;
             }
         }
 

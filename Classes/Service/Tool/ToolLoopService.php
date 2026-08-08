@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -98,6 +99,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // stateless and has no constructor, so there is no wiring under which
         // the byte caps can be absent (ADR-120's pattern).
         private ToolResultBounder $bounder = new ToolResultBounder(),
+        // Composes the configuration's tag-selected snippets (ADR-031) into the
+        // system prompt this service bakes for an augmented run. Must be the
+        // same value the manager's planner composes, or the addition would be
+        // missing in exactly the place that inspects it — the playground.
+        private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {}
 
     /**
@@ -666,8 +672,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // the snippet system messages below would satisfy the manager's "a
         // system message already exists" guard and suppress the configuration
         // system prompt for the run.
+        // The same composition the manager's planner applies, so the playground
+        // shows the prompt a live run sends rather than one without the
+        // configuration's snippets.
         $override = $options?->getSystemPrompt() ?? '';
         $system   = $override !== '' ? $override : $configuration->getSystemPrompt();
+        $system   = $this->snippetResolver?->appendTo($system, $configuration) ?? $system;
         if ($system !== '') {
             $lead[] = ChatMessage::system($system);
         }

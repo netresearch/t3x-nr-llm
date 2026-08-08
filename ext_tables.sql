@@ -155,6 +155,9 @@ CREATE TABLE tx_nrllm_configuration (
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
     allowed_guardrails varchar(255) DEFAULT '' NOT NULL,
 
+    -- Comma list of prompt-snippet tags composed into the system prompt (ADR-031)
+    snippet_tags varchar(255) DEFAULT '' NOT NULL,
+
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
 

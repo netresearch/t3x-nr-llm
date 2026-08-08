@@ -302,6 +302,15 @@
                 <target>Welche optionalen Schutzmechanismen für Läufe mit dieser Konfiguration gelten. Leer = alle aktiv. Sicherheitskritische Schutzmechanismen (Schwärzung von Geheimnissen) laufen immer und werden hier nicht aufgeführt.</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.snippet_tags">
+                <source>Prompt snippet tags</source>
+                <target>Tags für Prompt-Bausteine</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippet_tags.description">
+                <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
+                <target>Aktive Prompt-Bausteine mit einem der gewählten Tags werden an den System-Prompt dieser Konfiguration angehängt. Leer = keine Bausteine. Tags werden als ganze Token und ohne Beachtung der Groß-/Kleinschreibung verglichen, „style“ trifft also nicht „lifestyle“.</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>
                 <target>Zugewiesene Skills</target>

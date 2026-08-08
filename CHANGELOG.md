@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A configuration can attach prompt snippets by tag
+  (`tx_nrllm_configuration.snippet_tags`, amendment to ADR-031). The
+  active snippets carrying any selected tag are composed into the
+  configuration's effective system prompt, so they reach chat,
+  completion, streaming and the agent loop through one insertion point
+  in `ConfigurationCallPlanner::callOptions()`. Before this the snippet
+  library reached no production prompt at all — its only consumers were
+  the tool playground's forced snippets and the codec that rehydrates
+  them. The select lists the tags the snippet records actually carry, so
+  the vocabulary stays consumer-owned; a snippet carrying two selected
+  tags is composed once, and an unknown tag yields nothing rather than
+  an error. Configurations without tags are unaffected. The `@api`
+  surface gains `LlmConfiguration::getSnippetTags()`,
+  `setSnippetTags()` and `getSnippetTagList()` (additive).
+
 ## [0.26.0] - 2026-08-06
 
 ### Added

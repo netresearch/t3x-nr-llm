@@ -235,6 +235,13 @@
                 <source>Which optional guardrails apply to runs with this configuration. Empty = all apply. Security-critical guardrails (secret redaction) always run and are not listed here.</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.snippet_tags">
+                <source>Prompt snippet tags</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.snippet_tags.description">
+                <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>
             </trans-unit>

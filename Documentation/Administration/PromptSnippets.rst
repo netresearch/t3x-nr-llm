@@ -80,6 +80,54 @@ text-to-speech voice:
 
     {"voice": "nova"}
 
+.. _administration-snippets-configuration:
+
+Attaching snippets to a configuration
+=====================================
+
+A configuration can select snippets by tag. Every
+request made with that configuration then carries
+them — chat, single-prompt completion, streaming and
+agent runs alike — without any extension code.
+
+1. Navigate to :guilabel:`Admin Tools > LLM >
+   Configurations` and edit a configuration.
+2. Open the :guilabel:`Parameters` tab.
+3. Tick the wanted tags under :guilabel:`Prompt
+   snippet tags`. The list offers the tags the
+   snippet records actually carry.
+4. Click :guilabel:`Save`.
+
+The active snippets carrying any ticked tag are
+appended to the configuration's
+:guilabel:`System Prompt`, each as a ``NAME:`` block
+separated by a blank line, in the order the tags are
+listed. A snippet carrying two ticked tags is added
+once. A tag no snippet carries adds nothing — there
+is no error, matching the free-tag model above.
+
+..  code-block:: text
+    :caption: Effective system prompt of a configuration with the tags ``persona`` and ``tone_of_voice``
+
+    You are a helpful assistant.
+
+    Nova persona:
+    You are Nova, a friendly expert.
+
+    Formal tone:
+    Use a formal, professional tone of voice.
+
+Two limits are worth knowing:
+
+- Only **active** snippets are composed; hiding a
+  snippet removes it from every configuration that
+  selects its tag.
+- A caller that supplies its own system message
+  replaces the configuration's system prompt for
+  that call, and with it the snippet block. This is
+  the documented per-call precedence and predates
+  this field.
+
 .. _administration-snippets-developer:
 
 Using snippets from an extension

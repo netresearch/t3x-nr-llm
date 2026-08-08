@@ -75,6 +75,61 @@ Introduce a separate, lightweight :php:`PromptSnippet` entity
    list following the established Providers/Models/Tasks pattern;
    create/edit links into FormEngine, no custom forms.
 
+.. _adr-031-amendment-configuration:
+
+Amendment (2026-08-09): a configuration selects snippets by tag
+===============================================================
+
+Until this amendment the library had no reader in a production
+prompt. The only consumers were :php:`RunAugmentation::$forcedSnippets`
+and the codec that rehydrates it, and :php:`RunAugmentation` is
+constructed nowhere but the tool playground — so outside the playground
+the whole snippet system was inert, and the "consuming extension"
+of point 2 above was the only way a snippet ever reached a model.
+
+:ref:`ADR-139 <adr-139>` names a tagged snippet as the supported way to
+attach editorial context to a request. That needs a selection an
+operator can make. ``tx_nrllm_configuration.snippet_tags`` is it: a CSV
+of tags whose :php:`itemsProcFunc` lists the tags the snippet records
+actually carry, so the vocabulary stays consumer-owned and a new
+fragment kind still needs no nr_llm release.
+
+**The selection is composed into the effective system prompt, not into
+extra system messages.** :php:`ConfigurationSnippetResolver` appends the
+labeled blocks to the ``system_prompt`` that
+:php:`ConfigurationCallPlanner::callOptions()` has merged, behind the
+configuration's own prompt. One insertion point reaches chat,
+completion, streaming and the agent loop, because every
+configuration-driven entry point on :php:`LlmServiceManager` builds its
+options there.
+
+The alternative — rendering each snippet as its own leading system
+message, the shape the playground uses — was rejected. It only works in
+the playground because the loop bakes the configuration's system prompt
+ahead of the snippet messages first. Anywhere else a snippet system
+message would be the first system message in the list, which is exactly
+the condition under which :php:`MessageShaper::applySystemPrompt()`
+leaves the list alone: the configuration's own system prompt would be
+dropped from the run, silently and with no error. The characterisation
+tests added with :ref:`ADR-139 <adr-139>` pin that behaviour.
+
+Three details follow from the code:
+
+- **Dedup is by snippet identifier.**
+  :php:`PromptSnippetRepository::findActiveByTag()` loads all active
+  snippets and filters in PHP, so a snippet carrying two selected tags
+  comes back from both lookups and would otherwise be composed twice.
+- **An unknown tag is empty, not an error** — the free-tag model has no
+  referential integrity by design, so a typo degrades to "no snippets".
+- **The tool playground reads the same composed value.** Its bake site
+  in :php:`ToolLoopService::assemble()` goes through the same resolver,
+  so a previewed transcript is the transcript a live run sends.
+
+What this does not change: a caller-supplied system *message* still
+suppresses the configuration's system prompt — and with it the snippet
+block — because per-call precedence is decided before this composition
+is read. That is the pre-existing rule, not a new one.
+
 .. _adr-031-consequences:
 
 Consequences
@@ -93,3 +148,7 @@ Consequences
 - Two prompt-related entities now coexist. The split is intentional
   (template = complete prompt, snippet = fragment) and documented here,
   in the administration guide, and in both entities' PHPDoc.
+- Since the 2026-08-09 amendment an operator can attach snippets to a
+  configuration without writing any code, and every request made with
+  that configuration carries them — including requests from consuming
+  extensions that know nothing about snippets.
