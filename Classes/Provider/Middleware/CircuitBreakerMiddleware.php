@@ -73,9 +73,23 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * Disable via the `circuitBreaker.enabled` extension setting (default ON). When
  * disabled the middleware is a verbatim pass-through.
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 20])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 20;
+    }
+
     private const DEFAULT_FAILURE_THRESHOLD = 5;
 
     private const DEFAULT_COOLDOWN_SECONDS  = 30;

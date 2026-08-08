@@ -69,9 +69,23 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
  * calls are not stored either — the exception propagates and a later retry with
  * the same key genuinely re-attempts.
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 105])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final class IdempotencyMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 105;
+    }
+
     public const METADATA_IDEMPOTENCY_KEY = 'idempotencyKey';
 
     private const CACHE_IDENTIFIER = 'nrllm_idempotency';

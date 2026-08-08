@@ -55,9 +55,23 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * the whole pipeline (see ADR-085 / ADR-062), so streamed output is not screened
  * here.
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 90])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 90;
+    }
+
     /**
      * @param iterable<GuardrailInterface> $guardrails
      */

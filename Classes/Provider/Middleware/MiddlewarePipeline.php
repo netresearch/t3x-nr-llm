@@ -17,8 +17,24 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
  *
  * Ordering follows the PSR-15 convention: the first-registered middleware is
  * the outermost layer of the onion -- it runs first on the way in and last on
- * the way out. Registration order comes from the service container's tagged
- * iterator; services can influence it with a `priority` tag attribute.
+ * the way out. Order comes from each middleware's static
+ * `getDefaultPriority()`, resolved by the tagged iterator below (highest
+ * first).
+ *
+ * The priority deliberately does NOT live in the `AutoconfigureTag` attribute.
+ * ProviderMiddlewareInterface carries the tag as well, so the container sees
+ * the tag declared twice for every middleware and deduplicates the pair — and
+ * the survivor is the interface's declaration, which has no priority. The
+ * effect is that the pipeline silently assembles UNSORTED, which for this
+ * stack is a privacy fault rather than a cosmetic one: GuardrailMiddleware
+ * (90) must unwind inside IdempotencyMiddleware (105), or an unredacted
+ * response is persisted to the nrllm_idempotency cache (ADR-085).
+ *
+ * Reading the priority from code instead of from tag attributes keeps the
+ * order a property of this extension rather than of container-internal tag
+ * merging. Observed as a live regression on 2026-08-08, when
+ * symfony/dependency-injection 7.4.16 changed when discovered interfaces are
+ * autoconfigured (symfony/symfony#65120) and the whole stack unsorted itself.
  *
  * The pipeline is side-effect-free on its own; every behavioural decision
  * (retry on rate-limit, skip cache, record usage, ...) lives in a concrete
@@ -35,7 +51,10 @@ final readonly class MiddlewarePipeline
      * @param iterable<ProviderMiddlewareInterface> $middleware
      */
     public function __construct(
-        #[AutowireIterator(ProviderMiddlewareInterface::TAG_NAME)]
+        #[AutowireIterator(
+            ProviderMiddlewareInterface::TAG_NAME,
+            defaultPriorityMethod: 'getDefaultPriority',
+        )]
         iterable $middleware,
     ) {
         $this->middleware = \is_array($middleware)

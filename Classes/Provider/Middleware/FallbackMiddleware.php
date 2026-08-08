@@ -47,9 +47,23 @@ use Throwable;
  *                 CircuitBreaker <-- guards the provider call        (priority 20)
  *                   <terminal>
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 50])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 50;
+    }
+
     public function __construct(
         private LlmConfigurationRepository $repository,
         private LoggerInterface $logger,

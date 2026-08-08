@@ -70,9 +70,23 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *                 CircuitBreaker <-- guards the provider call        (priority 20)
  *                   <terminal>
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 75])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class BudgetMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 75;
+    }
+
     public const METADATA_BE_USER_UID  = 'beUserUid';
 
     public const METADATA_PLANNED_COST = 'plannedCost';

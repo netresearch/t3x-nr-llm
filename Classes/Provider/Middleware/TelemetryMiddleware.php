@@ -69,9 +69,23 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
  * Disable via the `telemetry.enabled` extension setting (default ON). When
  * disabled the middleware is a verbatim pass-through.
  */
-#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME, attributes: ['priority' => 110])]
+#[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
 {
+    /**
+     * Pipeline priority, read by the tagged iterator via
+     * `defaultPriorityMethod` (ADR-085 ordering).
+     *
+     * It lives in code rather than in the AutoconfigureTag attribute
+     * because an attribute priority is lost when the same tag is
+     * declared on both the interface and the class and the container
+     * deduplicates the two — which silently unsorts the whole pipeline.
+     */
+    public static function getDefaultPriority(): int
+    {
+        return 110;
+    }
+
     public function __construct(
         private TelemetryRepositoryInterface $repository,
         private Context $context,
