@@ -46,7 +46,8 @@ value it did not get from a resolver, so a row that cannot be answered reads
 ``unknown`` rather than a default. Because the reads go through the runtime
 resolvers, the tab shows what is *in force*: a mistyped
 ``tools.dataClassEnforcement`` reads ``enforce``, because the gate is
-fail-closed (:ref:`ADR-113 <adr-113>`).
+fail-closed (:ref:`ADR-113 <adr-113>`). The keys, their fallbacks and
+recommended settings are documented under :ref:`administration-governance`.
 
 .. figure:: /Images/backend-dashboard.png
    :alt: The LLM Overview — a usage-and-cost band, a status-coloured module
@@ -99,3 +100,4 @@ Editors do not use this tree: their surface is the separate
    Analytics
    AgentRuns
    DataRetention
+   Governance

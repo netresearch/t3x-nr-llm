@@ -238,7 +238,8 @@ use: a skill below the floor is dropped from **both** prompt injection and the
 allowed-tools union. Raising the floor to ``verified`` therefore hides every
 community/untrusted skill without deleting it. Trust is *separate from* the
 ``enabled = false`` default — an ``untrusted`` skill still needs an explicit
-enable.
+enable. An unreadable or mistyped floor falls back to ``untrusted``; the value
+actually in force is shown under :ref:`administration-governance`.
 
 **Manifest fingerprint (optional).** A source may declare an
 ``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
