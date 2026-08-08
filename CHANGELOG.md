@@ -6,6 +6,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
+  allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
+  `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions
+  when that extension is installed) on exactly ONE page, through the
+  `DataHandler`, as the acting backend user. It ships **disabled** and sits in a
+  NEW group `editing` — deliberately not `content`, so a configuration that
+  already grants the read-only content group does not inherit write capability
+  from an upgrade. Because it declares `IDEMPOTENT_WRITE`, every call suspends
+  for a human decision (ADR-134); it carries no approval marker of its own. Any
+  other page field is refused, and a call naming an unknown field is refused
+  whole rather than applied in part. A page the acting user may not edit is
+  refused with the same string as a page that does not exist. Writes outside
+  workspace 0 are refused, and so is a process without the backend environment
+  the `DataHandler` declares (`$GLOBALS['TCA']`, `$GLOBALS['LANG']`,
+  `$GLOBALS['BE_USER']`) — the tool names the missing piece instead of
+  populating globals it does not own. Success is verified by re-reading the
+  record: the `DataHandler` silently drops a field the user lacks the
+  "exclude field" grant for, and reporting that as a successful write would
+  mislead the human who approved it. `ToolEffectCoverageTest::DECLARED_WRITERS`,
+  empty since ADR-122, now pins this one name. **Not guaranteed:** the ADR-112
+  write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
+  produces — no shipped entry point calls it, so an interactive write runs
+  unfenced. The fail-closed write audit and the approval pause hold everywhere.
+
 ### Fixed
 
 - **The approval of a write is fail-closed and bound to the turn that was

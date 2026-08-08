@@ -38,13 +38,14 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools. Each is a reference
+nr-llm ships forty-one read-only tools and one writing tool. Each is a reference
 implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) ship **disabled** and must be
-enabled deliberately. Many require admin; the read-only structure, content
+``get_php_info_raw`` and ``list_be_users_raw``) and the writing
+``update_page_metadata`` ship **disabled** and must be enabled deliberately.
+Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
 ``search_records``, ``get_page_content``, ``read_records``,
@@ -274,6 +275,40 @@ The remaining tools follow the same pattern:
    The full indexed text behind a ``site_rag_query`` source id, capped at
    8000 characters — for reading a promising source beyond its excerpt.
 
+.. _administration-tools-writing:
+
+The writing tool
+================
+
+``update_page_metadata`` is the only tool that changes anything. It sets a
+fixed set of descriptive fields on **one** page through the TYPO3 DataHandler,
+as the acting backend user, in the live workspace only
+(:ref:`ADR-135 <adr-135>`).
+
+Editable fields: ``title``, ``subtitle``, ``nav_title``, ``abstract``,
+``description``, ``keywords`` and — when EXT:seo is installed — ``seo_title``,
+``og_title``, ``og_description``, ``twitter_title``, ``twitter_description``.
+Anything else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
+``no_index``, the image relations …) is refused, and a call naming an
+unknown field is refused **whole** rather than applied in part.
+
+What an administrator should know before enabling it:
+
+- It ships **disabled**, sits in its own ``editing`` group, and is not offered
+  until both the group and the tool are enabled.
+- **Every call pauses for a human decision** (:ref:`ADR-134 <adr-134>`). The
+  approval card names the page and the values; nothing is written until
+  somebody presses Approve, and the approver must themselves be permitted to
+  run the tool (:ref:`ADR-133 <adr-133>`).
+- Permissions are enforced twice: the tool checks the acting user's page-edit
+  right (a page they may not edit is refused exactly like a page that does not
+  exist), and the DataHandler enforces ``tables_modify`` and the field-level
+  "exclude field" grants on top. A non-admin therefore writes only what the
+  backend already lets them write.
+- A field the user lacks the exclude-field grant for is dropped by the
+  DataHandler **without an error**. The tool re-reads the record and reports
+  that as a failure rather than as a successful write.
+
 .. _administration-tools-register:
 
 Registering a tool
@@ -293,10 +328,10 @@ A tool is a PHP class that implements
 
 ``getGroup(): string``
    The tool's *group* — a short, stable identifier used to enable or disable
-   whole families of tools at once. Built-ins use ``content``, ``structure``,
-   ``system``, ``accounts`` and ``configuration``; third-party tools declare
-   their own group (recommended: the providing extension's key). See
-   :ref:`administration-tools-groups`.
+   whole families of tools at once. Built-ins use ``content``, ``editing``,
+   ``structure``, ``system``, ``accounts`` and ``configuration``; third-party
+   tools declare their own group (recommended: the providing extension's key).
+   See :ref:`administration-tools-groups`.
 
 The interface carries ``#[AutoconfigureTag('nr_llm.tool')]``, so a class is
 **auto-registered simply by implementing it** — no central registration file
@@ -362,6 +397,7 @@ Group            Tools
                  ``search_fal_files``, ``get_fal_references``,
                  ``find_missing_files``
 ``rag``          ``site_rag_query``, ``site_fetch_source``
+``editing``      ``update_page_metadata`` — the only WRITING group
 ===============  ============================================================
 
 Groups can be switched on three levels, and the result cascades

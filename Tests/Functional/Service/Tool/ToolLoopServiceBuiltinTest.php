@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
@@ -191,6 +192,33 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $this->expectException(ToolApprovalRequiredException::class);
         $service->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the REAL first writing builtin (ADR-135).
+     *
+     * {@see UpdatePageMetadataTool} carries no approval marker; it declares
+     * IDEMPOTENT_WRITE and nothing else. The loop must therefore suspend BEFORE
+     * `execute()` runs — the whole point of coupling the two declarations is
+     * that a writer cannot ship without the pause by forgetting the marker.
+     */
+    #[Test]
+    public function theWritingBuiltinSuspendsBeforeItExecutes(): void
+    {
+        $tool = new UpdatePageMetadataTool($this->connectionPool);
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('update_page_metadata', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'update_page_metadata', ['uid' => 1, 'title' => 'Rewritten']),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('fix the title')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
     }
 
     /**

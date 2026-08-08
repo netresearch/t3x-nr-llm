@@ -432,3 +432,4 @@ Tools
    Adr132ApprovalAuditAndTurnBinding
    Adr133ApproverToolGate
    Adr134WriteEffectImpliesApproval
+   Adr135UpdatePageMetadataTool

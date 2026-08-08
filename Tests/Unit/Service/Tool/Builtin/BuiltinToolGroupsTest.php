@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ResolveUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -109,6 +110,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'search_fal_files'  => [SearchFalFilesTool::class, 'files'],
             'get_fal_references' => [GetFalReferencesTool::class, 'files'],
             'find_missing_files' => [FindMissingFilesTool::class, 'files'],
+            'update_page_metadata' => [UpdatePageMetadataTool::class, 'editing'],
         ];
     }
 
