@@ -16,7 +16,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
   fail-closed assumption about a body that cannot be inspected, so
   coupling it to approval would suspend every remote call. The remote axis
-  gets an operator-declared server-level source separately.
+  has an operator-declared server-level source instead, below.
+- MCP servers carry an operator-declared `requires_approval` flag
+  (ADR-134). When it is set, every tool imported from that server pauses
+  the agent run for a human before it is called; the decision never comes
+  from the server, whose `readOnlyHint` annotation stays unread. It is on
+  by default for a newly configured server, and only a literal `0` reads
+  as "no approval" — an unreadable or missing value means approval is
+  required. Servers that were already importing tools are pinned to "not
+  required" by the `nrLlm_mcpServerApprovalForExisting` upgrade wizard, so
+  an update does not silently halt a running integration.
 
 ## [0.26.0] - 2026-08-06
 
