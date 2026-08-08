@@ -15,9 +15,9 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -123,7 +123,7 @@ final readonly class StreamingDispatcher
         private BudgetServiceInterface $budgetService,
         private UsageTrackerServiceInterface $usageTracker,
         private TelemetryRepositoryInterface $telemetryRepository,
-        private LlmConfigurationRepository $repository,
+        private FallbackCandidateResolver $candidateResolver,
         private LoggerInterface $logger,
         private Context $context,
         private ExtensionConfiguration $extensionConfiguration,
@@ -280,17 +280,19 @@ final readonly class StreamingDispatcher
         LlmConfiguration $primary,
         callable $open,
     ): array {
-        $candidates    = $this->candidates($context, $primary);
         $lastRetryable = null;
+        $isPrimary     = true;
 
-        foreach ($candidates as $index => $configuration) {
-            if ($index > 0) {
+        foreach ($this->candidates($context, $primary) as $configuration) {
+            if (!$isPrimary) {
                 // Count every dispatched sibling BEFORE priming (the primary is
                 // not counted), so a fallback that then fails retryably or
                 // exhausts the chain is still counted — mirroring
                 // FallbackMiddleware, which records before each $next($fallback).
                 $context->telemetrySignals->recordFallbackAttempt();
             }
+
+            $isPrimary = false;
 
             $stream = $open($configuration);
 
@@ -327,33 +329,39 @@ final readonly class StreamingDispatcher
     }
 
     /**
-     * Primary first, then each active, resolvable fallback configuration. The
-     * primary's own identifier is filtered out of the chain (no self-retry) and
-     * missing / inactive fallbacks are skipped with a log line, exactly as
-     * {@see \Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware} does.
+     * Primary first, then each active, resolvable fallback configuration.
      *
-     * @return non-empty-list<LlmConfiguration>
+     * Which entries the chain offers is decided by the shared
+     * {@see FallbackCandidateResolver} (ADR-137) — the primary's own identifier
+     * is filtered out (no self-retry), missing and inactive entries are
+     * skipped. Two things stay on this side deliberately: the primary is a
+     * candidate here (the pipeline has already tried it on the non-streaming
+     * path, this dispatcher still has to open it), and the order is the
+     * configured one — the health-aware reorder (ADR-063) is not applied to a
+     * stream.
+     *
+     * Yielded lazily, so a chain entry behind the one that primes successfully
+     * is never looked up.
+     *
+     * @return Generator<int, LlmConfiguration>
      */
-    private function candidates(ProviderCallContext $context, LlmConfiguration $primary): array
+    private function candidates(ProviderCallContext $context, LlmConfiguration $primary): Generator
     {
-        $candidates = [$primary];
+        yield $primary;
 
-        $chain = $primary->getFallbackChainDTO()->without($primary->getIdentifier());
-        foreach ($chain->configurationIdentifiers as $identifier) {
-            $fallback = $this->repository->findOneByIdentifier($identifier);
-            if (!$fallback instanceof LlmConfiguration || !$fallback->isActive()) {
+        $candidates = $this->candidateResolver->resolve(
+            $this->candidateResolver->chainFor($primary),
+            function (string $identifier) use ($context): void {
                 $this->logger->warning(
                     'LLM streaming fallback configuration missing or inactive, skipping',
                     $this->logContext($context, ['configuration' => $identifier]),
                 );
+            },
+        );
 
-                continue;
-            }
-
-            $candidates[] = $fallback;
+        foreach ($candidates as $candidate) {
+            yield $candidate;
         }
-
-        return $candidates;
     }
 
     private function isRetryable(Throwable $e): bool

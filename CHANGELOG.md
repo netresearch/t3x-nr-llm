@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The candidate walk over a primary configuration's fallback chain is
+  implemented once, in the `@internal`
+  `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
+  ADR-021 rules — shallow, no self-retry, missing and inactive entries
+  skipped — while ordering, the primary attempt and the skip log lines stay
+  with each caller: the health-aware reorder (ADR-063) remains on the
+  pipelined path only, and streaming keeps the configured order.
+  `FallbackMiddleware` and `StreamingDispatcher` now take the resolver in
+  place of `LlmConfigurationRepository`; neither is part of the `@api`
+  surface, which is unchanged. Streaming resolves the chain lazily now: when an
+  early candidate serves, later entries are no longer looked up and a broken
+  entry behind it no longer logs a skip warning.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added
