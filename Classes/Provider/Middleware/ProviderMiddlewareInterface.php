@@ -26,9 +26,23 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  *    tracking, budget accounting).
  *
  * Registered implementations are discovered via the `nr_llm.provider_middleware`
- * tag (auto-applied by AutoconfigureTag) and composed by MiddlewarePipeline in
- * registration order -- the first-registered middleware runs first on the
- * "before" half and last on the "after" half, classic onion ordering.
+ * tag (auto-applied by the AutoconfigureTag below) and composed by
+ * MiddlewarePipeline in priority order -- the highest priority runs first on
+ * the "before" half and last on the "after" half, classic onion ordering.
+ *
+ * ORDERING CONVENTION: declare the priority as a static method
+ *
+ *     public static function getDefaultPriority(): int { return 90; }
+ *
+ * and NOT as `attributes: ['priority' => 90]` on AutoconfigureTag. Because
+ * this interface carries the tag too, the container sees the tag twice per
+ * middleware and deduplicates; the survivor is this declaration, which has no
+ * priority, so an attribute priority is silently dropped and the pipeline
+ * assembles unsorted (symfony/symfony#65120, hit on 2026-08-08).
+ *
+ * The method is a convention, not an abstract member -- adding one here would
+ * break third-party implementations within a major version (ADR-127). A
+ * middleware that omits it simply sorts at priority 0, i.e. innermost.
  *
  * The return type is declared `mixed` because different operations return
  * different typed responses (CompletionResponse, EmbeddingResponse,
