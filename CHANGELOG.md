@@ -6,6 +6,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The approval of a write is fail-closed and bound to the turn that was
+  reviewed** (ADR-132). Two defects on the same path:
+  `AgentRunPersister::recordApproval()` swallowed a store error and
+  `ResumeCoordinator::approve()` executed anyway, so a write could run with no
+  record of who authorised it; and the stale-review digest existed only in the
+  `AgentRunController`, so the Tool Playground could approve a turn it had never
+  displayed. `recordApproval()` now returns `bool` (same shape as
+  `recordStep()`), and `approve()` refuses to execute a turn declaring a write
+  whose decision could not be recorded. The verified digest moved into
+  `ApprovalDecision` and is compared — timing-safe — against the state loaded
+  AFTER the resume claim, so a decision made on a turn a concurrent approval
+  already replaced is refused as well. Read-only turns stay fail-soft
+  (deliberately), and a denial still passes: it executes nothing, so refusing it
+  would only leave the write pending. A refused decision RELEASES the run back
+  to `WAITING_FOR_APPROVAL` — nothing runs, nothing settles, the operator can
+  re-review and decide again. The playground's `awaiting_approval` payload and
+  streaming event now carry `turnDigest`, and `resumeAction()` reads it back.
+  **Breaking:** `ApprovalDecision`'s constructor takes a third argument,
+  `?string $turnDigest`. It is optional in the signature for source
+  compatibility but MANDATORY at runtime — a `null` is refused exactly like a
+  wrong digest, so any third-party caller that constructs the decision itself
+  must supply the digest of the turn it displayed or every approval will fail
+  with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
+  is gone; the computation lives in the new `PendingTurnDigest` service.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added

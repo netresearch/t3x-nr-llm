@@ -11,11 +11,17 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -29,6 +35,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionClass;
+use ReflectionProperty;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -36,9 +43,14 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Messaging\FlashMessage;
+use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder as ExtbaseUriBuilder;
+use TYPO3\CMS\Extbase\Service\ExtensionService;
 
 /**
  * Renders the approvals inbox through the real ModuleTemplate + Fluid stack and
@@ -109,7 +121,88 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('tabindex="-1"', $body);
     }
 
+    #[Test]
+    public function approveActionHandsTheReviewedTurnDigestToTheRuntimeAndRefusesAStaleOne(): void
+    {
+        // ADR-132: the module no longer decides staleness itself — it carries
+        // the digest the card rendered into the decision, and the runtime
+        // verifies it against the CLAIMED state. Two things are asserted: the
+        // value travels through unchanged, and the refusal is surfaced with the
+        // stale-review message rather than a generic error.
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $seen    = null;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, ApprovalDecision $decision) use (&$seen, $uuid): AgentRunResult {
+                $seen = $decision;
+
+                throw StaleApprovalTurnException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve');
+
+        $response = $controller->approveAction($uuid, true, 'a-digest-of-some-other-turn');
+
+        self::assertSame(303, $response->getStatusCode(), 'the refusal ends in the POST-redirect-GET flush');
+        self::assertInstanceOf(ApprovalDecision::class, $seen);
+        self::assertSame('a-digest-of-some-other-turn', $seen->turnDigest);
+        self::assertTrue($seen->approved);
+        self::assertSame(
+            $this->localizedFlashMessages(),
+            ['The pending action changed since you viewed it — please re-review.'],
+        );
+    }
+
+    #[Test]
+    public function theDigestTheCardRendersIsTheOneTheRuntimeWillRecompute(): void
+    {
+        // The whole guard rests on both sides computing the same value from the
+        // same pending calls (ADR-132) — one definition, asserted across the
+        // render side and the verification side.
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $run = $this->persister->findRun($this->lastUuid());
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertNotNull($run->suspendedState);
+
+        $decoded = json_decode($run->suspendedState, true);
+        self::assertIsArray($decoded);
+
+        $factory = new WaitingRunViewFactory(new ToolRegistry([new FakeTool('delete_thing')]), new SchemaPropertyClassifier(), new PendingTurnDigest());
+
+        self::assertSame(
+            (new PendingTurnDigest())->forState(SuspendedRunState::fromArray($decoded)),
+            $factory->turnDigestForRun($run),
+        );
+    }
+
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * The rendered text of every flash message the action queued.
+     *
+     * @return list<string>
+     */
+    private function localizedFlashMessages(): array
+    {
+        $flashMessageService = $this->get(FlashMessageService::class);
+        self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
+        $extensionService = $this->get(ExtensionService::class);
+        self::assertInstanceOf(ExtensionService::class, $extensionService);
+
+        // The identifier ActionController::getFlashMessageQueue() derives.
+        $queue = $flashMessageService->getMessageQueueByIdentifier(
+            'extbase.flashmessages.' . $extensionService->getPluginNamespace('NrLlm', null),
+        );
+
+        return array_values(array_map(
+            static fn(FlashMessage $message): string => $message->getMessage(),
+            $queue->getAllMessagesAndFlush(),
+        ));
+    }
 
     private ?string $lastUuid = null;
 
@@ -166,7 +259,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         return new AgentRunController(
             $moduleTemplateFactory,
             $this->persister,
-            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier()),
+            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier(), new PendingTurnDigest()),
             new SchemaInputCoercer(new SchemaPropertyClassifier()),
             $runtime,
             $pageRenderer,
@@ -193,13 +286,30 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         // The render-only actions we test (list + the 422 in-place re-render)
         // need the moduleTemplate property. We set it directly rather than via
-        // initializeAction(), whose getFlashMessageQueue()/doc-header calls need
-        // Extbase controller services a direct-call harness cannot provide — the
-        // flash queue and doc menu are display-only and irrelevant to the card
-        // markup we assert. Actions that use redirect()/flash are covered by the
-        // WaitingRunViewFactory/SchemaInputCoercer unit tests instead.
+        // initializeAction(), whose doc-header call needs Extbase controller
+        // services a direct-call harness cannot provide.
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
         $reflection->getProperty('moduleTemplate')->setValue($controller, $moduleTemplateFactory->create($extbaseRequest));
+
+        // The three collaborators an ActionController normally receives through
+        // its inject* methods. Set here so the POST-redirect-GET actions
+        // (flash + redirect) are reachable too — the approval decision is one,
+        // and testing it against a double instead would leave the surface's
+        // actual behaviour unasserted.
+        $uriBuilder = $this->get(ExtbaseUriBuilder::class);
+        self::assertInstanceOf(ExtbaseUriBuilder::class, $uriBuilder);
+        $uriBuilder->setRequest($extbaseRequest);
+        $reflection->getProperty('uriBuilder')->setValue($controller, $uriBuilder);
+
+        // These two are PRIVATE on ActionController, so they are reachable only
+        // through the declaring class, not the subclass reflection above.
+        $flashMessageService = $this->get(FlashMessageService::class);
+        self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
+        (new ReflectionProperty(ActionController::class, 'internalFlashMessageService'))->setValue($controller, $flashMessageService);
+
+        $extensionService = $this->get(ExtensionService::class);
+        self::assertInstanceOf(ExtensionService::class, $extensionService);
+        (new ReflectionProperty(ActionController::class, 'internalExtensionService'))->setValue($controller, $extensionService);
     }
 }

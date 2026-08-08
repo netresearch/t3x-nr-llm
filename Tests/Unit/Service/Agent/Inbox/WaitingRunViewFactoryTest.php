@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -26,7 +27,7 @@ final class WaitingRunViewFactoryTest extends TestCase
 {
     private function factory(FakeTool ...$tools): WaitingRunViewFactory
     {
-        return new WaitingRunViewFactory(new ToolRegistry($tools), new SchemaPropertyClassifier());
+        return new WaitingRunViewFactory(new ToolRegistry($tools), new SchemaPropertyClassifier(), new PendingTurnDigest());
     }
 
     #[Test]

@@ -28,6 +28,13 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnRecord = false;
 
+    /**
+     * Fail only the event of this kind (e.g. `approval`), leaving every other
+     * write intact — the store hiccup that hits one audit record, not the whole
+     * connection. `null` = no kind-specific failure.
+     */
+    public ?string $throwOnRecordKind = null;
+
     public bool $throwOnFinish = false;
 
     /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int}> */
@@ -57,7 +64,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
     {
-        if ($this->throwOnRecord) {
+        if ($this->throwOnRecord || ($this->throwOnRecordKind !== null && $this->throwOnRecordKind === $kind)) {
             throw new RuntimeException('recordEvent failed', 9973913396);
         }
 

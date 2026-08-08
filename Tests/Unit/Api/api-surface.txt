@@ -1012,6 +1012,7 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
 Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
   property readonly approved: bool
   property readonly decidedByBeUser: int
+  property readonly turnDigest: ?string
 
 Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   property readonly runUuid: string

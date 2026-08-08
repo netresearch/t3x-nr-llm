@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -25,11 +27,13 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -50,6 +54,7 @@ use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -834,6 +839,134 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertFalse($payload['success']);
     }
 
+    #[Test]
+    public function resumeActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForApproval(): void
+    {
+        // ADR-132: the playground gets the turn binding for the first time. A
+        // decision made against a turn that is no longer pending is refused
+        // AFTER the claim and the run is handed back — not consumed, not
+        // terminal, and above all not executed.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid] = $this->suspendedApprovalController();
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+                ->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => 'a-digest-of-some-other-turn']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        // Re-signals the pause so the client re-fetches and re-reviews.
+        self::assertSame('awaiting_approval', $payload['status']);
+
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
+    #[Test]
+    public function resumeActionRefusesAnApprovalThatCarriesNoTurnDigest(): void
+    {
+        // A client that simply does not send the field must not be the one case
+        // that slips through — the signature default is not an escape hatch.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid] = $this->suspendedApprovalController();
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+                ->withParsedBody(['runUuid' => $uuid, 'approve' => '1']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
+    #[Test]
+    public function resumeActionExecutesNothingWhenAWriteTurnsApprovalCannotBeRecorded(): void
+    {
+        // ADR-132: correct digest, correct claim — but the APPROVAL event cannot
+        // be stored and the turn declares a write. Nothing runs, and the run is
+        // decidable again once the store recovers.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $persister, $uuid, $digest] = $this->suspendedApprovalController(failEventKind: 'approval');
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+                ->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest]),
+        );
+
+        self::assertSame(503, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+
+        $this->assertRunIsDecidableAgain($persister, $uuid);
+    }
+
+    /**
+     * A run suspended for approval on ONE write-declaring call, in the real
+     * database, behind a controller whose provider must never be reached.
+     *
+     * @return array{0: ToolPlaygroundController, 1: AgentRunPersister, 2: string, 3: string}
+     */
+    private function suspendedApprovalController(?string $failEventKind = null): array
+    {
+        $repository = new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class));
+        $persister  = new AgentRunPersister(
+            $failEventKind === null ? $repository : new ApprovalEventFailingRunRepository($repository, $failEventKind),
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            new NullLogger(),
+        );
+
+        $handle = $persister->begin(null, 1);
+        self::assertNotNull($handle);
+
+        $state = new SuspendedRunState(
+            [['role' => 'user', 'content' => 'delete it']],
+            [ToolCall::function('call_1', 'delete_thing', ['uid' => 42])->toArray()],
+            1,
+            5,
+            2,
+        );
+        self::assertTrue($persister->suspend($handle, $state));
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        // The refused decision must never reach a provider.
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->expects(self::never())->method('chatWithToolsForConfiguration');
+        $manager->expects(self::never())->method('chatWithConfiguration');
+
+        $registry = new ToolRegistry([new FakeTool('delete_thing', effect: ToolEffect::NON_IDEMPOTENT_WRITE)]);
+
+        return [
+            $this->makeController($configurationRepository, $registry, $this->loopFor($manager, $registry, new NullLogger()), $persister),
+            $persister,
+            $handle->uuid,
+            (new PendingTurnDigest())->forState($state),
+        ];
+    }
+
+    private function assertRunIsDecidableAgain(AgentRunPersister $persister, string $uuid): void
+    {
+        $run = $persister->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        // Not RUNNING (the claim was handed back) and not terminal — the
+        // operator can review the current turn and decide again.
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $run->statusEnum());
+        self::assertNotNull($run->suspendedState);
+    }
+
     /**
      * Build a controller wired to the scripted tool adapter (one tool call, then
      * a plain answer) over an in-memory configuration.
@@ -968,6 +1101,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $this->availabilityFor($toolRegistry),
             $skillRepository,
             $promptSnippetRepository,
+            new PendingTurnDigest(),
         );
     }
 

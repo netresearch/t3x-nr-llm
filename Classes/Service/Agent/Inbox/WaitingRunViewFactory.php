@@ -12,22 +12,28 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 
 /**
  * Turns persisted {@see AgentRun}s into the logic-free view models the approvals
- * inbox renders (ADR-109). All defensive decoding of the suspended-state blob,
- * the schema-to-field flattening and the stale-review turn digest live here, so
- * the Fluid template contains no logic and every branch is unit-testable without
- * an HTTP request.
+ * inbox renders (ADR-109). All defensive decoding of the suspended-state blob
+ * and the schema-to-field flattening live here, so the Fluid template contains
+ * no logic and every branch is unit-testable without an HTTP request. The turn
+ * digest a card carries is NOT computed here: it comes from
+ * {@see PendingTurnDigest}, the single definition the resume path verifies
+ * against (ADR-132).
  */
 final readonly class WaitingRunViewFactory
 {
     public function __construct(
         private ToolRegistry $registry,
         private SchemaPropertyClassifier $classifier,
+        // The ONE digest definition (ADR-132), shared with ResumeCoordinator so
+        // the value rendered here and the value verified there cannot drift.
+        private PendingTurnDigest $digest,
     ) {}
 
     /**
@@ -61,25 +67,11 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
-     * The digest of a suspended run's pending turn — a stable hash of the pending
-     * tool calls the operator reviewed. The controller recomputes this from the
-     * freshly-loaded current state and refuses to approve on a mismatch, so a
-     * stale tab (or a second admin) cannot authorize a turn the operator never
-     * saw (ADR-109 stale-review guard). Same method on both paths ⇒ identical
-     * digest for identical pending calls.
-     */
-    public function pendingTurnDigest(SuspendedRunState $state): string
-    {
-        $json = json_encode($state->pendingCalls, JSON_INVALID_UTF8_SUBSTITUTE);
-
-        return hash('sha256', $json !== false ? $json : serialize($state->pendingCalls));
-    }
-
-    /**
      * The current pending-turn digest for a freshly-loaded run, or null when its
-     * state is unreadable or it is not an approval pause. The controller compares
-     * this against the digest the operator reviewed and refuses a stale approval
-     * on a mismatch (ADR-109 stale-review guard).
+     * state is unreadable or it is not an approval pause. The rendered card
+     * carries this value back with the decision, and
+     * {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
+     * recomputes it from the claimed state and refuses a mismatch (ADR-132).
      */
     public function turnDigestForRun(AgentRun $run): ?string
     {
@@ -88,7 +80,7 @@ final readonly class WaitingRunViewFactory
             return null;
         }
 
-        return $this->pendingTurnDigest($state);
+        return $this->digest->forState($state);
     }
 
     /**
@@ -149,7 +141,7 @@ final readonly class WaitingRunViewFactory
             mode: WaitingRunView::MODE_APPROVAL,
             createdAt: $run->crdate,
             configLabel: $this->configLabel($run),
-            turnDigest: $this->pendingTurnDigest($state),
+            turnDigest: $this->digest->forState($state),
             pendingCalls: $calls,
         );
     }
