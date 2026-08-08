@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added
