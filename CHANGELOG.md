@@ -6,6 +6,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- New extension configuration key `skills.maxBytes` (default `24000`) for the
+  byte budget of the composed skill block (ADR-036 §5). `SkillComposer` had
+  accepted `maxBytes` as a constructor argument since the feature landed, but
+  `SkillComposerFactory` — the only production construction path — never
+  passed it, so the ceiling was fixed at the hardcoded default with no way for
+  an operator to change it. The cap itself was never absent: the constructor
+  default applied, so an unconfigured instance was capped at 24 000 bytes then
+  and is capped at 24 000 bytes now. What changes is that it can be adjusted.
+  A missing, unreadable, non-numeric or non-positive value falls back to
+  24 000, so an emptied or fat-fingered field cannot remove the cap — `0`
+  means "use the default", not "uncapped". This is the opposite fallback
+  direction from `skills.minTrustLevel`, which fails towards the *lower* bar
+  so a bad value cannot silently hide skills; a bad budget must not silently
+  unbound the block. Lower `skills.maxBytes` to reserve more of the model's
+  context window for the conversation itself.
+
+### Fixed
+
+- ADR-036 §5 claimed a ceiling derived from the model's context window ("with
+  `Model::contextLength == 0` the absolute cap applies"). No such derivation
+  was ever implemented. The section now says what the code does — the budget
+  is instance-wide and window-independent — and records why deriving it per
+  configuration is deliberately not done: `SkillComposer` is one shared
+  service whose budget is fixed at construction, the configuration's
+  `llmModel` is null in criteria selection mode (so the window read would not
+  belong to the model that serves the call), and `ContextWindowManager`
+  (ADR-107) already bounds the real send with a calibrated token estimator.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added

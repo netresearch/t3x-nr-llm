@@ -74,6 +74,9 @@ image.fal.defaultModel = flux-schnell
 # cat=skills; type=options[untrusted,community,verified,first_party]; label=Minimum Skill Trust Level: Only skills from a source classified at or above this publisher-trust level are injected into prompts and may grant tools. "untrusted" (default) accepts every enabled skill. Raising it drops lower-trust skills fail-closed.
 skills.minTrustLevel = untrusted
 
+# cat=skills; type=int+; label=Skill Block Byte Budget: Maximum size of the composed skill block prepended to the user prompt, measured in bytes (a conservative over-estimate of tokens for any encoding). When the block exceeds it, skills are dropped from the tail first — task-additive before the configuration baseline — and each drop is logged. Lower this to reserve more of the context window for the conversation. An empty, non-numeric or zero value falls back to 24000 — the cap cannot be switched off.
+skills.maxBytes = 24000
+
 # =============================================================================
 # Resilience (circuit breaker + provider health — ADR-063)
 # =============================================================================

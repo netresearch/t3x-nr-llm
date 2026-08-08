@@ -240,6 +240,19 @@ community/untrusted skill without deleting it. Trust is *separate from* the
 ``enabled = false`` default — an ``untrusted`` skill still needs an explicit
 enable.
 
+**Skill-block byte budget.** ``skills.maxBytes`` (extension configuration,
+default ``24000``) caps the composed block that is prepended to the user
+prompt. The measure is bytes, not tokens — a deliberate over-estimate, since no
+tokenizer is available. When the block exceeds the budget, skills are dropped
+from the tail first: task-additive skills go before the configuration baseline,
+and every drop is logged as a warning. Lower the value to reserve more of the
+model's context window for the conversation itself; raise it if a large
+configuration baseline is being trimmed. An empty, non-numeric or zero value
+falls back to ``24000`` — the cap cannot be switched off, so an emptied field
+never puts an unbounded block on the wire. The budget is instance-wide and
+independent of the model's context window; the per-request window bound is
+handled separately by the context-window manager (:ref:`ADR-107 <adr-107>`).
+
 **Manifest fingerprint (optional).** A source may declare an
 ``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
 the digest is recomputed at sync and verified before anything is materialised; a
