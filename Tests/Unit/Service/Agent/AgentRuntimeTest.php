@@ -12,9 +12,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Agent;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -25,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -33,6 +38,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
@@ -56,6 +62,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
@@ -71,6 +78,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(AgentRuntime::class)]
 #[CoversClass(AgentRunExecutor::class)]
@@ -585,6 +593,206 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             ->approve($this->actor(), 'run-uuid-1', $this->decision(false, 7, 'send_mail'));
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
+    public function anApproverWhoMayNotRunTheWriteMayNotReleaseIt(): void
+    {
+        // ADR-133: the confused deputy. A non-admin holding the agent_approve
+        // grant may DECIDE another user's run (ADR-130), but the turn executes
+        // under the OWNER's identity (ADR-083) — so an admin-only write would run
+        // on the owner's authority. The gate the execution would pass is asked
+        // about the APPROVER, and its denial refuses the release.
+        $this->repository->findResult = $this->suspendedRun(tool: 'send_mail');
+
+        try {
+            $this->runtime(
+                $this->loopNeverResuming(),
+                effectResolver: new ToolEffectResolver(new ToolRegistry([
+                    new FakeTool('send_mail', requiresAdmin: true, effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+                ])),
+                toolPolicy: $this->policyDeciding(false, ToolDenialReason::REQUIRES_ADMIN),
+                actingBackendUserResolver: $this->resolverReturningALiveUser(),
+            )->approve($this->approver(), 'run-uuid-1', $this->decision(true, 5, 'send_mail'));
+            self::fail('Expected ApproverNotPermittedException');
+        } catch (ApproverNotPermittedException) {
+            $this->assertReleasedNotSettled();
+            // The gate sits BEFORE the audit write: a refused approval must not
+            // land in the stream as a decision that stood.
+            self::assertSame([], array_values(array_filter(
+                $this->repository->events,
+                static fn(array $event): bool => $event['kind'] === 'approval',
+            )));
+        }
+    }
+
+    #[Test]
+    public function anApproverWhoMayRunTheWriteReleasesItUnderTheRunOwnersIdentity(): void
+    {
+        // The positive control for the gate AND the ADR-083 regression: the
+        // approver (uid 5) passes the gate, and what reaches the tool loop is
+        // still the run OWNER's actor (uid 9) — the deputy check must not have
+        // turned into an identity switch. The approver's uid travels only as the
+        // decider, for the continuation's budget check.
+        $this->repository->findResult = $this->suspendedRun(tool: 'send_mail');
+
+        $seenActor  = null;
+        $seenDecider = null;
+        $loop        = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(
+            function (SuspendedRunState $state, bool $approved, LlmConfiguration $config, ToolExecutionContext $context, ?int $max, ?RunTrace $trace, ?int $beUserUid) use (&$seenActor, &$seenDecider): ToolLoopResult {
+                $seenActor   = $context->actor;
+                $seenDecider = $beUserUid;
+
+                return $this->loopResult('continued');
+            },
+        );
+
+        $result = $this->runtime(
+            $loop,
+            effectResolver: new ToolEffectResolver(new ToolRegistry([
+                new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+            ])),
+            toolPolicy: $this->policyDeciding(true),
+            actingBackendUserResolver: $this->resolverReturningALiveUser(),
+        )->approve($this->approver(), 'run-uuid-1', $this->decision(true, 5, 'send_mail'));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertInstanceOf(AiActorContext::class, $seenActor);
+        self::assertSame(9, $seenActor->backendUserUid, 'the resumed turn runs as the run owner, not the approver');
+        self::assertSame(5, $seenDecider);
+    }
+
+    #[Test]
+    public function theApproverGateOnlyJudgesWriteDeclaringCalls(): void
+    {
+        // The other half of the DoD: the same non-admin still releases a
+        // read-only turn. The policy double would deny EVERY tool it is asked
+        // about, so a green result proves the gate never asked.
+        $this->repository->findResult = $this->suspendedRun(tool: 'list_pages');
+
+        $result = $this->runtime(
+            $this->loopReturning($this->loopResult('continued')),
+            effectResolver: new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')])),
+            toolPolicy: $this->policyDeciding(false, ToolDenialReason::REQUIRES_ADMIN),
+            actingBackendUserResolver: $this->resolverReturningALiveUser(),
+        )->approve($this->approver(), 'run-uuid-1', $this->decision(true, 5, 'list_pages'));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
+    public function aServiceAccountMayNotReleaseAWriteDeclaringTurn(): void
+    {
+        // ADR-133 decision E5(a): a service account has no backend permissions
+        // at all — hasGrant() is false for it by construction and it has no uid —
+        // so decide() would see "no user" and check only the requiresAdmin axis.
+        // A write tool without that flag would pass a gate that is effectively
+        // absent. The policy double ALLOWS everything here, so the refusal can
+        // only come from the missing identity, not from the gate.
+        $this->repository->findResult = $this->suspendedRun(tool: 'send_mail');
+
+        try {
+            $this->runtime(
+                $this->loopNeverResuming(),
+                effectResolver: new ToolEffectResolver(new ToolRegistry([
+                    new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+                ])),
+                toolPolicy: $this->policyDeciding(true),
+            )->approve(
+                AiActorContext::serviceAccount('nightly-approver', [ServiceAccountScope::AGENT_APPROVE]),
+                'run-uuid-1',
+                $this->decision(true, 0, 'send_mail'),
+            );
+            self::fail('Expected ApproverNotPermittedException');
+        } catch (ApproverNotPermittedException) {
+            $this->assertReleasedNotSettled();
+        }
+    }
+
+    #[Test]
+    public function aServiceAccountMayStillReleaseAReadOnlyTurn(): void
+    {
+        // The refusal is scoped to writes: an automation that clears read-only
+        // pauses keeps working (ADR-110's AGENT_APPROVE scope is not revoked).
+        $this->repository->findResult = $this->suspendedRun(tool: 'list_pages');
+
+        $result = $this->runtime(
+            $this->loopReturning($this->loopResult('continued')),
+            effectResolver: new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')])),
+            toolPolicy: $this->policyDeciding(true),
+        )->approve(
+            AiActorContext::serviceAccount('nightly-approver', [ServiceAccountScope::AGENT_APPROVE]),
+            'run-uuid-1',
+            $this->decision(true, 0, 'list_pages'),
+        );
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
+    public function aDenialPassesTheApproverGate(): void
+    {
+        // The same asymmetry ADR-132 states for the audit gate, for the same
+        // reason: the gate exists to stop an unauthorised WRITE from executing,
+        // and a denial executes nothing. Refusing it would leave the write
+        // pending and approvable while the operator who wanted it gone is turned
+        // away.
+        $this->repository->findResult = $this->suspendedRun(tool: 'send_mail');
+
+        $result = $this->runtime(
+            $this->loopReturning($this->loopResult('refused and continued')),
+            effectResolver: new ToolEffectResolver(new ToolRegistry([
+                new FakeTool('send_mail', requiresAdmin: true, effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+            ])),
+            toolPolicy: $this->policyDeciding(false, ToolDenialReason::REQUIRES_ADMIN),
+            actingBackendUserResolver: $this->resolverReturningALiveUser(),
+        )->approve($this->approver(), 'run-uuid-1', $this->decision(false, 5, 'send_mail'));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    /**
+     * A non-owner, non-admin backend user who may decide the fixture's run only
+     * because of the ADR-130 grant — the exact principal ADR-133 is about.
+     */
+    private function approver(): AiActorContext
+    {
+        return AiActorContext::backendUser(5, grants: [BackendUserGrant::AGENT_APPROVE]);
+    }
+
+    /**
+     * A tool gate returning the same verdict for every tool it is asked about.
+     */
+    private function policyDeciding(bool $allowed, ToolDenialReason $reason = ToolDenialReason::NONE): ToolCallPolicyInterface
+    {
+        $policy = self::createStub(ToolCallPolicyInterface::class);
+        $policy->method('decide')->willReturnCallback(
+            static fn(string $toolName): ToolPolicyDecision => new ToolPolicyDecision(
+                $toolName,
+                $allowed,
+                ToolDataClass::EDITOR_CONTENT,
+                TrustZone::LOCAL,
+                ToolDataClass::SECRET_ADJACENT,
+                $reason,
+            ),
+        );
+
+        return $policy;
+    }
+
+    /**
+     * A resolver that hands back a live backend user for any actor — the "the
+     * approver exists" precondition, so a test asserts the GATE's verdict rather
+     * than the absence of a user. Resolution from the database is covered by the
+     * functional ActingBackendUserResolver test.
+     */
+    private function resolverReturningALiveUser(): ActingBackendUserResolverInterface
+    {
+        $resolver = self::createStub(ActingBackendUserResolverInterface::class);
+        $resolver->method('resolve')->willReturn(self::createStub(BackendUserAuthentication::class));
+
+        return $resolver;
     }
 
     /**
@@ -1290,6 +1498,10 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         ?LlmConfiguration $configuration = new LlmConfiguration(),
         ?MessageBusInterface $bus = null,
         ?ToolEffectResolver $effectResolver = null,
+        // The approver gate (ADR-133) runs only when a policy is wired; the
+        // cases that are not about it leave both null and are unaffected.
+        ?ToolCallPolicyInterface $toolPolicy = null,
+        ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -1304,8 +1516,9 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             // unit test — the real resolver would hit the database via
             // setBeUserByUid(). Tool authorization from a live user is covered by
             // the functional ActingBackendUserResolver and tool tests.
-            actingBackendUserResolver: self::createStub(ActingBackendUserResolverInterface::class),
+            actingBackendUserResolver: $actingBackendUserResolver ?? self::createStub(ActingBackendUserResolverInterface::class),
             toolEffectResolver: $effectResolver,
+            toolPolicy: $toolPolicy,
         );
     }
 

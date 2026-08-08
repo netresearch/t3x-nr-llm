@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -124,6 +125,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // one over the same persister, configuration repository, tool loop,
         // executor, schema validator and effect resolver.
         private ?ResumeCoordinator $resumeCoordinator = null,
+        // The composite tool gate (ADR-094), handed to the resume coordinator so
+        // an approver is checked against the writes they release (ADR-133). Held
+        // here only to pass down: this runtime never asks it anything itself.
+        private ?ToolCallPolicyInterface $toolPolicy = null,
     ) {}
 
     /**
@@ -139,6 +144,10 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->runExecutor(),
             $this->schemaValidator,
             $this->toolEffectResolver,
+            null,
+            $this->toolPolicy,
+            $this->actingBackendUserResolver,
+            $this->logger,
         );
     }
 

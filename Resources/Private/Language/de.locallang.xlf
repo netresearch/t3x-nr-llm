@@ -2786,6 +2786,10 @@
                 <source>The decision could not be recorded, so this write was not executed. The run is still waiting — please try again.</source>
                 <target>Die Entscheidung konnte nicht protokolliert werden, deshalb wurde der schreibende Aufruf nicht ausgeführt. Der Lauf wartet weiterhin – bitte erneut versuchen.</target>
             </trans-unit>
+            <trans-unit id="runs.error.approverNotPermitted">
+                <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
+                <target>Diese Aktion führt ein Werkzeug aus, das Sie selbst nicht verwenden dürfen; deshalb können Sie sie nicht freigeben. Der Lauf wartet weiterhin auf eine berechtigte Person.</target>
+            </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>
                 <target>Freigabe erfasst; der Lauf wurde fortgesetzt.</target>

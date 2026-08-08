@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
@@ -261,6 +262,17 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.staleApproval', 'The pending action changed since you viewed it — please re-review.'),
             ], 409);
+        } catch (ApproverNotPermittedException) {
+            // ADR-133: the decider may not run the pending write themselves.
+            // Nothing was executed and the run is decidable again, so
+            // awaiting_approval is re-signalled — but 403, because the obstacle
+            // is who is asking, not the request or the store.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_approval',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.approverNotPermitted', 'You may not approve an action that runs a tool you are not permitted to use yourself.'),
+            ], 403);
         } catch (ApprovalNotAuditableException) {
             // Nothing was executed and the run is decidable again; 503, because
             // the obstacle is the audit store, not the request.

@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
@@ -31,14 +33,19 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Picks a suspended run back up: an approval decision (ADR-084) or a submitted
@@ -62,7 +69,9 @@ use RuntimeException;
  *
  * Both refuse a caller that may not act on the run, and both resume tools under
  * the RUN OWNER's identity rather than the approver's or the submitter's
- * (ADR-083).
+ * (ADR-083). Because the owner's identity is what executes, the APPROVER is
+ * checked against the pending writes separately (ADR-133) — an approver who
+ * could not run the call themselves may not have it run for them.
  */
 final readonly class ResumeCoordinator
 {
@@ -87,6 +96,27 @@ final readonly class ResumeCoordinator
         // The ONE digest definition (ADR-132), shared with the inbox view
         // factory so what is rendered and what is verified cannot drift.
         private ?PendingTurnDigest $turnDigest = null,
+        // The composite tool gate (ADR-094), asked whether the APPROVER could
+        // run the writes they are releasing (ADR-133). Optional for the
+        // positional test wiring like the collaborators above; production
+        // autowires it, and AgentRuntime hands its own down.
+        //
+        // A null is the ONE arm in which this gate does not run. Deliberately
+        // not "refuse every write": without a gate there is no verdict to fail
+        // closed ON, and refusing would make the bare positional construction
+        // unable to approve anything at all rather than merely unchecked. The
+        // arm is unreachable from the container, where the interface is aliased.
+        private ?ToolCallPolicyInterface $toolPolicy = null,
+        // Turns the APPROVER's uid into a live backend user for that gate
+        // (ADR-083's resolver, used here on the deciding identity rather than
+        // the executing one). A null falls back to a fresh default instance,
+        // exactly as in AgentRunExecutor — the fallback resolves from the
+        // database and is not a weakening.
+        private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
+        // Records a refused approval (ADR-133): who was turned away, on which
+        // tool, for which reason. The exception carries the same facts to the
+        // surface; the log line is what survives the request.
+        private ?LoggerInterface $logger = null,
     ) {}
 
     /**
@@ -96,7 +126,8 @@ final readonly class ResumeCoordinator
      * tool loop under the run OWNER's identity. Throws rather than returning a
      * failed result when the run is not resumable: the caller distinguishes
      * "wrong state", "not yours", "already resuming", "corrupt state", "you
-     * reviewed a different turn" and "the decision could not be recorded".
+     * reviewed a different turn", "you may not run that write" and "the decision
+     * could not be recorded".
      *
      * The state that is resumed is the one loaded AFTER the claim, never the one
      * read before it. Lose the race and the run does not simply stay put: the
@@ -106,28 +137,42 @@ final readonly class ResumeCoordinator
      * write classification and the execution all have to use the fresh state or
      * they judge a turn that is no longer pending.
      *
-     * Two fail-closed gates sit between the claim and the execution, and both
-     * RELEASE the run (suspend it back to WAITING_FOR_APPROVAL, which clears the
-     * claim and the lease and writes the state back) rather than settling it:
-     * the decision was refused, nothing ran, and the operator can decide again.
+     * Three fail-closed gates sit between the claim and the execution, and all
+     * three RELEASE the run (suspend it back to WAITING_FOR_APPROVAL, which
+     * clears the claim and the lease and writes the state back) rather than
+     * settling it: the decision was refused, nothing ran, and the operator can
+     * decide again.
      *
      * 1. The decision must name the turn it was made on. A null digest and a
      *    mismatching digest both mean "the reviewed turn is not known", so both
      *    are refused. This is the ONLY place the invariant lives — the surfaces
      *    just carry the value through.
-     * 2. An approval whose APPROVAL event could not be stored may not execute
+     * 2. The APPROVER must be permitted to run every pending call that declares
+     *    a write (ADR-133). Execution stays the owner's (ADR-083), which is
+     *    precisely why: without this, a non-admin holding the `agent_approve`
+     *    grant could release an admin-only write and have it executed on the
+     *    owner's authority.
+     * 3. An approval whose APPROVAL event could not be stored may not execute
      *    a turn that declares a write. A read-only turn
      *    stays fail-soft (logged, and it continues): the audit gap is real but
      *    nothing changes state, and refusing would strand a harmless run.
      *
+     * Gate 2 sits between them on purpose. After gate 1, because it judges the
+     * calls of the turn that was actually reviewed and there is no point
+     * resolving a backend user for a decision already known to be stale; before
+     * gate 3, because a refused approval must not be written into the audit
+     * stream as a decision that stood — the same reason gate 1 releases before
+     * anything is recorded.
+     *
      * A DENIAL passes gate 1 — it is a decision on a turn like any other, and
      * denying a turn the operator never saw is exactly as wrong as approving it
-     * — but deliberately NOT gate 2. Gate 2 exists to stop an unaudited WRITE
-     * from executing; a denial executes nothing, so there is nothing to stop.
-     * Refusing it would only leave the write-declaring turn pending and
-     * approvable while the operator who wanted it gone is turned away — a worse
-     * state than a logged, unrecorded "no". The "who denied" record is still
-     * lost, which is why the failure is logged rather than silent.
+     * — but deliberately NOT gates 2 and 3. Both exist to stop a WRITE from
+     * executing (unauthorised or unaudited); a denial executes nothing, so there
+     * is nothing to stop. Refusing it would only leave the write-declaring turn
+     * pending and approvable while the operator who wanted it gone is turned
+     * away — a worse state than a logged, unrecorded "no". The "who denied"
+     * record is still lost, which is why the failure is logged rather than
+     * silent.
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
@@ -205,7 +250,21 @@ final readonly class ResumeCoordinator
             throw StaleApprovalTurnException::forRun($runUuid);
         }
 
-        // Gate 2 — the decision is part of the run's audit stream (ADR-101):
+        // Gate 2 — the approver must be permitted to run what they release
+        // (ADR-133). Only an approval is checked: a denial executes nothing.
+        $refusal = $decision->approved ? $this->approverRefusal($actor, $configuration, $state, $runUuid) : null;
+        if ($refusal instanceof ApproverNotPermittedException) {
+            $this->logger?->warning('Approval refused: the approver may not run the pending write', [
+                'run'    => $runUuid,
+                'actor'  => $actor->describe(),
+                'reason' => $refusal->getMessage(),
+            ]);
+            $this->release($handle, $state, $runUuid);
+
+            throw $refusal;
+        }
+
+        // Gate 3 — the decision is part of the run's audit stream (ADR-101):
         // who approved or denied, before the continuation's own events. An
         // approval that authorises a write and could not be recorded does not
         // execute.
@@ -290,6 +349,76 @@ final readonly class ResumeCoordinator
     private function turnDigest(): PendingTurnDigest
     {
         return $this->turnDigest ?? new PendingTurnDigest();
+    }
+
+    /**
+     * Why this approver may not release this turn, or null when they may
+     * (ADR-133).
+     *
+     * Resume executes under the run OWNER's identity (ADR-083) — deliberately,
+     * and unchanged. That is exactly what makes the approver's own authority
+     * load-bearing: {@see AiActorContext::mayActOnRun()} grants the DECISION on
+     * the `agent_approve` grant alone, so without this the grant would let a
+     * non-admin release an admin-only write that then runs on the owner's
+     * authority. Every pending call that DECLARES a write is therefore put
+     * through the same gate the execution would pass, evaluated against the
+     * approver's live backend user. Read-only calls are not checked: nothing
+     * changes state, and the owner's own gate still governs what runs.
+     *
+     * Fail-closed in three places:
+     *
+     * - A SERVICE ACCOUNT may not release a write-declaring turn at all. Its
+     *   authority is scopes, not backend permissions:
+     *   {@see AiActorContext::hasGrant()} is false for it by construction and it
+     *   has no backend-user uid, so {@see ToolCallPolicyInterface::decide()} would
+     *   see `$user === null` and check only enabled/group/zone — the admin axis
+     *   bites solely on `requiresAdmin()`, so a write tool without that flag
+     *   would pass a gate that is effectively absent while a human is checked
+     *   properly. Refusing is the only variant that stays fail-closed without
+     *   inventing a second authorisation axis for service accounts.
+     * - A human whose uid no longer resolves to an enabled backend user is
+     *   refused for the same reason: there is no live permission surface to
+     *   check, and "no user" is not "permitted".
+     * - A pending entry too corrupt to yield a call is refused, mirroring
+     *   {@see self::turnDeclaresWrite()} — an unclassifiable call is the
+     *   dangerous case, not the harmless one.
+     *
+     * Observe mode is honoured as-is: the gate reports `allowed` there, and this
+     * check must not be stricter than the execution it mirrors.
+     */
+    private function approverRefusal(AiActorContext $actor, LlmConfiguration $configuration, SuspendedRunState $state, string $runUuid): ?ApproverNotPermittedException
+    {
+        if (!$this->toolPolicy instanceof ToolCallPolicyInterface) {
+            return null;
+        }
+
+        // A service account has no backend user by construction; resolving would
+        // return null anyway, but not asking says why.
+        $approver = $actor->isServiceAccount()
+            ? null
+            : ($this->actingBackendUserResolver ?? new ActingBackendUserResolver())->resolve($actor);
+
+        foreach ($state->pendingCalls as $raw) {
+            $call = ToolCall::tryFromArray($raw);
+            if (!$call instanceof ToolCall) {
+                return ApproverNotPermittedException::forUnreadableCall($runUuid, $actor);
+            }
+
+            if (!($this->toolEffectResolver?->effectFor($call->name) ?? ToolEffect::NON_IDEMPOTENT_WRITE)->isWrite()) {
+                continue;
+            }
+
+            if (!$approver instanceof BackendUserAuthentication) {
+                return ApproverNotPermittedException::forApproverWithoutPermissions($runUuid, $actor, $call->name);
+            }
+
+            $verdict = $this->toolPolicy->decide($call->name, $configuration, $approver);
+            if (!$verdict->allowed) {
+                return ApproverNotPermittedException::forDeniedTool($runUuid, $actor, $call->name, $verdict->reason);
+            }
+        }
+
+        return null;
     }
 
     /**
