@@ -228,6 +228,104 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     /**
+     * ADR-136: the card shows what the call WOULD do, not only its arguments.
+     */
+    #[Test]
+    public function anApprovalCallCarriesItsCapturedPreview(): void
+    {
+        $call  = ToolCall::function('c1', 'update_page_metadata', ['uid' => 7])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['Page [7] "Home" — 1 field(s):', 'title: "Home" → "New"'], 'failed' => false],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $view = $this->factory(new FakeTool('update_page_metadata'))->buildWaiting([$this->makeRun('a', $state)])[0];
+
+        self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
+        self::assertSame(['Page [7] "Home" — 1 field(s):', 'title: "Home" → "New"'], $view->pendingCalls[0]->previewLines);
+        self::assertFalse($view->pendingCalls[0]->previewFailed);
+    }
+
+    #[Test]
+    public function aFailedPreviewRendersItsReasonAndIsFlaggedAsSuch(): void
+    {
+        $call  = ToolCall::function('c1', 'write_thing', [])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'write_thing', 'lines' => ['The preview for this call failed (RuntimeException).'], 'failed' => true],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $state)])[0];
+
+        // The card renders a line and says it is a failure, so the approver
+        // knows they are deciding blind instead of seeing an empty section.
+        self::assertTrue($view->pendingCalls[0]->previewFailed);
+        self::assertNotSame([], $view->pendingCalls[0]->previewLines);
+    }
+
+    /**
+     * A corrupt call is skipped, so the surviving calls shift position. The
+     * preview must follow the call it was captured for, never the one that
+     * happens to land at its index afterwards.
+     */
+    #[Test]
+    public function aPreviewStaysWithItsCallEvenWhenAnEarlierCallIsCorrupt(): void
+    {
+        $good  = ToolCall::function('c2', 'write_thing', [])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [['not' => 'a call'], $good], 1, 0, 0, null, [], null, [], [
+                ['index' => 1, 'tool' => 'write_thing', 'lines' => ['would write'], 'failed' => false],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $state)])[0];
+
+        self::assertCount(1, $view->pendingCalls);
+        self::assertSame(['would write'], $view->pendingCalls[0]->previewLines);
+    }
+
+    #[Test]
+    public function aPreviewNamingADifferentToolIsDropped(): void
+    {
+        $call  = ToolCall::function('c1', 'write_thing', [])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'some_other_tool', 'lines' => ['would write something else'], 'failed' => false],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $state)])[0];
+
+        // Showing a claim about the wrong call is worse than showing none.
+        self::assertSame([], $view->pendingCalls[0]->previewLines);
+    }
+
+    /**
+     * A row suspended before ADR-136 has no `callPreviews` key at all. It must
+     * still render — a running installation is full of such rows.
+     */
+    #[Test]
+    public function aStateWithoutThePreviewFieldStillRendersTheCard(): void
+    {
+        $call    = ToolCall::function('c1', 'write_thing', [])->toArray();
+        $legacy  = (new SuspendedRunState([], [$call], 1, 0, 0))->toArray();
+        unset($legacy['callPreviews']);
+        $encoded = json_encode($legacy, JSON_THROW_ON_ERROR);
+
+        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $encoded)])[0];
+
+        self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
+        self::assertSame([], $view->pendingCalls[0]->previewLines);
+        self::assertFalse($view->pendingCalls[0]->previewFailed);
+    }
+
+    /**
      * @param array<string, mixed> $arguments
      */
     private function approvalState(string $toolName, array $arguments): string

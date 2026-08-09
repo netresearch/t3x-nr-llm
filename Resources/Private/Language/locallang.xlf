@@ -2071,6 +2071,15 @@
             <trans-unit id="runs.arguments">
                 <source>Arguments</source>
             </trans-unit>
+            <trans-unit id="runs.preview">
+                <source>What this call would do</source>
+            </trans-unit>
+            <trans-unit id="runs.previewUnavailable">
+                <source>No preview — you are deciding without one</source>
+            </trans-unit>
+            <trans-unit id="runs.previewCapturedAtPause">
+                <source>Captured when the run paused — the target may have changed since.</source>
+            </trans-unit>
             <trans-unit id="runs.approve">
                 <source>Approve</source>
             </trans-unit>

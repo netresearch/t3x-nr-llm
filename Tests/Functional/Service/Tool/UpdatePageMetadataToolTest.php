@@ -172,6 +172,69 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->sysLogUserIdsFor(self::PAGE_ADMIN_ONLY));
     }
 
+    /**
+     * ADR-136: the arguments on the approval card ARE the new values, so the
+     * preview's job is the other column — what the write would replace.
+     */
+    #[Test]
+    public function thePreviewShowsTheStoredValueNextToTheProposedOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Home', 'description' => 'New description'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertSame('Page [1] "Home" — 2 field(s):', $lines[0]);
+        // A field whose proposed value equals the stored one is named as such —
+        // an approver should not have to diff two identical strings by eye.
+        self::assertSame('title: unchanged ("Home")', $lines[1]);
+        self::assertSame('description: "Old description" → "New description"', $lines[2]);
+
+        // A preview reads; it must not write.
+        self::assertSame('Old description', $this->pageRow(self::PAGE_ADMIN_ONLY)['description'] ?? null);
+        self::assertSame([], $this->sysLogUserIdsFor(self::PAGE_ADMIN_ONLY));
+    }
+
+    /**
+     * The preview authorises against the run's EXPLICIT acting user, exactly
+     * like the write — otherwise it would be a read-anything oracle wearing the
+     * write tool's name.
+     */
+    #[Test]
+    public function thePreviewRefusesAPageTheActingUserMayNotEditWithTheSameNeutralString(): void
+    {
+        $editor  = $this->setUpBackendUser(2);
+        $context = ToolExecutionContext::fromBackendUser($editor);
+
+        $denied  = $this->tool->previewCall(['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'Hijacked'], $context);
+        $missing = $this->tool->previewCall(['uid' => self::PAGE_MISSING, 'title' => 'Hijacked'], $context);
+
+        self::assertSame(['Page not found or not permitted.'], $denied);
+        // Byte-identical, as in execute(): the preview may not confirm that a
+        // page exists either.
+        self::assertSame($missing, $denied);
+    }
+
+    /**
+     * A call the tool would refuse previews as that refusal. The approver needs
+     * to know a release would achieve nothing.
+     */
+    #[Test]
+    public function thePreviewOfARefusableCallIsTheRefusal(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $lines = $this->tool->previewCall(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'slug' => '/hijacked'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertCount(1, $lines);
+        self::assertStringContainsString('not an editable page metadata field', $lines[0]);
+    }
+
     #[Test]
     public function anUnknownFieldIsRefusedAndNothingIsWritten(): void
     {

@@ -62,6 +62,15 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
+    /**
+     * Bounds for a persisted tool preview (ADR-136). A preview goes into the
+     * encrypted suspended state and onto a card a human has to read, so it is
+     * capped like every other model-triggered payload in this loop.
+     */
+    private const PREVIEW_MAX_LINES = 20;
+
+    private const PREVIEW_MAX_LINE_LENGTH = 500;
+
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -268,6 +277,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // defaults (ADR-084).
                             $allowedToolNames,
                             $options?->toArray() ?? [],
+                            // What the turn WOULD do, captured here and not at
+                            // approval time: this is the run's actor context, the
+                            // only identity allowed to read the targets (ADR-136).
+                            callPreviews: $this->previewsForTurn($resp->toolCalls ?? [], $allowedNames, $context),
                         ));
                     }
                 }
@@ -734,6 +747,91 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return $tool instanceof ToolEffectInterface && $tool->getEffect()->isWrite();
+    }
+
+    /**
+     * What the pending turn WOULD do, one entry per offered call whose tool
+     * implements {@see ToolPreviewInterface} (ADR-136).
+     *
+     * Produced HERE, at the suspend, and not when the card is rendered: this is
+     * the run's actor context, the identity the tool is allowed to read the
+     * target with (ADR-083). The reviewing administrator's request is not.
+     *
+     * Only OFFERED calls are previewed, mirroring the approval scan above: a
+     * registered-but-not-offered tool the model named will be refused at
+     * execution, so running its preview would describe a call that cannot
+     * happen — and would read data the run was never allowed to reach.
+     *
+     * A preview that throws or returns nothing becomes a marked failure line
+     * rather than an exception: the pause exists so a human can decide, and a
+     * card that silently loses its preview would let them decide blind without
+     * knowing it. The exception TEXT is deliberately not shown — as in
+     * {@see self::invoke()}, an exception body may carry DBAL credentials — but
+     * the class name is, and the full exception goes to the log.
+     *
+     * @param list<ToolCall> $calls
+     * @param list<string>   $allowedNames
+     *
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool}>
+     */
+    private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context): array
+    {
+        $previews = [];
+        foreach ($calls as $index => $call) {
+            $tool = $this->registry->get($call->name);
+            if (!in_array($call->name, $allowedNames, true)) {
+                continue;
+            }
+
+            if (!$tool instanceof ToolPreviewInterface) {
+                continue;
+            }
+
+            $failed = false;
+            try {
+                $lines = array_values(array_filter($tool->previewCall($call->arguments, $context), is_string(...)));
+            } catch (Throwable $e) {
+                $this->logger?->warning('Tool preview failed; the approval card will say so.', ['tool' => $call->name, 'exception' => $e]);
+                $lines  = [sprintf('The preview for this call failed (%s), so it shows nothing about what the call would do.', $e::class)];
+                $failed = true;
+            }
+
+            if ($lines === []) {
+                $lines  = ['The tool produced no preview for this call.'];
+                $failed = true;
+            }
+
+            $previews[] = [
+                'index'  => $index,
+                'tool'   => $call->name,
+                // Bounded before it is persisted: the state is encrypted, stored
+                // and re-read on every resume, and a preview is model-triggered
+                // output like any other.
+                'lines'  => $this->boundedPreviewLines($lines),
+                'failed' => $failed,
+            ];
+        }
+
+        return $previews;
+    }
+
+    /**
+     * @param list<string> $lines
+     *
+     * @return list<string>
+     */
+    private function boundedPreviewLines(array $lines): array
+    {
+        $bounded = [];
+        foreach (array_slice($lines, 0, self::PREVIEW_MAX_LINES) as $line) {
+            $bounded[] = mb_substr(trim(preg_replace('/\s+/u', ' ', $line) ?? $line), 0, self::PREVIEW_MAX_LINE_LENGTH);
+        }
+
+        if (count($lines) > self::PREVIEW_MAX_LINES) {
+            $bounded[] = sprintf('… and %d more line(s), not shown.', count($lines) - self::PREVIEW_MAX_LINES);
+        }
+
+        return $bounded;
     }
 
     /**

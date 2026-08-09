@@ -100,6 +100,37 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('<fieldset', $body);
     }
 
+    /**
+     * ADR-136: the approval card renders the preview the loop captured, and a
+     * FAILED preview renders its reason under a heading that says so — never a
+     * silently empty section.
+     */
+    #[Test]
+    public function listActionRendersTheCapturedPreviewAndAFailedOnesReason(): void
+    {
+        $this->suspendApproval('update_page_metadata', ['uid' => 42], [
+            ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['description: "Old text" → "New text"'], 'failed' => false],
+        ]);
+        $this->suspendApproval('write_thing', ['uid' => 7], [
+            ['index' => 0, 'tool' => 'write_thing', 'lines' => ['The preview for this call failed (RuntimeException).'], 'failed' => true],
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([new FakeTool('update_page_metadata'), new FakeTool('write_thing')]),
+            self::createStub(AgentRuntimeInterface::class),
+        );
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('What this call would do', $body);
+        self::assertStringContainsString('description: &quot;Old text&quot; → &quot;New text&quot;', $body);
+        // The failed one is labelled as a failure, so the approver knows the
+        // absence of a preview is the exception, not the norm.
+        self::assertStringContainsString('No preview — you are deciding without one', $body);
+        self::assertStringContainsString('The preview for this call failed (RuntimeException).', $body);
+    }
+
     #[Test]
     public function submitInputWithInvalidDataReRendersInPlaceWith422(): void
     {
@@ -207,15 +238,16 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     private ?string $lastUuid = null;
 
     /**
-     * @param array<string, mixed> $arguments
+     * @param array<string, mixed>                                                     $arguments
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews
      */
-    private function suspendApproval(string $tool, array $arguments): void
+    private function suspendApproval(string $tool, array $arguments, array $callPreviews = []): void
     {
         $handle = $this->persister->begin(null, 1);
         self::assertNotNull($handle);
         self::assertTrue($this->persister->suspend(
             $handle,
-            new SuspendedRunState([], [ToolCall::function('c1', $tool, $arguments)->toArray()], 1, 0, 0),
+            new SuspendedRunState([], [ToolCall::function('c1', $tool, $arguments)->toArray()], 1, 0, 0, null, [], null, [], $callPreviews),
         ));
         $this->lastUuid = $handle->uuid;
     }

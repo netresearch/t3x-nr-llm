@@ -115,8 +115,16 @@ final readonly class WaitingRunViewFactory
 
     private function buildApproval(AgentRun $run, SuspendedRunState $state): WaitingRunView
     {
+        // Keyed by the position the loop recorded, not by the position in this
+        // (filtered) list: a corrupt call is skipped below, and matching by
+        // order after a skip would attach a preview to the wrong call.
+        $previews = [];
+        foreach ($state->callPreviews as $preview) {
+            $previews[$preview['index']] = $preview;
+        }
+
         $calls = [];
-        foreach ($state->pendingCalls as $raw) {
+        foreach ($state->pendingCalls as $index => $raw) {
             // tryFromArray skips a corrupt entry rather than throwing (unlike
             // SuspendedRunState::toolCalls()), so one bad call never blanks the
             // whole card.
@@ -125,10 +133,17 @@ final readonly class WaitingRunViewFactory
                 continue;
             }
 
+            $preview = $previews[$index] ?? null;
             $calls[] = new PendingCallView(
                 name: $call->name,
                 argumentsJson: $this->encodeArguments($call->arguments),
                 toolStillRegistered: $this->registry->get($call->name) instanceof ToolInterface,
+                // A preview stored under a different tool name than the call at
+                // that position is a state nobody should be able to produce;
+                // dropping it is cheaper than rendering a claim about the wrong
+                // call.
+                previewLines: $preview !== null && $preview['tool'] === $call->name ? $preview['lines'] : [],
+                previewFailed: $preview !== null && $preview['tool'] === $call->name && $preview['failed'],
             );
         }
 

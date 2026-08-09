@@ -221,10 +221,15 @@ the tool, once by the DataHandler.
 the approval coupling had no exerciser; they have one now, and the functional
 tests drive them against a real DataHandler.
 
-◐ ADR-122's deferred pieces stay deferred. This tool needed no idempotency
-scope (its effect is idempotent by construction) and no preview (the approval
-card already shows the arguments, which for this tool ARE the new values). Their
-absence is now an observation rather than a prediction.
+◐ ADR-122's idempotency scope stays deferred: this tool needs none, its effect
+being idempotent by construction. Its absence is now an observation rather than
+a prediction.
+
+◐ The preview did not stay deferred. This ADR argued the approval card already
+shows the arguments, which for this tool ARE the new values — true, and half the
+comparison. :ref:`ADR-136 <adr-136>` supersedes that sentence: the tool
+implements :php:`ToolPreviewInterface` and the card shows the values the write
+would REPLACE.
 
 ✕ A downstream consumer that calls ``enqueue()`` gets the fence; every shipped
 entry point does not. The gap is named above rather than closed — closing it

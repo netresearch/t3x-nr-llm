@@ -8,6 +8,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A write preview, produced when the run suspends** (ADR-136). New opt-in
+  `ToolPreviewInterface`: a tool that implements it describes, in plain lines,
+  what the pending call would do. The lines are produced by `ToolLoopService` at
+  the moment it suspends for approval — so the caller is the loop, the display
+  is the approval card, and the reading identity is the RUN's actor context, not
+  the reviewing administrator's request (which is what ADR-122 deferred the
+  preview over). They are persisted as a new optional field on
+  `SuspendedRunState` (`callPreviews`), inside the blob that ADR-114 already
+  encrypts at rest, and are rendered in the approvals inbox and in BOTH
+  playground approval responses (the JSON payload and the streamed
+  `awaiting_approval` event) as `preview.lines` / `preview.failed`. A run
+  suspended before this field existed still resumes: a missing or malformed
+  value degrades to "no preview", never to an error. A preview that throws is
+  caught, logged and rendered as a marked line stating that there is none — an
+  approver must never mistake a broken preview for nothing to warn about. The
+  exception text is withheld (only its class is shown), as everywhere else in
+  the loop. `update_page_metadata` implements it with a field-by-field
+  before/after: its arguments are the new values, and the card now also shows
+  what they replace. The preview is a snapshot of the pause, NOT a precondition
+  — a page edited by a human in between does not block the approval, because the
+  tool writes absolute values; the ADR argues that case out in full.
 - **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
   allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
   `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions

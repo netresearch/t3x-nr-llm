@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -66,8 +67,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * suspended for human approval (ADR-134); the tool carries no separate approval
  * marker. It is NOT covered by the ADR-112 write fence — that arms only on the
  * queued path, and no shipped entry point reaches it (ADR-135).
+ *
+ * The pause carries a field-by-field before/after ({@see self::previewCall()},
+ * ADR-136): the arguments alone are the NEW values, and an approver deciding
+ * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
 {
     use SafeCastTrait;
 
@@ -123,6 +128,14 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     private const MAX_ERRORS = 5;
 
     private const MAX_ERROR_LENGTH = 200;
+
+    /**
+     * How much of a value the approval preview shows. A `text` column holds up
+     * to {@see self::MAX_VALUE_LENGTH} characters, and a card that pastes two of
+     * them per field is unreadable — the approver needs to see WHICH text is
+     * being replaced, not the whole of both.
+     */
+    private const PREVIEW_EXCERPT_LENGTH = 120;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -234,6 +247,71 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             $uid,
             implode(', ', array_keys($values)),
         ));
+    }
+
+    /**
+     * The field-by-field before/after this call would produce (ADR-136).
+     *
+     * Called by the loop when the run suspends for approval — before anything
+     * ran, in the RUN's actor context — so the "before" is the row as it stood
+     * at the pause. It is a snapshot and not a reservation: the ADR decides
+     * explicitly that a human editing the page in between is not fenced off, and
+     * that this tool writes absolute values, so a stale "before" changes what the
+     * approver read, never what the write does.
+     *
+     * Authorised exactly like {@see self::execute()} and against the same
+     * EXPLICIT acting user: a page the run's user may not edit yields the same
+     * neutral string here, so a preview can never disclose a page the run itself
+     * could not have touched.
+     *
+     * NOT checked here, deliberately: the live-workspace and backend-environment
+     * refusals. Both describe the PROCESS that performs the write, and that is
+     * the approver's request, not this one — asserting them now would show the
+     * approver a verdict from the wrong process.
+     *
+     * The row is read through the same {@see self::fetchPage()} the write path
+     * uses. It cannot be shared with the execution's read: the two happen in
+     * different requests, minutes or days apart, which is precisely why the
+     * "before" is a snapshot.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication) {
+            return [self::NOT_PERMITTED];
+        }
+
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return ['Refused: "uid" must be the positive uid of exactly one page.'];
+        }
+
+        $values = $this->collectValues($arguments);
+        if (is_string($values)) {
+            return [$values];
+        }
+
+        $page = $this->fetchPage($uid);
+        if ($page === null
+            || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            || !$user->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0))
+        ) {
+            return [self::NOT_PERMITTED];
+        }
+
+        $lines = [sprintf('Page [%d] "%s" — %d field(s):', $uid, $this->excerpt(self::toStr($page['title'] ?? '')), count($values))];
+        foreach ($values as $field => $new) {
+            $old = self::toStr($page[$field] ?? '');
+            $lines[] = $old === $new
+                ? sprintf('%s: unchanged (%s)', $field, $this->quoted($new))
+                : sprintf('%s: %s → %s', $field, $this->quoted($old), $this->quoted($new));
+        }
+
+        return $lines;
     }
 
     public function isEnabledByDefault(): bool
@@ -447,6 +525,29 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         return $notApplied;
+    }
+
+    /**
+     * A preview value as it appears on the card: quoted, or the explicit
+     * `(empty)` marker — an empty pair of quotes reads like a rendering bug, and
+     * "this field is currently empty" is information the approver needs.
+     */
+    private function quoted(string $value): string
+    {
+        return $value === '' ? '(empty)' : '"' . $this->excerpt($value) . '"';
+    }
+
+    /**
+     * One line's worth of a value: whitespace collapsed (a `text` column carries
+     * newlines, and a preview line must stay one line) and truncated.
+     */
+    private function excerpt(string $value): string
+    {
+        $flat = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+
+        return mb_strlen($flat) > self::PREVIEW_EXCERPT_LENGTH
+            ? mb_substr($flat, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
+            : $flat;
     }
 
     /**
