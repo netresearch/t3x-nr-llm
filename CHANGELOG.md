@@ -8,6 +8,69 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`set_file_alternative_text` — the second writing tool** (ADR-135). It sets
+  the alternative text (`sys_file_metadata.alternative`) of exactly ONE managed
+  file, identified by its `sys_file` uid, through the `DataHandler`, as the
+  acting backend user — the accessibility gap editors most often leave behind.
+  It joins the existing `editing` group on the same terms as the first writer:
+  ships **disabled**, declares `IDEMPOTENT_WRITE`, so every call suspends for a
+  human decision (ADR-134), live workspace only, no approval marker of its own,
+  and a before/after on the approval card (ADR-136). Access is decided BEFORE
+  the write by `FalStorageGate::isFileAccessible()` — the configured storage
+  allow-list intersected with the user's file mounts, a barrier the `DataHandler`
+  knows nothing about; core's own file-metadata permission check (a WRITABLE
+  mount, plus `tables_modify`) then applies on top, so a read-only mount is
+  refused there. Only the allow-list half of that gate asks about the explicit
+  acting user; the file-mount half asks about the ambient backend user, because
+  core attaches mounts to a request-shared storage object. That is pre-existing
+  behaviour of `FalStorageGate`, shared with three read tools, and is tracked as
+  issue #672. It **never creates** a metadata record: a file that carries none is
+  refused, in the same neutral words as a file in a forbidden storage, a file
+  outside the user's mounts and a uid no file carries — so a refusal cannot be
+  used to probe `sys_file` for existence. It writes the **live**,
+  **default-language** record only and takes no language argument: the metadata
+  row is looked up by `file` rather than by uid, so the workspace, the language
+  and the order are all pinned — otherwise a draft version of the same record
+  could be written instead of the live one — exactly as core's
+  `MetaDataRepository::findByFileUid()` pins them. The reasoning is in the
+  ADR-135 amendment. An empty string is accepted and is the correct value for a
+  decorative image. Success is verified by re-reading the record, as with the
+  first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two
+  names. With two writers in the tree, the errands they share — the
+  backend-environment and live-workspace guards, the bounded `errorLog` summary,
+  the TCA narrowing and the preview formatting — moved into a new
+  `WritesThroughDataHandlerTrait`, following the `CollectsEnvironmentTrait`
+  pattern. Deliberately NOT shared: the neutral refusal strings (each is paired
+  with the READ tool of the same records), the authorisation, the read-back, the
+  row lookup, and `isEnabledByDefault()` / `requiresAdmin()` / `getGroup()` /
+  `getEffect()` — identical today, still declared per tool so a third writer
+  decides rather than inherits.
+- **A write preview, produced when the run suspends** (ADR-136). New opt-in
+  `ToolPreviewInterface`: a tool that implements it describes, in plain lines,
+  what the pending call would do. The lines are produced by `ToolLoopService` at
+  the moment it suspends for approval — so the caller is the loop, the display
+  is the approval card, and the reading identity is the RUN's actor context, not
+  the reviewing administrator's request (which is what ADR-122 deferred the
+  preview over). They are persisted as a new optional field on
+  `SuspendedRunState` (`callPreviews`), inside the blob that ADR-114 already
+  encrypts at rest, and are rendered in the approvals inbox and in BOTH
+  playground approval responses (the JSON payload and the streamed
+  `awaiting_approval` event) as `preview.lines` / `preview.failed`. A run
+  suspended before this field existed still resumes: a missing or malformed
+  value degrades to "no preview", never to an error. A preview that throws is
+  caught, logged and rendered as a marked line stating that there is none — an
+  approver must never mistake a broken preview for nothing to warn about. The
+  exception text is withheld (only its class is shown), as everywhere else in
+  the loop. `update_page_metadata` implements it with a field-by-field
+  before/after: its arguments are the new values, and the card now also shows
+  what they replace. The preview is a snapshot of the pause, NOT a precondition
+  — a page edited by a human in between does not block the approval, because the
+  tool writes absolute values; the ADR argues that case out in full. Reading a
+  preview is authorised per record against the VIEWER, not only per tool:
+  `agent_approve` (ADR-130) is a tool-level grant, so the card asks the tool
+  whether the backend user it is being rendered for may see that record, and
+  says the preview is withheld where the answer is no. It fails closed when the
+  question cannot be asked — no viewer, or no registered tool under that name.
 - **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
   allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
   `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions

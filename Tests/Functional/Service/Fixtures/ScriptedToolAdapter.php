@@ -20,14 +20,21 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 
 /**
  * Tool-capable provider double that scripts a single agent round trip: the
- * first {@see chatCompletionWithTools()} call asks for one `fetch_logs` tool
- * call, every subsequent call answers plainly with no tools.
+ * first {@see chatCompletionWithTools()} call asks for one tool call — by
+ * default `fetch_logs` — and every subsequent call answers plainly with no
+ * tools.
  *
  * It lets {@see \Netresearch\NrLlm\Tests\Functional\Controller\Backend\ToolPlaygroundControllerTest}
  * drive `ToolLoopService::runLoop()` through one real execute-and-replay cycle
  * (iteration 1 = tool call, iteration 2 = final answer) so the playground's
  * runAction trace can be asserted end-to-end without a real provider. Methods
  * the loop never reaches throw so an accidental call is loud, not silent.
+ *
+ * The scripted call is configurable so a run can be driven onto a tool other
+ * than the read-only default — {@see \Netresearch\NrLlm\Tests\Functional\Service\Agent\WritePathAcceptanceTest}
+ * scripts the writing tool, where the second provider call happens only after
+ * the approval resume. The counter is per instance, so the same adapter has to
+ * be handed to both the run and the resume for the two rounds to line up.
  */
 final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterface
 {
@@ -36,7 +43,14 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
     /** @var array<string, mixed> Options seen on the last call, for assertions. */
     public array $lastOptions = [];
 
-    public function __construct(private readonly string $finalContent = 'Here are your recent logs.') {}
+    /**
+     * @param array<string, mixed> $toolArguments the arguments of the scripted call
+     */
+    public function __construct(
+        private readonly string $finalContent = 'Here are your recent logs.',
+        private readonly string $toolName = 'fetch_logs',
+        private readonly array $toolArguments = ['limit' => 5],
+    ) {}
 
     public function chatCompletionWithTools(array $messages, array $tools, array $options = []): CompletionResponse
     {
@@ -53,7 +67,7 @@ final class ScriptedToolAdapter implements ProviderInterface, ToolCapableInterfa
                 usage: new UsageStatistics(7, 3, 10),
                 finishReason: 'tool_calls',
                 provider: 'scripted-fake',
-                toolCalls: [ToolCall::function('call_0', 'fetch_logs', ['limit' => 5])],
+                toolCalls: [ToolCall::function('call_0', $this->toolName, $this->toolArguments)],
             );
         }
 

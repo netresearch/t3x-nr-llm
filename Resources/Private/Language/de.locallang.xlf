@@ -2738,6 +2738,18 @@
                 <source>Pending tool call</source>
                 <target>Ausstehender Tool-Aufruf</target>
             </trans-unit>
+            <trans-unit id="runs.preview">
+                <source>What this call would do</source>
+                <target>Was dieser Aufruf tun würde</target>
+            </trans-unit>
+            <trans-unit id="runs.previewUnavailable">
+                <source>No preview — you are deciding without one</source>
+                <target>Keine Vorschau — Sie entscheiden ohne sie</target>
+            </trans-unit>
+            <trans-unit id="runs.previewCapturedAtPause">
+                <source>Captured when the run paused — the target may have changed since.</source>
+                <target>Beim Pausieren des Laufs erstellt — das Ziel kann sich seitdem geändert haben.</target>
+            </trans-unit>
             <trans-unit id="runs.arguments">
                 <source>Arguments</source>
                 <target>Argumente</target>

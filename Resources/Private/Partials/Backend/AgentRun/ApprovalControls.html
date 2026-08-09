@@ -9,6 +9,22 @@
         <f:if condition="{call.toolStillRegistered} == false">
             <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.toolGone" default="The tool for this call is no longer registered." /></span>
         </f:if>
+        <f:if condition="{call.previewLines}">
+            <div class="mt-1">
+                <strong>
+                    <f:if condition="{call.previewFailed}">
+                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewUnavailable" default="No preview — you are deciding without one" /></f:then>
+                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.preview" default="What this call would do" /></f:else>
+                    </f:if>:
+                </strong>
+                <ul class="mb-0">
+                    <f:for each="{call.previewLines}" as="line">
+                        <li>{line}</li>
+                    </f:for>
+                </ul>
+                <small class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewCapturedAtPause" default="Captured when the run paused — the target may have changed since." /></small>
+            </div>
+        </f:if>
         <details class="mt-1">
             <summary><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.arguments" default="Arguments" /></summary>
             <pre class="mt-1 mb-0"><code>{call.argumentsJson}</code></pre>

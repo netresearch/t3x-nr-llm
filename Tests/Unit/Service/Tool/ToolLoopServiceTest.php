@@ -56,6 +56,7 @@ use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -1119,6 +1120,160 @@ final class ToolLoopServiceTest extends TestCase
     private function writeTool(string $name, ToolEffect $effect): ToolInterface
     {
         return new FakeTool($name, 'WROTE', true, false, 'test', [], $effect);
+    }
+
+    /**
+     * ADR-136: the preview is produced by the LOOP, at the suspend, and travels
+     * with the state — that placement is the whole reason ADR-122's two
+     * objections (no caller, wrong request context) no longer apply.
+     */
+    #[Test]
+    public function suspendCapturesThePreviewOfThePendingCall(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', ['uid' => 7])]));
+        $service = $this->service($mgr, new ToolRegistry([new PreviewingApprovalTool('preview_thing')]));
+
+        $state = $this->suspend($service);
+
+        self::assertCount(1, $state->callPreviews);
+        self::assertSame(0, $state->callPreviews[0]['index'], 'the preview points at the call it describes');
+        self::assertSame('preview_thing', $state->callPreviews[0]['tool']);
+        self::assertFalse($state->callPreviews[0]['failed']);
+        // The tool saw the model's arguments, so the lines describe THIS call.
+        self::assertSame(['would touch page 7'], $state->callPreviews[0]['lines']);
+    }
+
+    #[Test]
+    public function aToolWithoutAPreviewContributesNoEntry(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        // Opt-in means silent for the forty-odd tools that do not implement it —
+        // the card falls back to the arguments, exactly as before ADR-136.
+        self::assertSame([], $this->suspend($service)->callPreviews);
+    }
+
+    /**
+     * A preview that throws must not kill the run, and must not vanish either:
+     * an approver who cannot tell "no preview offered" from "preview broke"
+     * would take a missing warning for the absence of anything to warn about.
+     */
+    #[Test]
+    public function aThrowingPreviewBecomesAMarkedLineInsteadOfKillingTheRun(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([new PreviewingApprovalTool('preview_thing', throw: true)]));
+
+        // Still a suspension, not a failure: suspend() fails the test otherwise.
+        $state = $this->suspend($service);
+
+        self::assertCount(1, $state->callPreviews);
+        self::assertTrue($state->callPreviews[0]['failed']);
+        self::assertCount(1, $state->callPreviews[0]['lines']);
+        // The exception CLASS names the culprit; its message is withheld, like
+        // every other exception body in this loop (it may carry credentials).
+        self::assertStringContainsString(RuntimeException::class, $state->callPreviews[0]['lines'][0]);
+        self::assertStringNotContainsString('boom with secret', $state->callPreviews[0]['lines'][0]);
+    }
+
+    #[Test]
+    public function anEmptyPreviewIsReportedAsAFailureNotAsABlank(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([new PreviewingApprovalTool('preview_thing', lines: [])]));
+
+        $state = $this->suspend($service);
+
+        self::assertTrue($state->callPreviews[0]['failed']);
+        self::assertNotSame([], $state->callPreviews[0]['lines']);
+    }
+
+    /**
+     * ADR-136 sells the bound as the reason a preview may be persisted at all:
+     * it goes into the encrypted state and is re-read on every resume. The one
+     * shipped implementor cannot reach it, so only a foreign implementor of the
+     * exported ToolPreviewInterface can — which is exactly why the loop, not the
+     * tool, has to hold the line.
+     */
+    #[Test]
+    public function anOversizedPreviewIsCappedInLinesAndInLineLengthBeforeItIsPersisted(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([
+            new PreviewingApprovalTool('preview_thing', lines: array_fill(0, 25, str_repeat('x', 600))),
+        ]));
+
+        $lines = $this->suspend($service)->callPreviews[0]['lines'];
+
+        // Twenty lines kept, each cut to 500 characters, plus one line that
+        // says the list was cut — a silent truncation would read as a complete
+        // preview.
+        self::assertCount(21, $lines);
+        self::assertSame(500, mb_strlen($lines[0]));
+        self::assertSame('… and 5 more line(s), not shown.', $lines[20]);
+    }
+
+    /**
+     * Whitespace is collapsed on the same pass, so a tool cannot pad the card
+     * (or a log line) with newlines and runs of spaces.
+     */
+    #[Test]
+    public function previewLinesAreCollapsedToSingleSpacesAndTrimmed(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([
+            new PreviewingApprovalTool('preview_thing', lines: ["  title:\n\n\t\"old\"    →   \"new\"  "]),
+        ]));
+
+        self::assertSame(
+            ['title: "old" → "new"'],
+            $this->suspend($service)->callPreviews[0]['lines'],
+        );
+    }
+
+    /**
+     * The preview follows the approval scan's own fail-closed rule: a tool the
+     * run never offered is refused at execution, so previewing it would both
+     * describe a call that cannot happen and read data the run may not reach.
+     */
+    #[Test]
+    public function aNotOfferedToolIsNeverPreviewed(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'offered_thing', []),
+                new ToolCall('call_2', 'hidden_thing', []),
+            ]));
+        $registry = new ToolRegistry([
+            new PreviewingApprovalTool('offered_thing'),
+            new PreviewingApprovalTool('hidden_thing'),
+        ]);
+        $service = $this->service($mgr, $registry);
+
+        $state = null;
+        try {
+            $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['offered_thing']);
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        self::assertCount(1, $state->callPreviews);
+        self::assertSame('offered_thing', $state->callPreviews[0]['tool']);
     }
 
     #[Test]
