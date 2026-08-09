@@ -26,8 +26,11 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
@@ -193,6 +196,60 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $this->expectException(ToolApprovalRequiredException::class);
         $service->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the REAL first writing builtin (ADR-135).
+     *
+     * {@see UpdatePageMetadataTool} carries no approval marker; it declares
+     * IDEMPOTENT_WRITE and nothing else. The loop must therefore suspend BEFORE
+     * `execute()` runs — the whole point of coupling the two declarations is
+     * that a writer cannot ship without the pause by forgetting the marker.
+     */
+    #[Test]
+    public function theWritingBuiltinSuspendsBeforeItExecutes(): void
+    {
+        $tool = new UpdatePageMetadataTool($this->connectionPool);
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('update_page_metadata', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'update_page_metadata', ['uid' => 1, 'title' => 'Rewritten']),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('fix the title')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the SECOND writing builtin (ADR-135).
+     *
+     * The coupling is a property of the declaration, not of the first tool that
+     * happened to carry it: `set_file_alternative_text` also declares only
+     * IDEMPOTENT_WRITE and no approval marker, and the loop must suspend before
+     * `execute()` — before any DataHandler, any storage gate, any file row.
+     */
+    #[Test]
+    public function theSecondWritingBuiltinAlsoSuspendsBeforeItExecutes(): void
+    {
+        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class));
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('set_file_alternative_text', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'set_file_alternative_text', ['uid' => 1, 'alternative' => 'A cat']),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('describe the image')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
     }
 
     /**

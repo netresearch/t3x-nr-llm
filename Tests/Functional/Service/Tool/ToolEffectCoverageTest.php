@@ -25,23 +25,31 @@ use PHPUnit\Framework\Attributes\Test;
  * is an opt-in interface, so forgetting it is silent and the run loses its
  * write fence and its fail-closed audit.
  *
- * This test is the reminder. It pins the current answer — no builtin writes —
- * so the first tool that does forces a conscious edit here, and with it a look
- * at the fence in the run executor and at the retry decision that reads the
- * persisted effect.
+ * This test is the reminder. It pins the current answer, so a tool that starts
+ * or stops writing forces a conscious edit here, and with it a look at the fence
+ * in the run executor and at the retry decision that reads the persisted effect.
+ * The list was empty until `update_page_metadata` landed (ADR-135) — that is the
+ * edit this test was built to demand.
  */
 #[CoversClass(ToolEffectResolver::class)]
 final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
 {
     /**
-     * Tools known to mutate something. Empty on purpose: every builtin reads.
+     * Tools known to mutate something.
      *
      * Adding a name here is a decision, not bookkeeping — see the class
-     * docblock.
+     * docblock. `update_page_metadata` is the first entry (ADR-135): it sets a
+     * fixed allow-list of descriptive fields on one page through the
+     * DataHandler, which converges on repeat, hence IDEMPOTENT_WRITE.
+     * `set_file_alternative_text` is the second, on the same terms: one named
+     * scalar field on one `sys_file_metadata` record.
      *
      * @var list<string>
      */
-    private const DECLARED_WRITERS = [];
+    private const DECLARED_WRITERS = [
+        'set_file_alternative_text',
+        'update_page_metadata',
+    ];
 
     #[Test]
     public function onlyToolsListedAsWritersResolveToAWriteEffect(): void

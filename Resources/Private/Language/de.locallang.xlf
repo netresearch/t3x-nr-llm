@@ -2784,6 +2784,18 @@
                 <source>Pending tool call</source>
                 <target>Ausstehender Tool-Aufruf</target>
             </trans-unit>
+            <trans-unit id="runs.preview">
+                <source>What this call would do</source>
+                <target>Was dieser Aufruf tun würde</target>
+            </trans-unit>
+            <trans-unit id="runs.previewUnavailable">
+                <source>No preview — you are deciding without one</source>
+                <target>Keine Vorschau — Sie entscheiden ohne sie</target>
+            </trans-unit>
+            <trans-unit id="runs.previewCapturedAtPause">
+                <source>Captured when the run paused — the target may have changed since.</source>
+                <target>Beim Pausieren des Laufs erstellt — das Ziel kann sich seitdem geändert haben.</target>
+            </trans-unit>
             <trans-unit id="runs.arguments">
                 <source>Arguments</source>
                 <target>Argumente</target>
@@ -2827,6 +2839,14 @@
             <trans-unit id="runs.error.staleReview">
                 <source>The pending action changed since you viewed it — please re-review.</source>
                 <target>Die ausstehende Aktion hat sich seit Ihrer Ansicht geändert – bitte erneut prüfen.</target>
+            </trans-unit>
+            <trans-unit id="runs.error.notAuditable">
+                <source>The decision could not be recorded, so this write was not executed. The run is still waiting — please try again.</source>
+                <target>Die Entscheidung konnte nicht protokolliert werden, deshalb wurde der schreibende Aufruf nicht ausgeführt. Der Lauf wartet weiterhin – bitte erneut versuchen.</target>
+            </trans-unit>
+            <trans-unit id="runs.error.approverNotPermitted">
+                <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
+                <target>Diese Aktion führt ein Werkzeug aus, das Sie selbst nicht verwenden dürfen; deshalb können Sie sie nicht freigeben. Der Lauf wartet weiterhin auf eine berechtigte Person.</target>
             </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>

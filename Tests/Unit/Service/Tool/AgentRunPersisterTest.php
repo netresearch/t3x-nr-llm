@@ -188,6 +188,37 @@ final class AgentRunPersisterTest extends TestCase
     }
 
     #[Test]
+    public function recordApprovalReportsWhetherTheDecisionWasStored(): void
+    {
+        // ADR-132: the caller has to be able to tell a stored decision from a
+        // swallowed one — a write-declaring turn is refused on false. Without
+        // the boolean the failure is invisible and the write runs unaudited.
+        $repository = new RecordingAgentRunRepository();
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $handle     = new AgentRunHandle(1, 'uuid');
+
+        self::assertTrue($persister->recordApproval($handle, true, 42));
+        self::assertSame(1, $handle->sequence);
+        self::assertCount(1, $repository->events);
+    }
+
+    #[Test]
+    public function recordApprovalReturnsFalseOnAStoreErrorWithoutThrowingOrAdvancing(): void
+    {
+        $repository                = new RecordingAgentRunRepository();
+        $repository->throwOnRecord = true;
+
+        $persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL));
+        $handle    = new AgentRunHandle(1, 'uuid');
+
+        // Still never throws (same shape as recordStep) — the decision is the
+        // caller's to make.
+        self::assertFalse($persister->recordApproval($handle, true, 42));
+        self::assertSame(0, $handle->sequence);
+        self::assertSame([], $repository->events);
+    }
+
+    #[Test]
     public function settleCompletedStoresTheLoopsTerminationReason(): void
     {
         $repository = new RecordingAgentRunRepository();

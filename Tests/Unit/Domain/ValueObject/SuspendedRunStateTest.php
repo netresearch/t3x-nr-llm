@@ -73,4 +73,53 @@ final class SuspendedRunStateTest extends TestCase
         self::assertNull($restored->inputToolName);
         self::assertSame([], $restored->inputSchema);
     }
+
+    /**
+     * ADR-136: an entry that is not an array at all is dropped from
+     * `pendingCalls` AND renumbers the calls behind it. The preview indices
+     * count the raw list, so they must be translated onto the filtered one —
+     * otherwise every preview after the dropped entry describes its neighbour.
+     */
+    #[Test]
+    public function previewIndicesFollowTheirCallWhenAnEntryIsDroppedEntirely(): void
+    {
+        $restored = SuspendedRunState::fromArray([
+            'messages'     => [],
+            'pendingCalls' => [
+                'not-an-array',
+                ['id' => 'c1', 'type' => 'function', 'function' => ['name' => 'update_page_metadata', 'arguments' => ['uid' => 1]]],
+                ['id' => 'c2', 'type' => 'function', 'function' => ['name' => 'update_page_metadata', 'arguments' => ['uid' => 2]]],
+            ],
+            'callPreviews' => [
+                ['index' => 1, 'tool' => 'update_page_metadata', 'lines' => ['about uid 1'], 'failed' => false],
+                ['index' => 2, 'tool' => 'update_page_metadata', 'lines' => ['about uid 2'], 'failed' => false],
+            ],
+        ]);
+
+        self::assertCount(2, $restored->pendingCalls);
+        self::assertSame(
+            [
+                ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['about uid 1'], 'failed' => false],
+                ['index' => 1, 'tool' => 'update_page_metadata', 'lines' => ['about uid 2'], 'failed' => false],
+            ],
+            $restored->callPreviews,
+        );
+    }
+
+    #[Test]
+    public function aPreviewWhoseCallDidNotSurviveIsDropped(): void
+    {
+        $restored = SuspendedRunState::fromArray([
+            'messages'     => [],
+            'pendingCalls' => [
+                'not-an-array',
+                ['id' => 'c1', 'type' => 'function', 'function' => ['name' => 'write_thing', 'arguments' => []]],
+            ],
+            'callPreviews' => [
+                ['index' => 0, 'tool' => 'write_thing', 'lines' => ['about the unusable entry'], 'failed' => false],
+            ],
+        ]);
+
+        self::assertSame([], $restored->callPreviews);
+    }
 }

@@ -2106,6 +2106,15 @@
             <trans-unit id="runs.arguments">
                 <source>Arguments</source>
             </trans-unit>
+            <trans-unit id="runs.preview">
+                <source>What this call would do</source>
+            </trans-unit>
+            <trans-unit id="runs.previewUnavailable">
+                <source>No preview — you are deciding without one</source>
+            </trans-unit>
+            <trans-unit id="runs.previewCapturedAtPause">
+                <source>Captured when the run paused — the target may have changed since.</source>
+            </trans-unit>
             <trans-unit id="runs.approve">
                 <source>Approve</source>
             </trans-unit>
@@ -2135,6 +2144,12 @@
             </trans-unit>
             <trans-unit id="runs.error.staleReview">
                 <source>The pending action changed since you viewed it — please re-review.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.notAuditable">
+                <source>The decision could not be recorded, so this write was not executed. The run is still waiting — please try again.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.approverNotPermitted">
+                <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
             </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>

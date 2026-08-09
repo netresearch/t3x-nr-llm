@@ -52,7 +52,7 @@ final class EgressPolicyServiceTest extends TestCase
     #[Test]
     public function everyUndeclaredGroupFailsClosedToNone(): void
     {
-        foreach (['content', 'structure', 'configuration', 'code', 'files', 'accounts', 'third_party_ext', ''] as $group) {
+        foreach (['content', 'editing', 'structure', 'configuration', 'code', 'files', 'accounts', 'third_party_ext', ''] as $group) {
             self::assertSame(
                 ToolEgressScope::NONE,
                 $this->policy->scopeFor($group),

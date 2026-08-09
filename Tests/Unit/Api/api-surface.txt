@@ -753,6 +753,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   method toArray(): array
   method toolCalls(): array
   property readonly allowedToolNames: ?array
+  property readonly callPreviews: array
   property readonly completionTokens: int
   property readonly inputSchema: array
   property readonly inputToolName: ?string
@@ -1012,6 +1013,7 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
 Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
   property readonly approved: bool
   property readonly decidedByBeUser: int
+  property readonly turnDigest: ?string
 
 Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   property readonly runUuid: string

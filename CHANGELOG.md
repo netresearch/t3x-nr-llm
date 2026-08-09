@@ -35,7 +35,96 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unchanged, including the fail-closed matrix of ADR-113.
 - `SkillComposerFactory::minTrustLevel()` is public so the readout can show
   the level the composer is actually built with.
-### Changed
+- **`set_file_alternative_text` — the second writing tool** (ADR-135). It sets
+  the alternative text (`sys_file_metadata.alternative`) of exactly ONE managed
+  file, identified by its `sys_file` uid, through the `DataHandler`, as the
+  acting backend user — the accessibility gap editors most often leave behind.
+  It joins the existing `editing` group on the same terms as the first writer:
+  ships **disabled**, declares `IDEMPOTENT_WRITE`, so every call suspends for a
+  human decision (ADR-134), live workspace only, no approval marker of its own,
+  and a before/after on the approval card (ADR-136). Access is decided BEFORE
+  the write by `FalStorageGate::isFileAccessible()` — the configured storage
+  allow-list intersected with the user's file mounts, a barrier the `DataHandler`
+  knows nothing about; core's own file-metadata permission check (a WRITABLE
+  mount, plus `tables_modify`) then applies on top, so a read-only mount is
+  refused there. Only the allow-list half of that gate asks about the explicit
+  acting user; the file-mount half asks about the ambient backend user, because
+  core attaches mounts to a request-shared storage object. That is pre-existing
+  behaviour of `FalStorageGate`, shared with three read tools, and is tracked as
+  issue #672. It **never creates** a metadata record: a file that carries none is
+  refused, in the same neutral words as a file in a forbidden storage, a file
+  outside the user's mounts and a uid no file carries — so a refusal cannot be
+  used to probe `sys_file` for existence. It writes the **live**,
+  **default-language** record only and takes no language argument: the metadata
+  row is looked up by `file` rather than by uid, so the workspace, the language
+  and the order are all pinned — otherwise a draft version of the same record
+  could be written instead of the live one — exactly as core's
+  `MetaDataRepository::findByFileUid()` pins them. The reasoning is in the
+  ADR-135 amendment. An empty string is accepted and is the correct value for a
+  decorative image. Success is verified by re-reading the record, as with the
+  first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two
+  names. With two writers in the tree, the errands they share — the
+  backend-environment and live-workspace guards, the bounded `errorLog` summary,
+  the TCA narrowing and the preview formatting — moved into a new
+  `WritesThroughDataHandlerTrait`, following the `CollectsEnvironmentTrait`
+  pattern. Deliberately NOT shared: the neutral refusal strings (each is paired
+  with the READ tool of the same records), the authorisation, the read-back, the
+  row lookup, and `isEnabledByDefault()` / `requiresAdmin()` / `getGroup()` /
+  `getEffect()` — identical today, still declared per tool so a third writer
+  decides rather than inherits.
+- **A write preview, produced when the run suspends** (ADR-136). New opt-in
+  `ToolPreviewInterface`: a tool that implements it describes, in plain lines,
+  what the pending call would do. The lines are produced by `ToolLoopService` at
+  the moment it suspends for approval — so the caller is the loop, the display
+  is the approval card, and the reading identity is the RUN's actor context, not
+  the reviewing administrator's request (which is what ADR-122 deferred the
+  preview over). They are persisted as a new optional field on
+  `SuspendedRunState` (`callPreviews`), inside the blob that ADR-114 already
+  encrypts at rest, and are rendered in the approvals inbox and in BOTH
+  playground approval responses (the JSON payload and the streamed
+  `awaiting_approval` event) as `preview.lines` / `preview.failed`. A run
+  suspended before this field existed still resumes: a missing or malformed
+  value degrades to "no preview", never to an error. A preview that throws is
+  caught, logged and rendered as a marked line stating that there is none — an
+  approver must never mistake a broken preview for nothing to warn about. The
+  exception text is withheld (only its class is shown), as everywhere else in
+  the loop. `update_page_metadata` implements it with a field-by-field
+  before/after: its arguments are the new values, and the card now also shows
+  what they replace. The preview is a snapshot of the pause, NOT a precondition
+  — a page edited by a human in between does not block the approval, because the
+  tool writes absolute values; the ADR argues that case out in full. Reading a
+  preview is authorised per record against the VIEWER, not only per tool:
+  `agent_approve` (ADR-130) is a tool-level grant, so the card asks the tool
+  whether the backend user it is being rendered for may see that record, and
+  says the preview is withheld where the answer is no. It fails closed when the
+  question cannot be asked — no viewer, or no registered tool under that name.
+- **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
+  allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
+  `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions
+  when that extension is installed) on exactly ONE page, through the
+  `DataHandler`, as the acting backend user. It ships **disabled** and sits in a
+  NEW group `editing` — deliberately not `content`, so a configuration that
+  already grants the read-only content group does not inherit write capability
+  from an upgrade. Because it declares `IDEMPOTENT_WRITE`, every call suspends
+  for a human decision (ADR-134); it carries no approval marker of its own. Any
+  other page field is refused, and a call naming an unknown field is refused
+  whole rather than applied in part. A page the acting user may not edit is
+  refused with the same string as a page that does not exist. Writes outside
+  workspace 0 are refused, and so is a process without the backend environment
+  the `DataHandler` declares (`$GLOBALS['TCA']`, `$GLOBALS['LANG']`,
+  `$GLOBALS['BE_USER']`) — the tool names the missing piece instead of
+  populating globals it does not own. Success is verified by re-reading the
+  record: the `DataHandler` silently drops a field the user lacks the
+  "exclude field" grant for, and reporting that as a successful write would
+  mislead the human who approved it. An empty value for a field the TCA marks
+  `required` (`pages.title`) is dropped just as silently, so the argument gate
+  refuses it up front rather than letting the read-back blame a field grant an
+  admin cannot be missing; clearing an *optional* field still works.
+  `ToolEffectCoverageTest::DECLARED_WRITERS`,
+  empty since ADR-122, now pins this one name. **Not guaranteed:** the ADR-112
+  write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
+  produces — no shipped entry point calls it, so an interactive write runs
+  unfenced. The fail-closed write audit and the approval pause hold everywhere.
 
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
@@ -62,8 +151,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the approval resume for its missing input, and suspend again — never
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
-### Fixed
 
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
   `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
@@ -80,6 +183,60 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   history and still overflow. Known limit: a session opened without a
   configuration resolves the installation default inside the manager, so its
   block is still unaccounted for.
+
+### Fixed
+
+- **The approval of a write is fail-closed and bound to the turn that was
+  reviewed** (ADR-132). Two defects on the same path:
+  `AgentRunPersister::recordApproval()` swallowed a store error and
+  `ResumeCoordinator::approve()` executed anyway, so a write could run with no
+  record of who authorised it; and the stale-review digest existed only in the
+  `AgentRunController`, so the Tool Playground could approve a turn it had never
+  displayed. `recordApproval()` now returns `bool` (same shape as
+  `recordStep()`), and `approve()` refuses to execute a turn declaring a write
+  whose decision could not be recorded. The verified digest moved into
+  `ApprovalDecision` and is compared — timing-safe — against the state loaded
+  AFTER the resume claim, so a decision made on a turn a concurrent approval
+  already replaced is refused as well. Read-only turns stay fail-soft
+  (deliberately), and a denial still passes: it executes nothing, so refusing it
+  would only leave the write pending. A refused decision RELEASES the run back
+  to `WAITING_FOR_APPROVAL` — nothing runs, nothing settles, the operator can
+  re-review and decide again. The playground's `awaiting_approval` payload and
+  streaming event now carry `turnDigest`, and `resumeAction()` reads it back.
+  **Breaking:** `ApprovalDecision`'s constructor takes a third argument,
+  `?string $turnDigest`. It is optional in the signature for source
+  compatibility but MANDATORY at runtime — a `null` is refused exactly like a
+  wrong digest, so any third-party caller that constructs the decision itself
+  must supply the digest of the turn it displayed or every approval will fail
+  with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
+- **An approver may only release a write they could run themselves** (ADR-133).
+  A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
+  but the approver was never checked against the tool they were releasing:
+  `mayActOnRun()` grants the decision on the `agent_approve` grant alone, so a
+  non-admin holding it could release an admin-only write that then ran with the
+  owner's privileges — a confused deputy. `ResumeCoordinator::approve()` now
+  resolves the APPROVER's live backend user and asks `ToolCallPolicy::decide()`
+  about every pending call that declares a write; a denial refuses the release
+  with `ApproverNotPermittedException` and RELEASES the run back to
+  `WAITING_FOR_APPROVAL`, so somebody who does hold the permission can still
+  decide it. A **service account may not release a write-declaring turn at
+  all**: it has no backend-user uid and `hasGrant()` is false for it, so
+  `decide()` would check only the `requiresAdmin` axis — refusing is the only
+  fail-closed variant. Read-only turns and denials are unaffected (they execute
+  nothing that needs the approver's authority), and no builtin declares a write
+  today (ADR-122), so the shipped catalogue behaves as before. The module shows
+  a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
+  re-signals `awaiting_approval`.
 
 ## [0.26.0] - 2026-08-06
 

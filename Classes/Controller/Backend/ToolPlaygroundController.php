@@ -20,7 +20,6 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
-use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
@@ -28,6 +27,8 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
@@ -35,7 +36,9 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -101,6 +104,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         private readonly ToolAvailabilityServiceInterface $toolAvailability,
         private readonly SkillRepository $skillRepository,
         private readonly PromptSnippetRepository $promptSnippetRepository,
+        // The ONE digest definition (ADR-132): the pause payload shows a turn,
+        // so it must also hand out the value that proves which turn was shown.
+        private readonly PendingTurnDigest $turnDigest,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -229,17 +235,52 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $body     = $request->getParsedBody();
         $runUuid  = trim($this->stringFromBody($body, 'runUuid'));
         $approved = $this->boolFromBody($body, 'approve');
+        // The digest of the turn the caller was shown (ADR-132). Passed through
+        // verbatim; the runtime compares it against the claimed state. An empty
+        // body value becomes null, which the runtime refuses like a mismatch —
+        // a client that does not send it cannot approve.
+        $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
         try {
             $result = $this->agentRuntime->approve(
                 $this->currentActor(),
                 $runUuid,
-                new ApprovalDecision($approved, $this->currentBackendUserUid()),
+                new ApprovalDecision($approved, $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
             );
         } catch (RunNotAwaitingApprovalException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingApproval', 'No run is awaiting approval for that id.')], 400);
         } catch (RunConfigurationGoneException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.configGone', 'The run configuration no longer exists.')], 400);
+        } catch (StaleApprovalTurnException) {
+            // Retryable, like an invalid input submission: the run was released
+            // back to its approval pause, so re-signal awaiting_approval and let
+            // the client re-fetch and re-review the CURRENT turn.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_approval',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.staleApproval', 'The pending action changed since you viewed it — please re-review.'),
+            ], 409);
+        } catch (ApproverNotPermittedException) {
+            // ADR-133: the decider may not run the pending write themselves.
+            // Nothing was executed and the run is decidable again, so
+            // awaiting_approval is re-signalled — but 403, because the obstacle
+            // is who is asking, not the request or the store.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_approval',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.approverNotPermitted', 'You may not approve an action that runs a tool you are not permitted to use yourself.'),
+            ], 403);
+        } catch (ApprovalNotAuditableException) {
+            // Nothing was executed and the run is decidable again; 503, because
+            // the obstacle is the audit store, not the request.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_approval',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.approvalNotAuditable', 'The decision could not be recorded, so this write was not executed. Please try again.'),
+            ], 503);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
@@ -371,7 +412,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
     /**
      * The JSON body for a run that suspended for approval: the pending tool calls
-     * the operator must approve, plus the steps recorded up to the pause.
+     * the operator must approve, the digest binding a later decision to exactly
+     * those calls (ADR-132), plus the steps recorded up to the pause.
      *
      * @return array<string, mixed>
      */
@@ -382,19 +424,59 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'status'       => 'awaiting_approval',
             'runUuid'      => $result->runUuid,
             'pendingTools' => $this->pendingTools($result),
+            'turnDigest'   => $this->turnDigestFor($result),
             'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
 
     /**
-     * @return list<array{name: string, arguments: array<string, mixed>}>
+     * The digest of the turn this pause is showing, or '' when the result
+     * carries no state (a suspension that failed to store never gets here, but
+     * the property is nullable). A client that echoes '' back is refused by the
+     * runtime exactly like a stale digest.
+     */
+    private function turnDigestFor(AgentRunResult $result): string
+    {
+        $state = $result->suspendedState;
+
+        return $state instanceof SuspendedRunState ? $this->turnDigest->forState($state) : '';
+    }
+
+    /**
+     * The pending calls, each with the preview the loop captured when the run
+     * suspended (ADR-136). Used by BOTH approval surfaces — the batch payload
+     * and the streamed event — so a client cannot get the calls on one and the
+     * preview only on the other.
+     *
+     * `preview.failed` marks lines that state WHY there is no preview rather
+     * than what the call would do; a client that ignores the flag still shows a
+     * line and never a blank.
+     *
+     * @return list<array{name: string, arguments: array<string, mixed>, preview: array{lines: list<string>, failed: bool}}>
      */
     private function pendingTools(AgentRunResult $result): array
     {
-        return array_map(
-            static fn(ToolCall $call): array => ['name' => $call->name, 'arguments' => $call->arguments],
-            $result->suspendedState?->toolCalls() ?? [],
-        );
+        $state    = $result->suspendedState;
+        $previews = [];
+        foreach ($state instanceof SuspendedRunState ? $state->callPreviews : [] as $preview) {
+            $previews[$preview['index']] = $preview;
+        }
+
+        $tools = [];
+        foreach ($state?->toolCalls() ?? [] as $index => $call) {
+            $preview = $previews[$index] ?? null;
+            $match   = $preview !== null && $preview['tool'] === $call->name;
+            $tools[] = [
+                'name'      => $call->name,
+                'arguments' => $call->arguments,
+                'preview'   => [
+                    'lines'  => $match ? $preview['lines'] : [],
+                    'failed' => $match && $preview['failed'],
+                ],
+            ];
+        }
+
+        return $tools;
     }
 
     /**
@@ -524,6 +606,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'success'      => true,
                     'runUuid'      => $result->runUuid,
                     'pendingTools' => $this->pendingTools($result),
+                    // The streamed pause carries the same binding as the batch
+                    // payload (ADR-132) — both surfaces show a turn, so both
+                    // must be able to prove which turn was shown.
+                    'turnDigest'   => $this->turnDigestFor($result),
                 ]);
 
                 return;

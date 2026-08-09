@@ -11,11 +11,17 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -25,10 +31,12 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionClass;
+use ReflectionProperty;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -36,9 +44,14 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Messaging\FlashMessage;
+use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
+use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder as ExtbaseUriBuilder;
+use TYPO3\CMS\Extbase\Service\ExtensionService;
 
 /**
  * Renders the approvals inbox through the real ModuleTemplate + Fluid stack and
@@ -88,6 +101,67 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('<fieldset', $body);
     }
 
+    /**
+     * ADR-136: the approval card renders the preview the loop captured, and a
+     * FAILED preview renders its reason under a heading that says so — never a
+     * silently empty section.
+     */
+    #[Test]
+    public function listActionRendersTheCapturedPreviewAndAFailedOnesReason(): void
+    {
+        $this->suspendApproval('update_page_metadata', ['uid' => 42], [
+            ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['description: "Old text" → "New text"'], 'failed' => false],
+        ]);
+        $this->suspendApproval('write_thing', ['uid' => 7], [
+            ['index' => 0, 'tool' => 'write_thing', 'lines' => ['The preview for this call failed (RuntimeException).'], 'failed' => true],
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([
+                new PreviewingApprovalTool('update_page_metadata'),
+                new PreviewingApprovalTool('write_thing'),
+            ]),
+            self::createStub(AgentRuntimeInterface::class),
+        );
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('What this call would do', $body);
+        self::assertStringContainsString('description: &quot;Old text&quot; → &quot;New text&quot;', $body);
+        // The failed one is labelled as a failure, so the approver knows the
+        // absence of a preview is the exception, not the norm.
+        self::assertStringContainsString('No preview — you are deciding without one', $body);
+        self::assertStringContainsString('The preview for this call failed (RuntimeException).', $body);
+    }
+
+    /**
+     * ADR-136: the read-side gate reaches the rendered page. A viewer the tool
+     * refuses gets the withheld notice instead of the captured lines — the
+     * `agent_approve` grant is tool-level and decides nothing per record.
+     */
+    #[Test]
+    public function listActionWithholdsThePreviewFromAViewerTheToolRefuses(): void
+    {
+        $this->suspendApproval('update_page_metadata', ['uid' => 42], [
+            ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['description: "Old text" → "New text"'], 'failed' => false],
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false)]),
+            self::createStub(AgentRuntimeInterface::class),
+        );
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringNotContainsString('Old text', $body);
+        self::assertStringContainsString('you hold no permission on the record it describes', $body);
+        self::assertStringContainsString('No preview — you are deciding without one', $body);
+        // The decision itself is untouched: the card still offers the form.
+        self::assertStringContainsString('name="approve"', $body);
+    }
+
     #[Test]
     public function submitInputWithInvalidDataReRendersInPlaceWith422(): void
     {
@@ -109,20 +183,104 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('tabindex="-1"', $body);
     }
 
+    #[Test]
+    public function approveActionHandsTheReviewedTurnDigestToTheRuntimeAndRefusesAStaleOne(): void
+    {
+        // ADR-132: the module no longer decides staleness itself — it carries
+        // the digest the card rendered into the decision, and the runtime
+        // verifies it against the CLAIMED state. Two things are asserted: the
+        // value travels through unchanged, and the refusal is surfaced with the
+        // stale-review message rather than a generic error.
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $seen    = null;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, ApprovalDecision $decision) use (&$seen, $uuid): AgentRunResult {
+                $seen = $decision;
+
+                throw StaleApprovalTurnException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve');
+
+        $response = $controller->approveAction($uuid, true, 'a-digest-of-some-other-turn');
+
+        self::assertSame(303, $response->getStatusCode(), 'the refusal ends in the POST-redirect-GET flush');
+        self::assertInstanceOf(ApprovalDecision::class, $seen);
+        self::assertSame('a-digest-of-some-other-turn', $seen->turnDigest);
+        self::assertTrue($seen->approved);
+        self::assertSame(
+            $this->localizedFlashMessages(),
+            ['The pending action changed since you viewed it — please re-review.'],
+        );
+    }
+
+    #[Test]
+    public function theDigestTheCardRendersIsTheOneTheRuntimeWillRecompute(): void
+    {
+        // The whole guard rests on both sides computing the same value from the
+        // same pending calls (ADR-132) — one definition, asserted across the
+        // render side and the verification side.
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $run = $this->persister->findRun($this->lastUuid());
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertNotNull($run->suspendedState);
+
+        $decoded = json_decode($run->suspendedState, true);
+        self::assertIsArray($decoded);
+
+        $factory = new WaitingRunViewFactory(new ToolRegistry([new FakeTool('delete_thing')]), new SchemaPropertyClassifier(), new PendingTurnDigest());
+
+        // The RENDERED card's value, not a convenience accessor beside it: what
+        // travels back with the decision is what the card carries.
+        self::assertSame(
+            (new PendingTurnDigest())->forState(SuspendedRunState::fromArray($decoded)),
+            $factory->buildWaiting([$run])[0]->turnDigest,
+        );
+    }
+
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * The rendered text of every flash message the action queued.
+     *
+     * @return list<string>
+     */
+    private function localizedFlashMessages(): array
+    {
+        $flashMessageService = $this->get(FlashMessageService::class);
+        self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
+        $extensionService = $this->get(ExtensionService::class);
+        self::assertInstanceOf(ExtensionService::class, $extensionService);
+
+        // The identifier ActionController::getFlashMessageQueue() derives.
+        $queue = $flashMessageService->getMessageQueueByIdentifier(
+            'extbase.flashmessages.' . $extensionService->getPluginNamespace('NrLlm', null),
+        );
+
+        return array_values(array_map(
+            static fn(FlashMessage $message): string => $message->getMessage(),
+            $queue->getAllMessagesAndFlush(),
+        ));
+    }
 
     private ?string $lastUuid = null;
 
     /**
-     * @param array<string, mixed> $arguments
+     * @param array<string, mixed>                                                     $arguments
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews
      */
-    private function suspendApproval(string $tool, array $arguments): void
+    private function suspendApproval(string $tool, array $arguments, array $callPreviews = []): void
     {
         $handle = $this->persister->begin(null, 1);
         self::assertNotNull($handle);
         self::assertTrue($this->persister->suspend(
             $handle,
-            new SuspendedRunState([], [ToolCall::function('c1', $tool, $arguments)->toArray()], 1, 0, 0),
+            new SuspendedRunState([], [ToolCall::function('c1', $tool, $arguments)->toArray()], 1, 0, 0, null, [], null, [], $callPreviews),
         ));
         $this->lastUuid = $handle->uuid;
     }
@@ -166,7 +324,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         return new AgentRunController(
             $moduleTemplateFactory,
             $this->persister,
-            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier()),
+            new WaitingRunViewFactory($registry, new SchemaPropertyClassifier(), new PendingTurnDigest()),
             new SchemaInputCoercer(new SchemaPropertyClassifier()),
             $runtime,
             $pageRenderer,
@@ -193,13 +351,30 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         // The render-only actions we test (list + the 422 in-place re-render)
         // need the moduleTemplate property. We set it directly rather than via
-        // initializeAction(), whose getFlashMessageQueue()/doc-header calls need
-        // Extbase controller services a direct-call harness cannot provide — the
-        // flash queue and doc menu are display-only and irrelevant to the card
-        // markup we assert. Actions that use redirect()/flash are covered by the
-        // WaitingRunViewFactory/SchemaInputCoercer unit tests instead.
+        // initializeAction(), whose doc-header call needs Extbase controller
+        // services a direct-call harness cannot provide.
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
         $reflection->getProperty('moduleTemplate')->setValue($controller, $moduleTemplateFactory->create($extbaseRequest));
+
+        // The three collaborators an ActionController normally receives through
+        // its inject* methods. Set here so the POST-redirect-GET actions
+        // (flash + redirect) are reachable too — the approval decision is one,
+        // and testing it against a double instead would leave the surface's
+        // actual behaviour unasserted.
+        $uriBuilder = $this->get(ExtbaseUriBuilder::class);
+        self::assertInstanceOf(ExtbaseUriBuilder::class, $uriBuilder);
+        $uriBuilder->setRequest($extbaseRequest);
+        $reflection->getProperty('uriBuilder')->setValue($controller, $uriBuilder);
+
+        // These two are PRIVATE on ActionController, so they are reachable only
+        // through the declaring class, not the subclass reflection above.
+        $flashMessageService = $this->get(FlashMessageService::class);
+        self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
+        (new ReflectionProperty(ActionController::class, 'internalFlashMessageService'))->setValue($controller, $flashMessageService);
+
+        $extensionService = $this->get(ExtensionService::class);
+        self::assertInstanceOf(ExtensionService::class, $extensionService);
+        (new ReflectionProperty(ActionController::class, 'internalExtensionService'))->setValue($controller, $extensionService);
     }
 }

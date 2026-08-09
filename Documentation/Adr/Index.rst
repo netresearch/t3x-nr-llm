@@ -429,5 +429,9 @@ Tools
    Adr129StructuredConsumers
    Adr130BackendUserGrants
    Adr131EditorModule
+   Adr132ApprovalAuditAndTurnBinding
+   Adr133ApproverToolGate
    Adr134WriteEffectImpliesApproval
+   Adr135UpdatePageMetadataTool
+   Adr136WritePreviewAtSuspend
    Adr140EffectivePolicyReadoutWithoutApplyPath

@@ -12,32 +12,55 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * Turns persisted {@see AgentRun}s into the logic-free view models the approvals
- * inbox renders (ADR-109). All defensive decoding of the suspended-state blob,
- * the schema-to-field flattening and the stale-review turn digest live here, so
- * the Fluid template contains no logic and every branch is unit-testable without
- * an HTTP request.
+ * inbox renders (ADR-109). All defensive decoding of the suspended-state blob
+ * and the schema-to-field flattening live here, so the Fluid template contains
+ * no logic and every branch is unit-testable without an HTTP request. The turn
+ * digest a card carries is NOT computed here: it comes from
+ * {@see PendingTurnDigest}, the single definition the resume path verifies
+ * against (ADR-132).
+ *
+ * One thing here IS a security boundary and not presentation: a captured
+ * preview is released to the viewer only if the tool says that viewer may read
+ * the record it describes (ADR-136). The grant that opens this inbox is
+ * tool-level, so without that question the card would hand every grant holder
+ * the current contents of records they hold no rights on.
  */
 final readonly class WaitingRunViewFactory
 {
+    /**
+     * A preview is withheld rather than shown when the viewer holds no
+     * permission on the record it describes. It replaces the preview lines, so
+     * the card states the gap instead of quietly rendering an empty section —
+     * the same reason a FAILED preview is a line and not a blank (ADR-136).
+     */
+    private const PREVIEW_WITHHELD = 'The preview is not shown: you hold no permission on the record it describes.';
+
     public function __construct(
         private ToolRegistry $registry,
         private SchemaPropertyClassifier $classifier,
+        // The ONE digest definition (ADR-132), shared with ResumeCoordinator so
+        // the value rendered here and the value verified there cannot drift.
+        private PendingTurnDigest $digest,
     ) {}
 
     /**
-     * @param list<AgentRun> $runs
+     * @param list<AgentRun>                 $runs
+     * @param BackendUserAuthentication|null $viewer the backend user this card is being rendered for — NOT the run's acting user. Null means "cannot be established", and every preview is then withheld (ADR-136)
      *
      * @return list<WaitingRunView>
      */
-    public function buildWaiting(array $runs): array
+    public function buildWaiting(array $runs, ?BackendUserAuthentication $viewer = null): array
     {
-        return array_map($this->buildWaitingOne(...), $runs);
+        return array_map(fn(AgentRun $run): WaitingRunView => $this->buildWaitingOne($run, $viewer), $runs);
     }
 
     /**
@@ -61,37 +84,6 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
-     * The digest of a suspended run's pending turn — a stable hash of the pending
-     * tool calls the operator reviewed. The controller recomputes this from the
-     * freshly-loaded current state and refuses to approve on a mismatch, so a
-     * stale tab (or a second admin) cannot authorize a turn the operator never
-     * saw (ADR-109 stale-review guard). Same method on both paths ⇒ identical
-     * digest for identical pending calls.
-     */
-    public function pendingTurnDigest(SuspendedRunState $state): string
-    {
-        $json = json_encode($state->pendingCalls, JSON_INVALID_UTF8_SUBSTITUTE);
-
-        return hash('sha256', $json !== false ? $json : serialize($state->pendingCalls));
-    }
-
-    /**
-     * The current pending-turn digest for a freshly-loaded run, or null when its
-     * state is unreadable or it is not an approval pause. The controller compares
-     * this against the digest the operator reviewed and refuses a stale approval
-     * on a mismatch (ADR-109 stale-review guard).
-     */
-    public function turnDigestForRun(AgentRun $run): ?string
-    {
-        $state = $this->decodeState($run);
-        if (!$state instanceof SuspendedRunState || $state->inputToolName !== null) {
-            return null;
-        }
-
-        return $this->pendingTurnDigest($state);
-    }
-
-    /**
      * The current input schema for a freshly-loaded run, or null when its state
      * is unreadable, it is not an input pause, or the schema cannot be rendered
      * as a form. The controller coerces the POST against THIS (current) schema
@@ -109,7 +101,7 @@ final readonly class WaitingRunViewFactory
         return $state->inputSchema;
     }
 
-    private function buildWaitingOne(AgentRun $run): WaitingRunView
+    private function buildWaitingOne(AgentRun $run, ?BackendUserAuthentication $viewer): WaitingRunView
     {
         $state = $this->decodeState($run);
         if (!$state instanceof SuspendedRunState) {
@@ -117,14 +109,22 @@ final readonly class WaitingRunViewFactory
         }
 
         return $state->inputToolName === null
-            ? $this->buildApproval($run, $state)
+            ? $this->buildApproval($run, $state, $viewer)
             : $this->buildInput($run, $state);
     }
 
-    private function buildApproval(AgentRun $run, SuspendedRunState $state): WaitingRunView
+    private function buildApproval(AgentRun $run, SuspendedRunState $state, ?BackendUserAuthentication $viewer): WaitingRunView
     {
+        // Keyed by the position the loop recorded, not by the position in this
+        // (filtered) list: a corrupt call is skipped below, and matching by
+        // order after a skip would attach a preview to the wrong call.
+        $previews = [];
+        foreach ($state->callPreviews as $preview) {
+            $previews[$preview['index']] = $preview;
+        }
+
         $calls = [];
-        foreach ($state->pendingCalls as $raw) {
+        foreach ($state->pendingCalls as $index => $raw) {
             // tryFromArray skips a corrupt entry rather than throwing (unlike
             // SuspendedRunState::toolCalls()), so one bad call never blanks the
             // whole card.
@@ -133,10 +133,33 @@ final readonly class WaitingRunViewFactory
                 continue;
             }
 
+            $tool    = $this->registry->get($call->name);
+            $preview = $previews[$index] ?? null;
+
+            $previewLines  = [];
+            $previewFailed = false;
+            // A preview stored under a different tool name than the call at that
+            // position is a state nobody should be able to produce; dropping it
+            // is cheaper than rendering a claim about the wrong call.
+            if ($preview !== null && $preview['tool'] === $call->name) {
+                if ($this->viewerMayRead($tool, $call->arguments, $viewer)) {
+                    $previewLines  = $preview['lines'];
+                    $previewFailed = $preview['failed'];
+                } else {
+                    // Flagged like a failed preview: both mean the approver is
+                    // deciding without seeing what the write replaces, and the
+                    // line itself says which of the two it is.
+                    $previewLines  = [self::PREVIEW_WITHHELD];
+                    $previewFailed = true;
+                }
+            }
+
             $calls[] = new PendingCallView(
                 name: $call->name,
                 argumentsJson: $this->encodeArguments($call->arguments),
-                toolStillRegistered: $this->registry->get($call->name) instanceof ToolInterface,
+                toolStillRegistered: $tool instanceof ToolInterface,
+                previewLines: $previewLines,
+                previewFailed: $previewFailed,
             );
         }
 
@@ -149,9 +172,36 @@ final readonly class WaitingRunViewFactory
             mode: WaitingRunView::MODE_APPROVAL,
             createdAt: $run->crdate,
             configLabel: $this->configLabel($run),
-            turnDigest: $this->pendingTurnDigest($state),
+            turnDigest: $this->digest->forState($state),
             pendingCalls: $calls,
         );
+    }
+
+    /**
+     * The read-side authorisation of a preview (ADR-136). Production authorises
+     * the RUN OWNER; this authorises the person the card is rendered for, who
+     * holds a tool-level grant (ADR-130/133) that says nothing about individual
+     * records.
+     *
+     * Fail-closed on every branch it cannot resolve: no viewer, a tool that is
+     * gone, or a tool that offers no preview contract to ask. The last case is
+     * not hypothetical — the persisted preview outlives the registration that
+     * produced it, so the tool under this name may no longer be the one that
+     * wrote those lines.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function viewerMayRead(?ToolInterface $tool, array $arguments, ?BackendUserAuthentication $viewer): bool
+    {
+        if (!$viewer instanceof BackendUserAuthentication) {
+            return false;
+        }
+
+        if (!$tool instanceof ToolPreviewInterface) {
+            return false;
+        }
+
+        return $tool->mayViewerReadPreview($arguments, $viewer);
     }
 
     private function buildInput(AgentRun $run, SuspendedRunState $state): WaitingRunView
