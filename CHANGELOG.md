@@ -31,7 +31,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrong digest, so any third-party caller that constructs the decision itself
   must supply the digest of the turn it displayed or every approval will fail
   with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
-  is gone; the computation lives in the new `PendingTurnDigest` service.
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
 - **An approver may only release a write they could run themselves** (ADR-133).
   A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
   but the approver was never checked against the tool they were releasing:

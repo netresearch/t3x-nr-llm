@@ -67,23 +67,6 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
-     * The current pending-turn digest for a freshly-loaded run, or null when its
-     * state is unreadable or it is not an approval pause. The rendered card
-     * carries this value back with the decision, and
-     * {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
-     * recomputes it from the claimed state and refuses a mismatch (ADR-132).
-     */
-    public function turnDigestForRun(AgentRun $run): ?string
-    {
-        $state = $this->decodeState($run);
-        if (!$state instanceof SuspendedRunState || $state->inputToolName !== null) {
-            return null;
-        }
-
-        return $this->digest->forState($state);
-    }
-
-    /**
      * The current input schema for a freshly-loaded run, or null when its state
      * is unreadable, it is not an input pause, or the schema cannot be rendered
      * as a form. The controller coerces the POST against THIS (current) schema
