@@ -169,6 +169,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the approval resume for its missing input, and suspend again — never
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
+- The conversation context budget counts the skill block (#625).
+  `ConversationService` fitted the transcript and then dispatched into
+  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
+  bytes of skill block to the first user message — the fitted list and the
+  sent list were different lists. A criteria-mode configuration has no model
+  relation, so its window falls back to 8192 tokens, of which a full block is
+  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
+  1000-token response reserve minus the 3 % safety margin): the whole
+  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
+  optional trailing `$injectedText` for payload that reaches the wire outside
+  the message list, and the conversation path composes the block once and
+  passes it. The injection stays where it is — the first user turn is the
+  never-droppable head, so injecting before the fit would drop the entire
+  history and still overflow. Known limit: a session opened without a
+  configuration resolves the installation default inside the manager, so its
+  block is still unaccounted for.
 
 ## [0.26.0] - 2026-08-06
 
