@@ -35,6 +35,15 @@
             <trans-unit id="server.undeclared">
                 <source>No data class declared — this server supplies no tools until you declare one.</source>
             </trans-unit>
+            <trans-unit id="server.approval">
+                <source>Approval</source>
+            </trans-unit>
+            <trans-unit id="server.approval.required">
+                <source>A human approves every call</source>
+            </trans-unit>
+            <trans-unit id="server.approval.notRequired">
+                <source>Tools run without asking</source>
+            </trans-unit>
             <trans-unit id="server.lastImport">
                 <source>Last import</source>
             </trans-unit>

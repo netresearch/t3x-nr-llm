@@ -65,7 +65,11 @@ final class McpServerController extends ActionController
                 // about it rather than leaving the operator to infer it from an
                 // empty list.
                 'usable' => $server->dataClassEnum() !== null,
-                'tools'  => $this->catalogue->findAllByServer($server->uid),
+                // Resolved here rather than compared in the template: the
+                // fail-closed reading of the stored flag has exactly one home
+                // (ADR-134), and a Fluid condition would be a second one.
+                'approvalRequired' => $server->approvalRequired(),
+                'tools'            => $this->catalogue->findAllByServer($server->uid),
             ];
         }
 
