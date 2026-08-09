@@ -200,11 +200,43 @@ content.
    :ref:`MCP server <administration-mcp-servers>` never observe — a remote
    tool above the ceiling is removed even in observe mode.
 
-An installation upgraded from a version that predates the ``enforce``
-default was pinned to ``observe`` by an upgrade wizard, so the flip did not
-strip tools from a working setup (:ref:`ADR-115 <adr-115>`). If the tab
-shows ``observe`` on such an installation, that pin is why. Review what
-enforcement would remove, then set ``enforce``.
+After an upgrade from a version that predates ``enforce``
+---------------------------------------------------------
+
+An upgrade wizard exists to keep such an installation on ``observe``, so
+the changed default does not strip tools from a working setup
+(:ref:`ADR-115 <adr-115>`). It only takes effect if you run it —
+:guilabel:`Admin Tools > Upgrade > Upgrade Wizard`, or
+``vendor/bin/typo3 upgrade:run`` — and only while the installation still
+qualifies: at least one provider configured, and no enforcement mode stored
+yet.
+
+The second condition expires on its own, often before anyone opens the
+wizard list. TYPO3 writes the shipped defaults of an extension into
+``settings.php`` when ``extension:setup`` runs and again whenever an admin
+enters the Install Tool. That write stores ``enforce``, and a stored value
+is what the wizard reads as "the operator already chose". From then on it
+reports nothing to do and disappears from the list.
+
+So do not assume the pin happened. Open the :guilabel:`Governance` tab
+after the upgrade and read the row:
+
+``observe``
+    The wizard ran, or the value was already stored — from an earlier
+    explicit choice, or from the default the older version shipped. Either
+    way your runs are unchanged: over-ceiling tools are offered and
+    recorded.
+    Work through :ref:`administration-governance-verify`, fix what
+    enforcement would remove, then set ``enforce``.
+
+``enforce``
+    Nothing preserved the old behaviour. The gate has been removing
+    over-ceiling tools from every run since the update, without an error
+    anywhere a user would see. The removals are recorded, so you can read
+    what was lost instead of guessing — see
+    :ref:`administration-governance-verify`. Two ways forward: fix those
+    configurations and stay on ``enforce``, or set ``observe`` while you
+    work through them and switch back afterwards.
 
 .. _administration-governance-verify:
 
@@ -216,18 +248,55 @@ governance event carrying the tool name, the reason, the trust zone and the
 ceiling. Two places show them:
 
 - The :guilabel:`Tool denials by reason` dashboard widget. The
-  :guilabel:`Trust zone ceiling` bar is the data-class axis. In ``observe``
-  it counts what enforcement *would* have removed; in ``enforce`` it counts
-  what it did remove. The event's detail field distinguishes the two
-  (``observedOnly=1`` for an observed flag).
+  :guilabel:`Trust zone ceiling` bar is the data-class axis. It counts a
+  rolling 30 days and has no mode filter: an observe-mode flag and a real
+  removal are the same row, with the same reason. Only the event's
+  ``detail`` column separates them (``observedOnly=1`` marks a flag), and
+  no view reads that column.
 - The :guilabel:`Governance blocks` widget for the wider picture, including
   guardrail blocks and approvals.
 
-So the way to move a long-running installation to ``enforce`` is: switch to
-``observe``, let a representative workload run, read the trust-zone bar,
-fix the configurations that would lose a tool, switch back. Governance
-events are purged on ``privacy.retention.governance`` — make sure that
-window is longer than your observation period.
+The bar therefore answers "how often did the data-class axis fire in the
+last 30 days", not "how many tools would enforcement remove". Use it to see
+*that* the axis fires. Take the number you act on from the table.
+
+The list you actually need is one row per configuration and tool, and it
+comes from ``tx_nrllm_governance_event``:
+
+.. code-block:: sql
+   :caption: What the data-class axis did, per configuration and tool
+
+   SELECT configuration_identifier, tool_name, COUNT(*) AS events
+   FROM tx_nrllm_governance_event
+   WHERE decision = 'tool_denied'
+     AND reason = 'trustZone'
+     AND detail LIKE '%observedOnly=1%'
+     AND crdate >= 1767225600
+   GROUP BY configuration_identifier, tool_name;
+
+``observedOnly=1`` gives you what enforcement *would* remove;
+``observedOnly=0`` gives you what it *did* remove. ``crdate`` is Unix time
+— set it to the moment the period you care about started, the switch to
+``observe`` or the upgrade.
+
+Each row names one configuration and one tool the axis acted on, and that
+pairing is what you fix. Three ways to change it: raise the trust zone on
+the provider record, remove an external fallback that drags the
+configuration's reachable zone down to the external ceiling, or drop the
+tool from the configuration's allowed groups.
+
+So moving a long-running installation to ``enforce`` goes like this: note
+the time, set ``observe``, let a representative workload run, run the query
+for the observation window, fix the configurations it names, set
+``enforce`` again. The bar is at its least trustworthy during exactly this
+procedure — while you observe it still carries the enforce-mode removals of
+the preceding 30 days, and after you switch back it carries the observe
+flags for another 30. The query is unaffected, because it filters on both
+the flag and the window.
+
+Governance events are purged on ``privacy.retention.governance`` — make
+sure that window is longer than your observation period, or the evidence is
+gone before you read it.
 
 .. _administration-governance-no-apply:
 
@@ -241,8 +310,11 @@ single key, and is explicitly documented as unreliable when ``additional.php``
 overrides a setting. An apply button would therefore report success while the
 next request still served the old value — the worst thing a governance page
 can do. It would also materialise every shipped default as an explicitly
-stored value, which destroys the "did anyone ever choose this?" distinction
-the upgrade wizards depend on.
+stored value, and the upgrade wizards read that distinction to tell "the
+operator chose this" from "nobody ever set it". The core synchronisation
+already erases it on its own the first time an admin enters the Install
+Tool, so the apply button would not cause that loss — it would make it
+unconditional.
 
 The Install Tool owns the write, the synchronisation and the cache flush.
 The tab reports what is in force.
