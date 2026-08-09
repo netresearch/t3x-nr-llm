@@ -411,18 +411,39 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function approveThrowsOnCorruptSuspendedStateAndSettlesTheClaimedRun(): void
+    public function approveRefusesACorruptSuspendedStateWithoutClaimingOrSettlingTheRun(): void
     {
+        // A row that was ALREADY unreadable when we found it is refused before
+        // the claim, non-destructively: nothing is claimed, nothing is settled,
+        // and the run stays approvable with its state intact. Settling here
+        // would be terminal AND would clear suspended_state — erasing exactly
+        // the blob a repair needs.
         $this->repository->findResult = $this->suspendedRun(stateJson: 'not-json{');
 
         try {
             $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
             self::fail('Expected CorruptSuspendedStateException');
         } catch (CorruptSuspendedStateException) {
-            // Since ADR-132 the state is decoded from the CLAIMED row, so the
-            // claim is already won when corruption is found. The run must not be
-            // left RUNNING with nowhere to go — it is settled, not released
-            // (an unreadable state cannot be written back).
+            self::assertSame(0, $this->repository->claimsGranted);
+            self::assertNull($this->repository->finished);
+            self::assertNull($this->repository->suspended);
+        }
+    }
+
+    #[Test]
+    public function approveSettlesTheClaimedRunWhenTheStateTurnsUnreadableAfterTheClaim(): void
+    {
+        // The other decode, and the other verdict. Here the row was readable
+        // when we found it and the row the claim actually won is not — the race
+        // the post-claim decode exists for. The claim is held at that point, so
+        // the run cannot be left RUNNING and an unreadable state cannot be
+        // written back: settling is the only remaining move.
+        $this->repository->findResults = [$this->suspendedRun(), $this->suspendedRun(stateJson: 'not-json{')];
+
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
+            self::fail('Expected CorruptSuspendedStateException');
+        } catch (CorruptSuspendedStateException) {
             self::assertSame(1, $this->repository->claimsGranted);
             self::assertIsArray($this->repository->finished);
             self::assertSame('failed', $this->repository->finished['status']);
