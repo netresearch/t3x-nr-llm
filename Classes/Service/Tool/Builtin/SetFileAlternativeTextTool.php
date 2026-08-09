@@ -324,6 +324,29 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     }
 
     /**
+     * Whether the person LOOKING at the approval card may see this file's
+     * current alternative text (ADR-136).
+     *
+     * Deliberately the same resolution the write uses, run against the VIEWER
+     * instead of the acting user: {@see self::resolveTarget()} already applies
+     * the storage allow-list, the file-mount boundary and the default-language
+     * access, and a second authorisation path here would be a second answer to
+     * the same question — the shape this repository keeps removing.
+     *
+     * Returns false whenever the target cannot be resolved, so "you may not"
+     * and "there is nothing there" collapse the way every refusal in this tool
+     * does; the card withholds the preview rather than confirming a uid exists.
+     *
+     * @param array<string, mixed> $arguments the model-chosen arguments of the pending call
+     */
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        $uid = self::toInt($arguments['uid'] ?? 0);
+
+        return $uid >= 1 && $this->resolveTarget($viewer, $uid) !== null;
+    }
+
+    /**
      * The file row and its default-language metadata row, or null when the
      * acting user may not reach the file, no file carries the uid, or the file
      * carries no metadata record — all four collapse into one answer on purpose.
