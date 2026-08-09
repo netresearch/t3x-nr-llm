@@ -18,6 +18,11 @@ namespace Netresearch\NrLlm\Service\Governance;
  * "unknown" — never a value, and never a guess reconstructed from the raw
  * setting, because a value shown here must be one the runtime would apply.
  *
+ * $noteKey carries the case where the effective value is right but incomplete:
+ * a setting the runtime applies to most, not all, of what the key names. The
+ * note is a translation key rather than prose so the view stays the only place
+ * that renders language.
+ *
  * There is deliberately no provenance ("shipped default" vs "explicitly set"):
  * no resolver exposes it, and TYPO3's own
  * ExtensionConfiguration::synchronizeExtConfTemplateWithLocalConfigurationOfAllExtensions()
@@ -29,14 +34,18 @@ namespace Netresearch\NrLlm\Service\Governance;
 final readonly class EffectivePolicyRow
 {
     /**
-     * @param string      $key    The configuration key, e.g. `privacy.level`
-     * @param string|null $value  The effective value, or null when unknown
-     * @param string      $reader FQCN of the resolver the runtime reads through
+     * @param string      $key     The configuration key, e.g. `privacy.level`
+     * @param string|null $value   The effective value, or null when unknown
+     * @param string      $reader  FQCN of the resolver the runtime reads through
+     * @param string|null $noteKey `LLL:` key of a qualification the value alone
+     *                             would misstate, or null when the value stands
+     *                             on its own. Rendered by Governance.html.
      */
     public function __construct(
         public string $key,
         public ?string $value,
         public string $reader,
+        public ?string $noteKey = null,
     ) {}
 
     /**

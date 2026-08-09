@@ -408,6 +408,10 @@
                 <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
                 <target>Eine Zeile zeigt „unbekannt“, wenn ihr Resolver nicht befragt werden konnte. Sie fällt nie auf einen ausgelieferten Default zurück, denn ein hier gezeigter Wert muss einer sein, den die Laufzeit auch anwenden würde.</target>
             </trans-unit>
+            <trans-unit id="governance.note.remoteAlwaysEnforced">
+                <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
+                <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
+            </trans-unit>
 
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">

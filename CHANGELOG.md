@@ -18,7 +18,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gate applies. A resolver that cannot be asked yields "unknown", never a
   substituted default. There is deliberately no apply path and no
   provenance column — the Install Tool stays the place where instance-wide
-  keys are set; ADR-140 records why.
+  keys are set; ADR-140 records why. Two rows carry more than a value:
+  `tools.dataClassEnforcement = observe` is annotated as applying to
+  built-in tools only, because the gate enforces the trust-zone ceiling for
+  every MCP tool regardless (ADR-115), and each
+  `privacy.retention.<category>` override that deviates from
+  `privacy.retentionDays` gets its own row — the overrides left at the
+  shipped `0` resolve to the global window and stay out.
 
 ### Changed
 

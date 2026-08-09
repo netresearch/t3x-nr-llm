@@ -43,6 +43,9 @@
                                     </span>
                                 </f:else>
                             </f:if>
+                            <f:if condition="{row.noteKey}">
+                                <span class="d-block small text-body-secondary"><f:translate key="{row.noteKey}" /></span>
+                            </f:if>
                         </td>
                         <td><code class="text-body-secondary">{row.reader}</code></td>
                     </tr>

@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRemoteTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -97,6 +98,40 @@ final class EffectivePolicyReadoutTest extends AbstractFunctionalTestCase
 
         self::assertFalse($policy->decide('system_tool', $configuration, null)->allowed);
         self::assertSame('enforce', $this->enforcementRow($readout)->value);
+    }
+
+    #[Test]
+    public function observeNeverReachesARemoteToolAndTheRowSaysSo(): void
+    {
+        // ADR-115: the ceiling is enforced for every RemoteToolInterface tool
+        // whatever the setting says. An operator whose MCP tool is being dropped
+        // reads this page first, so the row must not claim the axis is observing.
+        $registry = new ToolRegistry([
+            new FakeTool('system_tool', 'ok', true, false, 'system'),
+            new FakeRemoteTool('remote_tool'),
+        ]);
+        $configuration = $this->externalConfiguration();
+        $policy        = $this->policyFromContainer($registry);
+        $readout       = $this->getService(EffectivePolicyReadout::class);
+
+        $this->setEnforcement('observe');
+
+        self::assertTrue(
+            $policy->decide('system_tool', $configuration, null)->allowed,
+            'observe still offers the builtin above the ceiling',
+        );
+
+        $remote = $policy->decide('remote_tool', $configuration, null);
+        self::assertFalse($remote->allowed, 'a remote tool above the ceiling is denied even in observe mode');
+        self::assertFalse($remote->observedOnly);
+
+        $row = $this->enforcementRow($readout);
+        self::assertSame('observe', $row->value);
+        self::assertSame(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.note.remoteAlwaysEnforced',
+            $row->noteKey,
+            'the row must qualify a mode the gate does not apply to remote tools',
+        );
     }
 
     #[Test]
