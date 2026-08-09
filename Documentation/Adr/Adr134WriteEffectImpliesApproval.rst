@@ -112,17 +112,27 @@ reach for the declaration without also claiming that its behaviour lives
 outside this codebase — the one case in which an operator declaration beats
 reading the code.
 
-An existing install is pinned, not converted. The default of ``1`` lands on
-every pre-existing row when the schema updates, which would turn a working
-integration into one that suspends on every call.
-:php:`McpServerApprovalDefaultUpdateWizard` writes an explicit ``0`` on the
-servers that were already importing tools (``last_imported > 0``), following
-:ref:`adr-113`/:ref:`adr-115`: the new default is the safe one, and the wizard
-exists only so that safety is not applied retroactively to something that
-already worked. A server that was configured but never imported offers no
-tools, so there is no running integration to preserve — it keeps the default,
-which is also what keeps the wizard from ever offering to switch approval off
-for something new.
+Every server requires approval, existing ones included. The default of ``1``
+lands on every pre-existing row when the schema updates, and nothing corrects
+it afterwards: there is no upgrade wizard, and the state after an update is the
+state after a fresh install. The assurance therefore rests on the schema alone,
+which is what :php:`McpServerApprovalDefaultTest` pins by dropping the column,
+writing a row the way the previous version did, and running the add/change
+migration :php:`PackageSetup` runs.
+
+A pinned install was the alternative, in the shape of
+:ref:`adr-113`/:ref:`adr-115`: a wizard that writes an explicit ``0`` on the
+servers already importing tools, so a new default cannot stop an integration
+that runs today. It was written and then removed. MCP here is planned and not
+yet in production use, so the running integrations such a wizard preserves do
+not exist, and what remained was a fail-open path through the very assurance
+this decision introduces — one that, matching on the value rather than its
+origin, could not tell a ``1`` the schema wrote from a ``1`` an operator chose,
+and so would have switched approval off on a server nobody had judged.
+
+Turning the flag off is an operator's decision, taken per server once they know
+what that server's tools do. It is a tick in the record, not something an
+upgrade does on their behalf.
 
 Registration stays as it is
 ---------------------------
@@ -159,6 +169,11 @@ marker exists.
 ◐ A remote tool pauses when an operator says so, and never because of what its
 effect or its server claims. The judgement an MCP tool cannot supply about
 itself is made once, per server, by the person who connected it.
+
+✕ An update can stop an MCP integration that ran unattended before. Nothing
+pins the old behaviour, so an existing server suspends its runs until an
+operator unticks the box. That is the cost of not having a path that switches
+approval off on rows it cannot tell apart.
 
 ✕ It is a per-server switch, not a per-tool one. A server whose catalogue mixes
 a search with a delete is approved on the coarser of the two, and the operator's

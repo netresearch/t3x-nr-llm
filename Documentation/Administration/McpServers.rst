@@ -42,10 +42,10 @@ Guard rails
   for a newly configured server: what a remote tool actually does cannot
   be inspected from here, and the server's own annotations do not get to
   answer the question about themselves (:ref:`ADR-134 <adr-134>`). Switch
-  it off per server once you know what its tools do. Servers that were
-  already importing tools before this setting existed are left switched
-  off by an upgrade wizard, so an update does not quietly halt a running
-  integration — review them and switch approval on where it belongs.
+  it off per server once you know what its tools do. This holds for every
+  server, including one configured before the setting existed: an update
+  leaves it requiring approval, and nothing switches that off on your
+  behalf.
 - The number of remote calls one run may make is bounded (default: 20)
   — a remote call crosses the network while a backend user waits, and
   nothing else limits how many a model asks for at once.

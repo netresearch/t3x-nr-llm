@@ -23,9 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from the server, whose `readOnlyHint` annotation stays unread. It is on
   by default for a newly configured server, and only a literal `0` reads
   as "no approval" — an unreadable or missing value means approval is
-  required. Servers that were already importing tools are pinned to "not
-  required" by the `nrLlm_mcpServerApprovalForExisting` upgrade wizard, so
-  an update does not silently halt a running integration.
+  required. The default reaches existing servers too: the schema update
+  writes it on every pre-existing row, and no upgrade wizard switches it
+  off again. Switch it off per server once you know what that server's
+  tools do.
 
 ## [0.26.0] - 2026-08-06
 
