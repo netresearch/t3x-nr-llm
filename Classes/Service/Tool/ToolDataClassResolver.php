@@ -33,10 +33,17 @@ final readonly class ToolDataClassResolver
      * `rag` is PUBLIC_CONTENT because every retrieval query is access-filtered
      * to publicly visible documents before it returns anything.
      *
+     * `editing` is EDITOR_CONTENT for the same reason `content` is: what a
+     * writing tool echoes back is the editorial text it just set. The class
+     * describes the data that egresses, not the fact that the tool writes —
+     * the write axis is {@see \Netresearch\NrLlm\Domain\Enum\ToolEffect}
+     * (ADR-135).
+     *
      * @var array<string, ToolDataClass>
      */
     private const GROUP_DEFAULTS = [
         'content'       => ToolDataClass::EDITOR_CONTENT,
+        'editing'       => ToolDataClass::EDITOR_CONTENT,
         'files'         => ToolDataClass::EDITOR_CONTENT,
         'rag'           => ToolDataClass::PUBLIC_CONTENT,
         'structure'     => ToolDataClass::INTERNAL_CONFIGURATION,

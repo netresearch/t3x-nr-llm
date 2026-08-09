@@ -6,6 +6,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
+  allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
+  `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions
+  when that extension is installed) on exactly ONE page, through the
+  `DataHandler`, as the acting backend user. It ships **disabled** and sits in a
+  NEW group `editing` — deliberately not `content`, so a configuration that
+  already grants the read-only content group does not inherit write capability
+  from an upgrade. Because it declares `IDEMPOTENT_WRITE`, every call suspends
+  for a human decision (ADR-134); it carries no approval marker of its own. Any
+  other page field is refused, and a call naming an unknown field is refused
+  whole rather than applied in part. A page the acting user may not edit is
+  refused with the same string as a page that does not exist. Writes outside
+  workspace 0 are refused, and so is a process without the backend environment
+  the `DataHandler` declares (`$GLOBALS['TCA']`, `$GLOBALS['LANG']`,
+  `$GLOBALS['BE_USER']`) — the tool names the missing piece instead of
+  populating globals it does not own. Success is verified by re-reading the
+  record: the `DataHandler` silently drops a field the user lacks the
+  "exclude field" grant for, and reporting that as a successful write would
+  mislead the human who approved it. An empty value for a field the TCA marks
+  `required` (`pages.title`) is dropped just as silently, so the argument gate
+  refuses it up front rather than letting the read-back blame a field grant an
+  admin cannot be missing; clearing an *optional* field still works.
+  `ToolEffectCoverageTest::DECLARED_WRITERS`,
+  empty since ADR-122, now pins this one name. **Not guaranteed:** the ADR-112
+  write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
+  produces — no shipped entry point calls it, so an interactive write runs
+  unfenced. The fail-closed write audit and the approval pause hold everywhere.
+
 ### Changed
 
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
@@ -86,6 +116,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   today (ADR-122), so the shipped catalogue behaves as before. The module shows
   a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
   re-signals `awaiting_approval`.
+### Changed
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
   `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
