@@ -11,10 +11,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use LogicException;
 
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresInputInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -101,5 +104,136 @@ final class ToolRegistryTest extends TestCase
 
         $this->expectException(LogicException::class);
         self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([$dualMarker]));
+    }
+
+    #[Test]
+    public function aToolThatDeclaresAWriteAndRequiresInputIsRejected(): void
+    {
+        // ADR-134: a declared write binds the approval scan, which runs BEFORE
+        // the input scan. Registered, such a tool would suspend for approval,
+        // be refused by resume() for the input it never received, and suspend
+        // again on the model's next attempt — one operator decision per cycle
+        // and never an execution. Rejected at the container boot instead.
+        $this->expectException(LogicException::class);
+        $this->expectExceptionCode(1786226400);
+        self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([$this->inputTool('create_page', ToolEffect::IDEMPOTENT_WRITE)]));
+    }
+
+    #[Test]
+    public function anInputToolThatDeclaresNoWriteStaysRegistrable(): void
+    {
+        // The control for the ban above: it keys on the WRITE, not on the input
+        // marker. A read-only tool that asks the user for data is the case
+        // ADR-105 was built for and must keep working.
+        $tool = $this->inputTool('ask_user', ToolEffect::READ_ONLY);
+
+        self::assertSame($tool, (new ToolRegistry([$tool]))->get('ask_user'));
+    }
+
+    #[Test]
+    public function aRemoteToolThatDeclaresAWriteAndRequiresInputStaysRegistrable(): void
+    {
+        // The ban mirrors ToolLoopService::requiresHumanApproval() including its
+        // remote exemption, so it can never reject a tool the approval scan
+        // would let through. McpTool declares NON_IDEMPOTENT_WRITE for every
+        // imported tool, a pure search included (ADR-134).
+        $remote = new class implements ToolInterface, RequiresInputInterface, ToolEffectInterface, RemoteToolInterface {
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('remote_writer', 'a remote tool that asks for input', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+            {
+                return ToolResult::text('ok');
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function getInputSchema(): array
+            {
+                return ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]];
+            }
+
+            public function getEffect(): ToolEffect
+            {
+                return ToolEffect::NON_IDEMPOTENT_WRITE;
+            }
+        };
+
+        self::assertSame($remote, (new ToolRegistry([$remote]))->get('remote_writer'));
+    }
+
+    /**
+     * A local tool that asks the user for typed input and declares an effect.
+     */
+    private function inputTool(string $name, ToolEffect $effect): ToolInterface
+    {
+        return new class ($name, $effect) implements ToolInterface, RequiresInputInterface, ToolEffectInterface {
+            public function __construct(
+                private readonly string $name,
+                private readonly ToolEffect $effect,
+            ) {}
+
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function($this->name, 'asks the user for input', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+            {
+                return ToolResult::text('ok');
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+
+            /**
+             * @return array<string, mixed>
+             */
+            public function getInputSchema(): array
+            {
+                return ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]];
+            }
+
+            public function getEffect(): ToolEffect
+            {
+                return $this->effect;
+            }
+        };
     }
 }

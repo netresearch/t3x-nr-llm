@@ -126,7 +126,11 @@ final class McpTestServer implements ClientInterface
         return array_map(static fn(array $call): ?string => $call['method'], $this->received);
     }
 
-    public static function server(string $identifier = 'srv', string $dataClass = 'publicContent'): McpServerRecord
+    /**
+     * @param string $requiresApproval the raw stored flag, defaulting to the
+     *                                 column default a new server gets
+     */
+    public static function server(string $identifier = 'srv', string $dataClass = 'publicContent', string $requiresApproval = '1'): McpServerRecord
     {
         return new McpServerRecord(
             uid: 1,
@@ -139,6 +143,7 @@ final class McpTestServer implements ClientInterface
             authPlacement: 'bearer',
             authHeaderName: '',
             dataClass: $dataClass,
+            requiresApproval: $requiresApproval,
             enabled: true,
             importStatus: 'never_imported',
             importError: '',
