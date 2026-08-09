@@ -68,6 +68,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   work from. The decode after the claim remains and now covers only the race it
   is there for: the state CHANGED between the two reads and the row the claim
   won is the unreadable one.
+- **An approver may only release a write they could run themselves** (ADR-133).
+  A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
+  but the approver was never checked against the tool they were releasing:
+  `mayActOnRun()` grants the decision on the `agent_approve` grant alone, so a
+  non-admin holding it could release an admin-only write that then ran with the
+  owner's privileges — a confused deputy. `ResumeCoordinator::approve()` now
+  resolves the APPROVER's live backend user and asks `ToolCallPolicy::decide()`
+  about every pending call that declares a write; a denial refuses the release
+  with `ApproverNotPermittedException` and RELEASES the run back to
+  `WAITING_FOR_APPROVAL`, so somebody who does hold the permission can still
+  decide it. A **service account may not release a write-declaring turn at
+  all**: it has no backend-user uid and `hasGrant()` is false for it, so
+  `decide()` would check only the `requiresAdmin` axis — refusing is the only
+  fail-closed variant. Read-only turns and denials are unaffected (they execute
+  nothing that needs the approver's authority), and no builtin declares a write
+  today (ADR-122), so the shipped catalogue behaves as before. The module shows
+  a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
+  re-signals `awaiting_approval`.
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
   `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
+use Netresearch\NrLlm\Service\Agent\Exception\ApproverNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
@@ -132,6 +133,10 @@ final class AgentRunController extends ActionController
         } catch (StaleApprovalTurnException) {
             // The run was released, not consumed — re-review and decide again.
             return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
+        } catch (ApproverNotPermittedException) {
+            // ADR-133: the run was released, not consumed — someone who may run
+            // the pending write can still decide it.
+            return $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (ApprovalNotAuditableException) {
             return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
