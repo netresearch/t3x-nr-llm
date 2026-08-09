@@ -313,12 +313,25 @@ shipped, and no document may claim otherwise.
 The fence arms only when a lease owner is present:
 :php:`AgentRunExecutor::trace()` installs its ``onBeforeTool`` hook under
 ``$leaseOwner === null || !$handle instanceof AgentRunHandle ? null : …``. The
-only producer of a lease owner is :php:`QueuedRunCoordinator::runQueued()`,
-reached exclusively through :php:`AgentRuntimeInterface::enqueue()` — and
-``enqueue()`` has **no in-repo caller**. Every shipped entry point (the Tool
-Playground batch and streamed runs, the approval and input resumes, the CLI)
-goes through ``run()``, ``approve()``, ``submitInput()`` or ``cancel()``, all of
-which pass no lease owner. ``pending_effect`` is never stamped for them.
+only producer of a lease owner is :php:`QueuedRunCoordinator::runQueued()`.
+
+That method **does** have in-repo callers —
+:php:`Service\Agent\Queue\AgentRunQueuedHandler::__invoke()` and the reaper's
+re-dispatch in :php:`Command\ReapStaleAgentRunsCommand` — so "``runQueued()`` is
+unreachable" would be wrong. What has no in-repo caller is
+:php:`AgentRuntimeInterface::enqueue()`, and only ``enqueue()`` creates the
+QUEUED row those callers can act on. The reaper cannot conjure one either:
+``findStaleRunning`` selects on ``lease_expires > 0``, which an interactive run
+never has.
+
+Every shipped entry point (the Tool Playground batch and streamed runs, the
+approval and input resumes, the CLI) goes through ``run()``, ``approve()``,
+``submitInput()`` or ``cancel()``, all of which pass no lease owner.
+``pending_effect`` is never stamped for them.
+
+Sharper still for the resume path: :php:`AgentRunExecutor::executeResume()`
+passes no lease owner at all, so **no** resume is fenceable however the run was
+started.
 
 This is not an accident to be alarmed by, and it is not the transport's doing:
 ``enqueue()`` on the default ``SyncTransport`` would arm the fence perfectly
