@@ -1072,6 +1072,12 @@
             <trans-unit id="tx_nrllm_mcp_server.data_class.description">
                 <source>Sensitivity every tool of this server is classified as. Required: until it is set, the server contributes no tools.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.requires_approval">
+                <source>Requires approval</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.requires_approval.description">
+                <source>Every tool of this server pauses for a human before an agent run executes it. On by default: what a remote tool does cannot be inspected here, and the server's own annotations do not decide this.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.import_status">
                 <source>Import status</source>
             </trans-unit>
