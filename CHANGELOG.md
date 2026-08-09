@@ -35,6 +35,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `llmModel` is null in criteria selection mode (so the window read would not
   belong to the model that serves the call), and `ContextWindowManager`
   (ADR-107) already bounds the real send with a calibrated token estimator.
+- The `allowed-tools` documentation claimed the tool union and the injected
+  prompt block are the same set (`Tools.rst`, ADR-038 §5,
+  `AllowedToolsResolver`'s docblock: "exactly what SkillComposer injects").
+  They can differ: `effectiveSkills()` does not know the byte budget, which is
+  applied afterwards in `composeBlock()`, so a budget-dropped skill still
+  grants its tools while its usage rules never reach the model. Now that
+  `skills.maxBytes` is operator-settable the divergence is reachable by
+  configuration, so `Tools.rst`, `Skills.rst`, ADR-038 §5 and the resolver
+  docblock now all state it. The resolver is deliberately left budget-blind:
+  counting the budget there would let the drop of the last declaring skill
+  collapse the allow-list to `null` ("no restriction" — every registered
+  tool), making a tighter budget widen the gate.
 
 ## [0.26.0] - 2026-08-06
 

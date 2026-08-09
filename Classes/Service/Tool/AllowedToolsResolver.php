@@ -19,12 +19,20 @@ use Netresearch\NrLlm\Service\Skill\SkillComposer;
  *
  * Semantics (fail-closed on declaration): the allow-list is the UNION of the
  * declared lists of every effective skill (config + task, enabled, non-orphaned,
- * deduped — exactly the set SkillComposer composes into the prompt). A skill that
+ * trust-gated, deduped — {@see SkillComposer::effectiveSkills()}). A skill that
  * declares no `allowed-tools` key (its accessor returns null) contributes no
  * opinion. When NO effective skill declares anything, this returns null meaning
  * "no skill-imposed restriction" (all registry tools are permitted). When at least
  * one skill declares, the union is returned — and a lone declared empty list yields
  * `[]`, i.e. no tools at all.
+ *
+ * The union is the same SELECTION the injection path uses, but not necessarily the
+ * same SET that reaches the prompt: the skill-block byte budget is applied later,
+ * in {@see SkillComposer::composeBlock()}, so a budget-dropped skill still grants
+ * its tools while its prose does not ship (ADR-036 §5, ADR-038 §5). Counting the
+ * budget here is deliberately NOT done — dropping the last declaring skill would
+ * make this return null ("no restriction", i.e. every registered tool), so a
+ * tighter budget would widen the gate instead of narrowing it.
  */
 final readonly class AllowedToolsResolver
 {

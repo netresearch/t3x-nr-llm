@@ -74,6 +74,20 @@ final class SkillComposerFactoryTest extends TestCase
         self::assertSame([], $result->warnings);
     }
 
+    #[Test]
+    public function budgetAboveTheDefaultRaisesTheCeilingInsteadOfCappingAtIt(): void
+    {
+        // The case Skills.rst documents ("raise it if a large configuration
+        // baseline is being trimmed"): the pair is over the 24 000 default, so
+        // a resolver that only ever clamped DOWNWARDS -- min($bytes, DEFAULT)
+        // -- would still trim it here while every other case stayed green.
+        $result = $this->factoryWith(['maxBytes' => '60000'])->create()->composeBlock(...$this->oversizedPair());
+
+        self::assertSame(['cfg', 'tsk'], $result->included);
+        self::assertSame([], $result->dropped);
+        self::assertSame([], $result->warnings);
+    }
+
     /**
      * A value that cannot be read as a positive byte count must leave the
      * default ceiling standing. Removing the cap is never the fallback: an

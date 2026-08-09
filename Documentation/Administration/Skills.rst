@@ -253,6 +253,15 @@ never puts an unbounded block on the wire. The budget is instance-wide and
 independent of the model's context window; the per-request window bound is
 handled separately by the context-window manager (:ref:`ADR-107 <adr-107>`).
 
+The budget bounds the prompt block only, **not** the ``allowed-tools`` union
+(:ref:`Gating tools <administration-tools-allowed>`). The union is computed
+over the effective skills before the block is assembled, so a skill dropped
+for the budget still grants its tools while its usage rules stay out of the
+prompt. That is deliberate — a budget-aware union would *widen* the gate,
+because dropping the last declaring skill removes the restriction entirely.
+Watch the drop warnings when lowering the value: they name every skill whose
+prose stopped shipping while its tools kept being offered.
+
 **Manifest fingerprint (optional).** A source may declare an
 ``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
 the digest is recomputed at sync and verified before anything is materialised; a
