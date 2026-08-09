@@ -98,6 +98,44 @@ final class DataClassEnforcementDefaultUpdateWizardTest extends AbstractFunction
         self::assertFalse($wizard->updateNecessary(), 'already observe -> nothing to do');
     }
 
+    /**
+     * The limit of the pin, and the reason the Install Tool label states a
+     * condition rather than a promise (#675).
+     *
+     * `storedEnforcement()` reads
+     * `$GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']`, which is exactly
+     * what
+     * `ExtensionConfiguration::synchronizeExtConfTemplateWithLocalConfigurationOfAllExtensions()`
+     * writes — on entering the Install Tool, on `extension:setup`, and from
+     * `ExtensionConfiguration::get()` when the key is absent. The template
+     * ships `enforce`, so after any of those the value is present and the
+     * wizard reports nothing to do.
+     *
+     * It cannot distinguish that from an operator who chose `enforce`
+     * deliberately: both are the same string in the same place. An upgraded
+     * install therefore stays on enforce unless the wizard is run BEFORE the
+     * configuration is written, and the gate has been removing tools since the
+     * update.
+     */
+    #[Test]
+    public function theTemplateDefaultLooksLikeAChoiceAndSuppressesThePin(): void
+    {
+        $this->addProvider('openai-4');
+        // Not an operator decision: the shipped ext_conf_template default, as
+        // the synchronisation writes it.
+        $this->storeNrLlmConfig(['tools' => ['dataClassEnforcement' => 'enforce']]);
+
+        $wizard = new DataClassEnforcementDefaultUpdateWizard(
+            $this->getConnectionPool(),
+            self::createStub(ExtensionConfiguration::class),
+        );
+
+        self::assertFalse(
+            $wizard->updateNecessary(),
+            'the wizard cannot tell the template default from a deliberate enforce, so it does not fire',
+        );
+    }
+
     private function addProvider(string $identifier): void
     {
         $this->getConnectionPool()->getConnectionForTable(self::TABLE)->insert(self::TABLE, [

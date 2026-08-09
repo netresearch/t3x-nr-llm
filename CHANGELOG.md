@@ -280,6 +280,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Both defects are read-only: the answer could be wrong, nothing was
   corrupted. The same defect in the writing tool is fixed separately in the
   `set_file_alternative_text` branch, where it mattered more.
+- The Install Tool label for `tools.dataClassEnforcement` no longer promises
+  a pin that usually does not happen (#675). It stated unconditionally that
+  an upgraded install "is pinned to Observe by an upgrade wizard". The pin
+  only happens if the wizard is run before the extension configuration is
+  written: `updateNecessary()` requires a stored value of `null`, and
+  `synchronizeExtConfTemplateWithLocalConfigurationOfAllExtensions()` —
+  which runs on entering the Install Tool, on `extension:setup`, and from
+  `ExtensionConfiguration::get()` for an absent key — writes the shipped
+  `enforce` into exactly the place the wizard reads. After that it reports
+  nothing to do, and the operator is on enforce while the label tells them
+  otherwise, in the screen where they would look. The label now states the
+  condition and says that the value shown is what applies.
 
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
