@@ -227,17 +227,29 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
      * execution time. The rehydrated augmentation must assemble the identical
      * transcript — otherwise `run()` and `enqueue()` + `runQueued()` of the same
      * request would send different prompts.
+     *
+     * Two snippets, in a declaration order that is not the ascending uid order,
+     * so the uid list the codec itself is responsible for is pinned too:
+     * `dehydrate()` maps the forced snippets to uids, `uidList()` carries them
+     * through rehydration and `snippetsByUids()` hands them to the repository
+     * unchanged (unlike `skillsByUids()`, which rebuilds the order itself).
+     * Rebuilding the order from the repository result is NOT this test's job —
+     * that contract belongs to
+     * {@see \Netresearch\NrLlm\Tests\Functional\Repository\PromptSnippetRepositoryTest::findByUidsPreservesInputOrder()}.
      */
     #[Test]
     public function aQueuedRunRehydratedByTheCodecAssemblesTheSameOrderAsTheDirectRun(): void
     {
-        $snippet = $this->snippet('tone', 'Use the formal register.');
-        $snippet->_setProperty('uid', 9);
+        $tone = $this->snippet('tone', 'Use the formal register.');
+        $tone->_setProperty('uid', 9);
+
+        $glossary = $this->snippet('glossary', "Render 'Beitrag' as 'article'.");
+        $glossary->_setProperty('uid', 3);
 
         $configuration = $this->configuration();
 
         $direct = $this->snapshot($this->runAndCaptureMessages(
-            new RunAugmentation(forcedSnippets: [$snippet]),
+            new RunAugmentation(forcedSnippets: [$tone, $glossary]),
             configuration: $configuration,
         ));
 
@@ -245,7 +257,10 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
         $configurationRepository->method('findByUid')->willReturn($configuration);
 
         $snippetRepository = $this->createMock(PromptSnippetRepository::class);
-        $snippetRepository->expects(self::once())->method('findByUids')->with([9])->willReturn([$snippet]);
+        $snippetRepository->expects(self::once())
+            ->method('findByUids')
+            ->with([9, 3])
+            ->willReturn([$tone, $glossary]);
 
         $codec = new AgentRunRequestCodec($configurationRepository, null, $snippetRepository);
 
@@ -253,7 +268,7 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
             configuration: $configuration,
             messages: [ChatMessage::user(self::USER_TURN)],
             actor: AiActorContext::backendUser(7),
-            augmentation: new RunAugmentation(forcedSnippets: [$snippet]),
+            augmentation: new RunAugmentation(forcedSnippets: [$tone, $glossary]),
         )));
         self::assertIsString($payload);
 
@@ -265,7 +280,10 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
         ));
 
         self::assertSame($direct, $resumed);
-        self::assertSame(['system', 'system', 'user'], array_column($resumed, 'role'));
+        self::assertSame(['system', 'system', 'system', 'user'], array_column($resumed, 'role'));
+        self::assertSame(self::CONFIG_SYSTEM_PROMPT, $this->contentOf($resumed[0]));
+        self::assertSame(self::SNIPPET_A, $this->contentOf($resumed[1]));
+        self::assertSame(self::SNIPPET_B, $this->contentOf($resumed[2]));
     }
 
     /**
@@ -290,13 +308,28 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
     }
 
     /**
-     * The counterfactual, and the reason the lead position is load-bearing: a
-     * snippet system message ahead of the system prompt satisfies the shaper's
-     * "a system message already exists" guard, so the configuration's system
-     * prompt is dropped for the whole run — silently, with no error anywhere.
+     * The shaper's guard from the other side, and the reason the lead position
+     * is load-bearing: once ANY system message leads the list, a system prompt
+     * handed to the shaper afterwards is dropped for the whole run — silently,
+     * with no error anywhere. Here the leading message is a snippet, because the
+     * configuration carries no system prompt of its own and nothing is baked.
+     *
+     * This is not the guard against moving the snippet loop ahead of the bake in
+     * `assemble()` — with an empty prompt that reorder is a no-op, so this test
+     * cannot go red on it. That guard is
+     * {@see self::theBakedSystemPromptLeadsTheSnippetSystemMessagesAndTheSkillBlockStaysInTheUserTurn()},
+     * {@see self::aPerRunSystemPromptOverridesTheConfigurationsAndKeepsTheLeadPosition()}
+     * and {@see self::theBakedSystemPromptSatisfiesTheShapersGuardWithTheRightMessage()}.
+     *
+     * The two sides can genuinely disagree in production: `assemble()` runs once
+     * on the primary configuration, before the middleware pipeline, while
+     * `FallbackMiddleware` re-enters the pipeline with `withConfiguration()` and
+     * the manager re-reads the options off that configuration. A primary without
+     * a system prompt plus forced snippets, falling back to a configuration that
+     * has one, produces exactly the pair asserted below.
      */
     #[Test]
-    public function aSnippetSystemMessageAheadOfTheSystemPromptWouldDropItSilently(): void
+    public function aLeadingSystemMessageSuppressesASystemPromptAppliedAfterAssembly(): void
     {
         $withoutBakedLead = $this->snapshot($this->runAndCaptureMessages(
             new RunAugmentation(forcedSnippets: [$this->snippet('tone', 'Use the formal register.')]),
