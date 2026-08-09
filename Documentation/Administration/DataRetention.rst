@@ -68,7 +68,9 @@ default:
      - Tool-gate denials and guardrail blocks (no prompts, no responses)
 
 A zero, negative or non-numeric value never means "delete immediately" — it
-means "no override".
+means "no override". When to set one at all, and how to read the window that
+is in force, is covered under
+:ref:`administration-governance-retention-overrides`.
 
 Runs awaiting a decision are deliberately separate. A run suspended for an
 approval carries the state needed to resume it, so it is only deleted on the

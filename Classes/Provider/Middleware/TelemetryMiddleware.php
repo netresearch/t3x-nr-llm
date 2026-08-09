@@ -47,13 +47,16 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
  * provider produced a response; the guardrail then blocked it) — not a provider
  * failure. A genuine provider/budget exception still records success=false.
  *
- * What it records: the OPERATION and requested primary CONFIGURATION
- * (identifier, plus its provider/model). When FallbackMiddleware swaps to a
- * sibling configuration the swap is captured as `fallback_attempts > 0`; the
- * provider/model/cost of the configuration that actually SERVED live in the
- * usage table (UsageMiddleware sees the served config). Ad-hoc direct calls
- * carry no attached model, so provider/model are empty and the provider is
- * encoded in the `ad-hoc:<operation>:<provider>` identifier.
+ * What it records: the OPERATION, the requested primary CONFIGURATION
+ * (identifier, plus its provider/model) AND the one that actually served the
+ * run (`served_*`). The two are equal unless FallbackMiddleware swapped to a
+ * sibling that then answered — which it signals through the scratchpad on the
+ * context, the only channel that survives the pipeline unwind (see
+ * {@see TelemetrySignals}). `fallback_attempts` still counts the hops; it
+ * cannot say which configuration answered, and a chain that was exhausted
+ * without anyone answering has hops but no swap. Ad-hoc direct calls carry no
+ * attached model, so provider/model are empty and the provider is encoded in
+ * the `ad-hoc:<operation>:<provider>` identifier.
  *
  * Privacy: no prompt, no response, no exception message — only the exception
  * FQCN (`error_class`), because messages can carry payload fragments. The
@@ -147,6 +150,8 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
         int $latencyMs,
     ): void {
         try {
+            $signals = $context->telemetrySignals;
+
             $this->repository->record(new TelemetryRecord(
                 correlationId: $context->correlationId,
                 operation: $context->operation->value,
@@ -157,8 +162,16 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 success: $success,
                 errorClass: $errorClass,
                 latencyMs: $latencyMs,
-                cacheHit: $context->telemetrySignals->cacheHit,
-                fallbackAttempts: $context->telemetrySignals->fallbackAttempts,
+                cacheHit: $signals->cacheHit,
+                fallbackAttempts: $signals->fallbackAttempts,
+                // No swap recorded ⇒ the requested configuration is the one that
+                // served (or nothing did, on a failed run). Writing the requested
+                // triple rather than leaving the columns empty keeps every row
+                // self-describing: "which configuration answered this call" is one
+                // column, never a COALESCE over two.
+                servedConfigurationIdentifier: $signals->servedConfigurationIdentifier ?? $context->telemetryConfigurationIdentifier(),
+                servedProvider: $signals->servedProvider ?? $context->telemetryProvider(),
+                servedModel: $signals->servedModel ?? $context->telemetryModel(),
             ));
         } catch (Throwable $e) {
             // Observability must not break the call it observes. safeRecord()

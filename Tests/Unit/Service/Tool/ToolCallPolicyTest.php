@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -154,14 +155,14 @@ final class ToolCallPolicyTest extends TestCase
         $throwing = $this->createMock(ExtensionConfiguration::class);
         $throwing->method('get')->willThrowException(new RuntimeException('config unreadable', 1785100001));
         self::assertFalse(
-            $this->policyWith($registry, $throwing)->decide('system_tool', $config, $this->admin())->allowed,
+            $this->policyWith($registry, new DataClassEnforcementResolver($throwing))->decide('system_tool', $config, $this->admin())->allowed,
             'an unreadable configuration enforces',
         );
 
         $malformed = $this->createMock(ExtensionConfiguration::class);
         $malformed->method('get')->willReturn(['tools' => 'not-an-array']);
         self::assertFalse(
-            $this->policyWith($registry, $malformed)->decide('system_tool', $config, $this->admin())->allowed,
+            $this->policyWith($registry, new DataClassEnforcementResolver($malformed))->decide('system_tool', $config, $this->admin())->allowed,
             'a malformed configuration enforces',
         );
     }
@@ -220,7 +221,7 @@ final class ToolCallPolicyTest extends TestCase
         $extensionConfiguration = $this->createMock(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['tools' => ['dataClassEnforcement' => $enforcement]]);
 
-        return $this->policyWith($registry, $extensionConfiguration, $enabled);
+        return $this->policyWith($registry, new DataClassEnforcementResolver($extensionConfiguration), $enabled);
     }
 
     /**
@@ -228,7 +229,7 @@ final class ToolCallPolicyTest extends TestCase
      */
     private function policyWith(
         ?ToolRegistry $registry,
-        ExtensionConfiguration $extensionConfiguration,
+        DataClassEnforcementResolver $enforcementResolver,
         ?array $enabled = null,
     ): ToolCallPolicy {
         $registry ??= new ToolRegistry([]);
@@ -239,7 +240,7 @@ final class ToolCallPolicyTest extends TestCase
             new AllowedToolsResolver(new SkillComposer(), $registry),
             new ToolDataClassResolver($registry),
             new TrustZoneResolver(),
-            $extensionConfiguration,
+            $enforcementResolver,
         );
     }
 

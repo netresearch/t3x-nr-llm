@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
@@ -472,6 +473,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             new AllowedToolsResolver(new SkillComposer(), $registry),
             new ToolDataClassResolver($registry),
             new TrustZoneResolver(),
+            new DataClassEnforcementResolver(),
         );
 
         return new ToolLoopService($mgr, $registry, $policy);

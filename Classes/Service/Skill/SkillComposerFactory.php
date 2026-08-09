@@ -50,7 +50,7 @@ final readonly class SkillComposerFactory
     {
         return new SkillComposer(
             maxBytes: $this->resolveMaxBytes(),
-            minTrustLevel: $this->resolveMinTrustLevel(),
+            minTrustLevel: $this->minTrustLevel(),
         );
     }
 
@@ -71,7 +71,15 @@ final readonly class SkillComposerFactory
         return $bytes >= 1 ? $bytes : SkillComposer::DEFAULT_MAX_BYTES;
     }
 
-    private function resolveMinTrustLevel(): SkillTrustLevel
+    /**
+     * The effective minimum publisher-trust level every composer is built with.
+     *
+     * Public so the read-only governance readout (ADR-140) can show the value
+     * the runtime actually applies instead of re-reading and re-interpreting
+     * ``skills.minTrustLevel`` itself, which would let the view drift from the
+     * composer.
+     */
+    public function minTrustLevel(): SkillTrustLevel
     {
         try {
             $skills = $this->skillsConfig();

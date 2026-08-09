@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Fixture;
 
+use Netresearch\NrLlm\Service\Telemetry\FallbackHop;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Throwable;
@@ -63,5 +64,29 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
     public function averageLatencyMs(int $since): int
     {
         return $this->averageLatencyMsReturns;
+    }
+
+    /**
+     * Rows recentFallbackHops() hands back, newest first. Deliberately
+     * unnarrowed: the SQL implementation filters to served swaps so its
+     * $limit counts rescues, but a test states the hops it wants the reader
+     * to classify — including the ones the query would have dropped, so the
+     * reader's own rule stays under test rather than the stub's.
+     *
+     * @var list<FallbackHop>
+     */
+    public array $fallbackHops = [];
+
+    /** The ($since, $limit) pair the last recentFallbackHops() was asked for. */
+    public ?int $hopsSince = null;
+
+    public ?int $hopsLimit = null;
+
+    public function recentFallbackHops(int $since, int $limit): array
+    {
+        $this->hopsSince = $since;
+        $this->hopsLimit = $limit;
+
+        return \array_slice($this->fallbackHops, 0, max(1, $limit));
     }
 }

@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Option\VisionOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use TYPO3\CMS\Core\SingletonInterface;
@@ -59,12 +60,17 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // nothing to screen, which is honest; a null screener meant "screening
         // was requested and skipped", which was not.
         private InputGuardrailScreener $inputScreener = new InputGuardrailScreener([]),
+        // Composes a configuration's tag-selected prompt snippets (ADR-031)
+        // into the effective system prompt. Optional so the unit-test
+        // constructions that omit it keep the pre-snippet behaviour verbatim;
+        // production wiring is autowired.
+        private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {
         // Built here from the manager's own dependencies, not injected: the
         // constructor signature is pinned by the shared test factory, and both
         // are implementation details of this facade's dispatch (ADR-059
         // stage 2).
-        $this->planner  = new ConfigurationCallPlanner($this->adapterRegistry, $this->modelSelectionService);
+        $this->planner  = new ConfigurationCallPlanner($this->adapterRegistry, $this->modelSelectionService, $this->snippetResolver);
         $this->metadata = new CallMetadataFactory();
     }
 

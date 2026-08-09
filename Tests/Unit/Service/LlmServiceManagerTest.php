@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -2444,7 +2445,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
             $budget,
             $usage,
             $telemetry,
-            self::createStub(LlmConfigurationRepository::class),
+            new FallbackCandidateResolver(self::createStub(LlmConfigurationRepository::class)),
             new NullLogger(),
             $context,
             $extensionConfiguration,

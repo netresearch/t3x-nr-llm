@@ -434,4 +434,7 @@ Tools
    Adr134WriteEffectImpliesApproval
    Adr135UpdatePageMetadataTool
    Adr136WritePreviewAtSuspend
+   Adr137OneCandidateResolution
    Adr138OperationCapabilityMatch
+   Adr139ContextAssemblyIsASeam
+   Adr140EffectivePolicyReadoutWithoutApplyPath

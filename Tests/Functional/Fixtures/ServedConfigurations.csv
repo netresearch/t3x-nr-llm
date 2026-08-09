@@ -1,0 +1,13 @@
+"tx_nrllm_provider"
+,"uid","pid","identifier","name","adapter_type","endpoint_url","api_key","api_timeout","max_retries","is_active","sorting","deleted","hidden"
+,901,0,"served-openai","Served OpenAI","openai","https://api.openai.com/v1","",30,3,1,1,0,0
+,902,0,"served-ollama","Served Ollama","ollama","http://ollama:11434","",30,3,1,2,0,0
+"tx_nrllm_model"
+,"uid","pid","identifier","name","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
+,901,0,"served-gpt","Served GPT",901,"gpt-5",256000,16384,"chat",120,0,0,1,0,1,0,0
+,902,0,"served-llama","Served Llama",902,"llama3.3:70b",131072,4096,"chat",120,0,0,1,0,2,0,0
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","model_uid","fallback_chain","is_active","deleted","hidden","sorting"
+,901,0,"served-primary","Served Primary",901,"{""configurationIdentifiers"":[""served-alt""]}",1,0,0,1
+,902,0,"served-alt","Served Alternative",902,"",1,0,0,2
+,903,0,"served-lonely","Served Without Chain",901,"",1,0,0,3

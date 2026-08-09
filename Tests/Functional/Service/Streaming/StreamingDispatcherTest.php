@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Streaming;
 use Generator;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -54,7 +55,7 @@ final class StreamingDispatcherTest extends AbstractFunctionalTestCase
             $this->getService(BudgetServiceInterface::class),
             $this->getService(UsageTrackerServiceInterface::class),
             new TelemetryRepository($this->connectionPool),
-            $this->getService(LlmConfigurationRepository::class),
+            new FallbackCandidateResolver($this->getService(LlmConfigurationRepository::class)),
             new NullLogger(),
             $this->getService(Context::class),
             $this->getService(ExtensionConfiguration::class),

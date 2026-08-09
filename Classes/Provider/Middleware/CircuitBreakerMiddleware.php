@@ -90,10 +90,6 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
         return 20;
     }
 
-    private const DEFAULT_FAILURE_THRESHOLD = 5;
-
-    private const DEFAULT_COOLDOWN_SECONDS  = 30;
-
     public function __construct(
         private CircuitBreakerStoreInterface $store,
         private ExtensionConfiguration $extensionConfiguration,
@@ -235,38 +231,12 @@ final readonly class CircuitBreakerMiddleware implements ProviderMiddlewareInter
 
     /**
      * Read the circuit configuration from the `circuitBreaker.*` extension
-     * settings, mirroring TelemetryMiddleware's tolerant reader: any read
-     * failure or missing key falls back to the safe defaults (enabled, with the
-     * default threshold and cooldown).
+     * settings. The tolerant reader itself lives on the config object, because
+     * the backend readout resolves the same cooldown to derive a circuit's
+     * status outside the pipeline.
      */
     private function config(): CircuitBreakerConfig
     {
-        try {
-            /** @var array<string, mixed> $config */
-            $config = $this->extensionConfiguration->get('nr_llm');
-        } catch (Throwable) {
-            $config = [];
-        }
-
-        $circuit = \is_array($config['circuitBreaker'] ?? null) ? $config['circuitBreaker'] : [];
-
-        return new CircuitBreakerConfig(
-            enabled: !\array_key_exists('enabled', $circuit) || (bool)$circuit['enabled'],
-            failureThreshold: $this->positiveIntOr($circuit['failureThreshold'] ?? null, self::DEFAULT_FAILURE_THRESHOLD),
-            cooldownSeconds: $this->positiveIntOr($circuit['cooldownSeconds'] ?? null, self::DEFAULT_COOLDOWN_SECONDS),
-        );
-    }
-
-    private function positiveIntOr(mixed $value, int $default): int
-    {
-        if (\is_int($value) && $value > 0) {
-            return $value;
-        }
-
-        if (\is_string($value) && ctype_digit($value) && (int)$value > 0) {
-            return (int)$value;
-        }
-
-        return $default;
+        return CircuitBreakerConfig::fromExtensionConfiguration($this->extensionConfiguration);
     }
 }

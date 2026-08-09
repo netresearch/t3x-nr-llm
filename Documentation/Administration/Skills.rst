@@ -238,7 +238,8 @@ use: a skill below the floor is dropped from **both** prompt injection and the
 allowed-tools union. Raising the floor to ``verified`` therefore hides every
 community/untrusted skill without deleting it. Trust is *separate from* the
 ``enabled = false`` default — an ``untrusted`` skill still needs an explicit
-enable.
+enable. An unreadable or mistyped floor falls back to ``untrusted``; the value
+actually in force is shown under :ref:`administration-governance`.
 
 **Skill-block byte budget.** ``skills.maxBytes`` (extension configuration,
 default ``24000``) caps the composed block that is prepended to the user

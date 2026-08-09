@@ -155,6 +155,9 @@ CREATE TABLE tx_nrllm_configuration (
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
     allowed_guardrails varchar(255) DEFAULT '' NOT NULL,
 
+    -- Comma list of prompt-snippet tags composed into the system prompt (ADR-031)
+    snippet_tags varchar(255) DEFAULT '' NOT NULL,
+
     -- Attached skills (MM relation to tx_nrllm_skill)
     skills int(11) DEFAULT '0' NOT NULL,
 
@@ -549,6 +552,16 @@ CREATE TABLE tx_nrllm_telemetry (
     provider varchar(64) DEFAULT '' NOT NULL,
     model varchar(128) DEFAULT '' NOT NULL,
     configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+
+    -- What ANSWERED: the configuration that actually served the run. Equal to
+    -- the requested triple above whenever no fallback swap happened, so a row
+    -- always names its serving configuration without a COALESCE. A failed run
+    -- that nothing served keeps the requested values here — "served" is only
+    -- ever a configuration that produced a response. Rows written before these
+    -- columns existed carry '' and are therefore not mistakable for a rescue.
+    served_configuration_identifier varchar(150) DEFAULT '' NOT NULL,
+    served_provider varchar(64) DEFAULT '' NOT NULL,
+    served_model varchar(128) DEFAULT '' NOT NULL,
 
     -- Attribution (backend user; 0 for CLI / scheduler / unauthenticated)
     be_user int(11) unsigned DEFAULT '0' NOT NULL,

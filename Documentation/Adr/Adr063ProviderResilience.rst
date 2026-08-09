@@ -223,6 +223,20 @@ Deferred / follow-ups
 
 * A backend readout of circuit state and health scores (a diagnostics panel).
   The services expose the data; only a view is missing.
+
+  ..  note::
+
+      **Overtaken.** The view exists: the analytics module renders a
+      **Provider health and circuits** table
+      (:php:`Service\Analytics\ProviderHealthReport`, joining
+      :php:`ProviderHealthServiceInterface` with
+      :php:`CircuitBreakerStoreInterface`). It names each score's sample count
+      and the rolling window, shows a provider with no telemetry as "no data"
+      rather than a zero, and states whether ``health.reorderFallback`` and
+      ``circuitBreaker.enabled`` are on — a score that decides nothing is the
+      likeliest misreading of such a panel. No new module was added
+      (:ref:`adr-119`); it is a section of the existing analytics view.
+
 * Per-operation idempotency TTL override via call metadata (the middleware uses
   a single window today).
 * Concurrent-double-submit dedup. The current get-then-run-then-set has no atomic

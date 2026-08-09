@@ -8,6 +8,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A read-only **Governance** tab on the LLM Overview showing the effective
+  value of the four governance keys that carry a decision —
+  `privacy.level`, `privacy.retentionDays`, `tools.dataClassEnforcement`
+  and `skills.minTrustLevel` — together with the FQCN of the resolver each
+  value came from (ADR-140). Every value is read through the same resolver
+  the runtime uses, so the view cannot drift from behaviour: a mistyped
+  `tools.dataClassEnforcement` reads as `enforce` because that is what the
+  gate applies. A resolver that cannot be asked yields "unknown", never a
+  substituted default. There is deliberately no apply path and no
+  provenance column — the Install Tool stays the place where instance-wide
+  keys are set; ADR-140 records why. Two rows carry more than a value:
+  `tools.dataClassEnforcement = observe` is annotated as applying to
+  built-in tools only, because the gate enforces the trust-zone ceiling for
+  every MCP tool regardless (ADR-115), and each
+  `privacy.retention.<category>` override that deviates from
+  `privacy.retentionDays` gets its own row — the overrides left at the
+  shipped `0` resolve to the global window and stay out.
+
+### Changed
+
+- `ToolCallPolicy::enforcing()` moved verbatim into the new
+  `Service\Tool\DataClassEnforcementResolver`, which the tool gate and the
+  governance readout both ask. `ToolCallPolicy` no longer takes an optional
+  `ExtensionConfiguration` and instead requires the resolver; behaviour is
+  unchanged, including the fail-closed matrix of ADR-113.
+- `SkillComposerFactory::minTrustLevel()` is public so the readout can show
+  the level the composer is actually built with.
 - **`set_file_alternative_text` — the second writing tool** (ADR-135). It sets
   the alternative text (`sys_file_metadata.alternative`) of exactly ONE managed
   file, identified by its `sys_file` uid, through the `DataHandler`, as the
@@ -98,6 +125,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
   unfenced. The fail-closed write audit and the approval pause hold everywhere.
+- A configuration can attach prompt snippets by tag
+  (`tx_nrllm_configuration.snippet_tags`, amendment to ADR-031). The
+  active snippets carrying any selected tag are composed into the
+  configuration's effective system prompt, so they reach chat,
+  completion, streaming and the agent loop through one insertion point
+  in `ConfigurationCallPlanner::callOptions()`. Before this the snippet
+  library reached no production prompt at all — its only consumers were
+  the tool playground's forced snippets and the codec that rehydrates
+  them. The select lists the tags the snippet records actually carry, so
+  the vocabulary stays consumer-owned; a snippet carrying two selected
+  tags is composed once, and an unknown tag yields nothing rather than
+  an error. Configurations without tags are unaffected. The `@api`
+  surface gains `LlmConfiguration::getSnippetTags()`,
+  `setSnippetTags()` and `getSnippetTagList()` (additive).
+  A hidden snippet is not composed: the repository keeps ignoring enable
+  fields (the backend module lists hidden records), so the filter sits in
+  `ConfigurationSnippetResolver`, and `PromptSnippet::isHidden()` is
+  mapped for it. In the tool playground a forced snippet the
+  configuration already selects by tag is no longer added a second time.
+  The composed prompt is passed to `ContextWindowManagerInterface::fit()`
+  by `ToolLoopService` and `ConversationService` (new optional
+  `$effectiveSystemPrompt` argument, defaulting to the previous
+  behaviour), so the ADR-107 budget counts the snippet block that goes on
+  the wire.
 - New extension configuration key `skills.maxBytes` (default `24000`) for the
   byte budget of the composed skill block (ADR-036 §5). `SkillComposer` had
   accepted `maxBytes` as a constructor argument since the feature landed, but
@@ -125,8 +176,64 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   makes the two markers mutually exclusive) and the input path has no turn
   digest (ADR-132).
 
-### Changed
+- Telemetry records the configuration that actually SERVED a run, not only
+  the one that was requested: `tx_nrllm_telemetry` gains
+  `served_configuration_identifier`, `served_provider` and `served_model`.
+  Until now a fallback showed only as `fallback_attempts > 0`, so the row
+  credited a configuration that did not answer the call. Both paths write
+  the new columns — the pipeline through a new `TelemetrySignals` signal
+  (`recordServedBy()`, recorded in the API snapshot), the streaming
+  lifecycle from the configuration `openWithFallback()` returns. A run
+  nobody served (exhausted chain) keeps naming the requested configuration
+  on both sides, and so does a run that needed no fallback, so "which
+  configuration answered this call" is one column rather than a fallback
+  chain of two. Rows written before this release carry an empty
+  `served_configuration_identifier` and are not counted as a swap.
+  The analytics module reads them back as a **Fallback rescues** list: the
+  runs another configuration stepped in for, capped at the 200 newest. The
+  cap counts rescues, not fallback attempts — the query narrows to the
+  swaps, so an outage writing exhausted-chain rows in bulk cannot crowd the
+  period's rescues out of the list. `ProviderHealthRepository` is
+  unchanged — its scores deliberately count only `fallback_attempts = 0`
+  rows, so a rescued run still counts against the primary.
+- A **Provider health and circuits** table in the analytics module, the
+  readout ADR-063 deferred: per provider the health score with the sample
+  count and the rolling window it was taken over, plus the circuit state
+  from the `nrllm_circuit` cache. A provider with no telemetry in the
+  window shows "no data", never a zero — it was idle, not broken. Both
+  gates are stated on the page, because a score that changes nothing is
+  the likeliest misreading of such a panel: `health.reorderFallback` is
+  off by default, and a disabled `circuitBreaker.enabled` means the
+  circuit column is not being evaluated at all. No new backend module
+  (ADR-119) — it is a section of the existing analytics view.
+  `ProviderHealthServiceInterface` gains `windowSeconds()` and
+  `reorderEnabled()` so the window and the switch are read from the
+  advisor instead of restated by its consumers; neither the interface nor
+  the new `Service\Analytics\ProviderHealthReport` is part of the `@api`
+  surface, which is unchanged.
+  The same "no data is not a zero" rule applies to the latency column: a
+  provider present in the window whose every run a fallback rescued has no
+  self-served run to measure, and the cell says so instead of showing
+  `0 ms`. `ProviderHealthScore::$avgLatencyMs` is nullable for that case
+  (the score is unchanged — an unknown latency carries no penalty, and the
+  failure is already in the success rate). Circuits opened for direct calls
+  with a pinned provider are NOT in the table: such a run records no
+  provider and its circuit is keyed on the call identifier
+  (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
+  in the administration docs instead of being claimed away.
 
+- The candidate walk over a primary configuration's fallback chain is
+  implemented once, in the `@internal`
+  `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
+  ADR-021 rules — shallow, no self-retry, missing and inactive entries
+  skipped — while ordering, the primary attempt and the skip log lines stay
+  with each caller: the health-aware reorder (ADR-063) remains on the
+  pipelined path only, and streaming keeps the configured order.
+  `FallbackMiddleware` and `StreamingDispatcher` now take the resolver in
+  place of `LlmConfigurationRepository`; neither is part of the `@api`
+  surface, which is unchanged. Streaming resolves the chain lazily now: when an
+  early candidate serves, later entries are no longer looked up and a broken
+  entry behind it no longer logs a skip warning.
 - Internal signature change: `ModelSelectionServiceInterface::resolveModel()`
   and `ConfigurationCallPlanner::resolveModel()` take a required
   `?ProviderOperation`; `ConfigurationCallPlanner::adapterFor()` likewise.
@@ -360,6 +467,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   block is still unaccounted for.
 
 ### Fixed
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
+- The conversation context budget counts the skill block (#625).
+  `ConversationService` fitted the transcript and then dispatched into
+  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
+  bytes of skill block to the first user message — the fitted list and the
+  sent list were different lists. A criteria-mode configuration has no model
+  relation, so its window falls back to 8192 tokens, of which a full block is
+  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
+  1000-token response reserve minus the 3 % safety margin): the whole
+  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
+  optional trailing `$injectedText` for payload that reaches the wire outside
+  the message list, and the conversation path composes the block once and
+  passes it. The injection stays where it is — the first user turn is the
+  never-droppable head, so injecting before the fit would drop the entire
+  history and still overflow. Known limit: a session opened without a
+  configuration resolves the installation default inside the manager, so its
+  block is still unaccounted for.
 
 - **The approval of a write is fail-closed and bound to the turn that was
   reviewed** (ADR-132). Two defects on the same path:

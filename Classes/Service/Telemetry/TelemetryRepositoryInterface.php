@@ -12,9 +12,11 @@ namespace Netresearch\NrLlm\Service\Telemetry;
 /**
  * Persistence boundary for provider pipeline telemetry rows (ADR-058).
  *
- * Append one row, purge old rows, or read a small set of dashboard aggregates.
- * Telemetry stays append-only — there is no update path; the read methods only
- * ever aggregate, never expose a single row's payload.
+ * Append one row, purge old rows, or read back what the dashboards need.
+ * Telemetry stays append-only — there is no update path. A read either
+ * aggregates or, for {@see self::recentFallbackHops()}, hands out whole rows;
+ * either way it can only expose what the table holds, which is metadata (no
+ * prompt, no response, no exception message).
  */
 interface TelemetryRepositoryInterface
 {
@@ -42,4 +44,21 @@ interface TelemetryRepositoryInterface
      * Zero matching rows ⇒ 0.
      */
     public function averageLatencyMs(int $since): int;
+
+    /**
+     * The most recent runs another configuration answered for, newest first,
+     * capped at $limit.
+     *
+     * "Another configuration" is the narrowing: `fallback_attempts > 0` alone
+     * also matches a chain that was exhausted with nobody serving, and a row
+     * written before the `served_*` columns existed. Both name no serving
+     * sibling and must not reach $limit — an outage produces them in bulk and
+     * would otherwise crowd a period's real rescues out of the window.
+     * Classifying the rows that do arrive stays with the reader
+     * ({@see \Netresearch\NrLlm\Service\Analytics\FallbackRescueReport}), which
+     * is where the rule is stated in domain terms.
+     *
+     * @return list<FallbackHop>
+     */
+    public function recentFallbackHops(int $since, int $limit): array;
 }

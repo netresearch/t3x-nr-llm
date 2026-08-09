@@ -12,9 +12,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -26,6 +28,8 @@ use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
+use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -573,6 +577,73 @@ final class ConversationServiceTest extends TestCase
         $skill->setOrphaned(false);
 
         return $skill;
+    }
+
+    /**
+     * The turn's system prompt is composed by the manager (configuration
+     * prompt + its tag-selected snippets, ADR-031) and prepended after the fit,
+     * so the fit is told what it will be. Without that the budget is short by
+     * the whole snippet block on every turn of a snippet-using configuration.
+     */
+    #[Test]
+    public function theContextWindowIsToldTheComposedSystemPrompt(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+        $configuration->setSystemPrompt('You are the configured assistant.');
+        $configuration->setSnippetTags('persona');
+
+        $seen = null;
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            static function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs,
+                string $injectedText,
+                ?string $effectiveSystemPrompt,
+            ) use (&$seen): ContextFitResult {
+                $seen = $effectiveSystemPrompt;
+
+                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15);
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('answered'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            $this->snippetResolver(),
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertSame("You are the configured assistant.\n\nNova:\nYou are Nova.", $seen);
+    }
+
+    private function snippetResolver(): ConfigurationSnippetResolver
+    {
+        $snippet = new PromptSnippet();
+        $snippet->setIdentifier('persona-nova');
+        $snippet->setName('Nova');
+        $snippet->setSnippet('You are Nova.');
+
+        $snippets = self::createStub(PromptSnippetRepository::class);
+        $snippets->method('findActiveByTag')->willReturnCallback(
+            static fn(string $tag): array => $tag === 'persona' ? [$snippet] : [],
+        );
+
+        return new ConfigurationSnippetResolver($snippets, new PromptSnippetComposer());
     }
 
     /**

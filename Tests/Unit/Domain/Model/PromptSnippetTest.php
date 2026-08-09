@@ -143,6 +143,25 @@ final class PromptSnippetTest extends AbstractUnitTestCase
         self::assertSame($expected, $this->subject->getTagList());
     }
 
+    /**
+     * The token-boundary rule of ADR-031, at the level where it is decided:
+     * the tag list holds whole tokens, so the exact-match lookup in
+     * {@see \Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository::findActiveByTag()}
+     * — and with it a configuration selecting the tag `style` — can never reach
+     * a snippet tagged `lifestyle`.
+     */
+    #[Test]
+    public function getTagListKeepsTagsWholeSoStyleIsNotATokenOfLifestyle(): void
+    {
+        $this->subject->setTags('lifestyle,layout');
+
+        $tags = $this->subject->getTagList();
+
+        self::assertSame(['lifestyle', 'layout'], $tags);
+        self::assertNotContains('style', $tags);
+        self::assertNotContains('life', $tags);
+    }
+
     // ========================================
     // getMetadataArray()
     // ========================================

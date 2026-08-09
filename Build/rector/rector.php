@@ -18,9 +18,11 @@ declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
 use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
+use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\PHPUnit\Set\PHPUnitSetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 use Ssch\TYPO3Rector\CodeQuality\General\AddErrorCodeToExceptionRector;
+use Ssch\TYPO3Rector\CodeQuality\General\GeneralUtilityMakeInstanceToConstructorPropertyRector;
 use Ssch\TYPO3Rector\Set\Typo3LevelSetList;
 use Ssch\TYPO3Rector\Set\Typo3SetList;
 
@@ -73,6 +75,23 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
             __DIR__ . '/../../Classes/Provider/Middleware/BudgetMiddleware.php',
             __DIR__ . '/../../Classes/Service/Streaming/StreamingDispatcher.php',
             __DIR__ . '/../../Classes/Specialized/AbstractSpecializedService.php',
+        ],
+        // FormEngine instantiates an itemsProcFunc through
+        // GeneralUtility::callUserFunction() -> makeInstance() with NO
+        // constructor arguments, and makeInstance only consults the container
+        // for services it reports via has() — private ones (everything under
+        // the Netresearch\NrLlm\ namespace block) are not among them. Turning
+        // the makeInstance call into a required constructor property would
+        // therefore fatal in the backend. The established pattern here is the
+        // opposite one: keep the itemsProcFunc constructor-less and make its
+        // collaborator public (see GuardrailRegistry in Services.yaml).
+        GeneralUtilityMakeInstanceToConstructorPropertyRector::class => [
+            __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
+        ],
+        // Same reason: without a constructor there is nothing to make readonly,
+        // and the rule only fires because of the rewrite skipped above.
+        ReadOnlyClassRector::class => [
+            __DIR__ . '/../../Classes/Form/Tca/SnippetTagItems.php',
         ],
         // Skip Fuzzy tests - Eris\Generator namespace functions conflict with auto-imports
         __DIR__ . '/../../Tests/Fuzzy/',

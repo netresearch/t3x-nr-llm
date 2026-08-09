@@ -10,8 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
+use Netresearch\NrLlm\Provider\Fallback\FallbackSkipReason;
 use Netresearch\NrLlm\Service\Health\ProviderHealthServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
@@ -32,8 +33,11 @@ use Throwable;
  * streaming, or use ProviderCallContext::operation === Stream as a
  * short-circuit condition if a mixed pipeline is ever needed.
  *
- * Fallback is shallow: a fallback configuration's own chain is ignored to
- * prevent recursion and cycles.
+ * Which configurations the chain actually offers is decided by the shared
+ * {@see FallbackCandidateResolver} (ADR-137) — shallow, no self-retry, missing
+ * and inactive entries skipped — so this middleware and the streaming
+ * dispatcher cannot drift apart on those rules. Ordering is not part of that:
+ * the health-aware reorder below applies to this path only.
  *
  * The registered pipeline order, pinned by tag priority:
  *
@@ -65,7 +69,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
     }
 
     public function __construct(
-        private LlmConfigurationRepository $repository,
+        private FallbackCandidateResolver $candidates,
         private LoggerInterface $logger,
         private ProviderHealthServiceInterface $health,
     ) {}
@@ -118,7 +122,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
         // empty after filtering. No fallback was actually attempted — rethrow
         // the primary's error verbatim instead of wrapping one attempt as
         // "every configuration failed".
-        $chain = $configuration->getFallbackChainDTO()->without($configuration->getIdentifier());
+        $chain = $this->candidates->chainFor($configuration);
         if ($chain->isEmpty()) {
             $this->logger->warning(
                 'LLM primary configuration failed; fallback chain contained only the primary, nothing left to try',
@@ -137,40 +141,34 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
         // chain untouched unless the operator opted into health-aware reorder.
         $chain = $this->health->reorder($chain);
 
-        foreach ($chain->configurationIdentifiers as $identifier) {
-            $fallback = $this->repository->findOneByIdentifier($identifier);
-            if (!$fallback instanceof LlmConfiguration) {
-                $this->logger->warning(
-                    'LLM fallback configuration not found, skipping',
-                    [
-                        'configuration' => $identifier,
-                        'operation'     => $context->operation->value,
-                        'correlationId' => $context->correlationId,
-                    ],
-                );
-                continue;
-            }
+        $onSkip = function (string $identifier, FallbackSkipReason $reason) use ($context): void {
+            $this->logger->warning(
+                $reason === FallbackSkipReason::NotFound
+                    ? 'LLM fallback configuration not found, skipping'
+                    : 'LLM fallback configuration is inactive, skipping',
+                [
+                    'configuration' => $identifier,
+                    'operation'     => $context->operation->value,
+                    'correlationId' => $context->correlationId,
+                ],
+            );
+        };
 
-            if (!$fallback->isActive()) {
-                $this->logger->warning(
-                    'LLM fallback configuration is inactive, skipping',
-                    [
-                        'configuration' => $identifier,
-                        'operation'     => $context->operation->value,
-                        'correlationId' => $context->correlationId,
-                    ],
-                );
-                continue;
-            }
-
+        foreach ($this->candidates->resolve($chain, $onSkip) as $identifier => $fallback) {
             // Count this as a fallback attempt for the outer TelemetryMiddleware
-            // (ADR-058): a real dispatch to a sibling configuration, after the
-            // not-found / inactive skips above. The primary attempt is not
-            // counted.
+            // (ADR-058): a real dispatch to a sibling configuration — the
+            // resolver has already dropped the not-found / inactive entries.
+            // The primary attempt is not counted.
             $context->telemetrySignals->recordFallbackAttempt();
 
             try {
                 $result = $next($context->withConfiguration($fallback));
+                // This sibling ANSWERED. Recorded only here, after $next
+                // returned, so the telemetry row never names a configuration
+                // that was merely dispatched (ADR-058 / issue #633): an
+                // exhausted chain leaves the signal untouched and the row keeps
+                // naming the requested primary.
+                $context->telemetrySignals->recordServedBy($fallback);
                 $this->logger->info(
                     'LLM fallback configuration succeeded',
                     [
