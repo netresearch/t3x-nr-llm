@@ -46,6 +46,18 @@
                 <source>No data class declared — this server supplies no tools until you declare one.</source>
                 <target>Keine Datenklasse festgelegt — dieser Server liefert keine Tools, solange keine festgelegt ist.</target>
             </trans-unit>
+            <trans-unit id="server.approval">
+                <source>Approval</source>
+                <target>Freigabe</target>
+            </trans-unit>
+            <trans-unit id="server.approval.required">
+                <source>A human approves every call</source>
+                <target>Ein Mensch gibt jeden Aufruf frei</target>
+            </trans-unit>
+            <trans-unit id="server.approval.notRequired">
+                <source>Tools run without asking</source>
+                <target>Tools laufen ohne R&#252;ckfrage</target>
+            </trans-unit>
             <trans-unit id="server.lastImport">
                 <source>Last import</source>
                 <target>Letzter Import</target>
