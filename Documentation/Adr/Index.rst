@@ -430,3 +430,4 @@ Tools
    Adr130BackendUserGrants
    Adr131EditorModule
    Adr132ApprovalAuditAndTurnBinding
+   Adr134WriteEffectImpliesApproval
