@@ -22,7 +22,6 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
@@ -89,6 +88,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
 {
     use SafeCastTrait;
+    // The errands, not the decisions: the environment and workspace guards, the
+    // bounded DataHandler complaints, the TCA narrowing and the preview
+    // formatting. Everything this tool DECIDES stays below (ADR-135).
+    use WritesThroughDataHandlerTrait;
 
     /**
      * One string for "no such file", "not in a permitted storage", "outside your
@@ -114,14 +117,6 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
      * text is a sentence, not a document.
      */
     private const MAX_VALUE_LENGTH = 1000;
-
-    /** How many DataHandler complaints are echoed back, and how long each may be. */
-    private const MAX_ERRORS = 5;
-
-    private const MAX_ERROR_LENGTH = 200;
-
-    /** How much of a value the approval preview shows, as in the first writer. */
-    private const PREVIEW_EXCERPT_LENGTH = 120;
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -161,19 +156,10 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $missing = $this->missingBackendEnvironment();
-        if ($missing !== []) {
-            return ToolResult::error(sprintf(
-                'Refused: writing needs a full backend environment, and this process has no %s. '
-                . 'Run this tool from a backend request rather than a bare worker process.',
-                implode(' and no ', $missing),
-            ));
-        }
-
-        if ($user->workspace !== 0) {
-            return ToolResult::error(
-                'Refused: this tool only edits the live workspace. Switch out of the draft workspace and retry.',
-            );
+        $refusal = $this->refuseWithoutBackendEnvironment(self::METADATA_TABLE)
+            ?? $this->refuseOutsideLiveWorkspace($user);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
@@ -199,11 +185,9 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $dataHandler->start([self::METADATA_TABLE => [$metadataUid => [self::FIELD => $text]]], [], $user);
         $dataHandler->process_datamap();
 
-        if ($dataHandler->errorLog !== []) {
-            return ToolResult::error(sprintf(
-                'The update was refused by TYPO3: %s',
-                $this->summariseErrors($dataHandler->errorLog),
-            ));
+        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+        if ($refused instanceof ToolResult) {
+            return $refused;
         }
 
         // Read back before reporting success. An empty errorLog is NOT proof the
@@ -350,51 +334,6 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     }
 
     /**
-     * The globals the DataHandler declares as its prerequisites and does not
-     * establish itself; `start()` sets only its own `$BE_USER`, so a hook
-     * running inside the write still reads the ambient one. Core's own
-     * `FileMetadataPermissionsAspect` is exactly such a hook, which makes the
-     * check load-bearing here rather than merely declared (ADR-135).
-     *
-     * @return list<string>
-     */
-    private function missingBackendEnvironment(): array
-    {
-        $missing = [];
-        if ($this->metadataColumns() === null) {
-            $missing[] = 'TCA';
-        }
-
-        if (!(($GLOBALS['LANG'] ?? null) instanceof LanguageService)) {
-            $missing[] = 'language service';
-        }
-
-        if (!(($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication)) {
-            $missing[] = 'backend user';
-        }
-
-        return $missing;
-    }
-
-    /**
-     * The `sys_file_metadata` column definitions from the live TCA, or null when
-     * no TCA is loaded. Narrowed step by step because `$GLOBALS` is untyped.
-     *
-     * @return array<array-key, mixed>|null
-     */
-    private function metadataColumns(): ?array
-    {
-        $tca = $GLOBALS['TCA'] ?? null;
-        if (!is_array($tca) || !is_array($tca[self::METADATA_TABLE] ?? null)) {
-            return null;
-        }
-
-        $columns = $tca[self::METADATA_TABLE]['columns'] ?? null;
-
-        return is_array($columns) ? $columns : null;
-    }
-
-    /**
      * The validated alternative text, or a refusal message.
      *
      * The value is returned WRAPPED in a one-element list so a perfectly valid
@@ -453,7 +392,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
      */
     private function maxLength(): int
     {
-        $column = $this->metadataColumns()[self::FIELD] ?? null;
+        $column = $this->tcaColumnsFor(self::METADATA_TABLE)[self::FIELD] ?? null;
         $config = is_array($column) ? ($column['config'] ?? null) : null;
         $max    = is_array($config) ? ($config['max'] ?? null) : null;
 
@@ -536,49 +475,5 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         // The row vanished between the write and the read-back. Nothing was
         // verified, so nothing may be claimed.
         return is_array($row) && self::toStr($row[self::FIELD] ?? '') === $value;
-    }
-
-    /**
-     * A value as it appears in output: quoted, or the explicit `(empty)` marker
-     * — an empty pair of quotes reads like a rendering bug, and "this alt text
-     * is empty" is exactly the decorative-image case an approver must see.
-     */
-    private function quoted(string $value): string
-    {
-        return $value === '' ? '(empty)' : '"' . $this->excerpt($value) . '"';
-    }
-
-    /**
-     * One line's worth of a value: whitespace collapsed and truncated.
-     */
-    private function excerpt(string $value): string
-    {
-        $flat = trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
-
-        return mb_strlen($flat) > self::PREVIEW_EXCERPT_LENGTH
-            ? mb_substr($flat, 0, self::PREVIEW_EXCERPT_LENGTH) . '…'
-            : $flat;
-    }
-
-    /**
-     * The DataHandler's complaints, bounded in count and length. They are only
-     * ever shown to a caller that already passed the storage and mount gate, so
-     * they cannot disclose the existence of a file the caller may not see.
-     *
-     * @param array<array-key, mixed> $errorLog
-     */
-    private function summariseErrors(array $errorLog): string
-    {
-        $messages = [];
-        foreach (array_slice($errorLog, 0, self::MAX_ERRORS) as $entry) {
-            $text = trim(self::toStr($entry));
-            if ($text === '') {
-                continue;
-            }
-
-            $messages[] = mb_substr($text, 0, self::MAX_ERROR_LENGTH);
-        }
-
-        return $messages === [] ? 'the record was not written.' : implode('; ', $messages);
     }
 }
