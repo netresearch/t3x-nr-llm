@@ -6,6 +6,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Model discovery seeds capabilities the provider actually reports (#671).
+  Six of the seven discoverers wrote tokens no response substantiated:
+  Groq and OpenRouter a flat `chat`, Mistral `chat, tools` for every model
+  including vision-only ones, Gemini `chat, vision` for any id outside its
+  built-in table, and Ollama `tools` for any tag containing `qwen`,
+  `llama3`, `mistral` or `mixtral` — a guess from the model NAME that was
+  wrong in both directions. Mistral's per-model `capabilities` object,
+  OpenRouter's `supported_parameters` and `architecture.input_modalities`,
+  Ollama's `/api/show` `capabilities` array and Gemini's
+  `supportedGenerationMethods` are read instead. Groq's listing carries no
+  capability field, so its models stay `chat` and the administration
+  chapter says so.
+  This matters beyond the wizard: `Model::$capabilities` began reaching the
+  entity in 0.26, so configurations selecting a model by criteria match
+  against these values for the first time.
+  Also dropped: the `reasoning` token, written by two discoverers, absent
+  from `ModelCapability` — `CapabilitySet` discarded it and the TCA
+  checkbox list could not show it.
+  Existing `tx_nrllm_model` rows keep their values; re-run **Fetch Models**
+  to refresh them.
+- `OpenRouterProvider::fetchModels()` reported no capabilities for any
+  model. It read `supports_function_calling`, which is not a field the
+  catalogue returns, and compared `architecture.modality` against
+  `"multimodal"`, which is not a value it takes — the field is a display
+  string such as `text+image->text`. Measured against the live catalogue:
+  400 models, 0 with either signal, against 333 that list `tools` among
+  their supported parameters and 237 that accept image input.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added

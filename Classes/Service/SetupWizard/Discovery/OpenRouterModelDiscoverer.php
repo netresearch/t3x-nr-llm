@@ -83,12 +83,54 @@ final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
             modelId: $modelId,
             name: $modelName,
             description: $modelDescription,
-            capabilities: ['chat'],
+            capabilities: $this->capabilitiesFrom($model),
             contextLength: $contextLength,
             maxOutputTokens: 0,
             costInput: (int)($promptCost * 100000000),
             costOutput: (int)($completionCost * 100000000),
             recommended: false,
         );
+    }
+
+    /**
+     * The tokens the catalogue entry itself substantiates.
+     *
+     * OpenRouter reports per-model `supported_parameters` (the request
+     * parameters the upstream provider accepts) and
+     * `architecture.input_modalities`. `tools` in the former is the same signal
+     * the runtime's own model filter reads for this purpose, and `image` in the
+     * latter is what makes a model multimodal on the INPUT side — which is what
+     * `vision` means here. An entry that reports neither yields `chat` alone.
+     *
+     * Not derived: `streaming`. Every OpenRouter model streams, but the
+     * catalogue does not say so per model, and this method reports the
+     * catalogue rather than what is generally true of the vendor.
+     *
+     * @param array<int|string, mixed> $model
+     *
+     * @return list<string>
+     */
+    private function capabilitiesFrom(array $model): array
+    {
+        $parameters = isset($model['supported_parameters']) && is_array($model['supported_parameters'])
+            ? $model['supported_parameters']
+            : [];
+        $architecture = isset($model['architecture']) && is_array($model['architecture'])
+            ? $model['architecture']
+            : [];
+        $inputModalities = isset($architecture['input_modalities']) && is_array($architecture['input_modalities'])
+            ? $architecture['input_modalities']
+            : [];
+
+        $capabilities = ['chat'];
+        if (in_array('tools', $parameters, true)) {
+            $capabilities[] = 'tools';
+        }
+
+        if (in_array('image', $inputModalities, true)) {
+            $capabilities[] = 'vision';
+        }
+
+        return $capabilities;
     }
 }

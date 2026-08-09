@@ -159,7 +159,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'gpt-5.5' => [
                 'name' => 'GPT-5.5',
                 'description' => 'Latest flagship model with enhanced reasoning',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
                 'costInput' => 500,
@@ -169,7 +169,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'gpt-5.3' => [
                 'name' => 'GPT-5.3',
                 'description' => 'Flagship model with enhanced reasoning',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
                 'costInput' => 175,
@@ -199,7 +199,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'gpt-5.2' => [
                 'name' => 'GPT-5.2 Thinking',
                 'description' => 'Flagship model for coding, reasoning, and agentic tasks',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
                 'costInput' => 175,
@@ -209,7 +209,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'gpt-5.2-pro' => [
                 'name' => 'GPT-5.2 Pro',
                 'description' => 'Extended thinking for complex tasks',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'contextLength' => 400000,
                 'maxOutputTokens' => 128000,
                 'costInput' => 350,
@@ -229,7 +229,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'gpt-5' => [
                 'name' => 'GPT-5',
                 'description' => 'Previous generation flagship model',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'contextLength' => 200000,
                 'maxOutputTokens' => 64000,
                 'costInput' => 150,
@@ -249,7 +249,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'o4-mini' => [
                 'name' => 'O4 Mini',
                 'description' => 'Fast reasoning for math, coding, visual tasks',
-                'capabilities' => ['chat', 'vision', 'tools', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools'],
                 'contextLength' => 200000,
                 'maxOutputTokens' => 100000,
                 'costInput' => 110,
@@ -259,7 +259,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             'o3' => [
                 'name' => 'O3',
                 'description' => 'Advanced reasoning model',
-                'capabilities' => ['chat', 'vision', 'tools', 'reasoning'],
+                'capabilities' => ['chat', 'vision', 'tools'],
                 'contextLength' => 200000,
                 'maxOutputTokens' => 100000,
                 'costInput' => 200,

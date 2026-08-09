@@ -46,7 +46,7 @@ final class MistralModelDiscoverer extends AbstractModelDiscoverer
                     modelId: $modelId,
                     name: $modelId,
                     description: 'Mistral AI model',
-                    capabilities: ['chat', 'tools'],
+                    capabilities: $this->capabilitiesFrom($model),
                     contextLength: 0,
                     maxOutputTokens: 0,
                     costInput: 0,
@@ -64,6 +64,44 @@ final class MistralModelDiscoverer extends AbstractModelDiscoverer
     }
 
     /**
+     * The tokens Mistral's own `capabilities` object substantiates, and nothing
+     * else. The listing reports `completion_chat`, `completion_fim`,
+     * `function_calling`, `fine_tuning`, `vision` and `classification` per
+     * model; only the three that map onto this extension's vocabulary are read.
+     *
+     * `streaming` is deliberately absent even though every Mistral chat model
+     * streams: the listing does not say so, and a token nothing substantiates
+     * is the defect this method exists to remove. A model whose entry carries
+     * no `capabilities` object at all yields `chat` — the weakest claim that
+     * still describes a model returned by a chat listing.
+     *
+     * @param array<int|string, mixed> $model
+     *
+     * @return list<string>
+     */
+    private function capabilitiesFrom(array $model): array
+    {
+        $flags = isset($model['capabilities']) && is_array($model['capabilities'])
+            ? $model['capabilities']
+            : [];
+
+        $capabilities = [];
+        if (($flags['completion_chat'] ?? true) === true) {
+            $capabilities[] = 'chat';
+        }
+
+        if (($flags['function_calling'] ?? false) === true) {
+            $capabilities[] = 'tools';
+        }
+
+        if (($flags['vision'] ?? false) === true) {
+            $capabilities[] = 'vision';
+        }
+
+        return $capabilities;
+    }
+
+    /**
      * Get Mistral fallback models.
      *
      * @return array<DiscoveredModel>
@@ -75,7 +113,7 @@ final class MistralModelDiscoverer extends AbstractModelDiscoverer
                 modelId: 'mistral-large-latest',
                 name: 'Mistral Large',
                 description: 'Flagship model for complex tasks',
-                capabilities: ['chat', 'tools', 'streaming'],
+                capabilities: ['chat', 'tools'],
                 contextLength: 128000,
                 maxOutputTokens: 8192,
                 costInput: 200,
@@ -86,7 +124,7 @@ final class MistralModelDiscoverer extends AbstractModelDiscoverer
                 modelId: 'mistral-medium-latest',
                 name: 'Mistral Medium',
                 description: 'Balanced performance',
-                capabilities: ['chat', 'tools', 'streaming'],
+                capabilities: ['chat', 'tools'],
                 contextLength: 32000,
                 maxOutputTokens: 8192,
                 costInput: 100,
