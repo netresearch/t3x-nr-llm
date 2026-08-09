@@ -17,12 +17,12 @@ use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
  * The runs a sibling configuration answered for — the reader of the
  * `served_*` telemetry columns.
  *
- * The repository narrows to runs that dispatched a fallback at all
- * (`fallback_attempts > 0`, time-bounded, newest first). That is a cheap
- * index-friendly filter, not the answer: a hop can also be a chain that was
+ * The repository narrows to runs a sibling served (time-bounded, newest
+ * first) — `fallback_attempts > 0` alone would also match a chain that was
  * exhausted with nobody serving, and a row written before the `served_*`
- * columns existed carries '' for them. Deciding which hops are RESCUES is
- * therefore done here, on the one field that can tell:
+ * columns existed carries '' for them. That narrowing has to happen in the
+ * query because the scan limit below is applied there. What a RESCUE IS is
+ * nevertheless stated here, on the one field that can tell:
  *
  *  - the served identifier must be present ('' means "row predates the
  *    columns" — it must not be read as a swap to a nameless configuration);
@@ -38,10 +38,12 @@ use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 final readonly class FallbackRescueReport
 {
     /**
-     * How many recent hops are examined for the rescues among them. A fallback
-     * is by nature rare, so a window this size covers a normal period; a period
-     * with more hops than this shows the newest ones, and the primary they
-     * requested is the thing to fix first anyway.
+     * How many rescues are read back at most. A rescue is by nature rare, so a
+     * window this size covers a normal period; a period with more shows the
+     * newest ones, and the primary they requested is the thing to fix first
+     * anyway. The limit counts rescues, not fallback attempts — an exhausted
+     * chain repeating through an outage must not push a rescue out of the list
+     * and turn the module's empty state into a false "none in this period".
      */
     private const HOP_SCAN_LIMIT = 200;
 

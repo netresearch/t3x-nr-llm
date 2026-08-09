@@ -46,12 +46,17 @@ interface TelemetryRepositoryInterface
     public function averageLatencyMs(int $since): int;
 
     /**
-     * The most recent runs that dispatched at least one fallback configuration
-     * (`fallback_attempts > 0`), newest first, capped at $limit.
+     * The most recent runs another configuration answered for, newest first,
+     * capped at $limit.
      *
-     * This is the cheap narrowing only: a run that hopped may still have ended
-     * with nobody serving it. Deciding which of these is a rescue is the
-     * report's job, not the query's.
+     * "Another configuration" is the narrowing: `fallback_attempts > 0` alone
+     * also matches a chain that was exhausted with nobody serving, and a row
+     * written before the `served_*` columns existed. Both name no serving
+     * sibling and must not reach $limit — an outage produces them in bulk and
+     * would otherwise crowd a period's real rescues out of the window.
+     * Classifying the rows that do arrive stays with the reader
+     * ({@see \Netresearch\NrLlm\Service\Analytics\FallbackRescueReport}), which
+     * is where the rule is stated in domain terms.
      *
      * @return list<FallbackHop>
      */

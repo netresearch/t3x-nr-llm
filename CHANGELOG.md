@@ -22,7 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   chain of two. Rows written before this release carry an empty
   `served_configuration_identifier` and are not counted as a swap.
   The analytics module reads them back as a **Fallback rescues** list: the
-  runs another configuration stepped in for. `ProviderHealthRepository` is
+  runs another configuration stepped in for, capped at the 200 newest. The
+  cap counts rescues, not fallback attempts — the query narrows to the
+  swaps, so an outage writing exhausted-chain rows in bulk cannot crowd the
+  period's rescues out of the list. `ProviderHealthRepository` is
   unchanged — its scores deliberately count only `fallback_attempts = 0`
   rows, so a rescued run still counts against the primary.
 - A **Provider health and circuits** table in the analytics module, the

@@ -140,6 +140,10 @@ Two things it deliberately does not show:
     older version carry no serving configuration and are left out rather
     than guessed at.
 
+At most the 200 newest rescues of the period are listed. The limit counts
+rescues, not failed attempts, so a long outage — which writes one row per
+request — cannot push the rescues out of the list.
+
 A configuration appearing here repeatedly is the signal to look at: its
 calls are being answered by a sibling, which may use a different provider,
 model and price than the one you selected.
