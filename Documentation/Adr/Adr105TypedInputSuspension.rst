@@ -6,7 +6,7 @@
 ADR-105: Typed user-input suspension (WAITING_FOR_INPUT)
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the approval+input registration ban is widened by :ref:`adr-134`)
 :Date: 2026-07-22
 :Authors: Netresearch DTT GmbH
 
@@ -71,6 +71,12 @@ Fail-closed rules
   combination is rejected at tool registration, and — defence in depth —
   ``resume()`` refuses an input-requiring pending call rather than fail-open
   executing it.
+
+  :ref:`adr-134` widened the ban without changing this reasoning: a declared
+  write effect became a second way to be approval-bound, so a non-remote,
+  write-declaring tool may not implement ``RequiresInputInterface`` either. The
+  ``resume()`` refusal named above is what makes that combination permanently
+  unexecutable, not what handles it. Read ADR-134 for the ban in force.
 - **An unstorable suspension fails closed** as ``SUSPEND_FAILED`` (as approval
   does): promising an input flow that cannot be resumed would strand the client.
 - **Submitted values are untrusted content** entering the model context; the

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
@@ -44,19 +45,27 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
  *   The builtin default is the opposite because every builtin reads; a remote
  *   tool's body is not ours to inspect, so the assumption has to be that it
  *   changed something and must not be replayed on a retry (ADR-111/112).
+ * - The APPROVAL requirement is the one the operator declared on the server
+ *   (ADR-134). It cannot be read off the effect: `getEffect()` below is a
+ *   fail-closed assumption about an uninspectable body, and treating that as
+ *   consent-worthy would suspend every remote call including a pure search.
  * - `requiresAdmin()` is hard-wired true. It is not derived from anything the
  *   server sends, because the server is the party the guard exists against.
  */
-final readonly class McpTool implements ToolInterface, RemoteToolInterface, ToolDataClassInterface, ToolEffectInterface
+final readonly class McpTool implements ToolInterface, RemoteToolInterface, RemoteApprovalInterface, ToolDataClassInterface, ToolEffectInterface
 {
     /**
-     * @param array<string, mixed> $inputSchema the normalised parameter schema
+     * @param array<string, mixed> $inputSchema      the normalised parameter schema
+     * @param bool                 $requiresApproval the server's operator-declared approval flag,
+     *                                               already read fail-closed by
+     *                                               {@see McpServerRecord::approvalRequired()}
      */
     public function __construct(
         private McpServerRecord $server,
         private McpToolRecord $record,
         private array $inputSchema,
         private ToolDataClass $dataClass,
+        private bool $requiresApproval,
         private McpClient $client,
     ) {}
 
@@ -110,6 +119,17 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Tool
     public function getEffect(): ToolEffect
     {
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The value the operator set on the server, carried in rather than looked
+     * up: this object is already built per catalogue row from that very server
+     * record, so the flag rides along at no cost, while the approval scan that
+     * asks for it runs once per tool call and must not grow a repository.
+     */
+    public function requiresApproval(): bool
+    {
+        return $this->requiresApproval;
     }
 
     /**
