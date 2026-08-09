@@ -150,6 +150,10 @@ final readonly class McpServerRepository
             authPlacement: self::toStr($row['auth_placement'] ?? ''),
             authHeaderName: self::toStr($row['auth_header_name'] ?? ''),
             dataClass: self::toStr($row['data_class'] ?? ''),
+            // Absent key -> '' -> approval required. The opposite default would
+            // mean a row this code could not read runs unattended, which is the
+            // one outcome the column exists to prevent (ADR-134).
+            requiresApproval: self::toStr($row['requires_approval'] ?? ''),
             enabled: self::toInt($row['enabled'] ?? 0) === 1,
             importStatus: self::toStr($row['import_status'] ?? ''),
             importError: self::toStr($row['import_error'] ?? ''),
