@@ -48,12 +48,9 @@ final readonly class SkillComposerFactory
 
     public function create(): SkillComposer
     {
-<<<<<<< HEAD
-        return new SkillComposer(minTrustLevel: $this->minTrustLevel());
-=======
         return new SkillComposer(
             maxBytes: $this->resolveMaxBytes(),
-            minTrustLevel: $this->resolveMinTrustLevel(),
+            minTrustLevel: $this->minTrustLevel(),
         );
     }
 

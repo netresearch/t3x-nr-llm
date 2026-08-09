@@ -125,7 +125,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
   unfenced. The fail-closed write audit and the approval pause hold everywhere.
-<<<<<<< HEAD
 - A configuration can attach prompt snippets by tag
   (`tx_nrllm_configuration.snippet_tags`, amendment to ADR-031). The
   active snippets carrying any selected tag are composed into the
@@ -150,7 +149,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `$effectiveSystemPrompt` argument, defaulting to the previous
   behaviour), so the ADR-107 budget counts the snippet block that goes on
   the wire.
-=======
 - New extension configuration key `skills.maxBytes` (default `24000`) for the
   byte budget of the composed skill block (ADR-036 §5). `SkillComposer` had
   accepted `maxBytes` as a constructor argument since the feature landed, but
@@ -177,7 +175,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   because an input-requiring tool declares no effect to gate on (ADR-105
   makes the two markers mutually exclusive) and the input path has no turn
   digest (ADR-132).
->>>>>>> origin/main
 
 - Telemetry records the configuration that actually SERVED a run, not only
   the one that was requested: `tx_nrllm_telemetry` gains
@@ -225,7 +222,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
   in the administration docs instead of being claimed away.
 
-<<<<<<< HEAD
 - The candidate walk over a primary configuration's fallback chain is
   implemented once, in the `@internal`
   `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
@@ -238,14 +234,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   surface, which is unchanged. Streaming resolves the chain lazily now: when an
   early candidate serves, later entries are no longer looked up and a broken
   entry behind it no longer logs a skip warning.
-=======
 - Internal signature change: `ModelSelectionServiceInterface::resolveModel()`
   and `ConfigurationCallPlanner::resolveModel()` take a required
   `?ProviderOperation`; `ConfigurationCallPlanner::adapterFor()` likewise.
   Neither class is part of the frozen `@api` surface. Callers with no
   operation pass `null` explicitly.
 
->>>>>>> origin/main
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -272,8 +266,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
 
-<<<<<<< HEAD
-=======
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -474,7 +466,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration resolves the installation default inside the manager, so its
   block is still unaccounted for.
 
->>>>>>> origin/main
 ### Fixed
 
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
