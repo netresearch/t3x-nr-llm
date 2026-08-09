@@ -1376,6 +1376,14 @@
                 <source>Sensitivity every tool of this server is classified as. Required: until it is set, the server contributes no tools.</source>
                 <target>Vertraulichkeitsstufe, mit der jedes Tool dieses Servers eingestuft wird. Pflichtfeld: solange sie fehlt, steuert der Server keine Tools bei.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.requires_approval">
+                <source>Requires approval</source>
+                <target>Freigabe erforderlich</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.requires_approval.description">
+                <source>Every tool of this server pauses for a human before an agent run executes it. On by default: what a remote tool does cannot be inspected here, and the server's own annotations do not decide this.</source>
+                <target>Jedes Tool dieses Servers h&#228;lt vor der Ausf&#252;hrung f&#252;r eine menschliche Freigabe an. Standardm&#228;&#223;ig aktiv: was ein entferntes Tool tut, ist hier nicht pr&#252;fbar, und die Angaben des Servers entscheiden das nicht.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.import_status">
                 <source>Import status</source>
                 <target>Import-Status</target>

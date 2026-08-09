@@ -429,4 +429,5 @@ Tools
    Adr129StructuredConsumers
    Adr130BackendUserGrants
    Adr131EditorModule
+   Adr134WriteEffectImpliesApproval
    Adr137OneCandidateResolution

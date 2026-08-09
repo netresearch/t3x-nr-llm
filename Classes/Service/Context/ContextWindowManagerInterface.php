@@ -34,8 +34,9 @@ interface ContextWindowManagerInterface
      * it (even the floor overflows).
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
-     * @param list<array<string, mixed>>             $toolSpecs the tool schemas on the wire for THIS send; empty for a plain completion
-     * @param UsageStatistics|null                   $lastUsage the previous call's usage, to calibrate the estimator; null before the first call
+     * @param list<array<string, mixed>>             $toolSpecs    the tool schemas on the wire for THIS send; empty for a plain completion
+     * @param UsageStatistics|null                   $lastUsage    the previous call's usage, to calibrate the estimator; null before the first call
+     * @param string                                 $injectedText prose a LATER stage prepends into the message list for THIS send — the skill block; it is on the wire, so it is counted against the budget, but it is never added to the returned messages
      */
     public function fit(
         array $messages,
@@ -43,5 +44,6 @@ interface ContextWindowManagerInterface
         ?ChatOptions $options,
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
+        string $injectedText = '',
     ): ContextFitResult;
 }
