@@ -717,24 +717,32 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * (ADR-111) and cannot be relabelled by configuration, which is what makes
      * it usable as an authorisation input.
      *
-     * A {@see RemoteToolInterface} is exempt, and the exemption is load-bearing
-     * rather than convenient. {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool}
-     * returns NON_IDEMPOTENT_WRITE for EVERY imported tool, a pure search
-     * included: a remote body is not ours to inspect, so the value is a
-     * fail-closed assumption about an unknown, not the tool's statement about
-     * itself. Treating it as one would suspend every MCP tool on every call and
-     * leave the shipped client unusable. The remote axis needs its own,
-     * operator-declared source — a server-level column, tracked separately. It
-     * will NOT come from the server: the `readOnlyHint` annotation is recorded
-     * verbatim and read by no resolver, because a remote server must not
-     * influence its own authorisation
+     * A remote tool is NOT judged on its effect, and that exemption is
+     * load-bearing rather than convenient.
+     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} returns
+     * NON_IDEMPOTENT_WRITE for EVERY imported tool, a pure search included: a
+     * remote body is not ours to inspect, so the value is a fail-closed
+     * assumption about an unknown, not the tool's statement about itself.
+     * Treating it as one would suspend every MCP tool on every call and leave
+     * the shipped client unusable.
+     *
+     * What a remote tool IS judged on is {@see RemoteApprovalInterface}: the
+     * operator's declaration on the server row, carried in by the provider that
+     * built the tool. It is asked before the exemption, so the exemption now
+     * covers only a remote tool that carries NO declaration — a third-party
+     * {@see RemoteToolInterface} outside the MCP client, which is exactly where
+     * this codebase still knows nothing. The declaration will never come from
+     * the server: the `readOnlyHint` annotation is recorded verbatim and read by
+     * no resolver, because a remote server must not influence its own
+     * authorisation
      * (see {@see \Netresearch\NrLlm\Domain\ValueObject\McpToolRecord}).
      *
-     * The check is an `instanceof` on the tool the caller already fetched — no
-     * resolver, no new dependency: nothing here needs the registry-wide view a
-     * {@see ToolEffectResolver} exists to provide, and its unknown-tool fallback
-     * (NON_IDEMPOTENT_WRITE) would turn every unregistered name into a suspend
-     * instead of the refusal {@see self::invoke()} already gives it.
+     * Every check is an `instanceof` or a getter on the tool the caller already
+     * fetched — no resolver, no repository, no new dependency: nothing here
+     * needs the registry-wide view a {@see ToolEffectResolver} exists to
+     * provide, and its unknown-tool fallback (NON_IDEMPOTENT_WRITE) would turn
+     * every unregistered name into a suspend instead of the refusal
+     * {@see self::invoke()} already gives it.
      *
      * {@see ToolRegistry} mirrors this predicate to reject a tool that is
      * approval-bound AND {@see RequiresInputInterface}: this scan runs before
@@ -746,6 +754,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     {
         if ($tool instanceof RequiresApprovalInterface) {
             return true;
+        }
+
+        if ($tool instanceof RemoteApprovalInterface) {
+            return $tool->requiresApproval();
         }
 
         if ($tool instanceof RemoteToolInterface) {
