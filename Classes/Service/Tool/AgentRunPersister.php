@@ -31,12 +31,15 @@ use Throwable;
  * uses to stream steps, so persistence is purely additive — the tool loop is
  * untouched and unaware of it.
  *
- * Every method is fail-soft: a persistence error is logged and swallowed so a
- * database hiccup can never break an otherwise-successful run. {@see self::begin()}
- * returns null on failure, which the caller treats as "do not record" — exactly
- * as a null {@see RunTrace} callback would. {@see self::recordStep()} still never
- * throws, but returns whether it persisted so the runtime can fail-close a
- * WRITING tool's audit step (ADR-111) while leaving read-only steps fail-soft.
+ * No method throws: a persistence error is logged and swallowed so a database
+ * hiccup can never break an otherwise-successful run. Whether that is fail-SOFT
+ * is the caller's decision, and two methods hand it the evidence to decide.
+ * {@see self::begin()} returns null on failure, which the caller treats as "do
+ * not record" — exactly as a null {@see RunTrace} callback would.
+ * {@see self::recordStep()} and {@see self::recordApproval()} return whether
+ * they persisted, so the runtime can fail-close a WRITING tool's audit step
+ * (ADR-111) and the approval that authorised it (ADR-132) while leaving
+ * read-only steps and read-only turns fail-soft.
  *
  * What a step actually stores is governed by the central privacy level via
  * {@see RunStepPrivacyFilter}: metadata-only by default, so persistence does not
@@ -489,10 +492,17 @@ final readonly class AgentRunPersister
     /**
      * Persist an operator's approval decision as the next event in the run's
      * stream (ADR-101): kind {@see AgentEventKind::APPROVAL}, payload
-     * ``{approved, decidedBy}``. Best-effort like every event write — a failure
-     * is logged, never blocks the decided continuation.
+     * ``{approved, decidedBy}``.
+     *
+     * Returns whether the decision was durably persisted. The store hiccup is
+     * still logged and swallowed here (this method never throws), same shape as
+     * {@see self::recordStep()}, but the boolean lets the caller fail closed on
+     * the decision that AUTHORISES a write: {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator::approve()}
+     * refuses to execute a write-declaring turn whose approval could not be
+     * recorded (ADR-132). A read-only turn's caller ignores the result,
+     * preserving the fail-soft behaviour of the rest of this class.
      */
-    public function recordApproval(AgentRunHandle $handle, bool $approved, int $decidedByBeUser): void
+    public function recordApproval(AgentRunHandle $handle, bool $approved, int $decidedByBeUser): bool
     {
         try {
             $payload = json_encode(
@@ -508,8 +518,12 @@ final readonly class AgentRunPersister
                 $payload,
             );
             ++$handle->sequence;
+
+            return true;
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun approval decision could not be persisted', ['exception' => $exception]);
+
+            return false;
         }
     }
 

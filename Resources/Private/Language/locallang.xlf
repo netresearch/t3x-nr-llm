@@ -2101,6 +2101,9 @@
             <trans-unit id="runs.error.staleReview">
                 <source>The pending action changed since you viewed it — please re-review.</source>
             </trans-unit>
+            <trans-unit id="runs.error.notAuditable">
+                <source>The decision could not be recorded, so this write was not executed. The run is still waiting — please try again.</source>
+            </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>
             </trans-unit>

@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
@@ -42,7 +43,9 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
@@ -346,7 +349,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             },
         );
 
-        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 42));
+        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', $this->decision(true, 42));
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
         self::assertSame($loopResult, $result->loopResult);
@@ -374,7 +377,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->maxSequenceReturns = [4, 9];
 
         $this->runtime($this->loopReturning($this->loopResult('continued')))
-            ->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+            ->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
 
         self::assertNotSame([], $this->repository->events);
         self::assertSame(10, $this->repository->events[0]['sequence']);
@@ -386,7 +389,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = null;
 
         $this->expectException(RunNotAwaitingApprovalException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'unknown', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'unknown', $this->decision(true, 1));
     }
 
     #[Test]
@@ -395,7 +398,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun(status: 'completed');
 
         $this->expectException(RunNotAwaitingApprovalException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
     }
 
     #[Test]
@@ -404,16 +407,48 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun();
 
         $this->expectException(RunConfigurationGoneException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($this->loopReturning($this->loopResult('x')), configuration: null)->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
     }
 
     #[Test]
-    public function approveThrowsOnCorruptSuspendedState(): void
+    public function approveRefusesACorruptSuspendedStateWithoutClaimingOrSettlingTheRun(): void
     {
+        // A row that was ALREADY unreadable when we found it is refused before
+        // the claim, non-destructively: nothing is claimed, nothing is settled,
+        // and the run stays approvable with its state intact. Settling here
+        // would be terminal AND would clear suspended_state — erasing exactly
+        // the blob a repair needs.
         $this->repository->findResult = $this->suspendedRun(stateJson: 'not-json{');
 
-        $this->expectException(CorruptSuspendedStateException::class);
-        $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
+            self::fail('Expected CorruptSuspendedStateException');
+        } catch (CorruptSuspendedStateException) {
+            self::assertSame(0, $this->repository->claimsGranted);
+            self::assertNull($this->repository->finished);
+            self::assertNull($this->repository->suspended);
+        }
+    }
+
+    #[Test]
+    public function approveSettlesTheClaimedRunWhenTheStateTurnsUnreadableAfterTheClaim(): void
+    {
+        // The other decode, and the other verdict. Here the row was readable
+        // when we found it and the row the claim actually won is not — the race
+        // the post-claim decode exists for. The claim is held at that point, so
+        // the run cannot be left RUNNING and an unreadable state cannot be
+        // written back: settling is the only remaining move.
+        $this->repository->findResults = [$this->suspendedRun(), $this->suspendedRun(stateJson: 'not-json{')];
+
+        try {
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
+            self::fail('Expected CorruptSuspendedStateException');
+        } catch (CorruptSuspendedStateException) {
+            self::assertSame(1, $this->repository->claimsGranted);
+            self::assertIsArray($this->repository->finished);
+            self::assertSame('failed', $this->repository->finished['status']);
+            self::assertNull($this->repository->suspended);
+        }
     }
 
     #[Test]
@@ -423,7 +458,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->throwOnMaxSequence = true;
 
         try {
-            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+            $this->runtime($this->loopReturning($this->loopResult('x')))->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
             self::fail('Expected RunStateUnavailableException');
         } catch (RunStateUnavailableException) {
             // Fail-closed BEFORE the claim: the run is still suspended, so the
@@ -445,7 +480,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         });
 
         $this->expectException(RunAlreadyResumingException::class);
-        $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+        $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
     }
 
     #[Test]
@@ -463,7 +498,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             },
         );
 
-        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(false, 7));
+        $result = $this->runtime($loop)->approve($this->actor(), 'run-uuid-1', $this->decision(false, 7));
 
         // A denial does not terminate the run: the loop continues from the
         // refusal message (ADR-084) — and the denial is on the audit stream.
@@ -474,13 +509,139 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function approveWithoutATurnDigestIsRefusedAndTheRunIsReleased(): void
+    {
+        // ADR-132: a decision that does not name the turn it was made on cannot
+        // be checked against anything. "No digest" is refused exactly like the
+        // wrong digest — the signature default must not be an escape hatch.
+        $this->repository->findResult = $this->suspendedRun();
+
+        try {
+            $this->runtime($this->loopNeverResuming())->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+            self::fail('Expected StaleApprovalTurnException');
+        } catch (StaleApprovalTurnException) {
+            $this->assertReleasedNotSettled();
+        }
+    }
+
+    #[Test]
+    public function approveWithAStaleTurnDigestIsRefusedAndTheRunIsReleased(): void
+    {
+        // The operator reviewed some other turn (a stale tab, or a second
+        // approver whose continuation already suspended the run on a different
+        // turn). Nothing runs, and the run goes back to WAITING_FOR_APPROVAL so
+        // the CURRENT turn can be re-reviewed.
+        $this->repository->findResult = $this->suspendedRun();
+
+        try {
+            $this->runtime($this->loopNeverResuming())
+                ->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1, 'a-digest-of-some-other-turn'));
+            self::fail('Expected StaleApprovalTurnException');
+        } catch (StaleApprovalTurnException) {
+            $this->assertReleasedNotSettled();
+        }
+    }
+
+    #[Test]
+    public function approvingAWriteTurnWhoseDecisionCannotBeRecordedExecutesNothing(): void
+    {
+        // ADR-132: the write STEP audit is fail-closed (ADR-111); so is the
+        // decision that authorised it. The approval event cannot be stored, the
+        // turn declares a write — nothing executes and the run is decidable
+        // again once the store recovers.
+        $this->repository->findResult       = $this->suspendedRun(tool: 'send_mail');
+        $this->repository->throwOnRecordKind = 'approval';
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        try {
+            $this->runtime($this->loopNeverResuming(), effectResolver: $resolver)
+                ->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1, 'send_mail'));
+            self::fail('Expected ApprovalNotAuditableException');
+        } catch (ApprovalNotAuditableException) {
+            $this->assertReleasedNotSettled();
+        }
+    }
+
+    #[Test]
+    public function approvingAReadOnlyTurnContinuesEvenWhenTheDecisionCannotBeRecorded(): void
+    {
+        // The deliberate other half: a read-only turn stays fail-soft. The audit
+        // gap is logged, but refusing would strand a run that changes nothing.
+        $this->repository->findResult        = $this->suspendedRun(tool: 'list_pages');
+        $this->repository->throwOnRecordKind = 'approval';
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')]));
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('continued')), effectResolver: $resolver)
+            ->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1, 'list_pages'));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        // The approval event is genuinely missing — this is a real audit gap,
+        // not a silently retried write.
+        self::assertSame([], array_values(array_filter(
+            $this->repository->events,
+            static fn(array $event): bool => $event['kind'] === 'approval',
+        )));
+    }
+
+    #[Test]
+    public function denyingAWriteTurnWhoseDecisionCannotBeRecordedStillResumes(): void
+    {
+        // ADR-132's asymmetry, asserted so it cannot be "fixed" by accident: the
+        // write fence exists to stop an unaudited WRITE from executing. A denial
+        // executes nothing, so refusing it would only leave the write-declaring
+        // turn pending and approvable while the operator who wanted it gone is
+        // turned away.
+        $this->repository->findResult        = $this->suspendedRun(tool: 'send_mail');
+        $this->repository->throwOnRecordKind = 'approval';
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('refused and continued')), effectResolver: $resolver)
+            ->approve($this->actor(), 'run-uuid-1', $this->decision(false, 7, 'send_mail'));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    /**
+     * A refused decision releases the run — back to WAITING_FOR_APPROVAL with
+     * the state written back — instead of settling it terminal. The claim was
+     * consumed, so the release is what makes the run decidable again.
+     */
+    private function assertReleasedNotSettled(): void
+    {
+        self::assertSame(1, $this->repository->claimsGranted, 'the claim was won and must be handed back');
+        self::assertIsArray($this->repository->suspended, 'the run was released, not left RUNNING');
+        self::assertNull($this->repository->finished, 'a refused decision never settles the run');
+    }
+
+    /**
+     * A loop whose resume() is a hard failure: any test that expects nothing to
+     * execute fails loudly rather than silently passing on a stub's default.
+     */
+    private function loopNeverResuming(): ToolLoopServiceInterface
+    {
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('resume')->willReturnCallback(static function (): ToolLoopResult {
+            throw new RuntimeException('resume must not be reached', 1785200001);
+        });
+
+        return $loop;
+    }
+
+    #[Test]
     public function aResumedRunMaySuspendAgain(): void
     {
         $this->repository->findResult = $this->suspendedRun();
         $again = $this->suspendedState();
 
         $runtime = $this->runtime($this->loopThrowing(ToolApprovalRequiredException::fromState($again), onResume: true));
-        $result  = $runtime->approve($this->actor(), 'run-uuid-1', new ApprovalDecision(true, 1));
+        $result  = $runtime->approve($this->actor(), 'run-uuid-1', $this->decision(true, 1));
 
         self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $result->outcome);
         self::assertSame($again, $result->suspendedState);
@@ -1273,7 +1434,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         $this->expectException(RunAccessDeniedException::class);
         $this->runtime($this->loopReturning($this->loopResult('x')))
-            ->approve(AiActorContext::backendUser(5), 'run-uuid-1', new ApprovalDecision(true, 5));
+            ->approve(AiActorContext::backendUser(5), 'run-uuid-1', $this->decision(true, 5));
     }
 
     #[Test]
@@ -1321,7 +1482,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->suspendedRun();
         $this->expectException(RunAccessDeniedException::class);
         $this->runtime($this->loopReturning($this->loopResult('x')))
-            ->approve($cancelOnly, 'run-uuid-1', new ApprovalDecision(true, 5));
+            ->approve($cancelOnly, 'run-uuid-1', $this->decision(true, 5));
     }
 
     #[Test]
@@ -1383,11 +1544,21 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         return $loop;
     }
 
-    private function suspendedState(): SuspendedRunState
+    /**
+     * A decision on the fixture's pending turn, digest included (ADR-132).
+     * Anything else is refused before the run is resumed, so a test that means
+     * "a valid decision" has to name the turn it decides on.
+     */
+    private function decision(bool $approved, int $decidedBy, string $tool = 'delete_thing'): ApprovalDecision
+    {
+        return new ApprovalDecision($approved, $decidedBy, (new PendingTurnDigest())->forState($this->suspendedState($tool)));
+    }
+
+    private function suspendedState(string $tool = 'delete_thing'): SuspendedRunState
     {
         return new SuspendedRunState(
             [['role' => 'user', 'content' => 'delete it']],
-            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'delete_thing', 'arguments' => '{}']]],
+            [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => $tool, 'arguments' => '{}']]],
             1,
             5,
             2,
@@ -1444,9 +1615,9 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         );
     }
 
-    private function suspendedRun(string $status = 'waiting_for_approval', ?string $stateJson = null): AgentRun
+    private function suspendedRun(string $status = 'waiting_for_approval', ?string $stateJson = null, string $tool = 'delete_thing'): AgentRun
     {
-        $encoded = $stateJson ?? json_encode($this->suspendedState()->toArray());
+        $encoded = $stateJson ?? json_encode($this->suspendedState($tool)->toArray());
         \assert(is_string($encoded));
 
         return new AgentRun(

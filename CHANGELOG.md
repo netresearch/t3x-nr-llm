@@ -35,6 +35,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ban (ADR-105) now covers the implicit form as well.
 ### Fixed
 
+- **The approval of a write is fail-closed and bound to the turn that was
+  reviewed** (ADR-132). Two defects on the same path:
+  `AgentRunPersister::recordApproval()` swallowed a store error and
+  `ResumeCoordinator::approve()` executed anyway, so a write could run with no
+  record of who authorised it; and the stale-review digest existed only in the
+  `AgentRunController`, so the Tool Playground could approve a turn it had never
+  displayed. `recordApproval()` now returns `bool` (same shape as
+  `recordStep()`), and `approve()` refuses to execute a turn declaring a write
+  whose decision could not be recorded. The verified digest moved into
+  `ApprovalDecision` and is compared — timing-safe — against the state loaded
+  AFTER the resume claim, so a decision made on a turn a concurrent approval
+  already replaced is refused as well. Read-only turns stay fail-soft
+  (deliberately), and a denial still passes: it executes nothing, so refusing it
+  would only leave the write pending. A refused decision RELEASES the run back
+  to `WAITING_FOR_APPROVAL` — nothing runs, nothing settles, the operator can
+  re-review and decide again. The playground's `awaiting_approval` payload and
+  streaming event now carry `turnDigest`, and `resumeAction()` reads it back.
+  **Breaking:** `ApprovalDecision`'s constructor takes a third argument,
+  `?string $turnDigest`. It is optional in the signature for source
+  compatibility but MANDATORY at runtime — a `null` is refused exactly like a
+  wrong digest, so any third-party caller that constructs the decision itself
+  must supply the digest of the turn it displayed or every approval will fail
+  with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
   `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000

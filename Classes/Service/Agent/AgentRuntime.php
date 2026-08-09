@@ -122,7 +122,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
         // Picks a suspended run back up on an approval or a submitted input
         // (ADR-084/105). Optional like the collaborators above; a null builds
         // one over the same persister, configuration repository, tool loop,
-        // executor and schema validator.
+        // executor, schema validator and effect resolver.
         private ?ResumeCoordinator $resumeCoordinator = null,
     ) {}
 
@@ -138,6 +138,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
             $this->toolLoop,
             $this->runExecutor(),
             $this->schemaValidator,
+            $this->toolEffectResolver,
         );
     }
 

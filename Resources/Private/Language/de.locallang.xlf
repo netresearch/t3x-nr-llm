@@ -2782,6 +2782,10 @@
                 <source>The pending action changed since you viewed it — please re-review.</source>
                 <target>Die ausstehende Aktion hat sich seit Ihrer Ansicht geändert – bitte erneut prüfen.</target>
             </trans-unit>
+            <trans-unit id="runs.error.notAuditable">
+                <source>The decision could not be recorded, so this write was not executed. The run is still waiting — please try again.</source>
+                <target>Die Entscheidung konnte nicht protokolliert werden, deshalb wurde der schreibende Aufruf nicht ausgeführt. Der Lauf wartet weiterhin – bitte erneut versuchen.</target>
+            </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>
                 <target>Freigabe erfasst; der Lauf wurde fortgesetzt.</target>

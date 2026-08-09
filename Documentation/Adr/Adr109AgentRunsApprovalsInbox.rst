@@ -6,7 +6,7 @@
 ADR-109: Agent Runs approvals inbox (backend module)
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (stale-review binding superseded by :ref:`ADR-132 <adr-132>`)
 :Date: 2026-07-22
 :Authors: Netresearch DTT GmbH
 
@@ -69,16 +69,25 @@ Four non-negotiable correctness/security properties
    schema with at least one property; anything else is classified ``unreadable``
    and shows a fail-closed notice, never an empty ``<form>``.
 
-3. **Stale-review binding.** ``approve()`` binds only to the run uuid and reloads
-   whatever suspended state is CURRENT — a deny/continuation can re-suspend the
-   SAME run with a NEW pending turn, so a stale tab (or a second admin) could
-   authorize a call the operator never reviewed. The reviewed turn's digest (a
-   SHA-256 of the pending calls) travels as a hidden field; the controller
-   recomputes it from the freshly-loaded current state and refuses ``approve()``
-   on a mismatch, re-rendering "the pending action changed, please re-review".
-   The narrow check→approve window is consciously accepted; eliminating it
-   entirely would require a runtime change to ``ApprovalDecision`` and is out of
-   scope.
+3. **Stale-review binding.** *(superseded — see the ADR-132 paragraph below)*
+   ``approve()`` binds only to the run uuid and reloads whatever suspended state
+   is CURRENT — a deny/continuation can re-suspend the SAME run with a NEW
+   pending turn, so a stale tab (or a second admin) could authorize a call the
+   operator never reviewed. The reviewed turn's digest (a SHA-256 of the pending
+   calls) travels as a hidden field; the controller recomputes it from the
+   freshly-loaded current state and refuses ``approve()`` on a mismatch,
+   re-rendering "the pending action changed, please re-review". The narrow
+   check→approve window is consciously accepted; eliminating it entirely would
+   require a runtime change to ``ApprovalDecision`` and is out of scope.
+
+   ADR-132 took that runtime change and closed the window. The digest still
+   travels from the card, but the controller no longer verifies it: it hands the
+   value to ``ApprovalDecision`` and the verification happens inside
+   ``ResumeCoordinator::approve()`` against the state the resume CLAIM won. The
+   controller-side check is gone — it read the row before the claim, so it could
+   pass on a turn a concurrent approval had already replaced. A missing digest is
+   refused exactly like a mismatching one, which also closes the Tool Playground
+   endpoint that this ADR left unbound.
 
 4. **Honest load errors.** The two new persister queries return ``null`` strictly
    on a store error (an empty list only when there genuinely are none), so a DB
@@ -119,9 +128,11 @@ Consequences
   (``findAwaiting`` / ``findRecentTerminal``) and their fail-soft persister
   wrappers, Fluid templates/partials, the ``nrllm_runs`` module + icon + EN/DE
   XLIFF, and an enhancement JS module.
-- No change to ``AgentRuntime``, ``ApprovalDecision``, ``InputSubmission`` or the
-  DB schema/indexes — the existing ``status_lookup(status, crdate)`` index serves
-  the inbox queries.
+- No change to ``AgentRuntime``, ``InputSubmission`` or the DB schema/indexes —
+  the existing ``status_lookup(status, crdate)`` index serves the inbox queries.
+  ``ApprovalDecision`` was in this list too; :ref:`ADR-132 <adr-132>` gave it a
+  third constructor parameter (``?string $turnDigest``) to carry the reviewed
+  turn into the runtime *(superseded)*.
 - Non-goals: no run detail/inspector page, no cancel control, no
   pagination/filter/search, no per-call approval verdicts (approval is
   turn-level), no nested-object input widget (rendered "unsupported"), no JSON

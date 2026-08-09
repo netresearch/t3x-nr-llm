@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\Exception\ApprovalNotAuditableException;
 use Netresearch\NrLlm\Service\Agent\Exception\CorruptSuspendedStateException;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAlreadyResumingException;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -110,33 +112,16 @@ final class AgentRunController extends ActionController
             return $this->redirect('list');
         }
 
-        // Stale-review guard: reload the CURRENT state and refuse to approve a
-        // turn the operator did not review (a stale tab or a second admin).
-        $run = $this->persister->findRun($runUuid);
-        if (!$run instanceof AgentRun) {
-            $this->flash('runs.flash.error', ContextualFeedbackSeverity::ERROR);
-
-            return $this->redirect('list');
-        }
-
-        $currentDigest = $this->viewFactory->turnDigestForRun($run);
-        if ($currentDigest === null) {
-            $this->flash('runs.unreadable', ContextualFeedbackSeverity::ERROR);
-
-            return $this->redirect('list');
-        }
-
-        if ($currentDigest !== $turnDigest) {
-            $this->flash('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
-
-            return $this->redirect('list');
-        }
-
         try {
+            // The stale-review guard is NOT re-implemented here (ADR-132): the
+            // digest the card carried travels with the decision and is verified
+            // against the freshly CLAIMED state inside the runtime. A check here
+            // would read the row before the claim and could pass on a turn the
+            // winner of a concurrent approval has already replaced.
             $result = $this->agentRuntime->approve(
                 $this->currentActor(),
                 $runUuid,
-                new ApprovalDecision($approve, $this->currentBackendUserUid()),
+                new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),
             );
         } catch (RunNotAwaitingApprovalException) {
             return $this->flashRedirect('runs.flash.error', ContextualFeedbackSeverity::WARNING);
@@ -144,6 +129,11 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunAlreadyResumingException) {
             return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
+        } catch (StaleApprovalTurnException) {
+            // The run was released, not consumed — re-review and decide again.
+            return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
+        } catch (ApprovalNotAuditableException) {
+            return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
         }
