@@ -25,22 +25,39 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
  *
  * **Null means "requires nothing", and the map is deliberately narrower than
  * the vocabulary allows.** A requirement is only worth enforcing when the
- * records it reads are actually written. Three capabilities pass that test:
- * every model discoverer writes `chat`, and writes `vision` / `tools` when the
- * model has them, so a record lacking one of those is a statement, not a gap.
+ * records it reads are actually written — and the honest answer is that they
+ * are written UNEVENLY. Since #671/#676 each discoverer seeds only what its
+ * provider's API substantiates, which is the right data but not uniform data:
  *
- * The rest do not, and enforcing them would refuse working models:
+ * - Mistral, OpenRouter and Ollama report `tools` and `vision` per model, so a
+ *   record from them lacking one is a statement.
+ * - Anthropic and the curated OpenAI/Gemini table entries write both because
+ *   the models have them; that is curated knowledge, not an API answer.
+ * - **Groq reports nothing.** Its listing has no capability field at all, so
+ *   its models are seeded `chat` alone. A record from Groq lacking `tools` is
+ *   a GAP, not a statement.
  *
- * - `completion` and `embeddings` are written by NO discoverer. The seven
- *   wizard discoverers write `chat[,vision,tools,streaming,reasoning]` and
- *   nothing else; `completion` appears only in hand-written records such as the
- *   ddev seed. Requiring `completion` would break the primary completion path
- *   for every wizard-created corpus, and requiring `embeddings` would break
- *   every criteria-mode embedding configuration — for a fact nobody stated.
- * - `streaming` is written by four of the seven discoverers (OpenAI, Anthropic,
- *   Gemini, Mistral) and by none of Ollama, Groq or OpenRouter, whose models
- *   stream perfectly well. Enforcing it would refuse a correct model because
- *   its own discoverer never filled the field.
+ * `chat` is therefore the only token every producer writes, and the reason the
+ * three enforced entries below still work is that `vision` and `tools` are
+ * requested by configurations that were authored against a specific model.
+ * Enforcing them against a Groq-discovered corpus refuses working models until
+ * the operator completes the checkboxes — which is why the enforcement switch
+ * exists and why `observe` is the safer default for an upgrade.
+ *
+ * The rest are not enforced at all, and enforcing them would refuse working
+ * models outright:
+ *
+ * - `completion` and `embeddings` are written by NO discoverer; `completion`
+ *   appears only in hand-written records such as the ddev seed. Requiring
+ *   `completion` would break the primary completion path for every
+ *   wizard-created corpus, and requiring `embeddings` would break every
+ *   criteria-mode embedding configuration — for a fact nobody stated.
+ * - `streaming` is written by Gemini (derived from `supportedGenerationMethods`)
+ *   and by the curated OpenAI / Anthropic / Gemini table entries, and by no one
+ *   else — not by Mistral, whose listing does not substantiate it, and not by
+ *   Ollama, Groq or OpenRouter, whose models stream perfectly well. Enforcing
+ *   it would refuse a correct model because its own discoverer never filled the
+ *   field.
  * - The image / speech / transcription capabilities describe specialized
  *   services that do not reach criteria-mode selection at all (ADR-138 states
  *   that boundary), so a mapping here would be inert.

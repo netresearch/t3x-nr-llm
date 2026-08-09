@@ -87,13 +87,39 @@ the empty CSV: reading an absent statement as a denial would break working
 installations for a fact nobody ever stated.
 
 **The map is narrower than the vocabulary.** Only ``chat``, ``vision`` and
-``tools`` are enforced, because only those are actually written. All seven model
-discoverers write ``chat`` and write ``vision`` / ``tools`` when the model has
-them, so a record lacking one of those is a statement. No discoverer writes
-``completion`` or ``embeddings`` at all, and only four of seven write
-``streaming`` — requiring those would refuse models that work, on the strength
-of a field their own discoverer never filled. A requirement no producer
-satisfies is not a check, it is an outage.
+``tools`` are enforced. ``chat`` is the only token every producer writes; the
+other two are written **unevenly**, and this decision rests on that being
+understood rather than glossed over.
+
+Since :ref:`#671 <adr-138-discoverer-note>` each discoverer seeds only what its
+provider's API substantiates. Mistral, OpenRouter and Ollama report ``tools``
+and ``vision`` per model, so a record from them lacking one is a statement.
+Anthropic and the curated OpenAI / Gemini entries write both from curated
+knowledge. **Groq reports nothing** — its listing carries no capability field,
+so its models are seeded ``chat`` alone and a missing ``tools`` there is a gap,
+not a statement.
+
+Enforcing ``vision`` / ``tools`` against a Groq-discovered corpus therefore
+refuses working models until an operator completes the checkboxes. That is the
+reason the enforcement switch exists, and the reason ``observe`` is the safer
+default for an upgraded installation.
+
+No discoverer writes ``completion`` or ``embeddings`` at all, and ``streaming``
+is written only by Gemini (derived from ``supportedGenerationMethods``) and the
+curated OpenAI / Anthropic / Gemini entries — requiring those would refuse
+models that work, on the strength of a field their own discoverer never filled.
+A requirement no producer satisfies is not a check, it is an outage.
+
+.. _adr-138-discoverer-note:
+
+.. note::
+
+   An earlier revision of this decision argued from "all seven model
+   discoverers write ``chat`` and write ``vision`` / ``tools`` when the model
+   has them". That was not true when written: Groq and OpenRouter wrote a flat
+   ``chat``, and Mistral ``chat, tools`` for every model including vision-only
+   ones. The producers were corrected in #671; this section now describes what
+   they actually write.
 
 **A misconfiguration is named, not disguised.** When enforcement is on and the
 criteria match models but none that can serve the operation, resolution throws
@@ -151,9 +177,15 @@ Revisit when
 ============
 
 The discoverers write the capabilities they currently omit. ``streaming`` is the
-nearest: four of seven already write it, and closing the other three would make
-``Stream`` enforceable. ``embeddings`` and ``completion`` need a producer before
-they mean anything at all.
+nearest, but "closing the gap" now means something different than it did before
+#671: a discoverer may only write a token its provider's API substantiates, so
+``Stream`` becomes enforceable when the remaining providers *report* streaming,
+not when someone fills the field in. Where an API stays silent — Groq's listing
+has no capability field at all — the gap closes through the operator's own
+checkboxes, which is a different mechanism and a slower one.
+
+``embeddings`` and ``completion`` need a producer before they mean anything at
+all.
 
 Also revisit if the generic path ever gains a model record. The boundary above
 exists because it has none, not because operation matching is unwanted there.
