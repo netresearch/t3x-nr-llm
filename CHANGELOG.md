@@ -125,6 +125,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
   unfenced. The fail-closed write audit and the approval pause hold everywhere.
+<<<<<<< HEAD
 - A configuration can attach prompt snippets by tag
   (`tx_nrllm_configuration.snippet_tags`, amendment to ADR-031). The
   active snippets carrying any selected tag are composed into the
@@ -149,6 +150,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `$effectiveSystemPrompt` argument, defaulting to the previous
   behaviour), so the ADR-107 budget counts the snippet block that goes on
   the wire.
+=======
+- New extension configuration key `skills.maxBytes` (default `24000`) for the
+  byte budget of the composed skill block (ADR-036 §5). `SkillComposer` had
+  accepted `maxBytes` as a constructor argument since the feature landed, but
+  `SkillComposerFactory` — the only production construction path — never
+  passed it, so the ceiling was fixed at the hardcoded default with no way for
+  an operator to change it. The cap itself was never absent: the constructor
+  default applied, so an unconfigured instance was capped at 24 000 bytes then
+  and is capped at 24 000 bytes now. What changes is that it can be adjusted.
+  A missing, unreadable, non-numeric or non-positive value falls back to
+  24 000, so an emptied or fat-fingered field cannot remove the cap — `0`
+  means "use the default", not "uncapped". This is the opposite fallback
+  direction from `skills.minTrustLevel`, which fails towards the *lower* bar
+  so a bad value cannot silently hide skills; a bad budget must not silently
+  unbound the block. Lower `skills.maxBytes` to reserve more of the model's
+  context window for the conversation itself.
+- `InputPauseCoverageTest` pins that no builtin can suspend a run for
+  operator input (#649). The input path authorises the submitter with
+  `agent_approve` alone and never against the tool whose input they supply,
+  while the resume executes under the run owner's context (ADR-083) — the
+  confused deputy the approval path closed in #622. It is unreachable only
+  because nothing implements `RequiresInputInterface`, so the first tool
+  that does now turns a latent gap into a red build. The gate itself is
+  deliberately not built ahead of that tool: #622's cannot be copied,
+  because an input-requiring tool declares no effect to gate on (ADR-105
+  makes the two markers mutually exclusive) and the input path has no turn
+  digest (ADR-132).
+>>>>>>> origin/main
 
 - Telemetry records the configuration that actually SERVED a run, not only
   the one that was requested: `tx_nrllm_telemetry` gains
@@ -196,6 +225,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
   in the administration docs instead of being claimed away.
 
+<<<<<<< HEAD
 - The candidate walk over a primary configuration's fallback chain is
   implemented once, in the `@internal`
   `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
@@ -208,6 +238,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   surface, which is unchanged. Streaming resolves the chain lazily now: when an
   early candidate serves, later entries are no longer looked up and a broken
   entry behind it no longer logs a skip warning.
+=======
+- Internal signature change: `ModelSelectionServiceInterface::resolveModel()`
+  and `ConfigurationCallPlanner::resolveModel()` take a required
+  `?ProviderOperation`; `ConfigurationCallPlanner::adapterFor()` likewise.
+  Neither class is part of the frozen `@api` surface. Callers with no
+  operation pass `null` explicitly.
+
+>>>>>>> origin/main
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -234,6 +272,209 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
 
+<<<<<<< HEAD
+=======
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
+- ADR-036 §5 claimed a ceiling derived from the model's context window ("with
+  `Model::contextLength == 0` the absolute cap applies"). No such derivation
+  was ever implemented. The section now says what the code does — the budget
+  is instance-wide and window-independent — and records why deriving it per
+  configuration is deliberately not done: `SkillComposer` is one shared
+  service whose budget is fixed at construction, the configuration's
+  `llmModel` is null in criteria selection mode (so the window read would not
+  belong to the model that serves the call), and `ContextWindowManager`
+  (ADR-107) already bounds the real send with a calibrated token estimator.
+- The `allowed-tools` documentation claimed the tool union and the injected
+  prompt block are the same set (`Tools.rst`, ADR-038 §5,
+  `AllowedToolsResolver`'s docblock: "exactly what SkillComposer injects").
+  They can differ: `effectiveSkills()` does not know the byte budget, which is
+  applied afterwards in `composeBlock()`, so a budget-dropped skill still
+  grants its tools while its usage rules never reach the model. Now that
+  `skills.maxBytes` is operator-settable the divergence is reachable by
+  configuration, so `Tools.rst`, `Skills.rst`, ADR-038 §5 and the resolver
+  docblock now all state it. The resolver is deliberately left budget-blind:
+  counting the budget there would let the drop of the last declaring skill
+  collapse the allow-list to `null` ("no restriction" — every registered
+  tool), making a tighter budget widen the gate.
+- Criteria-mode configurations no longer resolve a model that cannot serve
+  the running operation (ADR-138). The operation is merged into the criteria
+  before selection, so a tool call picks a tool-capable model instead of
+  failing later as a provider error. Only `chat`, `vision` and `tools` are
+  enforced — no model discoverer writes `completion` or `embeddings`, and
+  only four of seven write `streaming`, so requiring those would refuse
+  working models. A model whose capability field is empty counts as
+  undeclared and always passes. New extension setting
+  `routing.operationCapabilityEnforcement` (default `enforce`, fail-closed
+  like ADR-113) switches the axis to `observe`, which logs the mismatch and
+  leaves selection untouched. Fixed-mode configurations are unaffected.
+- `Model::$capabilities` was dropped on every load from the database.
+  Extbase resolved the property as an array (Symfony PropertyInfo infers a
+  collection from the `addCapability()` / `removeCapability()` pair) and its
+  DataMapper has no array mapping, so every repository-loaded model came
+  back with an empty capability set — which also made every `capabilities`
+  selection criterion match nothing. Anything reading `getCapabilities()`
+  off a repository-loaded model now sees the persisted value.
+- The embedding cache key and the embedding call can no longer resolve
+  different models for the same call. `embedForConfiguration()` resolves
+  twice — once outside the pipeline for the key, once inside the terminal —
+  and both now pass the same operation.
+- Model discovery seeds capabilities the provider actually reports (#671).
+  Six of the seven discoverers wrote tokens no response substantiated:
+  Groq and OpenRouter a flat `chat`, Mistral `chat, tools` for every model
+  including vision-only ones, Gemini `chat, vision` for any id outside its
+  built-in table, and Ollama `tools` for any tag containing `qwen`,
+  `llama3`, `mistral` or `mixtral` — a guess from the model NAME that was
+  wrong in both directions. Mistral's per-model `capabilities` object,
+  OpenRouter's `supported_parameters` and `architecture.input_modalities`,
+  Ollama's `/api/show` `capabilities` array and Gemini's
+  `supportedGenerationMethods` are read instead. Groq's listing carries no
+  capability field, so its models stay `chat` and the administration
+  chapter says so.
+  This matters beyond the wizard: `Model::$capabilities` began reaching the
+  entity in 0.26, so configurations selecting a model by criteria match
+  against these values for the first time.
+  Also dropped: the `reasoning` token, written by two discoverers, absent
+  from `ModelCapability` — `CapabilitySet` discarded it and the TCA
+  checkbox list could not show it.
+  Existing `tx_nrllm_model` rows keep their values; re-run **Fetch Models**
+  to refresh them.
+- `OpenRouterProvider::fetchModels()` reported no capabilities for any
+  model. It read `supports_function_calling`, which is not a field the
+  catalogue returns, and compared `architecture.modality` against
+  `"multimodal"`, which is not a value it takes — the field is a display
+  string such as `text+image->text`. Measured against the live catalogue:
+  400 models, 0 with either signal, against 333 that list `tools` among
+  their supported parameters and 237 that accept image input.
+- The tool-group table in the administration chapter renders its
+  `configuration` row correctly (#673). The RST simple table's first column
+  was two characters narrower than the longest key, so `render-guides`
+  logged `Malformed table` and the row's closing backticks were swallowed:
+  the group name printed as `` ``configuration `` in plain text instead of
+  as inline code. The row itself was present — the render error is real,
+  the missing row the issue suspected was not.
+- `FalStorageGate::isFileAccessible()` enforces the mounts of the user it is
+  passed, not of whoever is in `$GLOBALS['BE_USER']` (#672). The storage
+  allow-list half already used the passed user; the mount half did not, and
+  the two disagreed whenever the acting and ambient user differ — which is
+  exactly the approval path, where a run resumes under its owner's identity
+  (ADR-083) while the approver is ambient. A broader-mounted approver
+  authorised a file the owner could not reach; a narrower one refused a
+  legitimate read.
+  Two request-shared caches caused it, and neither is reachable through a
+  per-user API: `StorageRepository::findByUid()` returns the cached
+  `ResourceStorage` whose mounts the core `StoragePermissionsAspect`
+  attached once for the ambient user, and
+  `BackendUserAuthentication::getFileMountRecords()` memoises into the
+  runtime cache under one key with no user in it — so the first user to ask
+  in a request answers for every later one. The gate now builds its own
+  storage from the record via `createFromRecord()` (which dispatches no
+  initialization event and never enters the instance cache) and reads the
+  mount rows for that user's own mount uids.
+  Behaviour is unchanged for the three read-only FAL tools shipped today:
+  they run synchronously in their owner's request, where both users are the
+  same person.
+- The two FAL tools that read `sys_file_metadata` pin the live workspace
+  (#674). The table carries `'versioningWS' => true`, so a file with a draft
+  version has more than one row for the same `file` uid:
+  - `read_fal_asset_meta` returned an arbitrary one — potentially an
+    unpublished draft — as the current value, with nothing in the answer
+    saying so. It now adds `WorkspaceRestriction(0)`, `ORDER BY uid ASC` and
+    `setMaxResults(1)`, the same three things core's own
+    `MetaDataRepository::findByFileUid()` pins.
+  - `search_fal_files` joined the table without a workspace condition, so a
+    search for text that exists only in a draft returned the file, and a file
+    with a draft version was listed twice. The join now requires
+    `t3ver_wsid = 0`.
+
+  Both defects are read-only: the answer could be wrong, nothing was
+  corrupted. The same defect in the writing tool is fixed separately in the
+  `set_file_alternative_text` branch, where it mattered more.
+- The Install Tool label for `tools.dataClassEnforcement` no longer promises
+  a pin that usually does not happen (#675). It stated unconditionally that
+  an upgraded install "is pinned to Observe by an upgrade wizard". The pin
+  only happens if the wizard is run before the extension configuration is
+  written: `updateNecessary()` requires a stored value of `null`, and
+  `synchronizeExtConfTemplateWithLocalConfigurationOfAllExtensions()` —
+  which runs on entering the Install Tool, on `extension:setup`, and from
+  `ExtensionConfiguration::get()` for an absent key — writes the shipped
+  `enforce` into exactly the place the wizard reads. After that it reports
+  nothing to do, and the operator is on enforce while the label tells them
+  otherwise, in the screen where they would look. The label now states the
+  condition and says that the value shown is what applies.
+- Three PHP test classes that no job executed now run in CI (#658).
+  `Tests/E2E/TCA/` was in neither suite of `Build/FunctionalTests.xml`, and
+  the two workflow tests directly under `Tests/E2E/` were in no suite at
+  all — `Build/phpunit.xml` declares an `e2e` suite over that directory, but
+  no `runTests.sh` selector invokes it (`-s e2e` runs Playwright). Verified
+  rather than assumed: all three answered `No tests executed` before, and
+  run now (15 + 11 tests). A test no job runs is worse than no test, because
+  it reads as coverage — which is how a failing assertion sat in
+  `TcaFieldCompletionTest` unnoticed.
+  The parallel functional runner globs its directories separately, so
+  `Tests/E2E/TCA` is added there too; without it the new suite would be
+  silently skipped in that mode, exactly as the comment above that line
+  warns.
+- `TcaFieldCompletionTest` passes again. It flagged
+  `tx_nrllm_configuration.preset_checksum` as label-less, which it is: the
+  column is `type => passthrough`, written by the preset importer and never
+  rendered by FormEngine, so a label would be a declaration nothing reads.
+  Passthrough columns are now skipped by their TCA type rather than by name,
+  so the rule holds for the next one instead of growing an exemption list.
+- The skill block reaches a multimodal user turn (#645).
+  `SkillInjectionService` recognised an array-shaped message as a user
+  message only when its `content` was a **string**, so a conversation whose
+  first user turn carries content as a list of parts had the block prepended
+  to some later text turn — or, with no later text turn, not at all. Silently.
+  Multimodal content is a supported input shape, not an accident:
+  `MessageShaper::normalise()` converts only the exact 2-key string/string
+  form into a `ChatMessage` and passes everything else through for the
+  adapters to convert. The block is now prepended as a leading
+  `{type: 'text'}` part, the shape every adapter reads
+  (`ClaudeProvider::convertMultimodalContent()` translates it into Claude's
+  own format). Existing parts keep their order and are never merged into,
+  because a part may be an image.
+  An associative content array is still not an injection site — prepending
+  to it would produce a shape no adapter reads — so such a message is left
+  for the next candidate.
+- A composed skill block that finds no user message is logged instead of
+  vanishing. The message list is still returned unchanged, since the block is
+  never escalated into the system role, but skills carry instructions and
+  constraints and "silently absent" is the failure mode that matters. A call
+  with no skills stays silent — the warning marks a lost block, not every
+  skill-less call.
+
+- The conversation context budget counts the skill block (#625).
+  `ConversationService` fitted the transcript and then dispatched into
+  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
+  bytes of skill block to the first user message — the fitted list and the
+  sent list were different lists. A criteria-mode configuration has no model
+  relation, so its window falls back to 8192 tokens, of which a full block is
+  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
+  1000-token response reserve minus the 3 % safety margin): the whole
+  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
+  optional trailing `$injectedText` for payload that reaches the wire outside
+  the message list, and the conversation path composes the block once and
+  passes it. The injection stays where it is — the first user turn is the
+  never-droppable head, so injecting before the fit would drop the entire
+  history and still overflow. Known limit: a session opened without a
+  configuration resolves the installation default inside the manager, so its
+  block is still unaccounted for.
+
+>>>>>>> origin/main
 ### Fixed
 
 - A builtin tool that declares a write effect (`ToolEffectInterface`,

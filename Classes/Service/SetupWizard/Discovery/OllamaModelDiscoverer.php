@@ -152,7 +152,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
 
             $contextLength = $this->extractOllamaContextLength($data);
             $modelIdLower = strtolower($modelId);
-            $capabilities = $this->detectOllamaCapabilities($modelIdLower);
+            $capabilities = $this->extractOllamaCapabilities($data);
 
             // Ollama doesn't expose max output tokens, so derive sensible defaults
             // Most models can output up to 1/4 of context, with reasonable caps
@@ -201,25 +201,53 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
     }
 
     /**
-     * Detect Ollama model capabilities based on the model family.
+     * The capabilities Ollama reports for the model, from the `capabilities`
+     * array `/api/show` returns.
      *
-     * @return array<string>
+     * This replaces a guess from the model NAME — `tools` for anything
+     * containing `qwen`, `llama3`, `mistral` or `mixtral`, `vision` for
+     * anything containing `vision` or `llava`. That guess was wrong in both
+     * directions: a tool-capable model outside those four families never got
+     * the token, and a distilled or quantised variant carrying one of those
+     * words in its tag got it without being able to call a tool.
+     *
+     * Ollama's own vocabulary differs from this extension's, so only the
+     * overlapping tokens are mapped. `thinking`, `insert` and `embedding` have
+     * no counterpart in the model's capability field and are dropped rather
+     * than invented. A response without the array — Ollama below 0.6 — yields
+     * `chat`, which is what a model in the chat listing at least does.
+     *
+     * @param array<int|string, mixed> $data
+     *
+     * @return list<string>
      */
-    private function detectOllamaCapabilities(string $modelIdLower): array
+    private function extractOllamaCapabilities(array $data): array
     {
-        $capabilities = ['chat'];
+        $reported = isset($data['capabilities']) && is_array($data['capabilities'])
+            ? $data['capabilities']
+            : [];
+        if ($reported === []) {
+            return ['chat'];
+        }
 
-        // Vision models
-        if (str_contains($modelIdLower, 'vision') || str_contains($modelIdLower, 'llava')) {
+        $capabilities = [];
+        // `completion` is Ollama's token for a text-generating model, which is
+        // what `chat` means here; a model that reports neither is not one this
+        // extension can send a conversation to.
+        if (in_array('completion', $reported, true)) {
+            $capabilities[] = 'chat';
+        }
+
+        if (in_array('tools', $reported, true)) {
+            $capabilities[] = 'tools';
+        }
+
+        if (in_array('vision', $reported, true)) {
             $capabilities[] = 'vision';
         }
 
-        // Tool-use models (qwen, llama 3.x, mistral, etc.)
-        if (str_contains($modelIdLower, 'qwen')
-            || str_contains($modelIdLower, 'llama3')
-            || str_contains($modelIdLower, 'mistral')
-            || str_contains($modelIdLower, 'mixtral')) {
-            $capabilities[] = 'tools';
+        if (in_array('embedding', $reported, true)) {
+            $capabilities[] = 'embeddings';
         }
 
         return $capabilities;

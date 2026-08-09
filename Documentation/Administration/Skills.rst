@@ -241,6 +241,28 @@ community/untrusted skill without deleting it. Trust is *separate from* the
 enable. An unreadable or mistyped floor falls back to ``untrusted``; the value
 actually in force is shown under :ref:`administration-governance`.
 
+**Skill-block byte budget.** ``skills.maxBytes`` (extension configuration,
+default ``24000``) caps the composed block that is prepended to the user
+prompt. The measure is bytes, not tokens — a deliberate over-estimate, since no
+tokenizer is available. When the block exceeds the budget, skills are dropped
+from the tail first: task-additive skills go before the configuration baseline,
+and every drop is logged as a warning. Lower the value to reserve more of the
+model's context window for the conversation itself; raise it if a large
+configuration baseline is being trimmed. An empty, non-numeric or zero value
+falls back to ``24000`` — the cap cannot be switched off, so an emptied field
+never puts an unbounded block on the wire. The budget is instance-wide and
+independent of the model's context window; the per-request window bound is
+handled separately by the context-window manager (:ref:`ADR-107 <adr-107>`).
+
+The budget bounds the prompt block only, **not** the ``allowed-tools`` union
+(:ref:`Gating tools <administration-tools-allowed>`). The union is computed
+over the effective skills before the block is assembled, so a skill dropped
+for the budget still grants its tools while its usage rules stay out of the
+prompt. That is deliberate — a budget-aware union would *widen* the gate,
+because dropping the last declaring skill removes the restriction entirely.
+Watch the drop warnings when lowering the value: they name every skill whose
+prose stopped shipping while its tools kept being offered.
+
 **Manifest fingerprint (optional).** A source may declare an
 ``expected_fingerprint``: the sha256 its whole skill set must hash to. When set,
 the digest is recomputed at sync and verified before anything is materialised; a

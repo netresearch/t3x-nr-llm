@@ -9,10 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Psr\Log\LoggerInterface;
+use Throwable;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * Service for dynamic model selection based on criteria.
@@ -22,35 +28,89 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
  * - Preferred adapter types (openai, anthropic, etc.)
  * - Minimum context length requirements
  * - Cost constraints and preferences
+ * - The capability the running operation itself requires (ADR-138)
  */
 final readonly class ModelSelectionService implements ModelSelectionServiceInterface
 {
+    private const OBSERVE = 'observe';
+
     public function __construct(
         private ModelRepository $modelRepository,
+        private ?ExtensionConfiguration $extensionConfiguration = null,
+        private ?LoggerInterface $logger = null,
     ) {}
 
     /**
      * Resolve a model for the given configuration.
      *
      * If the configuration uses fixed mode, returns the configured model.
-     * If using criteria mode, finds the best matching model based on criteria.
+     * If using criteria mode, finds the best matching model based on criteria,
+     * constrained by the capability `$operation` requires (ADR-138). Pass null
+     * for a resolution that is not tied to one operation.
      */
-    public function resolveModel(LlmConfiguration $configuration): ?Model
+    public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): ?Model
     {
         if (!$configuration->usesCriteriaSelection()) {
-            // Fixed mode: return the directly configured model
+            // Fixed mode: return the directly configured model. Nothing is
+            // being chosen here — the operator named this model — so there is
+            // nothing for the operation to constrain. A fixed model that cannot
+            // do the operation still fails at the adapter, exactly as before.
             return $configuration->getLlmModel();
         }
 
         // Criteria mode: find best matching model
         $criteria = $configuration->getModelSelectionCriteriaArray();
-        return $this->findMatchingModel($criteria);
+
+        $capability = $operation instanceof ProviderOperation
+            ? OperationCapabilityMap::capabilityFor($operation)
+            : null;
+        if (!$operation instanceof ProviderOperation || !$capability instanceof ModelCapability) {
+            return $this->findMatchingModel($criteria);
+        }
+
+        if (!$this->enforcingOperationCapability()) {
+            $model = $this->findMatchingModel($criteria);
+            $this->reportObservedMismatch($model, $capability, $operation, $configuration);
+
+            return $model;
+        }
+
+        $constrained                        = $criteria;
+        $constrained['operationCapability'] = $capability->value;
+
+        $model = $this->findMatchingModel($constrained);
+        if ($model instanceof Model) {
+            return $model;
+        }
+
+        // Distinguish the two ways of ending up with nothing. Criteria that
+        // match no model at all are the pre-existing "has no model assigned"
+        // condition and stay a null return. Criteria that DO match, but match
+        // only models declaring they cannot do this operation, are a
+        // misconfiguration worth naming — and naming it here is the point of
+        // the ticket, because the alternative is an opaque provider error.
+        if ($this->findMatchingModel($criteria) instanceof Model) {
+            throw new UnsupportedFeatureException(
+                sprintf(
+                    'Configuration "%s" selects its model by criteria, but every matching model declares '
+                    . 'capabilities without "%s", which the "%s" operation requires. '
+                    . 'Add the capability to the model record, widen the criteria, or set '
+                    . 'routing.operationCapabilityEnforcement = observe.',
+                    $configuration->getIdentifier(),
+                    $capability->value,
+                    $operation->value,
+                ),
+                1786100138,
+            );
+        }
+
+        return null;
     }
 
     /**
      * Find a model matching the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     public function findMatchingModel(array $criteria): ?Model
     {
@@ -70,7 +130,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Find all models matching the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      *
      * @return Model[]
      */
@@ -96,20 +156,50 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Check if a model matches the given criteria.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {
         return $this->matchesCapabilities($model, $criteria)
+            && $this->matchesOperationCapability($model, $criteria)
             && $this->matchesAdapterTypes($model, $criteria)
             && $this->matchesMinContextLength($model, $criteria)
             && $this->matchesMaxCostInput($model, $criteria);
     }
 
     /**
+     * Check whether the model can serve the operation the call is running.
+     *
+     * A SEPARATE key from `capabilities`, deliberately, because the two answer
+     * different questions and need different treatment of an undeclared model.
+     * `capabilities` is what an operator asked for and is matched strictly; a
+     * model that declares nothing does not satisfy it. `operationCapability` is
+     * derived from the running call, and there an empty capability CSV means
+     * "undeclared", not "cannot" (ADR-138): the field is optional, plenty of
+     * installations never filled it, and refusing every such model would break
+     * them for a fact nobody ever stated.
+     *
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    private function matchesOperationCapability(Model $model, array $criteria): bool
+    {
+        $required = $criteria['operationCapability'] ?? null;
+        if (!is_string($required) || $required === '') {
+            return true;
+        }
+
+        $capabilities = $model->getCapabilitySet();
+        if ($capabilities->isEmpty()) {
+            return true;
+        }
+
+        return $capabilities->has($required);
+    }
+
+    /**
      * Check whether the model satisfies all required capabilities.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     private function matchesCapabilities(Model $model, array $criteria): bool
     {
@@ -142,7 +232,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Check whether the model's provider adapter type is among the allowed types.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     private function matchesAdapterTypes(Model $model, array $criteria): bool
     {
@@ -161,7 +251,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Check whether the model meets the minimum context length requirement.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     private function matchesMinContextLength(Model $model, array $criteria): bool
     {
@@ -178,7 +268,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     /**
      * Check whether the model's input cost is within the allowed maximum.
      *
-     * @param array{capabilities?: string[], adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
     private function matchesMaxCostInput(Model $model, array $criteria): bool
     {
@@ -270,6 +360,77 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         // already pre-orders by `sorting, name`, so this yields a deterministic
         // result without relying on usort() input-order preservation.
         return $a->getSorting() <=> $b->getSorting();
+    }
+
+    /**
+     * Whether the operation-capability axis is enforced or merely observed
+     * (ADR-138, following the ADR-113 switch shape).
+     *
+     * Fail-closed in the same sense as the tool gate: the axis observes ONLY on
+     * an explicit `observe`. An unreadable extension configuration, a malformed
+     * `routing` section, a missing value or a typo all enforce, so a broken
+     * setting cannot silently disable the check.
+     *
+     * Note what fail-closed does NOT mean here: an empty capability CSV on a
+     * model is still read as "undeclared" and passes. Refusing every model that
+     * never filled the optional field would break working installations without
+     * evidence that anything is actually wrong — see
+     * {@see self::matchesOperationCapability()}.
+     */
+    private function enforcingOperationCapability(): bool
+    {
+        try {
+            /** @var array<string, mixed> $config */
+            $config = $this->extensionConfiguration?->get('nr_llm') ?? [];
+        } catch (Throwable) {
+            return true;
+        }
+
+        $routing = $config['routing'] ?? null;
+        if (!is_array($routing)) {
+            return true;
+        }
+
+        $mode = $routing['operationCapabilityEnforcement'] ?? null;
+
+        return !is_string($mode) || strtolower(trim($mode)) !== self::OBSERVE;
+    }
+
+    /**
+     * Observe mode: selection is left untouched, but a model that declares it
+     * cannot serve the operation is reported, so an operator can see what
+     * enforcement would do before switching it on.
+     *
+     * Silent for an undeclared (empty) capability set — that is not a mismatch,
+     * it is an absent statement, and logging it on every call would bury the
+     * real findings.
+     */
+    private function reportObservedMismatch(
+        ?Model $model,
+        ModelCapability $capability,
+        ProviderOperation $operation,
+        LlmConfiguration $configuration,
+    ): void {
+        if (!$model instanceof Model) {
+            return;
+        }
+
+        $capabilities = $model->getCapabilitySet();
+        if ($capabilities->isEmpty() || $capabilities->has($capability)) {
+            return;
+        }
+
+        $this->logger?->warning(
+            'Criteria-mode selection resolved a model that does not declare the capability the operation requires. '
+            . 'Enforcement is set to observe, so the call proceeds.',
+            [
+                'configuration'       => $configuration->getIdentifier(),
+                'operation'           => $operation->value,
+                'requiredCapability'  => $capability->value,
+                'model'               => $model->getModelId(),
+                'declaredCapabilities' => $capabilities->toCsv(),
+            ],
+        );
     }
 
     /**

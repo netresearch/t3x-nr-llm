@@ -112,6 +112,63 @@ provider API. This auto-populates available models
 with their capabilities, context length, and
 pricing metadata.
 
+.. _administration-wizards-capability-seed:
+
+What the capability checkboxes are seeded with
+----------------------------------------------
+
+Discovery writes only the capabilities the provider's
+own response states. How much that is differs per
+provider:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Provider
+     - Reported by the API
+   * - Mistral
+     - chat, tools, vision (per-model ``capabilities``)
+   * - OpenRouter
+     - chat, tools, vision (``supported_parameters``,
+       ``architecture.input_modalities``)
+   * - Ollama
+     - chat, tools, vision, embeddings (``/api/show``,
+       Ollama 0.6 and newer)
+   * - Gemini
+     - chat, streaming, embeddings
+       (``supportedGenerationMethods``); vision and
+       tools come from the built-in table for known
+       model ids
+   * - Anthropic
+     - chat, vision, tools, streaming for every model
+       the listing returns — it returns Claude chat
+       models only, and they all have them
+   * - OpenAI
+     - from the built-in table, keyed by model id; an
+       id outside it is seeded from its prefix
+       (``dall-e-``, ``tts-``, ``whisper-``) and
+       otherwise chat alone
+   * - Groq
+     - chat only — the listing carries no capability
+       field at all
+
+Where the API reports nothing, the record is seeded
+with the narrowest true statement rather than a
+guess. **Check the capability checkboxes after
+discovery** and tick what the model actually does:
+the field is yours to edit, and configurations that
+select models by criteria match against it.
+
+.. note::
+
+   Models discovered by an earlier version carry
+   capabilities that were partly guessed from the
+   model name. Run :guilabel:`Fetch Models` again
+   after upgrading, or correct the checkboxes by
+   hand — an upgrade cannot tell an operator's
+   deliberate edit from a stale seed, so it does not
+   overwrite either.
+
 .. _administration-workflow:
 
 Recommended workflow

@@ -248,8 +248,16 @@ final class OpenRouterProvider extends AbstractProvider implements
                         'completion' => $this->asFloat($pricing['completion'] ?? 0),
                     ],
                     'capabilities' => [
-                        'vision' => $this->getString($architecture, 'modality') === 'multimodal',
-                        'function_calling' => $this->getBool($modelArray, 'supports_function_calling'),
+                        // `input_modalities`, not `modality`: the latter is a
+                        // display string ("text->text", "text+image->text") and
+                        // never the literal "multimodal", so the old comparison
+                        // was false for every model in the catalogue.
+                        'vision' => in_array('image', $this->getList($architecture, 'input_modalities'), true),
+                        // `supports_function_calling` is not a field OpenRouter
+                        // returns. It read as false for all 400 models,
+                        // including the 333 that list `tools` among their
+                        // supported parameters -- which is where the answer is.
+                        'function_calling' => in_array('tools', $this->getList($modelArray, 'supported_parameters'), true),
                     ],
                     'provider' => $this->extractProviderFromModelId($modelId),
                 ];

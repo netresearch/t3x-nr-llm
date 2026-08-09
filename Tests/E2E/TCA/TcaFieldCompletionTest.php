@@ -73,6 +73,15 @@ final class TcaFieldCompletionTest extends TestCase
                 continue;
             }
 
+            // A passthrough column is never rendered by FormEngine, so a label
+            // and a description would be declarations nothing reads. Skipped by
+            // TYPO3's own type rather than by name, so the rule stays true for
+            // the next such column instead of growing a list.
+            $config = $fieldConfig['config'] ?? null;
+            if (is_array($config) && ($config['type'] ?? null) === 'passthrough') {
+                continue;
+            }
+
             // Check for label
             if (!isset($fieldConfig['label']) || $fieldConfig['label'] === '') {
                 $missingLabels[] = $fieldName;

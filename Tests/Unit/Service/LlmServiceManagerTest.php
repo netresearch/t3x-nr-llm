@@ -624,7 +624,8 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $selection = $this->createMock(ModelSelectionServiceInterface::class);
         $selection->expects(self::once())
             ->method('resolveModel')
-            ->with($config)
+            // The generic adapter lookup has no operation and must say so.
+            ->with($config, null)
             ->willReturn($resolvedModel);
 
         $mockAdapter = self::createStub(ProviderInterface::class);
@@ -1522,6 +1523,88 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         // Per-call options win over the configuration's stored model id.
         self::assertSame('override-model', $capturedOptions['model']);
+    }
+
+    #[Test]
+    public function embedForConfigurationResolvesTheSameModelForTheCacheKeyAndTheCall(): void
+    {
+        // A criteria-mode configuration is resolved TWICE per embedding call:
+        // once outside the pipeline to build the cache key, once inside the
+        // terminal to pick the adapter. Both must pass the same operation —
+        // if they could disagree, entries stored under model A would be served
+        // to a call that ran against model B (ADR-138).
+        $embeddingModel = self::createStub(Model::class);
+        $embeddingModel->method('getModelId')->willReturn('embedding-model');
+        $otherModel = self::createStub(Model::class);
+        $otherModel->method('getModelId')->willReturn('some-other-model');
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(null);
+        $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
+        // Criteria mode carries no model relation, so the cache key has to
+        // resolve rather than read the id off the configuration.
+        $config->method('getModelId')->willReturn('');
+        $config->method('toOptionsArray')->willReturn([]);
+
+        $resolutions = [];
+        $selection   = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModel')->willReturnCallback(
+            static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (
+                &$resolutions,
+                $embeddingModel,
+                $otherModel,
+            ): Model {
+                // Distinct models per operation, so a site that forgets to pass
+                // the operation resolves visibly differently.
+                $model         = $operation === ProviderOperation::Embedding ? $embeddingModel : $otherModel;
+                $resolutions[] = ['operation' => $operation, 'model' => $model];
+
+                return $model;
+            },
+        );
+
+        $adapterModels = [];
+        $mockAdapter   = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn(string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturn(new EmbeddingResponse(
+            embeddings: [[0.1]],
+            model: 'embedding-model',
+            usage: new UsageStatistics(1, 0, 1),
+            provider: 'openai',
+        ));
+
+        $registryStub = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryStub->method('createAdapterFromModel')->willReturnCallback(
+            static function (Model $model) use (&$adapterModels, $mockAdapter): ProviderInterface {
+                $adapterModels[] = $model;
+
+                return $mockAdapter;
+            },
+        );
+
+        $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $registryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
+
+        $manager->embedForConfiguration('text', $config, new EmbeddingOptions(cacheTtl: 600));
+
+        self::assertCount(2, $resolutions, 'Expected the cache-key resolution and the terminal resolution.');
+        self::assertSame(
+            ProviderOperation::Embedding,
+            $resolutions[0]['operation'],
+            'The cache-key resolution ran without the operation.',
+        );
+        self::assertSame(
+            ProviderOperation::Embedding,
+            $resolutions[1]['operation'],
+            'The terminal resolution ran without the operation.',
+        );
+        self::assertSame(
+            $resolutions[0]['model'],
+            $resolutions[1]['model'],
+            'The cache key names a different model than the call runs on.',
+        );
+        self::assertSame([$embeddingModel], $adapterModels);
     }
 
     /**

@@ -567,7 +567,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Tools,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Tools);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -633,11 +633,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // case, or entries keyed under the empty id would be shared across
         // whatever model the criteria select over time. Fixed-mode configs
         // keep the relation's id without the extra resolution.
+        //
+        // This resolution sits OUTSIDE the terminal, which resolves again a few
+        // lines below. Both MUST pass the same ProviderOperation: if they could
+        // disagree, the key would name model A while the call ran on model B and
+        // cache entries would be served across models (ADR-138).
         $effectiveModel = is_string($optionOverrides['model'] ?? null)
             ? $optionOverrides['model']
             : ($configuration->getModelId() !== ''
                 ? $configuration->getModelId()
-                : $this->planner->resolveModel($configuration)->getModelId());
+                : $this->planner->resolveModel($configuration, ProviderOperation::Embedding)->getModelId());
         // EmbedCacheKeyBuilder sanitizes the scope tag: configuration
         // identifiers use the dotted preset scheme (nr_ai_search.embeddings),
         // and the cache frontend rejects a tag containing a dot with an
@@ -656,7 +661,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration, $metadata),
             function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(
@@ -734,7 +739,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function getAdapterFromConfiguration(LlmConfiguration $configuration): ProviderInterface
     {
-        return $this->planner->adapterFor($configuration);
+        return $this->planner->adapterFor($configuration, null);
     }
 
     /**
@@ -761,7 +766,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Chat,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $options), $options);
@@ -787,7 +792,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Completion,
             function (ProviderCallContext $ctx) use ($prompt, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Completion);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 return $adapter->complete($prompt, $options);
@@ -1015,7 +1020,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages = $this->screenInput($messages);
 
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
-            $llmModel = $this->planner->resolveModel($config);
+            $llmModel = $this->planner->resolveModel($config, ProviderOperation::Stream);
             $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
             $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
 
@@ -1035,7 +1040,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // provider throws at call time, not lazily on the first iteration inside
         // the dispatcher; fallback candidates are still checked per-attempt in
         // the opener above.
-        $this->assertStreamingCapable($this->getAdapterFromConfiguration($configuration), 1735300101);
+        // Deliberately NOT getAdapterFromConfiguration(): that is the generic,
+        // operation-less entry point, and resolving without the operation here
+        // could pick a different model than the opener above resolves with
+        // ProviderOperation::Stream — the eager check would then assert against
+        // an adapter the stream never runs on (ADR-138).
+        $this->assertStreamingCapable($this->planner->adapterFor($configuration, ProviderOperation::Stream), 1735300101);
 
         $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
 

@@ -80,6 +80,61 @@ final class SearchFalFilesToolTest extends AbstractFunctionalTestCase
         return ToolExecutionContext::fromBackendUser($user);
     }
 
+    /**
+     * A draft metadata row must not make its file findable. `sys_file_metadata`
+     * is workspace-aware, so the joined title can come from an unpublished
+     * version — and then a search for text that exists only in a draft returns
+     * a file whose live metadata does not contain it at all.
+     */
+    #[Test]
+    public function textThatExistsOnlyInADraftMetadataRowDoesNotMatch(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $files = $connectionPool->getConnectionForTable('sys_file_metadata');
+        self::assertInstanceOf(Connection::class, $files);
+
+        // A draft version of file 10's metadata, carrying a word the live row
+        // does not have.
+        $files->insert('sys_file_metadata', [
+            'uid' => 101, 'file' => 10, 'sys_language_uid' => 0,
+            'title' => 'Unpublished draft wording', 't3ver_wsid' => 1, 't3ver_oid' => 102,
+        ]);
+        $files->insert('sys_file_metadata', [
+            'uid' => 102, 'file' => 10, 'sys_language_uid' => 0, 'title' => 'Published wording',
+        ]);
+
+        $output = $this->tool->execute(['query' => 'Unpublished'], $this->contextForBackendUser(1))->content;
+
+        self::assertStringNotContainsString('brochure-2026.pdf', $output);
+    }
+
+    /**
+     * The counterpart: the live row still matches, and exactly once. A file
+     * with a draft version has two joinable metadata rows, so an unpinned join
+     * can also list the same file twice.
+     */
+    #[Test]
+    public function theLiveMetadataRowStillMatchesAndTheFileIsListedOnce(): void
+    {
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $files = $connectionPool->getConnectionForTable('sys_file_metadata');
+        self::assertInstanceOf(Connection::class, $files);
+
+        $files->insert('sys_file_metadata', [
+            'uid' => 101, 'file' => 10, 'sys_language_uid' => 0,
+            'title' => 'Published wording', 't3ver_wsid' => 1, 't3ver_oid' => 102,
+        ]);
+        $files->insert('sys_file_metadata', [
+            'uid' => 102, 'file' => 10, 'sys_language_uid' => 0, 'title' => 'Published wording',
+        ]);
+
+        $output = $this->tool->execute(['query' => 'Published wording'], $this->contextForBackendUser(1))->content;
+
+        self::assertSame(1, substr_count($output, '[10] 1:/brochure-2026.pdf'));
+    }
+
     #[Test]
     public function matchesFileNameAndMetadataTitleWithinAllowedStorages(): void
     {

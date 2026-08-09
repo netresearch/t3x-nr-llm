@@ -103,6 +103,20 @@ final readonly class SkillInjectionService
             $augmented[] = $message;
         }
 
+        if (!$injected) {
+            // The list is still returned unchanged — the block is never
+            // escalated into the system role to satisfy a missing user turn.
+            // But a composed block that reached no message is a skill set the
+            // model never sees, and skills carry instructions and constraints,
+            // so silence is the wrong way to report it.
+            $this->logger->warning(
+                'Skill block composed but not applied: no user message to prepend it to. '
+                . "The configuration's skills did not reach the model for this call.",
+            );
+
+            return $messages;
+        }
+
         return $augmented;
     }
 
@@ -157,8 +171,23 @@ final readonly class SkillInjectionService
             return $message->isUser();
         }
 
-        return ($message['role'] ?? null) === MessageRole::USER->value
-            && is_string($message[self::KEY_CONTENT] ?? null);
+        if (($message['role'] ?? null) !== MessageRole::USER->value) {
+            return false;
+        }
+
+        $content = $message[self::KEY_CONTENT] ?? null;
+
+        // A string is the plain turn. A LIST is the multimodal shape:
+        // MessageShaper::normalise() converts only the exact 2-key string/string
+        // form into a ChatMessage and passes everything else through for the
+        // adapters to convert, so a content array of OpenAI-style parts arrives
+        // here intact. Requiring a string sent the block to a later turn, or
+        // nowhere.
+        //
+        // array_is_list, not is_array: an associative content array is not a
+        // part list and prepending to it would produce a shape no adapter
+        // reads. Such a message is left for the next candidate.
+        return is_string($content) || (is_array($content) && array_is_list($content));
     }
 
     /**
@@ -172,7 +201,22 @@ final readonly class SkillInjectionService
             return ChatMessage::user($block . self::SEPARATOR . $message->content);
         }
 
-        $existing                  = $message[self::KEY_CONTENT] ?? '';
+        $existing = $message[self::KEY_CONTENT] ?? '';
+
+        if (is_array($existing)) {
+            // A leading text part, in the OpenAI-style block shape every
+            // adapter reads — ClaudeProvider::convertMultimodalContent()
+            // translates `{type: text}` into its own format, so this stays
+            // provider-neutral. The existing parts keep their order; nothing
+            // is merged into them, because a part may be an image.
+            $message[self::KEY_CONTENT] = [
+                ['type' => 'text', 'text' => $block],
+                ...$existing,
+            ];
+
+            return $message;
+        }
+
         $message[self::KEY_CONTENT] = $block . self::SEPARATOR . (is_string($existing) ? $existing : '');
 
         return $message;

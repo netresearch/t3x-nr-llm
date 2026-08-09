@@ -21,6 +21,15 @@
         <testsuite name="e2e-backend">
             <directory>../Tests/E2E/Backend/</directory>
         </testsuite>
+        <!--
+            Tests/E2E/TCA holds plain PHPUnit tests over the TCA files. They
+            were in no suite at all and therefore ran in no job: a failing
+            assertion sat there unnoticed because nothing executed it (#658).
+            Listed here because this config is the one CI runs.
+        -->
+        <testsuite name="e2e-tca">
+            <directory>../Tests/E2E/TCA/</directory>
+        </testsuite>
     </testsuites>
     <!--
         Without <source> PHPUnit answers any coverage request with
