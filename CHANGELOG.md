@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The skill block reaches a multimodal user turn (#645).
+  `SkillInjectionService` recognised an array-shaped message as a user
+  message only when its `content` was a **string**, so a conversation whose
+  first user turn carries content as a list of parts had the block prepended
+  to some later text turn — or, with no later text turn, not at all. Silently.
+  Multimodal content is a supported input shape, not an accident:
+  `MessageShaper::normalise()` converts only the exact 2-key string/string
+  form into a `ChatMessage` and passes everything else through for the
+  adapters to convert. The block is now prepended as a leading
+  `{type: 'text'}` part, the shape every adapter reads
+  (`ClaudeProvider::convertMultimodalContent()` translates it into Claude's
+  own format). Existing parts keep their order and are never merged into,
+  because a part may be an image.
+  An associative content array is still not an injection site — prepending
+  to it would produce a shape no adapter reads — so such a message is left
+  for the next candidate.
+- A composed skill block that finds no user message is logged instead of
+  vanishing. The message list is still returned unchanged, since the block is
+  never escalated into the system role, but skills carry instructions and
+  constraints and "silently absent" is the failure mode that matters. A call
+  with no skills stays silent — the warning marks a lost block, not every
+  skill-less call.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added
