@@ -463,8 +463,9 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function isRequired(string $field): bool
     {
-        $column = $this->pagesColumns()[$field] ?? null;
-        $config = is_array($column) ? ($column['config'] ?? null) : null;
+        $columns = $this->tcaColumnsFor(self::TABLE) ?? [];
+        $column  = $columns[$field] ?? null;
+        $config  = is_array($column) ? ($column['config'] ?? null) : null;
 
         // The DataHandler's own truthiness test, mirrored.
         return is_array($config) && (bool)($config['required'] ?? false);
