@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
+use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Uid\Uuid;
@@ -59,6 +61,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         // absent it a conversation grows unbounded exactly as before.
         private ?ContextWindowManagerInterface $contextWindow = null,
         private ?LoggerInterface $logger = null,
+        // Composes the same skill block LlmServiceManager injects after this
+        // service has already fitted the transcript, so its size can be counted
+        // against the budget. Optional for the same reason as the manager
+        // above; absent it the block is unaccounted for, exactly as before.
+        private ?SkillComposer $skillComposer = null,
         // Only reader: the effective system prompt handed to the context
         // window below. The manager composes the configuration's tag-selected
         // snippets (ADR-031) into the prompt it sends, so the estimate has to
@@ -130,6 +137,14 @@ final readonly class ConversationService implements ConversationServiceInterface
             // lastUsage is null: each turn is a fresh assembly, so the
             // manager's calibration starts from its seed rather than carrying a
             // ratio over from an unrelated turn.
+            //
+            // The skill block is composed ONCE here and passed as payload the
+            // send carries outside this list: LlmServiceManager injects it into
+            // the first user message AFTER this fit (#625). The injection stays
+            // there deliberately — the first user turn is the never-droppable
+            // HEAD, so injecting before the fit would spend the whole history
+            // on making room and still overflow.
+            //
             // The effective system prompt only matters when this turn carries
             // no system message of its own; then the manager prepends the
             // configuration's prompt WITH its composed snippets, and that is
@@ -140,6 +155,7 @@ final readonly class ConversationService implements ConversationServiceInterface
                 $options,
                 null,
                 [],
+                $this->skillBlockFor($configuration),
                 $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
             );
             $messages     = $fit->messages;
@@ -216,6 +232,33 @@ final readonly class ConversationService implements ConversationServiceInterface
         }
 
         return $this->llmManager->chatForConfiguration($messages, $configuration, $options);
+    }
+
+    /**
+     * The skill block this turn's send will carry, composed once.
+     *
+     * {@see \Netresearch\NrLlm\Service\LlmServiceManager::chatForConfiguration()}
+     * prepends it to the first user message after this service has fitted the
+     * transcript, so the fit has to know its size or the budget binds a list
+     * that is never sent that way (#625). Composition is deterministic over the
+     * configuration's skills, so the manager's own composition of the same set
+     * yields the same block.
+     *
+     * Known limit: the null-configuration branch of {@see self::dispatch()} is
+     * not covered. There the manager resolves the installation default itself
+     * and injects that configuration's skills — this service never learns which
+     * configuration that is, so it cannot account for its block.
+     */
+    private function skillBlockFor(LlmConfiguration $configuration): string
+    {
+        if (!$this->skillComposer instanceof SkillComposer) {
+            return '';
+        }
+
+        return $this->skillComposer->composeBlock(
+            SkillInjectionService::toList($configuration->getSkills()),
+            [],
+        )->block;
     }
 
     /**

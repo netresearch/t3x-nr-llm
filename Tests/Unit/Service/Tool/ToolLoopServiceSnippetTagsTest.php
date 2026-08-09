@@ -175,6 +175,7 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
                 ?ChatOptions $options,
                 ?UsageStatistics $lastUsage,
                 array $toolSpecs,
+                string $injectedText,
                 ?string $effectiveSystemPrompt,
             ) use (&$seen): ContextFitResult {
                 $seen = $effectiveSystemPrompt;

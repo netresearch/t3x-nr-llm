@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
@@ -29,6 +30,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
+use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -481,6 +483,102 @@ final class ConversationServiceTest extends TestCase
         self::assertSame('answered anyway', $service->send($actor, $session->uuid, 'a very long turn')->content);
     }
 
+    #[Test]
+    public function theSkillBlockTheManagerWillInjectIsHandedToTheFit(): void
+    {
+        // The manager prepends the configuration's skill block to the first user
+        // message AFTER this fit (#625). Unless the fit is told about it, the
+        // budget binds a list that is never sent that way.
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+        $configuration->getSkills()->attach($this->skill('cfg:budget', 'Budget Skill', 'Answer in short sentences.'));
+
+        $injected      = null;
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs = [],
+                string $injectedText = '',
+            ) use (&$injected): ContextFitResult {
+                $injected = $injectedText;
+
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15);
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            new SkillComposer(),
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertIsString($injected);
+        self::assertStringContainsString('### Skill: Budget Skill', $injected);
+        self::assertStringContainsString('Answer in short sentences.', $injected);
+    }
+
+    #[Test]
+    public function withoutASkillComposerNothingIsReservedAndTheFitIsUnchanged(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('editorial');
+        $configuration->getSkills()->attach($this->skill('cfg:budget', 'Budget Skill', 'Answer in short sentences.'));
+
+        $injected      = 'not called';
+        $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs = [],
+                string $injectedText = '',
+            ) use (&$injected): ContextFitResult {
+                $injected = $injectedText;
+
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15);
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverReturning($configuration), $contextWindow);
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+
+        self::assertSame('', $injected);
+    }
+
+    private function skill(string $identifier, string $name, string $body): Skill
+    {
+        $skill = new Skill();
+        $skill->setSource(1);
+        $skill->setIdentifier($identifier);
+        $skill->setName($name);
+        $skill->setBody($body);
+        $skill->setBodyChecksum(hash('sha256', $body));
+        $skill->setEnabled(true);
+        $skill->setOrphaned(false);
+
+        return $skill;
+    }
+
     /**
      * The turn's system prompt is composed by the manager (configuration
      * prompt + its tag-selected snippets, ADR-031) and prepended after the fit,
@@ -505,6 +603,7 @@ final class ConversationServiceTest extends TestCase
                 ?ChatOptions $options,
                 ?UsageStatistics $lastUsage,
                 array $toolSpecs,
+                string $injectedText,
                 ?string $effectiveSystemPrompt,
             ) use (&$seen): ContextFitResult {
                 $seen = $effectiveSystemPrompt;
@@ -521,6 +620,7 @@ final class ConversationServiceTest extends TestCase
             $repository,
             $this->resolverReturning($configuration),
             $contextWindow,
+            null,
             null,
             $this->snippetResolver(),
         );

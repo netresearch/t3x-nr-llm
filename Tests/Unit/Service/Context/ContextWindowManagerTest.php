@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Context\ContextWindowManager;
+use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -155,7 +156,7 @@ final class ContextWindowManagerTest extends TestCase
             null,
             null,
             [],
-            'short prompt' . "\n\n" . str_repeat('snippet text ', 400),
+            effectiveSystemPrompt: 'short prompt' . "\n\n" . str_repeat('snippet text ', 400),
         );
 
         self::assertGreaterThan($withEntityPrompt->estimatedTokens, $withComposedPrompt->estimatedTokens);
@@ -180,7 +181,7 @@ final class ContextWindowManagerTest extends TestCase
             null,
             null,
             [],
-            str_repeat('snippet text ', 400),
+            effectiveSystemPrompt: str_repeat('snippet text ', 400),
         );
 
         self::assertSame($without->estimatedTokens, $with->estimatedTokens);
@@ -202,6 +203,93 @@ final class ContextWindowManagerTest extends TestCase
         self::assertFalse($result->overflowAtFloor);
         self::assertSame(0, $result->droppedTurns);
         self::assertSame($messages, $result->messages);
+    }
+
+    #[Test]
+    public function injectedTextIsChargedToTheEstimateWithoutJoiningTheMessages(): void
+    {
+        // The skill block is prepended into the send AFTER fit() returns, so it
+        // is on the wire without being in this list. Counting it shrinks the
+        // headroom by exactly its own estimate; the list itself is untouched.
+        $messages = [ChatMessage::system('sys'), ChatMessage::user('hi'), ...$this->turn('call_1', 'small')];
+        $block    = str_repeat('s', 4000);
+
+        $without = (new ContextWindowManager())->fit($messages, $this->config(128000), null, null);
+        $with    = (new ContextWindowManager())->fit($messages, $this->config(128000), null, null, [], $block);
+
+        $blockTokens = (new TranscriptEstimator())->estimate([ChatMessage::user($block)], [], 1.15);
+        self::assertGreaterThan(0, $blockTokens);
+        self::assertSame($without->budget, $with->budget);
+        self::assertSame($without->estimatedTokens + $blockTokens, $with->estimatedTokens);
+        self::assertSame($messages, $with->messages);
+    }
+
+    #[Test]
+    public function noInjectedTextLeavesTheCalculationExactlyAsItWas(): void
+    {
+        $messages = [ChatMessage::system('sys'), ChatMessage::user('hi'), ...$this->turn('call_1', str_repeat('x', 3000))];
+
+        $implicit = (new ContextWindowManager())->fit($messages, $this->config(4000), null, null);
+        $explicit = (new ContextWindowManager())->fit($messages, $this->config(4000), null, null, [], '');
+
+        self::assertSame($implicit->budget, $explicit->budget);
+        self::assertSame($implicit->estimatedTokens, $explicit->estimatedTokens);
+        self::assertSame($implicit->droppedTurns, $explicit->droppedTurns);
+        self::assertSame($implicit->messages, $explicit->messages);
+    }
+
+    #[Test]
+    public function aTranscriptThatFitsAloneIsPrunedOnceTheInjectedBlockCountsToo(): void
+    {
+        // The defect this guards (#625): an unknown context length falls back to
+        // 8192, and a skill block of a few thousand bytes is a large share of
+        // that budget. Unaccounted, the transcript "fits" and the send overflows.
+        $messages = [
+            ChatMessage::system('sys'),
+            ChatMessage::user('the task'),
+            ...$this->turn('call_1', str_repeat('a', 3000)),
+            ...$this->turn('call_2', str_repeat('b', 3000)),
+            ...$this->turn('call_3', str_repeat('c', 3000)),
+        ];
+
+        $alone = (new ContextWindowManager())->fit($messages, $this->config(0), null, null);
+        self::assertFalse($alone->pruned);
+        self::assertSame(0, $alone->droppedTurns);
+
+        $withBlock = (new ContextWindowManager())->fit($messages, $this->config(0), null, null, [], str_repeat('s', 12000));
+
+        self::assertTrue($withBlock->pruned);
+        self::assertGreaterThanOrEqual(1, $withBlock->droppedTurns);
+        // Dropping turns was enough — it prunes into the budget instead of
+        // handing the provider an oversized send.
+        self::assertFalse($withBlock->overflowAtFloor);
+        self::assertLessThanOrEqual($withBlock->budget, $withBlock->estimatedTokens);
+    }
+
+    #[Test]
+    public function theInjectedBlockIsAccountedForWithoutEnteringTheUndroppableHead(): void
+    {
+        // The block is prepended to the FIRST user message downstream, and
+        // partition() counts everything up to and including that message as the
+        // never-droppable head. Injecting it before the fit would grow the head
+        // by the block and pay for it with the whole history — and still
+        // overflow. fit() therefore accounts for it and leaves the list alone.
+        $messages = [
+            ChatMessage::system('the system prompt'),
+            ChatMessage::user('the task'),
+            ...$this->turn('call_1', str_repeat('y', 8000)),
+            ...$this->turn('call_2', str_repeat('y', 8000)),
+        ];
+
+        $result = (new ContextWindowManager())->fit($messages, $this->config(0), null, null, [], str_repeat('s', 20000));
+
+        $system = $result->messages[0];
+        $task   = $result->messages[1];
+        self::assertInstanceOf(ChatMessage::class, $system);
+        self::assertInstanceOf(ChatMessage::class, $task);
+        self::assertSame('system', $this->roleOf($system));
+        self::assertSame('user', $this->roleOf($task));
+        self::assertSame('the task', $this->contentOf($task));
     }
 
     /**

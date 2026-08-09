@@ -33,9 +33,15 @@ interface ContextWindowManagerInterface
      * {@see ContextFitResult::$overflowAtFloor} is true the caller must not send
      * it (even the floor overflows).
      *
+     * The two trailing arguments describe payload the send carries that is not
+     * in `$messages`. They are separate because they differ in kind: one is
+     * ADDED to the list by a later stage, the other REPLACES the prompt this
+     * manager would otherwise derive.
+     *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<array<string, mixed>>             $toolSpecs             the tool schemas on the wire for THIS send; empty for a plain completion
      * @param UsageStatistics|null                   $lastUsage             the previous call's usage, to calibrate the estimator; null before the first call
+     * @param string                                 $injectedText          prose a LATER stage prepends into the message list for THIS send — the skill block; it is on the wire, so it is counted against the budget, but it is never added to the returned messages
      * @param string|null                            $effectiveSystemPrompt the system prompt the caller will actually put on the wire when the transcript carries none — the configuration's prompt AFTER per-call overrides and composed snippets (ADR-031). Null means "derive it from the configuration", the pre-composition behaviour.
      */
     public function fit(
@@ -44,6 +50,7 @@ interface ContextWindowManagerInterface
         ?ChatOptions $options,
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
+        string $injectedText = '',
         ?string $effectiveSystemPrompt = null,
     ): ContextFitResult;
 }

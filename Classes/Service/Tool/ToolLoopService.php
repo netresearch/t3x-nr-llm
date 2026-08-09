@@ -420,7 +420,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             $lastUsage,
             $toolSpecs,
-            $this->effectiveSystemPrompt($configuration, $options),
+            // Named, because the argument between them is the injected skill
+            // block, which this path does not carry: the agent loop composes
+            // its prompt itself rather than having one prepended after the fit.
+            effectiveSystemPrompt: $this->effectiveSystemPrompt($configuration, $options),
         );
 
         if ($fit->overflowAtFloor) {
