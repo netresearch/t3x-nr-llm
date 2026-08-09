@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
@@ -405,6 +406,7 @@ final class ToolLoopServiceAssemblyOrderTest extends TestCase
                 new AllowedToolsResolver(new SkillComposer(), $registry),
                 new ToolDataClassResolver($registry),
                 new TrustZoneResolver(),
+                new DataClassEnforcementResolver(),
             ),
             skillInjection: new SkillInjectionService(new SkillComposer(), new NullLogger()),
             snippetComposer: new PromptSnippetComposer(),
