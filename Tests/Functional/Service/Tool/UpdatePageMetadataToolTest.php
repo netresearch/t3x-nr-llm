@@ -218,6 +218,32 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-136, read side: the approver is a different person from the run owner
+     * and holds a tool-level grant only, so the card asks the tool whether THIS
+     * viewer may see the record at all.
+     */
+    #[Test]
+    public function theViewerGateAnswersPerRecordAndNotPerTool(): void
+    {
+        $admin  = $this->setUpBackendUser(1);
+        $editor = $this->setUpBackendUser(2);
+
+        self::assertTrue($this->tool->mayViewerReadPreview(['uid' => self::PAGE_ADMIN_ONLY], $admin));
+        // Same tool, same call, different viewer: the editor holds no edit
+        // right on this page, so the lines the run owner produced stay hidden.
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => self::PAGE_ADMIN_ONLY], $editor));
+    }
+
+    #[Test]
+    public function theViewerGateRefusesAMissingPageExactlyLikeAForbiddenOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => self::PAGE_MISSING], $admin));
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => 0], $admin));
+    }
+
+    /**
      * A call the tool would refuse previews as that refusal. The approver needs
      * to know a release would achieve nothing.
      */

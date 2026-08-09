@@ -314,6 +314,36 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         return $lines;
     }
 
+    /**
+     * The READ side of the preview (ADR-136): the same record check as
+     * {@see self::previewCall()}, applied to the person looking at the approval
+     * card instead of to the run's acting user.
+     *
+     * `PAGE_EDIT` and not `PAGE_SHOW` on purpose. The card exists to release a
+     * write to this page, and the strict reading of the disclosure — an approver
+     * whose remit is operations, not editing — is the one that decides here: you
+     * see what the write replaces only where you could have written it yourself.
+     *
+     * A refusal is never a probe: nothing distinguishes "no such page" from "not
+     * permitted", exactly as in `previewCall()`, and the card says the same thing
+     * either way.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return false;
+        }
+
+        $page = $this->fetchPage($uid);
+
+        return $page !== null
+            && $viewer->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            && $viewer->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0));
+    }
+
     public function isEnabledByDefault(): bool
     {
         // A writing tool is never on by default: an admin enables it in the

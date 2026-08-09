@@ -33,6 +33,7 @@ use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -219,8 +220,15 @@ final class AgentRunController extends ActionController
         $terminalRuns = $this->persister->findRecentTerminalRuns(beUser: $restrictTo);
         $dataLoadError = $waitingRuns === null || $terminalRuns === null;
 
+        // The preview a card carries is authorised a second time, per record,
+        // against THIS request's user (ADR-136): the approval grant above is
+        // tool-level and says nothing about individual pages. The ambient user
+        // is the right source here — it IS the viewer, not the run's actor,
+        // which is what ADR-083 forbids reading around.
+        $viewer = $GLOBALS['BE_USER'] ?? null;
+
         $this->moduleTemplate->assignMultiple([
-            'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? []),
+            'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
             'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? []),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,

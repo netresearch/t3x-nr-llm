@@ -100,9 +100,11 @@ final readonly class SuspendedRunState
         /** @var array<string, mixed> $inputSchema */
         $inputSchema = is_array($inputSchema) ? $inputSchema : [];
 
+        $rawPendingCalls = $data['pendingCalls'] ?? null;
+
         return new self(
             self::listOfArrays($data['messages'] ?? null),
-            self::listOfArrays($data['pendingCalls'] ?? null),
+            self::listOfArrays($rawPendingCalls),
             is_numeric($data['iterations'] ?? null) ? (int)$data['iterations'] : 0,
             is_numeric($data['promptTokens'] ?? null) ? (int)$data['promptTokens'] : 0,
             is_numeric($data['completionTokens'] ?? null) ? (int)$data['completionTokens'] : 0,
@@ -115,8 +117,44 @@ final readonly class SuspendedRunState
             // in its database. A missing or malformed value degrades to "no
             // preview" — the card then shows the arguments alone, exactly as it
             // did before — and NEVER stops the run from resuming.
-            self::previewsFrom($data['callPreviews'] ?? null),
+            self::previewsFrom($data['callPreviews'] ?? null, self::survivingIndexMap($rawPendingCalls)),
         );
+    }
+
+    /**
+     * Maps each position in the RAW pending-call list onto its position in the
+     * filtered list {@see self::listOfArrays()} produces.
+     *
+     * A preview records the index the loop wrote, and the loop counts EVERY
+     * entry of the turn. Rehydration drops entries that are not arrays and
+     * renumbers what is left, so an unusable entry shifts every call behind it
+     * by one. Without this map a preview would then be shown next to the
+     * arguments of the following call — precisely the mismatch the index was
+     * introduced to prevent (ADR-136), and the tool-name guard does not catch it
+     * when both calls name the same tool. A preview whose call did not survive
+     * has no key here and is dropped.
+     *
+     * @return array<int, int>
+     */
+    private static function survivingIndexMap(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $map      = [];
+        $original = 0;
+        $kept     = 0;
+        foreach ($value as $item) {
+            if (is_array($item)) {
+                $map[$original] = $kept;
+                ++$kept;
+            }
+
+            ++$original;
+        }
+
+        return $map;
     }
 
     /**
@@ -125,9 +163,15 @@ final readonly class SuspendedRunState
      * but read back out of a blob that may predate the field or have been
      * hand-edited, so nothing here is trusted.
      *
+     * The stored index counts the RAW pending calls; `$indexMap` translates it
+     * onto the filtered list this state exposes, and a preview whose call did
+     * not survive that filtering is dropped rather than re-pointed.
+     *
+     * @param array<int, int> $indexMap raw pending-call position => position after filtering
+     *
      * @return list<array{index: int, tool: string, lines: list<string>, failed: bool}>
      */
-    private static function previewsFrom(mixed $value): array
+    private static function previewsFrom(mixed $value, array $indexMap): array
     {
         if (!is_array($value)) {
             return [];
@@ -156,8 +200,13 @@ final readonly class SuspendedRunState
                 continue;
             }
 
+            $index = $indexMap[(int)$entry['index']] ?? null;
+            if ($index === null) {
+                continue;
+            }
+
             $previews[] = [
-                'index'  => (int)$entry['index'],
+                'index'  => $index,
                 'tool'   => $entry['tool'],
                 'lines'  => $lines,
                 'failed' => (bool)($entry['failed'] ?? false),

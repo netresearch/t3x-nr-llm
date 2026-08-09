@@ -28,7 +28,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before/after: its arguments are the new values, and the card now also shows
   what they replace. The preview is a snapshot of the pause, NOT a precondition
   — a page edited by a human in between does not block the approval, because the
-  tool writes absolute values; the ADR argues that case out in full.
+  tool writes absolute values; the ADR argues that case out in full. Reading a
+  preview is authorised per record against the VIEWER, not only per tool:
+  `agent_approve` (ADR-130) is a tool-level grant, so the card asks the tool
+  whether the backend user it is being rendered for may see that record, and
+  says the preview is withheld where the answer is no. It fails closed when the
+  question cannot be asked — no viewer, or no registered tool under that name.
 - **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
   allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
   `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions
