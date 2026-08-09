@@ -224,9 +224,13 @@ final readonly class ResumeCoordinator
         /** @var array<string, mixed> $decoded */
         $state = SuspendedRunState::fromArray($decoded);
 
-        // Gate 1 — the decision must name THIS turn. hash_equals, not !==: the
-        // digest is attacker-supplied and compared against a server secret-ish
-        // value, and a timing-safe comparison costs nothing here.
+        // Gate 1 — the decision must name THIS turn. hash_equals rather than
+        // !== because comparing digests is what it is for, not because the
+        // digest is a secret: it is a sha256 of the pending calls and the card
+        // renders it, so anyone who can see the turn can compute it. What this
+        // catches is STALENESS — a tab left open, or a second operator whose
+        // approval already let the run suspend on a different turn — not
+        // forgery.
         $current = $this->turnDigest()->forState($state);
         if ($decision->turnDigest === null || !hash_equals($current, $decision->turnDigest)) {
             $this->release($handle, $state, $runUuid);
