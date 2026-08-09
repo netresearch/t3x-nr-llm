@@ -292,6 +292,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing to do, and the operator is on enforce while the label tells them
   otherwise, in the screen where they would look. The label now states the
   condition and says that the value shown is what applies.
+- Three PHP test classes that no job executed now run in CI (#658).
+  `Tests/E2E/TCA/` was in neither suite of `Build/FunctionalTests.xml`, and
+  the two workflow tests directly under `Tests/E2E/` were in no suite at
+  all — `Build/phpunit.xml` declares an `e2e` suite over that directory, but
+  no `runTests.sh` selector invokes it (`-s e2e` runs Playwright). Verified
+  rather than assumed: all three answered `No tests executed` before, and
+  run now (15 + 11 tests). A test no job runs is worse than no test, because
+  it reads as coverage — which is how a failing assertion sat in
+  `TcaFieldCompletionTest` unnoticed.
+  The parallel functional runner globs its directories separately, so
+  `Tests/E2E/TCA` is added there too; without it the new suite would be
+  silently skipped in that mode, exactly as the comment above that line
+  warns.
+- `TcaFieldCompletionTest` passes again. It flagged
+  `tx_nrllm_configuration.preset_checksum` as label-less, which it is: the
+  column is `type => passthrough`, written by the preset importer and never
+  rendered by FormEngine, so a label would be a declaration nothing reads.
+  Passthrough columns are now skipped by their TCA type rather than by name,
+  so the rule holds for the next one instead of growing an exemption list.
 
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into

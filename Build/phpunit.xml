@@ -18,6 +18,15 @@
     <testsuites>
         <testsuite name="unit">
             <directory>../Tests/Unit</directory>
+            <!--
+                These two extend AbstractUnitTestCase and use mocked providers,
+                so they are unit tests that happen to live under Tests/E2E.
+                Listed explicitly because they were in no suite any job runs
+                (#658); a <directory> here would also pull in Tests/E2E/Backend,
+                which belongs to the functional config.
+            -->
+            <file>../Tests/E2E/ChatCompletionWorkflowTest.php</file>
+            <file>../Tests/E2E/EmbeddingWorkflowTest.php</file>
         </testsuite>
         <testsuite name="integration">
             <directory>../Tests/Integration</directory>
