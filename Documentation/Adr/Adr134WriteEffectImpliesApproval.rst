@@ -79,17 +79,45 @@ resolver, because a remote server must not be able to influence its own
 authorisation. An operator-declared, server-level column is the shape that
 works, and it is tracked separately from this decision.
 
-Registration stays as it is
----------------------------
+Registration bans the implicit combination too
+----------------------------------------------
 
-:php:`ToolRegistry` refuses a tool that implements both
+:php:`ToolRegistry` already refuses a tool that implements both
 :php:`RequiresApprovalInterface` and :php:`RequiresInputInterface`
-(:ref:`adr-105`). That ban is **not** extended to effect-declaring tools. It
-would be a registration refusal with no reader: the runtime already refuses an
-input-requiring pending call on the approval-resume path, fail-closed, because
-that path carries no user input. Widening a compile-time ban to cover a case the
-runtime already handles buys nothing and would reject a legitimate tool that
-needs both a human's data and a human's consent.
+(:ref:`adr-105`): the approval-resume path carries no user input, so the
+combination is unsupported. This decision makes a declared write a second way to
+be approval-bound, and the ban therefore extends to it — a **non-remote,
+write-declaring** tool may not implement :php:`RequiresInputInterface` either.
+
+The extension is not defensive tidying. Without it the combination is not
+"handled by the runtime", it is dead:
+
+#. The approval scan runs **before** the input scan, so the tool suspends
+   ``AWAITING_APPROVAL``, never ``WAITING_FOR_INPUT``.
+#. :php:`ToolLoopService::resume()` refuses an input-requiring pending call
+   ("requires user input that was not provided") — correctly, since the approval
+   path carries no data.
+#. The model re-requests, the approval scan binds again, and the cycle repeats:
+   one operator decision spent per turn and the tool never executes.
+#. ``submitInput()`` is unreachable. It requires status ``WAITING_FOR_INPUT``,
+   and the approval suspension's :php:`SuspendedRunState` carries neither
+   ``inputToolName`` nor ``inputSchema``.
+
+The refusal in step 2 is the mechanism of the defect, not its handling: it is
+what makes the cycle permanent. Nothing in the run reports the cause, and the
+operator sees only a tool that asks and asks. A registration failure at
+container boot names it.
+
+What this costs is real and is the cost :ref:`adr-105` already accepted: a tool
+that needs both a human's data and a human's consent cannot be built. The
+runtime has no combined approval+input pause — ADR-105 banned the combination
+rather than build one — so allowing the declaration would promise a flow that
+does not exist.
+
+The registration predicate mirrors the loop's, remote exemption included, so it
+can never reject a tool the approval scan would have let through. It sits in the
+constructor, which sees only the compile-time builtins; provider-supplied tools
+(the remote ones) are exempt from the coupling anyway.
 
 .. _adr-134-consequences:
 
@@ -111,6 +139,11 @@ repository.
 :ref:`adr-111`'s reasons and gets the human-in-the-loop pause without knowing the
 marker exists.
 
+✕ A builtin can no longer both declare a write and ask the user for typed input.
+The combination has no working runtime path, so it now fails at registration
+instead of livelocking at run time — but a genuine case for it has no workaround
+short of the combined pause below.
+
 ✕ Remote tools remain outside the coupling. An MCP tool that genuinely writes
 runs without a pause today, exactly as it did before this decision — the gap is
 named rather than closed, and closing it needs the operator-declared server
@@ -125,6 +158,11 @@ The operator-declared remote effect column lands. At that point a remote tool
 has a statement about itself that did not come from the server, and the
 exemption here should narrow to "remote **and** undeclared" rather than
 "remote".
+
+Also revisit when a tool genuinely needs both a human's data and a human's
+consent. That needs a combined pause — one suspension that collects the input
+and the decision together — which :ref:`adr-105` deferred. When it exists, the
+registration ban above drops for tools that use it.
 
 Also revisit if a builtin ever needs to write without a pause. Today that is not
 expressible, deliberately: the way out is to not declare a write, which the
