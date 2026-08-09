@@ -303,8 +303,10 @@ final class WaitingRunViewFactoryTest extends TestCase
     #[Test]
     public function aPreviewIsWithheldWhenNoViewerCanBeEstablished(): void
     {
+        // No viewer argument at all, which is the caller that cannot establish
+        // one -- the default is null and Rector rejects spelling it out.
         $view = $this->factory(new PreviewingApprovalTool('update_page_metadata'))
-            ->buildWaiting([$this->makeRun('a', $this->previewState())], null)[0];
+            ->buildWaiting([$this->makeRun('a', $this->previewState())])[0];
 
         self::assertTrue($view->pendingCalls[0]->previewFailed);
         self::assertSame(
