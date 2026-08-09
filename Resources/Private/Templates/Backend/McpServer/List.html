@@ -58,6 +58,14 @@
                                     </f:if>
                                 </dd>
 
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.approval" default="Approval" /></dt>
+                                <dd class="col-sm-9">
+                                    <f:if condition="{entry.approvalRequired}">
+                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.approval.required" default="A human approves every call" /></f:then>
+                                        <f:else><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.approval.notRequired" default="Tools run without asking" /></span></f:else>
+                                    </f:if>
+                                </dd>
+
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastImport" default="Last import" /></dt>
                                 <dd class="col-sm-9">
                                     <f:if condition="{entry.record.lastImported}">

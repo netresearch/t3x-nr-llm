@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -46,6 +47,7 @@ use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
@@ -56,6 +58,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -1028,6 +1031,97 @@ final class ToolLoopServiceTest extends TestCase
         };
     }
 
+    /**
+     * ADR-134: a declared write effect is itself the approval trigger, so a
+     * builtin that mutates cannot run unattended because nobody remembered the
+     * marker. Both write cases qualify — {@see ToolEffect::isWrite()} is the
+     * predicate, not idempotency, which governs retry and nothing else.
+     */
+    #[Test]
+    #[DataProvider('writeEffects')]
+    public function suspendsForAWriteDeclaringBuiltinWithoutTheApprovalMarker(ToolEffect $effect): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'write_thing', ['id' => 7])], 5, 2));
+        $service = $this->service($mgr, new ToolRegistry([$this->writeTool('write_thing', $effect)]));
+
+        $state = $this->suspend($service);
+
+        self::assertCount(1, $state->pendingCalls);
+        self::assertSame('write_thing', $state->toolCalls()[0]->name);
+        // Captured BEFORE the write ran: the transcript is the user turn plus
+        // the assistant's tool-call turn, and no tool result.
+        self::assertCount(2, $state->messages);
+    }
+
+    /**
+     * @return iterable<string, array{ToolEffect}>
+     */
+    public static function writeEffects(): iterable
+    {
+        yield 'non-idempotent write' => [ToolEffect::NON_IDEMPOTENT_WRITE];
+        yield 'idempotent write'     => [ToolEffect::IDEMPOTENT_WRITE];
+    }
+
+    /**
+     * The other side of ADR-134: coupling effect to approval must not turn the
+     * forty-odd read-only builtins into pauses.
+     */
+    #[Test]
+    public function doesNotSuspendForAToolThatDeclaresReadOnly(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'read_thing', [])]),
+            $this->response('read and done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$this->writeTool('read_thing', ToolEffect::READ_ONLY)]));
+
+        $result = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame('read and done', $result->finalContent);
+        self::assertCount(1, $result->trace);
+        self::assertSame('WROTE', $result->trace[0]->result, 'the read-only tool ran synchronously');
+    }
+
+    /**
+     * The load-bearing exemption (ADR-134). Every imported MCP tool declares
+     * NON_IDEMPOTENT_WRITE — a fail-closed assumption about a body this codebase
+     * cannot inspect, not the tool's own statement — so coupling effect to
+     * approval globally would suspend every remote call and leave the shipped
+     * MCP client unusable. A remote tool therefore never suspends on its effect
+     * alone.
+     */
+    #[Test]
+    public function doesNotSuspendForARemoteToolThatDeclaresAWrite(): void
+    {
+        $remote = $this->remoteTool();
+        self::assertInstanceOf(ToolEffectInterface::class, $remote);
+        self::assertTrue($remote->getEffect()->isWrite(), 'the fixture must declare a write, or this proves nothing');
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'remote_thing', [])]),
+            $this->response('remote done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$remote]));
+
+        $result = $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+
+        self::assertSame('remote done', $result->finalContent);
+        self::assertCount(1, $result->trace);
+        self::assertSame('remote ok', $result->trace[0]->result);
+    }
+
+    /**
+     * A tool that declares an effect and nothing else — no approval marker.
+     */
+    private function writeTool(string $name, ToolEffect $effect): ToolInterface
+    {
+        return new FakeTool($name, 'WROTE', true, false, 'test', [], $effect);
+    }
+
     #[Test]
     public function theConfigurationsToolGroupGateAppliesInsideTheLoopNotOnlyInThePlayground(): void
     {
@@ -1411,10 +1505,21 @@ final class ToolLoopServiceTest extends TestCase
     /**
      * A tool marked as living outside this codebase, which is the only thing
      * the budget keys on.
+     *
+     * It declares NON_IDEMPOTENT_WRITE like every
+     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} does — the
+     * fail-closed assumption about a body nobody here can inspect, not a
+     * statement the tool made about itself — so the approval scan's remote
+     * exemption (ADR-134) is exercised by the tests that use it.
      */
     private function remoteTool(): ToolInterface
     {
-        return new class implements ToolInterface, RemoteToolInterface {
+        return new class implements ToolInterface, RemoteToolInterface, ToolEffectInterface {
+            public function getEffect(): ToolEffect
+            {
+                return ToolEffect::NON_IDEMPOTENT_WRITE;
+            }
+
             public function getSpec(): ToolSpec
             {
                 return ToolSpec::function('remote_thing', "a tool on someone else's server", ['type' => 'object', 'properties' => []]);
