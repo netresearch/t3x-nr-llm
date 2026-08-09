@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 ### Fixed
 
 - The conversation context budget counts the skill block (#625).
