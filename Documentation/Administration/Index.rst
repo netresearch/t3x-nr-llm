@@ -49,6 +49,17 @@ resolvers, the tab shows what is *in force*: a mistyped
 fail-closed (:ref:`ADR-113 <adr-113>`). The keys, their fallbacks and
 recommended settings are documented under :ref:`administration-governance`.
 
+Two rows say more than their value alone:
+
+- ``tools.dataClassEnforcement = observe`` is annotated as applying to built-in
+  tools only. Tools reached through an MCP server are always enforced against
+  the trust-zone ceiling (:ref:`ADR-115 <adr-115>`), so an MCP tool can be
+  dropped while this row reads ``observe``.
+- Every ``privacy.retention.<category>`` override that deviates from
+  ``privacy.retentionDays`` gets its own row underneath it. Categories left at
+  ``0`` resolve to the global window and are not listed — see
+  :ref:`administration-data-retention` for the full set.
+
 .. figure:: /Images/backend-dashboard.png
    :alt: The LLM Overview — a usage-and-cost band, a status-coloured module
        card grid, and a developer section

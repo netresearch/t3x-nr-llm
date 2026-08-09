@@ -44,6 +44,18 @@ A read-only view, in an existing module, reading through the runtime resolvers.
    ``enforce`` in the view, because that is what the runtime applies. Echoing
    the raw string would tell an operator the axis is off while it is enforcing.
 
+   The same rule forces a qualification on ``observe``. The gate computes
+   :php:`$this->enforcement->enforcing() || $tool instanceof RemoteToolInterface`
+   (:php:`ToolCallPolicy::decide()`), so observe mode covers builtins only —
+   an MCP tool above the ceiling is denied outright whatever the setting says
+   (:ref:`ADR-115 <adr-115>`). The row therefore carries a note saying so. The
+   scenario is not exotic: :php:`DataClassEnforcementDefaultUpdateWizard` pins
+   any upgraded install that already has providers and never chose a mode to
+   ``observe``, and a server whose trust zone is unset falls back to
+   ``EXTERNAL_GLOBAL`` — the lowest ceiling there is. An
+   unqualified ``observe`` would send the operator whose MCP tool is being
+   dropped looking anywhere but at the trust zone.
+
 3. **A resolver that cannot be asked yields "unknown", never a value.** No
    substituted default, no reconstruction from the raw setting. A row that
    admits it does not know is safe; a plausible wrong value is not.
@@ -115,9 +127,17 @@ Constraints and honest limits
   apply path. The apply path would guarantee the loss rather than cause it. The
   ``@internal`` full-array write and the ``additional.php`` hazard are the
   load-bearing reasons; ADR-115 is corroborating, not decisive.
-- **The seven ``privacy.retention.*`` overrides are not shown.** All ship as
-  ``0`` and resolve to the global window by design; eleven rows of which eight
-  read "30" inform nobody. They belong in the documentation.
+- **The seven ``privacy.retention.*`` overrides are shown only where they
+  deviate.** On the *shipped defaults* they all read ``0`` and resolve to the
+  global window, so listing them adds seven rows reading "30" and informs
+  nobody — that argument covers a stock install and nothing else. Once an
+  operator sets one, ``privacy.retentionDays`` is no longer the window that
+  category is purged on, and a page promising what the install "actually
+  applies" would carry a single retention number that is wrong for it. A
+  category whose :php:`PrivacyPolicyInterface::retentionDaysFor()` differs from
+  :php:`retentionDays()` therefore gets its own row, directly under the global
+  one; the rest stay in the documentation
+  (:ref:`administration-data-retention`).
 - **"Unknown" is a guarantee, not a common state.** All three current resolvers
   are fail-closed and swallow their own read errors, so on a working install
   every row is answered. The guarantee exists so a future resolver — or a

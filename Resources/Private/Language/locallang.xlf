@@ -310,6 +310,9 @@
             <trans-unit id="governance.unknown.note">
                 <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
             </trans-unit>
+            <trans-unit id="governance.note.remoteAlwaysEnforced">
+                <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
+            </trans-unit>
 
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
