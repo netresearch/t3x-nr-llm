@@ -9,33 +9,52 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
+use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
+use TYPO3\CMS\Core\Http\RequestFactory;
+use TYPO3\CMS\Core\Http\StreamFactory;
 
 /**
  * End-to-end agent loop over a REAL builtin tool.
@@ -157,12 +176,236 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Wire the loop with the real registry + real DB-backed availability service
-     * over the single real {@see FetchLogsTool}.
+     * A tool that declares a write and carries NO approval marker suspends the
+     * run through the REAL gate stack (ADR-134). No builtin writes today — that
+     * is what {@see ToolEffectCoverageTest} pins — so the first one that does is
+     * modelled here rather than waited for: the guarantee has to hold on the day
+     * it lands, not after someone remembers the marker.
      */
-    private function buildService(LlmServiceManagerInterface $mgr): ToolLoopService
+    #[Test]
+    public function aWriteDeclaringToolWithoutTheMarkerSuspendsEndToEnd(): void
     {
-        $registry     = new ToolRegistry([new FetchLogsTool($this->connectionPool)]);
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'write_thing', ['id' => 7])]));
+
+        $service = $this->buildService($mgr, [$this->writeTool()]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('write it')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The remote exemption, over the REAL {@see McpTool} rather than a stand-in
+     * for it (ADR-134), for a server whose operator did NOT set the approval
+     * flag.
+     *
+     * `McpTool::getEffect()` is NON_IDEMPOTENT_WRITE for every imported tool,
+     * this scripted `search` included. That value is a fail-closed assumption
+     * about a body this codebase cannot inspect, not the tool's own statement,
+     * so it must not double as an approval trigger: if it did, every MCP tool
+     * would suspend on every call and the shipped client would be unusable.
+     * The write effect is unchanged here — only the server's own flag decides.
+     */
+    #[Test]
+    public function aRemoteMcpToolWithAWriteEffectDoesNotSuspendEndToEnd(): void
+    {
+        $tool = $this->mcpTool('mcp_srv_search', false);
+        self::assertTrue($tool->getEffect()->isWrite(), 'the effect must still be a write, or this proves nothing');
+        // An imported tool is inert until an operator enables it, so the real
+        // availability service would otherwise never offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('mcp_srv_search', true);
+
+        $queue = [
+            $this->response('', [new ToolCall('call_1', 'mcp_srv_search', ['q' => 'typo3'])]),
+            $this->response('Found it.'),
+        ];
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturnCallback(function () use (&$queue): CompletionResponse {
+                $next = array_shift($queue);
+                if (!$next instanceof CompletionResponse) {
+                    throw new RuntimeException('Scripted response queue underflow.', 1799990002);
+                }
+
+                return $next;
+            });
+
+        $service = $this->buildService($mgr, [$tool]);
+        $result  = $service->runLoop([$this->userTurn('search for typo3')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+
+        // It ran synchronously — no suspension — and the remote text came back
+        // through the real client and transport.
+        self::assertSame('Found it.', $result->finalContent);
+        self::assertCount(1, $result->trace);
+        self::assertSame('mcp_srv_search', $result->trace[0]->name);
+        self::assertSame('REMOTE OK', $result->trace[0]->result);
+    }
+
+    /**
+     * The other half of the same switch: the operator ticked "requires
+     * approval" on the server, so the very same {@see McpTool} suspends
+     * before the call goes out (ADR-134).
+     *
+     * The tool, the client and the transport are identical to the test above —
+     * only the server row differs. That is the point: nothing about the tool
+     * itself, and certainly nothing the server said about itself, decides this.
+     */
+    #[Test]
+    public function aRemoteMcpToolOnAnApprovalRequiringServerSuspendsEndToEnd(): void
+    {
+        $tool = $this->mcpTool('mcp_srv_search', true);
+        (new ToolStateRepository($this->connectionPool))->setEnabled('mcp_srv_search', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'mcp_srv_search', ['q' => 'typo3'])]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('search for typo3')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * A tool that declares a write effect and nothing else — no approval marker,
+     * no remote provenance.
+     */
+    private function writeTool(): ToolInterface
+    {
+        return new class implements ToolInterface, ToolEffectInterface {
+            public function getEffect(): ToolEffect
+            {
+                return ToolEffect::NON_IDEMPOTENT_WRITE;
+            }
+
+            public function getSpec(): ToolSpec
+            {
+                return ToolSpec::function('write_thing', 'changes a thing', ['type' => 'object', 'properties' => []]);
+            }
+
+            /**
+             * @param array<string, mixed> $arguments
+             */
+            public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+            {
+                return ToolResult::text('WROTE');
+            }
+
+            public function isEnabledByDefault(): bool
+            {
+                return true;
+            }
+
+            public function requiresAdmin(): bool
+            {
+                return false;
+            }
+
+            public function getGroup(): string
+            {
+                return 'test';
+            }
+        };
+    }
+
+    /**
+     * A real {@see McpTool} over a scripted server: only the HTTP client is
+     * faked, so the client, the transport and the tool itself are production
+     * code.
+     *
+     * The server record is read back from a real row through the real
+     * {@see McpServerRepository}, so the approval flag travels the production
+     * path — column, hydration, {@see McpServerRecord::approvalRequired()} —
+     * rather than being asserted into place.
+     */
+    private function mcpTool(string $localName, bool $requiresApproval): McpTool
+    {
+        $server = $this->storedServer($requiresApproval);
+
+        $record = new McpToolRecord(
+            1,
+            0,
+            $server->uid,
+            $localName,
+            'search',
+            'searches the server',
+            '{"type":"object","properties":{}}',
+            // The server calls itself read-only. No resolver reads this, and the
+            // approval scan must not start doing so: a remote server cannot be
+            // allowed to decide its own authorisation.
+            '{"readOnlyHint":true}',
+            false,
+            0,
+            0,
+        );
+
+        $fake = (new McpTestServer())
+            ->willHandshake()
+            ->willReturn(['content' => [['type' => 'text', 'text' => 'REMOTE OK']]]);
+
+        $transport = new McpHttpTransport(
+            self::createStub(VaultServiceInterface::class),
+            new SecureHttpClientFactory(),
+            new RequestFactory(new GuzzleClientFactory()),
+            new StreamFactory(),
+        );
+        $transport->setHttpClient($fake);
+
+        return new McpTool(
+            $server,
+            $record,
+            ['type' => 'object', 'properties' => []],
+            ToolDataClass::PUBLIC_CONTENT,
+            $server->approvalRequired(),
+            new McpClient($transport),
+        );
+    }
+
+    /**
+     * One MCP server row, read back as the repository hydrates it.
+     */
+    private function storedServer(bool $requiresApproval): McpServerRecord
+    {
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_server');
+        $connection->insert('tx_nrllm_mcp_server', [
+            'pid'               => 0,
+            'identifier'        => 'srv',
+            'name'              => 'A server',
+            'description'       => '',
+            'url'               => 'https://mcp.example.com/rpc',
+            'auth_credential'   => '',
+            'auth_placement'    => 'bearer',
+            'auth_header_name'  => '',
+            'data_class'        => 'publicContent',
+            'requires_approval' => $requiresApproval ? 1 : 0,
+            'enabled'           => 1,
+            'import_status'     => 'ok',
+            'import_error'      => '',
+            'last_imported'     => 1,
+            'tool_count'        => 1,
+            'tstamp'            => 0,
+            'crdate'            => 0,
+            'deleted'           => 0,
+            'hidden'            => 0,
+        ]);
+
+        $server = (new McpServerRepository($this->connectionPool))->findByUid((int)$connection->lastInsertId());
+        self::assertInstanceOf(McpServerRecord::class, $server);
+        self::assertSame($requiresApproval, $server->approvalRequired());
+
+        return $server;
+    }
+
+    /**
+     * Wire the loop with the real registry + real DB-backed availability service
+     * over the single real {@see FetchLogsTool}, or over the given tools.
+     *
+     * @param list<ToolInterface>|null $tools
+     */
+    private function buildService(LlmServiceManagerInterface $mgr, ?array $tools = null): ToolLoopService
+    {
+        $registry     = new ToolRegistry($tools ?? [new FetchLogsTool($this->connectionPool)]);
         $availability = new ToolAvailabilityService($registry, new ToolStateRepository($this->connectionPool), new ToolGroupStateRepository($this->connectionPool));
 
         // The REAL composite gate (ADR-094), not a double: this test exists to
