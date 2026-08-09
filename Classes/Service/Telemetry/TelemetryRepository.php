@@ -125,6 +125,22 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             ->where(
                 $queryBuilder->expr()->gte('crdate', $queryBuilder->createNamedParameter($since, Connection::PARAM_INT)),
                 $queryBuilder->expr()->gt('fallback_attempts', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                // The swap itself, not just the attempt: '' is a row written
+                // before these columns existed, and an identifier equal to the
+                // requested one means the chain was exhausted with nobody
+                // serving. Both are hops, neither is a rescue. They belong in
+                // the query rather than only in the reader because $limit is
+                // applied here: a two-hour outage writes thousands of
+                // exhausted-chain rows, and filtering afterwards would let them
+                // fill the window and report a period's real rescues as none.
+                $queryBuilder->expr()->neq(
+                    'served_configuration_identifier',
+                    $queryBuilder->createNamedParameter('', Connection::PARAM_STR),
+                ),
+                $queryBuilder->expr()->neq(
+                    'served_configuration_identifier',
+                    $queryBuilder->quoteIdentifier('configuration_identifier'),
+                ),
             )
             ->orderBy('crdate', 'DESC')
             ->addOrderBy('uid', 'DESC')

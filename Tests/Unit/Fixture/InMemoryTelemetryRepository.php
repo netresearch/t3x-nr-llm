@@ -67,9 +67,11 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
     }
 
     /**
-     * Rows recentFallbackHops() hands back, newest first — the narrowing the
-     * SQL does (`fallback_attempts > 0`, time-bounded) is the caller's given,
-     * so a test states the hops it wants the reader to classify.
+     * Rows recentFallbackHops() hands back, newest first. Deliberately
+     * unnarrowed: the SQL implementation filters to served swaps so its
+     * $limit counts rescues, but a test states the hops it wants the reader
+     * to classify — including the ones the query would have dropped, so the
+     * reader's own rule stays under test rather than the stub's.
      *
      * @var list<FallbackHop>
      */
