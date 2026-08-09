@@ -29,7 +29,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ADR-135 amendment. An empty string is accepted and is the correct value for a
   decorative image. Success is verified by re-reading the record, as with the
   first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two
-  names.
+  names. With two writers in the tree, the errands they share — the
+  backend-environment and live-workspace guards, the bounded `errorLog` summary,
+  the TCA narrowing and the preview formatting — moved into a new
+  `WritesThroughDataHandlerTrait`, following the `CollectsEnvironmentTrait`
+  pattern. Deliberately NOT shared: the neutral refusal strings (each is paired
+  with the READ tool of the same records), the authorisation, the read-back, the
+  row lookup, and `isEnabledByDefault()` / `requiresAdmin()` / `getGroup()` /
+  `getEffect()` — identical today, still declared per tool so a third writer
+  decides rather than inherits.
 - **A write preview, produced when the run suspends** (ADR-136). New opt-in
   `ToolPreviewInterface`: a tool that implements it describes, in plain lines,
   what the pending call would do. The lines are produced by `ToolLoopService` at

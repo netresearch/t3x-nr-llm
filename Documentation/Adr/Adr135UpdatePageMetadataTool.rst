@@ -256,23 +256,51 @@ Translated alternative texts stay a backend job. Revisit if a writing tool ever
 needs to address a translation — at that point the language belongs in the
 argument list of the tool that needs it, not retrofitted into this one.
 
-The duplication this ADR predicted
-----------------------------------
+The duplication this ADR predicted, and what was done with it
+-------------------------------------------------------------
 
-It is real, and it is smaller than expected: the backend-environment check, the
-bounded ``errorLog`` summary and the two preview-formatting helpers — roughly
-ninety lines, all mechanism, no policy. What does NOT repeat is everything that
-decides anything: the authorisation model (page permissions versus storage
-allow-list and file mounts), the target identity (the argument uid IS the record
-versus the argument uid is a file whose metadata record has to be found), and
-the refusal vocabulary, which is deliberately different per tool so each matches
-its own read tool.
+It was real: about three hundred duplicated lines across the two files, which is
+what SonarCloud's quality gate reported on the second writer's pull request. It
+was also, on inspection, entirely **mechanism** — the errands a writing tool runs
+around its write, not the decisions it makes about the record.
 
-The shared base is therefore **not** extracted here. Two samples of three
-helpers do not yet show which of them a third writer would want, and this change
-would have to edit the first writer to find out. The extraction is worth its own
-change, with the third writer or the first review that trips over the copy —
-whichever comes first.
+Mechanism was therefore extracted into
+:php:`WritesThroughDataHandlerTrait`, a trait in the same directory, following
+the pattern :php:`CollectsEnvironmentTrait` and :php:`ResolvesLanguageLabelTrait`
+already set — **not** a base class. A base class would open exactly the
+inheritance axis this ADR argued against: a common ancestor invites a common
+policy, and the two tools' policies are not common.
+
+Shared, because it only executes:
+
+- the backend-environment refusal (which globals the DataHandler declares) and
+  the live-workspace refusal — both describe the PROCESS performing the write,
+  which is why :ref:`ADR-136 <adr-136>` already excludes both from the preview;
+- surfacing a non-empty ``errorLog`` as an error, bounded in count and length;
+- narrowing one table's ``columns`` out of the untyped ``$GLOBALS['TCA']``;
+- the two preview-formatting helpers (one-line excerpt, quoted or ``(empty)``)
+  and the three constants they need.
+
+Kept per tool, because it decides:
+
+- **The neutral refusal string.** Each writer shares it with the READ tool of the
+  same records, so a refusal never confirms that a uid exists. One shared string
+  would break that pairing in both directions.
+- **The authorisation**, including the language rule above.
+- **The field allow-list** and every argument-validation message.
+- ``isEnabledByDefault()``, ``requiresAdmin()``, ``getGroup()`` and
+  ``getEffect()``. They return the same four values today and are still declared
+  twice on purpose: a third writer may be admin-only or non-idempotent, and a
+  trait answering for it would turn a decision into an inheritance.
+- **The read-back.** Both tools verify their write; what "it took" means is
+  theirs — a map of fields against a re-read row versus one column of one record.
+- **The row lookup.** The query tail is identical; which restrictions apply — a
+  deleted page is gone, a ``sys_file`` has no enable columns at all — is a
+  decision about what counts as existing.
+
+What remains duplicated after the extraction is under a dozen lines per block,
+mostly signatures and the two declaration methods above. That is the floor this
+shape has, and buying it down further would mean sharing decisions.
 
 .. _adr-135-nonguarantee:
 
@@ -285,12 +313,25 @@ shipped, and no document may claim otherwise.
 The fence arms only when a lease owner is present:
 :php:`AgentRunExecutor::trace()` installs its ``onBeforeTool`` hook under
 ``$leaseOwner === null || !$handle instanceof AgentRunHandle ? null : …``. The
-only producer of a lease owner is :php:`QueuedRunCoordinator::runQueued()`,
-reached exclusively through :php:`AgentRuntimeInterface::enqueue()` — and
-``enqueue()`` has **no in-repo caller**. Every shipped entry point (the Tool
-Playground batch and streamed runs, the approval and input resumes, the CLI)
-goes through ``run()``, ``approve()``, ``submitInput()`` or ``cancel()``, all of
-which pass no lease owner. ``pending_effect`` is never stamped for them.
+only producer of a lease owner is :php:`QueuedRunCoordinator::runQueued()`.
+
+That method **does** have in-repo callers —
+:php:`Service\Agent\Queue\AgentRunQueuedHandler::__invoke()` and the reaper's
+re-dispatch in :php:`Command\ReapStaleAgentRunsCommand` — so "``runQueued()`` is
+unreachable" would be wrong. What has no in-repo caller is
+:php:`AgentRuntimeInterface::enqueue()`, and only ``enqueue()`` creates the
+QUEUED row those callers can act on. The reaper cannot conjure one either:
+``findStaleRunning`` selects on ``lease_expires > 0``, which an interactive run
+never has.
+
+Every shipped entry point (the Tool Playground batch and streamed runs, the
+approval and input resumes, the CLI) goes through ``run()``, ``approve()``,
+``submitInput()`` or ``cancel()``, all of which pass no lease owner.
+``pending_effect`` is never stamped for them.
+
+Sharper still for the resume path: :php:`AgentRunExecutor::executeResume()`
+passes no lease owner at all, so **no** resume is fenceable however the run was
+started.
 
 This is not an accident to be alarmed by, and it is not the transport's doing:
 ``enqueue()`` on the default ``SyncTransport`` would arm the fence perfectly
@@ -348,8 +389,10 @@ than imagined.
 
 That happened: ``set_file_alternative_text`` is the second writer, and the
 :ref:`amendment above <adr-135-second-writer>` records what it reused, where it
-had to differ, and why the shared base is still not extracted. The next trigger
-is the **third** writer.
+had to differ, and which mechanism moved into
+:php:`WritesThroughDataHandlerTrait`. The next trigger is the **third** writer —
+and the question then is whether anything the trait deliberately left per tool
+has become common, not whether the trait should grow.
 
 Also revisit if an interactive run ever gains a retry path. The fence's absence
 is correct only while "interactive" means "no repeat without a human".
