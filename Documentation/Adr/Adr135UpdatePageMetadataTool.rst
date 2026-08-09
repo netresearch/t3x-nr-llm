@@ -203,10 +203,23 @@ Where it differs, and why
 -------------------------
 
 **The authorisation axis is FAL, not the page tree.** Access is decided by
-:php:`FalStorageGate::isFileAccessible()` against the explicit acting user: the
-configured storage allow-list, intersected for non-admins with their file
-mounts. That allow-list is nr_llm's own configuration and the DataHandler has
-never heard of it, so the gate must run BEFORE the write — not instead of it.
+:php:`FalStorageGate::isFileAccessible()`: the configured storage allow-list,
+intersected for non-admins with their file mounts. That allow-list is nr_llm's
+own configuration and the DataHandler has never heard of it, so the gate must
+run BEFORE the write — not instead of it.
+
+That gate does not decide both halves against the same user, and this tool is
+the first caller for which the difference is reachable. The storage allow-list
+is intersected with the **explicit** acting user's storages
+(:php:`BackendUserAuthentication::getFileStorages()`). The file-mount boundary is
+not: :php:`isFileAccessible()` asserts on a request-shared
+:php:`ResourceStorage`, whose mounts and permissions core's
+:php:`StoragePermissionsAspect` attached once from ``$GLOBALS['BE_USER']``. Where
+ambient user and acting user coincide — a run its own owner approves — nothing
+differs; on an approval by someone else they do. The defect is in
+:php:`FalStorageGate`, shared with three READ tools since ADR-047, and is tracked
+as issue #672 rather than fixed on this tool.
+
 Core's :php:`FileMetadataPermissionsAspect` then applies the narrower question
 inside the DataHandler (a WRITABLE file mount, ``editMeta``), and — this is easy
 to get backwards — that aspect can only ever DENY: ``tables_modify`` for
@@ -237,10 +250,15 @@ one as an argument, or refuse while translations exist.
 only, takes no language argument, and refuses when the default-language record
 is absent.**
 
-- **Reader and writer must address the same row.** ``read_fal_asset_meta`` pins
-  ``sys_language_uid = 0``. A writer that could land elsewhere would produce
-  changes the model cannot read back and the approval card's "before" column
-  could not be trusted to describe the same record.
+- **Reader and writer must address the same row.** Every FAL read path pins
+  ``sys_language_uid = 0`` — ``read_fal_asset_meta`` and ``search_fal_files`` —
+  and so does the tool's own :php:`previewCall()`. A writer that could land
+  elsewhere would produce changes the model cannot read back and the approval
+  card's "before" column could not be trusted to describe the same record. Note
+  that ``read_fal_asset_meta`` is admin-only and in the ``structure`` group,
+  while this writer is non-admin and in ``editing``: an editor never gets to
+  call it, so for the tool's stated audience the approval card is the channel
+  for the current value.
 - **A language argument is a model-chosen argument.** It would widen the call
   surface by one value that decides WHICH record is written, needs its own
   ``checkLanguageAccess()`` per value, and fails quietly when wrong — the write
@@ -296,7 +314,12 @@ Kept per tool, because it decides:
   theirs — a map of fields against a re-read row versus one column of one record.
 - **The row lookup.** The query tail is identical; which restrictions apply — a
   deleted page is gone, a ``sys_file`` has no enable columns at all — is a
-  decision about what counts as existing.
+  decision about what counts as existing. The second writer also looks its
+  metadata row up by ``file`` rather than by uid, so it must pin the workspace
+  and an order on top of the language: ``sys_file_metadata`` is workspace-aware,
+  and a draft version carries the same ``file`` and the same
+  ``sys_language_uid = 0`` as the live row. Core's
+  :php:`MetaDataRepository::findByFileUid()` pins the same three.
 
 What remains duplicated after the extraction is under a dozen lines per block,
 mostly signatures and the two declaration methods above. That is the floor this

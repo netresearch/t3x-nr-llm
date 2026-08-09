@@ -16,16 +16,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ships **disabled**, declares `IDEMPOTENT_WRITE`, so every call suspends for a
   human decision (ADR-134), live workspace only, no approval marker of its own,
   and a before/after on the approval card (ADR-136). Access is decided BEFORE
-  the write by `FalStorageGate::isFileAccessible()` against the acting user —
-  the configured storage allow-list intersected with the user's file mounts, a
-  barrier the `DataHandler` knows nothing about; core's own file-metadata
-  permission check (a WRITABLE mount, plus `tables_modify`) then applies on top,
-  so a read-only mount is refused there. It **never creates** a metadata record:
-  a file that carries none is refused, in the same neutral words as a file in a
-  forbidden storage, a file outside the user's mounts and a uid no file carries
-  — so a refusal cannot be used to probe `sys_file` for existence. It writes the
-  **default-language** record only and takes no language argument, so writer and
-  reader (`read_fal_asset_meta`) address the same row; the reasoning is in the
+  the write by `FalStorageGate::isFileAccessible()` — the configured storage
+  allow-list intersected with the user's file mounts, a barrier the `DataHandler`
+  knows nothing about; core's own file-metadata permission check (a WRITABLE
+  mount, plus `tables_modify`) then applies on top, so a read-only mount is
+  refused there. Only the allow-list half of that gate asks about the explicit
+  acting user; the file-mount half asks about the ambient backend user, because
+  core attaches mounts to a request-shared storage object. That is pre-existing
+  behaviour of `FalStorageGate`, shared with three read tools, and is tracked as
+  issue #672. It **never creates** a metadata record: a file that carries none is
+  refused, in the same neutral words as a file in a forbidden storage, a file
+  outside the user's mounts and a uid no file carries — so a refusal cannot be
+  used to probe `sys_file` for existence. It writes the **live**,
+  **default-language** record only and takes no language argument: the metadata
+  row is looked up by `file` rather than by uid, so the workspace, the language
+  and the order are all pinned — otherwise a draft version of the same record
+  could be written instead of the live one — exactly as core's
+  `MetaDataRepository::findByFileUid()` pins them. The reasoning is in the
   ADR-135 amendment. An empty string is accepted and is the correct value for a
   decorative image. Success is verified by re-reading the record, as with the
   first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two

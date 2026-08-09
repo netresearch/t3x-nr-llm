@@ -322,18 +322,19 @@ What holds for both of them:
    most often leaves behind. It writes that one field and nothing else.
 
    Authorised by the same storage allow-list and file mounts as the read-only
-   FAL tools, against the acting user; core's own file-metadata permission
-   check (a **writable** file mount) then applies inside the DataHandler, so a
-   read-only mount is refused there.
+   FAL tools; core's own file-metadata permission check (a **writable** file
+   mount) then applies inside the DataHandler, so a read-only mount is refused
+   there.
 
    Two limits worth knowing before enabling it:
 
    - It **never creates** a metadata record. A file that carries none is
      refused, in the same words as a file the user may not reach — so the
      model cannot tell "not yours" from "not indexed".
-   - It writes the **default-language** record only and takes no language
-     argument. Translated alternative texts stay a backend job
-     (:ref:`ADR-135 <adr-135>`).
+   - It writes the **live**, **default-language** record only and takes no
+     language argument. A translation, and a draft version of the same record
+     in a workspace, are both left alone. Translated alternative texts stay a
+     backend job (:ref:`ADR-135 <adr-135>`).
 
    An empty string is accepted and is the correct value for a decorative
    image.
