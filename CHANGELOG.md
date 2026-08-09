@@ -40,6 +40,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   advisor instead of restated by its consumers; neither the interface nor
   the new `Service\Analytics\ProviderHealthReport` is part of the `@api`
   surface, which is unchanged.
+  The same "no data is not a zero" rule applies to the latency column: a
+  provider present in the window whose every run a fallback rescued has no
+  self-served run to measure, and the cell says so instead of showing
+  `0 ms`. `ProviderHealthScore::$avgLatencyMs` is nullable for that case
+  (the score is unchanged — an unknown latency carries no penalty, and the
+  failure is already in the success rate). Circuits opened for direct calls
+  with a pinned provider are NOT in the table: such a run records no
+  provider and its circuit is keyed on the call identifier
+  (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
+  in the administration docs instead of being claimed away.
 
 ### Changed
 

@@ -118,6 +118,23 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function indexActionShowsNoLatencyForAProviderThatNeverServedARunItself(): void
+    {
+        // Two runs in the window, both rescued by a fallback: openai has a real
+        // score and success rate but nothing that measures its own latency.
+        // "0 ms" here reads as sub-millisecond fast — the same zero-for-no-data
+        // confusion the score column avoids.
+        $this->insertRescuedHealthRow('openai', 153);
+        $this->insertRescuedHealthRow('openai', 247);
+
+        $body = (string)$this->dispatchIndex([])->getBody();
+
+        self::assertStringContainsString('<td>0.20</td>', $body, 'The score is a real statement and stays.');
+        self::assertStringNotContainsString('<td>0 ms</td>', $body, 'An unmeasured latency must never render as a duration.');
+        self::assertStringContainsString('never answered on its own', $body);
+    }
+
+    #[Test]
     public function indexActionSaysTheFallbackReorderSwitchIsOff(): void
     {
         // Default: health.reorderFallback is off, so the scores decide nothing.
@@ -235,6 +252,31 @@ final class AnalyticsControllerTest extends AbstractFunctionalTestCase
                 'latency_ms'               => $latencyMs,
                 'cache_hit'                => 0,
                 'fallback_attempts'        => 0,
+                'crdate'                   => time(),
+            ]);
+    }
+
+    /**
+     * A run the requested provider lost and a fallback rescued: a sample and a
+     * primary failure, but no measurement of the requested provider's latency.
+     */
+    private function insertRescuedHealthRow(string $provider, int $latencyMs): void
+    {
+        $this->getService(ConnectionPool::class)
+            ->getConnectionForTable('tx_nrllm_telemetry')
+            ->insert('tx_nrllm_telemetry', [
+                'pid'                      => 0,
+                'correlation_id'           => 'health-' . uniqid('', true),
+                'operation'                => 'chat',
+                'provider'                 => $provider,
+                'model'                    => '',
+                'configuration_identifier' => 'primary',
+                'be_user'                  => 0,
+                'success'                  => 1,
+                'error_class'              => '',
+                'latency_ms'               => $latencyMs,
+                'cache_hit'                => 0,
+                'fallback_attempts'        => 1,
                 'crdate'                   => time(),
             ]);
     }

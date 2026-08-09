@@ -25,6 +25,23 @@ final class ProviderHealthScoreTest extends AbstractUnitTestCase
         self::assertSame('openai', $score->provider);
         self::assertSame(0, $score->sampleCount);
         self::assertSame(ProviderHealthScore::NEUTRAL_SCORE, $score->score);
+        self::assertNull($score->avgLatencyMs, 'Nothing was measured — 0.0 would claim a measurement.');
+    }
+
+    #[Test]
+    public function anUnmeasurableLatencyIsNullNotZero(): void
+    {
+        // Called four times, rescued by a fallback every time: the failures are
+        // real (successRate 0.0), the latency is not a measurement of this
+        // provider at all. 0.0 here would read as "answered instantly".
+        $score = ProviderHealthScore::fromSamples('openai', 4, 0, null);
+
+        self::assertSame(4, $score->sampleCount);
+        self::assertSame(0.0, $score->successRate);
+        self::assertNull($score->avgLatencyMs);
+        // Unchanged from the value a 0.0 produced: an unknown latency must not
+        // invent a penalty, and the failure is already priced into the 0.8 term.
+        self::assertEqualsWithDelta(0.2, $score->score, 0.0001);
     }
 
     #[Test]

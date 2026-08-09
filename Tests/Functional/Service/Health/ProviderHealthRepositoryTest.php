@@ -102,6 +102,24 @@ final class ProviderHealthRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function latencyIsNullWhenEveryRunWasRescuedRatherThanZero(): void
+    {
+        $now = time();
+        // Both runs were rescued by a fallback, so AVG has no self-served row
+        // to average and returns SQL NULL. Reported as 0.0 that would claim a
+        // provider which never answered on its own is sub-millisecond fast.
+        $this->insertRow('openai', true, 150, $now, 1);
+        $this->insertRow('openai', true, 250, $now, 2);
+
+        $scores = $this->repository->scoresSince($now - 900);
+
+        self::assertArrayHasKey('openai', $scores);
+        self::assertSame(2, $scores['openai']->sampleCount, 'The rescued runs are still samples');
+        self::assertSame(0.0, $scores['openai']->successRate, 'A rescued run is a failure of the primary');
+        self::assertNull($scores['openai']->avgLatencyMs, 'No self-served run exists to measure');
+    }
+
+    #[Test]
     public function separatesProvidersIntoDistinctScores(): void
     {
         $now = time();

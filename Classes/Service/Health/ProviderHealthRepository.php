@@ -71,7 +71,11 @@ final readonly class ProviderHealthRepository implements ProviderHealthRepositor
 
             $samples    = is_numeric($row['samples'] ?? null) ? (int)$row['samples'] : 0;
             $successes  = is_numeric($row['successes'] ?? null) ? (int)$row['successes'] : 0;
-            $avgLatency = is_numeric($row['avg_latency'] ?? null) ? (float)$row['avg_latency'] : 0.0;
+            // NULL, not 0.0, when AVG had nothing to average: every run of this
+            // provider in the window was fallback-rescued, so none of them
+            // measures its own latency. Collapsing that to 0.0 would report a
+            // provider that never answered on its own as instantaneous.
+            $avgLatency = is_numeric($row['avg_latency'] ?? null) ? (float)$row['avg_latency'] : null;
 
             $scores[$provider] = ProviderHealthScore::fromSamples($provider, $samples, $successes, $avgLatency);
         }

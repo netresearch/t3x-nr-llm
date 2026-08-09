@@ -214,7 +214,17 @@
                                             <td>{p.score -> f:format.number(decimals: 2)}</td>
                                             <td>{p.sampleCount -> f:format.number(decimals: 0)}</td>
                                             <td>{p.successRate -> f:format.number(decimals: 2)}</td>
-                                            <td>{p.avgLatencyMs -> f:format.number(decimals: 0)} ms</td>
+                                            <f:comment>latencyMeasured, not the value: a measured 0 ms is a statement, and a provider whose every run a fallback rescued has nothing to state</f:comment>
+                                            <f:if condition="{p.latencyMeasured}">
+                                                <f:then>
+                                                    <td>{p.avgLatencyMs -> f:format.number(decimals: 0)} ms</td>
+                                                </f:then>
+                                                <f:else>
+                                                    <td class="text-body-secondary">
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.noLatency" />
+                                                    </td>
+                                                </f:else>
+                                            </f:if>
                                         </f:then>
                                         <f:else>
                                             <td colspan="4" class="text-body-secondary">

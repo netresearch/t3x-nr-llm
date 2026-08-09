@@ -42,8 +42,28 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
         self::assertSame(3, $row['sampleCount']);
         self::assertEqualsWithDelta(2 / 3, $row['successRate'], 0.0001);
         self::assertEqualsWithDelta(200.0, $row['avgLatencyMs'], 0.0001);
+        self::assertTrue($row['latencyMeasured']);
         self::assertNotNull($row['score']);
         self::assertEqualsWithDelta(0.7253, $row['score'], 0.0001);
+    }
+
+    #[Test]
+    public function aProviderRescuedOnEveryRunReportsNoLatencyRatherThanZero(): void
+    {
+        // Present in the window, never self-served: the score (0.20) and the
+        // success rate (0.00) are real statements about the primary's first
+        // attempt, the latency is not a measurement at all.
+        $this->insertRow('openai', true, 150, 1);
+        $this->insertRow('openai', true, 250, 2);
+
+        $row = $this->rowFor($this->report()->readout(), 'openai');
+
+        self::assertSame(2, $row['sampleCount']);
+        self::assertSame(0.0, $row['successRate']);
+        self::assertNull($row['avgLatencyMs'], 'Never answered on its own is not "answered in 0 ms".');
+        self::assertFalse($row['latencyMeasured'], 'The template branches on this, since Fluid cannot test for null.');
+        self::assertNotNull($row['score']);
+        self::assertEqualsWithDelta(0.2, $row['score'], 0.0001);
     }
 
     #[Test]
@@ -59,6 +79,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
         self::assertNull($row['score'], 'No samples means no score — not the neutral 0.5, not 0.0.');
         self::assertNull($row['successRate']);
         self::assertNull($row['avgLatencyMs']);
+        self::assertFalse($row['latencyMeasured']);
     }
 
     #[Test]
@@ -99,6 +120,30 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
             $readout['providers'],
             static fn(array $row): bool => $row['provider'] === 'groq',
         ));
+    }
+
+    #[Test]
+    public function anAdHocCircuitIsNotAProviderRowAndDoesNotColourTheProvidersOwn(): void
+    {
+        // A direct call with a pinned provider records no provider in telemetry
+        // and keys its circuit on the transient identifier, one per operation.
+        // Neither the telemetry window nor the provider records can produce that
+        // key, and the store cannot be enumerated — so the open ad-hoc circuit
+        // is absent here while the openai row reports its OWN (closed) circuit.
+        // Documented as a limitation on providerKeys() and in Analytics.rst;
+        // closing it means giving the transient configuration a provider
+        // identity upstream, which this readout cannot do.
+        $this->importFixture('Providers.csv');
+        $this->store()->save('ad-hoc:chat:openai', new CircuitState(9, time()), 300);
+
+        $readout = $this->report()->readout();
+
+        self::assertSame([], array_filter(
+            $readout['providers'],
+            static fn(array $row): bool => $row['provider'] === 'ad-hoc:chat:openai',
+        ));
+        self::assertSame('closed', $this->rowFor($readout, 'openai')['circuit']);
+        self::assertSame(0, $this->rowFor($readout, 'openai')['consecutiveFailures']);
     }
 
     #[Test]
@@ -179,6 +224,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
      *         score: float|null,
      *         successRate: float|null,
      *         avgLatencyMs: float|null,
+     *         latencyMeasured: bool,
      *         circuit: string,
      *         consecutiveFailures: int
      *     }>
@@ -190,6 +236,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
      *     score: float|null,
      *     successRate: float|null,
      *     avgLatencyMs: float|null,
+     *     latencyMeasured: bool,
      *     circuit: string,
      *     consecutiveFailures: int
      * }
@@ -205,7 +252,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
         self::fail(sprintf('No readout row for provider "%s".', $provider));
     }
 
-    private function insertRow(string $provider, bool $success, int $latencyMs): void
+    private function insertRow(string $provider, bool $success, int $latencyMs, int $fallbackAttempts = 0): void
     {
         $this->getService(ConnectionPool::class)
             ->getConnectionForTable(self::TABLE)
@@ -221,7 +268,7 @@ final class ProviderHealthReportTest extends AbstractFunctionalTestCase
                 'error_class'              => '',
                 'latency_ms'               => $latencyMs,
                 'cache_hit'                => 0,
-                'fallback_attempts'        => 0,
+                'fallback_attempts'        => $fallbackAttempts,
                 'crdate'                   => time(),
             ]);
     }

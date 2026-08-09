@@ -543,6 +543,9 @@
             <trans-unit id="analytics.health.noData">
                 <source>No data in the window — this provider was not called, which is not the same as a score of zero.</source>
             </trans-unit>
+            <trans-unit id="analytics.health.noLatency">
+                <source>not measured — every run in the window was rescued by a fallback, so this provider never answered on its own</source>
+            </trans-unit>
             <trans-unit id="analytics.health.circuit.closed">
                 <source>closed</source>
             </trans-unit>

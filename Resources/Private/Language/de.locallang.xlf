@@ -716,6 +716,10 @@
                 <source>No data in the window — this provider was not called, which is not the same as a score of zero.</source>
                 <target>Keine Daten im Fenster – dieser Provider wurde nicht aufgerufen. Das ist etwas anderes als eine Bewertung von null.</target>
             </trans-unit>
+            <trans-unit id="analytics.health.noLatency">
+                <source>not measured — every run in the window was rescued by a fallback, so this provider never answered on its own</source>
+                <target>nicht gemessen – jeder Lauf im Fenster wurde von einem Fallback aufgefangen, dieser Provider hat also nie selbst geantwortet</target>
+            </trans-unit>
             <trans-unit id="analytics.health.circuit.closed">
                 <source>closed</source>
                 <target>geschlossen</target>

@@ -149,15 +149,27 @@ model and price than the one you selected.
 Provider health and circuits
 ============================
 
-A table lists every provider that is either configured and active or was
-called recently, with its **health score**, the **number of samples** the
-score is based on, the **window** those samples were taken over, and the
-state of its **circuit breaker**.
+A table lists every provider that is either configured and active or named
+by a run in the telemetry window, with its **health score**, the **number
+of samples** the score is based on, the **window** those samples were taken
+over, and the state of its **circuit breaker**.
 
 Health and circuit state are both keyed by **adapter type**, not by
 provider record — two provider records on the same adapter share one score
 and one circuit, because it is the provider that is unhealthy, not the
 record.
+
+..  note::
+    **Direct calls with a pinned provider are not in this table.**
+    :php:`chat()`, :php:`complete()`, :php:`embed()` and their siblings
+    called with a ``provider`` option skip the default configuration
+    entirely and run against a transient one carrying no model. Such a run
+    records no provider in the telemetry log, and its circuit is kept
+    under the call's own identifier (``ad-hoc:chat:openai``, one per
+    operation) rather than under ``openai``. An ``openai`` row here
+    therefore reports the circuit of the configuration-backed calls only;
+    a circuit opened for direct pinned calls is not shown anywhere on this
+    page. Route traffic through a configuration if you need it covered.
 
 ..  list-table::
     :header-rows: 1
@@ -177,7 +189,11 @@ record.
       - Share of runs the provider served **itself**. A run a fallback
         rescued counts as a failure of the requested provider.
     * - Avg latency
-      - Mean end-to-end time of the self-served runs.
+      - Mean end-to-end time of the self-served runs. A provider whose runs
+        in the window were **all** rescued by a fallback has no self-served
+        run to measure: the cell says the latency was not measured instead
+        of showing ``0 ms``. Its score and success rate are real — the
+        first attempt did lose.
     * - Circuit
       - ``closed`` (normal), ``open`` (failing fast for the cooldown) or
         ``half-open`` (cooldown elapsed, one probe due), plus the current
