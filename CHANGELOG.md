@@ -16,6 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
   fail-closed assumption about a body that cannot be inspected, so
   coupling it to approval would suspend every remote call. The remote axis
+<<<<<<< HEAD
   has an operator-declared server-level source instead, below.
 - MCP servers carry an operator-declared `requires_approval` flag
   (ADR-134). When it is set, every tool imported from that server pauses
@@ -27,6 +28,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   writes it on every pre-existing row, and no upgrade wizard switches it
   off again. Switch it off per server once you know what that server's
   tools do.
+=======
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
+>>>>>>> origin/feat/write-effect-implies-approval
 
 ## [0.26.0] - 2026-08-06
 
