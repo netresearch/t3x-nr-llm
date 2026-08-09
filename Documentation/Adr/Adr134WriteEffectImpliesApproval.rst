@@ -43,16 +43,17 @@ Decision
 ========
 
 A tool counts as approval-bound in the loop's approval scan when it implements
-:php:`RequiresApprovalInterface`, **or** it implements
-:php:`ToolEffectInterface`, its ``getEffect()`` is a write, and it is **not** a
-:php:`RemoteToolInterface`.
+:php:`RequiresApprovalInterface`; when it is a remote tool whose operator
+declaration says so; **or** when it implements :php:`ToolEffectInterface`, its
+``getEffect()`` is a write, and it is not remote.
 
 Both write cases qualify. ``isWrite()`` is the predicate, not idempotency —
 whether a repeat compounds governs retry, not whether a human should have seen
 the call in the first place.
 
-The check is an :php:`instanceof` on the tool the scan already fetched. No
-resolver, no new dependency: nothing here needs the registry-wide view
+Every check is an :php:`instanceof` or a getter on the tool the scan already
+fetched. No resolver, no repository, no new dependency on the loop: nothing
+here needs the registry-wide view
 :php:`ToolEffectResolver` exists to provide, and its unknown-tool fallback
 (``NON_IDEMPOTENT_WRITE``) would turn every unregistered name into a suspend
 instead of the refusal the invocation path already gives it.
@@ -62,10 +63,11 @@ suspends. A registered-but-not-offered tool named by a model steered through
 injected prose still falls through to the invocation gate, which refuses it —
 there is no spurious approval prompt for a tool the run never allowed.
 
-Remote tools are exempt
------------------------
+A remote tool's effect is not its consent
+----------------------------------------
 
-The exemption is load-bearing, not a convenience.
+The effect coupling stops at the remote boundary, and that is load-bearing,
+not a convenience.
 
 :php:`McpTool::getEffect()` returns ``NON_IDEMPOTENT_WRITE`` for **every**
 imported tool, a pure search tool included. That value is a fail-closed
@@ -73,11 +75,64 @@ assumption about a body this codebase cannot inspect (:ref:`adr-116`), not the
 tool's statement about itself. Treating it as one would suspend every MCP tool
 on every call and leave the shipped MCP client unusable.
 
-The remote axis needs a source of its own, and it will not be the server: the
+The remote axis therefore has a source of its own, and it is not the server: the
 ``readOnlyHint`` annotation is stored verbatim for display and read by no
 resolver, because a remote server must not be able to influence its own
-authorisation. An operator-declared, server-level column is the shape that
-works, and it is tracked separately from this decision.
+authorisation. It is an operator-declared, server-level column, added below.
+
+The operator declares it, per server
+------------------------------------
+
+``tx_nrllm_mcp_server.requires_approval`` is that column, built like
+``data_class`` beside it (:ref:`adr-094`): the operator declares it, the server
+never does, and there is no code here to derive it from.
+
+It differs from ``data_class`` in having a default, and defaults to
+``1`` — approval required. A data class has no safe guess, so an undeclared
+server is inert instead. A yes/no does have one: a server nobody has judged
+asks first. The reading is fail-closed the whole way down —
+:php:`McpServerRecord::approvalRequired()` treats **only** a literal ``0`` as
+"no approval", so a missing column, a NULL, an empty string or a value from a
+schema this version does not know all come back as "required". The alternative
+would be a byte this code cannot read letting an unattended remote write
+through.
+
+The flag reaches the scan on the tool, not through a lookup.
+:php:`McpToolProvider` already builds every :php:`McpTool` from the very server
+record that carries it, so it is a constructor argument, surfaced by
+:php:`RemoteApprovalInterface::requiresApproval()`. The scan runs once per tool
+call in the loop; giving it a repository would put a query on that path and a
+persistence dependency into a class that must not know MCP exists.
+
+:php:`RemoteApprovalInterface` extends :php:`RemoteToolInterface` deliberately.
+A free-standing "declare your own approval" interface would quietly make a
+write-without-approval **builtin** expressible again, which the last section of
+this ADR says is not to be. Extending the remote marker means a class cannot
+reach for the declaration without also claiming that its behaviour lives
+outside this codebase — the one case in which an operator declaration beats
+reading the code.
+
+Every server requires approval, existing ones included. The default of ``1``
+lands on every pre-existing row when the schema updates, and nothing corrects
+it afterwards: there is no upgrade wizard, and the state after an update is the
+state after a fresh install. The assurance therefore rests on the schema alone,
+which is what :php:`McpServerApprovalDefaultTest` pins by dropping the column,
+writing a row the way the previous version did, and running the add/change
+migration :php:`PackageSetup` runs.
+
+A pinned install was the alternative, in the shape of
+:ref:`adr-113`/:ref:`adr-115`: a wizard that writes an explicit ``0`` on the
+servers already importing tools, so a new default cannot stop an integration
+that runs today. It was written and then removed. MCP here is planned and not
+yet in production use, so the running integrations such a wizard preserves do
+not exist, and what remained was a fail-open path through the very assurance
+this decision introduces — one that, matching on the value rather than its
+origin, could not tell a ``1`` the schema wrote from a ``1`` an operator chose,
+and so would have switched approval off on a server nobody had judged.
+
+Turning the flag off is an operator's decision, taken per server once they know
+what that server's tools do. It is a tick in the record, not something an
+upgrade does on their behalf.
 
 Registration bans the implicit combination too
 ----------------------------------------------
@@ -144,20 +199,30 @@ The combination has no working runtime path, so it now fails at registration
 instead of livelocking at run time — but a genuine case for it has no workaround
 short of the combined pause below.
 
-✕ Remote tools remain outside the coupling. An MCP tool that genuinely writes
-runs without a pause today, exactly as it did before this decision — the gap is
-named rather than closed, and closing it needs the operator-declared server
-column.
+◐ A remote tool pauses when an operator says so, and never because of what its
+effect or its server claims. The judgement an MCP tool cannot supply about
+itself is made once, per server, by the person who connected it.
+
+✕ An update can stop an MCP integration that ran unattended before. Nothing
+pins the old behaviour, so an existing server suspends its runs until an
+operator unticks the box. That is the cost of not having a path that switches
+approval off on rows it cannot tell apart.
+
+✕ It is a per-server switch, not a per-tool one. A server whose catalogue mixes
+a search with a delete is approved on the coarser of the two, and the operator's
+only finer instrument is a second server entry. Per-tool declarations would have
+to be stored against catalogue rows the import rewrites, and nothing reads them
+yet.
 
 .. _adr-134-revisit:
 
 Revisit when
 ============
 
-The operator-declared remote effect column lands. At that point a remote tool
-has a statement about itself that did not come from the server, and the
-exemption here should narrow to "remote **and** undeclared" rather than
-"remote".
+A per-tool remote declaration is actually asked for — the coarseness above is a
+known consequence, not an oversight, and the catalogue table is rewritten on
+every import, so a per-row flag needs a reconciliation rule before it needs a
+column.
 
 Also revisit when a tool genuinely needs both a human's data and a human's
 consent. That needs a combined pause — one suspension that collects the input
