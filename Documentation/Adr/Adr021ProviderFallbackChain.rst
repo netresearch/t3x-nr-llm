@@ -6,7 +6,8 @@
 ADR-021: Provider Fallback Chain
 ==========================================
 
-:Status: Accepted
+:Status: Accepted (the streaming scope limitation is overtaken — see
+         :ref:`adr-021-scope`)
 :Date: 2026-04
 :Authors: Netresearch DTT GmbH
 
@@ -53,6 +54,14 @@ Scope limitations (v1)
   cannot swap providers mid-stream. :php:`streamChatWithConfiguration()`
   calls the primary adapter directly.
 
+  .. note::
+
+     Overtaken. :php:`StreamingDispatcher::openWithFallback()` walks the same
+     chain before the first chunk, so a primary that fails to open is no
+     longer fatal for a streamed call. The sentence that still holds is the
+     narrower one: no swap is possible *after* the first chunk has been
+     yielded, which is why the streaming chain is tried at open time only.
+
 * **Shallow only.** A fallback configuration's own chain is ignored. This
   prevents both cycles (``a -> b -> a``) and exponential blow-up of attempts.
 
@@ -84,6 +93,14 @@ Alternatives considered
   too invasive for a single-feature change. The middleware pattern remains
   on the roadmap as a v1.0 refactor; a fallback chain is the most valuable
   pipeline step users ask for and works fine as a standalone service.
+
+  .. note::
+
+     Lifted. This rejection was scoped to one release ("for this release"),
+     and :ref:`adr-026` built the pipeline it deferred. Fallback runs as a
+     middleware step today. Cite this ADR against a *recursive* chain or a
+     *per-link* retry policy — the two rejections below, which stand
+     unconditionally — not against pipeline work as such.
 
 * **Recursive chain resolution** (fallback's fallback). Rejected as the
   cost (cycle detection, attempt amplification) outweighs the benefit;
