@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
@@ -420,6 +421,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
             new AllowedToolsResolver(new SkillComposer(), $this->registry),
             new ToolDataClassResolver($this->registry),
             new TrustZoneResolver(),
+            new DataClassEnforcementResolver(),
         );
 
         $loop = new ToolLoopService(
