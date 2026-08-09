@@ -191,6 +191,45 @@ final class ConfigurationSnippetResolverTest extends TestCase
     }
 
     /**
+     * A hidden snippet is not composed. The repository cannot make that call —
+     * it ignores enable fields by convention, so `findActiveByTag()` hands out
+     * hidden records and the resolver is the place that drops them.
+     */
+    #[Test]
+    public function aHiddenSnippetIsNotComposed(): void
+    {
+        $hidden = $this->snippet('persona-hidden', 'Hidden', 'You are the hidden persona.');
+        $hidden->setHidden(true);
+
+        $resolver = $this->resolver(['persona' => [$hidden]]);
+
+        self::assertSame(
+            self::SYSTEM_PROMPT,
+            $resolver->appendTo(self::SYSTEM_PROMPT, $this->configuration('persona')),
+        );
+    }
+
+    /**
+     * Hiding one snippet of a tag leaves the others alone — and leaves no
+     * separator behind either.
+     */
+    #[Test]
+    public function aHiddenSnippetDoesNotSuppressItsVisibleSiblings(): void
+    {
+        $hidden = $this->snippet('persona-hidden', 'Hidden', 'You are the hidden persona.');
+        $hidden->setHidden(true);
+
+        $resolver = $this->resolver([
+            'persona' => [$hidden, $this->snippet('persona-nova', 'Nova', 'You are Nova.')],
+        ]);
+
+        self::assertSame(
+            "Nova:\nYou are Nova.",
+            $resolver->appendTo('', $this->configuration('persona')),
+        );
+    }
+
+    /**
      * The configuration normalizes its own tags, so a capitalised or padded
      * selection reaches the repository lowercased and trimmed.
      */

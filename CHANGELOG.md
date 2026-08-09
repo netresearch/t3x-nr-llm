@@ -22,6 +22,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an error. Configurations without tags are unaffected. The `@api`
   surface gains `LlmConfiguration::getSnippetTags()`,
   `setSnippetTags()` and `getSnippetTagList()` (additive).
+  A hidden snippet is not composed: the repository keeps ignoring enable
+  fields (the backend module lists hidden records), so the filter sits in
+  `ConfigurationSnippetResolver`, and `PromptSnippet::isHidden()` is
+  mapped for it. In the tool playground a forced snippet the
+  configuration already selects by tag is no longer added a second time.
+  The composed prompt is passed to `ContextWindowManagerInterface::fit()`
+  by `ToolLoopService` and `ConversationService` (new optional
+  `$effectiveSystemPrompt` argument, defaulting to the previous
+  behaviour), so the ADR-107 budget counts the snippet block that goes on
+  the wire.
 
 ## [0.26.0] - 2026-08-06
 

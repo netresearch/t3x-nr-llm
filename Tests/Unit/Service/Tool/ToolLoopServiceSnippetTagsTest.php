@@ -18,7 +18,10 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -114,12 +117,85 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
     }
 
     /**
+     * A forced snippet the configuration already selects by tag reaches the
+     * prompt once. The resolver dedups by identifier within the tag selection,
+     * but the playground's forced list is a second source it never sees.
+     */
+    #[Test]
+    public function aForcedSnippetTheConfigurationAlreadySelectsIsNotRepeated(): void
+    {
+        $sent = $this->runAndCaptureMessages(
+            $this->configuration('persona'),
+            new RunAugmentation(forcedSnippets: [$this->novaSnippet()]),
+        );
+
+        $prompt = implode("\n", array_map($this->contentOf(...), $sent));
+        self::assertSame(1, substr_count($prompt, 'You are Nova.'));
+    }
+
+    /**
+     * A forced snippet the configuration does NOT select still gets its own
+     * system message — the containment check must not swallow it.
+     */
+    #[Test]
+    public function aForcedSnippetOutsideTheTagSelectionIsStillAdded(): void
+    {
+        $extra = new PromptSnippet();
+        $extra->setIdentifier('layout-list');
+        $extra->setName('List layout');
+        $extra->setSnippet('Answer as a list.');
+
+        $sent = $this->runAndCaptureMessages(
+            $this->configuration('persona'),
+            new RunAugmentation(forcedSnippets: [$extra]),
+        );
+
+        $prompt = implode("\n", array_map($this->contentOf(...), $sent));
+        self::assertStringContainsString("List layout:\nAnswer as a list.", $prompt);
+        self::assertSame(1, substr_count($prompt, 'You are Nova.'));
+    }
+
+    /**
+     * The context-window estimate must budget for the prompt that goes on the
+     * wire. The manager's planner composes the snippets in after this service
+     * hands the transcript over, so the loop passes the composed prompt to
+     * fit() rather than letting it re-read the configuration entity — which
+     * would under-count the wire by the whole snippet block (ADR-107).
+     */
+    #[Test]
+    public function theContextWindowIsToldTheComposedSystemPrompt(): void
+    {
+        $seen = null;
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            static function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs,
+                ?string $effectiveSystemPrompt,
+            ) use (&$seen): ContextFitResult {
+                $seen = $effectiveSystemPrompt;
+
+                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15);
+            },
+        );
+
+        $this->runAndCaptureMessages($this->configuration('persona'), null, null, $contextWindow);
+
+        self::assertSame(self::CONFIG_SYSTEM_PROMPT . "\n\n" . self::SNIPPET_BLOCK, $seen);
+    }
+
+    /**
      * @return list<ChatMessage|array<string, mixed>>
      */
     private function runAndCaptureMessages(
         LlmConfiguration $configuration,
         ?RunAugmentation $augmentation,
         ?ToolOptions $options = null,
+        ?ContextWindowManagerInterface $contextWindow = null,
     ): array {
         $sent = [];
 
@@ -132,7 +208,7 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
             },
         );
 
-        $this->service($manager)->runLoop(
+        $this->service($manager, $contextWindow)->runLoop(
             [ChatMessage::user('translate this')],
             $configuration,
             ToolExecutionContext::none(),
@@ -149,8 +225,10 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
         return $sent;
     }
 
-    private function service(LlmServiceManagerInterface $manager): ToolLoopService
-    {
+    private function service(
+        LlmServiceManagerInterface $manager,
+        ?ContextWindowManagerInterface $contextWindow = null,
+    ): ToolLoopService {
         $registry = new ToolRegistry([new FakeTool('noop')]);
 
         return new ToolLoopService(
@@ -164,16 +242,24 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
                 new TrustZoneResolver(),
             ),
             snippetComposer: new PromptSnippetComposer(),
+            contextWindow: $contextWindow,
             snippetResolver: $this->resolver(),
         );
     }
 
-    private function resolver(): ConfigurationSnippetResolver
+    private function novaSnippet(): PromptSnippet
     {
         $snippet = new PromptSnippet();
         $snippet->setIdentifier('persona-nova');
         $snippet->setName('Nova');
         $snippet->setSnippet('You are Nova.');
+
+        return $snippet;
+    }
+
+    private function resolver(): ConfigurationSnippetResolver
+    {
+        $snippet = $this->novaSnippet();
 
         $repository = self::createStub(PromptSnippetRepository::class);
         $repository->method('findActiveByTag')->willReturnCallback(

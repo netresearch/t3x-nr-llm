@@ -34,8 +34,9 @@ interface ContextWindowManagerInterface
      * it (even the floor overflows).
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
-     * @param list<array<string, mixed>>             $toolSpecs the tool schemas on the wire for THIS send; empty for a plain completion
-     * @param UsageStatistics|null                   $lastUsage the previous call's usage, to calibrate the estimator; null before the first call
+     * @param list<array<string, mixed>>             $toolSpecs             the tool schemas on the wire for THIS send; empty for a plain completion
+     * @param UsageStatistics|null                   $lastUsage             the previous call's usage, to calibrate the estimator; null before the first call
+     * @param string|null                            $effectiveSystemPrompt the system prompt the caller will actually put on the wire when the transcript carries none — the configuration's prompt AFTER per-call overrides and composed snippets (ADR-031). Null means "derive it from the configuration", the pre-composition behaviour.
      */
     public function fit(
         array $messages,
@@ -43,5 +44,6 @@ interface ContextWindowManagerInterface
         ?ChatOptions $options,
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
+        ?string $effectiveSystemPrompt = null,
     ): ContextFitResult;
 }

@@ -100,9 +100,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // the byte caps can be absent (ADR-120's pattern).
         private ToolResultBounder $bounder = new ToolResultBounder(),
         // Composes the configuration's tag-selected snippets (ADR-031) into the
-        // system prompt this service bakes for an augmented run. Must be the
-        // same value the manager's planner composes, or the addition would be
-        // missing in exactly the place that inspects it — the playground.
+        // system prompt this service bakes for an augmented run, and into the
+        // prompt size the context-window estimate budgets for. Must be the same
+        // value the manager's planner composes, or the addition would be missing
+        // in exactly the place that inspects it — the playground — and the
+        // budget would be short by the snippet block on every production run.
         private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {}
 
@@ -412,7 +414,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return $messages;
         }
 
-        $fit = $this->contextWindow->fit($messages, $configuration, $options, $lastUsage, $toolSpecs);
+        $fit = $this->contextWindow->fit(
+            $messages,
+            $configuration,
+            $options,
+            $lastUsage,
+            $toolSpecs,
+            $this->effectiveSystemPrompt($configuration, $options),
+        );
 
         if ($fit->overflowAtFloor) {
             throw ContextTruncatedException::fromFit($fit);
@@ -675,18 +684,28 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // The same composition the manager's planner applies, so the playground
         // shows the prompt a live run sends rather than one without the
         // configuration's snippets.
-        $override = $options?->getSystemPrompt() ?? '';
-        $system   = $override !== '' ? $override : $configuration->getSystemPrompt();
-        $system   = $this->snippetResolver?->appendTo($system, $configuration) ?? $system;
+        $system = $this->effectiveSystemPrompt($configuration, $options);
         if ($system !== '') {
             $lead[] = ChatMessage::system($system);
         }
 
         foreach ($augmentation->forcedSnippets as $snippet) {
             $text = $this->snippetComposer?->composeSections([$snippet->getName() => $snippet]) ?? '';
-            if ($text !== '') {
-                $lead[] = ChatMessage::system($text);
+            if ($text === '') {
+                continue;
             }
+
+            // A forced snippet the configuration already selects by tag is
+            // composed into $system above, by the same stateless composer and
+            // therefore byte-identically. Emitting it again would put the same
+            // instruction in the prompt twice — the resolver's identifier dedup
+            // never sees the forced list, so the containment check is what
+            // spans both sources.
+            if ($system !== '' && str_contains($system, $text)) {
+                continue;
+            }
+
+            $lead[] = ChatMessage::system($text);
         }
 
         if ($lead !== []) {
@@ -694,6 +713,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return [$messages, $augmentation->dryRun];
+    }
+
+    /**
+     * The system prompt this run actually puts on the wire: the per-call
+     * override wins over the configuration's own text, and the configuration's
+     * tag-selected snippets (ADR-031) follow it — the same composition
+     * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::callOptions()}
+     * applies on the manager side.
+     *
+     * Two readers: the playground bake site in {@see self::assemble()} and the
+     * context-window estimate in {@see self::enforceContextWindow()}, which
+     * would otherwise budget for a prompt smaller than the one sent.
+     */
+    private function effectiveSystemPrompt(LlmConfiguration $configuration, ?ToolOptions $options): string
+    {
+        $override = $options?->getSystemPrompt() ?? '';
+        $system   = $override !== '' ? $override : $configuration->getSystemPrompt();
+
+        return $this->snippetResolver?->appendTo($system, $configuration) ?? $system;
     }
 
     private function elapsedMs(int $startNs): float

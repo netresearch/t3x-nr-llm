@@ -113,7 +113,7 @@ leaves the list alone: the configuration's own system prompt would be
 dropped from the run, silently and with no error. The characterisation
 tests added with :ref:`ADR-139 <adr-139>` pin that behaviour.
 
-Three details follow from the code:
+These details follow from the code:
 
 - **Dedup is by snippet identifier.**
   :php:`PromptSnippetRepository::findActiveByTag()` loads all active
@@ -123,7 +123,27 @@ Three details follow from the code:
   referential integrity by design, so a typo degrades to "no snippets".
 - **The tool playground reads the same composed value.** Its bake site
   in :php:`ToolLoopService::assemble()` goes through the same resolver,
-  so a previewed transcript is the transcript a live run sends.
+  so a previewed transcript is the transcript a live run sends. A forced
+  snippet the configuration already selects by tag is composed once, not
+  twice: the resolver's identifier dedup never sees the forced list, so
+  the bake site skips a forced block its composed prompt already
+  contains.
+- **Hiding a snippet takes it out of every configuration.** The
+  repository ignores enable fields on purpose — the backend module lists
+  hidden records — so :php:`ConfigurationSnippetResolver` is where a
+  hidden record is dropped. ``is_active`` remains the operational
+  switch; ``hidden`` is the editorial one, and both now keep a snippet
+  out of a production prompt. This is the one place in the extension
+  where ``hidden`` decides a runtime outcome, because it is the one
+  place where an editor's list-module action would otherwise keep
+  shipping text to a provider.
+- **The composed block counts against the context window.** The prompt
+  is prepended after :php:`ContextWindowManagerInterface::fit()` has
+  run, so both callers (:php:`ToolLoopService` and
+  :php:`ConversationService`) hand the composed prompt to ``fit()``
+  instead of letting it re-read
+  :php:`LlmConfiguration::getSystemPrompt()` — otherwise the budget of
+  :ref:`ADR-107 <adr-107>` is short by exactly the snippet block.
 
 What this does not change: a caller-supplied system *message* still
 suppresses the configuration's system prompt — and with it the snippet

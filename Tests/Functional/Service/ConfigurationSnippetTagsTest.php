@@ -207,6 +207,28 @@ final class ConfigurationSnippetTagsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A hidden snippet stays out, against the real table: the repository
+     * ignores enable fields (its `initializeObject()` is what the backend
+     * module needs), so `findActiveByTag()` returns the `persona-hidden` row
+     * and the resolver has to drop it. This also proves the `hidden` column is
+     * mapped onto the entity at all — without the mapping the filter would
+     * silently read a default-false property.
+     */
+    #[Test]
+    public function aHiddenSnippetIsNotComposed(): void
+    {
+        $this->manager()->chatWithConfiguration(
+            [['role' => 'user', 'content' => 'Describe the product.']],
+            $this->configuration('persona'),
+        );
+
+        $systemMessage = $this->adapter->recordedSystemMessage();
+        self::assertIsString($systemMessage);
+        self::assertStringContainsString('You are Nova, a friendly expert.', $systemMessage);
+        self::assertStringNotContainsString('You are the hidden persona.', $systemMessage);
+    }
+
+    /**
      * The regression guard: a configuration that selects no tags sends the
      * system prompt it always sent.
      */

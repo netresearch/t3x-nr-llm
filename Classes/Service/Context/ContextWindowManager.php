@@ -56,6 +56,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         ?ChatOptions $options,
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
+        ?string $effectiveSystemPrompt = null,
     ): ContextFitResult {
         // A null $lastUsage marks the first send of a run's loop. Reset the
         // per-run calibration state here so a single shared manager instance
@@ -84,7 +85,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         // The system prompt is prepended by MessageShaper AFTER fit() on the
         // public path (ADR-093), so when the transcript has no leading system
         // message its size must still be counted against the wire.
-        $systemPromptTokens = $this->missingSystemPromptTokens($messages, $configuration);
+        $systemPromptTokens = $this->missingSystemPromptTokens($messages, $configuration, $effectiveSystemPrompt);
         $estimate = function (array $msgs) use ($toolSpecs, $systemPromptTokens): int {
             /** @var list<ChatMessage|array<string, mixed>> $msgs the caller always passes the partitioned transcript */
             return $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $systemPromptTokens;
@@ -140,15 +141,24 @@ final class ContextWindowManager implements ContextWindowManagerInterface
     }
 
     /**
+     * The prompt that will be prepended, not the one the entity stores: the
+     * caller composes per-call overrides and the configuration's tag-selected
+     * snippets (ADR-031) into it before the send, so re-deriving it from the
+     * entity here would under-count the wire by exactly that block. Callers
+     * that have nothing to compose pass null and get the entity's prompt.
+     *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function missingSystemPromptTokens(array $messages, LlmConfiguration $configuration): int
-    {
+    private function missingSystemPromptTokens(
+        array $messages,
+        LlmConfiguration $configuration,
+        ?string $effectiveSystemPrompt,
+    ): int {
         if (isset($messages[0]) && $this->roleOf($messages[0]) === 'system') {
             return 0;
         }
 
-        $systemPrompt = $configuration->getSystemPrompt();
+        $systemPrompt = $effectiveSystemPrompt ?? $configuration->getSystemPrompt();
         if ($systemPrompt === '') {
             return 0;
         }

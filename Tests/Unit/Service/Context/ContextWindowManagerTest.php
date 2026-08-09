@@ -134,6 +134,58 @@ final class ContextWindowManagerTest extends TestCase
         self::assertGreaterThan($first->estimatedTokens, $second->estimatedTokens);
     }
 
+    /**
+     * A transcript without a leading system message is counted together with
+     * the prompt that will be prepended to it. The caller passes the prompt it
+     * will actually send — the configuration's own text plus its composed
+     * snippets (ADR-031) — and that whole size has to land in the estimate,
+     * not just the entity's field.
+     */
+    #[Test]
+    public function theEffectiveSystemPromptIsCountedInsteadOfTheConfigurationField(): void
+    {
+        $messages = [ChatMessage::user('go')];
+        $config   = $this->config(128000);
+        $config->setSystemPrompt('short prompt');
+
+        $withEntityPrompt    = (new ContextWindowManager())->fit($messages, $config, null, null);
+        $withComposedPrompt  = (new ContextWindowManager())->fit(
+            $messages,
+            $config,
+            null,
+            null,
+            [],
+            'short prompt' . "\n\n" . str_repeat('snippet text ', 400),
+        );
+
+        self::assertGreaterThan($withEntityPrompt->estimatedTokens, $withComposedPrompt->estimatedTokens);
+    }
+
+    /**
+     * The composed prompt only counts when the transcript does not already
+     * carry a system message — then it is already in the estimate and adding
+     * it again would over-prune.
+     */
+    #[Test]
+    public function anEffectiveSystemPromptIsIgnoredWhenTheTranscriptLeadsWithASystemMessage(): void
+    {
+        $messages = [ChatMessage::system('sys'), ChatMessage::user('go')];
+        $config   = $this->config(128000);
+        $config->setSystemPrompt('short prompt');
+
+        $without = (new ContextWindowManager())->fit($messages, $config, null, null);
+        $with    = (new ContextWindowManager())->fit(
+            $messages,
+            $config,
+            null,
+            null,
+            [],
+            str_repeat('snippet text ', 400),
+        );
+
+        self::assertSame($without->estimatedTokens, $with->estimatedTokens);
+    }
+
     #[Test]
     public function nonPositiveBudgetDefersTheWholeTranscriptToTheProvider(): void
     {

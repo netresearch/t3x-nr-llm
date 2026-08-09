@@ -64,6 +64,14 @@ final readonly class ConfigurationSnippetResolver
      * active snippets, so the same record comes back from every matching tag.
      * The dedup key is the snippet identifier, falling back to the uid for
      * records that carry none.
+     *
+     * Hidden records are dropped here rather than in the repository: every
+     * repository in this extension ignores enable fields on purpose (the
+     * backend modules list hidden records, and `is_active` is the runtime
+     * switch), so the query must keep returning them. Editorial and operational
+     * roles are separate, though — an editor who hides a snippet in the list
+     * module must not keep shipping it into every production prompt — so the
+     * one reader that turns snippets into prompt text filters them out.
      */
     private function compose(LlmConfiguration $configuration): string
     {
@@ -72,6 +80,10 @@ final readonly class ConfigurationSnippetResolver
 
         foreach ($configuration->getSnippetTagList() as $tag) {
             foreach ($this->promptSnippetRepository->findActiveByTag($tag) as $snippet) {
+                if ($snippet->isHidden()) {
+                    continue;
+                }
+
                 $key = $this->dedupKey($snippet);
                 if (isset($seen[$key])) {
                     continue;

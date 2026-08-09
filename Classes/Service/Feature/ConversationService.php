@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -58,6 +59,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         // absent it a conversation grows unbounded exactly as before.
         private ?ContextWindowManagerInterface $contextWindow = null,
         private ?LoggerInterface $logger = null,
+        // Only reader: the effective system prompt handed to the context
+        // window below. The manager composes the configuration's tag-selected
+        // snippets (ADR-031) into the prompt it sends, so the estimate has to
+        // know about them or it budgets for a smaller message than it sends.
+        private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {}
 
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession
@@ -124,7 +130,18 @@ final readonly class ConversationService implements ConversationServiceInterface
             // lastUsage is null: each turn is a fresh assembly, so the
             // manager's calibration starts from its seed rather than carrying a
             // ratio over from an unrelated turn.
-            $fit          = $this->contextWindow->fit($messages, $configuration, $options, null, []);
+            // The effective system prompt only matters when this turn carries
+            // no system message of its own; then the manager prepends the
+            // configuration's prompt WITH its composed snippets, and that is
+            // what has to be counted.
+            $fit = $this->contextWindow->fit(
+                $messages,
+                $configuration,
+                $options,
+                null,
+                [],
+                $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
+            );
             $messages     = $fit->messages;
             $droppedTurns = $fit->droppedTurns;
 

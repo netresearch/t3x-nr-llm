@@ -156,5 +156,13 @@ snippet as a ``LABEL:`` block followed by the
 snippet text, joined by blank lines. Null entries
 and empty snippets are skipped.
 
+:php:`findActiveByTag()` filters on ``is_active``
+only — like every repository here it ignores the
+enable fields, so **hidden** records are part of
+its result. Configurations drop them when they
+compose their prompt; an extension that queries
+directly has to skip :php:`isHidden()` snippets
+itself if it wants the same behaviour.
+
 See :ref:`ADR-031 <adr-031>` for the design
 rationale.
