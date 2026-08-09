@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -35,28 +36,42 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Where it differs, it differs because `sys_file_metadata` is not `pages`:
  *
  * - **The permission axis is FAL, not the page tree.** Access is decided by
- *   {@see FalStorageGate::isFileAccessible()} against the EXPLICIT acting user
- *   (ADR-083): the configured storage allow-list, intersected for non-admins
- *   with their file mounts. That allow-list is nr_llm's own barrier — the
- *   DataHandler has never heard of it, so the gate has to run BEFORE the write,
- *   not instead of it. Core's `FileMetadataPermissionsAspect` then enforces its
- *   own rule on top (a WRITABLE file mount, `editMeta`), which is strictly the
- *   narrower question: a read-only mount passes this tool's gate and is refused
- *   by the DataHandler.
+ *   {@see FalStorageGate::isFileAccessible()}: the configured storage
+ *   allow-list, intersected for non-admins with their file mounts. That
+ *   allow-list is nr_llm's own barrier — the DataHandler has never heard of it,
+ *   so the gate has to run BEFORE the write, not instead of it. Core's
+ *   `FileMetadataPermissionsAspect` then enforces its own rule on top (a
+ *   WRITABLE file mount, `editMeta`), which is strictly the narrower question:
+ *   a read-only mount passes this tool's gate and is refused by the DataHandler.
+ *
+ *   The two halves of that gate do NOT ask about the same user, and this tool is
+ *   the first caller for which the difference is reachable. The storage
+ *   allow-list is intersected with the EXPLICIT acting user's storages
+ *   (`BackendUserAuthentication::getFileStorages()`, ADR-083). The file-mount
+ *   boundary is not: `isFileAccessible()` asserts on a request-shared
+ *   `ResourceStorage`, and core's `StoragePermissionsAspect` attached that
+ *   object's mounts and permissions once, from `$GLOBALS['BE_USER']`. Wherever
+ *   ambient user and acting user coincide — a run its own owner approves — the
+ *   distinction is invisible; on an approval by someone else it is not. The
+ *   defect sits in {@see FalStorageGate}, which three READ tools already share,
+ *   so it is tracked as issue #672 rather than patched from here.
  * - **It never creates a metadata record.** A `sys_file` without a
  *   `sys_file_metadata` row is refused. Creating one would make a tool named
  *   "set the alternative text" also an indexer, and a record it invented is a
  *   record nobody reviewed.
  * - **It works on the DEFAULT language only** (`sys_language_uid = 0`), takes no
  *   language argument and refuses when the default-language record is absent.
- *   Rationale in ADR-135, "The second writer and the language question": the
- *   read tool a model uses to see the current value
- *   ({@see ReadFalAssetMetaTool}) pins the same language, so writer and reader
- *   address the same row; a model-chosen language argument would let a call
- *   land on a translation nothing reads back. A translated alt text stays a job
- *   for the backend. `checkLanguageAccess(0)` is still asserted, because a
- *   backend user may be restricted to languages that do not include the default
- *   one.
+ *   Rationale in ADR-135, "The second writer and the language question": every
+ *   FAL read path pins the same language ({@see ReadFalAssetMetaTool},
+ *   {@see SearchFalFilesTool}) and so does {@see self::previewCall()}, so the
+ *   value an approver reads is the row this tool writes; a model-chosen
+ *   language argument would let a call land on a translation nothing reads
+ *   back. For a NON-ADMIN — this tool's stated audience — the approval card is
+ *   the only channel for the current value: `read_fal_asset_meta` is admin-only
+ *   and sits in the `structure` group, so an editor never gets to call it. A
+ *   translated alt text stays a job for the backend. `checkLanguageAccess(0)`
+ *   is still asserted, because a backend user may be restricted to languages
+ *   that do not include the default one.
  *
  * Every refusal that concerns the FILE uses one neutral string, the same one
  * {@see ReadFalAssetMetaTool} answers with: a uid in a forbidden storage, a uid
@@ -76,8 +91,15 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * report a write that did not happen.
  *
  * Deliberately NOT checked here: `tables_modify` for `sys_file_metadata`. Core's
- * aspect overrides that list for this table and decides on file write access
- * instead, so asserting it would refuse editors the backend itself allows.
+ * `FileMetadataPermissionsAspect` does NOT override that list — its
+ * `checkModifyAccessList()` hook only ever sets access to FALSE in the datamap
+ * branch, never to true, so the DataHandler's own `tables_modify` test decides
+ * first and the aspect can merely narrow it further. The check is left out
+ * because the DataHandler already makes it and refuses the write, not because
+ * making it would be wrong. The price is one refusal text: an editor without the
+ * grant hears "The update was refused by TYPO3: …" instead of the neutral
+ * string. That reveals nothing about the FILE — every file gate has passed by
+ * then — only something about the caller's own rights.
  *
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — setting one scalar field to a
  * given value converges on repeat. Because the effect is a write, every call is
@@ -110,6 +132,9 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
 
     /** The only language this tool addresses; see the class docblock. */
     private const DEFAULT_LANGUAGE = 0;
+
+    /** The only workspace this tool addresses; see {@see self::fetchMetadata()}. */
+    private const LIVE_WORKSPACE = 0;
 
     /**
      * Upper bound for the value. The DB column is `text` and the TCA declares no
@@ -425,18 +450,38 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     }
 
     /**
-     * The DEFAULT-language metadata row of a file, or null when it has none.
+     * The LIVE, DEFAULT-language metadata row of a file, or null when it has
+     * none.
      *
-     * `sys_file_metadata` is language-aware and `removeAll()` drops the language
-     * restriction, so the language is pinned explicitly — otherwise an arbitrary
-     * translation could be picked up and written instead of the original.
+     * A file is looked up by `file`, not by uid, so more than one row can match
+     * and every pin below decides WHICH row this tool writes:
+     *
+     * - the LANGUAGE, because `sys_file_metadata` is language-aware and
+     *   `removeAll()` drops the language restriction — an arbitrary translation
+     *   could otherwise be picked up and written instead of the original;
+     * - the WORKSPACE, because the table is workspace-aware
+     *   (`ctrl.versioningWS`) and a draft version carries the same `file` and
+     *   the same `sys_language_uid = 0` as the live row it versions. Without the
+     *   restriction the tool could write a stranger's unpublished draft from the
+     *   live workspace, leave the live value untouched and still report success:
+     *   {@see self::valueTook()} re-reads by the uid it wrote, so it confirms the
+     *   wrong row rather than catching it;
+     * - the ORDER, because two candidate rows and no `ORDER BY` leave the choice
+     *   to the database.
+     *
+     * Core's own {@see \TYPO3\CMS\Core\Resource\Index\MetaDataRepository::findByFileUid()}
+     * pins the same three for the same query.
      *
      * @return array<string, mixed>|null
      */
     private function fetchMetadata(int $fileUid): ?array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
+        // Live only. The tool refuses outside the live workspace anyway, and the
+        // preview must resolve the same row the write would target.
+        $queryBuilder->getRestrictions()
+            ->removeAll()
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
 
         $row = $queryBuilder
             ->select('uid', self::FIELD)
@@ -448,6 +493,8 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
                     $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT),
                 ),
             )
+            ->orderBy('uid', 'ASC')
+            ->setMaxResults(1)
             ->executeQuery()
             ->fetchAssociative();
 

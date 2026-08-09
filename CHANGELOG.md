@@ -16,16 +16,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ships **disabled**, declares `IDEMPOTENT_WRITE`, so every call suspends for a
   human decision (ADR-134), live workspace only, no approval marker of its own,
   and a before/after on the approval card (ADR-136). Access is decided BEFORE
-  the write by `FalStorageGate::isFileAccessible()` against the acting user —
-  the configured storage allow-list intersected with the user's file mounts, a
-  barrier the `DataHandler` knows nothing about; core's own file-metadata
-  permission check (a WRITABLE mount, plus `tables_modify`) then applies on top,
-  so a read-only mount is refused there. It **never creates** a metadata record:
-  a file that carries none is refused, in the same neutral words as a file in a
-  forbidden storage, a file outside the user's mounts and a uid no file carries
-  — so a refusal cannot be used to probe `sys_file` for existence. It writes the
-  **default-language** record only and takes no language argument, so writer and
-  reader (`read_fal_asset_meta`) address the same row; the reasoning is in the
+  the write by `FalStorageGate::isFileAccessible()` — the configured storage
+  allow-list intersected with the user's file mounts, a barrier the `DataHandler`
+  knows nothing about; core's own file-metadata permission check (a WRITABLE
+  mount, plus `tables_modify`) then applies on top, so a read-only mount is
+  refused there. Only the allow-list half of that gate asks about the explicit
+  acting user; the file-mount half asks about the ambient backend user, because
+  core attaches mounts to a request-shared storage object. That is pre-existing
+  behaviour of `FalStorageGate`, shared with three read tools, and is tracked as
+  issue #672. It **never creates** a metadata record: a file that carries none is
+  refused, in the same neutral words as a file in a forbidden storage, a file
+  outside the user's mounts and a uid no file carries — so a refusal cannot be
+  used to probe `sys_file` for existence. It writes the **live**,
+  **default-language** record only and takes no language argument: the metadata
+  row is looked up by `file` rather than by uid, so the workspace, the language
+  and the order are all pinned — otherwise a draft version of the same record
+  could be written instead of the live one — exactly as core's
+  `MetaDataRepository::findByFileUid()` pins them. The reasoning is in the
   ADR-135 amendment. An empty string is accepted and is the correct value for a
   decorative image. Success is verified by re-reading the record, as with the
   first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two
@@ -108,7 +115,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrong digest, so any third-party caller that constructs the decision itself
   must supply the digest of the turn it displayed or every approval will fail
   with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
-  is gone; the computation lives in the new `PendingTurnDigest` service.
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
 - **An approver may only release a write they could run themselves** (ADR-133).
   A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
   but the approver was never checked against the tool they were releasing:
@@ -138,6 +154,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fail-closed assumption about a body that cannot be inspected, so
   coupling it to approval would suspend every remote call. The remote axis
   gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 
 ## [0.26.0] - 2026-08-06
 

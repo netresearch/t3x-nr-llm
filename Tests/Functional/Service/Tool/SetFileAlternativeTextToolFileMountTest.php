@@ -72,6 +72,12 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
 
     private const METADATA_OUTSIDE_MOUNT = 101;
 
+    /**
+     * A draft-workspace version of {@see self::METADATA_IN_MOUNT}, deliberately
+     * with the LOWER uid — an `ORDER BY uid ASC` alone would pick it.
+     */
+    private const METADATA_DRAFT_IN_MOUNT = 99;
+
     private const NEUTRAL_DENIAL = 'Asset not found or not permitted.';
 
     private ConnectionPool $connectionPool;
@@ -174,6 +180,36 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
         self::assertFalse($result->isError, $result->content);
         self::assertStringContainsString('(empty)', $result->content);
         self::assertSame('', $this->storedAlternative(self::METADATA_IN_MOUNT));
+    }
+
+    /**
+     * A file is looked up by `file`, not by uid, so a workspace version of the
+     * metadata record is a SECOND row with the same `file` and the same
+     * `sys_language_uid = 0`. The tool must write the LIVE one.
+     *
+     * Unpinned, the write can land on a stranger's unpublished draft, leave the
+     * live value untouched and still report success — the read-back re-reads the
+     * uid it wrote, so it confirms the wrong row instead of catching it. The
+     * draft here carries the LOWER uid on purpose: an ordered-but-unrestricted
+     * query would pick it.
+     */
+    #[Test]
+    public function aWorkspaceVersionOfTheMetadataRecordIsNeverTheRowThatIsWritten(): void
+    {
+        $this->indexWorkspaceVersionOf(self::METADATA_DRAFT_IN_MOUNT, self::METADATA_IN_MOUNT, self::FILE_IN_MOUNT, 'Draft alt');
+        $editor  = $this->loginEditorInBackendRequest();
+        $context = ToolExecutionContext::fromBackendUser($editor);
+
+        // The approval card describes the row the write will target, not the draft.
+        $lines = $this->tool->previewCall(['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'], $context);
+        self::assertSame('alternative: "Old alt" → "A photo of the manual"', $lines[1]);
+
+        $result = $this->tool->execute(['uid' => self::FILE_IN_MOUNT, 'alternative' => 'A photo of the manual'], $context);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('A photo of the manual', $this->storedAlternative(self::METADATA_IN_MOUNT));
+        // The unpublished draft is untouched: this tool never edits a workspace.
+        self::assertSame('Draft alt', $this->storedAlternative(self::METADATA_DRAFT_IN_MOUNT));
     }
 
     /**
@@ -475,6 +511,25 @@ final class SetFileAlternativeTextToolFileMountTest extends AbstractFunctionalTe
             'sys_language_uid' => 0,
             'alternative'      => $alternative,
             'title'            => 'Stored title',
+        ]);
+    }
+
+    /**
+     * A draft-workspace version of an existing metadata record, as the
+     * DataHandler creates one when an editor saves file metadata in a workspace:
+     * same `file`, same `sys_language_uid`, pointing back at the live row.
+     */
+    private function indexWorkspaceVersionOf(int $uid, int $liveUid, int $fileUid, string $alternative): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_metadata')->insert('sys_file_metadata', [
+            'uid'              => $uid,
+            'pid'              => 0,
+            'file'             => $fileUid,
+            'sys_language_uid' => 0,
+            'alternative'      => $alternative,
+            'title'            => 'Draft title',
+            't3ver_wsid'       => 1,
+            't3ver_oid'        => $liveUid,
         ]);
     }
 

@@ -51,6 +51,19 @@ exactly the row the next claim succeeds on. The pre-claim read would be the
 previous turn, so the digest check, the write classification and the execution
 all read the freshly claimed row.
 
+**The state is nevertheless decoded twice, and the two decodes answer different
+questions.** The pre-claim decode asks "was this row readable when we found
+it" and refuses without claiming — a row corrupted outside the extension stays
+``WAITING_FOR_APPROVAL`` with its blob intact, so an operator can inspect and
+repair it. The post-claim decode asks "is the row we actually won readable" and
+must *settle* the run on a no, because the claim is already held and an
+unreadable state cannot be written back. Both are needed. Dropping the pre-claim
+one would make the ordinary corrupt-row case terminal on the first Approve
+click, and the guarded terminal settle clears ``suspended_state`` — destroying
+the evidence along with the run, the outcome
+:php:`AgentRunExecutor` already names as the one to avoid. Dropping the
+post-claim one would let the race resume a turn nobody verified.
+
 **Two gates between the claim and the execution.**
 
 1. The decision must name the turn it was made on. A ``null`` digest and a
@@ -108,4 +121,9 @@ Consequences
   today, so no client code consumes it yet; the value is there for the first
   one that does.
 - The controller-side stale check in :php:`AgentRunController` is gone. One
-  definition of the invariant, in the one place that holds the claim.
+  definition of the invariant, in the one place that holds the claim. Its
+  unreadable-state pre-filter is gone with it, but the operator sees the same
+  ``runs.unreadable`` flash: the coordinator's pre-claim decode throws
+  :php:`CorruptSuspendedStateException`, which that action already maps. The Tool
+  Playground, which never had such a pre-filter, gains the guard for the first
+  time.
