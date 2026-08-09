@@ -14,11 +14,17 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\ModelSelectionService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use ReflectionClass;
+use TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationExtensionNotConfiguredException;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 
@@ -207,7 +213,7 @@ final class ModelSelectionServiceTest extends TestCase
         $config = $this->createConfiguration(LlmConfiguration::SELECTION_MODE_FIXED);
         $config->setLlmModel($model);
 
-        $result = $this->subject->resolveModel($config);
+        $result = $this->subject->resolveModel($config, null);
 
         self::assertSame($model, $result);
     }
@@ -225,7 +231,7 @@ final class ModelSelectionServiceTest extends TestCase
         $config = $this->createConfiguration(LlmConfiguration::SELECTION_MODE_CRITERIA);
         $config->setModelSelectionCriteriaArray(['capabilities' => ['vision']]);
 
-        $result = $this->subject->resolveModel($config);
+        $result = $this->subject->resolveModel($config, null);
 
         self::assertSame($model2, $result);
     }
@@ -526,7 +532,7 @@ final class ModelSelectionServiceTest extends TestCase
             'capabilities' => ['chat'],
         ]);
 
-        $result = $this->subject->resolveModel($configuration);
+        $result = $this->subject->resolveModel($configuration, null);
 
         self::assertSame($model, $result);
     }
@@ -561,5 +567,287 @@ final class ModelSelectionServiceTest extends TestCase
         self::assertArrayHasKey(LlmConfiguration::SELECTION_MODE_CRITERIA, $modes);
         self::assertSame('Fixed Model', $modes[LlmConfiguration::SELECTION_MODE_FIXED]);
         self::assertSame('Dynamic (Criteria)', $modes[LlmConfiguration::SELECTION_MODE_CRITERIA]);
+    }
+
+    // ==================== operation capability (ADR-138) ====================
+
+    /**
+     * A subject wired to a specific enforcement setting.
+     *
+     * `$mode` is what the extension configuration returns for
+     * `routing.operationCapabilityEnforcement`; null omits the key entirely.
+     */
+    private function subjectWithEnforcement(?string $mode, ?LoggerInterface $logger = null): ModelSelectionService
+    {
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(
+            $mode === null ? [] : ['routing' => ['operationCapabilityEnforcement' => $mode]],
+        );
+
+        return new ModelSelectionService($this->modelRepository, $extensionConfiguration, $logger);
+    }
+
+    private function criteriaConfiguration(): LlmConfiguration
+    {
+        $config = $this->createConfiguration(LlmConfiguration::SELECTION_MODE_CRITERIA);
+        $config->setIdentifier('criteria-config');
+
+        return $config;
+    }
+
+    #[Test]
+    public function criteriaModeRefusesAModelThatCannotDoTheRunningOperation(): void
+    {
+        // The reported defect: criteria that never mention tools happily
+        // resolved a chat-only model, and the failure surfaced as a provider
+        // error mid-call.
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        $this->expectException(UnsupportedFeatureException::class);
+        $this->expectExceptionMessage('criteria-config');
+
+        $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Tools);
+    }
+
+    #[Test]
+    public function criteriaModePrefersTheModelThatCanDoTheRunningOperation(): void
+    {
+        // Both satisfy the stored criteria; only one can do tools. Without the
+        // operation the chat-only model wins on sorting order.
+        $chatOnly  = $this->createModel(1, 'chat', 'openai', 8000, 100, 200, 50, true, 1);
+        $withTools = $this->createModel(2, 'chat,tools', 'openai', 8000, 100, 200, 50, false, 2);
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly, $withTools]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        $subject = $this->subjectWithEnforcement('enforce');
+
+        self::assertSame($chatOnly, $subject->resolveModel($config, ProviderOperation::Chat));
+        self::assertSame($withTools, $subject->resolveModel($config, ProviderOperation::Tools));
+    }
+
+    #[Test]
+    public function theOperationCapabilityDoesNotOverwriteTheStoredCriteria(): void
+    {
+        // The stored criteria must survive the merge intact — a wide-context
+        // Anthropic model is still required, the operation only adds to that.
+        $wrongAdapter = $this->createModel(1, 'chat,tools', 'openai', 200000);
+        $tooSmall     = $this->createModel(2, 'chat,tools', 'anthropic', 4000);
+        $wanted       = $this->createModel(3, 'chat,tools', 'anthropic', 200000);
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$wrongAdapter, $tooSmall, $wanted]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray([
+            'capabilities'     => ['chat'],
+            'adapterTypes'     => ['anthropic'],
+            'minContextLength' => 100000,
+        ]);
+
+        self::assertSame(
+            $wanted,
+            $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Tools),
+        );
+    }
+
+    #[Test]
+    public function nullOperationLeavesTheSelectionUntouched(): void
+    {
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        self::assertSame(
+            $chatOnly,
+            $this->subjectWithEnforcement('enforce')->resolveModel($config, null),
+        );
+    }
+
+    #[Test]
+    public function anOperationThatRequiresNoCapabilityLeavesTheSelectionUntouched(): void
+    {
+        // Completion is deliberately unmapped (no discoverer writes the
+        // capability), so a chat-only model stays eligible.
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        self::assertSame(
+            $chatOnly,
+            $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Completion),
+        );
+    }
+
+    #[Test]
+    public function fixedModeIsNotConstrainedByTheOperation(): void
+    {
+        // The operator named this model. Nothing is being chosen, so there is
+        // nothing to constrain — it still fails at the adapter, as before.
+        $chatOnly = $this->createModel(1, 'chat');
+        $config   = $this->createConfiguration(LlmConfiguration::SELECTION_MODE_FIXED);
+        $config->setLlmModel($chatOnly);
+
+        self::assertSame(
+            $chatOnly,
+            $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Tools),
+        );
+    }
+
+    #[Test]
+    public function criteriaMatchingNothingAtAllStillReturnsNull(): void
+    {
+        // Pre-existing "has no model assigned" condition: the criteria match
+        // nothing, with or without the operation. That must stay a null return
+        // rather than become an UnsupportedFeatureException.
+        $chatOnly = $this->createModel(1, 'chat', 'openai');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['adapterTypes' => ['anthropic']]);
+
+        self::assertNull(
+            $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Tools),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{?string}>
+     */
+    public static function enforcementSettingProvider(): iterable
+    {
+        yield 'enforce'        => ['enforce'];
+        yield 'observe'        => ['observe'];
+        yield 'missing key'    => [null];
+        yield 'typo enforces'  => ['observ'];
+    }
+
+    #[Test]
+    #[DataProvider('enforcementSettingProvider')]
+    public function anEmptyCapabilityCsvIsUndeclaredAndSkipsTheCheck(?string $enforcement): void
+    {
+        // The decision that keeps this shippable: an empty capability field is
+        // an absent statement, not "cannot". Refusing every model that never
+        // filled the optional field would break working installations, so the
+        // check is skipped in BOTH switch positions.
+        $undeclared = $this->createModel(1, '');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$undeclared]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray([]);
+
+        self::assertSame(
+            $undeclared,
+            $this->subjectWithEnforcement($enforcement)->resolveModel($config, ProviderOperation::Tools),
+        );
+    }
+
+    #[Test]
+    public function observeModeKeepsTheModelAndReportsTheMismatch(): void
+    {
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('warning');
+
+        self::assertSame(
+            $chatOnly,
+            $this->subjectWithEnforcement('observe', $logger)->resolveModel($config, ProviderOperation::Tools),
+        );
+    }
+
+    #[Test]
+    public function observeModeIsSilentForAnUndeclaredModel(): void
+    {
+        // An empty capability set is not a mismatch, it is an absent statement.
+        // Reporting it on every call would bury the real findings.
+        $undeclared = $this->createModel(1, '');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$undeclared]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray([]);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::never())->method('warning');
+
+        $this->subjectWithEnforcement('observe', $logger)->resolveModel($config, ProviderOperation::Tools);
+    }
+
+    #[Test]
+    public function anUnreadableExtensionConfigurationEnforces(): void
+    {
+        // Fail-closed like the tool gate (ADR-113): a broken setting must not
+        // silently disable the axis.
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willThrowException(new ExtensionConfigurationExtensionNotConfiguredException());
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        $this->expectException(UnsupportedFeatureException::class);
+
+        (new ModelSelectionService($this->modelRepository, $extensionConfiguration))
+            ->resolveModel($config, ProviderOperation::Tools);
+    }
+
+    #[Test]
+    public function noExtensionConfigurationAtAllEnforces(): void
+    {
+        $chatOnly = $this->createModel(1, 'chat');
+
+        $this->modelRepository
+            ->method('findActive')
+            ->willReturn($this->createQueryResult([$chatOnly]));
+
+        $config = $this->criteriaConfiguration();
+        $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
+
+        $this->expectException(UnsupportedFeatureException::class);
+
+        $this->subject->resolveModel($config, ProviderOperation::Tools);
     }
 }

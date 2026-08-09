@@ -125,6 +125,13 @@ telemetry.enabled = 1
 tools.dataClassEnforcement = enforce
 
 # =============================================================================
+# Model routing (ADR-138)
+# =============================================================================
+
+# cat=routing; type=options[Enforce=enforce,Observe (log only)=observe]; label=Operation capability enforcement: Whether a criteria-mode configuration may resolve a model that does not declare the capability the running operation needs (chat, vision, tool calling). "Enforce" removes such models from the candidate set and reports a misconfiguration when nothing is left. "Observe" leaves the selection untouched and only logs the mismatch. The read is fail-closed, so a missing or mistyped value also enforces. A model whose capability field is EMPTY is treated as undeclared and always passes — the field is optional and refusing every model that never filled it would break working installations. Fixed-mode configurations are unaffected: the operator named the model there, so nothing is being chosen.
+routing.operationCapabilityEnforcement = enforce
+
+# =============================================================================
 # Privacy & data retention (ADR-064)
 # =============================================================================
 

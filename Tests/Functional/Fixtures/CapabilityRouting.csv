@@ -1,0 +1,16 @@
+"tx_nrllm_provider"
+,"uid","pid","identifier","name","description","adapter_type","endpoint_url","api_key","organization_id","api_timeout","max_retries","options","priority","is_active","sorting","deleted","hidden"
+,101,0,"routing-ollama","Routing Ollama","Provider with a mixed model corpus","ollama","http://ollama:11434","","",30,3,"",50,1,1,0,0
+,102,0,"routing-openai","Routing OpenAI","Provider whose only model declares chat","openai","https://api.openai.com/v1","","",30,3,"",50,1,2,0,0
+,103,0,"routing-legacy","Routing Legacy","Provider whose model never filled the capability field","groq","http://ollama:11434","","",30,3,"",50,1,3,0,0
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
+,101,0,"routing-chat-only","Routing Chat Only","Sorted first, cannot do tools",101,"routing-chat-only",32000,4096,"chat",120,0,0,1,0,1,0,0
+,102,0,"routing-with-tools","Routing With Tools","Sorted second, can do tools",101,"routing-with-tools",32000,4096,"chat,tools",120,0,0,1,0,2,0,0
+,103,0,"routing-openai-chat","Routing OpenAI Chat","The only model of the openai routing provider",102,"routing-openai-chat",32000,4096,"chat",120,0,0,1,0,3,0,0
+,104,0,"routing-undeclared","Routing Undeclared","Capability field never filled",103,"routing-undeclared",32000,4096,"",120,0,0,1,0,4,0,0
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","description","model_uid","model_selection_mode","model_selection_criteria","translator","system_prompt","temperature","max_tokens","top_p","frequency_penalty","presence_penalty","options","max_requests_per_day","max_tokens_per_day","max_cost_per_day","is_active","is_default","allowed_groups","tstamp","crdate","deleted","hidden","sorting"
+,101,0,"routing-mixed","Routing Mixed","Criteria match a chat-only and a tool-capable model",0,"criteria","{""adapterTypes"":[""ollama""],""capabilities"":[""chat""]}","","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,0,1703347200,1703347200,0,0,1
+,102,0,"routing-no-tools","Routing No Tools","Criteria match only a model that declares it cannot do tools",0,"criteria","{""adapterTypes"":[""openai""]}","","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,0,1703347200,1703347200,0,0,2
+,103,0,"routing-undeclared","Routing Undeclared","Criteria match only a model whose capability field is empty",0,"criteria","{""adapterTypes"":[""groq""]}","","",0.70,1000,1.00,0.00,0.00,"{}",0,0,0.00,1,0,0,1703347200,1703347200,0,0,3

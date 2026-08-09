@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 
 /**
@@ -40,16 +41,26 @@ final readonly class ConfigurationCallPlanner
     /**
      * The adapter a configuration-driven call runs against — the single
      * adapter choke point (ADR-066).
+     *
+     * `$operation` is threaded through to the resolution so that two adapter
+     * lookups for the same call cannot land on different models (ADR-138).
      */
-    public function adapterFor(LlmConfiguration $configuration): ProviderInterface
+    public function adapterFor(LlmConfiguration $configuration, ?ProviderOperation $operation): ProviderInterface
     {
-        return $this->adapterRegistry->createAdapterFromModel($this->resolveModel($configuration));
+        return $this->adapterRegistry->createAdapterFromModel($this->resolveModel($configuration, $operation));
     }
 
     /**
      * Resolve the concrete Model entity an LlmConfiguration call runs against.
+     *
+     * `$operation` names the call being planned. In criteria mode it narrows
+     * the selection to models that declare the matching capability (ADR-138);
+     * pass null only where there is genuinely no operation. Two resolutions of
+     * the SAME call must pass the SAME operation — a cache key derived from one
+     * resolution and a terminal that resolves again would otherwise be able to
+     * disagree about which model the call runs on.
      */
-    public function resolveModel(LlmConfiguration $configuration): Model
+    public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): Model
     {
         // Criteria-mode configurations carry no direct model relation (model_uid = 0);
         // their model is selected at call time from the stored criteria. Resolve
@@ -58,7 +69,7 @@ final readonly class ConfigurationCallPlanner
         // model here. Without this, every *ForConfiguration() call on a criteria-mode
         // configuration threw "has no model assigned".
         $llmModel = $this->modelSelectionService instanceof ModelSelectionServiceInterface
-            ? $this->modelSelectionService->resolveModel($configuration)
+            ? $this->modelSelectionService->resolveModel($configuration, $operation)
             : $configuration->getLlmModel();
         if (!$llmModel instanceof Model) {
             throw new ProviderException(
