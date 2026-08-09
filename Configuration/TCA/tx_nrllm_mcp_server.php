@@ -41,6 +41,7 @@ return [
                     auth_header_name,
                     auth_credential,
                     data_class,
+                    requires_approval,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.metadata,
                     import_status,
                     import_error,
@@ -154,6 +155,20 @@ return [
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.secretAdjacent', 'value' => 'secretAdjacent'],
                 ],
                 'required' => true,
+            ],
+        ],
+        // Whether this server's tools pause for a human (ADR-134). Declared by
+        // the operator for the same reason data_class is: there is no code here
+        // to derive it from, and the server's own annotations must not decide
+        // its authorisation. Unlike data_class it has a default, because the
+        // safe side of a yes/no is expressible while a data class has no safe
+        // guess — a server nobody has judged asks first.
+        'requires_approval' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.requires_approval',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.requires_approval.description',
+            'config' => [
+                'type' => 'check',
+                'default' => 1,
             ],
         ],
         'import_status' => [
