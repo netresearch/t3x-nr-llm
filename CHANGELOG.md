@@ -232,6 +232,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the group name printed as `` ``configuration `` in plain text instead of
   as inline code. The row itself was present — the render error is real,
   the missing row the issue suspected was not.
+- `FalStorageGate::isFileAccessible()` enforces the mounts of the user it is
+  passed, not of whoever is in `$GLOBALS['BE_USER']` (#672). The storage
+  allow-list half already used the passed user; the mount half did not, and
+  the two disagreed whenever the acting and ambient user differ — which is
+  exactly the approval path, where a run resumes under its owner's identity
+  (ADR-083) while the approver is ambient. A broader-mounted approver
+  authorised a file the owner could not reach; a narrower one refused a
+  legitimate read.
+  Two request-shared caches caused it, and neither is reachable through a
+  per-user API: `StorageRepository::findByUid()` returns the cached
+  `ResourceStorage` whose mounts the core `StoragePermissionsAspect`
+  attached once for the ambient user, and
+  `BackendUserAuthentication::getFileMountRecords()` memoises into the
+  runtime cache under one key with no user in it — so the first user to ask
+  in a request answers for every later one. The gate now builds its own
+  storage from the record via `createFromRecord()` (which dispatches no
+  initialization event and never enters the instance cache) and reads the
+  mount rows for that user's own mount uids.
+  Behaviour is unchanged for the three read-only FAL tools shipped today:
+  they run synchronously in their owner's request, where both users are the
+  same person.
 
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into
