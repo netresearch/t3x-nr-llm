@@ -52,7 +52,9 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         // declared length bounds. EXT:seo is deliberately NOT represented, so
         // the "field exists" intersection is genuinely exercised.
         $GLOBALS['TCA'] = ['pages' => ['columns' => [
-            'title'       => ['config' => ['type' => 'input', 'max' => 255]],
+            // `required` mirrors the core TCA for `pages.title`; it is what makes
+            // the DataHandler drop an empty value silently.
+            'title'       => ['config' => ['type' => 'input', 'max' => 255, 'required' => true]],
             'subtitle'    => ['config' => ['type' => 'input', 'max' => 255]],
             'nav_title'   => ['config' => ['type' => 'input', 'max' => 255]],
             'abstract'    => ['config' => ['type' => 'text']],
@@ -186,6 +188,12 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         yield 'never-allowed perms'  => [['uid' => 1, 'perms_everybody' => '31'], 'not an editable page metadata field'];
         yield 'array value'       => [['uid' => 1, 'title' => ['a']], 'must be a string'];
         yield 'boolean value'     => [['uid' => 1, 'title' => true], 'must be a string'];
+        yield 'empty required field'      => [['uid' => 1, 'title' => ''], 'is required and cannot be emptied'];
+        yield 'blank required field'      => [['uid' => 1, 'title' => '   '], 'is required and cannot be emptied'];
+        yield 'empty alongside a good one' => [
+            ['uid' => 1, 'description' => 'fine', 'title' => ''],
+            'is required and cannot be emptied',
+        ];
     }
 
     /**

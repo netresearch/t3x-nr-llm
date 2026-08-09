@@ -41,6 +41,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A field outside the allow-list.** The call is refused whole rather than
  *   partially applied — a half-written record is harder to reason about than a
  *   refusal, and the model can retry with a corrected argument.
+ * - **An empty value for a required field.** The DataHandler drops it as
+ *   silently as a missing field grant, so the read-back below would blame the
+ *   wrong cause. A required field cannot be emptied through this tool anyway.
  * - **More than one page.** Exactly one `uid` per call, so every write has one
  *   reviewable subject on the approval card.
  * - **Anything but the live workspace.** A draft write goes through the
@@ -478,7 +481,15 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             }
 
             $text = trim(self::toStr($value));
-            $max  = $this->maxLengthFor($key);
+            if ($text === '' && $this->isRequired($key)) {
+                return sprintf(
+                    'Refused: "%s" is required and cannot be emptied through this tool. '
+                    . 'Send a non-empty value, or omit the field to leave it unchanged.',
+                    $key,
+                );
+            }
+
+            $max = $this->maxLengthFor($key);
             if (mb_strlen($text) > $max) {
                 return sprintf('Refused: the value for "%s" exceeds %d characters.', $key, $max);
             }
@@ -491,6 +502,33 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         return $values;
+    }
+
+    /**
+     * Whether the live TCA declares the field required (`pages.title` is).
+     *
+     * An empty value for such a field is the SECOND thing the DataHandler drops
+     * as silently as a missing `non_exclude_fields` grant:
+     * `validateValueForRequired()` rejects it and `checkValueForInput()` /
+     * `checkValueForText()` return an empty result without touching `errorLog`.
+     * The read-back below would then blame the field-level grant — a cause an
+     * admin cannot have — and, where the stored value happens to equal the
+     * rejected one, would report success for a write that was refused. Refusing
+     * the emptiness where the values are collected names the real reason and
+     * costs nothing: a required field cannot be emptied through this tool
+     * whatever the tool does.
+     *
+     * Only required fields are refused. Clearing an optional one (`abstract`,
+     * `description`) is a write the DataHandler performs and the read-back
+     * verifies, so it stays available.
+     */
+    private function isRequired(string $field): bool
+    {
+        $column = $this->pagesColumns()[$field] ?? null;
+        $config = is_array($column) ? ($column['config'] ?? null) : null;
+
+        // The DataHandler's own truthiness test, mirrored.
+        return is_array($config) && (bool)($config['required'] ?? false);
     }
 
     /**
