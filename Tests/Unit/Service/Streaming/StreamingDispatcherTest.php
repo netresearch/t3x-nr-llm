@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -1012,7 +1013,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $budget ?? $this->budget(BudgetCheckResult::allowed()),
             $this->usage,
             $this->telemetry,
-            $repository ?? self::createStub(LlmConfigurationRepository::class),
+            new FallbackCandidateResolver($repository ?? self::createStub(LlmConfigurationRepository::class)),
             $this->logger,
             $this->contextWithAmbientUser(0),
             $extensionConfiguration ?? $this->extensionConfiguration(true),

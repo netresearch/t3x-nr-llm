@@ -512,6 +512,93 @@
             <trans-unit id="analytics.col.tokens">
                 <source>Tokens (30d)</source>
             </trans-unit>
+            <trans-unit id="analytics.rescues.title">
+                <source>Fallback rescues</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.description">
+                <source>Runs a different configuration answered after the requested one failed. Each line is a request the requested configuration did not serve.</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.when">
+                <source>When</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.operation">
+                <source>Operation</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.requested">
+                <source>Requested</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.served">
+                <source>Served by</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.attempts">
+                <source>Hops</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.table.latency">
+                <source>Latency</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.outcome.failed">
+                <source>ended with an error</source>
+            </trans-unit>
+            <trans-unit id="analytics.rescues.empty">
+                <source>No configuration had to step in for another one in this period.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.title">
+                <source>Provider health and circuits</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.description">
+                <source>Live resilience state, not the date range selected above: scores are recomputed over a rolling window of the last %s seconds of telemetry, circuit state is read from the cache as it stands now.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.reorder.on">
+                <source>Health-aware fallback reorder is ON: these scores reprioritise the fallback chain, healthiest provider first, with the configured order as the tie-break.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.reorder.off">
+                <source>Health-aware fallback reorder is OFF (the default). These scores are informational only — they change nothing about which provider is called. Turn on "Health-Aware Fallback Reorder" in the extension configuration to let them reprioritise the fallback chain.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.disabled">
+                <source>The circuit breaker is switched off in the extension configuration. No circuit is evaluated, so no provider is failed fast; any state below is left over from when it was on.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.provider">
+                <source>Provider (adapter type)</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.score">
+                <source>Score</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.samples">
+                <source>Samples in window</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.successRate">
+                <source>Success rate</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.latency">
+                <source>Avg latency</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.circuit">
+                <source>Circuit</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.noData">
+                <source>No data in the window — this provider was not called, which is not the same as a score of zero.</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.noLatency">
+                <source>not measured — every run in the window was rescued by a fallback, so this provider never answered on its own</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.closed">
+                <source>closed</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.open">
+                <source>open</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.halfOpen">
+                <source>half-open</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.failures">
+                <source>%s consecutive failures</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.offShort">
+                <source>not evaluated</source>
+            </trans-unit>
+            <trans-unit id="analytics.health.empty">
+                <source>No active provider is configured and no provider was called recently.</source>
+            </trans-unit>
 
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">

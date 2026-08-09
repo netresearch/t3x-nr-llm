@@ -20,13 +20,20 @@ namespace Netresearch\NrLlm\Service\Telemetry;
 final readonly class TelemetryRecord
 {
     /**
-     * @param ?int $timeToFirstTokenMs wall-clock milliseconds from the start of
-     *                                 the run to the first streamed chunk. Only
-     *                                 the streaming lifecycle (ADR-062) supplies
-     *                                 it; every non-streaming pipeline run leaves
-     *                                 it null (there is no partial-response
-     *                                 milestone to measure), which is stored as
-     *                                 SQL NULL — distinct from a genuine 0 ms.
+     * @param string $configurationIdentifier       the configuration the caller REQUESTED
+     * @param string $servedConfigurationIdentifier the configuration that ANSWERED. Equal to the
+     *                                              requested one unless a fallback swap served the
+     *                                              run; a run nothing served keeps the requested
+     *                                              values. The three served* fields always move
+     *                                              together — a row never mixes one configuration's
+     *                                              identifier with another's provider.
+     * @param ?int   $timeToFirstTokenMs            wall-clock milliseconds from the start of
+     *                                              the run to the first streamed chunk. Only
+     *                                              the streaming lifecycle (ADR-062) supplies
+     *                                              it; every non-streaming pipeline run leaves
+     *                                              it null (there is no partial-response
+     *                                              milestone to measure), which is stored as
+     *                                              SQL NULL — distinct from a genuine 0 ms.
      */
     public function __construct(
         public string $correlationId,
@@ -40,6 +47,9 @@ final readonly class TelemetryRecord
         public int $latencyMs,
         public bool $cacheHit,
         public int $fallbackAttempts,
+        public string $servedConfigurationIdentifier,
+        public string $servedProvider,
+        public string $servedModel,
         public ?int $timeToFirstTokenMs = null,
     ) {}
 }

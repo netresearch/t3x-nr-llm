@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
+use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -571,7 +572,11 @@ final class FallbackMiddlewareTest extends AbstractUnitTestCase
         $health = self::createStub(ProviderHealthServiceInterface::class);
         $health->method('reorder')->willReturnArgument(0);
 
-        return new FallbackMiddleware($this->repositoryStub, new NullLogger(), $health);
+        return new FallbackMiddleware(
+            new FallbackCandidateResolver($this->repositoryStub),
+            new NullLogger(),
+            $health,
+        );
     }
 
     private function makePipeline(): MiddlewarePipeline

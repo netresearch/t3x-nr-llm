@@ -947,8 +947,12 @@ Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
 Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordCacheHit(): void
   method recordFallbackAttempt(): void
+  method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   property cacheHit: bool
   property fallbackAttempts: int
+  property servedConfigurationIdentifier: ?string
+  property servedModel: ?string
+  property servedProvider: ?string
 
 Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord (class)
   property readonly beUserUid: ?int

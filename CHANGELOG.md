@@ -150,6 +150,66 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   behaviour), so the ADR-107 budget counts the snippet block that goes on
   the wire.
 
+- Telemetry records the configuration that actually SERVED a run, not only
+  the one that was requested: `tx_nrllm_telemetry` gains
+  `served_configuration_identifier`, `served_provider` and `served_model`.
+  Until now a fallback showed only as `fallback_attempts > 0`, so the row
+  credited a configuration that did not answer the call. Both paths write
+  the new columns — the pipeline through a new `TelemetrySignals` signal
+  (`recordServedBy()`, recorded in the API snapshot), the streaming
+  lifecycle from the configuration `openWithFallback()` returns. A run
+  nobody served (exhausted chain) keeps naming the requested configuration
+  on both sides, and so does a run that needed no fallback, so "which
+  configuration answered this call" is one column rather than a fallback
+  chain of two. Rows written before this release carry an empty
+  `served_configuration_identifier` and are not counted as a swap.
+  The analytics module reads them back as a **Fallback rescues** list: the
+  runs another configuration stepped in for, capped at the 200 newest. The
+  cap counts rescues, not fallback attempts — the query narrows to the
+  swaps, so an outage writing exhausted-chain rows in bulk cannot crowd the
+  period's rescues out of the list. `ProviderHealthRepository` is
+  unchanged — its scores deliberately count only `fallback_attempts = 0`
+  rows, so a rescued run still counts against the primary.
+- A **Provider health and circuits** table in the analytics module, the
+  readout ADR-063 deferred: per provider the health score with the sample
+  count and the rolling window it was taken over, plus the circuit state
+  from the `nrllm_circuit` cache. A provider with no telemetry in the
+  window shows "no data", never a zero — it was idle, not broken. Both
+  gates are stated on the page, because a score that changes nothing is
+  the likeliest misreading of such a panel: `health.reorderFallback` is
+  off by default, and a disabled `circuitBreaker.enabled` means the
+  circuit column is not being evaluated at all. No new backend module
+  (ADR-119) — it is a section of the existing analytics view.
+  `ProviderHealthServiceInterface` gains `windowSeconds()` and
+  `reorderEnabled()` so the window and the switch are read from the
+  advisor instead of restated by its consumers; neither the interface nor
+  the new `Service\Analytics\ProviderHealthReport` is part of the `@api`
+  surface, which is unchanged.
+  The same "no data is not a zero" rule applies to the latency column: a
+  provider present in the window whose every run a fallback rescued has no
+  self-served run to measure, and the cell says so instead of showing
+  `0 ms`. `ProviderHealthScore::$avgLatencyMs` is nullable for that case
+  (the score is unchanged — an unknown latency carries no penalty, and the
+  failure is already in the success rate). Circuits opened for direct calls
+  with a pinned provider are NOT in the table: such a run records no
+  provider and its circuit is keyed on the call identifier
+  (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
+  in the administration docs instead of being claimed away.
+
+### Changed
+
+- The candidate walk over a primary configuration's fallback chain is
+  implemented once, in the `@internal`
+  `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
+  ADR-021 rules — shallow, no self-retry, missing and inactive entries
+  skipped — while ordering, the primary attempt and the skip log lines stay
+  with each caller: the health-aware reorder (ADR-063) remains on the
+  pipelined path only, and streaming keeps the configured order.
+  `FallbackMiddleware` and `StreamingDispatcher` now take the resolver in
+  place of `LlmConfigurationRepository`; neither is part of the `@api`
+  surface, which is unchanged. Streaming resolves the chain lazily now: when an
+  early candidate serves, later entries are no longer looked up and a broken
+  entry behind it no longer logs a skip warning.
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -175,6 +235,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the approval resume for its missing input, and suspend again — never
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
+
+### Fixed
 
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the

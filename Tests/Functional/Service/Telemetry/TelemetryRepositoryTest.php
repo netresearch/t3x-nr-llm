@@ -54,6 +54,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1234,
             cacheHit: true,
             fallbackAttempts: 2,
+            servedConfigurationIdentifier: 'sibling',
+            servedProvider: 'ollama',
+            servedModel: 'llama3.3:70b',
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
@@ -70,6 +73,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(1234, (int)$row['latency_ms']);
         self::assertSame(1, (int)$row['cache_hit']);
         self::assertSame(2, (int)$row['fallback_attempts']);
+        self::assertSame('sibling', $row['served_configuration_identifier']);
+        self::assertSame('ollama', $row['served_provider']);
+        self::assertSame('llama3.3:70b', $row['served_model']);
         self::assertGreaterThan(0, (int)$row['crdate']);
     }
 
@@ -88,6 +94,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 5,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
@@ -134,6 +143,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         // Purge everything older than 5 days: removes the old row, keeps the fresh one.
@@ -160,6 +172,9 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
             latencyMs: 1,
             cacheHit: false,
             fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'primary',
+            servedProvider: '',
+            servedModel: '',
         ));
 
         // Cutoff far in the past: the only row is newer, so nothing is deleted.
@@ -207,6 +222,67 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
     public function averageLatencyMsIsZeroWhenNoRowsInWindow(): void
     {
         self::assertSame(0, $this->repository->averageLatencyMs(time() - 60));
+    }
+
+    #[Test]
+    public function recentFallbackHopsSkipsRunsNoSiblingServed(): void
+    {
+        $now = time();
+        // A chain that was tried and exhausted: hops happened, the row still
+        // names the requested configuration as the serving one.
+        $this->insertHop('exhausted', 'primary', 'primary', $now);
+        // Written before the served_* columns existed: unknown, not a swap.
+        $this->insertHop('legacy', 'primary', '', $now);
+        // The one real rescue.
+        $this->insertHop('rescued', 'primary', 'sibling', $now);
+
+        $hops = $this->repository->recentFallbackHops($now - 3600, 200);
+
+        self::assertCount(1, $hops);
+        self::assertSame('corr-rescued', $hops[0]->correlationId);
+        self::assertSame('sibling', $hops[0]->servedConfigurationIdentifier);
+    }
+
+    #[Test]
+    public function recentFallbackHopsCapsRescuesRatherThanFallbackAttempts(): void
+    {
+        $now = time();
+        // An outage: three newer rows that hopped and ended with nobody
+        // serving. They exceed the limit on their own.
+        $this->insertHop('outage-1', 'primary', 'primary', $now);
+        $this->insertHop('outage-2', 'primary', 'primary', $now - 1);
+        $this->insertHop('outage-3', 'primary', 'primary', $now - 2);
+        // An older, genuine rescue behind them.
+        $this->insertHop('rescued', 'primary', 'sibling', $now - 10);
+
+        $hops = $this->repository->recentFallbackHops($now - 3600, 2);
+
+        // Capping fallback attempts instead of rescues would return the two
+        // newest outage rows here and report the period as rescue-free.
+        self::assertCount(1, $hops);
+        self::assertSame('corr-rescued', $hops[0]->correlationId);
+    }
+
+    private function insertHop(string $correlationId, string $requested, string $served, int $crdate): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
+            'pid'                             => 0,
+            'correlation_id'                  => 'corr-' . $correlationId,
+            'operation'                       => 'chat',
+            'provider'                        => 'openai',
+            'model'                           => 'gpt-5',
+            'configuration_identifier'        => $requested,
+            'served_configuration_identifier' => $served,
+            'served_provider'                 => $served === '' ? '' : 'ollama',
+            'served_model'                    => $served === '' ? '' : 'llama3.3:70b',
+            'be_user'                         => 0,
+            'success'                         => 1,
+            'error_class'                     => '',
+            'latency_ms'                      => 100,
+            'cache_hit'                       => 0,
+            'fallback_attempts'               => 2,
+            'crdate'                          => $crdate,
+        ]);
     }
 
     private function insertRow(string $correlationId, bool $success, int $latencyMs, int $crdate): void

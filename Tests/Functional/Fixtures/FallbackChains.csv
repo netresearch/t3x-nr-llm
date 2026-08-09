@@ -1,0 +1,5 @@
+"tx_nrllm_configuration"
+,"uid","pid","identifier","name","fallback_chain","is_active","deleted","hidden","sorting"
+,101,0,"chain-primary","Chain Primary","{""configurationIdentifiers"":[""chain-primary"",""chain-gone"",""chain-inactive"",""chain-alt""]}",1,0,0,1
+,102,0,"chain-inactive","Chain Inactive Sibling","",0,0,0,2
+,103,0,"chain-alt","Chain Alternative","",1,0,0,3
