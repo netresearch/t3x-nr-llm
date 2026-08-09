@@ -84,4 +84,23 @@ final class ReadFalAssetMetaToolTest extends AbstractFunctionalTestCase
 
         self::assertSame(self::NOT_PERMITTED, $this->tool->execute(['uid' => 999999], ToolExecutionContext::none())->content);
     }
+
+    /**
+     * `sys_file_metadata` is workspace-aware, so a file with a draft version
+     * has more than one row for the same `file` uid. The fixture gives the
+     * DRAFT the lower uid, so an unpinned query reports it as the current
+     * value — a value no visitor sees, with nothing in the answer saying so.
+     */
+    #[Test]
+    public function aDraftVersionIsNotReportedAsTheLiveValue(): void
+    {
+        $this->importFixture('sys_file_tools.csv');
+        $this->importFixture('sys_file_metadata_workspace.csv');
+
+        $output = $this->tool->execute(['uid' => 1], ToolExecutionContext::none())->content;
+
+        self::assertStringContainsString('Live title', $output);
+        self::assertStringContainsString('Live alt', $output);
+        self::assertStringNotContainsString('Draft', $output);
+    }
 }

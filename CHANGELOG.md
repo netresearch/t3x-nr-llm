@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The two FAL tools that read `sys_file_metadata` pin the live workspace
+  (#674). The table carries `'versioningWS' => true`, so a file with a draft
+  version has more than one row for the same `file` uid:
+  - `read_fal_asset_meta` returned an arbitrary one — potentially an
+    unpublished draft — as the current value, with nothing in the answer
+    saying so. It now adds `WorkspaceRestriction(0)`, `ORDER BY uid ASC` and
+    `setMaxResults(1)`, the same three things core's own
+    `MetaDataRepository::findByFileUid()` pins.
+  - `search_fal_files` joined the table without a workspace condition, so a
+    search for text that exists only in a draft returned the file, and a file
+    with a draft version was listed twice. The join now requires
+    `t3ver_wsid = 0`.
+
+  Both defects are read-only: the answer could be wrong, nothing was
+  corrupted. The same defect in the writing tool is fixed separately in the
+  `set_file_alternative_text` branch, where it mattered more.
+
 ## [0.26.0] - 2026-08-06
 
 ### Added
