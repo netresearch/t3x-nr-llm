@@ -60,7 +60,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 ## Testing
 
 - Unit / Integration / Fuzzy / Functional / E2E suites — see `Tests/AGENTS.md` for layout details.
-- PHPUnit configs: `Build/phpunit.xml` (unit + integration + fuzzy), `Build/FunctionalTests.xml` (functional + e2e-backend).
+- PHPUnit configs: `Build/phpunit.xml` (unit + integration + fuzzy; the unit suite also lists the two workflow tests under `Tests/E2E/`), `Build/FunctionalTests.xml` (functional + e2e-backend + e2e-tca). Every PHP test must sit in one of these suites — a directory in none of them runs in no job and reads as coverage (#658).
 - Mutation: `infection.json.dist` (target MSI ≥ 70%).
 - Architecture tests: `Tests/Architecture/` (phpat) — enforce layered boundaries (Controller → Service → Provider).
 <!-- AGENTS-GENERATED:END testing -->
