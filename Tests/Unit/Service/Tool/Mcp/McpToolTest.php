@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
+use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
@@ -22,6 +23,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
@@ -46,7 +48,7 @@ final class McpToolTest extends AbstractUnitTestCase
         );
     }
 
-    private function toolFor(McpTestServer $fake, ToolDataClass $dataClass = ToolDataClass::PUBLIC_CONTENT): McpTool
+    private function toolFor(McpTestServer $fake, ToolDataClass $dataClass = ToolDataClass::PUBLIC_CONTENT, bool $requiresApproval = true): McpTool
     {
         $transport = new McpHttpTransport(
             self::createStub(VaultServiceInterface::class),
@@ -61,6 +63,7 @@ final class McpToolTest extends AbstractUnitTestCase
             $this->record(),
             ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]],
             $dataClass,
+            $requiresApproval,
             new McpClient($transport),
         );
     }
@@ -88,6 +91,36 @@ final class McpToolTest extends AbstractUnitTestCase
     public function countsAsANonIdempotentWrite(): void
     {
         self::assertSame(ToolEffect::NON_IDEMPOTENT_WRITE, $this->toolFor(new McpTestServer())->getEffect());
+    }
+
+    /**
+     * The approval answer is the operator's, carried in from the server row
+     * (ADR-134). It is deliberately NOT derived from
+     * {@see McpTool::getEffect()}: that value is a fail-closed assumption about
+     * a body nobody here can inspect, so reading it as consent-worthy would
+     * suspend every remote call including a pure search.
+     */
+    #[Test]
+    public function carriesTheOperatorsApprovalDeclaration(): void
+    {
+        self::assertTrue($this->toolFor(new McpTestServer(), requiresApproval: true)->requiresApproval());
+        self::assertFalse($this->toolFor(new McpTestServer(), requiresApproval: false)->requiresApproval());
+    }
+
+    /**
+     * The declaration interface extends the remote marker, so a builtin cannot
+     * reach for it to opt out of ADR-134's write coupling without also claiming
+     * its behaviour lives outside this codebase.
+     */
+    #[Test]
+    public function declaresItsApprovalAsARemoteTool(): void
+    {
+        self::assertInstanceOf(RemoteApprovalInterface::class, $this->toolFor(new McpTestServer()));
+        self::assertContains(
+            RemoteToolInterface::class,
+            (new ReflectionClass(RemoteApprovalInterface::class))->getInterfaceNames(),
+            'dropping the extends would let a builtin declare its way out of ADR-134',
+        );
     }
 
     #[Test]
