@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 use Netresearch\NrLlm\Service\Evaluation\LexicalSearchRetriever;
+use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
@@ -181,7 +182,7 @@ final class ModuleSeamTest
      * into `nr_llm_tools` would make the two packages mutually dependent.
      *
      * "Core" here is the remainder: everything that is not one of the mapped
-     * module namespaces above. Six classes are excluded BY NAME rather than by
+     * module namespaces above. Seven classes are excluded BY NAME rather than by
      * directory, because they are the tool module's own operational surface
      * living in shared directories — in a split each moves WITH its module,
      * so their coupling is ownership, not leakage:
@@ -197,6 +198,11 @@ final class ModuleSeamTest
      *   retrieval API (→ nr_llm_tools, retrieval scope)
      * - `OverviewReadinessService` — feeds the backend Overview module's
      *   readiness card (→ nr_llm_backend)
+     * - `EffectivePolicyReadout` — the read model behind the backend Overview
+     *   module's Governance tab (ADR-140). It asks each module's own resolver
+     *   so the view cannot drift from the runtime; that is precisely why it
+     *   crosses the seam, and in a split it moves with the view
+     *   (→ nr_llm_backend)
      *
      * A NEW core class that imports the tool module fails this rule; the
      * named list is the complete, deliberate exception set. Do not grow it
@@ -222,6 +228,7 @@ final class ModuleSeamTest
                     Selector::classname(ToolGroupItems::class),
                     Selector::classname(LexicalSearchRetriever::class),
                     Selector::classname(OverviewReadinessService::class),
+                    Selector::classname(EffectivePolicyReadout::class),
                 ),
             ))
             ->shouldNotDependOn()

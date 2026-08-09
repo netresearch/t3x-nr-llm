@@ -14,9 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
-use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
  * The composite tool gate (ADR-094).
@@ -29,23 +27,23 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * The zone gate ships in **observe** mode via the `tools.dataClassEnforcement`
  * extension setting: the decision is computed and reported, but the tool is
  * still offered. An operator sets it to any non-`observe` value (or the setting
- * is missing/unreadable) to enforce. The switch is fail-closed (ADR-113): only
- * a deliberate `observe` observes; everything else enforces, so a broken or
- * mistyped setting cannot silently disable the gate. The four pre-existing
+ * is missing/unreadable) to enforce. The switch is read by
+ * {@see DataClassEnforcementResolver}, which the governance readout (ADR-140)
+ * asks as well so the view cannot drift from this gate. It is fail-closed
+ * (ADR-113): only a deliberate `observe` observes; everything else enforces, so
+ * a broken or mistyped setting cannot silently disable the gate. The four pre-existing
  * gates always enforce — the switch governs only the new axis, so turning it on
  * (or failing closed) cannot loosen anything.
  */
 final readonly class ToolCallPolicy implements ToolCallPolicyInterface
 {
-    private const OBSERVE = 'observe';
-
     public function __construct(
         private ToolRegistry $registry,
         private ToolAvailabilityServiceInterface $availability,
         private AllowedToolsResolver $allowedTools,
         private ToolDataClassResolver $dataClasses,
         private TrustZoneResolver $trustZones,
-        private ?ExtensionConfiguration $extensionConfiguration = null,
+        private DataClassEnforcementResolver $enforcement,
     ) {}
 
     public function decide(string $toolName, LlmConfiguration $configuration, ?BackendUserAuthentication $user): ToolPolicyDecision
@@ -80,7 +78,7 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
             // worked (ADR-115); no remote tool worked before, so there is
             // nothing to preserve, and an upgraded install must not end up more
             // permissive than a fresh one.
-            $enforcing = $this->enforcing() || $tool instanceof RemoteToolInterface;
+            $enforcing = $this->enforcement->enforcing() || $tool instanceof RemoteToolInterface;
 
             return new ToolPolicyDecision(
                 $toolName,
@@ -130,35 +128,5 @@ final readonly class ToolCallPolicy implements ToolCallPolicyInterface
         ToolDenialReason $reason,
     ): ToolPolicyDecision {
         return new ToolPolicyDecision($toolName, false, $dataClass, $zone, $ceiling, $reason);
-    }
-
-    /**
-     * Whether the trust-zone axis is enforced or merely observed (ADR-113).
-     *
-     * Fail-closed: the axis observes ONLY on an explicit `observe`. Every other
-     * case enforces — an unreadable extension configuration, a malformed
-     * `tools` section, a missing value, or a typo (`observ`, `off`, ``). The
-     * gate is a security control, so an operator who cannot express a deliberate
-     * "only observe" gets the safe behaviour rather than a silently disabled
-     * gate. Turning the axis on never loosens anything (the four pre-existing
-     * gates always enforce), so failing closed here cannot over-permit.
-     */
-    private function enforcing(): bool
-    {
-        try {
-            /** @var array<string, mixed> $config */
-            $config = $this->extensionConfiguration?->get('nr_llm') ?? [];
-        } catch (Throwable) {
-            return true;
-        }
-
-        $tools = $config['tools'] ?? null;
-        if (!is_array($tools)) {
-            return true;
-        }
-
-        $mode = $tools['dataClassEnforcement'] ?? null;
-
-        return !is_string($mode) || strtolower(trim($mode)) !== self::OBSERVE;
     }
 }

@@ -1,0 +1,61 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Read-only effective-policy readout (ADR-140).
+ *
+ * Every value comes from the resolver the runtime itself reads through, so the
+ * page cannot drift from behaviour. There is no apply path and no provenance
+ * column — see ADR-140.
+-->
+<f:layout name="Module" />
+<f:section name="Content">
+    <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.page.title" default="Effective policy" /></h1>
+    <p class="lead">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.lead" default="The governance settings this installation actually applies right now, each read through the same resolver the runtime uses." />
+    </p>
+
+    <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.readonly.title', default: 'Read-only')}">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.readonly.text" default="These keys are instance-wide and are changed in the Install Tool under Settings > Extension Configuration > nr_llm. This page deliberately cannot change them: writing extension configuration rewrites the whole merged array and would materialise every shipped default (ADR-140)." />
+    </f:be.infobox>
+
+    <div class="table-fit">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.column.key" default="Setting" /></th>
+                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.column.value" default="Effective value" /></th>
+                    <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.column.reader" default="Read by" /></th>
+                </tr>
+            </thead>
+            <tbody>
+                <f:for each="{policyRows}" as="row">
+                    <tr>
+                        <td><code>{row.key}</code></td>
+                        <td>
+                            <f:if condition="{row.known}">
+                                <f:then><strong>{row.value}</strong></f:then>
+                                <f:else>
+                                    <span class="text-warning">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.value.unknown" default="unknown" />
+                                    </span>
+                                </f:else>
+                            </f:if>
+                            <f:if condition="{row.noteKey}">
+                                <span class="d-block small text-body-secondary"><f:translate key="{row.noteKey}" /></span>
+                            </f:if>
+                        </td>
+                        <td><code class="text-body-secondary">{row.reader}</code></td>
+                    </tr>
+                </f:for>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="text-body-secondary">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.unknown.note" default="A row reads &quot;unknown&quot; when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply." />
+    </p>
+</f:section>
+</html>

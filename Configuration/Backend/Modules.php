@@ -63,6 +63,7 @@ return [
                 'index',
                 'test',
                 'executeTest',
+                'governance',
                 'help',
             ],
         ],
@@ -79,11 +80,16 @@ return [
         'path' => '/module/nrllm/overview',
         'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_overview.xlf',
         'extensionName' => 'NrLlm',
+        // `governance` is the read-only effective-policy readout (ADR-140). It
+        // is an action of this module rather than a fourteenth flat submodule:
+        // ADR-119 already calls twelve entries a dumping ground, and the
+        // readout is a property of the overview, not a management surface.
         'controllerActions' => [
             LlmModuleController::class => [
                 'index',
                 'test',
                 'executeTest',
+                'governance',
                 'help',
             ],
         ],

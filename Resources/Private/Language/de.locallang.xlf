@@ -362,9 +362,55 @@
                 <source>Dashboard</source>
                 <target>Dashboard</target>
             </trans-unit>
+            <trans-unit id="tab.governance">
+                <source>Governance</source>
+                <target>Governance</target>
+            </trans-unit>
             <trans-unit id="tab.help">
                 <source>Help</source>
                 <target>Hilfe</target>
+            </trans-unit>
+
+            <!-- Effective policy readout (ADR-140) -->
+            <trans-unit id="governance.page.title">
+                <source>Effective policy</source>
+                <target>Effektive Richtlinie</target>
+            </trans-unit>
+            <trans-unit id="governance.lead">
+                <source>The governance settings this installation actually applies right now, each read through the same resolver the runtime uses.</source>
+                <target>Die Governance-Einstellungen, die diese Installation gerade tatsächlich anwendet — jede über denselben Resolver gelesen, den auch die Laufzeit befragt.</target>
+            </trans-unit>
+            <trans-unit id="governance.readonly.title">
+                <source>Read-only</source>
+                <target>Nur lesend</target>
+            </trans-unit>
+            <trans-unit id="governance.readonly.text">
+                <source>These keys are instance-wide and are changed in the Install Tool under Settings &gt; Extension Configuration &gt; nr_llm. This page deliberately cannot change them: writing extension configuration rewrites the whole merged array and would materialise every shipped default (ADR-140).</source>
+                <target>Diese Schlüssel gelten instanzweit und werden im Install Tool unter Einstellungen &gt; Extension-Konfiguration &gt; nr_llm geändert. Diese Seite kann sie bewusst nicht ändern: ein Schreibvorgang auf die Extension-Konfiguration schreibt das ganze gemergte Array zurück und würde jeden ausgelieferten Default materialisieren (ADR-140).</target>
+            </trans-unit>
+            <trans-unit id="governance.column.key">
+                <source>Setting</source>
+                <target>Einstellung</target>
+            </trans-unit>
+            <trans-unit id="governance.column.value">
+                <source>Effective value</source>
+                <target>Effektiver Wert</target>
+            </trans-unit>
+            <trans-unit id="governance.column.reader">
+                <source>Read by</source>
+                <target>Gelesen von</target>
+            </trans-unit>
+            <trans-unit id="governance.value.unknown">
+                <source>unknown</source>
+                <target>unbekannt</target>
+            </trans-unit>
+            <trans-unit id="governance.unknown.note">
+                <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
+                <target>Eine Zeile zeigt „unbekannt“, wenn ihr Resolver nicht befragt werden konnte. Sie fällt nie auf einen ausgelieferten Default zurück, denn ein hier gezeigter Wert muss einer sein, den die Laufzeit auch anwenden würde.</target>
+            </trans-unit>
+            <trans-unit id="governance.note.remoteAlwaysEnforced">
+                <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
+                <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
             </trans-unit>
 
             <!-- Dashboard overview cards -->

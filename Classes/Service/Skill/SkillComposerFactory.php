@@ -37,10 +37,18 @@ final readonly class SkillComposerFactory
 
     public function create(): SkillComposer
     {
-        return new SkillComposer(minTrustLevel: $this->resolveMinTrustLevel());
+        return new SkillComposer(minTrustLevel: $this->minTrustLevel());
     }
 
-    private function resolveMinTrustLevel(): SkillTrustLevel
+    /**
+     * The effective minimum publisher-trust level every composer is built with.
+     *
+     * Public so the read-only governance readout (ADR-140) can show the value
+     * the runtime actually applies instead of re-reading and re-interpreting
+     * ``skills.minTrustLevel`` itself, which would let the view drift from the
+     * composer.
+     */
+    public function minTrustLevel(): SkillTrustLevel
     {
         try {
             /** @var array<string, mixed> $config */

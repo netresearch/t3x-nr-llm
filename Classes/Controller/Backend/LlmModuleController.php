@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
@@ -51,6 +52,7 @@ final class LlmModuleController extends ActionController
         private readonly OverviewReadinessService $readinessService,
         private readonly ProviderReachabilityService $reachabilityService,
         private readonly UsageAnalyticsServiceInterface $analytics,
+        private readonly EffectivePolicyReadout $effectivePolicyReadout,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -251,6 +253,35 @@ final class LlmModuleController extends ActionController
         return $result;
     }
 
+    /**
+     * Read-only effective-policy readout (ADR-140).
+     *
+     * Shows the four governance keys that carry a decision, each read through
+     * the same resolver the runtime uses. There is deliberately no apply path
+     * and no provenance column — see ADR-140. Instance-wide keys are set in the
+     * Install Tool.
+     */
+    public function governanceAction(): ResponseInterface
+    {
+        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->buildDocHeaderTabMenu($moduleTemplate, 'governance');
+
+        if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
+            $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
+                routeIdentifier: 'nrllm',
+                displayName: 'LLM - Governance',
+                arguments: ['action' => 'governance'],
+            );
+        }
+
+        $moduleTemplate->assignMultiple([
+            'policyRows' => $this->effectivePolicyReadout->rows(),
+        ]);
+
+        return $moduleTemplate->renderResponse('Backend/Governance');
+    }
+
     public function helpAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
@@ -266,7 +297,11 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * Build a Dashboard/Help tab menu in the docheader.
+     * Build a Dashboard/Governance/Help tab menu in the docheader.
+     *
+     * These are links to real routes, not in-page tabs: the dashboard entry
+     * goes through the backend route, the other two through Extbase actions of
+     * this controller.
      */
     private function buildDocHeaderTabMenu(ModuleTemplate $moduleTemplate, string $activeTab): void
     {
@@ -282,6 +317,15 @@ final class LlmModuleController extends ActionController
         }
 
         $menu->addMenuItem($dashboardItem);
+
+        $governanceItem = $menu->makeMenuItem()
+            ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tab.governance', 'NrLlm') ?? 'Governance')
+            ->setHref($this->uriBuilder->reset()->uriFor('governance'));
+        if ($activeTab === 'governance') {
+            $governanceItem->setActive(true);
+        }
+
+        $menu->addMenuItem($governanceItem);
 
         $helpItem = $menu->makeMenuItem()
             ->setTitle(LocalizationUtility::translate('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:tab.help', 'NrLlm') ?? 'Help')

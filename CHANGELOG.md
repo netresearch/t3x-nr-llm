@@ -8,6 +8,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A read-only **Governance** tab on the LLM Overview showing the effective
+  value of the four governance keys that carry a decision —
+  `privacy.level`, `privacy.retentionDays`, `tools.dataClassEnforcement`
+  and `skills.minTrustLevel` — together with the FQCN of the resolver each
+  value came from (ADR-140). Every value is read through the same resolver
+  the runtime uses, so the view cannot drift from behaviour: a mistyped
+  `tools.dataClassEnforcement` reads as `enforce` because that is what the
+  gate applies. A resolver that cannot be asked yields "unknown", never a
+  substituted default. There is deliberately no apply path and no
+  provenance column — the Install Tool stays the place where instance-wide
+  keys are set; ADR-140 records why. Two rows carry more than a value:
+  `tools.dataClassEnforcement = observe` is annotated as applying to
+  built-in tools only, because the gate enforces the trust-zone ceiling for
+  every MCP tool regardless (ADR-115), and each
+  `privacy.retention.<category>` override that deviates from
+  `privacy.retentionDays` gets its own row — the overrides left at the
+  shipped `0` resolve to the global window and stay out.
+
+### Changed
+
+- `ToolCallPolicy::enforcing()` moved verbatim into the new
+  `Service\Tool\DataClassEnforcementResolver`, which the tool gate and the
+  governance readout both ask. `ToolCallPolicy` no longer takes an optional
+  `ExtensionConfiguration` and instead requires the resolver; behaviour is
+  unchanged, including the fail-closed matrix of ADR-113.
+- `SkillComposerFactory::minTrustLevel()` is public so the readout can show
+  the level the composer is actually built with.
 - **`set_file_alternative_text` — the second writing tool** (ADR-135). It sets
   the alternative text (`sys_file_metadata.alternative`) of exactly ONE managed
   file, identified by its `sys_file` uid, through the `DataHandler`, as the
@@ -123,8 +150,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   behaviour), so the ADR-107 budget counts the snippet block that goes on
   the wire.
 
-### Changed
-
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -150,6 +175,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the approval resume for its missing input, and suspend again — never
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
+- The conversation context budget counts the skill block (#625).
+  `ConversationService` fitted the transcript and then dispatched into
+  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
+  bytes of skill block to the first user message — the fitted list and the
+  sent list were different lists. A criteria-mode configuration has no model
+  relation, so its window falls back to 8192 tokens, of which a full block is
+  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
+  1000-token response reserve minus the 3 % safety margin): the whole
+  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
+  optional trailing `$injectedText` for payload that reaches the wire outside
+  the message list, and the conversation path composes the block once and
+  passes it. The injection stays where it is — the first user turn is the
+  never-droppable head, so injecting before the fit would drop the entire
+  history and still overflow. Known limit: a session opened without a
+  configuration resolves the installation default inside the manager, so its
+  block is still unaccounted for.
+
 ### Fixed
 
 - **The approval of a write is fail-closed and bound to the turn that was
@@ -203,39 +261,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   today (ADR-122), so the shipped catalogue behaves as before. The module shows
   a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
   re-signals `awaiting_approval`.
-### Changed
-
-- A builtin tool that declares a write effect (`ToolEffectInterface`,
-  ADR-111) now requires human approval in the agent loop even without the
-  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
-  `READ_ONLY` tools are unaffected, so nothing changes for the tools
-  shipped today — every builtin reads. Remote (MCP) tools are exempt:
-  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
-  fail-closed assumption about a body that cannot be inspected, so
-  coupling it to approval would suspend every remote call. The remote axis
-  gets an operator-declared server-level source separately.
-  `ToolRegistry` now also rejects a non-remote tool that declares a write
-  **and** implements `RequiresInputInterface`: the approval scan runs before
-  the input scan, so such a tool would suspend for approval, be refused by
-  the approval resume for its missing input, and suspend again — never
-  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
-  ban (ADR-105) now covers the implicit form as well.
-- The conversation context budget counts the skill block (#625).
-  `ConversationService` fitted the transcript and then dispatched into
-  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
-  bytes of skill block to the first user message — the fitted list and the
-  sent list were different lists. A criteria-mode configuration has no model
-  relation, so its window falls back to 8192 tokens, of which a full block is
-  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
-  1000-token response reserve minus the 3 % safety margin): the whole
-  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
-  optional trailing `$injectedText` for payload that reaches the wire outside
-  the message list, and the conversation path composes the block once and
-  passes it. The injection stays where it is — the first user turn is the
-  never-droppable head, so injecting before the fit would drop the entire
-  history and still overflow. Known limit: a session opened without a
-  configuration resolves the installation default inside the manager, so its
-  block is still unaccounted for.
 
 ## [0.26.0] - 2026-08-06
 

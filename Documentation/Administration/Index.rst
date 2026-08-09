@@ -34,6 +34,32 @@ approvals in the separate :guilabel:`Web > AI Tasks` module
 - a **For developers** section showing how to call the same configuration from
   PHP via ``LlmServiceManager``.
 
+The Overview's docheader carries a :guilabel:`Governance` tab — the read-only
+**effective policy** readout (:ref:`ADR-140 <adr-140>`). It lists the four
+governance keys that carry a decision (``privacy.level``,
+``privacy.retentionDays``, ``tools.dataClassEnforcement``,
+``skills.minTrustLevel``) with the value the runtime applies right now and the
+class that resolved it. Two things it deliberately does not do: it never
+changes a value — instance-wide keys are set in the Install Tool under
+:guilabel:`Settings > Extension Configuration > nr_llm` — and it never shows a
+value it did not get from a resolver, so a row that cannot be answered reads
+``unknown`` rather than a default. Because the reads go through the runtime
+resolvers, the tab shows what is *in force*: a mistyped
+``tools.dataClassEnforcement`` reads ``enforce``, because the gate is
+fail-closed (:ref:`ADR-113 <adr-113>`). The keys, their fallbacks and
+recommended settings are documented under :ref:`administration-governance`.
+
+Two rows say more than their value alone:
+
+- ``tools.dataClassEnforcement = observe`` is annotated as applying to built-in
+  tools only. Tools reached through an MCP server are always enforced against
+  the trust-zone ceiling (:ref:`ADR-115 <adr-115>`), so an MCP tool can be
+  dropped while this row reads ``observe``.
+- Every ``privacy.retention.<category>`` override that deviates from
+  ``privacy.retentionDays`` gets its own row underneath it. Categories left at
+  ``0`` resolve to the global window and are not listed — see
+  :ref:`administration-data-retention` for the full set.
+
 .. figure:: /Images/backend-dashboard.png
    :alt: The LLM Overview — a usage-and-cost band, a status-coloured module
        card grid, and a developer section
@@ -85,3 +111,4 @@ Editors do not use this tree: their surface is the separate
    Analytics
    AgentRuns
    DataRetention
+   Governance
