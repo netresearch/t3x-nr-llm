@@ -61,6 +61,7 @@ use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -228,7 +229,7 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         // 4. The operator's card — the real inbox view factory — shows the call
         //    and what it would REPLACE (ADR-136), and carries the turn digest
         //    the decision has to name (ADR-132).
-        $card = $this->cardFor($suspended);
+        $card = $this->cardFor($suspended, $this->viewer(self::OWNER));
         self::assertSame(WaitingRunView::MODE_APPROVAL, $card->mode);
         self::assertCount(1, $card->pendingCalls);
         self::assertSame('update_page_metadata', $card->pendingCalls[0]->name);
@@ -238,6 +239,20 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
             $card->pendingCalls[0]->previewLines,
         );
         self::assertIsString($card->turnDigest);
+
+        // 4b. The SAME card rendered for the approver shows no diff: ADR-136
+        //     gates the preview on the viewer's permission on the record, and
+        //     `agent_approve` says nothing about this page. So the approver here
+        //     releases the write without seeing what it replaces -- deliberate,
+        //     and the reason the withheld state is a first-class one rather than
+        //     an empty line list.
+        $blind = $this->cardFor($suspended, $this->viewer(self::APPROVER));
+        self::assertTrue($blind->pendingCalls[0]->previewFailed);
+        self::assertCount(1, $blind->pendingCalls[0]->previewLines);
+        self::assertStringContainsString('no permission', $blind->pendingCalls[0]->previewLines[0]);
+        // The digest is the run's, not the viewer's: both operators name the
+        // same turn when they decide.
+        self::assertSame($card->turnDigest, $blind->turnDigest);
 
         // 5. The non-admin approver passes ADR-133's gate — the same composite
         //    gate the execution passes — and the resume executes the turn.
@@ -526,13 +541,28 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
     /**
      * The approvals-inbox card an operator would decide on.
      */
-    private function cardFor(AgentRun $run): WaitingRunView
+    private function cardFor(AgentRun $run, ?BackendUserAuthentication $viewer = null): WaitingRunView
     {
         $views = (new WaitingRunViewFactory($this->registry, new SchemaPropertyClassifier(), new PendingTurnDigest()))
-            ->buildWaiting([$run]);
+            ->buildWaiting([$run], $viewer);
         self::assertCount(1, $views);
 
         return $views[0];
+    }
+
+    /**
+     * A backend user to render a card FOR, without disturbing the ambient one:
+     * the approver stays `$GLOBALS['BE_USER']` for the whole run, because the
+     * write ignoring it is what step 7 proves.
+     */
+    private function viewer(int $uid): BackendUserAuthentication
+    {
+        $ambient = $GLOBALS['BE_USER'];
+        $viewer  = $this->setUpBackendUser($uid);
+
+        $GLOBALS['BE_USER'] = $ambient;
+
+        return $viewer;
     }
 
     /**
