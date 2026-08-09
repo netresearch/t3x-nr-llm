@@ -96,61 +96,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
   ban (ADR-105) now covers the implicit form as well.
 
-### Fixed
-
-- **The approval of a write is fail-closed and bound to the turn that was
-  reviewed** (ADR-132). Two defects on the same path:
-  `AgentRunPersister::recordApproval()` swallowed a store error and
-  `ResumeCoordinator::approve()` executed anyway, so a write could run with no
-  record of who authorised it; and the stale-review digest existed only in the
-  `AgentRunController`, so the Tool Playground could approve a turn it had never
-  displayed. `recordApproval()` now returns `bool` (same shape as
-  `recordStep()`), and `approve()` refuses to execute a turn declaring a write
-  whose decision could not be recorded. The verified digest moved into
-  `ApprovalDecision` and is compared — timing-safe — against the state loaded
-  AFTER the resume claim, so a decision made on a turn a concurrent approval
-  already replaced is refused as well. Read-only turns stay fail-soft
-  (deliberately), and a denial still passes: it executes nothing, so refusing it
-  would only leave the write pending. A refused decision RELEASES the run back
-  to `WAITING_FOR_APPROVAL` — nothing runs, nothing settles, the operator can
-  re-review and decide again. The playground's `awaiting_approval` payload and
-  streaming event now carry `turnDigest`, and `resumeAction()` reads it back.
-  **Breaking:** `ApprovalDecision`'s constructor takes a third argument,
-  `?string $turnDigest`. It is optional in the signature for source
-  compatibility but MANDATORY at runtime — a `null` is refused exactly like a
-  wrong digest, so any third-party caller that constructs the decision itself
-  must supply the digest of the turn it displayed or every approval will fail
-  with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
-  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
-  in the new `PendingTurnDigest` service, and the rendered card is the only
-  carrier of the value. (Neither was tracked public API.)
-  A run whose `suspended_state` is already unreadable is still refused BEFORE
-  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
-  instead of being claimed and settled `FAILED` — the guarded terminal settle
-  clears `suspended_state`, which would destroy the only copy a repair could
-  work from. The decode after the claim remains and now covers only the race it
-  is there for: the state CHANGED between the two reads and the row the claim
-  won is the unreadable one.
-- **An approver may only release a write they could run themselves** (ADR-133).
-  A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
-  but the approver was never checked against the tool they were releasing:
-  `mayActOnRun()` grants the decision on the `agent_approve` grant alone, so a
-  non-admin holding it could release an admin-only write that then ran with the
-  owner's privileges — a confused deputy. `ResumeCoordinator::approve()` now
-  resolves the APPROVER's live backend user and asks `ToolCallPolicy::decide()`
-  about every pending call that declares a write; a denial refuses the release
-  with `ApproverNotPermittedException` and RELEASES the run back to
-  `WAITING_FOR_APPROVAL`, so somebody who does hold the permission can still
-  decide it. A **service account may not release a write-declaring turn at
-  all**: it has no backend-user uid and `hasGrant()` is false for it, so
-  `decide()` would check only the `requiresAdmin` axis — refusing is the only
-  fail-closed variant. Read-only turns and denials are unaffected (they execute
-  nothing that needs the approver's authority), and no builtin declares a write
-  today (ADR-122), so the shipped catalogue behaves as before. The module shows
-  a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
-  re-signals `awaiting_approval`.
-### Changed
-
 - A builtin tool that declares a write effect (`ToolEffectInterface`,
   ADR-111) now requires human approval in the agent loop even without the
   `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
@@ -350,6 +295,60 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   history and still overflow. Known limit: a session opened without a
   configuration resolves the installation default inside the manager, so its
   block is still unaccounted for.
+
+### Fixed
+
+- **The approval of a write is fail-closed and bound to the turn that was
+  reviewed** (ADR-132). Two defects on the same path:
+  `AgentRunPersister::recordApproval()` swallowed a store error and
+  `ResumeCoordinator::approve()` executed anyway, so a write could run with no
+  record of who authorised it; and the stale-review digest existed only in the
+  `AgentRunController`, so the Tool Playground could approve a turn it had never
+  displayed. `recordApproval()` now returns `bool` (same shape as
+  `recordStep()`), and `approve()` refuses to execute a turn declaring a write
+  whose decision could not be recorded. The verified digest moved into
+  `ApprovalDecision` and is compared — timing-safe — against the state loaded
+  AFTER the resume claim, so a decision made on a turn a concurrent approval
+  already replaced is refused as well. Read-only turns stay fail-soft
+  (deliberately), and a denial still passes: it executes nothing, so refusing it
+  would only leave the write pending. A refused decision RELEASES the run back
+  to `WAITING_FOR_APPROVAL` — nothing runs, nothing settles, the operator can
+  re-review and decide again. The playground's `awaiting_approval` payload and
+  streaming event now carry `turnDigest`, and `resumeAction()` reads it back.
+  **Breaking:** `ApprovalDecision`'s constructor takes a third argument,
+  `?string $turnDigest`. It is optional in the signature for source
+  compatibility but MANDATORY at runtime — a `null` is refused exactly like a
+  wrong digest, so any third-party caller that constructs the decision itself
+  must supply the digest of the turn it displayed or every approval will fail
+  with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
+- **An approver may only release a write they could run themselves** (ADR-133).
+  A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
+  but the approver was never checked against the tool they were releasing:
+  `mayActOnRun()` grants the decision on the `agent_approve` grant alone, so a
+  non-admin holding it could release an admin-only write that then ran with the
+  owner's privileges — a confused deputy. `ResumeCoordinator::approve()` now
+  resolves the APPROVER's live backend user and asks `ToolCallPolicy::decide()`
+  about every pending call that declares a write; a denial refuses the release
+  with `ApproverNotPermittedException` and RELEASES the run back to
+  `WAITING_FOR_APPROVAL`, so somebody who does hold the permission can still
+  decide it. A **service account may not release a write-declaring turn at
+  all**: it has no backend-user uid and `hasGrant()` is false for it, so
+  `decide()` would check only the `requiresAdmin` axis — refusing is the only
+  fail-closed variant. Read-only turns and denials are unaffected (they execute
+  nothing that needs the approver's authority), and no builtin declares a write
+  today (ADR-122), so the shipped catalogue behaves as before. The module shows
+  a new `runs.error.approverNotPermitted` flash; the playground answers 403 and
+  re-signals `awaiting_approval`.
 
 ## [0.26.0] - 2026-08-06
 
