@@ -254,8 +254,22 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** Run returned by findByUuid() (default null = unknown). */
     public ?AgentRun $findResult = null;
 
+    /**
+     * Successive findByUuid() results, consumed one per call before falling back
+     * to $findResult. The resume paths read the row twice — once before the
+     * claim and once after — and the two reads can legitimately differ, so a
+     * single fixed result cannot express that race.
+     *
+     * @var list<AgentRun|null>
+     */
+    public array $findResults = [];
+
     public function findByUuid(string $uuid): ?AgentRun
     {
+        if ($this->findResults !== []) {
+            return array_shift($this->findResults);
+        }
+
         return $this->findResult;
     }
 

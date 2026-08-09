@@ -115,7 +115,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wrong digest, so any third-party caller that constructs the decision itself
   must supply the digest of the turn it displayed or every approval will fail
   with `StaleApprovalTurnException`. `WaitingRunViewFactory::pendingTurnDigest()`
-  is gone; the computation lives in the new `PendingTurnDigest` service.
+  and `WaitingRunViewFactory::turnDigestForRun()` are gone; the computation lives
+  in the new `PendingTurnDigest` service, and the rendered card is the only
+  carrier of the value. (Neither was tracked public API.)
+  A run whose `suspended_state` is already unreadable is still refused BEFORE
+  the resume claim, so it stays `WAITING_FOR_APPROVAL` with its state intact
+  instead of being claimed and settled `FAILED` — the guarded terminal settle
+  clears `suspended_state`, which would destroy the only copy a repair could
+  work from. The decode after the claim remains and now covers only the race it
+  is there for: the state CHANGED between the two reads and the row the claim
+  won is the unreadable one.
 - **An approver may only release a write they could run themselves** (ADR-133).
   A resumed turn executes under the run OWNER's identity (ADR-083, unchanged),
   but the approver was never checked against the tool they were releasing:
@@ -145,6 +154,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fail-closed assumption about a body that cannot be inspected, so
   coupling it to approval would suspend every remote call. The remote axis
   gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 
 ## [0.26.0] - 2026-08-06
 

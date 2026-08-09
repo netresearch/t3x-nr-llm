@@ -52,14 +52,17 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * input (ADR-105).
  *
  * Both follow the same claim protocol, and the order in it is the safety
- * property: probe that a resume handle can be built at all, win the atomic
- * claim so a second caller cannot resume the same run, then re-resolve the
- * event-stream position from a FRESH row — the claim moved it. A position that
- * cannot be resolved after the claim settles the run rather than leaving it
- * RUNNING with nowhere to write. Since ADR-132 the approval path reads its
- * SUSPENDED STATE from that fresh row too, not from the pre-claim read: a lost
- * race lets the run suspend again on a different turn, and the pre-claim copy
- * would be the previous one.
+ * property: refuse what can be refused without touching the row, probe that a
+ * resume handle can be built at all, win the atomic claim so a second caller
+ * cannot resume the same run, then re-resolve the event-stream position from a
+ * FRESH row — the claim moved it. A position that cannot be resolved after the
+ * claim settles the run rather than leaving it RUNNING with nowhere to write.
+ * Since ADR-132 the approval path reads the SUSPENDED STATE it executes from
+ * that fresh row, not from the pre-claim read: a lost race lets the run suspend
+ * again on a different turn, and the pre-claim copy would be the previous one.
+ * It still DECODES the pre-claim copy first, purely to reject a row that was
+ * already unreadable, because that rejection can be non-destructive and the
+ * post-claim one cannot.
  *
  * The one deliberate divergence is ADR-105's: a submitted input is validated
  * against the tool's declared schema BEFORE anything is probed or claimed, so a
@@ -137,6 +140,15 @@ final readonly class ResumeCoordinator
      * write classification and the execution all have to use the fresh state or
      * they judge a turn that is no longer pending.
      *
+     * The state is nevertheless DECODED twice, and the two decodes answer
+     * different questions. The pre-claim one asks "was this row readable when we
+     * found it" and refuses without claiming, so a row corrupted outside the
+     * extension stays WAITING_FOR_APPROVAL with its blob intact. The post-claim
+     * one asks "is the row we actually won readable" and must settle the run on
+     * a no, because by then the claim is held. Dropping the first would make the
+     * ordinary corrupt-row case terminal and erase the evidence with it;
+     * dropping the second would let the race resume an unverified turn.
+     *
      * Three fail-closed gates sit between the claim and the execution, and all
      * three RELEASE the run (suspend it back to WAITING_FOR_APPROVAL, which
      * clears the claim and the lease and writes the state back) rather than
@@ -192,6 +204,19 @@ final readonly class ResumeCoordinator
             throw RunConfigurationGoneException::forRun($runUuid);
         }
 
+        // Reject an already-unreadable state BEFORE the claim, and do not carry
+        // the result forward — the decode after the claim is the authoritative
+        // one. This one exists so the common case (the row was corrupt before
+        // anyone clicked) is refused non-destructively: nothing is claimed, the
+        // run stays WAITING_FOR_APPROVAL and its suspended_state survives for
+        // repair. Without it the first Approve claims the run and the post-claim
+        // decode settles it FAILED, and settling clears suspended_state — the
+        // very blob a repair would need (compare AgentRunExecutor's rule against
+        // flipping a resumable run to FAILED and destroying its state).
+        if (!is_array(json_decode($run->suspendedState, true))) {
+            throw CorruptSuspendedStateException::forRun($runUuid);
+        }
+
         // Probe the event-stream position BEFORE the claim: a failure here
         // refuses the resume while the run is still WAITING_FOR_APPROVAL, so
         // the approval can simply be retried (nothing was claimed or executed).
@@ -224,9 +249,13 @@ final readonly class ResumeCoordinator
         }
 
         // Decode the state the run is ACTUALLY suspended on, from that same
-        // fresh row. Corrupt here means the run cannot continue and cannot be
-        // released either — settle it rather than leave it RUNNING with a
-        // won claim and nowhere to go.
+        // fresh row. The pre-claim decode already refused a row that was corrupt
+        // when we read it, so what is left here is the race: the state CHANGED
+        // between the two reads (a lost race let another approval run the turn
+        // and the run suspended again) and the new one is unreadable. Corrupt at
+        // this point means the run cannot continue and cannot be released either
+        // — an unreadable state cannot be written back — so settle it rather
+        // than leave it RUNNING with a won claim and nowhere to go.
         $decoded = $claimed->suspendedState !== null ? json_decode($claimed->suspendedState, true) : null;
         if (!is_array($decoded)) {
             $this->persister->settleFailed(

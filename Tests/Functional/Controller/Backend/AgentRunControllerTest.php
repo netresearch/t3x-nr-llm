@@ -204,9 +204,11 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
         $factory = new WaitingRunViewFactory(new ToolRegistry([new FakeTool('delete_thing')]), new SchemaPropertyClassifier(), new PendingTurnDigest());
 
+        // The RENDERED card's value, not a convenience accessor beside it: what
+        // travels back with the decision is what the card carries.
         self::assertSame(
             (new PendingTurnDigest())->forState(SuspendedRunState::fromArray($decoded)),
-            $factory->turnDigestForRun($run),
+            $factory->buildWaiting([$run])[0]->turnDigest,
         );
     }
 

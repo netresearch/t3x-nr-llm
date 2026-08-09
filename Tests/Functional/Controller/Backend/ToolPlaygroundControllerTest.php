@@ -912,6 +912,47 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $this->assertRunIsDecidableAgain($persister, $uuid);
     }
 
+    #[Test]
+    public function resumeActionRefusesACorruptSuspendedStateWithoutClaimingOrClearingIt(): void
+    {
+        // A row that is already unreadable when the Approve click arrives — a
+        // hand-edit, a dump/restore, a non-strict overflow; the extension only
+        // ever writes it with JSON_THROW_ON_ERROR. It is refused BEFORE the
+        // claim, so the run stays decidable and, above all, keeps its blob: the
+        // post-claim decode would settle the run FAILED, and the guarded
+        // terminal settle clears suspended_state along with the claim.
+        //
+        // This surface has no other guard. The inbox controller can pre-filter
+        // an unreadable card, the playground's AJAX endpoint never could.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, , $uuid, $digest] = $this->suspendedApprovalController();
+
+        $connection = $this->toolConnectionPool()->getConnectionForTable('tx_nrllm_agentrun');
+        $connection->update('tx_nrllm_agentrun', ['suspended_state' => 'not-json{'], ['uuid' => $uuid]);
+
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+                ->withParsedBody(['runUuid' => $uuid, 'approve' => '1', 'turnDigest' => $digest]),
+        );
+
+        self::assertSame(500, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+
+        // Assert against the ROW, not the value object: the point is that the
+        // column still holds the evidence. finishRun() would have emptied it.
+        $row = $connection
+            ->select(['status', 'suspended_state', 'claimed_by'], 'tx_nrllm_agentrun', ['uuid' => $uuid])
+            ->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL->value, $row['status']);
+        self::assertSame('not-json{', $row['suspended_state']);
+        self::assertSame('', $row['claimed_by']);
+    }
+
     /**
      * ADR-136: the batch approval payload carries the preview the loop captured
      * at the suspend, per pending call.
