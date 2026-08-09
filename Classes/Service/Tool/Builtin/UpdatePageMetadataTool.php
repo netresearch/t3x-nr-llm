@@ -15,13 +15,13 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -69,10 +69,18 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * suspended for human approval (ADR-134); the tool carries no separate approval
  * marker. It is NOT covered by the ADR-112 write fence — that arms only on the
  * queued path, and no shipped entry point reaches it (ADR-135).
+ *
+ * The pause carries a field-by-field before/after ({@see self::previewCall()},
+ * ADR-136): the arguments alone are the NEW values, and an approver deciding
+ * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
 {
     use SafeCastTrait;
+    // The errands, not the decisions: the environment and workspace guards, the
+    // bounded DataHandler complaints, the TCA narrowing and the preview
+    // formatting. Everything this tool DECIDES stays below (ADR-135).
+    use WritesThroughDataHandlerTrait;
 
     /**
      * One string for "no such page" and for "you may not edit it", so a refusal
@@ -122,10 +130,8 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private const MAX_VALUE_LENGTH = 2000;
 
-    /** How many DataHandler complaints are echoed back, and how long each may be. */
-    private const MAX_ERRORS = 5;
-
-    private const MAX_ERROR_LENGTH = 200;
+    /** The one table this tool writes. */
+    private const TABLE = 'pages';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -167,19 +173,10 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             return ToolResult::error(self::NOT_PERMITTED);
         }
 
-        $missing = $this->missingBackendEnvironment();
-        if ($missing !== []) {
-            return ToolResult::error(sprintf(
-                'Refused: writing needs a full backend environment, and this process has no %s. '
-                . 'Run this tool from a backend request rather than a bare worker process.',
-                implode(' and no ', $missing),
-            ));
-        }
-
-        if ($user->workspace !== 0) {
-            return ToolResult::error(
-                'Refused: this tool only edits the live workspace. Switch out of the draft workspace and retry.',
-            );
+        $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
+            ?? $this->refuseOutsideLiveWorkspace($user);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
@@ -207,14 +204,12 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
-        $dataHandler->start(['pages' => [$uid => $values]], [], $user);
+        $dataHandler->start([self::TABLE => [$uid => $values]], [], $user);
         $dataHandler->process_datamap();
 
-        if ($dataHandler->errorLog !== []) {
-            return ToolResult::error(sprintf(
-                'The update was refused by TYPO3: %s',
-                $this->summariseErrors($dataHandler->errorLog),
-            ));
+        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+        if ($refused instanceof ToolResult) {
+            return $refused;
         }
 
         // Read back before reporting success. An empty errorLog is NOT proof the
@@ -237,6 +232,101 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             $uid,
             implode(', ', array_keys($values)),
         ));
+    }
+
+    /**
+     * The field-by-field before/after this call would produce (ADR-136).
+     *
+     * Called by the loop when the run suspends for approval — before anything
+     * ran, in the RUN's actor context — so the "before" is the row as it stood
+     * at the pause. It is a snapshot and not a reservation: the ADR decides
+     * explicitly that a human editing the page in between is not fenced off, and
+     * that this tool writes absolute values, so a stale "before" changes what the
+     * approver read, never what the write does.
+     *
+     * Authorised exactly like {@see self::execute()} and against the same
+     * EXPLICIT acting user: a page the run's user may not edit yields the same
+     * neutral string here, so a preview can never disclose a page the run itself
+     * could not have touched.
+     *
+     * NOT checked here, deliberately: the live-workspace and backend-environment
+     * refusals. Both describe the PROCESS that performs the write, and that is
+     * the approver's request, not this one — asserting them now would show the
+     * approver a verdict from the wrong process.
+     *
+     * The row is read through the same {@see self::fetchPage()} the write path
+     * uses. It cannot be shared with the execution's read: the two happen in
+     * different requests, minutes or days apart, which is precisely why the
+     * "before" is a snapshot.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication) {
+            return [self::NOT_PERMITTED];
+        }
+
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return ['Refused: "uid" must be the positive uid of exactly one page.'];
+        }
+
+        $values = $this->collectValues($arguments);
+        if (is_string($values)) {
+            return [$values];
+        }
+
+        $page = $this->fetchPage($uid);
+        if ($page === null
+            || !$user->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            || !$user->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0))
+        ) {
+            return [self::NOT_PERMITTED];
+        }
+
+        $lines = [sprintf('Page [%d] "%s" — %d field(s):', $uid, $this->excerpt(self::toStr($page['title'] ?? '')), count($values))];
+        foreach ($values as $field => $new) {
+            $old = self::toStr($page[$field] ?? '');
+            $lines[] = $old === $new
+                ? sprintf('%s: unchanged (%s)', $field, $this->quoted($new))
+                : sprintf('%s: %s → %s', $field, $this->quoted($old), $this->quoted($new));
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The READ side of the preview (ADR-136): the same record check as
+     * {@see self::previewCall()}, applied to the person looking at the approval
+     * card instead of to the run's acting user.
+     *
+     * `PAGE_EDIT` and not `PAGE_SHOW` on purpose. The card exists to release a
+     * write to this page, and the strict reading of the disclosure — an approver
+     * whose remit is operations, not editing — is the one that decides here: you
+     * see what the write replaces only where you could have written it yourself.
+     *
+     * A refusal is never a probe: nothing distinguishes "no such page" from "not
+     * permitted", exactly as in `previewCall()`, and the card says the same thing
+     * either way.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return false;
+        }
+
+        $page = $this->fetchPage($uid);
+
+        return $page !== null
+            && $viewer->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            && $viewer->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0));
     }
 
     public function isEnabledByDefault(): bool
@@ -272,31 +362,6 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The globals the DataHandler declares as its prerequisites and does not
-     * establish itself; `start()` sets only its own `$BE_USER`, so a hook
-     * running inside the write still reads the ambient one.
-     *
-     * @return list<string>
-     */
-    private function missingBackendEnvironment(): array
-    {
-        $missing = [];
-        if ($this->pagesColumns() === null) {
-            $missing[] = 'TCA';
-        }
-
-        if (!(($GLOBALS['LANG'] ?? null) instanceof LanguageService)) {
-            $missing[] = 'language service';
-        }
-
-        if (!(($GLOBALS['BE_USER'] ?? null) instanceof BackendUserAuthentication)) {
-            $missing[] = 'backend user';
-        }
-
-        return $missing;
-    }
-
-    /**
      * The allow-list intersected with the live TCA. `seo_title` and the
      * Open Graph / Twitter fields only exist when EXT:seo is installed; offering
      * them anyway would produce a call that can only fail.
@@ -309,7 +374,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function editableFields(): array
     {
-        $columns = $this->pagesColumns();
+        $columns = $this->tcaColumnsFor(self::TABLE);
         if ($columns === null) {
             return self::ALLOWED_FIELDS;
         }
@@ -318,24 +383,6 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             self::ALLOWED_FIELDS,
             static fn(string $field): bool => isset($columns[$field]),
         ));
-    }
-
-    /**
-     * The `pages` column definitions from the live TCA, or null when no TCA is
-     * loaded. Narrowed step by step because `$GLOBALS` is untyped.
-     *
-     * @return array<array-key, mixed>|null
-     */
-    private function pagesColumns(): ?array
-    {
-        $tca = $GLOBALS['TCA'] ?? null;
-        if (!is_array($tca) || !is_array($tca['pages'] ?? null)) {
-            return null;
-        }
-
-        $columns = $tca['pages']['columns'] ?? null;
-
-        return is_array($columns) ? $columns : null;
     }
 
     /**
@@ -416,8 +463,9 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function isRequired(string $field): bool
     {
-        $column = $this->pagesColumns()[$field] ?? null;
-        $config = is_array($column) ? ($column['config'] ?? null) : null;
+        $columns = $this->tcaColumnsFor(self::TABLE) ?? [];
+        $column  = $columns[$field] ?? null;
+        $config  = is_array($column) ? ($column['config'] ?? null) : null;
 
         // The DataHandler's own truthiness test, mirrored.
         return is_array($config) && (bool)($config['required'] ?? false);
@@ -429,7 +477,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function maxLengthFor(string $field): int
     {
-        $column = $this->pagesColumns()[$field] ?? null;
+        $column = $this->tcaColumnsFor(self::TABLE)[$field] ?? null;
         $config = is_array($column) ? ($column['config'] ?? null) : null;
         $max    = is_array($config) ? ($config['max'] ?? null) : null;
 
@@ -443,14 +491,14 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      */
     private function fetchPage(int $uid): ?array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         // Only the deleted restriction: a hidden or timed-out page is still a
         // page an editor may fix the description of.
         $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
 
         $row = $queryBuilder
             ->select('*')
-            ->from('pages')
+            ->from(self::TABLE)
             ->where(
                 $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
             )
@@ -485,27 +533,5 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         return $notApplied;
-    }
-
-    /**
-     * The DataHandler's complaints, bounded in count and length. They are only
-     * ever shown to a caller that already passed the edit-permission check, so
-     * they cannot disclose the existence of a page the caller may not see.
-     *
-     * @param array<array-key, mixed> $errorLog
-     */
-    private function summariseErrors(array $errorLog): string
-    {
-        $messages = [];
-        foreach (array_slice($errorLog, 0, self::MAX_ERRORS) as $entry) {
-            $text = trim(self::toStr($entry));
-            if ($text === '') {
-                continue;
-            }
-
-            $messages[] = mb_substr($text, 0, self::MAX_ERROR_LENGTH);
-        }
-
-        return $messages === [] ? 'the record was not written.' : implode('; ', $messages);
     }
 }

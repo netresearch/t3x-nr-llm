@@ -38,13 +38,14 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and one writing tool. Each is a reference
-implementation of the security contract: model-chosen arguments are
+nr-llm ships forty-one read-only tools and two writing tools. Each is a
+reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and the writing
-``update_page_metadata`` ship **disabled** and must be enabled deliberately.
+``get_php_info_raw`` and ``list_be_users_raw``) and both writing tools
+(``update_page_metadata``, ``set_file_alternative_text``) ship **disabled** and
+must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
@@ -277,37 +278,66 @@ The remaining tools follow the same pattern:
 
 .. _administration-tools-writing:
 
-The writing tool
-================
+The writing tools
+=================
 
-``update_page_metadata`` is the only tool that changes anything. It sets a
-fixed set of descriptive fields on **one** page through the TYPO3 DataHandler,
-as the acting backend user, in the live workspace only
-(:ref:`ADR-135 <adr-135>`).
+Two tools change anything at all: ``update_page_metadata`` and
+``set_file_alternative_text``. Both write through the TYPO3 DataHandler, as the
+acting backend user, in the live workspace only, on exactly **one** record per
+call (:ref:`ADR-135 <adr-135>`).
 
-Editable fields: ``title``, ``subtitle``, ``nav_title``, ``abstract``,
-``description``, ``keywords`` and — when EXT:seo is installed — ``seo_title``,
-``og_title``, ``og_description``, ``twitter_title``, ``twitter_description``.
-Anything else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
-``no_index``, the image relations …) is refused, and a call naming an
-unknown field is refused **whole** rather than applied in part.
+What holds for both of them:
 
-What an administrator should know before enabling it:
-
-- It ships **disabled**, sits in its own ``editing`` group, and is not offered
-  until both the group and the tool are enabled.
+- They ship **disabled**, sit in their own ``editing`` group, and are not
+  offered until both the group and the tool are enabled.
 - **Every call pauses for a human decision** (:ref:`ADR-134 <adr-134>`). The
-  approval card names the page and the values; nothing is written until
+  approval card names the record and the values, together with the values the
+  write would REPLACE (:ref:`ADR-136 <adr-136>`); nothing is written until
   somebody presses Approve, and the approver must themselves be permitted to
   run the tool (:ref:`ADR-133 <adr-133>`).
-- Permissions are enforced twice: the tool checks the acting user's page-edit
-  right (a page they may not edit is refused exactly like a page that does not
-  exist), and the DataHandler enforces ``tables_modify`` and the field-level
-  "exclude field" grants on top. A non-admin therefore writes only what the
-  backend already lets them write.
-- A field the user lacks the exclude-field grant for is dropped by the
-  DataHandler **without an error**. The tool re-reads the record and reports
-  that as a failure rather than as a successful write.
+- Permissions are enforced twice: the tool checks the acting user's own rights
+  first, and the DataHandler enforces its own rules on top. A non-admin
+  therefore writes only what the backend already lets them write.
+- A field the user lacks the "exclude field" grant for is dropped by the
+  DataHandler **without an error**. Both tools re-read the record afterwards
+  and report that as a failure rather than as a successful write.
+- A call the tool would refuse is refused **whole** rather than applied in
+  part, and a record the acting user may not reach is refused with the same
+  words as a record that does not exist — so a refusal never confirms that a
+  uid exists.
+
+``update_page_metadata``
+   Sets a fixed set of descriptive fields on one page. Editable: ``title``,
+   ``subtitle``, ``nav_title``, ``abstract``, ``description``, ``keywords``
+   and — when EXT:seo is installed — ``seo_title``, ``og_title``,
+   ``og_description``, ``twitter_title``, ``twitter_description``. Anything
+   else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
+   ``no_index``, the image relations …) is refused. Authorised by the acting
+   user's page-edit right; the DataHandler then enforces ``tables_modify`` and
+   the field-level grants.
+
+``set_file_alternative_text``
+   Sets the alternative text (``sys_file_metadata.alternative``) of one managed
+   file, identified by its ``sys_file`` uid — the accessibility gap an editor
+   most often leaves behind. It writes that one field and nothing else.
+
+   Authorised by the same storage allow-list and file mounts as the read-only
+   FAL tools; core's own file-metadata permission check (a **writable** file
+   mount) then applies inside the DataHandler, so a read-only mount is refused
+   there.
+
+   Two limits worth knowing before enabling it:
+
+   - It **never creates** a metadata record. A file that carries none is
+     refused, in the same words as a file the user may not reach — so the
+     model cannot tell "not yours" from "not indexed".
+   - It writes the **live**, **default-language** record only and takes no
+     language argument. A translation, and a draft version of the same record
+     in a workspace, are both left alone. Translated alternative texts stay a
+     backend job (:ref:`ADR-135 <adr-135>`).
+
+   An empty string is accepted and is the correct value for a decorative
+   image.
 
 .. _administration-tools-register:
 
@@ -397,7 +427,8 @@ Group              Tools
                    ``search_fal_files``, ``get_fal_references``,
                    ``find_missing_files``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
-``editing``        ``update_page_metadata`` — the only WRITING group
+``editing``        ``update_page_metadata``, ``set_file_alternative_text`` —
+                   the only WRITING group
 =================  ============================================================
 
 Groups can be switched on three levels, and the result cascades

@@ -433,4 +433,5 @@ Tools
    Adr133ApproverToolGate
    Adr134WriteEffectImpliesApproval
    Adr135UpdatePageMetadataTool
+   Adr136WritePreviewAtSuspend
    Adr138OperationCapabilityMatch

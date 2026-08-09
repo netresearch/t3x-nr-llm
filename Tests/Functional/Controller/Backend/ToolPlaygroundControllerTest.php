@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
@@ -47,6 +48,7 @@ use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
@@ -58,6 +60,7 @@ use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunR
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -951,6 +954,154 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-136: the batch approval payload carries the preview the loop captured
+     * at the suspend, per pending call.
+     */
+    #[Test]
+    public function runActionCarriesTheCapturedPreviewIntoTheApprovalPayload(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new PreviewingApprovalTool('fetch_logs', ['would read 5 log rows']));
+
+        $response = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame('awaiting_approval', $payload['status']);
+        $call = $this->firstPendingTool($payload);
+        self::assertSame('fetch_logs', $call['name'] ?? null);
+        $preview = $call['preview'] ?? null;
+        self::assertIsArray($preview);
+        self::assertSame(['would read 5 log rows'], $preview['lines'] ?? null);
+        self::assertFalse($preview['failed'] ?? null);
+    }
+
+    /**
+     * The streamed surface must carry it too — same reasoning as the turn digest
+     * in ADR-132: both surfaces show a turn, so both must show the same turn.
+     */
+    #[Test]
+    public function streamRunEmitsThePreviewWithTheAwaitingApprovalEvent(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller, $config] = $this->scriptedController(tool: new PreviewingApprovalTool('fetch_logs', ['would read 5 log rows']));
+
+        $events = [];
+        $emit   = static function (array $event) use (&$events): void {
+            $events[] = $event;
+        };
+
+        $method = new ReflectionMethod($controller, 'streamRun');
+        $method->invoke(
+            $controller,
+            $emit,
+            new AgentRunRequest(
+                configuration: $config,
+                messages: [ChatMessage::user('analyse the logs')],
+                actor: AiActorContext::anonymous(),
+                allowedToolNames: ['fetch_logs'],
+                options: new ToolOptions(),
+            ),
+            false,
+        );
+
+        $last = end($events);
+        self::assertIsArray($last);
+        self::assertSame('awaiting_approval', $last['event']);
+        $preview = $this->firstPendingTool($last)['preview'] ?? null;
+        self::assertIsArray($preview);
+        self::assertSame(['would read 5 log rows'], $preview['lines'] ?? null);
+        self::assertFalse($preview['failed'] ?? null);
+    }
+
+    /**
+     * @param array<array-key, mixed> $payload
+     *
+     * @return array<array-key, mixed>
+     */
+    private function firstPendingTool(array $payload): array
+    {
+        $pending = $payload['pendingTools'] ?? null;
+        self::assertIsArray($pending);
+        $first = $pending[0] ?? null;
+        self::assertIsArray($first);
+
+        return $first;
+    }
+
+    /**
+     * ADR-136: a row suspended before the preview field existed carries no
+     * `callPreviews` key at all. A running installation has such rows, and every
+     * one of them must still resume — the field degrades, it never blocks.
+     */
+    #[Test]
+    public function aRunSuspendedBeforeThePreviewFieldExistedStillResumes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $repository = new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class));
+        $persister  = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+
+        $handle = $persister->begin(null, 1);
+        self::assertNotNull($handle);
+
+        $state = new SuspendedRunState(
+            [['role' => 'user', 'content' => 'read the logs']],
+            [ToolCall::function('call_1', 'fetch_logs', [])->toArray()],
+            1,
+            5,
+            2,
+            ['fetch_logs'],
+        );
+
+        // Persist the PRE-ADR-136 shape: the state JSON as it was written before
+        // the field existed, through the repository (so it is encrypted exactly
+        // like a real row) rather than through the current value object.
+        $legacy = $state->toArray();
+        unset($legacy['callPreviews']);
+        $legacyJson = json_encode($legacy, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('callPreviews', $legacyJson);
+        self::assertTrue($repository->suspendRun($handle->runUid, $legacyJson));
+
+        $config = new LlmConfiguration();
+        $config->setIdentifier('cfg');
+
+        $configurationRepository = $this->createMock(LlmConfigurationRepository::class);
+        $configurationRepository->method('findByUid')->willReturn($config);
+
+        $answer  = new CompletionResponse('resumed and done', 'm', new UsageStatistics(1, 1, 2), 'stop', 'scripted-fake');
+        $manager = $this->createMock(LlmServiceManagerInterface::class);
+        $manager->method('chatWithToolsForConfiguration')->willReturn($answer);
+        $manager->method('chatWithConfiguration')->willReturn($answer);
+
+        $registry   = new ToolRegistry([new PreviewingApprovalTool('fetch_logs', ['would read the logs'])]);
+        $controller = $this->makeController($configurationRepository, $registry, $this->loopFor($manager, $registry, new NullLogger()), $persister);
+
+        // The digest is computed over the pending calls only, so the legacy row
+        // and a current one produce the same value — which is the point: the new
+        // field is not part of the binding.
+        $digest   = (new PendingTurnDigest())->forState(SuspendedRunState::fromArray($legacy));
+        $response = $controller->resumeAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/resume'))
+                ->withParsedBody(['runUuid' => $handle->uuid, 'approve' => '1', 'turnDigest' => $digest]),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertSame('resumed and done', $payload['finalContent']);
+    }
+
+    /**
      * A run suspended for approval on ONE write-declaring call, in the real
      * database, behind a controller whose provider must never be reached.
      *
@@ -1014,7 +1165,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
      *
      * @return array{0: ToolPlaygroundController, 1: LlmConfiguration}
      */
-    private function scriptedController(string $finalContent = 'Here are your recent logs.'): array
+    private function scriptedController(string $finalContent = 'Here are your recent logs.', ?ToolInterface $tool = null): array
     {
         $provider = new Provider();
         $provider->setIdentifier('fake-provider');
@@ -1051,7 +1202,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             self::createStub(CacheManagerInterface::class),
         );
 
-        $toolRegistry    = new ToolRegistry([new FakeTool('fetch_logs')]);
+        $toolRegistry    = new ToolRegistry([$tool ?? new FakeTool('fetch_logs')]);
         $toolLoopService = $this->loopFor($manager, $toolRegistry, new NullLogger());
 
         return [$this->makeController($configurationRepository, $toolRegistry, $toolLoopService), $config];

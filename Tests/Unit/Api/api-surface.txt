@@ -753,6 +753,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   method toArray(): array
   method toolCalls(): array
   property readonly allowedToolNames: ?array
+  property readonly callPreviews: array
   property readonly completionTokens: int
   property readonly inputSchema: array
   property readonly inputToolName: ?string

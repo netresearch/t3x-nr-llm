@@ -117,6 +117,38 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
             });
     }
 
+    /**
+     * The twin of the property above for the ADR-136 preview: it is a SECOND
+     * public entry taking the same model-chosen arguments, and its output
+     * reaches the approval card. The refusal it produces must be sanitised
+     * exactly like the executed one, or the same input would be safe on one path
+     * and not on the other.
+     */
+    #[Test]
+    public function anyFieldOutsideTheAllowListIsRefusedByThePreviewToo(): void
+    {
+        $this
+            ->forAll(
+                // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
+                Generator\map(
+                    static fn(string $suffix): string => 'x_' . $suffix,
+                    // @phpstan-ignore function.notFound
+                    Generator\string(),
+                ),
+                // @phpstan-ignore function.notFound
+                Generator\string(),
+            )
+            ->then(function (string $field, string $value): void {
+                $lines = $this->tool->previewCall(['uid' => 1, $field => $value], $this->context);
+
+                self::assertCount(1, $lines);
+                self::assertMatchesRegularExpression(
+                    '/^Refused: "[A-Za-z0-9_]*" is not an editable page metadata field\. Allowed: [a-z_, ]+\.$/',
+                    $lines[0],
+                );
+            });
+    }
+
     #[Test]
     public function anyValueBeyondTheDeclaredBoundIsRefusedWithoutWriting(): void
     {

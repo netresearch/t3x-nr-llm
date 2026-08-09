@@ -20,7 +20,6 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
-use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
@@ -444,14 +443,40 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     }
 
     /**
-     * @return list<array{name: string, arguments: array<string, mixed>}>
+     * The pending calls, each with the preview the loop captured when the run
+     * suspended (ADR-136). Used by BOTH approval surfaces — the batch payload
+     * and the streamed event — so a client cannot get the calls on one and the
+     * preview only on the other.
+     *
+     * `preview.failed` marks lines that state WHY there is no preview rather
+     * than what the call would do; a client that ignores the flag still shows a
+     * line and never a blank.
+     *
+     * @return list<array{name: string, arguments: array<string, mixed>, preview: array{lines: list<string>, failed: bool}}>
      */
     private function pendingTools(AgentRunResult $result): array
     {
-        return array_map(
-            static fn(ToolCall $call): array => ['name' => $call->name, 'arguments' => $call->arguments],
-            $result->suspendedState?->toolCalls() ?? [],
-        );
+        $state    = $result->suspendedState;
+        $previews = [];
+        foreach ($state instanceof SuspendedRunState ? $state->callPreviews : [] as $preview) {
+            $previews[$preview['index']] = $preview;
+        }
+
+        $tools = [];
+        foreach ($state?->toolCalls() ?? [] as $index => $call) {
+            $preview = $previews[$index] ?? null;
+            $match   = $preview !== null && $preview['tool'] === $call->name;
+            $tools[] = [
+                'name'      => $call->name,
+                'arguments' => $call->arguments,
+                'preview'   => [
+                    'lines'  => $match ? $preview['lines'] : [],
+                    'failed' => $match && $preview['failed'],
+                ],
+            ];
+        }
+
+        return $tools;
     }
 
     /**
