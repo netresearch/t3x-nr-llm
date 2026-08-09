@@ -1198,6 +1198,53 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     /**
+     * ADR-136 sells the bound as the reason a preview may be persisted at all:
+     * it goes into the encrypted state and is re-read on every resume. The one
+     * shipped implementor cannot reach it, so only a foreign implementor of the
+     * exported ToolPreviewInterface can — which is exactly why the loop, not the
+     * tool, has to hold the line.
+     */
+    #[Test]
+    public function anOversizedPreviewIsCappedInLinesAndInLineLengthBeforeItIsPersisted(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([
+            new PreviewingApprovalTool('preview_thing', lines: array_fill(0, 25, str_repeat('x', 600))),
+        ]));
+
+        $lines = $this->suspend($service)->callPreviews[0]['lines'];
+
+        // Twenty lines kept, each cut to 500 characters, plus one line that
+        // says the list was cut — a silent truncation would read as a complete
+        // preview.
+        self::assertCount(21, $lines);
+        self::assertSame(500, mb_strlen($lines[0]));
+        self::assertSame('… and 5 more line(s), not shown.', $lines[20]);
+    }
+
+    /**
+     * Whitespace is collapsed on the same pass, so a tool cannot pad the card
+     * (or a log line) with newlines and runs of spaces.
+     */
+    #[Test]
+    public function previewLinesAreCollapsedToSingleSpacesAndTrimmed(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'preview_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([
+            new PreviewingApprovalTool('preview_thing', lines: ["  title:\n\n\t\"old\"    →   \"new\"  "]),
+        ]));
+
+        self::assertSame(
+            ['title: "old" → "new"'],
+            $this->suspend($service)->callPreviews[0]['lines'],
+        );
+    }
+
+    /**
      * The preview follows the approval scan's own fail-closed rule: a tool the
      * run never offered is refused at execution, so previewing it would both
      * describe a call that cannot happen and read data the run may not reach.

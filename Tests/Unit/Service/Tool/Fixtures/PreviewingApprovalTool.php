@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use RuntimeException;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * A tool that pauses for approval AND offers a preview (ADR-136).
@@ -28,13 +29,20 @@ use RuntimeException;
 final readonly class PreviewingApprovalTool implements ToolInterface, RequiresApprovalInterface, ToolPreviewInterface
 {
     /**
-     * @param list<string>|null $lines null ⇒ derive one line from the arguments
+     * @param list<string>|null $lines         null ⇒ derive one line from the arguments
+     * @param bool              $viewerMayRead the answer this double gives the read-side gate (ADR-136)
      */
     public function __construct(
         private string $name,
         private ?array $lines = null,
         private bool $throw = false,
+        private bool $viewerMayRead = true,
     ) {}
+
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        return $this->viewerMayRead;
+    }
 
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {

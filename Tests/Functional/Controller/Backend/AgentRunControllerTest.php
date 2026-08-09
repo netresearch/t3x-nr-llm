@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
@@ -116,7 +117,10 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         ]);
 
         $controller = $this->makeController(
-            new ToolRegistry([new FakeTool('update_page_metadata'), new FakeTool('write_thing')]),
+            new ToolRegistry([
+                new PreviewingApprovalTool('update_page_metadata'),
+                new PreviewingApprovalTool('write_thing'),
+            ]),
             self::createStub(AgentRuntimeInterface::class),
         );
         $this->setRequest($controller, 'list');
@@ -129,6 +133,33 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         // absence of a preview is the exception, not the norm.
         self::assertStringContainsString('No preview — you are deciding without one', $body);
         self::assertStringContainsString('The preview for this call failed (RuntimeException).', $body);
+    }
+
+    /**
+     * ADR-136: the read-side gate reaches the rendered page. A viewer the tool
+     * refuses gets the withheld notice instead of the captured lines — the
+     * `agent_approve` grant is tool-level and decides nothing per record.
+     */
+    #[Test]
+    public function listActionWithholdsThePreviewFromAViewerTheToolRefuses(): void
+    {
+        $this->suspendApproval('update_page_metadata', ['uid' => 42], [
+            ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['description: "Old text" → "New text"'], 'failed' => false],
+        ]);
+
+        $controller = $this->makeController(
+            new ToolRegistry([new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false)]),
+            self::createStub(AgentRuntimeInterface::class),
+        );
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringNotContainsString('Old text', $body);
+        self::assertStringContainsString('you hold no permission on the record it describes', $body);
+        self::assertStringContainsString('No preview — you are deciding without one', $body);
+        // The decision itself is untouched: the card still offers the form.
+        self::assertStringContainsString('name="approve"', $body);
     }
 
     #[Test]

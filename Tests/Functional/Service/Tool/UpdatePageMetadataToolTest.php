@@ -218,6 +218,32 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-136, read side: the approver is a different person from the run owner
+     * and holds a tool-level grant only, so the card asks the tool whether THIS
+     * viewer may see the record at all.
+     */
+    #[Test]
+    public function theViewerGateAnswersPerRecordAndNotPerTool(): void
+    {
+        $admin  = $this->setUpBackendUser(1);
+        $editor = $this->setUpBackendUser(2);
+
+        self::assertTrue($this->tool->mayViewerReadPreview(['uid' => self::PAGE_ADMIN_ONLY], $admin));
+        // Same tool, same call, different viewer: the editor holds no edit
+        // right on this page, so the lines the run owner produced stay hidden.
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => self::PAGE_ADMIN_ONLY], $editor));
+    }
+
+    #[Test]
+    public function theViewerGateRefusesAMissingPageExactlyLikeAForbiddenOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => self::PAGE_MISSING], $admin));
+        self::assertFalse($this->tool->mayViewerReadPreview(['uid' => 0], $admin));
+    }
+
+    /**
      * A call the tool would refuse previews as that refusal. The approver needs
      * to know a release would achieve nothing.
      */
@@ -316,6 +342,54 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('did not take', $result->content);
         self::assertStringContainsString('description', $result->content);
         self::assertSame('Old description', $this->pageRow(self::PAGE_OPEN)['description'] ?? null);
+    }
+
+    /**
+     * `pages.title` is `required` in the core TCA, and the DataHandler drops an
+     * empty value for it as silently as a missing field grant — no exception, no
+     * `errorLog` entry. Without the guard in `collectValues()` this call returns
+     * 'The update did not take on page [1] for: title. The acting backend user is
+     * most likely missing the field-level ("exclude field") grant for them.' — to
+     * an admin, who holds every field grant by definition.
+     *
+     * The TCA runs live here, so the premise needs no separate assertion: the
+     * refusal below can only happen while core declares `pages.title` required.
+     */
+    #[Test]
+    public function anEmptyValueForARequiredFieldIsRefusedWithItsRealReason(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => '   '],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('is required and cannot be emptied', $result->content);
+        self::assertStringNotContainsString('exclude field', $result->content);
+
+        // Refused before the DataHandler, so nothing was written and nothing logged.
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+        self::assertSame([], $this->sysLogUserIdsFor(self::PAGE_ADMIN_ONLY));
+    }
+
+    /**
+     * The guard is scoped to required fields on purpose: clearing an optional one
+     * is a write the DataHandler performs and the read-back verifies.
+     */
+    #[Test]
+    public function anOptionalFieldMayStillBeCleared(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'description' => ''],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('', $this->pageRow(self::PAGE_ADMIN_ONLY)['description'] ?? null);
     }
 
     #[Test]

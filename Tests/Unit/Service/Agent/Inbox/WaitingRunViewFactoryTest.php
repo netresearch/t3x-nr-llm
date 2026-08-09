@@ -16,18 +16,30 @@ use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(WaitingRunViewFactory::class)]
 final class WaitingRunViewFactoryTest extends TestCase
 {
-    private function factory(FakeTool ...$tools): WaitingRunViewFactory
+    private function factory(ToolInterface ...$tools): WaitingRunViewFactory
     {
         return new WaitingRunViewFactory(new ToolRegistry($tools), new SchemaPropertyClassifier(), new PendingTurnDigest());
+    }
+
+    /**
+     * The person the card is rendered for. Which records they may read is
+     * answered by the TOOL, so the double here needs no configuration.
+     */
+    private function viewer(): BackendUserAuthentication
+    {
+        return self::createStub(BackendUserAuthentication::class);
     }
 
     #[Test]
@@ -257,11 +269,66 @@ final class WaitingRunViewFactoryTest extends TestCase
             JSON_THROW_ON_ERROR,
         );
 
-        $view = $this->factory(new FakeTool('update_page_metadata'))->buildWaiting([$this->makeRun('a', $state)])[0];
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata'))
+            ->buildWaiting([$this->makeRun('a', $state)], $this->viewer())[0];
 
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
         self::assertSame(['Page [7] "Home" — 1 field(s):', 'title: "Home" → "New"'], $view->pendingCalls[0]->previewLines);
         self::assertFalse($view->pendingCalls[0]->previewFailed);
+    }
+
+    /**
+     * ADR-136: producing a preview and showing it are two authorisations. The
+     * `agent_approve` grant is tool-level, so an approver whose remit does not
+     * include this page must not read its current metadata off the card.
+     */
+    #[Test]
+    public function aPreviewIsWithheldFromAViewerWithoutPermissionOnItsRecord(): void
+    {
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+
+        self::assertSame(
+            ['The preview is not shown: you hold no permission on the record it describes.'],
+            $view->pendingCalls[0]->previewLines,
+        );
+        // Flagged, so the card says the decision is being made without a
+        // preview instead of rendering an empty section.
+        self::assertTrue($view->pendingCalls[0]->previewFailed);
+        // The card itself still works — withholding the preview never blocks
+        // the approval.
+        self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
+    }
+
+    #[Test]
+    public function aPreviewIsWithheldWhenNoViewerCanBeEstablished(): void
+    {
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata'))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], null)[0];
+
+        self::assertTrue($view->pendingCalls[0]->previewFailed);
+        self::assertSame(
+            ['The preview is not shown: you hold no permission on the record it describes.'],
+            $view->pendingCalls[0]->previewLines,
+        );
+    }
+
+    /**
+     * The persisted preview outlives the registration that produced it. A tool
+     * that is gone — or one under that name that offers no preview contract —
+     * cannot be asked whether this viewer may see the lines, so it is not shown.
+     */
+    #[Test]
+    public function aPreviewIsWithheldWhenTheToolCanNoLongerBeAsked(): void
+    {
+        $view = $this->factory(new FakeTool('update_page_metadata'))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+
+        self::assertTrue($view->pendingCalls[0]->previewFailed);
+        self::assertSame(
+            ['The preview is not shown: you hold no permission on the record it describes.'],
+            $view->pendingCalls[0]->previewLines,
+        );
     }
 
     #[Test]
@@ -275,12 +342,13 @@ final class WaitingRunViewFactoryTest extends TestCase
             JSON_THROW_ON_ERROR,
         );
 
-        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $state)])[0];
+        $view = $this->factory(new PreviewingApprovalTool('write_thing'))
+            ->buildWaiting([$this->makeRun('a', $state)], $this->viewer())[0];
 
         // The card renders a line and says it is a failure, so the approver
         // knows they are deciding blind instead of seeing an empty section.
         self::assertTrue($view->pendingCalls[0]->previewFailed);
-        self::assertNotSame([], $view->pendingCalls[0]->previewLines);
+        self::assertSame(['The preview for this call failed (RuntimeException).'], $view->pendingCalls[0]->previewLines);
     }
 
     /**
@@ -299,7 +367,8 @@ final class WaitingRunViewFactoryTest extends TestCase
             JSON_THROW_ON_ERROR,
         );
 
-        $view = $this->factory(new FakeTool('write_thing'))->buildWaiting([$this->makeRun('a', $state)])[0];
+        $view = $this->factory(new PreviewingApprovalTool('write_thing'))
+            ->buildWaiting([$this->makeRun('a', $state)], $this->viewer())[0];
 
         self::assertCount(1, $view->pendingCalls);
         self::assertSame(['would write'], $view->pendingCalls[0]->previewLines);
@@ -339,6 +408,21 @@ final class WaitingRunViewFactoryTest extends TestCase
         self::assertSame(WaitingRunView::MODE_APPROVAL, $view->mode);
         self::assertSame([], $view->pendingCalls[0]->previewLines);
         self::assertFalse($view->pendingCalls[0]->previewFailed);
+    }
+
+    /**
+     * One `update_page_metadata` call carrying a captured preview.
+     */
+    private function previewState(): string
+    {
+        $call = ToolCall::function('c1', 'update_page_metadata', ['uid' => 7])->toArray();
+
+        return json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['Page [7] "Home" — 1 field(s):'], 'failed' => false],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
     }
 
     /**

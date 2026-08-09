@@ -65,7 +65,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before/after: its arguments are the new values, and the card now also shows
   what they replace. The preview is a snapshot of the pause, NOT a precondition
   — a page edited by a human in between does not block the approval, because the
-  tool writes absolute values; the ADR argues that case out in full.
+  tool writes absolute values; the ADR argues that case out in full. Reading a
+  preview is authorised per record against the VIEWER, not only per tool:
+  `agent_approve` (ADR-130) is a tool-level grant, so the card asks the tool
+  whether the backend user it is being rendered for may see that record, and
+  says the preview is withheld where the answer is no. It fails closed when the
+  question cannot be asked — no viewer, or no registered tool under that name.
 - **`update_page_metadata` — the first writing tool** (ADR-135). It sets a fixed
   allow-list of descriptive fields (`title`, `subtitle`, `nav_title`,
   `abstract`, `description`, `keywords`, plus the EXT:seo titles/descriptions
@@ -84,7 +89,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   populating globals it does not own. Success is verified by re-reading the
   record: the `DataHandler` silently drops a field the user lacks the
   "exclude field" grant for, and reporting that as a successful write would
-  mislead the human who approved it. `ToolEffectCoverageTest::DECLARED_WRITERS`,
+  mislead the human who approved it. An empty value for a field the TCA marks
+  `required` (`pages.title`) is dropped just as silently, so the argument gate
+  refuses it up front rather than letting the read-back blame a field grant an
+  admin cannot be missing; clearing an *optional* field still works.
+  `ToolEffectCoverageTest::DECLARED_WRITERS`,
   empty since ADR-122, now pins this one name. **Not guaranteed:** the ADR-112
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
