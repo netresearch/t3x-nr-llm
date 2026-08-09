@@ -58,7 +58,11 @@ final readonly class McpToolProvider implements ToolProviderInterface
                     continue;
                 }
 
-                yield new McpTool($server, $record, $schema, $dataClass, $this->client);
+                // The approval flag is resolved here, from the server row this
+                // loop already holds, rather than looked up later by the
+                // approval scan: the scan runs per tool call and adding a
+                // repository to it would put a query on that path.
+                yield new McpTool($server, $record, $schema, $dataClass, $server->approvalRequired(), $this->client);
             }
         }
     }
