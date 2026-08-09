@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -241,6 +242,7 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
                 new AllowedToolsResolver(new SkillComposer(), $registry),
                 new ToolDataClassResolver($registry),
                 new TrustZoneResolver(),
+                new DataClassEnforcementResolver(),
             ),
             snippetComposer: new PromptSnippetComposer(),
             contextWindow: $contextWindow,
