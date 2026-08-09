@@ -25,6 +25,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   runs another configuration stepped in for. `ProviderHealthRepository` is
   unchanged — its scores deliberately count only `fallback_attempts = 0`
   rows, so a rescued run still counts against the primary.
+- A **Provider health and circuits** table in the analytics module, the
+  readout ADR-063 deferred: per provider the health score with the sample
+  count and the rolling window it was taken over, plus the circuit state
+  from the `nrllm_circuit` cache. A provider with no telemetry in the
+  window shows "no data", never a zero — it was idle, not broken. Both
+  gates are stated on the page, because a score that changes nothing is
+  the likeliest misreading of such a panel: `health.reorderFallback` is
+  off by default, and a disabled `circuitBreaker.enabled` means the
+  circuit column is not being evaluated at all. No new backend module
+  (ADR-119) — it is a section of the existing analytics view.
+  `ProviderHealthServiceInterface` gains `windowSeconds()` and
+  `reorderEnabled()` so the window and the switch are read from the
+  advisor instead of restated by its consumers; neither the interface nor
+  the new `Service\Analytics\ProviderHealthReport` is part of the `@api`
+  surface, which is unchanged.
 
 ### Changed
 

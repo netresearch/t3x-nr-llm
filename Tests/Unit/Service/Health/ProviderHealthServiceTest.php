@@ -130,6 +130,21 @@ final class ProviderHealthServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function reorderEnabledReportsTheSettingInBothPositions(): void
+    {
+        // A readout must be able to say whether the scores decide anything;
+        // the default-off semantics stay in one place.
+        self::assertFalse($this->service($this->repositoryReturning([]), [], enabled: false)->reorderEnabled());
+        self::assertTrue($this->service($this->repositoryReturning([]), [], enabled: true)->reorderEnabled());
+    }
+
+    #[Test]
+    public function windowSecondsNamesTheWindowTheScoresAreTakenOver(): void
+    {
+        self::assertSame(900, $this->service($this->repositoryReturning([]), [], enabled: false)->windowSeconds());
+    }
+
+    #[Test]
     public function allServesFromCacheWithoutQueryingTelemetry(): void
     {
         $cached = ['openai' => ProviderHealthScore::fromSamples('openai', 3, 3, 10.0)];

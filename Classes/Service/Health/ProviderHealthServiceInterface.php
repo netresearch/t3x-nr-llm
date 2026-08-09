@@ -37,6 +37,29 @@ interface ProviderHealthServiceInterface
     public function all(): array;
 
     /**
+     * Length of the rolling window the scores reflect, in seconds.
+     *
+     * A score is only readable next to the window it was taken over — "80 %
+     * over the last quarter hour" and "80 % over the last day" are different
+     * statements. A readout must therefore be able to name the window rather
+     * than restate it from a constant of its own, which would silently drift
+     * from the one the scores were actually computed with.
+     */
+    public function windowSeconds(): int;
+
+    /**
+     * Whether the operator opted into the health-aware fallback reorder
+     * (`health.reorderFallback`, default off).
+     *
+     * Exposed because a score that influences nothing is the likeliest
+     * misreading of a health readout: a consumer that shows scores must be
+     * able to say whether they currently change any decision. The default-off
+     * semantics live here, with {@see self::reorder()}, so a second reader
+     * cannot disagree about what an unset setting means.
+     */
+    public function reorderEnabled(): bool;
+
+    /**
      * Return the fallback chain reordered by descending provider health, as a
      * HINT — a stable sort, so configurations whose providers are equally
      * healthy (or unknown) keep their configured order. This is the tie-break

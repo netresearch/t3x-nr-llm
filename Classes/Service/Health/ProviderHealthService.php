@@ -66,6 +66,11 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
         return $scores;
     }
 
+    public function windowSeconds(): int
+    {
+        return self::WINDOW_SECONDS;
+    }
+
     public function reorder(FallbackChain $chain): FallbackChain
     {
         if ($chain->count() < 2 || !$this->reorderEnabled()) {
@@ -113,7 +118,7 @@ final class ProviderHealthService implements ProviderHealthServiceInterface
         return $provider !== '' ? $provider : null;
     }
 
-    private function reorderEnabled(): bool
+    public function reorderEnabled(): bool
     {
         try {
             /** @var array<string, mixed> $config */

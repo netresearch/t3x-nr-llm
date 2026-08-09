@@ -668,6 +668,78 @@
                 <source>No configuration had to step in for another one in this period.</source>
                 <target>In diesem Zeitraum musste keine Konfiguration für eine andere einspringen.</target>
             </trans-unit>
+            <trans-unit id="analytics.health.title">
+                <source>Provider health and circuits</source>
+                <target>Provider-Zustand und Circuit Breaker</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.description">
+                <source>Live resilience state, not the date range selected above: scores are recomputed over a rolling window of the last %s seconds of telemetry, circuit state is read from the cache as it stands now.</source>
+                <target>Der aktuelle Zustand, nicht der oben gewählte Zeitraum: Die Bewertungen entstehen aus einem gleitenden Fenster der letzten %s Sekunden Telemetrie, der Zustand der Circuit Breaker kommt so aus dem Cache, wie er gerade ist.</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.reorder.on">
+                <source>Health-aware fallback reorder is ON: these scores reprioritise the fallback chain, healthiest provider first, with the configured order as the tie-break.</source>
+                <target>Die zustandsabhängige Umsortierung der Fallback-Kette ist EIN: Diese Bewertungen sortieren die Kette um, der gesündeste Provider zuerst; bei Gleichstand bleibt die konfigurierte Reihenfolge.</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.reorder.off">
+                <source>Health-aware fallback reorder is OFF (the default). These scores are informational only — they change nothing about which provider is called. Turn on "Health-Aware Fallback Reorder" in the extension configuration to let them reprioritise the fallback chain.</source>
+                <target>Die zustandsabhängige Umsortierung der Fallback-Kette ist AUS (Voreinstellung). Diese Bewertungen sind reine Information – sie ändern nichts daran, welcher Provider aufgerufen wird. Schalte „Health-Aware Fallback Reorder“ in der Extension-Konfiguration ein, damit sie die Fallback-Kette umsortieren.</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.disabled">
+                <source>The circuit breaker is switched off in the extension configuration. No circuit is evaluated, so no provider is failed fast; any state below is left over from when it was on.</source>
+                <target>Der Circuit Breaker ist in der Extension-Konfiguration abgeschaltet. Es wird kein Circuit ausgewertet, kein Provider bricht deshalb früh ab; ein Zustand unten stammt noch aus der Zeit, als er eingeschaltet war.</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.provider">
+                <source>Provider (adapter type)</source>
+                <target>Provider (Adapter-Typ)</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.score">
+                <source>Score</source>
+                <target>Bewertung</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.samples">
+                <source>Samples in window</source>
+                <target>Stichproben im Fenster</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.successRate">
+                <source>Success rate</source>
+                <target>Erfolgsquote</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.latency">
+                <source>Avg latency</source>
+                <target>Mittlere Laufzeit</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.table.circuit">
+                <source>Circuit</source>
+                <target>Circuit</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.noData">
+                <source>No data in the window — this provider was not called, which is not the same as a score of zero.</source>
+                <target>Keine Daten im Fenster – dieser Provider wurde nicht aufgerufen. Das ist etwas anderes als eine Bewertung von null.</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.closed">
+                <source>closed</source>
+                <target>geschlossen</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.open">
+                <source>open</source>
+                <target>offen</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.halfOpen">
+                <source>half-open</source>
+                <target>halb offen</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.failures">
+                <source>%s consecutive failures</source>
+                <target>%s Fehler in Folge</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.circuit.offShort">
+                <source>not evaluated</source>
+                <target>nicht ausgewertet</target>
+            </trans-unit>
+            <trans-unit id="analytics.health.empty">
+                <source>No active provider is configured and no provider was called recently.</source>
+                <target>Es ist kein aktiver Provider konfiguriert, und zuletzt wurde keiner aufgerufen.</target>
+            </trans-unit>
 
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">
