@@ -178,6 +178,102 @@ requested one as an error.
 Reporting a write that did not happen is the worst available outcome for a tool
 whose entire premise is that a human approved a specific change.
 
+.. _adr-135-second-writer:
+
+Amendment: the second writer, and the language question it raised
+==================================================================
+
+``set_file_alternative_text`` sets ``sys_file_metadata.alternative`` for one
+``sys_file`` uid. It is the trigger this ADR named under "Revisit when", so the
+answer belongs here rather than in an ADR of its own: nothing below changes a
+decision above, it applies them to a second table and settles the one question
+the first tool never had to ask.
+
+What it takes over unchanged
+----------------------------
+
+``IDEMPOTENT_WRITE`` and therefore the approval pause; ``isEnabledByDefault()``
+false; ``requiresAdmin()`` false; the ``editing`` group; the live-workspace
+restriction; the backend-environment refusal; the read-back verification; the
+``ToolPreviewInterface`` before/after (:ref:`ADR-136 <adr-136>`); one neutral
+refusal string shared with the READ tool of the same records
+(``read_fal_asset_meta``), so a refusal never confirms that a uid exists.
+
+Where it differs, and why
+-------------------------
+
+**The authorisation axis is FAL, not the page tree.** Access is decided by
+:php:`FalStorageGate::isFileAccessible()` against the explicit acting user: the
+configured storage allow-list, intersected for non-admins with their file
+mounts. That allow-list is nr_llm's own configuration and the DataHandler has
+never heard of it, so the gate must run BEFORE the write — not instead of it.
+Core's :php:`FileMetadataPermissionsAspect` then applies the narrower question
+inside the DataHandler (a WRITABLE file mount, ``editMeta``), and — this is easy
+to get backwards — that aspect can only ever DENY: ``tables_modify`` for
+``sys_file_metadata`` still decides first, exactly as it does for the File list
+module's metadata form.
+
+**It never creates a metadata record.** A file that carries none is refused. A
+tool that creates the record it was asked to edit does more than its name says,
+and an invented record is a record nobody reviewed.
+
+**The read-back guard is not reachable on the shipped TCA.** Core marks
+``sys_file_metadata.title`` as an exclude field but not ``alternative``, so the
+"exclude field" silent drop cannot bite as delivered. The guard stays: the flag
+is one TCA override away, and the tool must not report a write that did not
+happen. The functional test reaches the path by setting the flag and rebuilding
+the compiled schema — mutating ``$GLOBALS['TCA']`` alone no longer changes what
+the DataHandler asks in TYPO3 v14.
+
+The language question
+---------------------
+
+``sys_file_metadata`` is language-aware (``sys_language_uid`` /
+``l10n_parent``); ``pages`` metadata, for the fields the first writer touches,
+was not a question at all. Three answers were possible: assume a language, take
+one as an argument, or refuse while translations exist.
+
+**Decision: the tool addresses the default language (sys_language_uid = 0)
+only, takes no language argument, and refuses when the default-language record
+is absent.**
+
+- **Reader and writer must address the same row.** ``read_fal_asset_meta`` pins
+  ``sys_language_uid = 0``. A writer that could land elsewhere would produce
+  changes the model cannot read back and the approval card's "before" column
+  could not be trusted to describe the same record.
+- **A language argument is a model-chosen argument.** It would widen the call
+  surface by one value that decides WHICH record is written, needs its own
+  ``checkLanguageAccess()`` per value, and fails quietly when wrong — the write
+  succeeds, on the wrong translation.
+- **Refusing while translations exist would be worse than useless.** It would
+  disable the tool's main purpose on every multilingual site and would leak the
+  existence of translations through the refusal.
+- The default language is still not assumed to be permitted:
+  ``checkLanguageAccess(0)`` is asserted against the acting user, because a
+  backend user can be restricted to languages that exclude it.
+
+Translated alternative texts stay a backend job. Revisit if a writing tool ever
+needs to address a translation — at that point the language belongs in the
+argument list of the tool that needs it, not retrofitted into this one.
+
+The duplication this ADR predicted
+----------------------------------
+
+It is real, and it is smaller than expected: the backend-environment check, the
+bounded ``errorLog`` summary and the two preview-formatting helpers — roughly
+ninety lines, all mechanism, no policy. What does NOT repeat is everything that
+decides anything: the authorisation model (page permissions versus storage
+allow-list and file mounts), the target identity (the argument uid IS the record
+versus the argument uid is a file whose metadata record has to be found), and
+the refusal vocabulary, which is deliberately different per tool so each matches
+its own read tool.
+
+The shared base is therefore **not** extracted here. Two samples of three
+helpers do not yet show which of them a third writer would want, and this change
+would have to edit the first writer to find out. The extraction is worth its own
+change, with the third writer or the first review that trips over the copy —
+whichever comes first.
+
 .. _adr-135-nonguarantee:
 
 What this does NOT guarantee: the write fence
@@ -249,6 +345,11 @@ the same permission pre-check, the same refusal vocabulary and the same
 read-back verification are a shared base — and at that point the shape of the
 contract ADR-122 declined to guess at will be visible in the duplication rather
 than imagined.
+
+That happened: ``set_file_alternative_text`` is the second writer, and the
+:ref:`amendment above <adr-135-second-writer>` records what it reused, where it
+had to differ, and why the shared base is still not extracted. The next trigger
+is the **third** writer.
 
 Also revisit if an interactive run ever gains a retry path. The fence's absence
 is correct only while "interactive" means "no repeat without a human".

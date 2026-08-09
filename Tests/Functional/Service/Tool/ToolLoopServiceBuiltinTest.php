@@ -26,8 +26,10 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
@@ -219,6 +221,33 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $this->expectException(ToolApprovalRequiredException::class);
         $service->runLoop([$this->userTurn('fix the title')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the SECOND writing builtin (ADR-135).
+     *
+     * The coupling is a property of the declaration, not of the first tool that
+     * happened to carry it: `set_file_alternative_text` also declares only
+     * IDEMPOTENT_WRITE and no approval marker, and the loop must suspend before
+     * `execute()` — before any DataHandler, any storage gate, any file row.
+     */
+    #[Test]
+    public function theSecondWritingBuiltinAlsoSuspendsBeforeItExecutes(): void
+    {
+        $tool = new SetFileAlternativeTextTool($this->connectionPool, $this->getService(FalStorageGate::class));
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('set_file_alternative_text', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'set_file_alternative_text', ['uid' => 1, 'alternative' => 'A cat']),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('describe the image')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
     }
 
     /**

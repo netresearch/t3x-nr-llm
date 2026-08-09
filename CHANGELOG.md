@@ -8,6 +8,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`set_file_alternative_text` — the second writing tool** (ADR-135). It sets
+  the alternative text (`sys_file_metadata.alternative`) of exactly ONE managed
+  file, identified by its `sys_file` uid, through the `DataHandler`, as the
+  acting backend user — the accessibility gap editors most often leave behind.
+  It joins the existing `editing` group on the same terms as the first writer:
+  ships **disabled**, declares `IDEMPOTENT_WRITE`, so every call suspends for a
+  human decision (ADR-134), live workspace only, no approval marker of its own,
+  and a before/after on the approval card (ADR-136). Access is decided BEFORE
+  the write by `FalStorageGate::isFileAccessible()` against the acting user —
+  the configured storage allow-list intersected with the user's file mounts, a
+  barrier the `DataHandler` knows nothing about; core's own file-metadata
+  permission check (a WRITABLE mount, plus `tables_modify`) then applies on top,
+  so a read-only mount is refused there. It **never creates** a metadata record:
+  a file that carries none is refused, in the same neutral words as a file in a
+  forbidden storage, a file outside the user's mounts and a uid no file carries
+  — so a refusal cannot be used to probe `sys_file` for existence. It writes the
+  **default-language** record only and takes no language argument, so writer and
+  reader (`read_fal_asset_meta`) address the same row; the reasoning is in the
+  ADR-135 amendment. An empty string is accepted and is the correct value for a
+  decorative image. Success is verified by re-reading the record, as with the
+  first writer, and `ToolEffectCoverageTest::DECLARED_WRITERS` now pins two
+  names.
 - **A write preview, produced when the run suspends** (ADR-136). New opt-in
   `ToolPreviewInterface`: a tool that implements it describes, in plain lines,
   what the pending call would do. The lines are produced by `ToolLoopService` at
