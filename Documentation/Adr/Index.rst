@@ -434,3 +434,4 @@ Tools
    Adr134WriteEffectImpliesApproval
    Adr135UpdatePageMetadataTool
    Adr136WritePreviewAtSuspend
+   Adr139ContextAssemblyIsASeam

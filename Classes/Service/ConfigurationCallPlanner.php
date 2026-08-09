@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 
 /**
  * Plans a configuration-driven call: which Model, which adapter, which
@@ -35,6 +36,7 @@ final readonly class ConfigurationCallPlanner
     public function __construct(
         private ProviderAdapterRegistryInterface $adapterRegistry,
         private ?ModelSelectionServiceInterface $modelSelectionService = null,
+        private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {}
 
     /**
@@ -95,6 +97,8 @@ final readonly class ConfigurationCallPlanner
         $options = array_merge($config->toOptionsArray(), $optionOverrides);
         unset($options['provider']);
 
+        $options = $this->withSnippetTags($options, $config);
+
         // An explicit non-positive max_tokens override means "unset" too —
         // passing 0 through would fail provider-side validation.
         if (!isset($options['max_tokens']) || (is_int($options['max_tokens']) && $options['max_tokens'] <= 0)) {
@@ -104,6 +108,45 @@ final readonly class ConfigurationCallPlanner
                 unset($options['max_tokens']);
             }
         }
+
+        return $options;
+    }
+
+    /**
+     * Compose the configuration's tag-selected prompt snippets (ADR-031) into
+     * the merged call options' `system_prompt`.
+     *
+     * This is the single insertion point that reaches chat, completion,
+     * streaming and the agent loop: every configuration-driven entry point on
+     * {@see LlmServiceManager} builds its options here, and the value is read
+     * downstream by {@see MessageShaper::applySystemPrompt()} for the message
+     * paths and by {@see \Netresearch\NrLlm\Provider\AbstractProvider::complete()}
+     * for the single-prompt path.
+     *
+     * The snippets are appended to whatever system prompt is effective AFTER
+     * the per-call overrides are merged, so a caller-supplied system prompt
+     * still wins on the text while the configuration's editorial context is
+     * kept. A configuration without tags returns the options untouched.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, mixed>
+     */
+    private function withSnippetTags(array $options, LlmConfiguration $config): array
+    {
+        if (!$this->snippetResolver instanceof ConfigurationSnippetResolver) {
+            return $options;
+        }
+
+        $current = $options['system_prompt'] ?? '';
+        $current = is_string($current) ? $current : '';
+
+        $effective = $this->snippetResolver->appendTo($current, $config);
+        if ($effective === $current) {
+            return $options;
+        }
+
+        $options['system_prompt'] = $effective;
 
         return $options;
     }

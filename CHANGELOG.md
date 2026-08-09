@@ -98,6 +98,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
   unfenced. The fail-closed write audit and the approval pause hold everywhere.
+- A configuration can attach prompt snippets by tag
+  (`tx_nrllm_configuration.snippet_tags`, amendment to ADR-031). The
+  active snippets carrying any selected tag are composed into the
+  configuration's effective system prompt, so they reach chat,
+  completion, streaming and the agent loop through one insertion point
+  in `ConfigurationCallPlanner::callOptions()`. Before this the snippet
+  library reached no production prompt at all — its only consumers were
+  the tool playground's forced snippets and the codec that rehydrates
+  them. The select lists the tags the snippet records actually carry, so
+  the vocabulary stays consumer-owned; a snippet carrying two selected
+  tags is composed once, and an unknown tag yields nothing rather than
+  an error. Configurations without tags are unaffected. The `@api`
+  surface gains `LlmConfiguration::getSnippetTags()`,
+  `setSnippetTags()` and `getSnippetTagList()` (additive).
+  A hidden snippet is not composed: the repository keeps ignoring enable
+  fields (the backend module lists hidden records), so the filter sits in
+  `ConfigurationSnippetResolver`, and `PromptSnippet::isHidden()` is
+  mapped for it. In the tool playground a forced snippet the
+  configuration already selects by tag is no longer added a second time.
+  The composed prompt is passed to `ContextWindowManagerInterface::fit()`
+  by `ToolLoopService` and `ConversationService` (new optional
+  `$effectiveSystemPrompt` argument, defaulting to the previous
+  behaviour), so the ADR-107 budget counts the snippet block that goes on
+  the wire.
 
 ### Changed
 

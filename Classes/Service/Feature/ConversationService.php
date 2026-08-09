@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
@@ -65,6 +66,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         // against the budget. Optional for the same reason as the manager
         // above; absent it the block is unaccounted for, exactly as before.
         private ?SkillComposer $skillComposer = null,
+        // Only reader: the effective system prompt handed to the context
+        // window below. The manager composes the configuration's tag-selected
+        // snippets (ADR-031) into the prompt it sends, so the estimate has to
+        // know about them or it budgets for a smaller message than it sends.
+        private ?ConfigurationSnippetResolver $snippetResolver = null,
     ) {}
 
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession
@@ -138,7 +144,20 @@ final readonly class ConversationService implements ConversationServiceInterface
             // there deliberately — the first user turn is the never-droppable
             // HEAD, so injecting before the fit would spend the whole history
             // on making room and still overflow.
-            $fit          = $this->contextWindow->fit($messages, $configuration, $options, null, [], $this->skillBlockFor($configuration));
+            //
+            // The effective system prompt only matters when this turn carries
+            // no system message of its own; then the manager prepends the
+            // configuration's prompt WITH its composed snippets, and that is
+            // what has to be counted.
+            $fit = $this->contextWindow->fit(
+                $messages,
+                $configuration,
+                $options,
+                null,
+                [],
+                $this->skillBlockFor($configuration),
+                $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
+            );
             $messages     = $fit->messages;
             $droppedTurns = $fit->droppedTurns;
 

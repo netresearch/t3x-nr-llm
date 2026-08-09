@@ -45,6 +45,15 @@ class PromptSnippet extends AbstractEntity
 
     protected bool $isActive = true;
 
+    /**
+     * The TCA enable column (`enablecolumns.disabled`), mapped so a reader can
+     * see it: {@see \Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver}
+     * drops hidden snippets from a configuration's composed prompt. The
+     * repository keeps ignoring enable fields (the backend module lists hidden
+     * records), so the filter has to happen on the object.
+     */
+    protected bool $hidden = false;
+
     protected int $sorting = 0;
 
     // Getters
@@ -94,6 +103,11 @@ class PromptSnippet extends AbstractEntity
         return $this->getIsActive();
     }
 
+    public function isHidden(): bool
+    {
+        return $this->hidden;
+    }
+
     public function getSorting(): int
     {
         return $this->sorting;
@@ -134,6 +148,11 @@ class PromptSnippet extends AbstractEntity
     public function setIsActive(bool $isActive): void
     {
         $this->isActive = $isActive;
+    }
+
+    public function setHidden(bool $hidden): void
+    {
+        $this->hidden = $hidden;
     }
 
     public function setSorting(int $sorting): void

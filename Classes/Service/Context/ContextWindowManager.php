@@ -57,6 +57,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
         string $injectedText = '',
+        ?string $effectiveSystemPrompt = null,
     ): ContextFitResult {
         // A null $lastUsage marks the first send of a run's loop. Reset the
         // per-run calibration state here so a single shared manager instance
@@ -85,14 +86,17 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         // Payload that reaches the wire without being in $messages, counted here
         // because the budget binds the SEND, not this array:
         // - the system prompt MessageShaper prepends AFTER fit() on the public
-        //   path (ADR-093), when the transcript has no leading system message;
+        //   path (ADR-093), when the transcript has no leading system message —
+        //   as the caller's EFFECTIVE prompt where it knows it, because the
+        //   configuration's stored prompt is not what goes on the wire once
+        //   per-call overrides and composed snippets (ADR-031) have been applied;
         // - $injectedText, prose a later stage prepends into the list — the
         //   skill block LlmServiceManager injects on the configuration path.
         // Both are charged to the estimate rather than deducted from the budget:
         // a deduction large enough to push the budget to zero would trip the
         // non-positive-budget passthrough below and disable pruning outright,
         // which is the overflow this accounting exists to prevent.
-        $outsideTokens = $this->missingSystemPromptTokens($messages, $configuration)
+        $outsideTokens = $this->missingSystemPromptTokens($messages, $configuration, $effectiveSystemPrompt)
             + $this->injectedTokens($injectedText);
         $estimate = function (array $msgs) use ($toolSpecs, $outsideTokens): int {
             /** @var list<ChatMessage|array<string, mixed>> $msgs the caller always passes the partitioned transcript */
@@ -149,15 +153,24 @@ final class ContextWindowManager implements ContextWindowManagerInterface
     }
 
     /**
+     * The prompt that will be prepended, not the one the entity stores: the
+     * caller composes per-call overrides and the configuration's tag-selected
+     * snippets (ADR-031) into it before the send, so re-deriving it from the
+     * entity here would under-count the wire by exactly that block. Callers
+     * that have nothing to compose pass null and get the entity's prompt.
+     *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function missingSystemPromptTokens(array $messages, LlmConfiguration $configuration): int
-    {
+    private function missingSystemPromptTokens(
+        array $messages,
+        LlmConfiguration $configuration,
+        ?string $effectiveSystemPrompt,
+    ): int {
         if (isset($messages[0]) && $this->roleOf($messages[0]) === 'system') {
             return 0;
         }
 
-        $systemPrompt = $configuration->getSystemPrompt();
+        $systemPrompt = $effectiveSystemPrompt ?? $configuration->getSystemPrompt();
         if ($systemPrompt === '') {
             return 0;
         }
