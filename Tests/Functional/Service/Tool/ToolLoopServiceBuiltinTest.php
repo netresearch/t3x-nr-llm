@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
@@ -223,18 +224,21 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
     /**
      * The remote exemption, over the REAL {@see McpTool} rather than a stand-in
-     * for it (ADR-134).
+     * for it (ADR-134), for a server whose operator did NOT set the approval
+     * flag.
      *
      * `McpTool::getEffect()` is NON_IDEMPOTENT_WRITE for every imported tool,
      * this scripted `search` included. That value is a fail-closed assumption
      * about a body this codebase cannot inspect, not the tool's own statement,
      * so it must not double as an approval trigger: if it did, every MCP tool
      * would suspend on every call and the shipped client would be unusable.
+     * The write effect is unchanged here — only the server's own flag decides.
      */
     #[Test]
     public function aRemoteMcpToolWithAWriteEffectDoesNotSuspendEndToEnd(): void
     {
-        $tool = $this->mcpTool('mcp_srv_search');
+        $tool = $this->mcpTool('mcp_srv_search', false);
+        self::assertTrue($tool->getEffect()->isWrite(), 'the effect must still be a write, or this proves nothing');
         // An imported tool is inert until an operator enables it, so the real
         // availability service would otherwise never offer it.
         (new ToolStateRepository($this->connectionPool))->setEnabled('mcp_srv_search', true);
@@ -263,6 +267,31 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
         self::assertCount(1, $result->trace);
         self::assertSame('mcp_srv_search', $result->trace[0]->name);
         self::assertSame('REMOTE OK', $result->trace[0]->result);
+    }
+
+    /**
+     * The other half of the same switch: the operator ticked "requires
+     * approval" on the server, so the very same {@see McpTool} suspends
+     * before the call goes out (ADR-134).
+     *
+     * The tool, the client and the transport are identical to the test above —
+     * only the server row differs. That is the point: nothing about the tool
+     * itself, and certainly nothing the server said about itself, decides this.
+     */
+    #[Test]
+    public function aRemoteMcpToolOnAnApprovalRequiringServerSuspendsEndToEnd(): void
+    {
+        $tool = $this->mcpTool('mcp_srv_search', true);
+        (new ToolStateRepository($this->connectionPool))->setEnabled('mcp_srv_search', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'mcp_srv_search', ['q' => 'typo3'])]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('search for typo3')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
     }
 
     /**
@@ -311,28 +340,15 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
      * A real {@see McpTool} over a scripted server: only the HTTP client is
      * faked, so the client, the transport and the tool itself are production
      * code.
+     *
+     * The server record is read back from a real row through the real
+     * {@see McpServerRepository}, so the approval flag travels the production
+     * path — column, hydration, {@see McpServerRecord::approvalRequired()} —
+     * rather than being asserted into place.
      */
-    private function mcpTool(string $localName): McpTool
+    private function mcpTool(string $localName, bool $requiresApproval): McpTool
     {
-        $server = new McpServerRecord(
-            1,
-            0,
-            'srv',
-            'A server',
-            '',
-            'https://mcp.example.com/rpc',
-            '',
-            'bearer',
-            '',
-            'publicContent',
-            true,
-            'ok',
-            '',
-            0,
-            1,
-            0,
-            0,
-        );
+        $server = $this->storedServer($requiresApproval);
 
         $record = new McpToolRecord(
             1,
@@ -368,8 +384,44 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             $record,
             ['type' => 'object', 'properties' => []],
             ToolDataClass::PUBLIC_CONTENT,
+            $server->approvalRequired(),
             new McpClient($transport),
         );
+    }
+
+    /**
+     * One MCP server row, read back as the repository hydrates it.
+     */
+    private function storedServer(bool $requiresApproval): McpServerRecord
+    {
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_server');
+        $connection->insert('tx_nrllm_mcp_server', [
+            'pid'               => 0,
+            'identifier'        => 'srv',
+            'name'              => 'A server',
+            'description'       => '',
+            'url'               => 'https://mcp.example.com/rpc',
+            'auth_credential'   => '',
+            'auth_placement'    => 'bearer',
+            'auth_header_name'  => '',
+            'data_class'        => 'publicContent',
+            'requires_approval' => $requiresApproval ? 1 : 0,
+            'enabled'           => 1,
+            'import_status'     => 'ok',
+            'import_error'      => '',
+            'last_imported'     => 1,
+            'tool_count'        => 1,
+            'tstamp'            => 0,
+            'crdate'            => 0,
+            'deleted'           => 0,
+            'hidden'            => 0,
+        ]);
+
+        $server = (new McpServerRepository($this->connectionPool))->findByUid((int)$connection->lastInsertId());
+        self::assertInstanceOf(McpServerRecord::class, $server);
+        self::assertSame($requiresApproval, $server->approvalRequired());
+
+        return $server;
     }
 
     /**
