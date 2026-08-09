@@ -69,7 +69,6 @@ final readonly class SkillComposerFactory
         $bytes = is_numeric($value) ? (int)$value : 0;
 
         return $bytes >= 1 ? $bytes : SkillComposer::DEFAULT_MAX_BYTES;
->>>>>>> origin/main
     }
 
     /**
