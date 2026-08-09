@@ -56,6 +56,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         ?ChatOptions $options,
         ?UsageStatistics $lastUsage,
         array $toolSpecs = [],
+        string $injectedText = '',
     ): ContextFitResult {
         // A null $lastUsage marks the first send of a run's loop. Reset the
         // per-run calibration state here so a single shared manager instance
@@ -81,13 +82,21 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             return $this->passthrough($messages);
         }
 
-        // The system prompt is prepended by MessageShaper AFTER fit() on the
-        // public path (ADR-093), so when the transcript has no leading system
-        // message its size must still be counted against the wire.
-        $systemPromptTokens = $this->missingSystemPromptTokens($messages, $configuration);
-        $estimate = function (array $msgs) use ($toolSpecs, $systemPromptTokens): int {
+        // Payload that reaches the wire without being in $messages, counted here
+        // because the budget binds the SEND, not this array:
+        // - the system prompt MessageShaper prepends AFTER fit() on the public
+        //   path (ADR-093), when the transcript has no leading system message;
+        // - $injectedText, prose a later stage prepends into the list — the
+        //   skill block LlmServiceManager injects on the configuration path.
+        // Both are charged to the estimate rather than deducted from the budget:
+        // a deduction large enough to push the budget to zero would trip the
+        // non-positive-budget passthrough below and disable pruning outright,
+        // which is the overflow this accounting exists to prevent.
+        $outsideTokens = $this->missingSystemPromptTokens($messages, $configuration)
+            + $this->injectedTokens($injectedText);
+        $estimate = function (array $msgs) use ($toolSpecs, $outsideTokens): int {
             /** @var list<ChatMessage|array<string, mixed>> $msgs the caller always passes the partitioned transcript */
-            return $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $systemPromptTokens;
+            return $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $outsideTokens;
         };
 
         [$head, $turns] = $this->partition($messages);
@@ -154,6 +163,23 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         }
 
         return $this->estimator->estimate([ChatMessage::system($systemPrompt)], [], $this->calibration);
+    }
+
+    /**
+     * Tokens for prose a later stage prepends into the send.
+     *
+     * Estimated as a user message, which charges the per-message overhead on
+     * top: the block is prepended INTO an existing message rather than added as
+     * one, so this errs high by that overhead — the direction this estimator
+     * errs in everywhere else.
+     */
+    private function injectedTokens(string $injectedText): int
+    {
+        if ($injectedText === '') {
+            return 0;
+        }
+
+        return $this->estimator->estimate([ChatMessage::user($injectedText)], [], $this->calibration);
     }
 
     /**
