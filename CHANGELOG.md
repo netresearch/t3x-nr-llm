@@ -50,6 +50,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so a bad value cannot silently hide skills; a bad budget must not silently
   unbound the block. Lower `skills.maxBytes` to reserve more of the model's
   context window for the conversation itself.
+- `InputPauseCoverageTest` pins that no builtin can suspend a run for
+  operator input (#649). The input path authorises the submitter with
+  `agent_approve` alone and never against the tool whose input they supply,
+  while the resume executes under the run owner's context (ADR-083) — the
+  confused deputy the approval path closed in #622. It is unreachable only
+  because nothing implements `RequiresInputInterface`, so the first tool
+  that does now turns a latent gap into a red build. The gate itself is
+  deliberately not built ahead of that tool: #622's cannot be copied,
+  because an input-requiring tool declares no effect to gate on (ADR-105
+  makes the two markers mutually exclusive) and the input path has no turn
+  digest (ADR-132).
 
 ### Changed
 
