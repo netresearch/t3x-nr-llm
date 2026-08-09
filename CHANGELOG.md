@@ -225,6 +225,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   string such as `text+image->text`. Measured against the live catalogue:
   400 models, 0 with either signal, against 333 that list `tools` among
   their supported parameters and 237 that accept image input.
+- The tool-group table in the administration chapter renders its
+  `configuration` row correctly (#673). The RST simple table's first column
+  was two characters narrower than the longest key, so `render-guides`
+  logged `Malformed table` and the row's closing backticks were swallowed:
+  the group name printed as `` ``configuration `` in plain text instead of
+  as inline code. The row itself was present — the render error is real,
+  the missing row the issue suspected was not.
 
 - The conversation context budget counts the skill block (#625).
   `ConversationService` fitted the transcript and then dispatched into

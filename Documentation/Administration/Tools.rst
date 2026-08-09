@@ -377,28 +377,28 @@ Tool groups
 Every tool belongs to a **group** (its ``getGroup()`` value). The built-in
 taxonomy:
 
-===============  ============================================================
-Group            Tools
-===============  ============================================================
-``content``      ``search_records``, ``get_page_content``, ``read_records``,
-                 ``get_record_history``
-``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
-                 ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
-                 ``resolve_url``, ``validate_tca``
-``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
-                 ``fetch_logs``, ``probe_url``, ``list_extensions``,
-                 ``list_scheduler_tasks``, ``get_system_status``,
-                 ``list_deprecations``, ``list_middlewares``
-``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
+=================  ============================================================
+Group              Tools
+=================  ============================================================
+``content``        ``search_records``, ``get_page_content``, ``read_records``,
+                   ``get_record_history``
+``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
+                   ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
+                   ``resolve_url``, ``validate_tca``
+``system``         ``get_env`` (+ raw), ``get_php_info`` (+ raw),
+                   ``fetch_logs``, ``probe_url``, ``list_extensions``,
+                   ``list_scheduler_tasks``, ``get_system_status``,
+                   ``list_deprecations``, ``list_middlewares``
+``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                 ``check_typoscript``, ``get_site_config``
-``code``         ``get_last_exception``, ``read_source``, ``search_code``
-``files``        ``list_fal_storages``, ``browse_fal_folder``,
-                 ``search_fal_files``, ``get_fal_references``,
-                 ``find_missing_files``
-``rag``          ``site_rag_query``, ``site_fetch_source``
-``editing``      ``update_page_metadata`` — the only WRITING group
-===============  ============================================================
+                   ``check_typoscript``, ``get_site_config``
+``code``           ``get_last_exception``, ``read_source``, ``search_code``
+``files``          ``list_fal_storages``, ``browse_fal_folder``,
+                   ``search_fal_files``, ``get_fal_references``,
+                   ``find_missing_files``
+``rag``            ``site_rag_query``, ``site_fetch_source``
+``editing``        ``update_page_metadata`` — the only WRITING group
+=================  ============================================================
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:
