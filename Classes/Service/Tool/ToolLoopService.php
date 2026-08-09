@@ -722,6 +722,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * {@see ToolEffectResolver} exists to provide, and its unknown-tool fallback
      * (NON_IDEMPOTENT_WRITE) would turn every unregistered name into a suspend
      * instead of the refusal {@see self::invoke()} already gives it.
+     *
+     * {@see ToolRegistry} mirrors this predicate to reject a tool that is
+     * approval-bound AND {@see RequiresInputInterface}: this scan runs before
+     * the input scan, so that tool would suspend for approval and never reach
+     * the input flow (ADR-134). Narrowing the remote exemption here means
+     * narrowing it there too.
      */
     private function requiresHumanApproval(?ToolInterface $tool): bool
     {

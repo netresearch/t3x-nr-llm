@@ -17,6 +17,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fail-closed assumption about a body that cannot be inspected, so
   coupling it to approval would suspend every remote call. The remote axis
   gets an operator-declared server-level source separately.
+  `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
 
 ## [0.26.0] - 2026-08-06
 
