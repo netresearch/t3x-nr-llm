@@ -117,6 +117,13 @@ final readonly class SearchFalFilesTool implements ToolInterface
             ->leftJoin('f', 'sys_file_metadata', 'm', (string)$queryBuilder->expr()->and(
                 $queryBuilder->expr()->eq('m.file', $queryBuilder->quoteIdentifier('f.uid')),
                 $queryBuilder->expr()->eq('m.sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                // Live only. sys_file_metadata is workspace-aware, so a file
+                // with a draft version has two joinable rows: without this the
+                // file matches text that exists only in the unpublished draft,
+                // and is listed twice when both rows match. Spelled out rather
+                // than added as a WorkspaceRestriction because the restriction
+                // applies to the query's own FROM table, not to a join alias.
+                $queryBuilder->expr()->eq('m.t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
             ))
             ->where(
                 $queryBuilder->expr()->in(

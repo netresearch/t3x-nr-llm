@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Example tool: return read-only metadata for a single managed file (FAL).
@@ -41,6 +43,10 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
     private const FILE_TABLE = 'sys_file';
 
     private const METADATA_TABLE = 'sys_file_metadata';
+
+    private const LIVE_WORKSPACE = 0;
+
+    private const DEFAULT_LANGUAGE = 0;
 
     /**
      * @param list<int> $allowedStorages sys_file_storage uids this tool may read from
@@ -104,7 +110,15 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
         ];
 
         $metaQuery = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        $metaQuery->getRestrictions()->removeAll();
+        // Live only. sys_file_metadata carries 'versioningWS' => true, so a
+        // file with a draft version has more than one row for the same `file`
+        // uid and an unrestricted query returns an arbitrary one — a value no
+        // visitor sees, reported as the current one. Core's own
+        // MetaDataRepository::findByFileUid() pins the same three things.
+        $metaQuery->getRestrictions()
+            ->removeAll()
+            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
+
         $meta = $metaQuery
             ->select('title', 'alternative')
             ->from(self::METADATA_TABLE)
@@ -115,8 +129,13 @@ final readonly class ReadFalAssetMetaTool implements ToolInterface
                 // otherwise an arbitrary translated row could replace the original
                 // metadata. (The table has no soft-delete capability, hence no
                 // `deleted` column to filter.)
-                $metaQuery->expr()->eq('sys_language_uid', $metaQuery->createNamedParameter(0, Connection::PARAM_INT)),
+                $metaQuery->expr()->eq('sys_language_uid', $metaQuery->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
             )
+            // Deterministic even where the data is not: two live rows for one
+            // file should not exist, and if they do the answer is at least
+            // stable and the same one the writing tool targets.
+            ->orderBy('uid', 'ASC')
+            ->setMaxResults(1)
             ->executeQuery()
             ->fetchAssociative();
 

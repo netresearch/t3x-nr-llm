@@ -74,6 +74,9 @@ image.fal.defaultModel = flux-schnell
 # cat=skills; type=options[untrusted,community,verified,first_party]; label=Minimum Skill Trust Level: Only skills from a source classified at or above this publisher-trust level are injected into prompts and may grant tools. "untrusted" (default) accepts every enabled skill. Raising it drops lower-trust skills fail-closed.
 skills.minTrustLevel = untrusted
 
+# cat=skills; type=int+; label=Skill Block Byte Budget: Maximum size of the composed skill block prepended to the user prompt, measured in bytes (a conservative over-estimate of tokens for any encoding). When the block exceeds it, skills are dropped from the tail first — task-additive before the configuration baseline — and each drop is logged. Lower this to reserve more of the context window for the conversation. An empty, non-numeric or zero value falls back to 24000 — the cap cannot be switched off.
+skills.maxBytes = 24000
+
 # =============================================================================
 # Resilience (circuit breaker + provider health — ADR-063)
 # =============================================================================
@@ -118,8 +121,15 @@ telemetry.enabled = 1
 # Tool egress policy (ADR-094)
 # =============================================================================
 
-# cat=tools; type=options[Enforce=enforce,Observe (log only)=observe]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Enforce is the default so a new install is safe by default (ADR-113). The read is fail-closed, so a missing or mistyped value also enforces. An install upgraded from an older version is pinned to Observe by an upgrade wizard so the change does not silently strip tools from a working setup — review the run log there, then switch back to Enforce. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
+# cat=tools; type=options[Enforce=enforce,Observe (log only)=observe]; label=Tool data-class enforcement: Whether a tool whose data class exceeds the trust zone of the provider a run can reach is removed from that run ("Enforce") or merely reported ("Observe"). Enforce is the default so a new install is safe by default (ADR-113). The read is fail-closed, so a missing or mistyped value also enforces. On an upgraded install an upgrade wizard offers to pin Observe, but only while this field has never been written — entering the Install Tool or running extension:setup writes the shipped default first, and the wizard then reports nothing to do. So after an upgrade the value shown here is what applies, whether or not a wizard ran. The other tool gates (global enablement, admin-only tools, the configuration's allowed tool groups) always apply regardless of this setting.
 tools.dataClassEnforcement = enforce
+
+# =============================================================================
+# Model routing (ADR-138)
+# =============================================================================
+
+# cat=routing; type=options[Enforce=enforce,Observe (log only)=observe]; label=Operation capability enforcement: Whether a criteria-mode configuration may resolve a model that does not declare the capability the running operation needs (chat, vision, tool calling). "Enforce" removes such models from the candidate set and reports a misconfiguration when nothing is left. "Observe" leaves the selection untouched and only logs the mismatch. The read is fail-closed, so a missing or mistyped value also enforces. A model whose capability field is EMPTY is treated as undeclared and always passes — the field is optional and refusing every model that never filled it would break working installations. Fixed-mode configurations are unaffected: the operator named the model there, so nothing is being chosen.
+routing.operationCapabilityEnforcement = enforce
 
 # =============================================================================
 # Privacy & data retention (ADR-064)

@@ -478,9 +478,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'anthropic/claude-3.5-sonnet',
                     'name' => 'Claude 3.5 Sonnet',
                     'context_length' => 200000,
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
             ],
         ];
@@ -505,9 +505,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'test/model',
                     'name' => 'Test Model',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
             ],
         ];
@@ -988,17 +988,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'expensive/model',
                     'name' => 'Expensive',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.01, 'completion' => 0.03],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
                 [
                     'id' => 'cheap/model',
                     'name' => 'Cheap',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0002],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
             ],
         ];
@@ -1030,17 +1030,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'slow/opus',
                     'name' => 'Slow Opus',
                     'context_length' => 200000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.01, 'completion' => 0.03],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
                 [
                     'id' => 'fast/flash',
                     'name' => 'Fast Flash',
                     'context_length' => 100000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
             ],
         ];
@@ -1072,17 +1072,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'small/context',
                     'name' => 'Small Context',
                     'context_length' => 4000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
                 [
                     'id' => 'large/context',
                     'name' => 'Large Context',
                     'context_length' => 128000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
             ],
         ];
@@ -1113,17 +1113,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'text/only',
                     'name' => 'Text Only',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
                 [
                     'id' => 'vision/model',
                     'name' => 'Vision Model',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
             ],
         ];
@@ -1154,17 +1154,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'no/tools',
                     'name' => 'No Tools',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
                 [
                     'id' => 'with/tools',
                     'name' => 'With Tools',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
             ],
         ];
@@ -1195,17 +1195,17 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'fast/haiku',
                     'name' => 'Fast Haiku',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
                 [
                     'id' => 'balanced/sonnet',
                     'name' => 'Balanced Sonnet',
                     'context_length' => 200000,
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
             ],
         ];
@@ -1395,9 +1395,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'anthropic/claude-sonnet-4-5',
                     'name' => 'Claude Sonnet',
                     'context_length' => 200000,
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
             ],
         ];
@@ -1461,9 +1461,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'small/model',
                     'name' => 'Small Model',
                     'context_length' => 4000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                     'pricing' => ['prompt' => 0.0001, 'completion' => 0.0001],
-                    'supports_function_calling' => false,
+                    'supported_parameters' => [],
                 ],
             ],
         ];
@@ -1693,9 +1693,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             'id' => $id,
             'name' => $id,
             'context_length' => 8000,
-            'architecture' => ['modality' => 'text'],
+            'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
             'pricing' => ['prompt' => $prompt, 'completion' => $completion],
-            'supports_function_calling' => false,
+            'supported_parameters' => [],
         ];
     }
 
@@ -2152,15 +2152,15 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                     'id' => 'anthropic/claude-x',
                     'name' => 'Claude X',
                     'context_length' => 200000,
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                     'pricing' => ['prompt' => 0.003, 'completion' => 0.015],
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ],
                 [
                     // No name, no pricing keys, text modality, no function calling.
                     'id' => 'openai/gpt',
                     'context_length' => 8000,
-                    'architecture' => ['modality' => 'text'],
+                    'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                 ],
             ],
         ];
@@ -2204,9 +2204,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 'id' => 'first/model',
                 'name' => 'First',
                 'context_length' => 8000,
-                'architecture' => ['modality' => 'text'],
+                'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                 'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                'supports_function_calling' => false,
+                'supported_parameters' => [],
             ]],
         ];
         $secondResponse = [
@@ -2214,9 +2214,9 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
                 'id' => 'second/model',
                 'name' => 'Second',
                 'context_length' => 8000,
-                'architecture' => ['modality' => 'text'],
+                'architecture' => ['modality' => 'text->text', 'input_modalities' => ['text']],
                 'pricing' => ['prompt' => 0.001, 'completion' => 0.002],
-                'supports_function_calling' => false,
+                'supported_parameters' => [],
             ]],
         ];
 
@@ -2731,8 +2731,8 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [
                 $this->modelEntry('plain/cheap', 0.0001, 0.0001),
                 $this->modelEntry('able/model', 0.01, 0.01, [
-                    'architecture' => ['modality' => 'multimodal'],
-                    'supports_function_calling' => true,
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
+                    'supported_parameters' => ['tools'],
                 ]),
             ],
         );
@@ -2748,7 +2748,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [
                 $this->modelEntry('text/cheap', 0.0001, 0.0001),
                 $this->modelEntry('vision/pricier', 0.01, 0.01, [
-                    'architecture' => ['modality' => 'multimodal'],
+                    'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
                 ]),
             ],
             ['vision_required' => true],
@@ -2765,7 +2765,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             [
                 $this->modelEntry('plain/cheap', 0.0001, 0.0001),
                 $this->modelEntry('tools/pricier', 0.01, 0.01, [
-                    'supports_function_calling' => true,
+                    'supported_parameters' => ['tools'],
                 ]),
             ],
             ['function_calling' => true],
@@ -2784,7 +2784,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
         $model = $this->capturedVisionModel(
             [],
             [$this->modelEntry('anthropic/claude-3.5-sonnet', 0.003, 0.015, [
-                'architecture' => ['modality' => 'multimodal'],
+                'architecture' => ['modality' => 'text+image->text', 'input_modalities' => ['text', 'image']],
             ])],
         );
 

@@ -63,12 +63,33 @@ Decision
 
 5. **Conservative byte budget, deterministic drop.** Because no
    tokenizer exists, the budget is a conservative **byte** cap
-   (:php:`strlen`, default 24 000, constructor-injectable — a byte count is a
-   safe over-estimate of tokens for any encoding). When exceeded, skills are
-   dropped **from the tail first** (task-additive before configuration
-   baseline), each drop logged as a warning. This is intentionally an
-   over-estimate set well below the smallest expected context window; with
-   ``Model::contextLength == 0`` the absolute cap applies.
+   (:php:`strlen`, default 24 000 — a byte count is a safe over-estimate of
+   tokens for any encoding). When exceeded, skills are dropped **from the tail
+   first** (task-additive before configuration baseline), each drop logged as a
+   warning. This is intentionally an over-estimate set well below the smallest
+   expected context window. The cap is instance-wide and window-independent.
+
+   .. note::
+
+      **Correction 2026-08-09 (#626).** Two claims in this section did not
+      match the implementation.
+
+      *The cap was not configurable.* ``SkillComposer`` accepted ``maxBytes``
+      as a constructor argument, but ``SkillComposerFactory`` — the only
+      production construction path — never passed it, so every instance ran on
+      the hardcoded 24 000 default with no way to change it. The cap *was* in
+      force (the constructor default applied); it was unadjustable, not
+      absent. It is now read from the extension configuration key
+      ``skills.maxBytes``. A missing, unreadable, non-numeric or non-positive
+      value falls back to 24 000 — the fallback never removes the cap, so
+      ``0`` means "default", not "uncapped".
+
+      *There was never a window-derived cap.* The original sentence "with
+      ``Model::contextLength == 0`` the absolute cap applies" implied a
+      ceiling derived from the model's context window, with the 24 000 figure
+      as its fallback. No such derivation was ever implemented, and none is
+      added here — see :ref:`the consequences <adr-036-consequences>` for why
+      the composer is deliberately window-blind.
 
 6. **Checksum-verify on injection (fail-closed).** Each skill's stored
    ``body_checksum`` is re-verified against ``hash('sha256', body)`` with
@@ -102,6 +123,20 @@ Consequences
 - ◐ The budget is a byte heuristic, not a token guarantee; it is
   deliberately conservative and logs every drop, but very large skills on
   tiny-context local models may still be trimmed.
+- ◐ The composer is **window-blind by design** (restated 2026-08-09, #626).
+  ``SkillComposer`` is a single shared service whose ``maxBytes`` is fixed at
+  construction, and the same instance serves every call site, so one
+  configuration's model window cannot narrow it without making the composed
+  block differ per caller. Three things make that the wrong trade: the
+  configuration's ``llmModel`` is null in criteria selection mode, so the
+  window read there would not even belong to the model that serves the call;
+  :php:`ContextWindowManager` (ADR-107) already bounds the real send with a
+  calibrated token estimator and now counts the skill block against that
+  budget (#625), which is a strictly better bound than a second byte
+  heuristic; and callers that measure the block before the send rely on
+  composition being a pure function of the skill set. The instance-wide
+  ``skills.maxBytes`` is the knob for reserving window; the per-send bound is
+  the context-window manager's job.
 - ◐ Injection touches the live text-generation path; it is scoped to
   text operations and covered by unit + functional tests, but it is a
   higher-blast-radius change than ingest.

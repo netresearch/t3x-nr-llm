@@ -932,9 +932,13 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
             ],
         ]);
 
+        // The capability comes from what the server reports, not from the tag
+        // containing "llava". Ollama's own token for a text-generating model is
+        // `completion`.
         $showResponse = (string)json_encode([
-            'model_info' => [],
-            'parameters' => '',
+            'model_info'   => [],
+            'parameters'   => '',
+            'capabilities' => ['completion', 'vision'],
         ]);
 
         $this->httpClientStub
@@ -975,8 +979,9 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         ]);
 
         $showResponse = (string)json_encode([
-            'model_info' => [],
-            'parameters' => 'num_ctx 32768',
+            'model_info'   => [],
+            'parameters'   => 'num_ctx 32768',
+            'capabilities' => ['completion', 'tools'],
         ]);
 
         $this->httpClientStub
@@ -3117,17 +3122,17 @@ class ModelDiscoveryTest extends AbstractUnitTestCase
         // caught. Values mirror ModelDiscovery::openAIModelSpecs().
         // [name, description, capabilities, contextLength, maxOutputTokens, costInput, costOutput, recommended]
         $expected = [
-            'gpt-5.5' => ['GPT-5.5', 'Latest flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 500, 3000, true],
-            'gpt-5.3' => ['GPT-5.3', 'Flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 175, 1400, true],
+            'gpt-5.5' => ['GPT-5.5', 'Latest flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 500, 3000, true],
+            'gpt-5.3' => ['GPT-5.3', 'Flagship model with enhanced reasoning', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, true],
             'gpt-5.3-chat-latest' => ['GPT-5.3 Chat', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, true],
             'gpt-5.3-mini' => ['GPT-5.3 Mini', 'Small, fast, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 200000, 32000, 30, 120, true],
-            'gpt-5.2' => ['GPT-5.2 Thinking', 'Flagship model for coding, reasoning, and agentic tasks', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 175, 1400, false],
-            'gpt-5.2-pro' => ['GPT-5.2 Pro', 'Extended thinking for complex tasks', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 400000, 128000, 350, 2800, false],
+            'gpt-5.2' => ['GPT-5.2 Thinking', 'Flagship model for coding, reasoning, and agentic tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 175, 1400, false],
+            'gpt-5.2-pro' => ['GPT-5.2 Pro', 'Extended thinking for complex tasks', ['chat', 'vision', 'tools', 'streaming'], 400000, 128000, 350, 2800, false],
             'gpt-5.2-chat-latest' => ['GPT-5.2 Instant', 'Fast responses for interactive use', ['chat', 'vision', 'tools', 'streaming'], 400000, 32000, 100, 400, false],
-            'gpt-5' => ['GPT-5', 'Previous generation flagship model', ['chat', 'vision', 'tools', 'streaming', 'reasoning'], 200000, 64000, 150, 600, false],
+            'gpt-5' => ['GPT-5', 'Previous generation flagship model', ['chat', 'vision', 'tools', 'streaming'], 200000, 64000, 150, 600, false],
             'gpt-5-mini' => ['GPT-5 Mini', 'Smaller, faster, cost-effective', ['chat', 'vision', 'tools', 'streaming'], 128000, 32000, 30, 120, false],
-            'o4-mini' => ['O4 Mini', 'Fast reasoning for math, coding, visual tasks', ['chat', 'vision', 'tools', 'reasoning'], 200000, 100000, 110, 440, false],
-            'o3' => ['O3', 'Advanced reasoning model', ['chat', 'vision', 'tools', 'reasoning'], 200000, 100000, 200, 800, false],
+            'o4-mini' => ['O4 Mini', 'Fast reasoning for math, coding, visual tasks', ['chat', 'vision', 'tools'], 200000, 100000, 110, 440, false],
+            'o3' => ['O3', 'Advanced reasoning model', ['chat', 'vision', 'tools'], 200000, 100000, 200, 800, false],
             'gpt-4o' => ['GPT-4o', 'Legacy multimodal model', ['chat', 'vision', 'tools', 'streaming'], 128000, 16384, 250, 1000, false],
             'gpt-4.1' => ['GPT-4.1', 'Coding and instruction-following model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 200, 800, false],
             'gpt-4.1-mini' => ['GPT-4.1 Mini', 'Fast coding model', ['chat', 'vision', 'tools', 'streaming'], 1047576, 32768, 40, 160, false],

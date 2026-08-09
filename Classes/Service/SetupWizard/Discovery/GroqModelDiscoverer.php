@@ -50,6 +50,14 @@ final class GroqModelDiscoverer extends AbstractModelDiscoverer
                     modelId: $modelId,
                     name: $modelId,
                     description: 'Groq-accelerated model',
+                    // `chat` alone, and it stays that way until Groq reports
+                    // more. Their listing returns id, object, created,
+                    // owned_by, active, context_window, max_completion_tokens
+                    // and public_apps — no capability field of any kind. Most
+                    // models here do handle tools, but this seed says what the
+                    // API said, and the operator completes the record in the
+                    // backend (the field is an editable checkbox list). A
+                    // name-pattern guess is what this change removed elsewhere.
                     capabilities: ['chat'],
                     contextLength: $contextWindow,
                     maxOutputTokens: 0,

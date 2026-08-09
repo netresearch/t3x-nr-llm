@@ -407,29 +407,29 @@ Tool groups
 Every tool belongs to a **group** (its ``getGroup()`` value). The built-in
 taxonomy:
 
-===============  ============================================================
-Group            Tools
-===============  ============================================================
-``content``      ``search_records``, ``get_page_content``, ``read_records``,
-                 ``get_record_history``
-``structure``    ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
-                 ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
-                 ``resolve_url``, ``validate_tca``
-``system``       ``get_env`` (+ raw), ``get_php_info`` (+ raw),
-                 ``fetch_logs``, ``probe_url``, ``list_extensions``,
-                 ``list_scheduler_tasks``, ``get_system_status``,
-                 ``list_deprecations``, ``list_middlewares``
-``accounts``     ``list_be_users`` (+ raw), ``list_be_groups``
+=================  ============================================================
+Group              Tools
+=================  ============================================================
+``content``        ``search_records``, ``get_page_content``, ``read_records``,
+                   ``get_record_history``
+``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
+                   ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
+                   ``resolve_url``, ``validate_tca``
+``system``         ``get_env`` (+ raw), ``get_php_info`` (+ raw),
+                   ``fetch_logs``, ``probe_url``, ``list_extensions``,
+                   ``list_scheduler_tasks``, ``get_system_status``,
+                   ``list_deprecations``, ``list_middlewares``
+``accounts``       ``list_be_users`` (+ raw), ``list_be_groups``
 ``configuration``  ``get_typoscript``, ``get_tsconfig``, ``fluid_resolve``,
-                 ``check_typoscript``, ``get_site_config``
-``code``         ``get_last_exception``, ``read_source``, ``search_code``
-``files``        ``list_fal_storages``, ``browse_fal_folder``,
-                 ``search_fal_files``, ``get_fal_references``,
-                 ``find_missing_files``
-``rag``          ``site_rag_query``, ``site_fetch_source``
-``editing``      ``update_page_metadata``, ``set_file_alternative_text`` —
-                 the only WRITING group
-===============  ============================================================
+                   ``check_typoscript``, ``get_site_config``
+``code``           ``get_last_exception``, ``read_source``, ``search_code``
+``files``          ``list_fal_storages``, ``browse_fal_folder``,
+                   ``search_fal_files``, ``get_fal_references``,
+                   ``find_missing_files``
+``rag``            ``site_rag_query``, ``site_fetch_source``
+``editing``        ``update_page_metadata``, ``set_file_alternative_text`` —
+                   the only WRITING group
+=================  ============================================================
 
 Groups can be switched on three levels, and the result cascades
 **fail-closed** — a tool is offered only when *every* level permits it:
@@ -577,8 +577,8 @@ Gating tools with ``allowed-tools`` in a skill
 A skill's ``SKILL.md`` front-matter may carry an ``allowed-tools`` key that
 gates which tools the skills attached to a configuration (or task) grant for a
 run. The resolution is **fail-closed on declaration**, computed over the
-configuration's *effective* skills (enabled, non-orphaned — exactly the set
-that is injected into the prompt):
+configuration's *effective* skills (enabled, non-orphaned, at or above the
+instance trust floor, deduped):
 
 - **Absent** (no skill declares ``allowed-tools``) — no opinion; all
   registered tools are offered.
@@ -592,5 +592,17 @@ that is injected into the prompt):
 A disabled or orphaned skill never grants tools. The allow-list is enforced
 both when the tools are offered to the model and again when a tool call is
 executed, so a prompt injection cannot reach a tool the skills did not grant.
+
+The effective set is *not* the same as what ends up in the prompt. The
+skill-block byte budget (``skills.maxBytes``, see
+:ref:`Managing skills <administration-skills-isolation>`) is applied after the
+allow-list has been computed, while the block is assembled. A skill dropped
+for the budget therefore still contributes its ``allowed-tools``, but its
+usage rules never reach the model. That order is deliberate: a budget-aware
+union would let the drop of the last *declaring* skill collapse the allow-list
+to "no restriction" — every registered tool — which is a looser gate, not a
+tighter one. Keep ``skills.maxBytes`` above the composed size of the skills
+you rely on if you want their prose to arrive alongside the tools it
+describes; every drop is logged as a warning.
 
 See :ref:`ADR-038 <adr-038>` for the runtime design and security rationale.
