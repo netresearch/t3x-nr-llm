@@ -196,8 +196,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`ad-hoc:chat:openai`); the limitation is stated on `providerKeys()` and
   in the administration docs instead of being claimed away.
 
-### Changed
-
 - The candidate walk over a primary configuration's fallback chain is
   implemented once, in the `@internal`
   `Provider\Fallback\FallbackCandidateResolver` (ADR-137). It owns the
@@ -269,8 +267,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   history and still overflow. Known limit: a session opened without a
   configuration resolves the installation default inside the manager, so its
   block is still unaccounted for.
-
-### Fixed
 
 - **The approval of a write is fail-closed and bound to the turn that was
   reviewed** (ADR-132). Two defects on the same path:
