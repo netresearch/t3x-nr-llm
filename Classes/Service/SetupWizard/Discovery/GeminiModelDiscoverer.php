@@ -91,6 +91,42 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
     }
 
     /**
+     * What the listing itself says about a model the curated table does not
+     * know — a Gemini release newer than this extension.
+     *
+     * `supportedGenerationMethods` is the only capability-bearing field the
+     * listing carries. It substantiates chat, streaming and embeddings, and
+     * says nothing about vision or tools; the previous fallback claimed
+     * `vision` for every unknown model, which is how a text-only release
+     * ended up advertising image input.
+     *
+     * @param array<string, mixed> $apiData
+     *
+     * @return list<string>
+     */
+    private function capabilitiesFrom(array $apiData): array
+    {
+        $methods = isset($apiData['supportedGenerationMethods']) && is_array($apiData['supportedGenerationMethods'])
+            ? $apiData['supportedGenerationMethods']
+            : [];
+
+        $capabilities = [];
+        if (in_array('generateContent', $methods, true)) {
+            $capabilities[] = 'chat';
+        }
+
+        if (in_array('streamGenerateContent', $methods, true)) {
+            $capabilities[] = 'streaming';
+        }
+
+        if (in_array('embedContent', $methods, true)) {
+            $capabilities[] = 'embeddings';
+        }
+
+        return $capabilities === [] ? ['chat'] : $capabilities;
+    }
+
+    /**
      * Enrich Gemini model with specifications.
      *
      * @param array<string, mixed> $apiData
@@ -110,7 +146,9 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             'gemini-3-pro' => [
                 'name' => 'Gemini 3 Pro',
                 'description' => 'Advanced reasoning for agentic workflows',
-                'capabilities' => ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                // No `reasoning`: it is not in ModelCapability, so CapabilitySet
+                // drops it and the TCA checkbox list cannot even show it.
+                'capabilities' => ['chat', 'vision', 'tools', 'streaming'],
                 'costInput' => 125,
                 'costOutput' => 500,
                 'recommended' => true,
@@ -153,7 +191,7 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             modelId: $modelId,
             name: $spec['name'] ?? $displayName,
             description: $spec['description'] ?? $apiDescription,
-            capabilities: $spec['capabilities'] ?? ['chat', 'vision'],
+            capabilities: $spec['capabilities'] ?? $this->capabilitiesFrom($apiData),
             contextLength: $inputTokenLimit,
             maxOutputTokens: $outputTokenLimit,
             costInput: $spec['costInput'] ?? 0,
@@ -185,7 +223,7 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
                 modelId: 'gemini-3-pro',
                 name: 'Gemini 3 Pro',
                 description: 'Advanced reasoning for agentic workflows',
-                capabilities: ['chat', 'vision', 'tools', 'streaming', 'reasoning'],
+                capabilities: ['chat', 'vision', 'tools', 'streaming'],
                 contextLength: 1000000,
                 maxOutputTokens: 65536,
                 costInput: 125,
