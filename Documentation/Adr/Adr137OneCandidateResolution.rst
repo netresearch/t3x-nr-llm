@@ -79,6 +79,9 @@ Consequences
   candidate serves, later entries are no longer looked up and a broken entry
   behind it no longer produces a skip warning. The pipelined path already
   behaved this way; the eager resolution was an artefact of building an array,
-  not a decision.
+  not a decision. The trade-off is that a typo'd chain entry is now reported
+  only once the primary fails, so it is pinned as a dispatcher-level test
+  (:php:`theStreamingPathLooksUpNoChainEntryWhileThePrimaryServes`) — going
+  back to an eagerly built array fails it.
 - ADR-021's rules now have exactly one implementation. A change to them is a
   change to one class, and both paths inherit it.

@@ -120,6 +120,41 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
         self::assertSame(['a'], $looked, 'Resolution must not query the whole chain up front.');
     }
 
+    #[Test]
+    public function theStreamingPathLooksUpNoChainEntryWhileThePrimaryServes(): void
+    {
+        // The operator effect of lazy resolution, at the dispatcher rather than
+        // at the resolver: a typo'd chain entry behind a healthy primary costs
+        // no repository query and produces no skip warning during normal
+        // operation. The warning is deferred to the moment the primary actually
+        // fails — which is when the entry would have been needed.
+        $primary = $this->configuration('p', new FallbackChain(['chain-gone']));
+
+        $looked     = [];
+        $logger     = new RecordingLogger();
+        $dispatcher = $this->streamingDispatcher(['chain-gone' => null], $looked, $logger);
+
+        $chunks = iterator_to_array($dispatcher->stream(
+            new ProviderCallContext(ProviderOperation::Stream, 'corr-adr137'),
+            $primary,
+            static function (): Generator {
+                yield 'served-by-primary';
+            },
+        ));
+
+        self::assertSame(['served-by-primary'], $chunks);
+        self::assertSame(
+            [],
+            $looked,
+            'A chain entry behind a primary that primes must not be resolved: eagerly building the '
+            . 'candidate list would query it on every streamed call.',
+        );
+        self::assertNull(
+            $logger->firstMatching('warning', 'missing or inactive'),
+            'A chain entry that was never resolved cannot be reported as skipped.',
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Difference 1: the health reorder belongs to the non-streaming path only
     // -----------------------------------------------------------------------
@@ -302,28 +337,8 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
      */
     private function attemptedByStreaming(LlmConfiguration $primary, array $rows): array
     {
-        $looked = [];
-
-        $budget = self::createStub(BudgetServiceInterface::class);
-        $budget->method('check')->willReturn(BudgetCheckResult::allowed());
-
-        $aspect = self::createStub(AspectInterface::class);
-        $aspect->method('get')->willReturn(0);
-        $typo3Context = self::createStub(Context::class);
-        $typo3Context->method('getAspect')->willReturn($aspect);
-
-        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
-        $extensionConfiguration->method('get')->willReturn(['telemetry' => ['enabled' => '0']]);
-
-        $dispatcher = new StreamingDispatcher(
-            $budget,
-            new RecordingUsageTracker(),
-            new InMemoryTelemetryRepository(),
-            new FallbackCandidateResolver($this->repository($rows, $looked)),
-            new RecordingLogger(),
-            $typo3Context,
-            $extensionConfiguration,
-        );
+        $looked     = [];
+        $dispatcher = $this->streamingDispatcher($rows, $looked, new RecordingLogger());
 
         /** @var list<string> $attempted */
         $attempted = [];
@@ -346,6 +361,37 @@ final class CandidateResolutionTest extends AbstractUnitTestCase
         }
 
         return $attempted;
+    }
+
+    /**
+     * A streaming dispatcher wired to a recording repository and the given
+     * logger, with telemetry off and the budget allowing.
+     *
+     * @param array<string, LlmConfiguration|null> $rows   the repository's content
+     * @param list<string>                         $looked records every identifier the repository was asked for
+     */
+    private function streamingDispatcher(array $rows, array &$looked, RecordingLogger $logger): StreamingDispatcher
+    {
+        $budget = self::createStub(BudgetServiceInterface::class);
+        $budget->method('check')->willReturn(BudgetCheckResult::allowed());
+
+        $aspect = self::createStub(AspectInterface::class);
+        $aspect->method('get')->willReturn(0);
+        $typo3Context = self::createStub(Context::class);
+        $typo3Context->method('getAspect')->willReturn($aspect);
+
+        $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
+        $extensionConfiguration->method('get')->willReturn(['telemetry' => ['enabled' => '0']]);
+
+        return new StreamingDispatcher(
+            $budget,
+            new RecordingUsageTracker(),
+            new InMemoryTelemetryRepository(),
+            new FallbackCandidateResolver($this->repository($rows, $looked)),
+            $logger,
+            $typo3Context,
+            $extensionConfiguration,
+        );
     }
 
     /**
