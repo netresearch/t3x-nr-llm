@@ -373,10 +373,19 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
     // --- wiring ------------------------------------------------------------
 
     /**
-     * The runtime with everything real except the provider: the real tool, the
-     * real gate, the real persister on the functional database. Only
-     * `LlmConfigurationRepository` is doubled, because the run's configuration
-     * lives in memory rather than in a row.
+     * The runtime with the parts under test real: the real tool, the real gate,
+     * the real persister on the functional database.
+     *
+     * Doubled are the provider adapter registry, `LlmConfigurationRepository`
+     * (the run's configuration lives in memory rather than in a row), and two
+     * constructor arguments the tested path never reaches —
+     * `ExtensionConfiguration` (only `KeyedProviderRegistry`, i.e. the
+     * provider-key path) and `CacheManagerInterface` (only
+     * `EmbedCacheKeyBuilder`, i.e. `embed*()`).
+     *
+     * The middleware pipeline is real but empty. It *is* on the path —
+     * `chatWithToolsForConfiguration()` runs through it — so fallback, budget,
+     * usage and cache middleware are absent here, unlike in production.
      */
     private function runtime(ScriptedToolAdapter $adapter, ?AgentRunRepositoryInterface $repository = null): AgentRuntime
     {
