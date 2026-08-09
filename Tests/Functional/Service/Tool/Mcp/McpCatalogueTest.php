@@ -145,6 +145,27 @@ final class McpCatalogueTest extends AbstractFunctionalTestCase
         self::assertCount(2, $this->servers->findEnabled(), 'both are still enabled — only classification differs');
     }
 
+    /**
+     * The approval flag is an operator declaration like the data class, and a
+     * server nobody has judged asks first: the column default is "required",
+     * and only an explicit 0 turns it off (ADR-134).
+     */
+    #[Test]
+    public function aServerRequiresApprovalUnlessTheOperatorTurnedItOff(): void
+    {
+        // No requires_approval in the insert — this is what a new row gets.
+        $defaulted = $this->insertServer(['identifier' => 'defaulted']);
+        $declined  = $this->insertServer(['identifier' => 'declined', 'requires_approval' => 0]);
+
+        $defaultedServer = $this->servers->findByUid($defaulted);
+        $declinedServer  = $this->servers->findByUid($declined);
+
+        self::assertInstanceOf(McpServerRecord::class, $defaultedServer);
+        self::assertInstanceOf(McpServerRecord::class, $declinedServer);
+        self::assertTrue($defaultedServer->approvalRequired());
+        self::assertFalse($declinedServer->approvalRequired());
+    }
+
     #[Test]
     public function anImportWritesTheCatalogue(): void
     {
