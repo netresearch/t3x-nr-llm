@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+
 /**
  * Opt-in: a tool that can describe, in human-readable lines, what the call it
  * was handed WOULD do (ADR-136).
@@ -37,6 +39,9 @@ namespace Netresearch\NrLlm\Service\Tool;
  * - Read only what the ACTING user of the run may read, and authorise against
  *   the explicit user from the {@see ToolExecutionContext} — never the ambient
  *   `$GLOBALS['BE_USER']` (ADR-083).
+ * - Answer {@see self::mayViewerReadPreview()} for the person LOOKING at the
+ *   card. Producing a preview and showing it are two authorisations, because
+ *   the run owner and the approver are not the same person.
  * - Never write. A preview that mutates would defeat the pause it decorates.
  *
  * Throwing is survivable: the loop catches it and renders a line saying the
@@ -53,4 +58,24 @@ interface ToolPreviewInterface
      * @return list<string>
      */
     public function previewCall(array $arguments, ToolExecutionContext $context): array;
+
+    /**
+     * May THIS backend user — the one rendering the approval card, not the run's
+     * acting user — be shown the preview of this call?
+     *
+     * The production check in {@see self::previewCall()} authorises the RUN
+     * OWNER. The approver is a different person with a different, tool-level
+     * authority (ADR-130/133), so without a second check the card would show
+     * them the current state of a record they hold no permission on. The tool
+     * answers because only it knows which record its arguments name.
+     *
+     * Read-only, and cheap: it runs once per pending call every time the inbox
+     * is rendered. Return false when in doubt — the card then says the preview
+     * is withheld, which is a worse card but never a disclosure. It is the
+     * FACTORY's job to fail closed when the tool cannot be asked at all
+     * ({@see \Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory}).
+     *
+     * @param array<string, mixed> $arguments the model-chosen arguments of the pending call
+     */
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool;
 }

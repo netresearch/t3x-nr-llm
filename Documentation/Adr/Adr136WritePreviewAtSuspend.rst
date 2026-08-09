@@ -41,11 +41,12 @@ with X" are different decisions, and only the second one is a decision.
 Decision
 ========
 
-An opt-in :php:`ToolPreviewInterface` — one method, no base class, no
-:php:`ActionInterface`, exactly the shape :php:`ToolEffectInterface` and
+An opt-in :php:`ToolPreviewInterface` — no base class, no
+:php:`ActionInterface`, the same marker shape :php:`ToolEffectInterface` and
 :php:`RequiresApprovalInterface` already have. A tool that implements it returns
-human-readable lines describing what the pending call would do; the forty-odd
-read-only builtins are untouched and render no preview line at all.
+human-readable lines describing what the pending call would do, and answers
+whether a given viewer may be shown them; the forty-odd read-only builtins are
+untouched and render no preview line at all.
 
 The lines are produced inside the approval scan, for every OFFERED call of the
 suspending turn, and travel with the state:
@@ -57,6 +58,13 @@ suspending turn, and travel with the state:
   ``callPreviews`` as "no preview". A running installation has suspended runs in
   its database; every one of them must still resume, and it does — the card
   falls back to the arguments alone, exactly as before this ADR.
+- **Index-bound to its call, across rehydration.** A preview records the
+  position of the call it describes. Rehydration drops pending-call entries that
+  are not usable at all, which renumbers the rest, so the stored positions are
+  translated onto the surviving list and a preview whose call did not survive is
+  dropped. Without that translation a corrupt blob would move a preview one call
+  along — silently, plausibly, and past the tool-name guard whenever the turn
+  calls the same tool twice.
 - **Rendered** in :php:`WaitingRunViewFactory::buildApproval()`, in the Fluid
   partial, and in BOTH playground responses (the JSON payload and the streamed
   ``awaiting_approval`` event) through the single ``pendingTools()`` helper the
@@ -134,7 +142,7 @@ Who may read a preview
 
 The preview is produced under the RUN OWNER's authority and read by the
 APPROVER, and those are not always the same person. It is therefore authorised
-twice over:
+twice over, once on each side:
 
 1. **At production.** The tool checks the EXPLICIT acting user of the run
    (ADR-083) — for ``update_page_metadata``, ``doesUserHaveAccess()`` plus
@@ -142,23 +150,47 @@ twice over:
    string ``execute()`` uses. A preview can never show a page the run itself
    could not have written, and cannot be used to probe the page tree for
    existence.
-2. **At reading.** The approvals inbox is reachable with the ``agent_approve``
-   grant (:ref:`ADR-130 <adr-130>`), and :ref:`ADR-133 <adr-133>` additionally
-   requires the approver to pass the same tool gate the execution would.
+2. **At reading.** The inbox is reachable with the ``agent_approve`` grant
+   (:ref:`ADR-130 <adr-130>`), which is tool-level and decides nothing about
+   individual records. So the card asks the tool a SECOND question —
+   :php:`ToolPreviewInterface::mayViewerReadPreview()` — about the backend user
+   the page is being rendered for. ``update_page_metadata`` answers it with the
+   same record check it used at production, applied to the viewer. Where the
+   answer is no, the card says the preview is withheld instead of showing the
+   lines.
 
-**The honest gap:** those gates are tool-level, not record-level. An approver
-who may run ``update_page_metadata`` but holds no permission on THIS page now
-sees that page's title and current metadata. That is a real disclosure, and it
-is accepted for one reason: the same approver is being asked to RELEASE a write
-to that page. Authority over the change is strictly larger than sight of what
-the change replaces, and withholding the "before" would not remove the authority
-— it would only make it blind. Two bounds keep it that shape: only the fields
-the call would write are shown (never the whole row), and each value is
-truncated to a 120-character excerpt.
+:ref:`ADR-133 <adr-133>`'s gate is NOT part of this. It sits in
+:php:`ResumeCoordinator::approve()`, on the DECISION, and never runs while the
+list is rendered. Reading the card and pressing "Approve" are gated separately,
+and only the second one passes through ADR-133.
+
+**What the read gate does and does not buy.** It removes the disclosure this
+feature would otherwise create: an approver whose remit is operations rather
+than editing no longer reads the current metadata of pages they hold no rights
+on. It costs one bounded row read per pending call per render, and it can leave
+an approver with a partly blind card — they may still release a write whose
+"before" they were not shown, because the authority to approve is tool-level and
+this gate does not change that. That asymmetry is deliberate: withholding sight
+is cheap and reversible, withholding the decision is :ref:`ADR-133 <adr-133>`'s
+subject and a different change (issue #662, option 3).
+
+Fail closed on every branch the card cannot resolve: no viewer, a tool that is
+no longer registered, or a tool under that name that offers no preview contract.
+The persisted preview outlives the registration that produced it, so "the tool
+cannot be asked" is a normal state, not a corrupt one.
+
+Two bounds remain on what a permitted viewer sees: only the fields the call
+would write (never the whole row), each truncated to a 120-character excerpt.
 
 The same limit stated the other way: a tool's preview must read only what the
-run's acting user may read. That is a contract on implementors, written into
+run's acting user may read, and must answer honestly about what its viewer may
+be shown. Both are contracts on implementors, written into
 :php:`ToolPreviewInterface`, not something the loop can enforce for them.
+
+The playground's two preview surfaces are not gated this way. Every one of its
+actions is admin-gated (``denyNonAdmin()``), and an admin passes every
+record check by definition, so a second question would have exactly one answer.
+The moment a non-admin reaches that module, it needs the gate the inbox has.
 
 .. _adr-136-consequences:
 
@@ -177,12 +209,23 @@ same trade as :php:`ToolEffectInterface`, whose silence costs more.
 last, and `@api`: the snapshot test records the new public property, and no
 existing caller changes.
 
+◐ :php:`ToolPreviewInterface` carries two methods, not one: producing a preview
+and releasing it to a viewer are different authorisations, and only the tool
+knows which record its arguments name. The interface is not `@api`, so this
+costs nothing outside the extension.
+
 ✕ A preview runs a tool's read path at suspend time, on the loop's clock. It is
 one bounded read per previewing call in the turn, but it is work the loop did
 not do before, and a slow preview delays the pause the operator is waiting for.
 
-✕ An approver may read metadata of a page they hold no permission on, bounded as
-described above.
+✕ Rendering the inbox now costs one further record read per previewing pending
+call, for the read gate. The list is a handful of runs; a queue of thousands
+would need the answer cached per viewer.
+
+✕ An approver may still RELEASE a write to a page they hold no rights on — the
+approval authority stays tool-level (:ref:`ADR-133 <adr-133>`). They now do it
+without seeing the "before". Withholding sight without withholding the decision
+is the deliberate half-measure; issue #662 option 3 is the other half.
 
 .. _adr-136-revisit:
 

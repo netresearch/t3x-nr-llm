@@ -52,7 +52,9 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
         ];
 
         $GLOBALS['TCA'] = ['pages' => ['columns' => [
-            'title'       => ['config' => ['type' => 'input', 'max' => 255]],
+            // `required` as in the core TCA — an empty value for it is dropped by
+            // the DataHandler without a trace, so the gate has to catch it.
+            'title'       => ['config' => ['type' => 'input', 'max' => 255, 'required' => true]],
             'description' => ['config' => ['type' => 'text']],
         ]]];
 
@@ -164,6 +166,40 @@ final class UpdatePageMetadataArgumentsFuzzyTest extends AbstractFuzzyTestCase
                 self::assertTrue($result->isError);
                 self::assertStringContainsString('exceeds 255 characters', $result->content);
             });
+    }
+
+    /**
+     * Whatever run of whitespace a model sends, a required field is refused with
+     * its real reason rather than written and then misreported: the DataHandler
+     * trims and drops such a value without an `errorLog` entry.
+     */
+    #[Test]
+    public function anyWhitespaceOnlyValueForARequiredFieldIsRefused(): void
+    {
+        $this
+            ->forAll(
+                // @phpstan-ignore function.notFound (Eris Generator loaded at runtime)
+                Generator\seq(
+                    // @phpstan-ignore function.notFound
+                    Generator\elements([' ', "\t", "\n", "\r", "\v", "\0"]),
+                ),
+            )
+            ->then(
+                function (array $characters): void {
+                    $whitespace = '';
+                    foreach ($characters as $character) {
+                        $whitespace .= is_string($character) ? $character : '';
+                    }
+
+                    $result = $this->tool->execute(
+                        ['uid' => 1, 'title' => $whitespace],
+                        $this->context,
+                    );
+
+                    self::assertTrue($result->isError);
+                    self::assertStringContainsString('is required and cannot be emptied', $result->content);
+                },
+            );
     }
 
     #[Test]

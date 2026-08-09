@@ -178,6 +178,16 @@ requested one as an error.
 Reporting a write that did not happen is the worst available outcome for a tool
 whose entire premise is that a human approved a specific change.
 
+The read-back can only report *that* a field did not arrive, and it names the
+one cause it cannot rule out. So the second cause is removed before the write
+instead: an empty value for a field the TCA marks ``required`` — ``pages.title``
+— is dropped by :php:`validateValueForRequired()` just as silently, and the
+argument gate refuses it. Otherwise an admin, who holds every field grant by
+definition, would be told they were missing one; and where the stored value
+happened to equal the rejected one, the read-back would report success for a
+write the DataHandler refused. Clearing an *optional* field stays available: that
+write happens, and the read-back verifies it.
+
 .. _adr-135-second-writer:
 
 Amendment: the second writer, and the language question it raised
@@ -324,7 +334,6 @@ Kept per tool, because it decides:
 What remains duplicated after the extraction is under a dozen lines per block,
 mostly signatures and the two declaration methods above. That is the floor this
 shape has, and buying it down further would mean sharing decisions.
-
 .. _adr-135-nonguarantee:
 
 What this does NOT guarantee: the write fence

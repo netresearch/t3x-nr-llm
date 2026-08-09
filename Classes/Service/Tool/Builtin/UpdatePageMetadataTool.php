@@ -40,6 +40,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - **A field outside the allow-list.** The call is refused whole rather than
  *   partially applied — a half-written record is harder to reason about than a
  *   refusal, and the model can retry with a corrected argument.
+ * - **An empty value for a required field.** The DataHandler drops it as
+ *   silently as a missing field grant, so the read-back below would blame the
+ *   wrong cause. A required field cannot be emptied through this tool anyway.
  * - **More than one page.** Exactly one `uid` per call, so every write has one
  *   reviewable subject on the approval card.
  * - **Anything but the live workspace.** A draft write goes through the
@@ -296,6 +299,36 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         return $lines;
     }
 
+    /**
+     * The READ side of the preview (ADR-136): the same record check as
+     * {@see self::previewCall()}, applied to the person looking at the approval
+     * card instead of to the run's acting user.
+     *
+     * `PAGE_EDIT` and not `PAGE_SHOW` on purpose. The card exists to release a
+     * write to this page, and the strict reading of the disclosure — an approver
+     * whose remit is operations, not editing — is the one that decides here: you
+     * see what the write replaces only where you could have written it yourself.
+     *
+     * A refusal is never a probe: nothing distinguishes "no such page" from "not
+     * permitted", exactly as in `previewCall()`, and the card says the same thing
+     * either way.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        $uid = self::toInt($arguments['uid'] ?? 0);
+        if ($uid < 1) {
+            return false;
+        }
+
+        $page = $this->fetchPage($uid);
+
+        return $page !== null
+            && $viewer->doesUserHaveAccess($page, Permission::PAGE_EDIT)
+            && $viewer->checkLanguageAccess(self::toInt($page['sys_language_uid'] ?? 0));
+    }
+
     public function isEnabledByDefault(): bool
     {
         // A writing tool is never on by default: an admin enables it in the
@@ -387,7 +420,15 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             }
 
             $text = trim(self::toStr($value));
-            $max  = $this->maxLengthFor($key);
+            if ($text === '' && $this->isRequired($key)) {
+                return sprintf(
+                    'Refused: "%s" is required and cannot be emptied through this tool. '
+                    . 'Send a non-empty value, or omit the field to leave it unchanged.',
+                    $key,
+                );
+            }
+
+            $max = $this->maxLengthFor($key);
             if (mb_strlen($text) > $max) {
                 return sprintf('Refused: the value for "%s" exceeds %d characters.', $key, $max);
             }
@@ -400,6 +441,33 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         }
 
         return $values;
+    }
+
+    /**
+     * Whether the live TCA declares the field required (`pages.title` is).
+     *
+     * An empty value for such a field is the SECOND thing the DataHandler drops
+     * as silently as a missing `non_exclude_fields` grant:
+     * `validateValueForRequired()` rejects it and `checkValueForInput()` /
+     * `checkValueForText()` return an empty result without touching `errorLog`.
+     * The read-back below would then blame the field-level grant — a cause an
+     * admin cannot have — and, where the stored value happens to equal the
+     * rejected one, would report success for a write that was refused. Refusing
+     * the emptiness where the values are collected names the real reason and
+     * costs nothing: a required field cannot be emptied through this tool
+     * whatever the tool does.
+     *
+     * Only required fields are refused. Clearing an optional one (`abstract`,
+     * `description`) is a write the DataHandler performs and the read-back
+     * verifies, so it stays available.
+     */
+    private function isRequired(string $field): bool
+    {
+        $column = $this->pagesColumns()[$field] ?? null;
+        $config = is_array($column) ? ($column['config'] ?? null) : null;
+
+        // The DataHandler's own truthiness test, mirrored.
+        return is_array($config) && (bool)($config['required'] ?? false);
     }
 
     /**
