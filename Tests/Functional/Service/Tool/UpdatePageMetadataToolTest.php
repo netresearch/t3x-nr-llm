@@ -255,6 +255,54 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame('Old description', $this->pageRow(self::PAGE_OPEN)['description'] ?? null);
     }
 
+    /**
+     * `pages.title` is `required` in the core TCA, and the DataHandler drops an
+     * empty value for it as silently as a missing field grant — no exception, no
+     * `errorLog` entry. Without the guard in `collectValues()` this call returns
+     * 'The update did not take on page [1] for: title. The acting backend user is
+     * most likely missing the field-level ("exclude field") grant for them.' — to
+     * an admin, who holds every field grant by definition.
+     *
+     * The TCA runs live here, so the premise needs no separate assertion: the
+     * refusal below can only happen while core declares `pages.title` required.
+     */
+    #[Test]
+    public function anEmptyValueForARequiredFieldIsRefusedWithItsRealReason(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => '   '],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('is required and cannot be emptied', $result->content);
+        self::assertStringNotContainsString('exclude field', $result->content);
+
+        // Refused before the DataHandler, so nothing was written and nothing logged.
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+        self::assertSame([], $this->sysLogUserIdsFor(self::PAGE_ADMIN_ONLY));
+    }
+
+    /**
+     * The guard is scoped to required fields on purpose: clearing an optional one
+     * is a write the DataHandler performs and the read-back verifies.
+     */
+    #[Test]
+    public function anOptionalFieldMayStillBeCleared(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'description' => ''],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('', $this->pageRow(self::PAGE_ADMIN_ONLY)['description'] ?? null);
+    }
+
     #[Test]
     public function aNonAdminWithEveryGrantWritesSuccessfully(): void
     {

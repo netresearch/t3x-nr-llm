@@ -26,7 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   populating globals it does not own. Success is verified by re-reading the
   record: the `DataHandler` silently drops a field the user lacks the
   "exclude field" grant for, and reporting that as a successful write would
-  mislead the human who approved it. `ToolEffectCoverageTest::DECLARED_WRITERS`,
+  mislead the human who approved it. An empty value for a field the TCA marks
+  `required` (`pages.title`) is dropped just as silently, so the argument gate
+  refuses it up front rather than letting the read-back blame a field grant an
+  admin cannot be missing; clearing an *optional* field still works.
+  `ToolEffectCoverageTest::DECLARED_WRITERS`,
   empty since ADR-122, now pins this one name. **Not guaranteed:** the ADR-112
   write fence arms only under a lease owner, which only `AgentRuntime::enqueue()`
   produces — no shipped entry point calls it, so an interactive write runs
