@@ -89,6 +89,36 @@ final class ToolRegistry
                 );
             }
 
+            // ADR-134 extends that ban to the IMPLICIT form of approval-gating.
+            // A declared write on a non-remote tool binds the approval scan
+            // exactly as the marker does, and that scan runs BEFORE the input
+            // scan (ToolLoopService): such a tool suspends AWAITING_APPROVAL,
+            // resume() then refuses it for the input it never received, the
+            // model re-requests, and it suspends again — unexecutable, one
+            // operator decision per cycle, with submitInput() unreachable
+            // because the status is never WAITING_FOR_INPUT. A combined
+            // approval+input pause is what would be needed, and ADR-105 banned
+            // the combination rather than build one; until it exists it is
+            // unsupported however it is expressed, so it fails at the container
+            // boot rather than silently at runtime.
+            //
+            // The predicate mirrors ToolLoopService::requiresHumanApproval(),
+            // including the remote exemption: narrowing the exemption there
+            // means narrowing it here, or a tool the loop would suspend becomes
+            // registrable again.
+            if ($tool instanceof RequiresInputInterface
+                && !$tool instanceof RemoteToolInterface
+                && $tool instanceof ToolEffectInterface
+                && $tool->getEffect()->isWrite()) {
+                throw new LogicException(
+                    sprintf(
+                        'Tool "%s" may not declare a write effect and implement RequiresInputInterface; a declared write binds the approval scan (ADR-134), which runs before the input scan, so the tool would suspend for approval and never receive its input.',
+                        $name,
+                    ),
+                    1786226400,
+                );
+            }
+
             $this->byName[$name] = $tool;
         }
 

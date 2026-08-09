@@ -177,23 +177,39 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     #[Test]
-    public function turnDigestForRunRecomputesTheSameDigestTheViewCarried(): void
+    public function theCardCarriesTheSharedDigestOfItsPendingTurn(): void
     {
-        $state   = $this->approvalState('delete_thing', ['uid' => 42]);
-        $run     = $this->makeRun('a', $state);
-        $factory = $this->factory(new FakeTool('delete_thing'));
+        // The card is the render side of the ADR-132 binding; ResumeCoordinator
+        // is the verify side. Asserted against PendingTurnDigest itself — the
+        // ONE definition both use — and across the JSON boundary the card's
+        // value crosses: the factory decodes the stored row, the digest must
+        // survive that round trip or the verify side would never match.
+        $stateJson = $this->approvalState('delete_thing', ['uid' => 42]);
+        $run       = $this->makeRun('a', $stateJson);
 
-        $viewDigest = $factory->buildWaiting([$run])[0]->turnDigest;
+        $view = $this->factory(new FakeTool('delete_thing'))->buildWaiting([$run])[0];
 
-        self::assertSame($viewDigest, $factory->turnDigestForRun($run));
+        // Decoded here on purpose: this is the step the verify side performs on
+        // the stored row, so the expectation is built the way it is built there.
+        $decoded = json_decode($stateJson, true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        self::assertSame(
+            (new PendingTurnDigest())->forState(SuspendedRunState::fromArray($decoded)),
+            $view->turnDigest,
+        );
     }
 
     #[Test]
-    public function turnDigestForRunIsNullForAnInputPause(): void
+    public function anInputCardCarriesNoTurnDigest(): void
     {
+        // An input pause has no approval turn to bind, so there is nothing to
+        // digest — the field must stay null rather than carry a value that would
+        // look like a reviewed turn.
         $run = $this->makeRun('a', $this->inputState('ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]));
 
-        self::assertNull($this->factory()->turnDigestForRun($run));
+        self::assertNull($this->factory()->buildWaiting([$run])[0]->turnDigest);
     }
 
     #[Test]
