@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- A builtin tool that declares a write effect (`ToolEffectInterface`,
+  ADR-111) now requires human approval in the agent loop even without the
+  `RequiresApprovalInterface` marker (ADR-134). Both write cases count;
+  `READ_ONLY` tools are unaffected, so nothing changes for the tools
+  shipped today — every builtin reads. Remote (MCP) tools are exempt:
+  `McpTool` declares `NON_IDEMPOTENT_WRITE` for every imported tool as a
+  fail-closed assumption about a body that cannot be inspected, so
+  coupling it to approval would suspend every remote call. The remote axis
+  has an operator-declared server-level source instead, below.
+- MCP servers carry an operator-declared `requires_approval` flag
+  (ADR-134). When it is set, every tool imported from that server pauses
+  the agent run for a human before it is called; the decision never comes
+  from the server, whose `readOnlyHint` annotation stays unread. It is on
+  by default for a newly configured server, and only a literal `0` reads
+  as "no approval" — an unreadable or missing value means approval is
+  required. The default reaches existing servers too: the schema update
+  writes it on every pre-existing row, and no upgrade wizard switches it
+  off again. Switch it off per server once you know what that server's
+  tools do.
+- `ToolRegistry` now also rejects a non-remote tool that declares a write
+  **and** implements `RequiresInputInterface`: the approval scan runs before
+  the input scan, so such a tool would suspend for approval, be refused by
+  the approval resume for its missing input, and suspend again — never
+  executing. The existing `RequiresApprovalInterface` + `RequiresInputInterface`
+  ban (ADR-105) now covers the implicit form as well.
+
 ### Fixed
 
 - `FalStorageGate::isFileAccessible()` enforces the mounts of the user it is
@@ -29,6 +57,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Behaviour is unchanged for the three read-only FAL tools shipped today:
   they run synchronously in their owner's request, where both users are the
   same person.
+
+- The conversation context budget counts the skill block (#625).
+  `ConversationService` fitted the transcript and then dispatched into
+  `LlmServiceManager::chatForConfiguration()`, which prepends up to 24 000
+  bytes of skill block to the first user message — the fitted list and the
+  sent list were different lists. A criteria-mode configuration has no model
+  relation, so its window falls back to 8192 tokens, of which a full block is
+  roughly 7 900 estimated tokens against a budget of 6 946 (8192 minus the
+  1000-token response reserve minus the 3 % safety margin): the whole
+  configuration class overran. `ContextWindowManagerInterface::fit()` takes an
+  optional trailing `$injectedText` for payload that reaches the wire outside
+  the message list, and the conversation path composes the block once and
+  passes it. The injection stays where it is — the first user turn is the
+  never-droppable head, so injecting before the fit would drop the entire
+  history and still overflow. Known limit: a session opened without a
+  configuration resolves the installation default inside the manager, so its
+  block is still unaccounted for.
 
 ## [0.26.0] - 2026-08-06
 

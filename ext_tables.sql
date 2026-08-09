@@ -914,6 +914,14 @@ CREATE TABLE tx_nrllm_mcp_server (
     -- default: a server whose class the operator has not declared is inert.
     data_class varchar(32) DEFAULT '' NOT NULL,
 
+    -- Whether every tool of this server pauses for a human before the agent
+    -- loop executes it (ADR-134). Operator-declared, like data_class above: the
+    -- server's own `readOnlyHint` annotation is stored for display and read by
+    -- nobody, because a remote server must not decide its own authorisation.
+    -- Defaults to 1 -- a server nobody has judged asks first. Only a literal 0
+    -- means "no approval"; McpServerRecord::approvalRequired() says why.
+    requires_approval tinyint(1) DEFAULT '1' NOT NULL,
+
     -- Off until an operator switches it on.
     enabled tinyint(1) DEFAULT '0' NOT NULL,
 

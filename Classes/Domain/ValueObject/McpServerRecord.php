@@ -36,6 +36,10 @@ final readonly class McpServerRecord
         // The ToolDataClass backed value the operator declared for everything this
         // server returns; '' means undeclared — see self::dataClassEnum().
         public string $dataClass,
+        // The operator's approval declaration as stored. Kept raw and read
+        // through self::approvalRequired(), which is where the fail-closed
+        // reading of anything that is not a literal '0' lives.
+        public string $requiresApproval,
         public bool $enabled,
         public string $importStatus,
         public string $importError,
@@ -57,5 +61,22 @@ final readonly class McpServerRecord
     public function dataClassEnum(): ?ToolDataClass
     {
         return ToolDataClass::tryFrom($this->dataClass);
+    }
+
+    /**
+     * Whether a human must approve every tool of this server before the agent
+     * loop executes it (ADR-134).
+     *
+     * Fail-closed by construction: only an explicit '0' — the operator having
+     * unticked the box — means "no approval". A missing column, a NULL, a value
+     * this version does not understand and an empty string all read as
+     * "approval required", because the alternative is that an unreadable byte
+     * silently lets an unattended remote write through. The stored value is a
+     * tinyint, so the string comparison is exact rather than a coercion: '0' is
+     * the only shape the check field ever writes for "off".
+     */
+    public function approvalRequired(): bool
+    {
+        return $this->requiresApproval !== '0';
     }
 }
