@@ -102,9 +102,18 @@ Decision
    returns none and :php:`ToolCall` rejects an empty id.
 
 5. **Skill.allowed_tools is a fail-closed-on-declaration allow-list.**
-   :php:`AllowedToolsResolver` reads the *effective* skills (enabled,
-   non-orphaned, deduped — exactly what :php:`SkillComposer` injects) of the
-   configuration and task. If **no** skill declares ``allowed-tools`` it
+   :php:`AllowedToolsResolver` reads the *effective* skills of the
+   configuration and task — :php:`SkillComposer::effectiveSkills()`: enabled,
+   non-orphaned, at or above the trust floor, deduped. That is the same
+   *selection* the injection path uses, but not necessarily the same *set*
+   that reaches the prompt: the skill-block byte budget
+   (:ref:`ADR-036 <adr-036>` §5) is applied later, inside
+   :php:`composeBlock()`, so a budget-dropped skill still contributes its
+   ``allowed-tools`` while its prose does not ship. Making the union
+   budget-aware is deliberately rejected — dropping the last declaring skill
+   would turn the result into ``null`` ("no restriction", i.e. every
+   registered tool), so a tighter budget would *widen* the gate.
+   If **no** skill declares ``allowed-tools`` it
    returns ``null`` (no skill-imposed restriction → all registered tools).
    If **any** declares, the result is the **union** of the declared lists — a
    lone declared empty list yields ``[]`` (no tools). The allow-list is
