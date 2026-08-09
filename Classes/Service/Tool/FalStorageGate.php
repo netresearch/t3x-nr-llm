@@ -219,13 +219,9 @@ final class FalStorageGate
      */
     private function fileMountRecordsFor(BackendUserAuthentication $user): array
     {
-        if (!$this->connectionPool instanceof ConnectionPool) {
-            return [];
-        }
-
         $declared  = $user->groupData['filemounts'] ?? '';
         $mountUids = is_scalar($declared) ? GeneralUtility::intExplode(',', (string)$declared, true) : [];
-        if ($mountUids === []) {
+        if ($mountUids === [] || !$this->connectionPool instanceof ConnectionPool) {
             return [];
         }
 
