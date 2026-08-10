@@ -22,7 +22,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * {@see self::READ_ONLY} (via {@see \Netresearch\NrLlm\Service\Tool\ToolEffectInterface}).
  * That is correct for the 41 read-only builtins, and a tool that DOES write
  * must opt in explicitly, so a new write can never be silently treated as a
- * repeatable read. Two builtins opt in today (ADR-134, ADR-135).
+ * repeatable read. Five builtins opt in today (ADR-134, ADR-135, ADR-146), and
+ * they do not agree on which case applies: three converge on repeat, two bring
+ * a record into being and cannot be repeated at all.
  */
 enum ToolEffect: string
 {

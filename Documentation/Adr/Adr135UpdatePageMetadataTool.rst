@@ -9,7 +9,7 @@ ADR-135: The first writing tool, and the contract it actually needed
 :Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
-:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`, :ref:`ADR-146 <adr-146>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:
@@ -428,6 +428,13 @@ had to differ, and which mechanism moved into
 :php:`WritesThroughDataHandlerTrait`. The next trigger is the **third** writer —
 and the question then is whether anything the trait deliberately left per tool
 has become common, not whether the trait should grow.
+
+That third trigger fired too: :ref:`ADR-146 <adr-146>` adds three more writers
+and answers the question with five implementations in hand. One thing became
+common — a deleted-restricted row lookup, written four times — and it is a query
+rather than a decision, so the trait does not grow. The prediction in this
+record that a later writer "may be non-idempotent" is now an observation: two of
+the three declare ``NON_IDEMPOTENT_WRITE``.
 
 That second trigger — "revisit if an interactive run ever gains a retry path,
 because the fence's absence is correct only while *interactive* means *no repeat

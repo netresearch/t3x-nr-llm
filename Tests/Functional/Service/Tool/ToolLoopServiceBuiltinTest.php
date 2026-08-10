@@ -27,7 +27,10 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
@@ -250,6 +253,86 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
 
         $this->expectException(ToolApprovalRequiredException::class);
         $service->runLoop([$this->userTurn('describe the image')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the three writers of ADR-146.
+     *
+     * One test per tool rather than a loop over a list: the coupling is a
+     * property each tool carries, and a data provider would let a tool that
+     * lost its declaration disappear from the set instead of failing.
+     *
+     * `move_content_element` declares IDEMPOTENT_WRITE, so this also shows the
+     * pause is not a property of the strictest effect — a repeatable write
+     * pauses too.
+     */
+    #[Test]
+    public function theMovingBuiltinSuspendsBeforeItExecutes(): void
+    {
+        $tool = new MoveContentElementTool($this->connectionPool);
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('move_content_element', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'move_content_element', ['uid' => 1, 'target_page' => 2]),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('move that element')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the first builtin that CREATES a record
+     * (ADR-146). It declares NON_IDEMPOTENT_WRITE, which the loop must treat as
+     * a write like any other — the pause is triggered by `isWrite()`, not by a
+     * particular case of the enum.
+     */
+    #[Test]
+    public function theContentCreatingBuiltinSuspendsBeforeItExecutes(): void
+    {
+        $tool = new CreateContentElementDraftTool($this->connectionPool);
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('create_content_element_draft', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'create_content_element_draft', ['page' => 2, 'type' => 'text', 'header' => 'Draft']),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('draft a paragraph')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
+    }
+
+    /**
+     * The same guarantee over the translating builtin (ADR-146) — including the
+     * destructive `overwrite` argument, which must not reach `execute()` either.
+     */
+    #[Test]
+    public function theTranslatingBuiltinSuspendsBeforeItExecutes(): void
+    {
+        $tool = new CreateTranslationDraftTool($this->connectionPool);
+        // It ships disabled, so the REAL availability service would not offer it.
+        (new ToolStateRepository($this->connectionPool))->setEnabled('create_translation_draft', true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [
+                new ToolCall('call_1', 'create_translation_draft', [
+                    'table' => 'pages', 'uid' => 1, 'language' => 1, 'overwrite' => true,
+                ]),
+            ]));
+
+        $service = $this->buildService($mgr, [$tool]);
+
+        $this->expectException(ToolApprovalRequiredException::class);
+        $service->runLoop([$this->userTurn('translate that page')], $this->localConfiguration(), $this->contextFor($this->actingUser), null);
     }
 
     /**

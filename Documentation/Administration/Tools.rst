@@ -38,13 +38,15 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and two writing tools. Each is a
+nr-llm ships forty-one read-only tools and five writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and both writing tools
-(``update_page_metadata``, ``set_file_alternative_text``) ship **disabled** and
+``get_php_info_raw`` and ``list_be_users_raw``) and all five writing tools
+(``update_page_metadata``, ``set_file_alternative_text``,
+``move_content_element``, ``create_content_element_draft``,
+``create_translation_draft``) ship **disabled** and
 must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -281,12 +283,14 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Two tools change anything at all: ``update_page_metadata`` and
-``set_file_alternative_text``. Both write through the TYPO3 DataHandler, as the
-acting backend user, in the live workspace only, on exactly **one** record per
-call (:ref:`ADR-135 <adr-135>`).
+Five tools change anything at all: ``update_page_metadata``,
+``set_file_alternative_text``, ``move_content_element``,
+``create_content_element_draft`` and ``create_translation_draft``. All five
+write through the TYPO3 DataHandler, as the acting backend user, in the live
+workspace only, on exactly **one** record per call (:ref:`ADR-135 <adr-135>`,
+:ref:`ADR-146 <adr-146>`).
 
-What holds for both of them:
+What holds for all of them:
 
 - They ship **disabled**, sit in their own ``editing`` group, and are not
   offered until both the group and the tool are enabled.
@@ -299,8 +303,8 @@ What holds for both of them:
   first, and the DataHandler enforces its own rules on top. A non-admin
   therefore writes only what the backend already lets them write.
 - A field the user lacks the "exclude field" grant for is dropped by the
-  DataHandler **without an error**. Both tools re-read the record afterwards
-  and report that as a failure rather than as a successful write.
+  DataHandler **without an error**. Every one of them re-reads the record
+  afterwards and reports that as a failure rather than as a successful write.
 - A call the tool would refuse is refused **whole** rather than applied in
   part, and a record the acting user may not reach is refused with the same
   words as a record that does not exist — so a refusal never confirms that a
@@ -338,6 +342,56 @@ What holds for both of them:
 
    An empty string is accepted and is the correct value for a decorative
    image.
+
+``move_content_element``
+   Moves one content element to a page and a column. The element keeps its uid,
+   its content, its language, its history and its references — only its place
+   changes, which is what makes it the least committal write in the set.
+
+   Both ends are authorised: the acting user needs content-edit rights on the
+   **source** page as well as on the target, because moving an element out of a
+   page edits that page's content too. An ``after_content_uid`` anchor must sit
+   on the target page and in the same language; a wrong anchor is refused
+   rather than silently corrected.
+
+   The destination column is always stated explicitly on the wire, so the
+   element lands where the approval card said it would even when the anchor
+   element sits in a column the caller did not expect.
+
+``create_content_element_draft``
+   Creates one content element on a page — the first tool that brings a record
+   into being. Three things bound it:
+
+   - It is **always hidden**. There is no argument to switch that off:
+     publishing is a separate act with a separate audience, and the approval
+     that let the tool run approved a draft.
+   - The content type is an allow-list (``header``, ``text``, ``textmedia``,
+     ``bullets``) intersected with what the installation's TCA actually
+     declares. Types whose payload is configuration rather than prose — ``list``
+     (a plugin), ``html``, ``shortcut`` — are out of reach.
+   - The field set is fixed: headline, body text, column, language, position.
+     This is not a generic record API.
+
+   ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
+   editor's input does. It is bounded in length and not otherwise filtered — an
+   editor may write the same markup by hand, and a tool enforcing a stricter
+   rule than the CMS would be enforcing a rule that does not exist.
+
+``create_translation_draft``
+   Translates one page or content element into another language by running
+   core's own ``localize`` command, so connected-mode translations, inline
+   children and every localisation hook behave exactly as they do in the
+   backend.
+
+   The result is **hidden**, which is the part core does not do: ``localize``
+   copies the source's visibility, so a translation of a live page would go live
+   the moment it was created.
+
+   An existing translation stops the call and is named in the refusal. The
+   ``overwrite`` argument is the only way past it: it **deletes** that
+   translation first — recoverably (``deleted = 1``) and in ``sys_log`` — and
+   the approval card says so on its own line. Whether the target language exists
+   for the record's site is core's check, not a second implementation here.
 
 .. _administration-tools-register:
 
@@ -427,8 +481,10 @@ Group              Tools
                    ``search_fal_files``, ``get_fal_references``,
                    ``find_missing_files``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
-``editing``        ``update_page_metadata``, ``set_file_alternative_text`` —
-                   the only WRITING group
+``editing``        ``update_page_metadata``, ``set_file_alternative_text``,
+                   ``move_content_element``,
+                   ``create_content_element_draft``,
+                   ``create_translation_draft`` — the only WRITING group
 =================  ============================================================
 
 Groups can be switched on three levels, and the result cascades

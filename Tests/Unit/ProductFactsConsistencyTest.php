@@ -195,7 +195,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $total    = $this->totalToolCount();
         $readOnly = $this->readOnlyToolCount();
 
-        // Adjacency only. `2 of the 43 built-in tools` is a true statement whose
+        // Adjacency only. `2 of the 46 built-in tools` is a true statement whose
         // leading number is an arbitrary subset, so bridging over `of the` /
         // `der` would reject it; the number next to the noun phrase is the
         // claim. German uses the predicative `nur lesend` — no trailing `e` —
@@ -329,10 +329,10 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         // against a glob they are themselves derived from cannot fail.
         // Changing these two numbers is a deliberate act — the surfaces move
         // with them.
-        self::assertSame(43, $this->totalToolCount(), 'Builtin tool count changed. Update every surface, then this number.');
+        self::assertSame(46, $this->totalToolCount(), 'Builtin tool count changed. Update every surface, then this number.');
         self::assertSame(9, $this->groupCount(), 'Tool group count changed. Update every surface, then this number.');
 
         self::assertCount($this->totalToolCount(), $this->builtinToolNames());
-        self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 2, 'Exactly two builtins write (ADR-134, ADR-135).');
+        self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 5, 'Exactly five builtins write (ADR-134, ADR-135, ADR-146).');
     }
 }

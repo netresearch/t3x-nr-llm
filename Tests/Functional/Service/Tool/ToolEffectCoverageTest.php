@@ -44,9 +44,19 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * `set_file_alternative_text` is the second, on the same terms: one named
      * scalar field on one `sys_file_metadata` record.
      *
+     * The three from ADR-146 split on the retry question rather than following
+     * the first two: `move_content_element` relocates a record that keeps its
+     * uid, so a repeat lands it in the same place (IDEMPOTENT_WRITE), while
+     * `create_content_element_draft` and `create_translation_draft` bring a
+     * record into being and cannot be repeated without either doubling it or
+     * discarding work (NON_IDEMPOTENT_WRITE).
+     *
      * @var list<string>
      */
     private const DECLARED_WRITERS = [
+        'create_content_element_draft',
+        'create_translation_draft',
+        'move_content_element',
         'set_file_alternative_text',
         'update_page_metadata',
     ];
