@@ -158,7 +158,7 @@ final class AgentRunPersisterTest extends TestCase
 
         // Fail-closed: a store error refuses the resume rather than risk a
         // double-execute of the gated tool.
-        self::assertFalse($persister->claimResume($run));
+        self::assertFalse($persister->claimResume($run, 'resume:test:1', 900));
     }
 
     #[Test]

@@ -30,7 +30,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
 
     public int $purgeUnfinishedReturns = 0;
 
-    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
+    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
     {
         return 0;
     }
@@ -85,12 +85,12 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
-    public function claimForResume(int $runUid): bool
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         return false;
     }
 
-    public function claimForResumeFromInput(int $runUid): bool
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         return false;
     }

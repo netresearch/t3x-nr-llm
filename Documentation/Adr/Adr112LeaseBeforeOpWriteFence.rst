@@ -8,7 +8,16 @@ ADR-112: Lease-before-op fence — no retry for an interrupted write
 
 :Status: Accepted
 :Date: 2026-07-23
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   The mechanism below is unchanged; **where** it arms is not. This ADR reasons
+   from the queue, because a queue worker was the only thing holding a lease at
+   the time. :ref:`ADR-141 <adr-141>` gives every executing segment a lease — a
+   synchronous run and a resume included — and refuses a write it cannot fence.
+   Read "worker" below as "the segment holding the lease".
 
 .. _adr-112-context:
 
