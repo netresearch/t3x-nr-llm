@@ -2254,6 +2254,34 @@
                 <source>Presence Penalty</source>
                 <target>Präsenzstrafe</target>
             </trans-unit>
+            <trans-unit id="task.execute.intro.title" approved="yes">
+                <source>What this page does</source>
+                <target>Was diese Seite tut</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.body" approved="yes">
+                <source>Run this task once and look at the result. The output is displayed below and stored nowhere — nothing in your content is changed, so this is the safe place to try a task out before other extensions or the API start using it.</source>
+                <target>Führt die Aufgabe einmal aus und zeigt das Ergebnis. Die Ausgabe erscheint weiter unten und wird nirgends gespeichert — an deinen Inhalten ändert sich nichts. Hier probierst du eine Aufgabe also gefahrlos aus, bevor andere Extensions oder die API sie benutzen.</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.cost" approved="yes">
+                <source>It is a real request to the configured provider: it costs money and counts against your budget, exactly like a run triggered from anywhere else.</source>
+                <target>Es ist eine echte Anfrage an den konfigurierten Provider: Sie kostet Geld und zählt auf dein Budget, genau wie ein Lauf von irgendwo sonst.</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs" approved="yes">
+                <source>It needs</source>
+                <target>Sie braucht</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs.manual" approved="yes">
+                <source>text you type into the input field below</source>
+                <target>Text, den du unten ins Eingabefeld schreibst</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs.resolved" approved="yes">
+                <source>input the task resolves by itself — review it below and refresh if it looks stale</source>
+                <target>Eingaben, die die Aufgabe selbst ermittelt — unten prüfen und bei Bedarf neu laden</target>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.returns" approved="yes">
+                <source>It returns</source>
+                <target>Sie liefert</target>
+            </trans-unit>
             <trans-unit id="task.execute.title">
                 <source>Execute</source>
                 <target>Ausführen</target>

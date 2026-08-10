@@ -38,6 +38,41 @@
             </div>
         </f:if>
 
+        <f:comment>
+            Orientation. Without this the page opens on a configuration panel and
+            an empty input box, and never says what pressing the button will do —
+            that it sends a real, billed request, and that the result is shown
+            here and stored nowhere.
+        </f:comment>
+        <div class="callout callout-info mb-4">
+            <h2 class="h5 mb-2">
+                <core:icon identifier="actions-info-circle" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.title" default="What this page does" />
+            </h2>
+            <f:if condition="{task.description}">
+                <p class="mb-2"><strong>{task.description}</strong></p>
+            </f:if>
+            <p class="mb-2">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.body" default="Run this task once and look at the result. The output is displayed below and stored nowhere — nothing in your content is changed, so this is the safe place to try a task out before other extensions or the API start using it." />
+            </p>
+            <p class="mb-2">
+                <core:icon identifier="actions-exclamation-triangle" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.cost" default="It is a real request to the configured provider: it costs money and counts against your budget, exactly like a run triggered from anywhere else." />
+            </p>
+            <dl class="row mb-0">
+                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.needs" default="It needs" /></dt>
+                <dd class="col-sm-9">
+                    <f:if condition="{requiresManualInput}">
+                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.needs.manual" default="text you type into the input field below" /></f:then>
+                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.needs.resolved" default="input the task resolves by itself — review it below and refresh if it looks stale" /></f:else>
+                    </f:if>
+                    <f:if condition="{task.inputType}"> <span class="text-body-secondary">({task.inputType})</span></f:if>
+                </dd>
+                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.intro.returns" default="It returns" /></dt>
+                <dd class="col-sm-9 mb-0">{task.outputFormat}</dd>
+            </dl>
+        </div>
+
         <f:render partial="Backend/Glossary" />
 
         <f:comment>Configuration & Model Details Panel</f:comment>
