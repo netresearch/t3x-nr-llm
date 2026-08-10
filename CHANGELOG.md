@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The Governance tab can compare against a named profile, and answer "would
+  this be allowed"** (ADR-145). ADR-140 gave operators a read-only view of the
+  effective governance and argued the apply path down. The two questions that
+  follow — is this right, and would this specific call pass — are answerable
+  without one.
+  - Four profiles ship as pure definitions: `local-only`, `controlled-cloud`,
+    `enterprise-strict`, `development`. A profile enforces nothing, resolves
+    nothing and is never consulted at runtime. Selecting one compares its
+    expected values against the rows already on the page and lists the
+    differences, each with **where the value is set** — a deviation that only
+    said "wrong" would be half an answer when there is deliberately no apply
+    path.
+  - A key a profile does not name is not compared. Silence is a position: a
+    profile with an opinion on every key would force operators to disagree with
+    it about things it never described.
+  - The comparison takes the readout's rows as an argument rather than fetching
+    them, so it compares exactly what the operator is looking at and cannot read
+    the resolvers a second time and disagree with the table above it.
+  - The simulator runs `ToolCallPolicy::decide()` — the call the runtime makes,
+    not a copy of its rules — for a chosen configuration and tool, and renders
+    the decision with the data class, the reachable trust zone and its ceiling.
+    It answers for the operator running it, using their own permissions.
+  - The profile values are judgement, not derivation. Nothing measured that 30
+    days is right for a controlled cloud, and a deviation is a question worth
+    asking rather than a defect.
+
 ### Changed
 
 - `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap

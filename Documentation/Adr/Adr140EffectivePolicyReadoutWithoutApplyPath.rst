@@ -4,8 +4,9 @@
 ADR-140: The effective-policy readout has no apply path
 =========================================================
 
-:Status: Accepted
+:Status: Accepted (the readout gains consumers — see :ref:`ADR-145 <adr-145>`)
 :Date: 2026-08-09
+:Amended: 2026-08-10 by :ref:`ADR-145 <adr-145>`
 
 Context
 =======

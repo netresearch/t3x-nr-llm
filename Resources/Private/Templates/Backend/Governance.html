@@ -57,5 +57,118 @@
     <p class="text-body-secondary">
         <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.unknown.note" default="A row reads &quot;unknown&quot; when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply." />
     </p>
+
+    <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.heading" default="Compare against a profile" /></h2>
+    <p class="text-body-secondary">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.lead" default="A profile is a named posture, not a switch. Selecting one compares it against the values above and shows where they differ; nothing is changed, and no profile is ever applied." />
+    </p>
+
+    <nav class="mb-3">
+        <f:link.action action="governance" class="btn btn-sm {f:if(condition: profile, then: 'btn-default', else: 'btn-primary')}">
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.none" default="No profile" />
+        </f:link.action>
+        <f:for each="{profiles}" as="candidate">
+            <f:link.action action="governance" additionalParams="{profile: candidate.value}"
+                           class="btn btn-sm {f:if(condition: '{profile.value} == {candidate.value}', then: 'btn-primary', else: 'btn-default')}"
+                           title="{f:translate(key: candidate.descriptionKey)}">
+                <f:translate key="{candidate.labelKey}" default="{candidate.value}" />
+            </f:link.action>
+        </f:for>
+    </nav>
+
+    <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.heading" default="Would this be allowed?" /></h2>
+    <p class="text-body-secondary">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing." />
+    </p>
+
+    <f:form action="governance" method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <label class="form-label" for="simulateConfiguration"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration" default="Configuration" /></label>
+            <select class="form-select form-select-sm" id="simulateConfiguration" name="simulateConfiguration">
+                <f:for each="{configurations}" as="configuration">
+                    <option value="{configuration.identifier}">{configuration.identifier}</option>
+                </f:for>
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label" for="simulateTool"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.tool" default="Tool" /></label>
+            <select class="form-select form-select-sm" id="simulateTool" name="simulateTool">
+                <f:for each="{toolNames}" as="toolName">
+                    <option value="{toolName}">{toolName}</option>
+                </f:for>
+            </select>
+        </div>
+        <div class="col-auto">
+            <f:if condition="{profile}">
+                <input type="hidden" name="profile" value="{profile.value}" />
+            </f:if>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.submit" default="Simulate" />
+            </button>
+        </div>
+    </f:form>
+
+    <f:if condition="{simulation}">
+        <f:be.infobox state="{f:if(condition: simulation.allowed, then: '0', else: '2')}"
+                      title="{f:if(condition: simulation.allowed, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed\', default: \'Allowed\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied\', default: \'Refused\')}')}">
+            <p class="mb-1">{simulation.message}</p>
+            <ul class="mb-0 small">
+                <li><code>{simulation.toolName}</code> — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{simulation.dataClass.value}</code></li>
+                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code>{simulation.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code>{simulation.ceiling.value}</code>)</li>
+                <f:if condition="{simulation.observedOnly}">
+                    <li class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.observed" default="Reported only — enforcement is set to observe, so the call would proceed." /></li>
+                </f:if>
+            </ul>
+        </f:be.infobox>
+    </f:if>
+
+    <f:if condition="{profile}">
+        <f:if condition="{deviations}">
+            <f:then>
+                <f:be.infobox state="1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.drift.title', default: 'Deviations')}">
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.drift.count"
+                                 arguments="{0: '{deviations -> f:count()}'}"
+                                 default="This installation differs from the selected profile in {0} setting(s)." />
+                </f:be.infobox>
+
+                <div class="table-fit">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.column.key" default="Setting" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.column.current" default="Current" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.column.expected" default="Profile expects" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.column.where" default="Change it in" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{deviations}" as="deviation">
+                                <tr>
+                                    <td><code>{deviation.key}</code></td>
+                                    <td>
+                                        <f:if condition="{deviation.unknown}">
+                                            <f:then>
+                                                <span class="text-warning">
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.value.unknown" default="unknown" />
+                                                </span>
+                                            </f:then>
+                                            <f:else><code class="text-danger">{deviation.current}</code></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td><code class="text-success">{deviation.expected}</code></td>
+                                    <td class="text-body-secondary"><f:translate key="{deviation.whereKey}" /></td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else>
+                <f:be.infobox state="0" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.compliant.title', default: 'Matches the profile')}">
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.compliant.text" default="Every setting this profile describes matches what the runtime applies. Keys the profile says nothing about are not compared." />
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+    </f:if>
 </f:section>
 </html>
