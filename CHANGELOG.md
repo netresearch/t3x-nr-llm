@@ -8,6 +8,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The `main-branch-rules` ruleset requires `All security checks` instead of the
+  nine individual contexts that gate job already covers. gitleaks, zizmor,
+  dependency-review, scorecard and pr-quality run on every pull request and
+  could not block one; they can now. This is what `checks.yml`'s own header
+  comment always described, and what this repository was not doing.
+- `fuzz-mutation / Fuzz Tests` replaces `fuzz / Fuzz Tests` as a required
+  context. The required one came from `checks.yml`, which passes no inputs to
+  the fuzz reusable and is therefore always `skipped` — a requirement that
+  enforced nothing. The fuzzy suite that actually runs is `ci.yml`'s, verified
+  green on three merge-queue runs before it was required.
+- `BASELINE.md`, `SECURITY_AUDIT.md` and the CI diagram state the new
+  enforcement: 16 required contexts, and SonarCloud as the one check that
+  reports without blocking.
 - The four documentation diagrams that stood as `.. TODO:` placeholders are
   drawn: architecture overview, tool-calling sequence, streaming data flow, CI
   pipeline. Committed as SVG rather than PNG so they are reviewable in a diff

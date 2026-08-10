@@ -45,7 +45,7 @@
   <text class="m" x="264" y="152">ci / Functional Tests SQLite</text>
   <text class="m" x="264" y="170">ci-functional-mariadb / Functional Tests</text>
   <text class="m" x="264" y="188">e2e / E2E — Playwright</text>
-  <text class="m" x="264" y="206">fuzz / Fuzz Tests</text>
+  <text class="m" x="264" y="206">fuzz-mutation / Fuzz Tests</text>
 
   <!-- security -->
   <rect class="box" x="530" y="94" width="210" height="120"/>
@@ -67,8 +67,8 @@
   <!-- required -->
   <rect class="key" x="20" y="304" width="720" height="62"/>
   <text class="h" x="34" y="324">Required by the branch ruleset</text>
-  <text class="s" x="34" y="342">23 contexts — PHPStan, unit and functional on 8.4 across both TYPO3 legs, Rector, Code Style, Composer Audit, SAST, CodeQL actions, E2E, Fuzz, License Audit, DCO</text>
-  <text class="s" x="34" y="358">gitleaks, zizmor, dependency-review, scorecard and SonarCloud run and report, but do not block</text>
+  <text class="s" x="34" y="342">16 contexts, among them PHPStan, unit and functional on 8.4 across both TYPO3 legs, Lint, Rector, Code Style, E2E, the fuzzy suite, DCO and All security checks</text>
+  <text class="s" x="34" y="358">All security checks is one context standing for nine jobs: it is red unless every one succeeded or was skipped. SonarCloud reports and does not block.</text>
 
   <path class="arrow" d="M 380 366 L 380 386"/>
 

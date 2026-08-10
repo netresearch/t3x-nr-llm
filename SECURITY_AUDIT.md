@@ -17,33 +17,43 @@ package.)
 ## Continuous verification
 
 These run on every push and pull request. Check-run names are as they appear on
-a commit's status list. **Blocking** means the context is in the 23 required by
-the `main-branch-rules` ruleset — read the current list with
+a commit's status list. **Blocking** means the context is in the 16 required by
+the `main-branch-rules` ruleset, either directly or through the
+`All security checks` gate — read the current list with
 `gh api repos/netresearch/t3x-nr-llm/rules/branches/main`, not the legacy
 branch-protection endpoint.
+
+`All security checks` is one required context standing for nine jobs. It fails
+unless every job it depends on finished `success` or `skipped`, so the checks
+listed under it below block a merge even though their own names are not in the
+required list.
 
 | What | Check | Blocking |
 |---|---|---|
 | PHP static analysis, level 10 (`Build/phpstan/phpstan.neon`) | `ci / PHPStan (8.4, ^13.4)` and `(8.4, ^14.3)` | yes — those two cells |
-| PHP SAST | `security / SAST (Opengrep)` | yes |
-| SAST, non-PHP | `codeql / Analyze (actions)` (required), `codeql / Analyze (javascript-typescript)` (not required). CodeQL has no PHP analysis here — Opengrep is the PHP SAST | partly |
-| Code quality | `SonarCloud Code Analysis` (GitHub App, driven by `.sonarcloud.properties`) | no |
-| Secret scanning, CI | `gitleaks / Secret Scanning` | no — reported only |
+| PHP SAST | `security / SAST (Opengrep)` | yes — via the gate |
+| SAST, non-PHP | `codeql / Analyze (actions)` and `codeql / Analyze (javascript-typescript)`. CodeQL has no PHP analysis here — Opengrep is the PHP SAST | yes — via the gate |
+| Code quality | `SonarCloud Code Analysis` (GitHub App, driven by `.sonarcloud.properties`) | no — the only check that reports without blocking |
+| Secret scanning, CI | `gitleaks / Secret Scanning` | yes — via the gate |
 | Secret scanning, push | GitHub native secret scanning with push protection `enabled` | yes — it rejects the push, before CI |
-| Dependency vulnerabilities | `security / Composer Audit` (required), `dependency-review / Dependency Review` (not required) | partly |
-| Workflow hardening | `zizmor / zizmor analysis`, `step-security/harden-runner` | no |
-| Supply-chain posture | `scorecard` | no |
-| Licence compliance | `license-check / PHP License Audit` | yes |
+| Dependency vulnerabilities | `security / Composer Audit`, `dependency-review / Dependency Review` | yes — via the gate |
+| Workflow hardening | `zizmor / zizmor analysis`, `step-security/harden-runner` | yes — via the gate |
+| Supply-chain posture | `scorecard` | yes — via the gate |
+| Licence compliance | `license-check / PHP License Audit` | yes — via the gate |
 | Sign-off | `dco / DCO` | yes |
 | Provenance and signing | SLSA Level 3 attestation and Cosign keyless signing on every release, via the org release workflow | release-time |
 
-`checks.yml` defines an `All security checks` gate job that depends on gitleaks,
-zizmor and dependency-review, but that context is not in the required list, so
-those three do not block today. Its own header comment says "the gate is the
-only context a ruleset requires", which is not true here — the ruleset requires
-`security / …`, `fuzz / …` and `license-check / …` individually and the gate not
-at all. That file is byte-identical and drift-enforced across every
-typo3-extension repository, so the comment is recorded here rather than edited.
+This is what `checks.yml`'s header comment always intended — "the gate is the
+only context a ruleset requires" — and until 2026-08-10 this repository did the
+opposite: it required `security / …`, `fuzz / …` and `license-check / …`
+individually and the gate not at all, so gitleaks, zizmor, dependency-review,
+scorecard and pr-quality ran without being able to block anything.
+
+Requiring the gate instead of the individual contexts also removed a
+requirement that enforced nothing. `fuzz / Fuzz Tests` comes from `checks.yml`,
+which passes no inputs to the fuzz reusable, so it is always `skipped`; the
+fuzzy suite that actually runs is `ci.yml`'s `fuzz-mutation / Fuzz Tests`, and
+that one is now required in its place.
 
 Most of the above is delegated to `netresearch/typo3-ci-workflows` and
 `netresearch/.github` reusable workflows (`.github/workflows/checks.yml`). The
