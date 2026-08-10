@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\DependencyInjection;
 
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Imaging\IconRegistry;
 use TYPO3\CMS\Dashboard\WidgetRegistry;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -93,5 +94,41 @@ final class DashboardWidgetRegistrationTest extends FunctionalTestCase
         self::assertArrayHasKey('nrllm-governance-blocks', $widgets);
         self::assertArrayHasKey('nrllm-tool-denials-by-reason', $widgets);
         self::assertArrayHasKey('nrllm-tool-usage-by-name', $widgets);
+    }
+
+    /**
+     * An unregistered icon identifier is not an error anywhere — the IconRegistry
+     * silently answers with its missing-icon placeholder, so the widget renders a
+     * red torn sheet and only a human looking at the dashboard ever notices.
+     * 'actions-currency' shipped that way on the monthly-cost card; the TYPO3 icon
+     * set carries no money-themed icon at all, so the name could never have
+     * resolved. Assert every icon this extension names, not just that one.
+     */
+    #[Test]
+    public function everyWidgetIconIdentifierIsRegistered(): void
+    {
+        $registry     = $this->get(WidgetRegistry::class);
+        $iconRegistry = $this->get(IconRegistry::class);
+        self::assertInstanceOf(WidgetRegistry::class, $registry);
+        self::assertInstanceOf(IconRegistry::class, $iconRegistry);
+
+        $checked = 0;
+        foreach ($registry->getAllWidgets() as $identifier => $widget) {
+            if (!str_starts_with((string)$identifier, 'nrllm-')) {
+                continue;
+            }
+
+            $icon = $widget->getIconIdentifier();
+            ++$checked;
+
+            self::assertTrue(
+                $iconRegistry->isRegistered($icon),
+                sprintf('Widget "%s" uses unregistered icon "%s".', $identifier, $icon),
+            );
+        }
+
+        // Guards the loop itself: a renamed prefix would otherwise assert nothing
+        // and still pass.
+        self::assertGreaterThan(0, $checked, 'No nrllm-* widget was checked.');
     }
 }

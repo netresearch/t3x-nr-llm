@@ -47,7 +47,10 @@ return static function (ContainerConfigurator $containerConfigurator): void {
     $services->set('dashboard.widget.nrllm.monthly_cost', NumberWithIconWidget::class)
         ->arg('$dataProvider', service(MonthlyCostDataProvider::class))
         ->arg('$options', [
-            'icon'     => 'actions-currency',
+            // 'actions-currency' does not exist in the TYPO3 icon set — there is no
+            // money-themed icon in it at all — so the registry fell back to its
+            // missing-icon placeholder and the card rendered a red torn sheet.
+            'icon'     => 'content-widget-number',
             'title'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.title',
             'subtitle' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.subtitle',
         ])
@@ -56,7 +59,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'groupNames'     => 'general',
             'title'          => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.title',
             'description'    => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widget.monthly_cost.description',
-            'iconIdentifier' => 'actions-currency',
+            'iconIdentifier' => 'content-widget-number',
             'height'         => 'small',
             'width'          => 'small',
         ]);
