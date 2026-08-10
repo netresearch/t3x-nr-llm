@@ -45,6 +45,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Landing-page copy matches the shipped tool set: 43 built-in tools in 9
   groups, 41 of them read-only. It advertised "41 read-only tools in 8
   toggleable groups" and version 0.22.0.
+- The `AGENTS.md` files name what exists instead of counting it. Nine of the
+  twelve hand-maintained file counts in them were wrong: 264 PHP source files
+  against 638, 26 ADRs and 38 Architecture Decision Records against 139, 69 and
+  86 RST files against 202, 9 API reference pages against 15, 7 workflow files
+  against 12, 13 backend controllers against 21, 9 Response objects against 20,
+  3 architecture test files against 5, 10 Playwright specs against 8. Three
+  were right at the time — 4 request DTOs, 4 test-guide pages, 9 E2E backend
+  files — and went with them, because the problem is the shape, not the
+  arithmetic. Counts that do not move with a file stay and were verified: seven
+  registered provider adapters, thirteen seeded demo tasks.
+- The workflow tables in `AGENTS.md` and `.github/workflows/AGENTS.md` list the
+  twelve workflows that exist. They named seven, two of which — `security.yml`
+  and `ter-publish.yml` — are gone; the release note built on the latter now
+  names `republish.yml`. The `Api/`, `Administration/` and `Developer/` rows in
+  `Documentation/AGENTS.md` named 9, 5 and 4 pages against 15, 16 and 11, and
+  ten rows of the `Classes/AGENTS.md` table were the same shape — `Domain/Enum/`
+  named 5 of 32, `Exception/` 3 of 10, `Domain/Model/` 5 of 16. One of them said
+  `ChatMessage` is "currently unused"; 32 classes use it.
 
 ### Added
 
@@ -61,6 +79,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Tests/Unit/BaselineConsistencyTest.php` fails when `BASELINE.md` names a
   TYPO3 matrix `ci.yml` does not run, or calls the MSI target a minimum while
   the mutation job is gated on the weekly schedule.
+- `Tests/Unit/AgentDocsCountConventionTest.php` rejects a reintroduced file
+  count in any `AGENTS.md` — both `<number> <file-noun>` and the
+  `<noun> (<number>)` form the removed `Controller/Backend/` row used. It does
+  not assert the counts: a number that changes when anyone adds a file would
+  turn every new file into a red build.
 
 ## [0.27.0] - 2026-08-09
 
