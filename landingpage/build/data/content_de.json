@@ -175,7 +175,7 @@
     "items": [
       {
         "q": "Welche TYPO3- und PHP-Versionen werden unterstützt?",
-        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.27.0)."
+        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.28.0)."
       },
       {
         "q": "Welche KI-Provider kann ich nutzen?",

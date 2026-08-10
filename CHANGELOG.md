@@ -6,7 +6,64 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-08-10
+Four user-facing changes, three of them found by looking at the demo instance
+rather than at the code: a backend module that told an administrator nothing
+he could act on, a page that never said what its button would do, and a card
+that drew a broken-image placeholder.
+
+### Added
+
+- The task execute form says what it is for before it asks for input. It
+  states that the output is shown and stored nowhere — `TaskExecutionService`
+  writes to no repository — and, more importantly, that the run is a real
+  billed request counted against the budget, which nothing on the screen had
+  said. It also names what the task expects and returns, taking the input
+  wording from `requiresManualInput()` so it describes the field that is
+  actually rendered.
+
+
+- `Tests/Unit/AdrLifecycleTest.php` fails when a record uses an unknown status
+  word, when a status names another record without the matching lifecycle
+  field, when a cross-reference in a lifecycle field or a status line points at
+  a record that does not exist, or when only one end of an ADR-to-ADR
+  amend/supersede pair is written. Field values are read across RST
+  continuation lines, so a wrapped field cannot hide a reference.
+- `Tests/Unit/ProductFactsConsistencyTest.php` derives the tool count, group
+  count and read/write split from `Classes/Service/Tool/Builtin/` and fails
+  when the README, the administration guide or the landing-page data
+  contradict it, or advertise a version other than `ext_emconf.php`'s.
+- `Tests/Unit/BaselineConsistencyTest.php` fails when `BASELINE.md` names a
+  TYPO3 matrix `ci.yml` does not run, or calls the MSI target a minimum while
+  the mutation job is gated on the weekly schedule.
+- `Tests/Unit/AgentDocsCountConventionTest.php` rejects a reintroduced file
+  count in any `AGENTS.md` — both `<number> <file-noun>` and the
+  `<noun> (<number>)` form the removed `Controller/Backend/` row used. It does
+  not assert the counts: a number that changes when anyone adds a file would
+  turn every new file into a red build.
+
+### Fixed
+
+- A misconfigured provider reports the setting at fault instead of "LLM
+  provider error. See system log for details." REC #8b keeps raw provider
+  response bodies out of the UI, and it still does; a
+  `ProviderConfigurationException` is not one of those — every message of that
+  type is authored here and names what to change ("API key identifier is
+  required for provider OpenAI"). Applied at all five places that had the same
+  gap. They do not sanitize alike: two reach the client through `ErrorResponse`
+  and two do not, so the redaction now lives in one trait that every site goes
+  through.
+- The "AI Cost this month" dashboard card showed the missing-icon placeholder.
+  `actions-currency` is not a registered identifier — the TYPO3 icon set has no
+  money-themed icon at all, so the name could never have resolved. An
+  unregistered identifier fails silently, so a test now asserts every `nrllm-*`
+  widget icon against the `IconRegistry`.
+
 ### Changed
+
+- Requires nr-vault `^0.15.0`. The previous cap held the whole dependency tree
+  below it, not just this package.
+
 
 - `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap
   sections is an open issue. Its top "Next" entry claimed all 41 builtin tools
@@ -63,27 +120,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ten rows of the `Classes/AGENTS.md` table were the same shape — `Domain/Enum/`
   named 5 of 32, `Exception/` 3 of 10, `Domain/Model/` 5 of 16. One of them said
   `ChatMessage` is "currently unused"; 32 classes use it.
-
-### Added
-
-- `Tests/Unit/AdrLifecycleTest.php` fails when a record uses an unknown status
-  word, when a status names another record without the matching lifecycle
-  field, when a cross-reference in a lifecycle field or a status line points at
-  a record that does not exist, or when only one end of an ADR-to-ADR
-  amend/supersede pair is written. Field values are read across RST
-  continuation lines, so a wrapped field cannot hide a reference.
-- `Tests/Unit/ProductFactsConsistencyTest.php` derives the tool count, group
-  count and read/write split from `Classes/Service/Tool/Builtin/` and fails
-  when the README, the administration guide or the landing-page data
-  contradict it, or advertise a version other than `ext_emconf.php`'s.
-- `Tests/Unit/BaselineConsistencyTest.php` fails when `BASELINE.md` names a
-  TYPO3 matrix `ci.yml` does not run, or calls the MSI target a minimum while
-  the mutation job is gated on the weekly schedule.
-- `Tests/Unit/AgentDocsCountConventionTest.php` rejects a reintroduced file
-  count in any `AGENTS.md` — both `<number> <file-noun>` and the
-  `<noun> (<number>)` form the removed `Controller/Backend/` row used. It does
-  not assert the counts: a number that changes when anyone adds a file would
-  turn every new file into a red build.
 
 ## [0.27.0] - 2026-08-09
 
@@ -2632,7 +2668,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.25.0...v0.25.1
