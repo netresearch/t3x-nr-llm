@@ -89,7 +89,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     {
         return ToolSpec::function(
             'create_translation_draft',
-            'Translate ONE existing page or content element into another language, using TYPO3\'s own localize '
+            "Translate ONE existing page or content element into another language, using TYPO3's own localize "
             . 'command. The new translation is always created HIDDEN, so a human must review and unhide it '
             . 'before it is visible; nothing is published. Writes through the DataHandler as the acting backend '
             . 'user, in the live workspace. The source must be a default-language record. If a translation in '
@@ -109,7 +109,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
                     'language' => [
                         'type'        => 'integer',
                         'description' => 'The sys_language_uid to translate into. Must be configured for the '
-                            . 'record\'s site and must not be 0.',
+                            . "record's site and must not be 0.",
                     ],
                     'overwrite' => [
                         'type'        => 'boolean',
