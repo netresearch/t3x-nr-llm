@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
@@ -1143,6 +1144,99 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function anInteractiveWriteIsFencedExactlyLikeAQueuedOne(): void
+    {
+        // ADR-141: the fence used to arm only under a worker lease, and no
+        // shipped entry point produced one. A synchronous run now claims its own
+        // lease, so the SAME stamp-before-op / clear-after sequence holds here.
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->beforeToolExecution('send_mail');
+                $trace?->recordToolExecution(1, 0.0, 'send_mail', [], 'sent', false);
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertSame(
+            ['non_idempotent_write', ''],
+            array_column($this->repository->pendingEffects, 'effect'),
+        );
+    }
+
+    #[Test]
+    public function aSynchronousRunClaimsItsOwnLeaseSoTheFenceCanArm(): void
+    {
+        // The lease is what makes the run fenceable at all; without a claim
+        // written at birth, markPendingEffect's ownership guard matches nothing.
+        $this->runtime($this->loopReturning($this->loopResult('done')))->run($this->request());
+
+        self::assertCount(1, $this->repository->startedRuns);
+        self::assertStringStartsWith('interactive:', $this->repository->startedRuns[0]['claimedBy']);
+        self::assertGreaterThan(time(), $this->repository->startedRuns[0]['leaseExpires']);
+    }
+
+    #[Test]
+    public function aWriteOnAnUnpersistedRunIsRefusedRatherThanRunUnfenced(): void
+    {
+        // The universal write guard (ADR-141). A run whose row could not be
+        // stored has nothing to fence against — and an unfenceable side effect
+        // is refused BEFORE it happens, not waved through. This is the case the
+        // old code silently skipped: no handle meant no hook meant no fence.
+        $this->repository->throwOnStart = true;
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([
+            new FakeTool('send_mail', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->beforeToolExecution('send_mail');
+
+                return $this->loopResult('the tool must never get this far');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        self::assertInstanceOf(WriteWithoutDurableExecutionException::class, $result->error);
+        self::assertSame([], $this->repository->pendingEffects, 'nothing was fenced because nothing could be');
+    }
+
+    #[Test]
+    public function aReadOnlyToolOnAnUnpersistedRunStillRuns(): void
+    {
+        // The guard is about side effects, not about persistence in general: a
+        // read repeats safely, so an unpersisted run may still perform one.
+        $this->repository->throwOnStart = true;
+
+        $resolver = new ToolEffectResolver(new ToolRegistry([new FakeTool('list_pages')]));
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->beforeToolExecution('list_pages');
+
+                return $this->loopResult('done');
+            },
+        );
+
+        $result = $this->runtime($loop, effectResolver: $resolver)->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+    }
+
+    #[Test]
     public function aReadOnlyToolIsNotFenced(): void
     {
         // A read is always safe to repeat, so no fence write is spent on it.
@@ -1326,10 +1420,13 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function anInteractiveRunNeverRenewsALease(): void
+    public function anInteractiveRunRenewsItsOwnLeaseAtEveryStepBoundary(): void
     {
-        // ADR-104: run()/approve() hold no lease (leaseOwner is null), so the
-        // heartbeat never fires — only queue workers renew.
+        // Was "an interactive run never renews a lease" (ADR-104, when only a
+        // queue worker held one). ADR-141 gives every executing segment a lease,
+        // so the heartbeat now fires here too — which is what makes an abandoned
+        // interactive run reapable instead of RUNNING forever, and what lets the
+        // write fence's ownership guard match at all.
         $loop = self::createStub(ToolLoopServiceInterface::class);
         $loop->method('runLoop')->willReturnCallback(
             function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
@@ -1342,7 +1439,8 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $result = $this->runtime($loop)->run($this->request());
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
-        self::assertCount(0, $this->repository->leaseRenewals);
+        self::assertCount(1, $this->repository->leaseRenewals, 'one step boundary, one renewal');
+        self::assertStringStartsWith('interactive:', $this->repository->leaseRenewals[0]['claimedBy']);
     }
 
     #[Test]

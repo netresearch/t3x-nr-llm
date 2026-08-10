@@ -37,7 +37,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
 
     public bool $throwOnFinish = false;
 
-    /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int}> */
+    /** @var list<array{uuid: string, configurationUid: int, configurationIdentifier: string, beUser: int, claimedBy: string, leaseExpires: int}> */
     public array $startedRuns = [];
 
     /** @var list<array{runUid: int, sequence: int, kind: string, round: int, durationMs: float, payloadJson: string}> */
@@ -46,7 +46,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** @var array{runUid: int, status: string, iterations: int, truncated: bool, promptTokens: int, completionTokens: int, totalTokens: int, estimatedCost: float, errorClass: string, terminationReason: string, ownedBy: string|null}|null */
     public ?array $finished = null;
 
-    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
+    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
     {
         if ($this->throwOnStart) {
             throw new RuntimeException('startRun failed', 5383517209);
@@ -57,6 +57,8 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
             'configurationUid'         => $configurationUid,
             'configurationIdentifier'  => $configurationIdentifier,
             'beUser'                   => $beUser,
+            'claimedBy'                => $claimedBy,
+            'leaseExpires'             => $leaseExpires,
         ];
 
         return $this->nextUid++;
@@ -215,11 +217,16 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** Number of resume claims that were granted; false is returned after the first. */
     public int $claimsGranted = 0;
 
-    public function claimForResume(int $runUid): bool
+    /** The lease the last granted resume claim was made under (ADR-141). */
+    public string $lastResumeClaimedBy = '';
+
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         if ($this->throwOnClaim) {
             throw new RuntimeException('claimForResume failed', 1784600400);
         }
+
+        $this->lastResumeClaimedBy = $claimedBy;
 
         // First claim wins; a second concurrent claim on the same run loses.
         if ($this->claimsGranted > 0) {
@@ -236,11 +243,13 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** Number of input-resume claims granted; false after the first (double-submit loses). */
     public int $inputClaimsGranted = 0;
 
-    public function claimForResumeFromInput(int $runUid): bool
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         if ($this->throwOnClaimInput) {
             throw new RuntimeException('claimForResumeFromInput failed', 1784600403);
         }
+
+        $this->lastResumeClaimedBy = $claimedBy;
 
         if ($this->inputClaimsGranted > 0) {
             return false;

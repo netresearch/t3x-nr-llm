@@ -42,7 +42,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         private AgentStateCodec $stateCodec,
     ) {}
 
-    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
+    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
     {
         $now        = time();
         $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
@@ -50,6 +50,13 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             'pid'                      => 0,
             'uuid'                     => $uuid,
             'status'                   => AgentRunStatus::RUNNING->value,
+            // Claimed at birth (ADR-141): a synchronous run owns its own lease,
+            // so the write fence can arm on it. A remote tool declaring a write
+            // without its operator setting the approval flag executes on THIS
+            // pass rather than on a resume (ADR-134 exempts remote tools), which
+            // is the case an unleased interactive run left unfenced.
+            'claimed_by'               => $claimedBy,
+            'lease_expires'            => $leaseExpires,
             'configuration_uid'        => $configurationUid,
             'configuration_identifier' => $configurationIdentifier,
             'be_user'                  => $beUser,
@@ -219,14 +226,14 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * false if another resume already claimed it — so two concurrent Approve
      * requests cannot both execute the gated (destructive) tool.
      */
-    public function claimForResume(int $runUid): bool
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
-        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_APPROVAL);
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_APPROVAL, $claimedBy, $leaseExpires);
     }
 
-    public function claimForResumeFromInput(int $runUid): bool
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
-        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_INPUT);
+        return $this->conditionalClaim($runUid, AgentRunStatus::WAITING_FOR_INPUT, $claimedBy, $leaseExpires);
     }
 
     /**
@@ -263,17 +270,23 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
      * Shared body for the resume claims (ADR-084 approval / ADR-105 input): move
      * the run $from -> RUNNING only if it is still in $from, in a single
      * conditional UPDATE — the atomic mutual-exclusion gate so two concurrent
-     * resume requests cannot both execute the pending turn. The lease is left
-     * clear: the resume runs in the acting process, not under a worker lease.
+     * resume requests cannot both execute the pending turn.
+     *
+     * The claim is WRITTEN, not cleared (ADR-141). This transition hands the run
+     * to the segment that executes its approved tool calls, and a write executes
+     * here rather than on the first pass (ADR-134) — leaving claimed_by empty
+     * would mean the one segment that runs side effects is the one segment the
+     * ADR-111 fence cannot arm on. The lease also makes an abandoned resume
+     * visible to the reaper instead of leaving it RUNNING forever.
      */
-    private function conditionalClaim(int $runUid, AgentRunStatus $from): bool
+    private function conditionalClaim(int $runUid, AgentRunStatus $from, string $claimedBy, int $leaseExpires): bool
     {
         $affected = $this->connectionPool->getConnectionForTable(self::TABLE_RUN)->update(
             self::TABLE_RUN,
             [
                 'status'        => AgentRunStatus::RUNNING->value,
-                'claimed_by'    => '',
-                'lease_expires' => 0,
+                'claimed_by'    => $claimedBy,
+                'lease_expires' => $leaseExpires,
                 'tstamp'        => time(),
             ],
             [

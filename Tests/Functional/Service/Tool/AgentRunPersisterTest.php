@@ -325,15 +325,19 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
         $run = $this->repository->findByUuid($handle->uuid);
         self::assertNotNull($run);
 
-        // First claim wins (WAITING_FOR_APPROVAL -> RUNNING).
-        self::assertTrue($this->persister->claimResume($run));
+        // First claim wins (WAITING_FOR_APPROVAL -> RUNNING) and takes the lease
+        // the write fence needs (ADR-141).
+        $lease = time() + 900;
+        self::assertTrue($this->persister->claimResume($run, 'resume:test:1', $lease));
         $afterFirst = $this->repository->findByUuid($handle->uuid);
         self::assertNotNull($afterFirst);
         self::assertSame('running', $afterFirst->status);
+        self::assertSame('resume:test:1', $afterFirst->claimedBy);
+        self::assertSame($lease, $afterFirst->leaseExpires);
 
         // A second, concurrent/duplicate approval on the same run loses — the
         // gated (destructive) tool cannot be double-executed.
-        self::assertFalse($this->persister->claimResume($run));
+        self::assertFalse($this->persister->claimResume($run, 'resume:test:2', $lease));
     }
 
     #[Test]

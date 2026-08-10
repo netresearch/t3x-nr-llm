@@ -6,9 +6,22 @@
 ADR-060: Quality evaluation — golden sets, grading and regression detection
 ===========================================================================
 
-:Status: Accepted
+:Status: Accepted (quality is no longer only a separate hook — see :ref:`ADR-142 <adr-142>`)
 :Date: 2026-07-14
+:Amended: 2026-08-10 by :ref:`ADR-142 <adr-142>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   This ADR left "wiring quality into `ModelSelectionService` as a first-class
+   sort key" as a deliberate follow-up, and :php:`QualityAwareModelSelector` was
+   the opt-in hook in the meantime. :ref:`ADR-142 <adr-142>` does that wiring:
+   the measured quality score is a ranking signal of the routing decision, under
+   an opt-in policy mode.
+
+   The hook itself is unchanged and still has no core consumer. Its `minQuality`
+   FILTER has no equivalent in the ranking on purpose — a minimum quality is a
+   constraint, and ADR-142 keeps constraints out of ranking.
 
 .. _adr-060-context:
 

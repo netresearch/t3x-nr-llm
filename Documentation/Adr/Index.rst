@@ -485,5 +485,7 @@ Tools
    Adr138OperationCapabilityMatch
    Adr139ContextAssemblyIsASeam
    Adr140EffectivePolicyReadoutWithoutApplyPath
-   Adr144InjectedContextCarriesADataClass
+   Adr141EveryExecutingSegmentHoldsALease
+   Adr142OneRoutingDecision
    Adr143BoundEverySendAgainstTheServingModel
+   Adr144InjectedContextCarriesADataClass

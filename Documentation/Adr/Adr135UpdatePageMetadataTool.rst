@@ -6,9 +6,10 @@
 ADR-135: The first writing tool, and the contract it actually needed
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its non-guarantee section is closed — see :ref:`ADR-141 <adr-141>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
+:Amended: 2026-08-10 by :ref:`ADR-141 <adr-141>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:
@@ -340,43 +341,43 @@ shape has, and buying it down further would mean sharing decisions.
 What this does NOT guarantee: the write fence
 ==============================================
 
-The ADR-112 lease-before-op write fence does **not** protect this tool as
-shipped, and no document may claim otherwise.
+.. note::
 
-The fence arms only when a lease owner is present:
-:php:`AgentRunExecutor::trace()` installs its ``onBeforeTool`` hook under
-``$leaseOwner === null || !$handle instanceof AgentRunHandle ? null : …``. The
-only producer of a lease owner is :php:`QueuedRunCoordinator::runQueued()`.
+   Closed by :ref:`ADR-141 <adr-141>`. This section recorded that the ADR-112
+   fence did not protect this tool as shipped, because the fence armed only
+   under a worker lease and no shipped entry point produced one. Every executing
+   segment now claims a lease, so the statement below is history, kept because
+   the reasoning is what ADR-141 had to answer.
 
-That method **does** have in-repo callers —
+   Read the current guarantee in ADR-141, not here.
+
+**Superseded, as of ADR-141.** The fence armed only when a lease owner was
+present: :php:`AgentRunExecutor::trace()` installed its ``onBeforeTool`` hook
+under ``$leaseOwner === null || !$handle instanceof AgentRunHandle ? null : …``,
+and the only producer of a lease owner was
+:php:`QueuedRunCoordinator::runQueued()`.
+
+That method **did** have in-repo callers —
 :php:`Service\Agent\Queue\AgentRunQueuedHandler::__invoke()` and the reaper's
 re-dispatch in :php:`Command\ReapStaleAgentRunsCommand` — so "``runQueued()`` is
-unreachable" would be wrong. What has no in-repo caller is
+unreachable" would have been wrong. What had no in-repo caller was
 :php:`AgentRuntimeInterface::enqueue()`, and only ``enqueue()`` creates the
-QUEUED row those callers can act on. The reaper cannot conjure one either:
+QUEUED row those callers can act on. The reaper could not conjure one either:
 ``findStaleRunning`` selects on ``lease_expires > 0``, which an interactive run
-never has.
+did not have.
 
 Every shipped entry point (the Tool Playground batch and streamed runs, the
-approval and input resumes, the CLI) goes through ``run()``, ``approve()``,
-``submitInput()`` or ``cancel()``, all of which pass no lease owner.
-``pending_effect`` is never stamped for them.
+approval and input resumes, the CLI) went through ``run()``, ``approve()`` or
+``submitInput()``, none of which passed a lease owner — and
+:php:`AgentRunExecutor::executeResume()` took no lease-owner parameter at all,
+so no resume was fenceable however the run was started. Since a write suspends
+before it runs, the resume is exactly where this tool executes: the one segment
+that ran side effects was the one segment that could not be fenced.
 
-Sharper still for the resume path: :php:`AgentRunExecutor::executeResume()`
-passes no lease owner at all, so **no** resume is fenceable however the run was
-started.
-
-This is not an accident to be alarmed by, and it is not the transport's doing:
-``enqueue()`` on the default ``SyncTransport`` would arm the fence perfectly
-well. The gate is ``run()`` versus ``enqueue()``. An interactive run has no
-reaper and no retry path, so there is no repeat for a fence to prevent —
-a suspended run either resumes because a human pressed Approve, or it does not
-resume at all.
-
-What must not be said is "writes are fenced". They are fenced on the queued
-path, which only a downstream consumer of the public ``enqueue()`` API reaches
-today. The fail-closed audit and the approval pause are the guarantees that hold
-everywhere.
+The conclusion drawn at the time — that an interactive run has no reaper and no
+retry path, so there is nothing for a fence to prevent — held only for as long
+as no interactive run could be retried. ADR-141 gives those segments a lease and
+therefore a reaper, and closes the gap rather than relying on that argument.
 
 .. _adr-135-consequences:
 
@@ -401,10 +402,11 @@ comparison. :ref:`ADR-136 <adr-136>` supersedes that sentence: the tool
 implements :php:`ToolPreviewInterface` and the card shows the values the write
 would REPLACE.
 
-✕ A downstream consumer that calls ``enqueue()`` gets the fence; every shipped
-entry point does not. The gap is named above rather than closed — closing it
-means arming the fence on the interactive path, which needs a lease the
-interactive path does not have.
+◐ A downstream consumer that calls ``enqueue()`` got the fence; every shipped
+entry point did not. The gap was named above rather than closed, and the note
+predicted the shape of the fix — "arming the fence on the interactive path,
+which needs a lease the interactive path does not have". :ref:`ADR-141
+<adr-141>` gives it one.
 
 ✕ The ambient-user gap in the E2 check stands: a foreign DataHandler hook may
 still read a ``$GLOBALS['BE_USER']`` that is not the acting user.
@@ -427,5 +429,7 @@ had to differ, and which mechanism moved into
 and the question then is whether anything the trait deliberately left per tool
 has become common, not whether the trait should grow.
 
-Also revisit if an interactive run ever gains a retry path. The fence's absence
-is correct only while "interactive" means "no repeat without a human".
+That second trigger — "revisit if an interactive run ever gains a retry path,
+because the fence's absence is correct only while *interactive* means *no repeat
+without a human*" — fired: an abandoned interactive segment is now reapable, so
+the absence stopped being correct. :ref:`ADR-141 <adr-141>` is the answer.
