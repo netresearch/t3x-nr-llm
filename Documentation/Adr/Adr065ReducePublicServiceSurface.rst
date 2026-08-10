@@ -8,6 +8,7 @@ ADR-065: Reduce the public service surface (ADR-028 follow-up)
 
 :Status: Accepted
 :Date: 2026-07-15
+:Supersedes: the count and Category 3 / tail rationale of :ref:`ADR-028 <adr-028>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-065-context:

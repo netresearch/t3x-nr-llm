@@ -1,75 +1,66 @@
 # Roadmap
 
-The direction of nr_llm, ordered by priority. This is a living document: items
-can move, grow, or be dropped as reality feeds back. Architectural decisions
-behind each item live in `Documentation/Adr/`; anything already shipped is in
-[CHANGELOG.md](CHANGELOG.md), not here. No dates — items land when they meet
-the quality gate, not when a calendar says so.
+What is not built yet, ordered by priority. Nothing shipped appears here:
+released work is in [CHANGELOG.md](CHANGELOG.md) and the decisions behind it in
+`Documentation/Adr/`. No dates — items land when they meet the quality gate.
 
-## Where we are
+Every item below is an open GitHub issue. If a line here has no issue, it is
+not roadmap, it is a wish.
 
-The security-hardening arc is shipped: explicit actor context and fail-closed
-authorization through the whole agent runtime, at-least-once queue delivery
-with a declared tool-effect classification and a fail-closed write audit, tool
-data-class enforcement on by default, agent state encrypted at rest, and an
-operations dashboard with a queryable governance audit trail. The MCP
-client is shipped too: operator-configured servers are imported into the one
-tool registry, and origin does not change how a tool is authorised, approved
-or audited — one registry, one gate, one agent loop (ADR-116).
+## Known gaps
 
-## Next — agent runtime maturity
+Decisions that were deliberately not built. An accepted ADR that declines to
+build something closes the decision, not the gap — these stay open until code
+closes them, and carry the [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
+label.
 
-1. **A first-class contract for side-effecting tools — when one exists.**
-   The effect classification, the write fence and the fail-closed audit are in
-   place, but all 41 builtin tools read; nothing exercises the write path. The
-   proposed interface, idempotency scope and preview each had no reader and no
-   display, so they are deferred rather than guessed at (ADR-122). The
-   machinery and a coverage test that forces a new writer to declare itself are
-   waiting; the shape of the contract is a question the first writing tool
-   answers.
+- **[#688](https://github.com/netresearch/t3x-nr-llm/issues/688) — generic paths bind no context window.**
+  `LlmServiceManager`'s chat, completion and streaming paths inject skills and
+  send; only `ConversationService` and `ToolLoopService` bind a window. A long
+  transcript through the generic API is bounded by the provider, not by us
+  (ADR-139).
+- **[#689](https://github.com/netresearch/t3x-nr-llm/issues/689) — injected context has no trust-zone ceiling.**
+  Tool output is data-classified; skills, snippets, system prompt and task
+  input are not. They pass the mandatory input guardrail, so this is a missing
+  *classification*, not a missing check (ADR-139, ADR-094).
+- **[#690](https://github.com/netresearch/t3x-nr-llm/issues/690) — input-resume authorises the submitter against nothing.**
+  Unreachable today because no tool implements `RequiresInputInterface`, and
+  pinned by a coverage test that fails when one does. The gate and the turn
+  digest are the open half (ADR-105, ADR-132).
 
 ## Toward 1.0
 
-- **Role model and editor actions.** Shipped as a grant-set: explicit
-  per-group capability grants on `AiActorContext` (ADR-130) and the
-  editor-facing AI Tasks module that makes them observable (ADR-131) —
-  run prepared tasks, decide approvals, budget-bounded per user.
-  Remaining: a management grant once a management surface exists, and a
-  purpose-built editor action API rather than generic record CRUD.
-- **Complete structured outputs.** Shipped end to end: a named, fail-closed
-  strict subset (enum, pattern, `oneOf`, bounds, combinators — ADR-126) with
-  `$ref` resolution deliberately out; provider-native enforcement on all
-  seven adapters behind a conservative compatibility profile (ADR-128); and
-  the in-repo consumers — wizard, JSON tasks, judge grader — on the
-  pipeline (ADR-129).
-- **A public, versioned API surface.** Shipped: the surface is marked
-  (`@api` / extension points / `@internal`, ADR-127), the promise is
-  documented in `Documentation/Api/Stability.rst`, and the rendered
-  signatures are frozen in a snapshot test that also asserts the closure
-  rule.
-- **Enforced horizontal boundaries.** Shipped: `ModuleSeamTest` asserts that
-  specialized services and the tool/agent module do not depend on each other,
-  that guardrails depend on neither, that nothing outside the backend package
-  depends on it, and that core does not depend on the tool module — six named
-  classes excepted as that module's own surface in shared directories, each
-  recorded with the package it moves to in a split.
-- **Re-evaluate a package split only after 1.0.** The seams from the runtime
-  decomposition are the prerequisite; until they are stable, one package
-  (ADR-090) stays the right call.
+- **[#691](https://github.com/netresearch/t3x-nr-llm/issues/691) — a management grant, once a management surface exists.**
+  `BackendUserGrant` holds two cases, each with an enforcement point. A third
+  without a surface would be the checkbox ADR-117 had to remove (ADR-130).
+- **[#692](https://github.com/netresearch/t3x-nr-llm/issues/692) — a purpose-built editor action API.**
+  Not generic record CRUD: a `update_record(table, uid, fields)` tool has the
+  whole TCA as its blast radius, and its arguments are model-chosen (ADR-135).
+  The open question is what an editor action is as a unit.
+
+## Decisions that live elsewhere
+
+- **Package split.** [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst)
+  is the single source: one extension until 1.0, split re-evaluated **with or
+  before** the 1.0 release, against the criteria listed there. Do not restate
+  the timing anywhere else — a roadmap and an ADR that disagreed about it is
+  what this line replaces.
 
 ## Non-goals
 
 Things nr_llm deliberately does not do, so the scope stays sharp:
 
-- **No general-purpose MCP server.** The direction matters: nr_llm *consumes*
-  MCP servers as a client and aggregates their tools (shipped — see "Where we
-  are" and ADR-116), but it
-  does not *expose* TYPO3 as an MCP server to third-party clients. That is a
-  different product with a different security model.
+- **No general-purpose MCP server.** nr_llm *consumes* MCP servers as a client
+  and aggregates their tools (ADR-116); it does not *expose* TYPO3 as an MCP
+  server to third-party clients. That is a different product with a different
+  security model.
 - **No backend coding agent.** The agent runtime automates editorial and
   operational work against declared tools — it does not write or deploy code.
-- **No further generic read-everything tools.** Tools stay purpose-built and
-  data-classified; broad generic accessors undermine the data-class gate.
+- **No generic read-everything or write-everything tools.** Tools stay
+  purpose-built and data-classified; a broad generic accessor undermines the
+  data-class gate on the read side and the review-time bound on the write side
+  (ADR-135).
 - **No multi-agent orchestration.** One run, one agent, one auditable
   transcript. Composition happens above nr_llm, not inside it.
-- **No package split before 1.0** (ADR-090).
+- **No `$ref` in the strict schema subset.** Deliberately outside the
+  supported subset, not a missing feature (ADR-126).

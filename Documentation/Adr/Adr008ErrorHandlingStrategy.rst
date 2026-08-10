@@ -6,11 +6,9 @@
 ADR-008: Error Handling Strategy
 ==================================
 
-.. _adr-008-status:
-
-Status
-======
-**Accepted** (2024-02)
+:Status: Accepted
+:Date: 2024-02
+:Authors: Netresearch DTT GmbH
 
 .. _adr-008-context:
 

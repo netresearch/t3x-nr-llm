@@ -6,11 +6,9 @@
 ADR-003: Typed Response Objects
 =================================
 
-.. _adr-003-status:
-
-Status
-======
-**Accepted** (2024-01)
+:Status: Accepted
+:Date: 2024-01
+:Authors: Netresearch DTT GmbH
 
 .. _adr-003-context:
 

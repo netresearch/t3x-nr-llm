@@ -6,12 +6,15 @@
 ADR-067: Solr per-language core — no language filter query
 ============================================================
 
-.. _adr-067-status:
+:Status: Accepted
+:Date: 2026-07
+:Amends: :ref:`ADR-049 <adr-049>`
+:Authors: Netresearch DTT GmbH
 
-Status
-======
-**Accepted** (2026-07) — bug fix refining the Solr retrieval backend introduced
-in :ref:`ADR-049 <adr-049>`.
+.. note::
+
+   A bug fix refining the Solr retrieval backend introduced in
+   :ref:`ADR-049 <adr-049>`.
 
 .. _adr-067-context:
 

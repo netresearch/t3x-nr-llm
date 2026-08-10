@@ -8,6 +8,7 @@ ADR-075: Neutral cross-encoder reranker protocol
 
 :Status: Accepted
 :Date: 2026-07-17
+:Amends: :ref:`ADR-050 <adr-050>` (cross-encoder reranking placement)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-075-context:

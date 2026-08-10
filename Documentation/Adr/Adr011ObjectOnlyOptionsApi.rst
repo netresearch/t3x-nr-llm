@@ -6,13 +6,10 @@
 ADR-011: Object-Only Options API
 ====================================
 
-.. _adr-011-status:
-
-Status
-======
-**Accepted** (2024-12)
-
-**Supersedes:** :ref:`ADR-006 <adr-006>`
+:Status: Accepted
+:Date: 2024-12
+:Supersedes: :ref:`ADR-006 <adr-006>`
+:Authors: Netresearch DTT GmbH
 
 .. _adr-011-context:
 

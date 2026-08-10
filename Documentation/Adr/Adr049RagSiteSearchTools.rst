@@ -6,8 +6,9 @@
 ADR-049: RAG site-search tools over installed search indexes
 =============================================================
 
-:Status: Accepted
+:Status: Accepted (the Solr language filter is corrected by :ref:`ADR-067 <adr-067>`)
 :Date: 2026-07-09
+:Amended: 2026-07 by :ref:`ADR-067 <adr-067>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-049-context:

@@ -8,6 +8,7 @@ ADR-135: The first writing tool, and the contract it actually needed
 
 :Status: Accepted
 :Date: 2026-08-09
+:Amends: :ref:`ADR-122 <adr-122>` (its premise, not its reasoning)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-135-context:

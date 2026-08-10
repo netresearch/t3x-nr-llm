@@ -8,6 +8,7 @@ ADR-028: Public services policy in ``Configuration/Services.yaml``
 
 :Status: Accepted (count and Category 3 / tail rationale superseded by :ref:`adr-065`)
 :Date: 2026-04-30
+:Amended: 2026-07-15 by :ref:`ADR-065 <adr-065>`
 :Slice: 25 (audit 2026-04-23 REC #9c)
 
 .. note::

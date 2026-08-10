@@ -7,6 +7,7 @@ ADR-050: Retrieval and embedding scope — the boundary with nr_ai_search
 =======================================================================
 
 :Status: Accepted (cross-encoder reranking placement amended by :ref:`adr-075`)
+:Amended: 2026-07-17 by :ref:`ADR-075 <adr-075>`
 :Date: 2026-07-11
 :Authors: Netresearch DTT GmbH
 

@@ -6,9 +6,23 @@
 ADR-122: The side-effecting tool contract waits for a side-effecting tool
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (premise expired — see :ref:`ADR-135 <adr-135>` and :ref:`ADR-136 <adr-136>`)
 :Date: 2026-07-29
+:Amended: 2026-08-09 by :ref:`ADR-135 <adr-135>` and :ref:`ADR-136 <adr-136>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   Two of the three facts this ADR reasons from have expired.
+
+   "All 44 builtin tools read" was true on 2026-07-29 and is not true now:
+   :ref:`ADR-135 <adr-135>` shipped ``update_page_metadata`` and a second
+   writer followed. "The preview has no caller and no display" was answered by
+   :ref:`ADR-136 <adr-136>`, which produces it at suspend time.
+
+   The decision still holds — no framework arrived with the first writer, and
+   the idempotency scope still has no reader. Read this record for why the
+   contract was not built ahead of a writing tool, not for what ships today.
 
 .. _adr-122-context:
 

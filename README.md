@@ -266,10 +266,9 @@ internal contracts between these subsystems still change often, and splitting
 now would freeze them into public cross-extension APIs prematurely and add
 coordinated multi-repo release friction. We keep the architecture *split-ready*
 instead — the phpat architecture tests enforce the vertical layering (Controller
-→ Service → Provider), and the horizontal module seams are kept clean by review
-(with phpat rules for those seams a planned split-readiness step) — and will
-revisit a split **with or before the 1.0 release**, once the seams have
-stabilized.
+→ Service → Provider) and `Tests/Architecture/ModuleSeamTest.php` enforces the
+horizontal module seams — and will revisit a split **with or before the 1.0
+release**, once the seams have stabilized.
 
 The anticipated seams, if/when we split:
 

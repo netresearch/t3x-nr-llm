@@ -7,6 +7,7 @@ ADR-083: Conversation sessions and memory
 ============================================================================
 
 :Status: Accepted (ownership and configuration binding superseded by :ref:`ADR-091 <adr-091>`)
+:Amended: 2026-07-20 by :ref:`ADR-091 <adr-091>`
 :Date: 2026-07-18
 :Authors: Netresearch DTT GmbH
 

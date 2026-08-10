@@ -10,6 +10,47 @@ Architecture Decision Records
 This section documents significant architectural decisions made during the
 development of the TYPO3 LLM Extension.
 
+.. _adr-lifecycle:
+
+Record lifecycle
+================
+
+An ADR is a record of a decision at a point in time. It is expected to become
+historically wrong; what it must never do is *look* current when it is not. The
+``:Status:`` field is how a reader tells the difference.
+
+``Accepted``
+   Current. The decision and the facts it reasons from still hold.
+
+``Accepted`` with an ``:Amended:`` field
+   Still current as a whole, but a later ADR overturned, widened or expired
+   part of it. The status line names which part in parentheses; the
+   ``:Amended:`` field names the date and the amending record.
+
+``Superseded`` with a ``:Superseded:`` field
+   No longer current. The field names the date and the replacing record.
+
+``Deprecated``
+   What it decided is being removed, with no successor decision.
+
+The link is written from both ends. The newer record declares ``:Amends:`` or
+``:Supersedes:``; the older one declares ``:Amended:`` or ``:Superseded:`` with
+the date. ``Tests/Unit/AdrLifecycleTest.php`` fails when only one end is
+written.
+
+Two rules follow from that:
+
+**An amended record keeps its reasoning.** :ref:`ADR-122 <adr-122>` declined to
+build a side-effecting tool contract because no tool wrote. That premise expired
+with :ref:`ADR-135 <adr-135>`, but the reasoning — do not design a contract
+ahead of its first consumer — is why the writer shipped without a framework. The
+record stays; the status says the premise is gone.
+
+**Amending is the amender's job.** An ADR that overturns part of an earlier one
+edits that earlier record's ``:Status:`` and ``:Amended:`` in the same change.
+An accepted ADR with an expired premise and a clean ``Accepted`` status is a
+defect, not history.
+
 .. _adr-symbol-legend:
 
 Symbol legend

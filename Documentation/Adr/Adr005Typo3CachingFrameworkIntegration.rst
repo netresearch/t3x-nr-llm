@@ -6,11 +6,9 @@
 ADR-005: TYPO3 Caching Framework Integration
 ==============================================
 
-.. _adr-005-status:
-
-Status
-======
-**Accepted** (2024-03)
+:Status: Accepted
+:Date: 2024-03
+:Authors: Netresearch DTT GmbH
 
 .. _adr-005-context:
 
