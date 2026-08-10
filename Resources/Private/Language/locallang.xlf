@@ -1705,6 +1705,27 @@
             <trans-unit id="field.presencePenalty">
                 <source>Presence Penalty</source>
             </trans-unit>
+            <trans-unit id="task.execute.intro.title">
+                <source>What this page does</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.body">
+                <source>Run this task once and look at the result. The output is displayed below and stored nowhere — nothing in your content is changed, so this is the safe place to try a task out before other extensions or the API start using it.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.cost">
+                <source>It is a real request to the configured provider: it costs money and counts against your budget, exactly like a run triggered from anywhere else.</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs">
+                <source>It needs</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs.manual">
+                <source>text you type into the input field below</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.needs.resolved">
+                <source>input the task resolves by itself — review it below and refresh if it looks stale</source>
+            </trans-unit>
+            <trans-unit id="task.execute.intro.returns">
+                <source>It returns</source>
+            </trans-unit>
             <trans-unit id="task.execute.title">
                 <source>Execute</source>
             </trans-unit>
