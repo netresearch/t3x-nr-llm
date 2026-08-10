@@ -195,7 +195,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $total    = $this->totalToolCount();
         $readOnly = $this->readOnlyToolCount();
 
-        // Adjacency only. `2 of the 43 built-in tools` is a true statement whose
+        // Adjacency only. `2 of the 46 built-in tools` is a true statement whose
         // leading number is an arbitrary subset, so bridging over `of the` /
         // `der` would reject it; the number next to the noun phrase is the
         // claim. German uses the predicative `nur lesend` — no trailing `e` —
