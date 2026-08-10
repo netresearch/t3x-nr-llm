@@ -118,7 +118,7 @@ Three-tier model: **Provider → Model → Configuration**. See `Documentation/A
 ### Directory Structure
 ```
 nr_llm/
-├── Classes/                    # 264 PHP source files
+├── Classes/                    # PHP source
 │   ├── Attribute/              # #[AsLlmProvider] auto-registration attribute
 │   ├── Controller/Backend/     # Backend controllers, DTOs, Response objects
 │   ├── DependencyInjection/    # Compiler passes (ProviderCompilerPass)
@@ -131,8 +131,8 @@ nr_llm/
 │   ├── Utility/                # SafeCastTrait, ErrorMessageSanitizerTrait
 │   └── Widgets/DataProvider/   # Backend dashboard widgets (cost, requests)
 ├── Configuration/              # TYPO3 config (TCA, services, caching, icons, routes)
-├── Documentation/              # 86 RST files + guides.xml + brand assets
-│   └── Adr/                    # 38 Architecture Decision Records
+├── Documentation/              # RST docs + guides.xml + brand assets
+│   └── Adr/                    # Architecture Decision Records
 ├── Tests/                      # Unit, Integration, Functional, Fuzzy, Architecture, E2E
 ├── Resources/                  # Templates, XLIFF (EN+DE), icons, CSS, JS
 └── Build/                      # PHPStan, Rector, Fractor configs + runTests.sh
@@ -195,14 +195,18 @@ nr_llm/
 
 | Workflow | Purpose |
 |----------|---------|
-| `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, mutation |
-| `e2e.yml` | Playwright E2E tests |
-| `docs.yml` | Documentation rendering |
-| `security.yml` | Gitleaks, dependency review, composer audit |
-| `release.yml` | Release with SBOM, Cosign signing, SLSA attestation |
-| `ter-publish.yml` | Manual TER publish |
 | `auto-merge-deps.yml` | Auto-merge dependency PRs |
+| `check-template-drift.yml` | Template drift against the org's typo3-extension template |
+| `checks.yml` | Security, gitleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
+| `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
 | `community.yml` | Community health |
+| `dco.yml` | DCO sign-off |
+| `docs.yml` | Documentation rendering |
+| `e2e.yml` | Playwright E2E tests |
+| `labeler.yml` | PR auto-labelling |
+| `pages.yml` | Landing page (GitHub Pages) |
+| `release.yml` | Release with SBOM, Cosign signing, SLSA attestation; publishes TER + Packagist |
+| `republish.yml` | Re-publish an existing tag (`workflow_dispatch` fallback) |
 <!-- AGENTS-GENERATED:END ci -->
 
 <!-- AGENTS-GENERATED:START examples -->
@@ -225,8 +229,8 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
 - Run tests: `./Build/Scripts/runTests.sh -s unit` (NEVER phpunit directly)
-- Check ADRs in `Documentation/Adr/` for design rationale (38 ADRs)
-- API docs: `Documentation/Api/` (9 reference pages)
+- Check ADRs in `Documentation/Adr/` for design rationale; `Adr/Index.rst` documents the record lifecycle
+- API docs: `Documentation/Api/`
 - Issues: https://github.com/netresearch/t3x-nr-llm/issues
 - Discussions: https://github.com/netresearch/t3x-nr-llm/discussions
 <!-- AGENTS-GENERATED:END help -->
@@ -234,7 +238,7 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
 <!-- Hand-maintained; intentionally outside the AGENTS-GENERATED blocks above. -->
 ## Release & dependency automation (agent notes)
 
-- **Releasing is a tag push, and the tag publishes TER automatically.** Pushing an annotated signed tag `vX.Y.Z` on `main` triggers `release.yml`, which calls the reusable `netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml` with `TYPO3_TER_ACCESS_TOKEN` wired in: it produces the SBOM / Cosign / SLSA artifacts, creates the GitHub release, **and publishes to TER + Packagist**. `ter-publish.yml` ("Manual TER publish" in the workflow table) is only a `workflow_dispatch` re-publish fallback — it is *not* the primary path and does not need to be run for a normal release. Verify a release by checking Packagist (`repo.packagist.org/p2/netresearch/nr-llm.json`, tags are `v`-prefixed), TER (`extensions.typo3.org/api/v1/extension/nr_llm/versions`) and the docs 0.X URL — do not assume TER is a separate manual step.
+- **Releasing is a tag push, and the tag publishes TER automatically.** Pushing an annotated signed tag `vX.Y.Z` on `main` triggers `release.yml`, which calls the reusable `netresearch/typo3-ci-workflows/.github/workflows/release-typo3-extension.yml` with `TYPO3_TER_ACCESS_TOKEN` wired in: it produces the SBOM / Cosign / SLSA artifacts, creates the GitHub release, **and publishes to TER + Packagist**. `republish.yml` is only a `workflow_dispatch` fallback that re-publishes an existing tag — it is *not* the primary path and does not need to be run for a normal release. Verify a release by checking Packagist (`repo.packagist.org/p2/netresearch/nr-llm.json`, tags are `v`-prefixed), TER (`extensions.typo3.org/api/v1/extension/nr_llm/versions`) and the docs 0.X URL — do not assume TER is a separate manual step.
 - **The `chore(release): X.Y.Z` commit bumps four files:** `ext_emconf.php`, `composer.json` (`extra.typo3/cms.version`), `Documentation/guides.xml`, and `CHANGELOG.md` (not `Changelog.rst`). Version bumps belong to this release flow, never to a feature PR.
 - **Renovate/Dependabot PRs auto-merge via `auto-merge-deps.yml` — do not hand-merge them by default.** Known gap (2026-07-24): `auto-merge-deps.yml` did **not** auto-merge #511/#509 and they were admin-merged manually to unblock the 0.24.0 release; root cause (merge-queue interaction vs an unmet workflow condition) is **not yet verified**. Investigate the workflow's condition/queue behaviour before relying on it for the next release rather than reflexively hand-merging.
 

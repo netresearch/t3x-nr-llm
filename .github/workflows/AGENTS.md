@@ -12,17 +12,22 @@ GitHub Actions workflows and CI/CD automation
 | File | Purpose |
 |------|---------|
 | `auto-merge-deps.yml` | Auto-merge dependency PRs |
-| `ci.yml` | CI |
-| `community.yml` | Community |
-| `docs.yml` | Documentation |
-| `e2e.yml` | E2E Tests |
-| `release.yml` | Release |
-| `ter-publish.yml` | Publish to TER (manual) |
+| `check-template-drift.yml` | Template drift against the org's typo3-extension template |
+| `checks.yml` | Security, gitleaks, zizmor, fuzz, licence audit, CodeQL, scorecard, dependency review, PR quality |
+| `ci.yml` | Lint, PHPStan, unit/functional tests, Rector, fuzz + weekly mutation, docs |
+| `community.yml` | Community health |
+| `dco.yml` | DCO sign-off |
+| `docs.yml` | Documentation rendering |
+| `e2e.yml` | Playwright E2E tests |
+| `labeler.yml` | PR auto-labelling |
+| `pages.yml` | Landing page (GitHub Pages) |
+| `release.yml` | Release with SBOM, Cosign signing, SLSA attestation; publishes TER + Packagist |
+| `republish.yml` | Re-publish an existing tag (`workflow_dispatch` fallback) |
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START golden-samples -->
 ## Workflow files
-- Workflows: 7 workflow file(s)
+- One file per concern; the Key Files table above lists all of them.
 <!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->
@@ -37,10 +42,15 @@ GitHub Actions workflows and CI/CD automation
   ISSUE_TEMPLATE/
   workflows/
     ci.yml              → Main CI workflow (lint, test, build)
+    checks.yml          → Security, licence, CodeQL, scorecard, PR quality
     release.yml         → Release/deploy workflow
+    republish.yml       → Re-publish an existing tag (manual)
     e2e.yml             → Playwright E2E tests
     docs.yml            → Documentation rendering
-    ter-publish.yml     → Manual TER publish
+    pages.yml           → Landing page (GitHub Pages)
+    dco.yml             → DCO sign-off
+    labeler.yml         → PR auto-labelling
+    check-template-drift.yml → Template drift
     auto-merge-deps.yml → Auto-merge dependency PRs
     community.yml       → Community health
 ```
