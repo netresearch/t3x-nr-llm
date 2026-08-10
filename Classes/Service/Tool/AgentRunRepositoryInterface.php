@@ -24,8 +24,14 @@ interface AgentRunRepositoryInterface
 {
     /**
      * Insert a new run in the RUNNING state and return its primary key.
+     *
+     * $claimedBy / $leaseExpires claim the run for the segment that starts it
+     * (ADR-141), so the ADR-111 write fence can arm on a synchronous run. The
+     * empty defaults keep an unclaimed run expressible — a caller that cannot
+     * hold a lease still gets a persisted run, and the fence then refuses any
+     * side-effecting tool on it rather than running one unfenced.
      */
-    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int;
+    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int;
 
     /**
      * Append one event to a run's stream.
@@ -77,16 +83,20 @@ interface AgentRunRepositoryInterface
      * Atomically claim a WAITING_FOR_APPROVAL run for resume (move it to RUNNING);
      * true for the winner, false if already claimed. Prevents two concurrent
      * approvals from double-executing the gated tool (ADR-084).
+     *
+     * The winner's identity and lease are written, not cleared (ADR-141): this
+     * is the segment that executes the approved — possibly writing — calls, so
+     * it is the segment the write fence has to arm on.
      */
-    public function claimForResume(int $runUid): bool;
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool;
 
     /**
      * Atomically claim a WAITING_FOR_INPUT run for resume (ADR-105): the input
      * sibling of {@see claimForResume()}. True for the winner, false if another
      * submitInput already claimed it — so two concurrent submissions cannot both
-     * resume the run.
+     * resume the run. Claims the winner's lease like {@see claimForResume()}.
      */
-    public function claimForResumeFromInput(int $runUid): bool;
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool;
 
     /**
      * Insert a QUEUED run carrying its serialised request, so a worker in

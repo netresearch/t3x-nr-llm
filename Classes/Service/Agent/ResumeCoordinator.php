@@ -227,7 +227,11 @@ final readonly class ResumeCoordinator
         // Atomically claim the run before executing its pending (approval-gated,
         // possibly destructive) tool calls, so two concurrent Approve requests
         // cannot both run them (ADR-084). Fail-closed on a store error too.
-        if (!$this->persister->claimResume($run)) {
+        // The claim carries this segment's identity and lease (ADR-141): the
+        // approved calls execute here, so this is the segment the write fence
+        // arms on.
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResume($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
             throw RunAlreadyResumingException::forRun($runUuid);
         }
 
@@ -326,6 +330,7 @@ final readonly class ResumeCoordinator
                 $trace,
                 $decision->decidedByBeUser,
             ),
+            $leaseOwner,
         );
     }
 
@@ -510,7 +515,8 @@ final readonly class ResumeCoordinator
             throw RunStateUnavailableException::forRun($runUuid);
         }
 
-        if (!$this->persister->claimResumeFromInput($run)) {
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResumeFromInput($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
             throw RunAlreadyResumingException::forRun($runUuid);
         }
 
@@ -544,6 +550,7 @@ final readonly class ResumeCoordinator
                 $trace,
                 $submission->submittedByBeUser,
             ),
+            $leaseOwner,
         );
     }
 }

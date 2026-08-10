@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A side-effecting tool that cannot be fenced is refused before it runs
+  (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is
+  installed unconditionally now; a segment holding no persisted run or no lease
+  used to get no hook at all, and its write proceeded silently. This is what
+  makes the guarantee hold for entry points that do not exist yet: a new caller
+  that forgets to claim its run cannot execute a write. Read-only tools are
+  unaffected — repeating a read is always safe.
+- `WritePathAcceptanceTest` asserts the fence on the segment that executes the
+  write: stamped with the declared effect before the tool, cleared after, both
+  under the lease the resume claimed. Its docblock carried a detailed account of
+  why the fence could never arm; that account is now the history of what
+  ADR-141 closed.
+- `AgentRuntimeWiringTest` asks the container whether the write fence's effect
+  resolver is actually injected. Without it every tool reads as READ_ONLY, so no
+  write is fenced and none is refused — the axis fails open silently while every
+  hand-wired test still passes.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the
@@ -31,6 +50,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   labelled `plantuml`, which no highlighter in the docs build knows, and every
   render emitted a warning for it.
 
+
+- **Every executing segment holds a lease, so writes are fenced wherever they
+  run** (ADR-141). 0.27.0 shipped two writing tools and stated the gap in the
+  same breath: the ADR-112 write fence armed only under a worker lease, and no
+  shipped entry point produced one. The gap was wider than "the interactive path
+  is unfenced" — `AgentRuntime::enqueue()` had no caller outside `Tests/`, so
+  the queue, worker, lease and fence were a complete mechanism nothing entered;
+  and because a declared write suspends BEFORE it runs (ADR-134), the tool
+  executes on the resume, where `claimForResume()` explicitly *cleared*
+  `claimed_by` and `lease_expires`. The one segment that ran side effects was
+  the one segment that dropped its claim. Now a synchronous run claims at birth,
+  a resume claims the run it continues, and both pass that identity to the
+  executor — so `pending_effect` is stamped before the tool and cleared after,
+  under the same ownership guard a queue worker uses. Identities name their
+  segment (`resume:web-01:4711`, `interactive:…`, `worker:…`), so a lease left
+  behind says which entry point abandoned it. Routing interactive writes through
+  `enqueue()` instead was rejected: it loses the result and the `$onStep`
+  closure the streamed Playground run is built on, and — decisively — it does
+  not reach the resume at all, which is where writes actually execute.
+- A stale RUNNING run that stored no request payload is dead-lettered rather
+  than reclaimed onto the queue. A leased synchronous run or resume is now
+  visible to `nrllm:agent:reap` (which is the point — an abandoned one settles
+  instead of staying RUNNING forever), but neither stores a `queued_request`,
+  and a worker refuses a QUEUED row it cannot rehydrate. Reclaiming one would
+  strand it QUEUED forever. The fence check keeps priority, so a run caught mid
+  non-idempotent write is still refused for that stronger reason first.
+- An interactive run renews its lease at every step boundary. Previously only
+  queue workers did, and a test pinned that as an invariant; it now pins the
+  opposite, because the heartbeat is what an ownership-guarded fence write needs
+  to match against.
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
 rather than at the code: a backend module that told an administrator nothing

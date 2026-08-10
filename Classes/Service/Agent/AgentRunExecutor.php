@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Service\Agent\Exception\AuditPersistenceFailedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
+use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -126,19 +127,27 @@ final readonly class AgentRunExecutor
      * factory over the context and the trace keeps the ordering here, where it
      * is stated once, instead of in each caller.
      *
-     * A resume holds no worker lease and carries no recovery: it is the
-     * interactive continuation of a suspended run, so a failure surfaces to its
-     * caller exactly as an interactive run's does.
+     * A resume carries no recovery: it is the continuation of a suspended run
+     * driven by a request, so a failure surfaces to its caller exactly as an
+     * interactive run's does. It DOES hold a lease (ADR-141). This is the
+     * segment a writing tool executes in — a write suspends before it runs
+     * (ADR-134), so the first pass never reaches the tool — and an unleased
+     * segment cannot arm the ADR-111 fence around it.
      *
      * @param (Closure(RunStep): void)|null                           $onStep
      * @param Closure(ToolExecutionContext, RunTrace): ToolLoopResult $loopCall
      */
-    public function executeResume(AgentRunHandle $handle, ?Closure $onStep, AiActorContext $owner, Closure $loopCall): AgentRunResult
-    {
-        $trace   = $this->trace($handle, $onStep, false);
+    public function executeResume(
+        AgentRunHandle $handle,
+        ?Closure $onStep,
+        AiActorContext $owner,
+        Closure $loopCall,
+        ?string $leaseOwner = null,
+    ): AgentRunResult {
+        $trace   = $this->trace($handle, $onStep, false, $leaseOwner);
         $context = $this->toolContext($owner);
 
-        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($context, $trace));
+        return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($context, $trace), null, $leaseOwner);
     }
 
     /**
@@ -157,25 +166,30 @@ final readonly class AgentRunExecutor
      * stream stays complete up to the abort point. One indexed row read per
      * step; steps are provider-call-slow, so the cost is negligible.
      *
-     * For a queued run $leaseOwner is this worker's identity (ADR-104): after
-     * the cancellation check, the lease is renewed under an ownership guard
-     * BEFORE the step is persisted. If the renewal affects no row the worker no
-     * longer owns the run — the reaper reclaimed it and another worker may hold
-     * it now — so it stops WITHOUT writing the step, which would otherwise
-     * collide with the new owner's stream. Interactive runs pass null and never
-     * renew (they hold no lease).
+     * $leaseOwner is the identity of the segment executing this run (ADR-104,
+     * ADR-141): a worker's for a queued run, the request's for an interactive
+     * one or a resume. After the cancellation check, the lease is renewed under
+     * an ownership guard BEFORE the step is persisted. If the renewal affects no
+     * row the segment no longer owns the run — the reaper reclaimed it and
+     * another owner may hold it now — so it stops WITHOUT writing the step,
+     * which would otherwise collide with the new owner's stream.
+     *
+     * Null is left reachable for the bare test wiring and for a run that could
+     * not be persisted at all; it does not mean "skip the fence". The
+     * before-tool guard is installed either way and REFUSES a side-effecting
+     * tool it cannot fence.
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
     private function trace(?AgentRunHandle $handle, ?Closure $onStep, bool $captureRaw, ?string $leaseOwner = null): RunTrace
     {
-        if (!$handle instanceof AgentRunHandle && !$onStep instanceof Closure) {
-            return new RunTrace(captureRaw: $captureRaw);
-        }
-
+        // The write guard below is installed even when there is nothing to
+        // record: a run that could not be persisted at all (begin() returned
+        // null) has no row to fence against, and that is precisely the case the
+        // guard must refuse rather than the case it may skip.
         return new RunTrace(
             captureRaw: $captureRaw,
-            onRecord: function (RunStep $step) use ($handle, $onStep, $leaseOwner): void {
+            onRecord: !$handle instanceof AgentRunHandle && !$onStep instanceof Closure ? null : function (RunStep $step) use ($handle, $onStep, $leaseOwner): void {
                 // The live observer sees the step FIRST (emit-before-persist),
                 // so a step is shown even when its persistence or the checks
                 // below abort the loop.
@@ -214,16 +228,32 @@ final readonly class AgentRunExecutor
 
                 $this->recordStepFailClosedForWrites($handle, $step);
             },
-            onBeforeTool: $leaseOwner === null || !$handle instanceof AgentRunHandle ? null : function (string $toolName) use ($handle, $leaseOwner): void {
-                // Fence a WRITE before it runs (ADR-111): stamp its effect and
-                // renew the lease so a reap mid non-idempotent-write dead-letters
-                // instead of retrying. Read-only tools need no fence — repeating
-                // them is always safe. A lost lease stops the worker before the
-                // side effect, exactly like the heartbeat guard.
+            onBeforeTool: function (string $toolName) use ($handle, $leaseOwner): void {
+                // Read-only tools need no fence — repeating them is always safe.
                 $effect = $this->toolEffectResolver?->effectFor($toolName) ?? ToolEffect::READ_ONLY;
-                if ($effect->isWrite()
-                    && !$this->persister->markPendingEffect($handle, $leaseOwner, $effect->value, time() + AgentRuntime::LEASE_SECONDS)
-                ) {
+                if (!$effect->isWrite()) {
+                    return;
+                }
+
+                // The universal write guard (ADR-141): a side effect may only run
+                // in a segment that can fence it. Fencing needs a persisted run
+                // AND a lease this segment owns; a segment holding neither cannot
+                // stamp the effect, so the write is refused BEFORE it happens
+                // rather than executed unfenced. This hook is installed on every
+                // path — an entry point that forgets to claim its run fails
+                // closed here instead of silently skipping the fence.
+                if (!$handle instanceof AgentRunHandle || $leaseOwner === null) {
+                    throw WriteWithoutDurableExecutionException::forTool(
+                        $handle instanceof AgentRunHandle ? $handle->uuid : '',
+                        $toolName,
+                    );
+                }
+
+                // Fence the WRITE (ADR-111): stamp its effect and renew the lease
+                // so a reap mid non-idempotent-write dead-letters instead of
+                // retrying. A lost lease stops the segment before the side
+                // effect, exactly like the heartbeat guard.
+                if (!$this->persister->markPendingEffect($handle, $leaseOwner, $effect->value, time() + AgentRuntime::LEASE_SECONDS)) {
                     throw RunLeaseLostException::forRun($handle->uuid);
                 }
             },

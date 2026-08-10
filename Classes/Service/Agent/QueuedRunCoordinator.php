@@ -173,12 +173,12 @@ final readonly class QueuedRunCoordinator
     }
 
     /**
-     * Which worker claimed a queued run — host + pid, for lease diagnostics.
+     * Which worker claimed a queued run, for lease diagnostics. Shared with the
+     * synchronous and resume segments (ADR-141) so every lease in the table says
+     * which kind of entry point holds it.
      */
     private function workerIdentity(): string
     {
-        $host = gethostname();
-
-        return substr(($host !== false ? $host : 'unknown') . ':' . getmypid(), 0, 64);
+        return ExecutionIdentity::worker();
     }
 }
