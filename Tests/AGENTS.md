@@ -50,8 +50,8 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 
 <!-- AGENTS-GENERATED:START coverage -->
 ## Coverage Requirements
-- Minimum MSI: 70%
-- Minimum Covered MSI: 74%
+- MSI target: 70% — a goal, not a gate. Mutation runs weekly and report-only (`run-mutation-tests` is gated on `schedule` in `ci.yml`, and the Infection step is `continue-on-error`).
+- Covered MSI target: 74%
 - `Domain\Model` excluded from mutation testing
 - Use `assert(isset($result['key']))` for PHPStan array narrowing (not `assertArrayHasKey`)
 <!-- AGENTS-GENERATED:END coverage -->

@@ -64,7 +64,7 @@
       {
         "icon": "rag",
         "title": "RAG site-search tools",
-        "body": "41 built-in read-only function-calling tools in 8 toggleable groups give the model grounded access to the TYPO3 instance — content search, TCA/FlexForm schema, TypoScript, source and exception reads, FAL files, diagnostics, and backend accounts. The rag group returns cited site-content evidence from the installed search index (EXT:solr, ke_search, indexed_search, or a database fallback)."
+        "body": "43 built-in function-calling tools in 9 toggleable groups give the model grounded access to the TYPO3 instance — content search, TCA/FlexForm schema, TypoScript, source and exception reads, FAL files, diagnostics, and backend accounts. 41 of them only read. The rag group returns cited site-content evidence from the installed search index (EXT:solr, ke_search, indexed_search, or a database fallback), and the editing group holds the two writing tools, which ship disabled and pause the run for human approval before they act."
       },
       {
         "icon": "budget",
@@ -154,7 +154,7 @@
       },
       {
         "title": "Tools and RAG",
-        "body": "41 read-only function-calling tools in 8 toggleable groups let models inspect content, schema, configuration, code, files, system diagnostics, and accounts — with the rag group returning cited evidence from the installed search index."
+        "body": "43 function-calling tools in 9 toggleable groups let models inspect content, schema, configuration, code, files, system diagnostics, and accounts — with the rag group returning cited evidence from the installed search index. 41 only read; the two writers ship disabled and pause for approval."
       },
       {
         "title": "Tool Playground",
@@ -175,7 +175,7 @@
     "items": [
       {
         "q": "Which TYPO3 and PHP versions are supported?",
-        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.22.0)."
+        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.27.0)."
       },
       {
         "q": "Which AI providers can I use?",
@@ -223,7 +223,7 @@
       },
       {
         "q": "What governance and security controls does nr-llm provide?",
-        "a": "Encrypted API keys via nr-vault, an admin-only backend module with per-capability backend-group permissions, a guardrail pipeline that redacts secrets across input, output, and streaming, optional human-in-the-loop approval, and per-user budgets with usage analytics. All 41 built-in tools are read-only. The Governance & Security page covers each control in detail."
+        "a": "Encrypted API keys via nr-vault, an admin-only backend module with per-capability backend-group permissions, a guardrail pipeline that redacts secrets across input, output, and streaming, optional human-in-the-loop approval, and per-user budgets with usage analytics. 41 of the 43 built-in tools are read-only; the two that write ship disabled and suspend the run for human approval before they act. The Governance & Security page covers each control in detail."
       }
     ]
   },

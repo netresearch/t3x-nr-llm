@@ -6,7 +6,12 @@ source projects, in the spirit of the maintained Baseline criteria
 catalogue. Each criterion below is mapped to its concrete artefact in
 this repository.
 
-Last verified: 2026-04-24
+Last verified: 2026-08-10
+
+This file states what is enforced, not what is aimed at. A criterion that is a
+goal rather than a gate says so in its own row, and anything not met is in
+[Known gaps](#known-gaps) below. `Tests/Unit/BaselineConsistencyTest.php` fails
+CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`.
 
 ## Vulnerability Management
 
@@ -23,8 +28,8 @@ Last verified: 2026-04-24
 |---|---|
 | Source under public version control | This repository on github.com/netresearch/t3x-nr-llm |
 | Required signed commits | `git commit -S --signoff` enforced via `Build/captainhook.json` and branch protection (`required_signatures: enabled`) |
-| Code review before merge | All changes via pull request; PR Quality Gates workflow + Copilot/gemini reviews |
-| Two-person rule | PR review required; auto-approve only after Copilot review completes |
+| Code review before merge | All changes via pull request; `pr-quality` reusable workflow plus Copilot/Gemini reviews. **Not enforced by branch protection** — `required_approving_review_count` is 0, so a human approval is convention, not a gate |
+| Two-person rule | **Not met.** See the gap list below |
 
 ## Build Integrity
 
@@ -39,9 +44,10 @@ Last verified: 2026-04-24
 
 | Criterion | Artefact |
 |---|---|
-| Static analysis (SAST) | PHPStan **level 10** (clean baseline), Opengrep, CodeQL — all in CI matrix |
-| Test coverage | PHPUnit unit + integration + functional + fuzzy + E2E suites (`Tests/`); minimum MSI 70% via Infection mutation testing |
-| Multi-version CI | PHP 8.2–8.5 × TYPO3 13.4 / 14.0 matrix in `.github/workflows/ci.yml` |
+| Static analysis (SAST) | PHPStan **level 10** across the matrix (with 26 suppressed findings in `Build/phpstan-baseline.neon`), plus `security / SAST (Opengrep)`, `codeql` and SonarCloud |
+| Test coverage | PHPUnit unit + integration + functional + fuzzy + E2E suites (`Tests/`), blocking on every PR |
+| Mutation testing | Infection, **monitored not enforced**: the `fuzz-mutation` job runs on the weekly schedule only, its Infection step is `continue-on-error`, and the configured targets (MSI 70 / covered MSI 74) are goals the suite is still climbing toward |
+| Multi-version CI | PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3` matrix in `.github/workflows/ci.yml` (merge-queue runs narrow to PHP 8.2 / 8.4) |
 | Code style | PHP-CS-Fixer with `@PER-CS` ruleset enforced in CI |
 
 ## Project Governance
@@ -67,17 +73,23 @@ Last verified: 2026-04-24
 
 | Criterion | Artefact |
 |---|---|
-| Branch protection | Main branch requires signed commits; review required; stale review dismissal enabled |
+| Branch protection | `main` requires signed commits and dismisses stale reviews; it does **not** require an approving review or any status check — see the gap list |
 | Dependency review | `actions/dependency-review-action` runs on every PR (via `netresearch/.github` reusable workflow) |
 | Auto-merge gating | Auto-merge for Dependabot PRs gates on full CI green + Copilot review (no race condition) |
 | Secret scanning | GitHub native secret scanning + Gitleaks in CI |
 
-## Known gaps / continuous improvement
+## Known gaps
 
-- **Branch protection: required status checks** — currently `null` on
-  the GitHub side. The PR Quality Gates workflow enforces equivalent
-  blocks via auto-approve gating, but explicit required-checks
-  configuration would be cleaner. Tracked for follow-up.
+- **Branch protection: required status checks are `null`.** No check is
+  configured as required on the GitHub side; merges are gated by the
+  merge queue and by convention, not by branch protection. Verify with
+  `gh api repos/netresearch/t3x-nr-llm/branches/main/protection`.
+- **Two-person rule not enforced.** `required_approving_review_count` is 0.
+- **Mutation testing is not a gate.** Weekly, report-only,
+  `continue-on-error`; MSI 70 / covered MSI 74 are targets.
+- **No current full-scope security audit.** The last one is from 2026-01-05
+  and is archived as historical; see [SECURITY_AUDIT.md](SECURITY_AUDIT.md)
+  for what *is* continuously verified.
 
 ## How to verify
 
