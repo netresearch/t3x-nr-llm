@@ -44,7 +44,7 @@ and has no counterpart. A field whose body references no ADR is outside the
 pairing check by construction — which is also why prose there must stay
 specific enough to follow.
 
-Two rules follow from that:
+Two rules follow from the pairing:
 
 **An amended record keeps its reasoning.** :ref:`ADR-122 <adr-122>` declined to
 build a side-effecting tool contract because no tool wrote. That premise expired

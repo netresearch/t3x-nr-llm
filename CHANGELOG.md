@@ -8,13 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `ROADMAP.md` lists only unbuilt work, and every item is an open issue. Its
-  top "Next" entry claimed all 41 builtin tools were read-only and that the
-  first writer had yet to arrive — two had shipped. Everything already released
-  moved out to `CHANGELOG.md` and the ADRs.
-- The package-split timing is stated in ADR-090 and nowhere else. `ROADMAP.md`
-  said "only after 1.0" while ADR-090 and the README said "with or before 1.0",
-  and cited ADR-090 for the opposite of what it decided.
+- `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap
+  sections is an open issue. Its top "Next" entry claimed all 41 builtin tools
+  were read-only and that the first writer had yet to arrive — two had shipped.
+  Everything already released moved out to `CHANGELOG.md` and the ADRs.
+- ADR-090 decides the package-split timing; the README repeats it where it
+  explains the anticipated seams and must keep matching. `ROADMAP.md` said
+  "only after 1.0" while ADR-090 and the README said "with or before 1.0", and
+  cited ADR-090 for the opposite of what it decided.
 - ADRs carry a lifecycle. `Documentation/Adr/Index.rst` documents the status
   vocabulary and the paired `:Amends:` / `:Amended:` and `:Supersedes:` /
   `:Superseded:` fields. ADR-122 stood at plain `Accepted` while asserting
@@ -26,8 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `Tests/Unit/AdrLifecycleTest.php` fails when a record uses an unknown status
   word, when a status names another record without the matching lifecycle
-  field, when a field points at a record that does not exist, or when only one
-  end of an amend/supersede pair is written.
+  field, when a cross-reference in a lifecycle field or a status line points at
+  a record that does not exist, or when only one end of an ADR-to-ADR
+  amend/supersede pair is written. Field values are read across RST
+  continuation lines, so a wrapped field cannot hide a reference.
 
 ## [0.27.0] - 2026-08-09
 

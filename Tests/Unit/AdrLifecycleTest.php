@@ -72,8 +72,8 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
      *
      * A field body wraps onto indented lines (ADR-021's status does), so a
      * single-line match would drop the tail — and with it any cross-reference
-     * living there. The alternation is the field NAME, so `:php:` roles at
-     * column 0 inside a body cannot terminate or start a match.
+     * living there. A continuation line must be INDENTED, so a `:php:` role at
+     * column 0 in a body can neither extend a field nor start one.
      *
      * @return list<string>
      */
@@ -172,6 +172,23 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
                     );
                 }
             }
+        }
+    }
+
+    #[Test]
+    public function theIndexResolvesEveryRecordItNames(): void
+    {
+        // `adrFiles()` globs Adr*.rst, so the page that documents the reference
+        // discipline is the one page the reference check would otherwise skip.
+        $known = $this->knownAdrLabels();
+        $index = (string)file_get_contents($this->adrDir() . '/Index.rst');
+
+        foreach ($this->referencedLabels($index) as $label) {
+            self::assertContains(
+                $label,
+                $known,
+                'Documentation/Adr/Index.rst references ' . $label . ', which no record defines.',
+            );
         }
     }
 
