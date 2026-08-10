@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Domain\Model;
 
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -41,6 +42,17 @@ class Skill extends AbstractEntity
     protected string $allowedTools = '';
 
     protected string $trustLevel = SkillTrustLevel::UNTRUSTED->value;
+
+    /**
+     * The sensitivity ceiling an operator declared for this skill (ADR-144).
+     *
+     * A SECOND axis from {@see self::$trustLevel}, not a replacement: trust
+     * says who wrote the skill, this says how sensitive what it carries is. A
+     * first-party skill can still hold confidential material, and an untrusted
+     * one can be entirely public. EMPTY means undeclared — see
+     * {@see self::getDataClassEnum()}.
+     */
+    protected string $dataClass = '';
 
     protected string $injectionScan = '';
 
@@ -212,6 +224,27 @@ class Skill extends AbstractEntity
     public function getTrustLevel(): string
     {
         return $this->trustLevel;
+    }
+
+    public function getDataClass(): string
+    {
+        return $this->dataClass;
+    }
+
+    public function setDataClass(string $dataClass): void
+    {
+        $this->dataClass = $dataClass;
+    }
+
+    /**
+     * The declared class, or null when the operator declared none. Null is the
+     * absence of a statement, not a guessed default — guessing low would
+     * authorise an unclassified skill everywhere, guessing high would block
+     * every skill already ingested the moment this field existed.
+     */
+    public function getDataClassEnum(): ?ToolDataClass
+    {
+        return ToolDataClass::tryFrom($this->dataClass);
     }
 
     /**

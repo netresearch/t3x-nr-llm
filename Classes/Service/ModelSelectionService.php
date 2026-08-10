@@ -10,12 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\Routing\CandidateRanker;
+use Netresearch\NrLlm\Service\Routing\EligibilityEvaluator;
+use Netresearch\NrLlm\Service\Routing\RoutingDecisionService;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -38,7 +43,49 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         private ModelRepository $modelRepository,
         private ?ExtensionConfiguration $extensionConfiguration = null,
         private ?LoggerInterface $logger = null,
+        // The decision point every automatic selection runs through (ADR-142).
+        // Optional in the ctor only so the positional test wiring keeps working;
+        // production autowires it, and a null builds one over this service's own
+        // repository and configuration — the same decision, not a second one.
+        private ?RoutingDecisionService $routingDecisionService = null,
+        // The one implementation of "may this model serve this call". Optional
+        // for the same reason; a null builds the same stateless evaluator the
+        // decision service uses.
+        private ?EligibilityEvaluator $eligibilityEvaluator = null,
     ) {}
+
+    /**
+     * The decision point, falling back to one built from this service's own
+     * collaborators when none was injected.
+     */
+    private function routing(): RoutingDecisionService
+    {
+        return $this->routingDecisionService ?? new RoutingDecisionService(
+            $this->modelRepository,
+            $this->eligibility(),
+            new CandidateRanker(),
+            $this->extensionConfiguration,
+        );
+    }
+
+    private function eligibility(): EligibilityEvaluator
+    {
+        return $this->eligibilityEvaluator ?? new EligibilityEvaluator();
+    }
+
+    /**
+     * Explain an automatic selection: which model was chosen, and why every
+     * other active model was not (ADR-142).
+     *
+     * Criteria mode only. Fixed mode chooses nothing — the operator named the
+     * model — so there is no decision to explain.
+     *
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     */
+    public function decide(array $criteria): RoutingDecision
+    {
+        return $this->routing()->decide($criteria);
+    }
 
     /**
      * Resolve a model for the given configuration.
@@ -78,18 +125,27 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         $constrained                        = $criteria;
         $constrained['operationCapability'] = $capability->value;
 
-        $model = $this->findMatchingModel($constrained);
-        if ($model instanceof Model) {
-            return $model;
+        $decision = $this->routing()->decide($constrained);
+        if ($decision->hasSelection()) {
+            return $decision->selected;
         }
 
         // Distinguish the two ways of ending up with nothing. Criteria that
         // match no model at all are the pre-existing "has no model assigned"
         // condition and stay a null return. Criteria that DO match, but match
         // only models declaring they cannot do this operation, are a
-        // misconfiguration worth naming — and naming it here is the point of
-        // the ticket, because the alternative is an opaque provider error.
-        if ($this->findMatchingModel($criteria) instanceof Model) {
+        // misconfiguration worth naming, because the alternative is an opaque
+        // provider error.
+        //
+        // The decision already carries that distinction as a rejection reason
+        // (ADR-142), so it is read off the one evaluation instead of resolving
+        // a second time against the unconstrained criteria.
+        $refusedForOperation = array_filter(
+            $decision->rejectedCandidates(),
+            static fn(RoutingCandidate $candidate): bool => $candidate->rejectionReason === RoutingRejectionReason::OPERATION_CAPABILITY_MISSING,
+        );
+
+        if ($refusedForOperation !== []) {
             throw new UnsupportedFeatureException(
                 sprintf(
                     'Configuration "%s" selects its model by criteria, but every matching model declares '
@@ -114,17 +170,10 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     public function findMatchingModel(array $criteria): ?Model
     {
-        $candidates = $this->findCandidates($criteria);
-
-        if ($candidates === []) {
-            return null;
-        }
-
-        // Sort candidates by preference
-        $preferLowestCost = $criteria['preferLowestCost'] ?? false;
-        $sorted = $this->sortCandidates($candidates, $preferLowestCost);
-
-        return $sorted[0] ?? null;
+        // The selection and its explanation are the same computation (ADR-142);
+        // this is the answer without the reasoning, for callers that only need
+        // the model.
+        return $this->routing()->decide($criteria)->selected;
     }
 
     /**
@@ -160,206 +209,10 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     public function modelMatchesCriteria(Model $model, array $criteria): bool
     {
-        return $this->matchesCapabilities($model, $criteria)
-            && $this->matchesOperationCapability($model, $criteria)
-            && $this->matchesAdapterTypes($model, $criteria)
-            && $this->matchesMinContextLength($model, $criteria)
-            && $this->matchesMaxCostInput($model, $criteria);
-    }
-
-    /**
-     * Check whether the model can serve the operation the call is running.
-     *
-     * A SEPARATE key from `capabilities`, deliberately, because the two answer
-     * different questions and need different treatment of an undeclared model.
-     * `capabilities` is what an operator asked for and is matched strictly; a
-     * model that declares nothing does not satisfy it. `operationCapability` is
-     * derived from the running call, and there an empty capability CSV means
-     * "undeclared", not "cannot" (ADR-138): the field is optional, plenty of
-     * installations never filled it, and refusing every such model would break
-     * them for a fact nobody ever stated.
-     *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     */
-    private function matchesOperationCapability(Model $model, array $criteria): bool
-    {
-        $required = $criteria['operationCapability'] ?? null;
-        if (!is_string($required) || $required === '') {
-            return true;
-        }
-
-        $capabilities = $model->getCapabilitySet();
-        if ($capabilities->isEmpty()) {
-            return true;
-        }
-
-        return $capabilities->has($required);
-    }
-
-    /**
-     * Check whether the model satisfies all required capabilities.
-     *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     */
-    private function matchesCapabilities(Model $model, array $criteria): bool
-    {
-        // Check required capabilities. The criteria's `capabilities` array
-        // is a `string[]` from external input (configuration / wizard form),
-        // so we route through the typed `CapabilitySet`. Behaviour is
-        // unchanged for every previously-valid criteria token (legacy
-        // `hasCapability()` already used strict `in_array(...,true)` over
-        // `explode(',')`); the migration's real value is twofold —
-        // criteria tokens are trimmed before `ModelCapability::tryFrom()`
-        // (so `' chat'` resolves the same as `'chat'`), and unknown
-        // tokens that may exist in the persisted CSV (schema drift,
-        // removed-but-still-stored capabilities) are dropped at parse
-        // time rather than matched against an equally-unknown criteria
-        // string (REC #6 slice 16b).
-        if (empty($criteria['capabilities'])) {
-            return true;
-        }
-
-        $capabilities = $model->getCapabilitySet();
-        foreach ($criteria['capabilities'] as $capability) {
-            if (!$capabilities->has($capability)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Check whether the model's provider adapter type is among the allowed types.
-     *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     */
-    private function matchesAdapterTypes(Model $model, array $criteria): bool
-    {
-        if (empty($criteria['adapterTypes'])) {
-            return true;
-        }
-
-        $provider = $model->getProvider();
-        if (!$provider instanceof Provider) {
-            return false;
-        }
-
-        return in_array($provider->getAdapterType(), $criteria['adapterTypes'], true);
-    }
-
-    /**
-     * Check whether the model meets the minimum context length requirement.
-     *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     */
-    private function matchesMinContextLength(Model $model, array $criteria): bool
-    {
-        if (!isset($criteria['minContextLength']) || $criteria['minContextLength'] <= 0) {
-            return true;
-        }
-
-        $contextLength = $model->getContextLength();
-
-        // Skip models with unknown context length (0) when minimum is required
-        return $contextLength !== 0 && $contextLength >= $criteria['minContextLength'];
-    }
-
-    /**
-     * Check whether the model's input cost is within the allowed maximum.
-     *
-     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
-     */
-    private function matchesMaxCostInput(Model $model, array $criteria): bool
-    {
-        if (!isset($criteria['maxCostInput']) || $criteria['maxCostInput'] <= 0) {
-            return true;
-        }
-
-        $costInput = $model->getCostInput();
-
-        // Allow models with unknown cost (0)
-        return $costInput <= 0 || $costInput <= $criteria['maxCostInput'];
-    }
-
-    /**
-     * Sort candidate models by preference.
-     *
-     * @param Model[] $candidates
-     *
-     * @return Model[]
-     */
-    private function sortCandidates(array $candidates, bool $preferLowestCost): array
-    {
-        usort(
-            $candidates,
-            fn(Model $a, Model $b): int => $this->compareCandidates($a, $b, $preferLowestCost),
-        );
-
-        return $candidates;
-    }
-
-    /**
-     * Compare two candidate models according to the selection preferences.
-     */
-    private function compareCandidates(Model $a, Model $b, bool $preferLowestCost): int
-    {
-        // First priority: provider priority (higher is better)
-        $priorityA = $a->getProvider()?->getPriority() ?? 0;
-        $priorityB = $b->getProvider()?->getPriority() ?? 0;
-        $byPriority = $priorityB <=> $priorityA; // Higher priority first
-        if ($byPriority !== 0) {
-            return $byPriority;
-        }
-
-        // Second priority: cost preference
-        if ($preferLowestCost) {
-            $byCost = $this->compareByCost($a, $b);
-            if ($byCost !== 0) {
-                return $byCost;
-            }
-        }
-
-        // Third priority: default model, then sorting order
-        return $this->compareByDefaultThenSorting($a, $b);
-    }
-
-    /**
-     * Compare two models by combined input/output cost (lower cost first).
-     *
-     * Unknown cost (0) is treated as the highest cost to deprioritize it.
-     */
-    private function compareByCost(Model $a, Model $b): int
-    {
-        $costA = $a->getCostInput() + $a->getCostOutput();
-        $costB = $b->getCostInput() + $b->getCostOutput();
-        // Treat 0 (unknown) as highest cost to deprioritize
-        if ($costA === 0) {
-            $costA = PHP_INT_MAX;
-        }
-
-        if ($costB === 0) {
-            $costB = PHP_INT_MAX;
-        }
-
-        return $costA <=> $costB; // Lower cost first
-    }
-
-    /**
-     * Compare two models by default flag (default first), then by sorting order.
-     */
-    private function compareByDefaultThenSorting(Model $a, Model $b): int
-    {
-        // Third priority: default model
-        if ($a->isDefault() !== $b->isDefault()) {
-            return $a->isDefault() ? -1 : 1; // Default first
-        }
-
-        // Fourth priority: explicit sorting-order tiebreak. Extbase maps the
-        // ctrl.sortby `sorting` column onto the model, and ModelRepository
-        // already pre-orders by `sorting, name`, so this yields a deterministic
-        // result without relying on usort() input-order preservation.
-        return $a->getSorting() <=> $b->getSorting();
+        // One implementation of the hard constraints, shared with the decision
+        // point (ADR-142). The boolean is this method's contract; the reason
+        // behind it is available through {@see self::decide()}.
+        return !$this->eligibility()->evaluate($model, $criteria) instanceof RoutingRejectionReason;
     }
 
     /**
@@ -375,7 +228,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      * model is still read as "undeclared" and passes. Refusing every model that
      * never filled the optional field would break working installations without
      * evidence that anything is actually wrong — see
-     * {@see self::matchesOperationCapability()}.
+     * {@see EligibilityEvaluator} for where that rule now lives.
      */
     private function enforcingOperationCapability(): bool
     {

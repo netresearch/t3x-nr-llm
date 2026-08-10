@@ -40,9 +40,9 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         $this->inner->recordEvent($runUid, $sequence, $kind, $round, $durationMs, $payloadJson);
     }
 
-    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser): int
+    public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
     {
-        return $this->inner->startRun($uuid, $configurationUid, $configurationIdentifier, $beUser);
+        return $this->inner->startRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $claimedBy, $leaseExpires);
     }
 
     public function finishRun(
@@ -71,14 +71,14 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->suspendRunForInput($runUid, $stateJson);
     }
 
-    public function claimForResume(int $runUid): bool
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
-        return $this->inner->claimForResume($runUid);
+        return $this->inner->claimForResume($runUid, $claimedBy, $leaseExpires);
     }
 
-    public function claimForResumeFromInput(int $runUid): bool
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
-        return $this->inner->claimForResumeFromInput($runUid);
+        return $this->inner->claimForResumeFromInput($runUid, $claimedBy, $leaseExpires);
     }
 
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int

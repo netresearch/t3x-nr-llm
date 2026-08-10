@@ -6,8 +6,9 @@
 ADR-094: Tool data classes and provider trust zones
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the axis now binds in both directions — see :ref:`ADR-144 <adr-144>`)
 :Date: 2026-07-20
+:Amended: 2026-08-10 by :ref:`ADR-144 <adr-144>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-094-context:

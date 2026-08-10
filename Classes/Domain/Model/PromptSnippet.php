@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -33,6 +35,13 @@ class PromptSnippet extends AbstractEntity
 
     /** Comma-separated free-form tags, e.g. "audience,tone_of_voice". */
     protected string $tags = '';
+
+    /**
+     * The sensitivity ceiling an operator declared for this snippet (ADR-144),
+     * as a {@see ToolDataClass} backed value. EMPTY means UNDECLARED, and an
+     * undeclared snippet cannot block a call — see {@see self::getDataClassEnum()}.
+     */
+    protected string $dataClass = '';
 
     /** The prompt fragment text. */
     protected string $snippet = '';
@@ -76,6 +85,28 @@ class PromptSnippet extends AbstractEntity
     public function getTags(): string
     {
         return $this->tags;
+    }
+
+    public function getDataClass(): string
+    {
+        return $this->dataClass;
+    }
+
+    /**
+     * The declared class, or null when the operator declared none.
+     *
+     * Null is deliberately NOT a guessed default. Guessing a low class would
+     * silently authorise a snippet nobody classified to reach any provider;
+     * guessing a high one would block snippets that have shipped for months
+     * the moment this field existed. Null says "no statement was made", and the
+     * gate treats an absent statement as an absent constraint — the same
+     * reading {@see \Netresearch\NrLlm\Domain\ValueObject\McpServerRecord::dataClassEnum()}
+     * uses, though there an undeclared server is inert instead, because that is
+     * new capability an operator opts into rather than data that already flows.
+     */
+    public function getDataClassEnum(): ?ToolDataClass
+    {
+        return ToolDataClass::tryFrom($this->dataClass);
     }
 
     public function getSnippet(): string
@@ -133,6 +164,11 @@ class PromptSnippet extends AbstractEntity
     public function setTags(string $tags): void
     {
         $this->tags = $tags;
+    }
+
+    public function setDataClass(string $dataClass): void
+    {
+        $this->dataClass = $dataClass;
     }
 
     public function setSnippet(string $snippet): void

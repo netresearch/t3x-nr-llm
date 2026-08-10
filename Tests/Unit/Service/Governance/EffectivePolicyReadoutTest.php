@@ -11,13 +11,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Governance;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyRow;
 use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
-use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;

@@ -112,6 +112,23 @@ final class ReapStaleAgentRunsCommand extends Command
                 continue;
             }
 
+            // Nothing to re-execute (ADR-141): a synchronous run and a resume
+            // hold a lease now, so an abandoned one becomes stale and reachable
+            // here — but neither stored a request payload, and a worker refuses
+            // a QUEUED row it cannot rehydrate. Reclaiming it would strand the
+            // row QUEUED forever, which is the orphan the requeue arm below
+            // exists to avoid. Dead-letter it instead: the browser request that
+            // owned it is gone either way.
+            if ($run->queuedRequest === null || $run->queuedRequest === '') {
+                if ($this->persister->settleDeadLetteredStale($run, $now, AgentRunTerminationReason::NOT_RETRYABLE)) {
+                    ++$deadLetter;
+                } else {
+                    ++$skipped;
+                }
+
+                continue;
+            }
+
             // Budget spent -> dead-letter; otherwise reclaim onto the queue. Both
             // writes re-check staleness in the repository, so a heartbeat renewal
             // between findStaleRunning() and here wins and the run is skipped.

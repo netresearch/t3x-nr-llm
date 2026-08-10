@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-namespace Netresearch\NrLlm\Service\Tool;
+namespace Netresearch\NrLlm\Service\Governance;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;

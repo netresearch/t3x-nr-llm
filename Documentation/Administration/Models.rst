@@ -70,3 +70,54 @@ provider API and auto-populate the model list:
 This is the recommended approach — it ensures model
 IDs match the provider exactly and keeps your
 catalogue current as providers release new models.
+
+.. _administration-models-routing:
+
+Which model a criteria-mode configuration picks
+===============================================
+
+A configuration set to *Dynamic (Criteria)* names no
+model. One is chosen per call from the models that
+are active, in two steps that never mix.
+
+**Eligibility** is a hard yes or no. A model is
+considered only if it declares every capability the
+criteria require, uses a permitted adapter type,
+meets the minimum context length, stays within the
+cost ceiling, and — for the operation being run —
+does not declare capabilities that exclude it. A
+model refused here cannot come back: nothing about
+its speed, price or quality is even looked at.
+
+**Ranking** orders what is left. The provider
+:guilabel:`Priority` you set decides first, always.
+Below it, the extension configuration option
+:guilabel:`Routing policy` (category *routing*)
+chooses what else counts:
+
+Provider priority
+   The default. Nothing beyond your priority, the
+   default-model flag and the sorting order, plus
+   cost where the criteria set *prefer lowest cost*.
+   This is what the extension has always done.
+
+Balanced, Quality, Economy
+   Add measured signals — evaluation quality scores
+   and recent provider health — weighted differently.
+   *Economy* also weighs cost when the criteria did
+   not ask for it.
+
+The measured modes are opt-in on purpose: they change
+which model serves a call, so an upgrade never
+switches them on for you. Two rules make them safe to
+try. Your provider priority is never overruled by a
+measurement — a priority is an instruction, a score
+is evidence. And a model nobody has measured is not
+punished for it: an absent signal is skipped, not
+counted as zero.
+
+If a criteria-mode configuration selects nothing, the
+cause is usually that every matching model declares
+it cannot serve that operation. The extension says so
+explicitly rather than letting the provider fail with
+an opaque error.

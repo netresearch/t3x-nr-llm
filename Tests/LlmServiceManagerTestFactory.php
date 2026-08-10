@@ -14,12 +14,14 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\EmbedCacheKeyBuilder;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\KeyedProviderRegistry;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Service\MessageShaper;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
 use Psr\Log\LoggerInterface;
@@ -54,6 +56,8 @@ trait LlmServiceManagerTestFactory
         ?ModelSelectionServiceInterface $modelSelectionService = null,
         ?StreamingDispatcher $streaming = null,
         ?InputGuardrailScreener $inputScreener = null,
+        ?ConfigurationSnippetResolver $snippetResolver = null,
+        ?ContextWindowManagerInterface $contextWindow = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -66,6 +70,9 @@ trait LlmServiceManagerTestFactory
             $modelSelectionService,
             $streaming,
             $inputScreener ?? new InputGuardrailScreener([]),
+            $snippetResolver,
+            $contextWindow,
+            $logger,
         );
     }
 }

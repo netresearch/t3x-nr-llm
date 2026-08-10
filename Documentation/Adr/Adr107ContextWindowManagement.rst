@@ -6,9 +6,19 @@
 ADR-107: Agent-loop context-window management
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (which model's window, and which paths bind one — see :ref:`ADR-143 <adr-143>`)
 :Date: 2026-07-22
+:Amended: 2026-08-10 by :ref:`ADR-143 <adr-143>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   The mechanism below is unchanged. Two things around it are:
+   :ref:`ADR-143 <adr-143>` takes the window from the model that actually serves
+   a send rather than the configuration's stored relation — which is null on a
+   criteria-mode record, so those calls were sized against the unknown-model
+   fallback — and binds the generic `LlmServiceManager` chat, completion and
+   streaming paths, which previously bound none.
 
 .. _adr-107-context:
 

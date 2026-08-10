@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Context;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
@@ -43,6 +44,7 @@ interface ContextWindowManagerInterface
      * @param UsageStatistics|null                   $lastUsage             the previous call's usage, to calibrate the estimator; null before the first call
      * @param string                                 $injectedText          prose a LATER stage prepends into the message list for THIS send — the skill block; it is on the wire, so it is counted against the budget, but it is never added to the returned messages
      * @param string|null                            $effectiveSystemPrompt the system prompt the caller will actually put on the wire when the transcript carries none — the configuration's prompt AFTER per-call overrides and composed snippets (ADR-031). Null means "derive it from the configuration", the pre-composition behaviour.
+     * @param Model|null                             $resolvedModel         the model that will ACTUALLY serve this send (ADR-143). A criteria-mode configuration carries no model relation — `getLlmModel()` is null there by design, because writing the resolution back would convert the record to fixed mode — so without this the window would be the unknown-model fallback for every dynamically-selected call. Null keeps the configuration's own model, which is the fixed-mode case.
      */
     public function fit(
         array $messages,
@@ -52,5 +54,6 @@ interface ContextWindowManagerInterface
         array $toolSpecs = [],
         string $injectedText = '',
         ?string $effectiveSystemPrompt = null,
+        ?Model $resolvedModel = null,
     ): ContextFitResult;
 }

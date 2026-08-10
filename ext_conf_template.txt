@@ -125,8 +125,11 @@ telemetry.enabled = 1
 tools.dataClassEnforcement = enforce
 
 # =============================================================================
-# Model routing (ADR-138)
+# Model routing (ADR-138, ADR-142)
 # =============================================================================
+
+# cat=routing; type=options[Provider priority (default)=providerPriority,Balanced=balanced,Quality=quality,Economy=economy]; label=Routing policy: How a criteria-mode configuration ranks the models that are eligible for a call. "Provider priority" is the default and reproduces the ordering this extension has always applied: the provider priority you set decides, then the default-model flag and the sorting field, and cost is weighed only where the criteria set "prefer lowest cost". The other three add MEASURED signals — evaluation quality (ADR-060) and recent provider health (ADR-063) — with "Balanced" weighing both, "Quality" favouring measured quality, and "Economy" weighing cost whether or not the criteria asked for it. Opting in is deliberate: measured signals change which model serves a call, and an installation that never asked for that must not get it from a version bump. Provider priority always outranks every measured signal — a priority is an instruction, a score is evidence. A model with no measurement is never penalised for the absence, and a missing or mistyped value here falls back to "Provider priority". Fixed-mode configurations are unaffected: the operator named the model there, so nothing is being ranked.
+routing.policyMode = providerPriority
 
 # cat=routing; type=options[Enforce=enforce,Observe (log only)=observe]; label=Operation capability enforcement: Whether a criteria-mode configuration may resolve a model that does not declare the capability the running operation needs (chat, vision, tool calling). "Enforce" removes such models from the candidate set and reports a misconfiguration when nothing is left. "Observe" leaves the selection untouched and only logs the mismatch. The read is fail-closed, so a missing or mistyped value also enforces. A model whose capability field is EMPTY is treated as undeclared and always passes — the field is optional and refusing every model that never filled it would break working installations. Fixed-mode configurations are unaffected: the operator named the model there, so nothing is being chosen.
 routing.operationCapabilityEnforcement = enforce

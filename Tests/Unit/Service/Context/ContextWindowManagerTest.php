@@ -303,6 +303,64 @@ final class ContextWindowManagerTest extends TestCase
         ];
     }
 
+    #[Test]
+    public function aCriteriaModeConfigurationIsSizedAgainstTheResolvedModel(): void
+    {
+        // ADR-143. A criteria-mode configuration carries NO model relation —
+        // writing the resolution back would convert the record to fixed mode —
+        // so reading the window off the entity alone gave every dynamically
+        // selected call the unknown-model fallback, however small the model
+        // actually serving it was.
+        $big      = str_repeat('x', 6000);
+        $messages = [
+            ChatMessage::system('sys'),
+            ChatMessage::user('do the task'),
+            ...$this->turn('call_1', $big),
+            ...$this->turn('call_2', $big),
+            ...$this->turn('call_3', 'the newest result'),
+        ];
+
+        $criteriaMode = new LlmConfiguration();
+        self::assertNull($criteriaMode->getLlmModel(), 'the premise: no model on the record');
+
+        $small = new Model();
+        $small->setContextLength(4000);
+
+        $withoutResolved = (new ContextWindowManager())->fit($messages, $criteriaMode, null, null);
+        $withResolved    = (new ContextWindowManager())->fit($messages, $criteriaMode, null, null, [], '', null, $small);
+
+        self::assertFalse($withoutResolved->pruned, 'the fallback window is large enough to hide the overflow');
+        self::assertTrue($withResolved->pruned, 'the model that actually serves the call is not');
+        self::assertGreaterThan(0, $withResolved->droppedTurns);
+    }
+
+    #[Test]
+    public function theResolvedModelAlsoSuppliesTheResponseReserve(): void
+    {
+        // The reserve came off the same entity relation, so a criteria-mode
+        // call reserved the generic floor rather than what its model can emit.
+        $messages = [ChatMessage::user('hi')];
+
+        $model = new Model();
+        $model->setContextLength(10000);
+        $model->setMaxOutputTokens(8000);
+
+        $result = (new ContextWindowManager())->fit($messages, new LlmConfiguration(), null, null, [], '', null, $model);
+
+        // 10000 window - 8000 reserve - 3% safety = 1700.
+        self::assertSame(1700, $result->budget);
+    }
+
+    #[Test]
+    public function aFixedModeConfigurationKeepsUsingItsOwnModel(): void
+    {
+        // No resolved model passed: the entity's relation is the answer, which
+        // is the fixed-mode case and the behaviour every caller had before.
+        $result = (new ContextWindowManager())->fit([ChatMessage::user('hi')], $this->config(10000, 8000), null, null);
+
+        self::assertSame(1700, $result->budget);
+    }
+
     private function config(int $contextLength, int $maxOutputTokens = 0): LlmConfiguration
     {
         $model = new Model();

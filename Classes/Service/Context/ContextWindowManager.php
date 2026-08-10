@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Context;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
@@ -58,6 +59,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         array $toolSpecs = [],
         string $injectedText = '',
         ?string $effectiveSystemPrompt = null,
+        ?Model $resolvedModel = null,
     ): ContextFitResult {
         // A null $lastUsage marks the first send of a run's loop. Reset the
         // per-run calibration state here so a single shared manager instance
@@ -68,14 +70,21 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             $this->lastSentEstimate = null;
         }
 
-        $ctx = $configuration->getLlmModel()?->getContextLength() ?? 0;
+        // The model that will ACTUALLY serve this send, not the one the record
+        // stores (ADR-143). A criteria-mode configuration deliberately keeps no
+        // model relation — writing the resolution back would convert it to fixed
+        // mode — so reading the window off the entity alone gave every
+        // dynamically-selected call the unknown-model fallback.
+        $model = $resolvedModel ?? $configuration->getLlmModel();
+
+        $ctx = $model?->getContextLength() ?? 0;
         if ($ctx <= 0) {
             $ctx = self::UNKNOWN_WINDOW_FALLBACK;
         }
 
         $this->recalibrate($lastUsage);
 
-        $budget = $ctx - $this->reserve($options, $configuration, $ctx) - (int)ceil($ctx * self::SAFETY_FRACTION);
+        $budget = $ctx - $this->reserve($options, $model, $ctx) - (int)ceil($ctx * self::SAFETY_FRACTION);
         if ($budget <= 0) {
             // Misconfiguration (reserve larger than window): defer to the provider.
             $this->logger->warning('ContextWindow: non-positive budget, deferring to provider', ['contextLength' => $ctx]);
@@ -137,14 +146,14 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         $this->calibration = max($this->calibration, $ratio);
     }
 
-    private function reserve(?ChatOptions $options, LlmConfiguration $configuration, int $ctx): int
+    private function reserve(?ChatOptions $options, ?Model $model, int $ctx): int
     {
         $optionMax = $options?->getMaxTokens() ?? 0;
         if ($optionMax > 0) {
             return $optionMax;
         }
 
-        $modelMax = $configuration->getLlmModel()?->getMaxOutputTokens() ?? 0;
+        $modelMax = $model?->getMaxOutputTokens() ?? 0;
         if ($modelMax > 0) {
             return $modelMax;
         }
