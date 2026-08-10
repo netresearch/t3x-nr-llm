@@ -4,7 +4,7 @@
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-TYPO3 RST documentation (69 files) restructured into granular sub-pages. Includes 26 ADRs, API reference (9 pages), and Netresearch branding. Built with `guides.xml` (TYPO3 docs theme, version 0.4.11).
+TYPO3 RST documentation restructured into granular sub-pages. Includes the ADRs, the API reference, and Netresearch branding. Built with `guides.xml` (TYPO3 docs theme, version 0.4.11).
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -33,19 +33,19 @@ Docs are rendered and validated in CI via `.github/workflows/docs.yml`. Local re
 | `Sitemap.rst` | Navigation |
 | `Changelog.rst` | Version history |
 
-### Documentation Sections (69 files total)
+### Documentation Sections
 
 | Section | Files | Content |
 |---------|-------|---------|
-| `Administration/` | Providers, Models, Configurations, Tasks, Wizards | Backend CRUD guides |
+| `Administration/` | one page per backend surface (Providers, Models, Configurations, Tasks, Wizards, Tools, Skills, Permissions, Analytics, Governance, AgentRuns, McpServers, PromptSnippets, SpecializedServices, UserBudgets, DataRetention) | Backend CRUD guides |
 | `Configuration/` | ProviderFields, ModelFields, ConfigFields, TaskFields, Settings | TCA field reference |
-| `Api/` | LlmServiceManager, CompletionService, EmbeddingService, VisionService, TranslationService, ResponseObjects, OptionClasses, ProviderInterface, Exceptions | PHP API reference |
+| `Api/` | one page per public service or contract; `Stability.rst` states the `@api` promise | PHP API reference |
 | `Testing/` | UnitTesting, FunctionalTesting, EndToEndTesting, CiConfiguration | Test guide |
-| `Developer/` | Streaming, ToolCalling, CustomProviders, FeatureServices/ | Integration guide |
+| `Developer/` | one page per integration topic (IntegrationGuide, Streaming, ToolCalling, CustomProviders, ProviderRegistration, FallbackChain, ConfigurationPresets, EndpointProtection, QualityEvaluation, SafeMarkdownRendering) plus `FeatureServices/` | Integration guide |
 | `Architecture/` | Index | Design patterns |
 | `Introduction/` | Index | Overview, features |
 | `Installation/` | Index | Setup instructions |
-| `Adr/` | 26 ADRs | Architecture Decision Records |
+| `Adr/` | `AdrNNNTitle.rst` | Architecture Decision Records |
 
 ### Brand Assets
 
@@ -135,5 +135,5 @@ Documentation uses Netresearch branding: teal underline SVG for headings, emoji 
 - TYPO3 docs guide: https://docs.typo3.org/m/typo3/docs-how-to-document/main/en-us/
 - Render locally with Docker (see Setup above)
 - Check `guides.xml` for build configuration
-- Existing 69 files serve as reference patterns
+- Existing pages serve as reference patterns
 <!-- AGENTS-GENERATED:END help -->
