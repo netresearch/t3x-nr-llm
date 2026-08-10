@@ -48,6 +48,22 @@ final class InputContextTrustGateTest extends TestCase
     }
 
     #[Test]
+    public function aConfigurationThatInjectsNothingIsNeverRefused(): void
+    {
+        // The gate runs for every configuration-driven operation, including the
+        // ones that inject no snippets and no skills at all -- vision builds a
+        // transient configuration for exactly that reason. Refusing such a call
+        // would block a send that does not carry the classified content.
+        $bare = new LlmConfiguration();
+        $bare->setIdentifier('ad-hoc:vision:default');
+
+        $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)])
+            ->assertPermitted($bare);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
     public function aConfidentialSnippetCannotReachAnExternalProvider(): void
     {
         $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);

@@ -35,6 +35,11 @@ use Psr\Log\LoggerInterface;
  * enforcing: the migration risk is not in the switch, it is in guessing a value
  * for data that already flows — and nothing here guesses.
  *
+ * A configuration that injects nothing is never refused, which matters because
+ * this runs for every configuration-driven operation: the vision path builds a
+ * transient configuration with no snippets and no skills, and refusing it would
+ * block a send that does not carry the classified content at all.
+ *
  * The zone is the LEAST trusted the run can reach, fallbacks included
  * ({@see TrustZoneResolver::zoneFor()}): a configuration that can fail over to
  * an external provider really can send there.
