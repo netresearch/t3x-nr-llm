@@ -1377,6 +1377,22 @@
                 <source>Name of the header carrying the credential, for example X-Api-Key.</source>
                 <target>Name des Headers, der die Zugangsdaten tr&#228;gt, zum Beispiel X-Api-Key.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.data_class">
+                <source>Data class</source>
+                <target>Datenklasse</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.data_class.description">
+                <source>How sensitive this snippet is. A configuration whose provider sits in a lower trust zone cannot send it. Leave empty to declare nothing — an unclassified snippet places no restriction, exactly as before this field existed.</source>
+                <target>Wie vertraulich dieses Snippet ist. Eine Konfiguration, deren Provider in einer niedrigeren Vertrauenszone liegt, kann es nicht senden. Leer lassen heißt: keine Angabe — ein nicht eingestuftes Snippet schränkt nichts ein, genau wie vor Einführung dieses Feldes.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.data_class">
+                <source>Data class</source>
+                <target>Datenklasse</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.data_class.description">
+                <source>How sensitive this skill's content is. A separate question from the trust level, which says who wrote it: a first-party skill can still carry confidential material. A configuration whose provider sits in a lower trust zone cannot send it. Leave empty to declare nothing.</source>
+                <target>Wie vertraulich der Inhalt dieses Skills ist. Eine andere Frage als die Vertrauensstufe, die sagt, wer ihn geschrieben hat: auch ein First-Party-Skill kann Vertrauliches enthalten. Eine Konfiguration, deren Provider in einer niedrigeren Vertrauenszone liegt, kann ihn nicht senden. Leer lassen heißt: keine Angabe.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.data_class">
                 <source>Data class</source>
                 <target>Datenklasse</target>

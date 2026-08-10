@@ -1066,6 +1066,18 @@
             <trans-unit id="tx_nrllm_mcp_server.auth_header_name.description">
                 <source>Name of the header carrying the credential, for example X-Api-Key.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.data_class">
+                <source>Data class</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_promptsnippet.data_class.description">
+                <source>How sensitive this snippet is. A configuration whose provider sits in a lower trust zone cannot send it. Leave empty to declare nothing — an unclassified snippet places no restriction, exactly as before this field existed.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.data_class">
+                <source>Data class</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_skill.data_class.description">
+                <source>How sensitive this skill's content is. A separate question from the trust level, which says who wrote it: a first-party skill can still carry confidential material. A configuration whose provider sits in a lower trust zone cannot send it. Leave empty to declare nothing.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.data_class">
                 <source>Data class</source>
             </trans-unit>

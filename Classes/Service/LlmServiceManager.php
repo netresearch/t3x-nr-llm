@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -77,6 +78,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // Reports the one condition the bound above cannot fix: a payload that
         // overflows even at its floor. Optional like the collaborators above.
         private ?LoggerInterface $logger = null,
+        // Refuses a call whose injected context is classified above the trust
+        // zone it can reach (ADR-144). Optional like the collaborators above;
+        // a null means no input classification is applied, which is what every
+        // path did before the axis existed.
+        private ?InputContextTrustGate $inputContextGate = null,
     ) {
         // Built here from the manager's own dependencies, not injected: the
         // constructor signature is pinned by the shared test factory, and both
@@ -182,6 +188,26 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     private function applyAndScreenSystemPrompt(array $messages, array $options): array
     {
         return $this->screenInput($this->messageShaper->applySystemPrompt($messages, $options));
+    }
+
+    /**
+     * Apply the input-context trust gate for a configuration-driven call.
+     *
+     * A no-op when no gate is wired, and a no-op when nothing the call injects
+     * carries a declared class — which is every installation that has not
+     * classified anything.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    private function assertContextPermitted(LlmConfiguration $configuration, array $metadata): void
+    {
+        if (!$this->inputContextGate instanceof InputContextTrustGate) {
+            return;
+        }
+
+        $beUser = $metadata['beUser'] ?? 0;
+
+        $this->inputContextGate->assertPermitted($configuration, is_int($beUser) ? $beUser : 0);
     }
 
     /**
@@ -1017,6 +1043,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         callable $terminal,
         array $metadata = [],
     ): mixed {
+        // Before anything is dispatched: a configuration that may not carry
+        // the context it injects does not get to try (ADR-144). Placed here
+        // rather than in each terminal because it is a property of the
+        // configuration, not of the payload, and every configuration-driven
+        // operation runs through this pipeline.
+        $this->assertContextPermitted($configuration, $metadata);
+
         return $this->pipeline->run(
             ProviderCallContext::forConfiguration($operation, $configuration, $metadata),
             $terminal,
@@ -1155,6 +1188,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // token estimation, so a redaction reaches the provider and a DENY throws
         // at call time rather than on first iteration (ADR-087).
         $messages = $this->screenInput($messages);
+
+        // Streaming does not run through runThroughPipeline(), so the gate is
+        // applied here — at call time, before a stream can open, matching how
+        // the input guardrails already behave on this path (ADR-087).
+        $this->assertContextPermitted($configuration, $metadata);
 
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
             $llmModel = $this->planner->resolveModel($config, ProviderOperation::Stream);

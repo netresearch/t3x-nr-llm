@@ -296,6 +296,14 @@ CREATE TABLE tx_nrllm_promptsnippet (
     -- Tagging (comma-separated free-form tags)
     tags varchar(255) DEFAULT '' NOT NULL,
 
+    -- Operator-declared sensitivity ceiling (ADR-144). A ToolDataClass value,
+    -- the same scale tool OUTPUT is classified on, so one trust zone answers
+    -- both questions. EMPTY means undeclared, which is the migration-safe
+    -- default: existing rows keep reaching every provider they reached before,
+    -- and an operator opts in per record rather than being blocked
+    -- retroactively by a value nobody set.
+    data_class varchar(32) DEFAULT '' NOT NULL,
+
     -- Fragment content
     snippet text,
 
@@ -450,6 +458,13 @@ CREATE TABLE tx_nrllm_skill (
     -- prompt-injection scan findings recorded at ingest.
     trust_level varchar(20) DEFAULT 'untrusted' NOT NULL,
     injection_scan text,
+
+    -- Operator-declared sensitivity ceiling (ADR-144), a ToolDataClass value.
+    -- A SECOND axis from trust_level, not a replacement: trust_level says who
+    -- wrote this skill, data_class says how sensitive what it carries is. A
+    -- first-party skill can still hold confidential material. EMPTY means
+    -- undeclared and cannot block, so ingested skills keep working untouched.
+    data_class varchar(32) DEFAULT '' NOT NULL,
 
     -- Lifecycle
     orphaned tinyint(1) DEFAULT '0' NOT NULL,

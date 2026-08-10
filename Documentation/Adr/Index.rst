@@ -488,3 +488,4 @@ Tools
    Adr141EveryExecutingSegmentHoldsALease
    Adr142OneRoutingDecision
    Adr143BoundEverySendAgainstTheServingModel
+   Adr144InjectedContextCarriesADataClass
