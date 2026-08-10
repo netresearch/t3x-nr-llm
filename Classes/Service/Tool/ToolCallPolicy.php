@@ -24,10 +24,11 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * and above the trust-zone ceiling reports TOOL_DISABLED, so a denial message
  * never tells a caller who was already blocked that a trust-zone axis exists.
  *
- * The zone gate ships in **observe** mode via the `tools.dataClassEnforcement`
- * extension setting: the decision is computed and reported, but the tool is
- * still offered. An operator sets it to any non-`observe` value (or the setting
- * is missing/unreadable) to enforce. The switch is read by
+ * The zone gate is governed by the `tools.dataClassEnforcement` extension
+ * setting, which ships as `enforce` (see `ext_conf_template.txt`). Set to
+ * `observe`, the decision is computed and reported but the tool is still
+ * offered; any other value — including a missing or unreadable one — enforces.
+ * The switch is read by
  * {@see DataClassEnforcementResolver}, which the governance readout (ADR-140)
  * asks as well so the view cannot drift from this gate. It is fail-closed
  * (ADR-113): only a deliberate `observe` observes; everything else enforces, so

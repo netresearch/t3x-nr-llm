@@ -27,7 +27,7 @@ GitHub Actions
        strategy:
          matrix:
            php: ['8.2', '8.3', '8.4', '8.5']
-           typo3: ['13.4', '14.0']
+           typo3: ['13.4', '14.3']
 
        steps:
          - uses: actions/checkout@v4

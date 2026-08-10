@@ -64,7 +64,7 @@
       {
         "icon": "rag",
         "title": "RAG-Werkzeuge für die Website-Suche",
-        "body": "41 eingebaute, schreibgeschützte Function-Calling-Tools in 8 umschaltbaren Gruppen geben dem Model fundierten Zugriff auf die TYPO3-Instanz — Inhaltssuche, TCA-/FlexForm-Schema, TypoScript, Quellcode- und Exception-Zugriff, FAL-Dateien, Diagnose und Backend-Konten. Die Gruppe rag liefert belegte Website-Inhalte aus dem installierten Suchindex (EXT:solr, ke_search, indexed_search oder einer Datenbank als Fallback)."
+        "body": "43 eingebaute Function-Calling-Tools in 9 umschaltbaren Gruppen geben dem Model fundierten Zugriff auf die TYPO3-Instanz — Inhaltssuche, TCA-/FlexForm-Schema, TypoScript, Quellcode- und Exception-Zugriff, FAL-Dateien, Diagnose und Backend-Konten. 41 davon lesen ausschließlich. Die Gruppe rag liefert belegte Website-Inhalte aus dem installierten Suchindex (EXT:solr, ke_search, indexed_search oder einer Datenbank als Fallback); die Gruppe editing enthält die beiden schreibenden Tools, die deaktiviert ausgeliefert werden und den Lauf vor jeder Änderung für eine menschliche Freigabe anhalten."
       },
       {
         "icon": "budget",
@@ -154,7 +154,7 @@
       },
       {
         "title": "Tools und RAG",
-        "body": "41 schreibgeschützte Function-Calling-Tools in 8 umschaltbaren Gruppen lassen Models Inhalte, Schema, Konfiguration, Code, Dateien, Systemdiagnose und Konten inspizieren — wobei die Gruppe rag belegte Evidenz aus dem installierten Suchindex liefert."
+        "body": "43 Function-Calling-Tools in 9 umschaltbaren Gruppen lassen Models Inhalte, Schema, Konfiguration, Code, Dateien, Systemdiagnose und Konten inspizieren — wobei die Gruppe rag belegte Evidenz aus dem installierten Suchindex liefert. 41 lesen nur; die beiden schreibenden Tools sind deaktiviert und warten auf eine Freigabe."
       },
       {
         "title": "Tool-Playground",
@@ -175,7 +175,7 @@
     "items": [
       {
         "q": "Welche TYPO3- und PHP-Versionen werden unterstützt?",
-        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.22.0)."
+        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.27.0)."
       },
       {
         "q": "Welche KI-Provider kann ich nutzen?",
@@ -223,7 +223,7 @@
       },
       {
         "q": "Welche Governance- und Sicherheitskontrollen bietet nr-llm?",
-        "a": "Verschlüsselte API-Keys über nr-vault, ein Backend-Modul nur für Administratoren mit kapabilitätsbezogenen Berechtigungen über Backend-Gruppen, eine Guardrail-Pipeline, die Secrets über Eingabe, Ausgabe und Streaming maskiert, optionale Human-in-the-Loop-Freigabe sowie Budgets pro Benutzer mit Nutzungsanalyse. Alle 41 Built-in-Tools sind nur lesend. Die Seite „Governance & Sicherheit“ beschreibt jede Kontrolle im Detail."
+        "a": "Verschlüsselte API-Keys über nr-vault, ein Backend-Modul nur für Administratoren mit kapabilitätsbezogenen Berechtigungen über Backend-Gruppen, eine Guardrail-Pipeline, die Secrets über Eingabe, Ausgabe und Streaming maskiert, optionale Human-in-the-Loop-Freigabe sowie Budgets pro Benutzer mit Nutzungsanalyse. 41 der 43 Built-in-Tools sind nur lesend; die beiden schreibenden werden deaktiviert ausgeliefert und halten den Lauf vor jeder Änderung für eine menschliche Freigabe an. Die Seite „Governance & Sicherheit“ beschreibt jede Kontrolle im Detail."
       }
     ]
   },

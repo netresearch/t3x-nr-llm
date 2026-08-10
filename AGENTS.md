@@ -89,7 +89,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
    - `fuzzy`
 
    Contract changes (setter clamps, validation ranges) have assertion twins in `Tests/Fuzzy/` — grep there before pushing.
-6. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 13.4 / 14.0; merged via `--merge` strategy (preserves signatures).
+6. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3`; merged via `--merge` strategy (preserves signatures).
 <!-- AGENTS-GENERATED:END development -->
 
 <!-- AGENTS-GENERATED:START filemap -->
@@ -99,7 +99,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 
 | File | Purpose |
 |------|---------|
-| `ext_emconf.php` | Extension metadata, version 0.16.1 |
+| `ext_emconf.php` | Extension metadata and the authoritative version |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (composer.lock NOT committed) |
 | `Build/phpunit.xml` | PHPUnit configuration |

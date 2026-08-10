@@ -22,6 +22,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   "all 44 builtin tools read"; it and ADR-084 now name what expired. The twelve
   early records that kept their status in a prose section were converted to the
   field form.
+- `SECURITY_AUDIT.md` no longer presents the 2026-01-05 self-audit as current.
+  That report is archived unchanged as
+  `Audits/2026-01-05-internal-self-audit.md` with the list of statements that
+  have expired — it attested `ApiKeyEncryptionService` and
+  `sodium_crypto_secretbox`, neither of which exists since the move to
+  nr-vault. The root file now states what is actually verified, and says
+  outright that there is no current full-scope audit.
+- `BASELINE.md` states what CI enforces instead of what it aims at: mutation
+  testing is a weekly report-only target, not a "minimum MSI 70%" gate, and the
+  TYPO3 matrix is `^13.4` / `^14.3`, not 13.4 / 14.0. Branch rules are read from
+  rulesets — 23 required status contexts, one required approving review, thread
+  resolution — because the legacy branch-protection endpoint reports `null` for
+  all of them. The real gaps are admin bypass on both rulesets and the security
+  checks that run without blocking.
+- `SECURITY_AUDIT.md` marks per check whether it is one of the 23 required
+  contexts. gitleaks, zizmor, dependency-review, scorecard and SonarCloud run
+  but do not block. CodeQL analyses `actions` and `javascript-typescript`, not
+  PHP; Opengrep is the PHP SAST. Tool egress is declared per tool *group*, and
+  the four-layer tool gate is described as a narrowing cascade rather than
+  fail-closed, because three of its four layers default open when unset.
+- Landing-page copy matches the shipped tool set: 43 built-in tools in 9
+  groups, 41 of them read-only. It advertised "41 read-only tools in 8
+  toggleable groups" and version 0.22.0.
 
 ### Added
 
@@ -31,6 +54,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a record that does not exist, or when only one end of an ADR-to-ADR
   amend/supersede pair is written. Field values are read across RST
   continuation lines, so a wrapped field cannot hide a reference.
+- `Tests/Unit/ProductFactsConsistencyTest.php` derives the tool count, group
+  count and read/write split from `Classes/Service/Tool/Builtin/` and fails
+  when the README, the administration guide or the landing-page data
+  contradict it, or advertise a version other than `ext_emconf.php`'s.
+- `Tests/Unit/BaselineConsistencyTest.php` fails when `BASELINE.md` names a
+  TYPO3 matrix `ci.yml` does not run, or calls the MSI target a minimum while
+  the mutation job is gated on the weekly schedule.
 
 ## [0.27.0] - 2026-08-09
 
