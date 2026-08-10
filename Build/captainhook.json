@@ -31,6 +31,9 @@
             {
                 "action": "composer ci:test:php:phpstan",
                 "conditions": []
+            },
+            {
+                "action": "composer ci:test:changelog"
             }
         ]
     },

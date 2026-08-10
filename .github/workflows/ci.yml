@@ -152,3 +152,21 @@ jobs:
       run-mutation-tests: ${{ github.event_name == 'schedule' }}
       mutation-min-msi: 70
       mutation-min-covered-msi: 74
+
+  # CI half of the CHANGELOG gate. `Build/captainhook.json` runs the same
+  # composer script on pre-commit; this exists because a hook reaches only the
+  # machines that installed it, and the failure it guards against reached `main`
+  # through two pull requests on 2026-08-10. Deterministic and sub-second, so it
+  # gets its own tiny job rather than a slot in the matrix.
+  changelog:
+    name: CHANGELOG
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - run: php Build/Scripts/check-changelog-unreleased.php

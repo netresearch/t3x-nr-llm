@@ -80,15 +80,18 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 2. Use `make` shortcuts (`make test-unit`, `make phpstan`, `make cgl`) — they delegate to `runTests.sh`.
 3. Pre-commit hooks via `Build/captainhook.json` (auto-installed by composer plugin) run cgl + phpstan + commit-msg checks.
 4. Sign commits with `git commit -S --signoff` (DCO required).
-5. Pre-push gate parity with CI is these six suites — CI runs all six, and `rector`/`fuzzy` are the two habitually forgotten ones:
-   - `unit`
-   - `functional -d sqlite`
-   - `phpstan`
-   - `cgl`
-   - `rector -n`
-   - `fuzzy`
+5. **Pre-push gate: `make gate`.** It runs the six suites CI runs — `cgl`,
+   `phpstan`, `unit`, `fuzzy`, `rector -n` (pinned to PHP 8.2, as in CI) and
+   `functional -d sqlite` — plus the CHANGELOG check. Run it as one command:
+   invoking the six by hand is how `rector` and `fuzzy` get skipped, which is
+   then found by the CI matrix a push later.
 
-   Contract changes (setter clamps, validation ranges) have assertion twins in `Tests/Fuzzy/` — grep there before pushing.
+   `make ci` is **not** this gate. It is an older set that carries `integration`
+   and omits `rector` and `functional`; both targets are kept because they
+   answer different questions.
+
+   Contract changes (setter clamps, validation ranges) have assertion twins in
+   `Tests/Fuzzy/` — grep there before pushing.
 6. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3`; merged via `--merge` strategy (preserves signatures).
 <!-- AGENTS-GENERATED:END development -->
 
@@ -256,6 +259,16 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   it; only create one when it genuinely is not there. (Three duplicates in one
   session, 2026-07-30.)
 
+  **Merging `main` into a series of sibling branches duplicates the whole
+  section.** Any resolution that assumes "ours holds only my additions" is
+  right for the first merge of a series and wrong for every later one — by then
+  "ours" already carries what the previous merge brought in. No conflict
+  markers, plausible diff: on 2026-08-10 ten bullets ended up standing three and
+  four times over and two PRs carried it to `main`. Rebuild the section instead
+  of merging it — take the incoming version verbatim and re-insert your own
+  block under the matching heading. `composer ci:test:changelog` (pre-commit,
+  and its own CI job) refuses the repeated result.
+
 - **A fresh worktree needs its own dependency resolution.** `.Build/` is not
   tracked, so a new worktree has none; copying it from `main/.Build` is the usual
   shortcut and avoids the WSL2 segfault on a fresh composer resolve. But that copy
@@ -278,6 +291,17 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   test cells red; a control on unmodified `main` with an uncapped local resolve
   reproduced the same 53 files, proving the finding was the environment, not the
   code.
+
+  **And in a worktree it may not run at all.** `composer install` writes
+  `.Build/vendor/composer/platform_check.php` from the PHP it resolved under,
+  and that file FATALS rather than warns on an older runtime — so a `.Build`
+  resolved at 8.4 makes the pinned `-p 8.2` die with `Composer detected issues
+  in your platform: … require a PHP version ">= 8.4.1". You are running
+  8.2.30.` The suite did not fail; it never started. `make gate` names that
+  case explicitly. Recognise the message as an environment mismatch, then
+  either keep a second `.Build` resolved at 8.2 for this one gate or accept CI
+  as the only place it runs — and **say so** when reporting which gates were
+  run, rather than listing it as green.
 
 - **A local gate run covers one matrix cell; CI covers eight.** The six pre-push
   suites run against a single PHP version and a single TYPO3 constraint. CI runs
