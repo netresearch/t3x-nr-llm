@@ -128,14 +128,30 @@ def read_latest_release() -> tuple[str | None, str | None]:
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         request.add_header("Authorization", f"Bearer {token}")
+    # urllib also speaks file:// and ftp://, so the scheme is asserted rather
+    # than assumed. The URL is a constant above, but the assertion is what keeps
+    # that true if someone later makes it configurable.
+    if request.type != "https":
+        raise SystemExit(f"build: refusing a non-HTTPS release URL: {api}")
     try:
+        # The URL is the constant above and its scheme is asserted; nothing here
+        # comes from user input, so the dynamic-URL rule has nothing to protect.
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, timeout=15) as response:
             payload = json.load(response)
     except Exception as exc:  # noqa: BLE001 — any failure means "unknown", not "fail"
         print(f"build: latest release unavailable ({exc}); manifest reports none", file=sys.stderr)
         return None, None
-    published = payload.get("published_at")
-    return payload.get("tag_name"), published[:10] if published else None
+    # The tag is network data that ends up in the manifest, on the page and in a
+    # URL. Validated rather than trusted: anything that is not a plain semantic
+    # version tag counts as no release at all.
+    tag = str(payload.get("tag_name") or "")
+    published = str(payload.get("published_at") or "")[:10]
+    if not re.fullmatch(r"v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", tag):
+        if tag:
+            print(f"build: ignoring release tag that is not a version: {tag!r}", file=sys.stderr)
+        return None, None
+    return tag, published if re.fullmatch(r"\d{4}-\d{2}-\d{2}", published) else None
 
 
 def build_project() -> dict:

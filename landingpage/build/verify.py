@@ -39,8 +39,8 @@ LANDING_PAGES = ("en/index.html", "de/index.html")
 
 
 def strip_markup(html: str) -> str:
-    html = re.sub(r"<script[\s\S]*?</script>", " ", html)
-    html = re.sub(r"<style[\s\S]*?</style>", " ", html)
+    html = re.sub(r"<script\b.*?</script\s*>", " ", html, flags=re.S | re.I)
+    html = re.sub(r"<style\b.*?</style\s*>", " ", html, flags=re.S | re.I)
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
 
