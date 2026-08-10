@@ -28,17 +28,22 @@ branch-protection endpoint.
 | PHP SAST | `security / SAST (Opengrep)` | yes |
 | SAST, non-PHP | `codeql / Analyze (actions)` (required), `codeql / Analyze (javascript-typescript)` (not required). CodeQL has no PHP analysis here — Opengrep is the PHP SAST | partly |
 | Code quality | `SonarCloud Code Analysis` (GitHub App, driven by `.sonarcloud.properties`) | no |
-| Secret scanning | `gitleaks / Secret Scanning` plus GitHub native secret scanning | no — reported only |
+| Secret scanning, CI | `gitleaks / Secret Scanning` | no — reported only |
+| Secret scanning, push | GitHub native secret scanning with push protection `enabled` | yes — it rejects the push, before CI |
 | Dependency vulnerabilities | `security / Composer Audit` (required), `dependency-review` (not required) | partly |
 | Workflow hardening | `zizmor / zizmor analysis`, `step-security/harden-runner` | no |
-| Supply-chain posture | `scorecard` | no |
+| Supply-chain posture | `scorecard / Scorecard analysis` | no |
 | Licence compliance | `license-check / PHP License Audit` | yes |
 | Sign-off | `dco / DCO` | yes |
 | Provenance and signing | SLSA Level 3 attestation and Cosign keyless signing on every release, via the org release workflow | release-time |
 
 `checks.yml` defines an `All security checks` gate job that depends on gitleaks,
 zizmor and dependency-review, but that context is not in the required list, so
-those three do not block today.
+those three do not block today. Its own header comment says "the gate is the
+only context a ruleset requires", which is not true here — the ruleset requires
+`security / …`, `fuzz / …` and `license-check / …` individually and the gate not
+at all. That file is byte-identical and drift-enforced across every
+typo3-extension repository, so the comment is recorded here rather than edited.
 
 Most of the above is delegated to `netresearch/typo3-ci-workflows` and
 `netresearch/.github` reusable workflows (`.github/workflows/checks.yml`). The
@@ -72,9 +77,11 @@ raising a finding:
 - **Network egress is declared per tool *group*** and fail-closed for any group
   without an entry (`EgressPolicyService`, ADR-043/ADR-093). Two groups have a
   positive scope: `system` (own sites) and `rag` (the configured search
-  endpoint). By its own definition this is an audit and consistency gate rather
-  than a confidentiality boundary — the endpoints it validates come from site
-  configuration, never from the model — and two call sites consult it.
+  endpoint). Two call sites consult it. On the `rag` path it is an audit and
+  consistency gate, as its own docblock says — the endpoint comes from site
+  configuration. On the `system` path it is more than that: `probe_url` takes a
+  **model-supplied** URL and `resolveAllowedUrl()` matches it against the
+  instance's own site hosts, which is an SSRF boundary.
 
 ## Point-in-time reviews since the archived audit
 

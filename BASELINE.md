@@ -14,10 +14,16 @@ goal rather than a gate says so in its own row, and anything not met is in
 CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`, and
 when this attestation goes a year unverified.
 
-Branch rules live in **rulesets**, not in classic branch protection. Read them
-with `gh api repos/netresearch/t3x-nr-llm/rules/branches/main` — the legacy
-`…/branches/main/protection` endpoint reports `null` for everything a ruleset
-enforces and reads as "nothing is required".
+Branch rules come from **two sources that coexist and compose**, and GitHub
+applies the most restrictive: classic branch protection *and* rulesets. Read
+both — `gh api repos/netresearch/t3x-nr-llm/rules/branches/main` for the
+rulesets, `…/branches/main/protection` for the classic settings.
+
+Reading only the classic endpoint gives a false all-clear. It omits
+`required_status_checks` entirely (`null`) when a ruleset supplies them, and
+its `required_approving_review_count: 0` is the classic setting, not the
+effective one — a ruleset requires 1. An earlier revision of this file read
+that endpoint alone and attested that neither reviews nor checks were required.
 
 ## Vulnerability Management
 
@@ -72,25 +78,25 @@ enforces and reads as "nothing is required".
 |---|---|
 | Pinned third-party actions | All third-party actions pinned to commit SHA (verified by `step-security/harden-runner`) |
 | Reusable workflow centralisation | CI/security/release delegated to `netresearch/typo3-ci-workflows` and `netresearch/.github` reusable workflows |
-| Workflow permissions | `permissions: {}` at workflow level in 12 of 13 workflows; `ci.yml` declares `contents: read`. Per-job grants add only what is needed |
+| Workflow permissions | `permissions: {}` at workflow level in 11 of the 12 workflows; `ci.yml` declares `contents: read`. Per-job grants add only what is needed |
 | Container hardening | `step-security/harden-runner` applied via the org reusable workflows |
 
 ## Supply-Chain Defenses
 
 | Criterion | Artefact |
 |---|---|
-| Branch protection | Rulesets on `main`: `main-branch-rules` (23 required status contexts, merge queue, no deletion, no force-push), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch`. All `enforcement: active` |
+| Branch protection | Rulesets on `main`, all `enforcement: active`: `main-branch-rules` (23 required status contexts, merge queue), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch` (which also carries the no-deletion and no-force-push rules). Classic protection adds signed commits, conversation resolution, and denies force-push and deletion |
 | Dependency review | `actions/dependency-review-action` runs on every PR (via `netresearch/.github` reusable workflow) |
 | Auto-merge gating | Auto-merge for Dependabot PRs gates on full CI green + Copilot review (no race condition) |
 | Secret scanning | GitHub native secret scanning + Gitleaks in CI |
 
 ## Known gaps
 
-- **Repository admins can bypass both rulesets.** `main-branch-rules` grants
-  `RepositoryRole` 5 (admin) `bypass_mode: always`, and `t3x-pull-request`
-  grants admin plus two GitHub App integrations `bypass_mode: pull_request`. An
-  admin can therefore merge red and unreviewed. The rules hold for everyone
-  else.
+- **A repository role bypasses both rulesets.** `main-branch-rules` grants
+  `RepositoryRole` id 5 `bypass_mode: always`, and `t3x-pull-request` grants the
+  same role plus two GitHub App integrations `bypass_mode: pull_request`. That
+  holder can merge red and unreviewed; the rules hold for everyone else.
+  Classic protection's `enforce_admins` is likewise `false`.
 - **Some security checks run but do not block.** `gitleaks / Secret Scanning`,
   `zizmor / zizmor analysis`, `dependency-review`, `scorecard`, the
   `All security checks` gate job and `SonarCloud Code Analysis` are not among

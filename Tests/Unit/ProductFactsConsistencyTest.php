@@ -291,20 +291,25 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $guide = $this->surfaceContents('Documentation/Administration/Tools.rst');
 
         foreach ($this->builtinToolNames() as $name) {
-            // The table writes raw variants as a shorthand: ``get_env`` (+ raw).
-            $needle = str_ends_with($name, '_raw')
-                ? substr($name, 0, -4)
-                : $name;
+            if (str_ends_with($name, '_raw')) {
+                // The table writes a raw variant as a shorthand attached to its
+                // base name: ``get_env`` (+ raw). Asserting only the base name
+                // would be satisfied by the base tool's own row, so the raw
+                // variant could drop out of the guide unnoticed.
+                self::assertStringContainsString(
+                    '``' . substr($name, 0, -4) . '`` (+ raw)',
+                    $guide,
+                    'Documentation/Administration/Tools.rst does not mark ' . $name . ' with the (+ raw) shorthand.',
+                );
+
+                continue;
+            }
 
             self::assertStringContainsString(
-                '``' . $needle . '``',
+                '``' . $name . '``',
                 $guide,
                 'Documentation/Administration/Tools.rst does not list the tool ' . $name . '.',
             );
-        }
-
-        if (in_array(true, array_map(static fn(string $n): bool => str_ends_with($n, '_raw'), $this->builtinToolNames()), true)) {
-            self::assertStringContainsString('(+ raw)', $guide, 'Raw variants ship but the guide drops the shorthand.');
         }
 
         foreach ($this->toolGroups() as $group) {
@@ -319,13 +324,14 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function theCountersResolveTheWholeBuiltinDirectory(): void
     {
-        // If reflection silently stopped resolving classes, every surface
-        // assertion above would pass vacuously. Tie the counters to the file
-        // count instead of a hand-picked floor.
-        $files = glob($this->repoRoot() . '/Classes/Service/Tool/Builtin/*Tool.php');
-        self::assertIsArray($files);
+        // Without a hard expectation every surface assertion above passes
+        // vacuously on a directory that silently shrank: comparing the counters
+        // against a glob they are themselves derived from cannot fail.
+        // Changing these two numbers is a deliberate act — the surfaces move
+        // with them.
+        self::assertSame(43, $this->totalToolCount(), 'Builtin tool count changed. Update every surface, then this number.');
+        self::assertSame(9, $this->groupCount(), 'Tool group count changed. Update every surface, then this number.');
 
-        self::assertCount($this->totalToolCount(), $files);
         self::assertCount($this->totalToolCount(), $this->builtinToolNames());
         self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 2, 'Exactly two builtins write (ADR-134, ADR-135).');
     }
