@@ -34,7 +34,7 @@ final class InputContextTrustZoneException extends RuntimeException implements N
         return new self(
             sprintf(
                 'Configuration "%s" resolves to trust zone %s, which permits at most %s, '
-                . 'but %s is classified %s. Raise the provider\'s trust zone, remove the source from this '
+                . "but %s is classified %s. Raise the provider's trust zone, remove the source from this "
                 . 'configuration, or correct the declared class.',
                 $configurationIdentifier,
                 $zone->value,
