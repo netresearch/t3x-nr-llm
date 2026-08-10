@@ -11,38 +11,67 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Fixtures;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
-use RuntimeException;
 
 /**
- * The real, database-backed repository with ONE fault injected: the event of a
- * chosen kind cannot be written.
+ * A pass-through repository that records the ADR-111 write fence as it is
+ * written.
  *
- * Models the store hiccup that hits a single audit record rather than the whole
- * connection, which is what {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::recordApproval()}'s
- * boolean is about (ADR-132). Everything else — the claim, the suspend, the
- * status transitions the assertions read back — stays real, so the test asserts
- * the row the operator would actually see.
+ * The fence is a stamp-then-clear pair around a side effect: by the time a
+ * synchronous run returns, `pending_effect` is empty again and the database
+ * cannot tell "fenced and cleared" from "never fenced". This decorator keeps the
+ * ORDER, so a test can assert the write was fenced BEFORE it ran rather than
+ * inferring it from a value that is gone.
+ *
+ * Everything else is the real repository on the real connection — only the
+ * observation is added.
  */
-final readonly class ApprovalEventFailingRunRepository implements AgentRunRepositoryInterface
+final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
 {
-    public function __construct(
-        private AgentRunRepositoryInterface $inner,
-        private string $failingKind,
-    ) {}
+    /** @var list<array{effect: string, claimedBy: string}> in the order they were written */
+    public array $fenceWrites = [];
 
-    public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
+    /** @var list<array{claimedBy: string, leaseExpires: int}> */
+    public array $resumeClaims = [];
+
+    public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
+
+    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
     {
-        if ($kind === $this->failingKind) {
-            throw new RuntimeException(sprintf('recordEvent(%s) failed', $kind), 1785200002);
+        $this->fenceWrites[] = ['effect' => $effect, 'claimedBy' => $claimedBy];
+
+        return $this->inner->markPendingEffect($runUid, $claimedBy, $effect, $leaseExpires);
+    }
+
+    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        $granted = $this->inner->claimForResume($runUid, $claimedBy, $leaseExpires);
+        if ($granted) {
+            $this->resumeClaims[] = ['claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
         }
 
-        $this->inner->recordEvent($runUid, $sequence, $kind, $round, $durationMs, $payloadJson);
+        return $granted;
+    }
+
+    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        $granted = $this->inner->claimForResumeFromInput($runUid, $claimedBy, $leaseExpires);
+        if ($granted) {
+            $this->resumeClaims[] = ['claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];
+        }
+
+        return $granted;
     }
 
     public function startRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $claimedBy = '', int $leaseExpires = 0): int
     {
         return $this->inner->startRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $claimedBy, $leaseExpires);
+    }
+
+    public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
+    {
+        $this->inner->recordEvent($runUid, $sequence, $kind, $round, $durationMs, $payloadJson);
     }
 
     public function finishRun(
@@ -71,16 +100,6 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->suspendRunForInput($runUid, $stateJson);
     }
 
-    public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
-    {
-        return $this->inner->claimForResume($runUid, $claimedBy, $leaseExpires);
-    }
-
-    public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
-    {
-        return $this->inner->claimForResumeFromInput($runUid, $claimedBy, $leaseExpires);
-    }
-
     public function enqueueRun(string $uuid, int $configurationUid, string $configurationIdentifier, int $beUser, string $requestJson): int
     {
         return $this->inner->enqueueRun($uuid, $configurationUid, $configurationIdentifier, $beUser, $requestJson);
@@ -94,11 +113,6 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
     public function renewLease(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         return $this->inner->renewLease($runUid, $claimedBy, $leaseExpires);
-    }
-
-    public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
-    {
-        return $this->inner->markPendingEffect($runUid, $claimedBy, $effect, $leaseExpires);
     }
 
     public function requeue(int $runUid, string $claimedBy): bool
@@ -151,6 +165,9 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->countInStatus($status);
     }
 
+    /**
+     * @return list<AgentRunEvent>
+     */
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return $this->inner->findEvents($runUid, $afterSequence);

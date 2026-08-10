@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
@@ -202,9 +203,19 @@ final readonly class AgentRuntime implements AgentRuntimeInterface
 
     public function run(AgentRunRequest $request, ?Closure $onStep = null): AgentRunResult
     {
-        $handle = $this->persister->begin($request->configuration, $request->actor->backendUserUid);
+        // A synchronous run claims its own lease (ADR-141) so the ADR-111 write
+        // fence arms here too. Without it this path could execute a remote tool
+        // that declares a write but carries no approval flag (ADR-134 exempts
+        // remote tools) with no fence around it.
+        $leaseOwner = ExecutionIdentity::interactive();
+        $handle     = $this->persister->begin(
+            $request->configuration,
+            $request->actor->backendUserUid,
+            $leaseOwner,
+            time() + self::LEASE_SECONDS,
+        );
 
-        return $this->runExecutor()->executeRequest($request, $handle, $onStep);
+        return $this->runExecutor()->executeRequest($request, $handle, $onStep, $handle instanceof AgentRunHandle ? $leaseOwner : null);
     }
 
     public function enqueue(AgentRunRequest $request): string

@@ -63,8 +63,14 @@ final readonly class AgentRunPersister
      * Open a new run in the RUNNING state. Returns a handle to thread back into
      * {@see self::recordStep()} and the settle methods, or null when the run
      * could not be started (the caller then records nothing).
+     *
+     * $claimedBy claims the run for the segment starting it (ADR-141) and
+     * $leaseExpires says how long that claim is presumed live, exactly as
+     * {@see self::claimQueued()} does for a worker. A caller that passes neither
+     * gets an unleased run, on which the write fence refuses side-effecting
+     * tools instead of running them unfenced.
      */
-    public function begin(?LlmConfiguration $configuration, int $beUser): ?AgentRunHandle
+    public function begin(?LlmConfiguration $configuration, int $beUser, string $claimedBy = '', int $leaseExpires = 0): ?AgentRunHandle
     {
         try {
             $uuid   = Uuid::v4()->toRfc4122();
@@ -73,6 +79,8 @@ final readonly class AgentRunPersister
                 $configuration?->getUid() ?? 0,
                 $configuration?->getIdentifier() ?? '',
                 $beUser,
+                $claimedBy,
+                $leaseExpires,
             );
 
             return new AgentRunHandle($runUid, $uuid);
@@ -435,10 +443,10 @@ final readonly class AgentRunPersister
      * returns false — refusing the resume — if the claim is lost to a concurrent
      * approval or the store errors, so the gated tool is never double-executed.
      */
-    public function claimResume(AgentRun $run): bool
+    public function claimResume(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimForResume($run->uid);
+            return $this->repository->claimForResume($run->uid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be claimed for resume', ['exception' => $exception]);
 
@@ -452,10 +460,10 @@ final readonly class AgentRunPersister
      * claim is lost to a concurrent submission or the store errors — so the
      * pending turn is never executed twice.
      */
-    public function claimResumeFromInput(AgentRun $run): bool
+    public function claimResumeFromInput(AgentRun $run, string $claimedBy, int $leaseExpires): bool
     {
         try {
-            return $this->repository->claimForResumeFromInput($run->uid);
+            return $this->repository->claimForResumeFromInput($run->uid, $claimedBy, $leaseExpires);
         } catch (Throwable $exception) {
             $this->logger?->warning('AgentRun could not be claimed for input resume', ['exception' => $exception]);
 
