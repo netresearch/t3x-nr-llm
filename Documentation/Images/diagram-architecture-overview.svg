@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430" role="img"
+     aria-label="Consuming extensions call the nr-llm service layer, which resolves a Configuration to a Model to a Provider and reaches the LLM API through the middleware pipeline.">
+  <style>
+    .panel { fill: #ffffff; stroke: #c9ccd2; stroke-width: 1.5; rx: 6; }
+    .tier  { fill: #ffffff; stroke: #2F99A4; stroke-width: 2; }
+    .band  { fill: #f4f6f7; stroke: #dfe3e6; stroke-width: 1; }
+    .t     { font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .h     { font: 600 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .s     { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #595A62; }
+    .k     { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2F99A4; }
+    .m     { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #595A62; }
+    .arrow { stroke: #595A62; stroke-width: 1.5; fill: none; marker-end: url(#a); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#595A62"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="430" fill="#ffffff"/>
+
+  <!-- consumers -->
+  <rect class="band" x="20" y="18" width="720" height="52" rx="6"/>
+  <text class="h" x="36" y="40">Consuming TYPO3 extensions</text>
+  <text class="s" x="36" y="58">inject one interface — no API keys, no HTTP client, no provider branching</text>
+
+  <path class="arrow" d="M 380 70 L 380 96"/>
+
+  <!-- service layer -->
+  <rect class="panel" x="20" y="98" width="720" height="86" rx="6"/>
+  <text class="h" x="36" y="120">Service layer</text>
+  <text class="k" x="36" y="140">LlmServiceManager</text>
+  <text class="m" x="160" y="140">chat() · complete() · streamChat() · chatWithTools() · embed()</text>
+  <text class="s" x="36" y="162">Feature services: Completion · Conversation · Embedding · Translation · Vision · ToolCalling</text>
+  <text class="s" x="36" y="176">Agent runtime: ToolLoopService — bounded loop, fail-closed tool gate, human approval on writes</text>
+
+  <path class="arrow" d="M 380 184 L 380 210"/>
+
+  <!-- three tiers -->
+  <text class="h" x="36" y="206">Three-tier configuration</text>
+  <rect class="tier" x="20" y="212" width="228" height="78" rx="6"/>
+  <text class="h" x="36" y="234">Configuration</text>
+  <text class="s" x="36" y="252">use-case preset</text>
+  <text class="m" x="36" y="270">system prompt · temperature</text>
+  <text class="m" x="36" y="284">token limits · fallbacks</text>
+
+  <rect class="tier" x="266" y="212" width="228" height="78" rx="6"/>
+  <text class="h" x="282" y="234">Model</text>
+  <text class="s" x="282" y="252">references a Provider</text>
+  <text class="m" x="282" y="270">model id · capabilities</text>
+  <text class="m" x="282" y="284">pricing</text>
+
+  <rect class="tier" x="512" y="212" width="228" height="78" rx="6"/>
+  <text class="h" x="528" y="234">Provider</text>
+  <text class="s" x="528" y="252">API connection</text>
+  <text class="m" x="528" y="270">endpoint · adapter type</text>
+  <text class="m" x="528" y="284">key as nr-vault UUID</text>
+
+  <path class="arrow" d="M 248 251 L 264 251"/>
+  <path class="arrow" d="M 494 251 L 510 251"/>
+
+  <path class="arrow" d="M 380 290 L 380 316"/>
+
+  <!-- middleware -->
+  <rect class="panel" x="20" y="318" width="720" height="46" rx="6"/>
+  <text class="h" x="36" y="338">Middleware pipeline</text>
+  <text class="m" x="176" y="338">Fallback → Budget → Usage → Cache</text>
+  <text class="s" x="36" y="356">Guardrails screen input, output, reasoning and streamed chunks around it</text>
+
+  <path class="arrow" d="M 380 364 L 380 390"/>
+
+  <!-- providers -->
+  <rect class="band" x="20" y="392" width="720" height="24" rx="6"/>
+  <text class="s" x="36" y="409">OpenAI · Anthropic Claude · Google Gemini · Ollama · OpenRouter · Mistral · Groq · Azure and OpenAI-compatible endpoints</text>
+</svg>

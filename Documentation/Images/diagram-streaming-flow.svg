@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="410" viewBox="0 0 760 410" role="img"
+     aria-label="Streaming: the prompt is screened, the model and adapter are resolved, the budget is checked, the dispatcher opens the provider stream with fallback, and each chunk passes a sliding redaction window before the Generator yields it to the caller.">
+  <style>
+    .box   { fill: #ffffff; stroke: #c9ccd2; stroke-width: 1.5; rx: 6; }
+    .key   { fill: #ffffff; stroke: #2F99A4; stroke-width: 2; rx: 6; }
+    .band  { fill: #f4f6f7; stroke: #dfe3e6; stroke-width: 1; rx: 6; }
+    .h     { font: 600 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .t     { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .s     { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #595A62; }
+    .m     { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2F99A4; }
+    .down  { stroke: #595A62; stroke-width: 1.5; fill: none; marker-end: url(#a); }
+    .back  { stroke: #2F99A4; stroke-width: 2; fill: none; marker-end: url(#b); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#595A62"/>
+    </marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2F99A4"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="410" fill="#ffffff"/>
+
+  <!-- request path -->
+  <text class="h" x="24" y="26">Request</text>
+
+  <rect class="band" x="20" y="34" width="330" height="40"/>
+  <text class="t" x="34" y="52">Caller</text>
+  <text class="m" x="34" y="68">foreach ($manager-&gt;streamChat($messages) as $chunk)</text>
+
+  <path class="down" d="M 185 74 L 185 92"/>
+
+  <rect class="box" x="20" y="94" width="330" height="46"/>
+  <text class="h" x="34" y="112">Input guardrail</text>
+  <text class="s" x="34" y="130">screened before the opener captures the prompt (ADR-087)</text>
+
+  <path class="down" d="M 185 140 L 185 158"/>
+
+  <rect class="box" x="20" y="160" width="330" height="46"/>
+  <text class="h" x="34" y="178">Resolve model and adapter</text>
+  <text class="s" x="34" y="196">for ProviderOperation::Stream; streaming capability asserted eagerly</text>
+
+  <path class="down" d="M 185 206 L 185 224"/>
+
+  <rect class="key" x="20" y="226" width="330" height="60"/>
+  <text class="h" x="34" y="244">StreamingDispatcher</text>
+  <text class="s" x="34" y="262">budget checked before the first byte</text>
+  <text class="s" x="34" y="278">opens the provider stream, falls back on failure</text>
+
+  <path class="down" d="M 185 286 L 185 304"/>
+
+  <rect class="box" x="20" y="306" width="330" height="46"/>
+  <text class="h" x="34" y="324">Provider adapter</text>
+  <text class="m" x="34" y="342">streamChatCompletion() — SSE from the LLM API</text>
+
+  <!-- response path -->
+  <text class="h" x="424" y="26">Each chunk, on the way back</text>
+
+  <rect class="box" x="410" y="306" width="330" height="46"/>
+  <text class="h" x="424" y="324">Raw chunk</text>
+  <text class="s" x="424" y="342">arrives as the provider emits it</text>
+
+  <path class="back" d="M 575 306 L 575 288"/>
+
+  <rect class="key" x="410" y="226" width="330" height="60"/>
+  <text class="h" x="424" y="244">Sliding redaction window</text>
+  <text class="s" x="424" y="262">a secret split across two chunks is still caught (ADR-088)</text>
+  <text class="s" x="424" y="278">bounded — the whole response is never held in memory</text>
+
+  <path class="back" d="M 575 226 L 575 208"/>
+
+  <rect class="box" x="410" y="146" width="330" height="60"/>
+  <text class="h" x="424" y="164">Generator yields</text>
+  <text class="s" x="424" y="182">the caller receives the chunk here — nothing waits</text>
+  <text class="s" x="424" y="198">for the response to complete</text>
+
+  <path class="back" d="M 575 146 L 575 128"/>
+
+  <rect class="band" x="410" y="82" width="330" height="44"/>
+  <text class="h" x="424" y="100">At end of stream</text>
+  <text class="s" x="424" y="118">output audit on the buffered completion, usage recorded</text>
+
+  <path class="down" d="M 352 330 L 406 330"/>
+</svg>
