@@ -80,6 +80,63 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   queue workers did, and a test pinned that as an invariant; it now pins the
   opposite, because the heartbeat is what an ownership-guarded fence write needs
   to match against.
+
+- The `main-branch-rules` ruleset requires `All security checks` instead of the
+  nine individual contexts that gate job already covers. gitleaks, zizmor,
+  dependency-review, scorecard and pr-quality run on every pull request and
+  could not block one; they can now. This is what `checks.yml`'s own header
+  comment always described, and what this repository was not doing.
+- `fuzz-mutation / Fuzz Tests` replaces `fuzz / Fuzz Tests` as a required
+  context. The required one came from `checks.yml`, which passes no inputs to
+  the fuzz reusable and is therefore always `skipped` — a requirement that
+  enforced nothing. The fuzzy suite that actually runs is `ci.yml`'s, verified
+  green on three merge-queue runs before it was required.
+- `BASELINE.md`, `SECURITY_AUDIT.md` and the CI diagram state the new
+  enforcement: 16 required contexts, and SonarCloud as the one check that
+  reports without blocking.
+- The four documentation diagrams that stood as `.. TODO:` placeholders are
+  drawn: architecture overview, tool-calling sequence, streaming data flow, CI
+  pipeline. Committed as SVG rather than PNG so they are reviewable in a diff
+  and need no build step. Each was traced against the code it depicts, so the
+  streaming figure shows the sliding redaction window and the tool figure shows
+  the gate running before the model is offered anything.
+- The PlantUML source block on the architecture page is marked `text`. It was
+  labelled `plantuml`, which no highlighter in the docs build knows, and every
+  render emitted a warning for it.
+
+
+- **An automatic model selection can say why** (ADR-142). Criteria-mode routing
+  always had exactly one production path, but it returned a model and nothing
+  else: a model that never appeared in a call was indistinguishable from one
+  that lost on cost. It now produces a `RoutingDecision` naming the selected
+  model and, for every other active model, either a score or the hard
+  constraint that refused it. Eligibility and ranking are separate by
+  construction — a rejected candidate carries no score at all, so no signal can
+  bring it back. The rejection reasons have a deliberate order: the operator's
+  own criteria are evaluated first and the operation capability (ADR-138) last,
+  so `OPERATION_CAPABILITY_MISSING` means "would have served, but not this
+  operation" and the misconfiguration error it raises cannot name a model the
+  criteria excluded anyway.
+- The routing predicates exist once. `ModelSelectionService::modelMatchesCriteria()`
+  and the decision point share one `EligibilityEvaluator` instead of keeping two
+  copies that could drift, and the candidate comparator moved into
+  `CandidateRanker` with it. Behaviour is unchanged, which the existing suite
+  passing untouched is the evidence for.
+- Evaluation quality (ADR-060) and recent provider health (ADR-063) can now
+  rank candidates, under a new `routing.policyMode` setting. It defaults to
+  `providerPriority`, which reproduces the previous ordering exactly; the three
+  measured modes (`balanced`, `quality`, `economy`) are opt-in because such
+  signals change which model serves a call and an upgrade must not switch that
+  on. Two rules keep them safe: provider priority outranks every measurement — a
+  priority is an instruction, a score is evidence — and a model nobody measured
+  contributes nothing rather than a zero, so an absence never reads as a bad
+  score. `ProviderHealthService::reorder()` is untouched: it orders the fallback
+  chain, which is a different axis.
+- ADR-060 left first-class quality wiring as a follow-up and shipped
+  `QualityAwareModelSelector` as an opt-in hook meanwhile. That follow-up is
+  this. The hook is unchanged and still has no core consumer — its hard
+  `minQuality` filter has no equivalent in the ranking on purpose, because a
+  minimum quality is a constraint and constraints stay out of ranking.
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
 rather than at the code: a backend module that told an administrator nothing
