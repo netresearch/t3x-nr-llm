@@ -64,6 +64,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    // The shape the three ADR-146 writers share.
+    use PlansOneEditorialWriteTrait;
 
     /**
      * One string for "no such record", "deleted", "on a page you may not edit"
@@ -286,18 +288,6 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     }
 
     /**
-     * Whether the person LOOKING at the approval card may see this translation.
-     *
-     * The same resolution the write uses, run against the VIEWER.
-     *
-     * @param array<string, mixed> $arguments the model-chosen arguments of the pending call
-     */
-    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
-    {
-        return !is_string($this->plan($arguments, $viewer));
-    }
-
-    /**
      * Everything the localisation needs, resolved and authorised — or the
      * refusal message that stops it.
      *
@@ -311,17 +301,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $known = ['table', 'uid', 'language', 'overwrite'];
-        foreach (array_keys($arguments) as $key) {
-            if (!in_array($key, $known, true)) {
-                return sprintf(
-                    'Refused: "%s" is not an argument of this tool. It translates one record; allowed: %s.',
-                    // The key is echoed back so the model can correct itself; it
-                    // is a name the model itself chose, not instance data.
-                    preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '',
-                    implode(', ', $known),
-                );
-            }
+        $unknown = $this->refuseUnknownArguments(
+            $arguments,
+            ['table', 'uid', 'language', 'overwrite'],
+            'translates one record',
+        );
+        if ($unknown !== null) {
+            return $unknown;
         }
 
         $table = trim(self::toStr($arguments['table'] ?? ''));
@@ -412,6 +398,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * out of the database: an approver who realises afterwards that this was
      * the wrong call can have it back, and the deletion is in `sys_log` under
      * the acting user's name.
+     *
+     * @param non-empty-string $table
      */
     private function discardExisting(string $table, int $uid, BackendUserAuthentication $user): ?ToolResult
     {
@@ -499,27 +487,13 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * The whole row, because {@see BackendUserAuthentication::doesUserHaveAccess()}
      * reads the permission columns off a page row.
      *
+     * @param non-empty-string $table
+     *
      * @return array<string, mixed>|null
      */
     private function fetchRecord(string $table, int $uid): ?array
     {
-        if ($uid < 1) {
-            return null;
-        }
-
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable($table);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-
-        $row = $queryBuilder
-            ->select('*')
-            ->from($table)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->fetchRowByUid($table, $uid);
     }
 
     /**

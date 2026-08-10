@@ -18,9 +18,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -61,6 +59,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    // The shape the three ADR-146 writers share.
+    use PlansOneEditorialWriteTrait;
 
     /**
      * One string for "no such page", "deleted" and "you may not edit content
@@ -308,18 +308,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * Whether the person LOOKING at the approval card may see this draft.
-     *
-     * The same resolution the write uses, run against the VIEWER.
-     *
-     * @param array<string, mixed> $arguments the model-chosen arguments of the pending call
-     */
-    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
-    {
-        return !is_string($this->plan($arguments, $viewer));
-    }
-
-    /**
      * Everything the creation needs, resolved and authorised — or the refusal
      * message that stops it.
      *
@@ -332,17 +320,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $known = ['page', 'type', 'header', 'bodytext', 'column', 'language', 'after_content_uid'];
-        foreach (array_keys($arguments) as $key) {
-            if (!in_array($key, $known, true)) {
-                return sprintf(
-                    'Refused: "%s" is not an argument of this tool. It creates one content element; allowed: %s.',
-                    // The key is echoed back so the model can correct itself; it
-                    // is a name the model itself chose, not instance data.
-                    preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '',
-                    implode(', ', $known),
-                );
-            }
+        $unknown = $this->refuseUnknownArguments(
+            $arguments,
+            ['page', 'type', 'header', 'bodytext', 'column', 'language', 'after_content_uid'],
+            'creates one content element',
+        );
+        if ($unknown !== null) {
+            return $unknown;
         }
 
         $pageUid = self::toInt($arguments['page'] ?? 0);
@@ -517,6 +501,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Read from the TCA rather than hardcoded because it is the field that
      * makes this a DRAFT tool: an installation that renamed it must not end up
      * with a visible element and a success message that claims otherwise.
+     *
+     * @return non-empty-string
      */
     private function hiddenField(): string
     {
@@ -535,19 +521,17 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function fetchElement(int $uid): ?array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-
-        $row = $queryBuilder
-            ->select('uid', 'pid', 'colPos', 'header', 'CType', 'sys_language_uid', $this->hiddenField())
-            ->from(self::TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->fetchRowByUid(
+            self::TABLE,
+            $uid,
+            'uid',
+            'pid',
+            'colPos',
+            'header',
+            'CType',
+            'sys_language_uid',
+            $this->hiddenField(),
+        );
     }
 
     /**
@@ -557,18 +541,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function fetchPage(int $uid): ?array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-
-        $row = $queryBuilder
-            ->select('*')
-            ->from(self::PAGES_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->fetchRowByUid(self::PAGES_TABLE, $uid);
     }
 }

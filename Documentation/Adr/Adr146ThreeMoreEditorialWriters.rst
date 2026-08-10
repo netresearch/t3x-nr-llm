@@ -145,11 +145,18 @@ The review ADR-135 scheduled
 ============================
 
 **What has become common:** one thing, and it is a query rather than a
-decision. Four of the five writers now read a row by uid with only the deleted
-restriction and all columns — three of them as a private ``fetchPage()``, the
-fifth generalised over the table as ``fetchRecord()``. The restriction choice is
-the same in all four for the same stated reason: a hidden or timed-out record is
-still a record an editor may work on.
+decision. Four of the five writers read a row by uid with only the deleted
+restriction. The restriction choice is the same in all four for the same stated
+reason: a hidden or timed-out record is still a record an editor may work on.
+
+That answer needed splitting once it was measured. The duplication detector put
+the three new tools at 5.1 % new duplicated lines against a 3 % gate, and named
+191 lines across them — not only the lookup but the unknown-argument refusal and
+the viewer gate, all three written three times in one pull request. Three copies
+made in one sitting are copy-paste, not three decisions, so they are extracted
+into :php:`PlansOneEditorialWriteTrait`, used by exactly the three tools that
+share the shape. The two shipped writers keep their own lookups and are not
+touched.
 
 **What has not:** everything else the trait left per tool, and each for the
 reason it was left:
@@ -167,12 +174,18 @@ reason it was left:
   translation's language-plus-parent-plus-hidden triple.
 - **The four declarations.** See above — they diverged.
 
-**The decision: the trait does not grow.** The question ADR-135 posed was what
-has become common, and the honest answer is a row lookup, not a mechanism. The
-trait's members are table-agnostic on purpose; adding the lookup means either
-binding it to ``pages`` or adding a fifth spelling of a generic getter for four
-call sites that already have one. Neither buys what the trait bought the first
-time, which was that a *decision* stopped being made twice.
+**The decision: WritesThroughDataHandlerTrait does not grow.** The question
+ADR-135 posed was what has become common across the writers, and the honest
+answer is a row lookup, not a mechanism. That trait carries what all five share;
+putting a query into it means either binding it to ``pages`` or adding a generic
+getter, and it means editing two shipped, tested writers to route through it.
+Neither buys what the trait bought the first time, which was that a *decision*
+stopped being made twice.
+
+A second trait for the three tools that genuinely do share a shape is a
+different question and costs neither. The two traits are separated by what they
+answer: mechanics every writer performs, versus the consequences of resolving
+and authorising once for both the write and its preview.
 
 .. _adr-146-plan:
 
@@ -182,7 +195,9 @@ One resolution for the write and the preview
 The three new tools share a shape the first two do not: a private ``plan()``
 that resolves and authorises everything once, returning either the plan or the
 refusal message, and is called by both :php:`execute()` and
-:php:`previewCall()`.
+:php:`previewCall()`. :php:`PlansOneEditorialWriteTrait` declares it abstract
+and builds on it: the viewer gate is ``plan()`` asked about the viewer instead
+of the acting user, which is why one trait can carry it for all three.
 
 It exists because these three have more to get right than a field map. The
 approver must read *the destination the write will actually use* — a computed
@@ -217,7 +232,9 @@ behind the approval pause, it names the translation it will discard, and the
 deletion is recoverable and logged — but a human who approves without reading
 loses work.
 
-✕ The row lookup is written four times. Recorded above rather than fixed.
+✕ The row lookup still exists twice — once in each of the two shipped writers,
+which this record deliberately does not touch. Only the three new tools share
+one.
 
 ✕ ``create_content_element_draft`` can create a free-mode element in a
 non-default language, which is legitimate but is not a translation. The tool

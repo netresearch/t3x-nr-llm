@@ -18,9 +18,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -64,6 +62,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
     use WritesThroughDataHandlerTrait;
+    // The shape the three ADR-146 writers share: the plan, the viewer gate, the
+    // unknown-argument refusal and the row lookup.
+    use PlansOneEditorialWriteTrait;
 
     /**
      * One string for "no such element", "deleted", "on a page you may not edit"
@@ -261,20 +262,6 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * Whether the person LOOKING at the approval card may see this move.
-     *
-     * The same resolution the write uses, run against the VIEWER instead of the
-     * acting user — a second authorisation path here would be a second answer
-     * to the same question.
-     *
-     * @param array<string, mixed> $arguments the model-chosen arguments of the pending call
-     */
-    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
-    {
-        return !is_string($this->plan($arguments, $viewer));
-    }
-
-    /**
      * Everything the move needs, resolved and authorised — or the refusal
      * message that stops it.
      *
@@ -288,17 +275,13 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
-        $known = ['uid', 'target_page', 'column', 'after_content_uid'];
-        foreach (array_keys($arguments) as $key) {
-            if (!in_array($key, $known, true)) {
-                return sprintf(
-                    'Refused: "%s" is not an argument of this tool. It moves one content element; allowed: %s.',
-                    // The key is echoed back so the model can correct itself; it
-                    // is a name the model itself chose, not instance data.
-                    preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '',
-                    implode(', ', $known),
-                );
-            }
+        $unknown = $this->refuseUnknownArguments(
+            $arguments,
+            ['uid', 'target_page', 'column', 'after_content_uid'],
+            'moves one content element',
+        );
+        if ($unknown !== null) {
+            return $unknown;
         }
 
         $uid = self::toInt($arguments['uid'] ?? 0);
@@ -398,26 +381,11 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     /**
      * A content element row, or null when no undeleted element carries that uid.
      *
-     * Only the deleted restriction: a hidden element is still an element an
-     * editor may relocate, and this tool does not change what is published.
-     *
      * @return array<string, mixed>|null
      */
     private function fetchElement(int $uid): ?array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-
-        $row = $queryBuilder
-            ->select('uid', 'pid', 'colPos', 'header', 'CType', 'sys_language_uid')
-            ->from(self::TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->fetchRowByUid(self::TABLE, $uid, 'uid', 'pid', 'colPos', 'header', 'CType', 'sys_language_uid');
     }
 
     /**
@@ -430,18 +398,6 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
      */
     private function fetchPage(int $uid): ?array
     {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::PAGES_TABLE);
-        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
-
-        $row = $queryBuilder
-            ->select('*')
-            ->from(self::PAGES_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
+        return $this->fetchRowByUid(self::PAGES_TABLE, $uid);
     }
 }

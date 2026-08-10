@@ -105,9 +105,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The effects diverge for the first time: two of the three declare
     `NON_IDEMPOTENT_WRITE`. ADR-135 kept `getEffect()` per tool against exactly
     this possibility, so the prediction is now an observation — and the review
-    that ADR scheduled for the third writer is recorded too: one thing became
-    common (a deleted-restricted row lookup, written four times), it is a query
-    rather than a decision, and the trait does not grow.
+    that ADR scheduled for the third writer is recorded too. What the three new
+    tools share because they were written together — the row lookup, the
+    unknown-argument refusal and the viewer gate — is extracted into
+    `PlansOneEditorialWriteTrait`. `WritesThroughDataHandlerTrait`, which carries
+    what all five writers share, does not grow, and the two shipped writers are
+    not touched.
 
 ### Changed
 
