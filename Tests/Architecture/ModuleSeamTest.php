@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
 use Netresearch\NrLlm\Service\Evaluation\LexicalSearchRetriever;
-use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
@@ -198,15 +197,20 @@ final class ModuleSeamTest
      *   retrieval API (→ nr_llm_tools, retrieval scope)
      * - `OverviewReadinessService` — feeds the backend Overview module's
      *   readiness card (→ nr_llm_backend)
-     * - `EffectivePolicyReadout` — the read model behind the backend Overview
-     *   module's Governance tab (ADR-140). It asks each module's own resolver
-     *   so the view cannot drift from the runtime; that is precisely why it
-     *   crosses the seam, and in a split it moves with the view
-     *   (→ nr_llm_backend)
+     * `EffectivePolicyReadout` used to be on this list. It is not any more, and
+     * the reason is worth keeping: it crossed the seam only because
+     * `TrustZoneResolver` and `DataClassEnforcementResolver` sat in the tool
+     * namespace, where the tool gate — their first consumer — had put them.
+     * Neither is about tools. A trust zone is a property of a provider, and the
+     * enforcement switch governs an axis, not a tool. ADR-144 needed both from
+     * core to gate the SEND path, which made the misfiling load-bearing rather
+     * than cosmetic: they moved to `Service\Governance` and this exception
+     * disappeared with them.
      *
      * A NEW core class that imports the tool module fails this rule; the
      * named list is the complete, deliberate exception set. Do not grow it
-     * without recording where the class moves in a split.
+     * without recording where the class moves in a split — and check first
+     * whether the dependency is really the tool module's, as that one was not.
      */
     public function testCoreDoesNotDependOnTheToolModule(): Rule
     {
@@ -228,7 +232,6 @@ final class ModuleSeamTest
                     Selector::classname(ToolGroupItems::class),
                     Selector::classname(LexicalSearchRetriever::class),
                     Selector::classname(OverviewReadinessService::class),
-                    Selector::classname(EffectivePolicyReadout::class),
                 ),
             ))
             ->shouldNotDependOn()

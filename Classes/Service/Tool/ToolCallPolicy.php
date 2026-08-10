@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
+use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
+use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**

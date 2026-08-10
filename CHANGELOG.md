@@ -6,6 +6,44 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **An operator can declare that a snippet or a skill must not leave a trust
+  zone** (ADR-144, closes #689). Tool OUTPUT has been data-classified since
+  ADR-094; what a run puts IN was not, so a configuration in the least-trusted
+  zone could receive any snippet and any skill. Both entities gain a
+  `data_class` column on the same `ToolDataClass` scale, and a gate refuses a
+  configuration-driven send whose injected context is classified above the trust
+  zone it can reach — fallbacks included, because a configuration that can fail
+  over to an external provider really can send there.
+  - **Undeclared is not a class.** An empty value means no statement was made,
+    and a source that made no statement places no constraint. An installation
+    that has classified nothing behaves exactly as before, which is what makes
+    the axis safe to ship enforcing: the migration risk was never in the switch,
+    it is in guessing a value for data that already flows.
+  - The gate reads the existing `tools.dataClassEnforcement` switch rather than
+    adding a sibling — it is the same question (does a declared class bind
+    against a provider's trust zone), asked in the other direction. Observe mode
+    records the refusal and lets the call through, as it does for tools.
+  - The refusal names the source and the zone, never the text. The governance
+    audit gains a `context_blocked` decision, kept separate from `tool_denied`
+    so "which direction leaks" stays answerable.
+  - The system prompt and task input are deliberately not classified: neither
+    has a per-record home for a declaration.
+
+### Changed
+
+- `TrustZoneResolver` and `DataClassEnforcementResolver` moved from
+  `Service\Tool` to `Service\Governance`. Neither is about tools — a trust zone
+  is a property of a provider, the enforcement switch governs an axis — and they
+  sat in the tool namespace only because the tool gate was their first consumer.
+  Core needs both to gate the send path, which turned the misfiling from
+  cosmetic into load-bearing. `ModuleSeamTest`'s exception for
+  `EffectivePolicyReadout` existed for the same reason and is gone with them, so
+  the seam rule now passes with a shorter exception list than before. Both
+  classes are `@internal`.
+- `Skill` gains `getDataClass()` / `getDataClassEnum()` on the `@api` surface.
+
 ### Fixed
 
 - **A criteria-mode configuration was sized against the wrong context window**

@@ -76,7 +76,35 @@ final readonly class ConfigurationSnippetResolver
     private function compose(LlmConfiguration $configuration): string
     {
         $blocks = [];
-        $seen   = [];
+
+        foreach ($this->selectedSnippets($configuration) as $snippet) {
+            // One snippet per composer call: the composer keys its sections
+            // by label, so two snippets sharing a name would collide in a
+            // single call and one would be dropped.
+            $block = $this->promptSnippetComposer->composeSections([$snippet->getName() => $snippet]);
+            if ($block !== '') {
+                $blocks[] = $block;
+            }
+        }
+
+        return implode("\n\n", $blocks);
+    }
+
+    /**
+     * The snippet RECORDS this configuration composes, in composition order.
+     *
+     * Split out of {@see self::compose()} so the classification gate (ADR-144)
+     * asks the same question about the same records rather than re-deriving the
+     * selection. A second implementation of "which snippets does this
+     * configuration send" would be a gate that can disagree with the prompt it
+     * is guarding.
+     *
+     * @return list<PromptSnippet>
+     */
+    public function selectedSnippets(LlmConfiguration $configuration): array
+    {
+        $selected = [];
+        $seen     = [];
 
         foreach ($configuration->getSnippetTagList() as $tag) {
             foreach ($this->promptSnippetRepository->findActiveByTag($tag) as $snippet) {
@@ -90,18 +118,11 @@ final readonly class ConfigurationSnippetResolver
                 }
 
                 $seen[$key] = true;
-
-                // One snippet per composer call: the composer keys its sections
-                // by label, so two snippets sharing a name would collide in a
-                // single call and one would be dropped.
-                $block = $this->promptSnippetComposer->composeSections([$snippet->getName() => $snippet]);
-                if ($block !== '') {
-                    $blocks[] = $block;
-                }
+                $selected[] = $snippet;
             }
         }
 
-        return implode("\n\n", $blocks);
+        return $selected;
     }
 
     private function dedupKey(PromptSnippet $snippet): string

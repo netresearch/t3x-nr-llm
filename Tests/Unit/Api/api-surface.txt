@@ -580,6 +580,8 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method getAllowedToolsList(): ?array
   method getBody(): string
   method getBodyChecksum(): string
+  method getDataClass(): string
+  method getDataClassEnum(): ?Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method getDescription(): string
   method getIdentifier(): string
   method getInjectionFindings(): array
@@ -602,6 +604,7 @@ Netresearch\NrLlm\Domain\Model\Skill (class)
   method setAllowedTools(string $allowedTools): void
   method setBody(string $body): void
   method setBodyChecksum(string $bodyChecksum): void
+  method setDataClass(string $dataClass): void
   method setDescription(string $description): void
   method setEnabled(bool $enabled): void
   method setIdentifier(string $identifier): void

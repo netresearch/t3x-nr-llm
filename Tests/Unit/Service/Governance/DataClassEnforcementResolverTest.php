@@ -7,9 +7,9 @@
 
 declare(strict_types=1);
 
-namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
+namespace Netresearch\NrLlm\Tests\Unit\Service\Governance;
 
-use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
+use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;

@@ -12,7 +12,6 @@ namespace Netresearch\NrLlm\Service\Governance;
 use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
-use Netresearch\NrLlm\Service\Tool\DataClassEnforcementResolver;
 use Throwable;
 
 /**

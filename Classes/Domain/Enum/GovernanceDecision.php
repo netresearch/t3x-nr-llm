@@ -47,6 +47,18 @@ enum GovernanceDecision: string
     case CONTENT_FILTER = 'content_filter';
 
     /**
+     * The input-context gate refused (or observe-mode flagged) a call because
+     * the context it injects is classified above the trust zone the call can
+     * reach (ADR-144).
+     *
+     * A separate case from {@see self::TOOL_DENIED} although both apply the
+     * same data-class-versus-trust-zone rule: that one is about what a tool may
+     * READ for a run, this one about what the run may SEND. Collapsing them
+     * would make "which direction leaks" unanswerable from the audit.
+     */
+    case CONTEXT_BLOCKED = 'context_blocked';
+
+    /**
      * @return list<string>
      */
     public static function values(): array
