@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
@@ -213,7 +212,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         // One implementation of the hard constraints, shared with the decision
         // point (ADR-142). The boolean is this method's contract; the reason
         // behind it is available through {@see self::decide()}.
-        return $this->eligibility()->evaluate($model, $criteria) === null;
+        return !$this->eligibility()->evaluate($model, $criteria) instanceof RoutingRejectionReason;
     }
 
     /**

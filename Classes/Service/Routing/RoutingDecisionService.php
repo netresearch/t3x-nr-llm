@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Routing;
 
 use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
+use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
@@ -64,7 +65,7 @@ final readonly class RoutingDecisionService
             }
 
             $reason = $this->eligibility->evaluate($model, $criteria);
-            if ($reason === null) {
+            if (!$reason instanceof RoutingRejectionReason) {
                 $eligible[] = $model;
 
                 continue;

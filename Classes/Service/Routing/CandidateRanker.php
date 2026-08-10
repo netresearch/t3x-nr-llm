@@ -169,7 +169,11 @@ final readonly class CandidateRanker
         $weightSum  = 0.0;
         foreach ($weights as $signal => $weight) {
             $value = $signals[$signal] ?? null;
-            if ($weight <= 0.0 || $value === null) {
+            if ($weight <= 0.0) {
+                continue;
+            }
+
+            if ($value === null) {
                 continue;
             }
 
