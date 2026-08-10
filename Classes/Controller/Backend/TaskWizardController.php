@@ -141,17 +141,7 @@ final class TaskWizardController extends ActionController
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardPreview');
         } catch (Throwable $e) {
-            if ($e instanceof ProviderConfigurationException) {
-                $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            } elseif ($e instanceof ProviderException) {
-                // REC #8b: provider error text often references endpoints / payloads /
-                // model names that aren't safe to render verbatim into the backend UI.
-                $this->logger->error('Task wizard: single-task generation failed (provider)', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            } else {
-                $this->logger->error('Task wizard: single-task generation failed unexpectedly', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            }
+            $this->reportGenerationFailure($e, 'single-task');
 
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
@@ -194,15 +184,7 @@ final class TaskWizardController extends ActionController
             ]);
             return $moduleTemplate->renderResponse('Backend/Task/WizardChainPreview');
         } catch (Throwable $e) {
-            if ($e instanceof ProviderConfigurationException) {
-                $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            } elseif ($e instanceof ProviderException) {
-                $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            } else {
-                $this->logger->error('Task wizard: chain generation failed unexpectedly', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
-            }
+            $this->reportGenerationFailure($e, 'chain');
 
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('wizardForm'));
         }
@@ -345,4 +327,39 @@ final class TaskWizardController extends ActionController
             ->getMessageQueueByIdentifier()
             ->addMessage($flashMessage);
     }
+
+    /**
+     * One failure path for both generation actions.
+     *
+     * They differed only in the words "single-task" and "chain", which is not
+     * enough of a difference to justify two copies of the same three-way
+     * decision — SonarCloud counted the pair as duplicated new code, and it was
+     * right.
+     *
+     * The ordering carries the reasoning: a misconfiguration is our own
+     * diagnostic and names the setting at fault, so it reaches the user; a
+     * provider RESPONSE stays generic under REC #8b because its text references
+     * endpoints, payloads and model names.
+     */
+    private function reportGenerationFailure(Throwable $e, string $what): void
+    {
+        $title = $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error');
+
+        if ($e instanceof ProviderConfigurationException) {
+            $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $title, ContextualFeedbackSeverity::ERROR);
+
+            return;
+        }
+
+        if ($e instanceof ProviderException) {
+            $this->logger->error(sprintf('Task wizard: %s generation failed (provider)', $what), ['exception' => $e]);
+            $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $title, ContextualFeedbackSeverity::ERROR);
+
+            return;
+        }
+
+        $this->logger->error(sprintf('Task wizard: %s generation failed unexpectedly', $what), ['exception' => $e]);
+        $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.generic', 'Generation failed. See system log for details.'), $title, ContextualFeedbackSeverity::ERROR);
+    }
+
 }
