@@ -10,16 +10,23 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
+use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
+use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
+use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -28,6 +35,7 @@ use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -53,6 +61,10 @@ final class LlmModuleController extends ActionController
         private readonly ProviderReachabilityService $reachabilityService,
         private readonly UsageAnalyticsServiceInterface $analytics,
         private readonly EffectivePolicyReadout $effectivePolicyReadout,
+        private readonly GovernanceProfileEvaluator $governanceProfileEvaluator,
+        private readonly LlmConfigurationRepository $configurationRepository,
+        private readonly ToolCallPolicy $toolCallPolicy,
+        private readonly ToolRegistry $toolRegistry,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -275,11 +287,78 @@ final class LlmModuleController extends ActionController
             );
         }
 
+        // The profile is a lens on the readout, not a second source: it is
+        // chosen in the URL, compared against the same rows the table shows,
+        // and applied to nothing (ADR-145). None selected means no comparison.
+        $profile = GovernanceProfile::fromValue($this->profileArgument());
+
+        $policyRows = $this->effectivePolicyReadout->rows();
+        $simulation = $this->simulate();
+
         $moduleTemplate->assignMultiple([
-            'policyRows' => $this->effectivePolicyReadout->rows(),
+            'policyRows'     => $policyRows,
+            'profiles'       => GovernanceProfile::cases(),
+            'profile'        => $profile,
+            'deviations'     => $profile instanceof GovernanceProfile ? $this->governanceProfileEvaluator->deviations($policyRows, $profile) : [],
+            'configurations' => $this->configurationRepository->findActive(),
+            'toolNames'      => $this->toolRegistry->names(),
+            'simulation'     => $simulation,
+            // message() does not follow the get/is/has convention Fluid needs,
+            // so the string is assigned rather than reached through the object.
+            'simulationMessage' => $simulation?->message(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Governance');
+    }
+
+    /**
+     * The profile named in the request, as an unvalidated string.
+     *
+     * Validation is {@see GovernanceProfile::fromValue()}'s job, which returns
+     * null for anything it does not recognise — so a hand-edited URL selects no
+     * profile rather than producing a comparison against something invented.
+     */
+    private function profileArgument(): ?string
+    {
+        $profile = $this->request->getQueryParams()['profile'] ?? null;
+
+        return is_string($profile) ? $profile : null;
+    }
+
+    /**
+     * Answer "would this tool be allowed for this configuration" through the
+     * REAL gate (ADR-145).
+     *
+     * {@see ToolCallPolicy::decide()} is the call the runtime makes, not a
+     * reimplementation of its rules — a simulator with its own copy of the
+     * policy is worse than none, because the two can disagree and only one of
+     * them runs.
+     *
+     * The acting user is the operator running the simulation. That is a real
+     * answer to a real question ("may I do this"), and it is honest about
+     * whose permissions it used; simulating for someone else needs a user
+     * picker, which is a separate surface.
+     *
+     * Returns null when the request names no pair to simulate.
+     */
+    private function simulate(): ?ToolPolicyDecision
+    {
+        $params        = $this->request->getQueryParams();
+        $toolName      = $params['simulateTool'] ?? null;
+        $configuration = $params['simulateConfiguration'] ?? null;
+
+        if (!is_string($toolName) || $toolName === '' || !is_string($configuration) || $configuration === '') {
+            return null;
+        }
+
+        $entity = $this->configurationRepository->findOneByIdentifier($configuration);
+        if (!$entity instanceof LlmConfiguration) {
+            return null;
+        }
+
+        $user = $GLOBALS['BE_USER'] ?? null;
+
+        return $this->toolCallPolicy->decide($toolName, $entity, $user instanceof BackendUserAuthentication ? $user : null);
     }
 
     public function helpAction(): ResponseInterface
