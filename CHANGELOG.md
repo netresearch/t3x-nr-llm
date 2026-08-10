@@ -6,7 +6,45 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A criteria-mode configuration was sized against the wrong context window**
+  (ADR-143). `ContextWindowManager` read the window from
+  `$configuration->getLlmModel()`, but a criteria-mode record carries no model
+  relation — `ConfigurationCallPlanner` deliberately does not write the
+  resolution back, because that would mark the entity dirty and Extbase would
+  persist `model_uid`, silently converting a dynamic configuration into a fixed
+  one. So every dynamically-selected call fell through to the unknown-model
+  fallback and budgeted against a number unrelated to the model on the wire; the
+  response reserve came off the same empty relation. The window and the reserve
+  now come from the model that actually serves the send. This is a behaviour
+  change on the paths that already bound a window: a transcript that previously
+  slipped through against a 128k assumption is pruned against the 4k model
+  answering it.
+
 ### Changed
+
+- **Chat and streaming through `LlmServiceManager` are bounded like a
+  conversation or an agent loop** (ADR-143, closes #688). Only
+  `ConversationService` and `ToolLoopService` bound their sends, so which API a
+  consumer happened to call decided whether a long transcript was pruned or
+  handed to the provider whole. The bind sits inside the middleware-pipeline
+  terminal, the first point that knows the resolved model; for a stream it runs
+  inside the opener, before the adapter is asked for the first chunk, because
+  once a stream is open there is nothing left to prune.
+- A completion **reports** rather than prunes. A raw prompt is a single unit —
+  there are no older turns to drop, and shortening a caller's prompt behind
+  their back would change what they asked for. An overflowing completion is now
+  named, with the model and the budget it exceeded, instead of surfacing later
+  as an opaque provider error.
+- A payload that overflows even at its floor is still sent, matching what
+  `ConversationService` already did: the estimate errs high, so it may well
+  succeed, and if it does not the provider's own error is what the caller would
+  have received anyway.
+- `LlmServiceManager` gained two optional constructor arguments (the context
+  window manager and a logger). Both default to null and every existing
+  construction keeps its exact previous behaviour — a null context window means
+  "bounded by the provider", which is what these paths did.
 
 - `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap
   sections is an open issue. Its top "Next" entry claimed all 41 builtin tools
