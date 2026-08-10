@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="470" viewBox="0 0 760 470" role="img"
+     aria-label="Sequence: the application sends a chat request with tool definitions, the model answers with tool calls, the tool gate admits or denies each call, the application executes the admitted ones and returns their results, and the model produces the final answer.">
+  <style>
+    .lane  { fill: #ffffff; stroke: #2F99A4; stroke-width: 2; rx: 6; }
+    .life  { stroke: #c9ccd2; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .h     { font: 600 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .t     { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .s     { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #595A62; }
+    .m     { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2F99A4; }
+    .arrow { stroke: #595A62; stroke-width: 1.5; fill: none; marker-end: url(#a); }
+    .loop  { fill: none; stroke: #2F99A4; stroke-width: 1.5; stroke-dasharray: 5 4; rx: 6; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#595A62"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="470" fill="#ffffff"/>
+
+  <!-- lanes -->
+  <rect class="lane" x="20" y="18" width="150" height="34"/>
+  <text class="h" x="42" y="40">Your extension</text>
+  <rect class="lane" x="220" y="18" width="150" height="34"/>
+  <text class="h" x="248" y="40">ToolLoopService</text>
+  <rect class="lane" x="420" y="18" width="150" height="34"/>
+  <text class="h" x="463" y="40">Provider</text>
+  <rect class="lane" x="600" y="18" width="140" height="34"/>
+  <text class="h" x="640" y="40">Tool</text>
+
+  <line class="life" x1="95"  y1="52" x2="95"  y2="440"/>
+  <line class="life" x1="295" y1="52" x2="295" y2="440"/>
+  <line class="life" x1="495" y1="52" x2="495" y2="440"/>
+  <line class="life" x1="670" y1="52" x2="670" y2="440"/>
+
+  <!-- 1 -->
+  <path class="arrow" d="M 95 82 L 292 82"/>
+  <text class="t" x="104" y="76">chatWithTools(messages, tools)</text>
+
+  <!-- gate -->
+  <path class="arrow" d="M 295 112 L 295 128"/>
+  <text class="s" x="306" y="112">tool gate: global state → group state → configuration groups → per-run allow-list</text>
+  <text class="s" x="306" y="126">plus data class vs trust zone, requiresAdmin, egress scope — each layer can only narrow</text>
+
+  <!-- loop box -->
+  <rect class="loop" x="255" y="146" width="470" height="212"/>
+  <text class="m" x="266" y="164">bounded loop — maxIterations</text>
+
+  <!-- 2 -->
+  <path class="arrow" d="M 295 190 L 492 190"/>
+  <text class="t" x="306" y="184">chat request with the admitted tool definitions</text>
+
+  <!-- 3 -->
+  <path class="arrow" d="M 495 220 L 298 220"/>
+  <text class="t" x="306" y="214">response with tool_calls</text>
+
+  <!-- approval -->
+  <text class="s" x="306" y="246">a call whose tool declares a write effect suspends the run here</text>
+  <text class="s" x="306" y="260">for human approval before anything executes (ADR-134)</text>
+
+  <!-- 4 -->
+  <path class="arrow" d="M 295 288 L 667 288"/>
+  <text class="t" x="306" y="282">execute(arguments, context) — as the acting backend user</text>
+
+  <!-- 5 -->
+  <path class="arrow" d="M 670 318 L 298 318"/>
+  <text class="t" x="306" y="312">result, size-bounded</text>
+
+  <!-- 6 -->
+  <path class="arrow" d="M 295 344 L 492 344"/>
+  <text class="t" x="306" y="338">ChatMessage::toolResult(id, content) appended, next round</text>
+
+  <!-- final -->
+  <path class="arrow" d="M 495 388 L 298 388"/>
+  <text class="t" x="306" y="382">final response, no further tool calls</text>
+
+  <path class="arrow" d="M 292 418 L 98 418"/>
+  <text class="t" x="104" y="412">answer, with the transcript of every call</text>
+</svg>
