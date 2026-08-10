@@ -8,8 +8,14 @@ Architecture
 
 This section describes the architectural design of the TYPO3 LLM extension.
 
-.. TODO: Add a rendered architecture overview diagram.
-   Save as /Images/diagram-architecture-overview.png
+..  figure:: /Images/diagram-architecture-overview.svg
+    :alt: Consuming extensions call the nr-llm service layer, which resolves a
+        Configuration to a Model to a Provider and reaches the LLM API through
+        the middleware pipeline.
+    :class: with-border
+
+    How a call travels: one injected interface, the three-tier resolution
+    beneath it, and the middleware every provider call passes through.
 
 .. contents::
    :local:
@@ -50,8 +56,8 @@ The extension uses a three-level hierarchical architecture separating concerns:
 The same architecture expressed as PlantUML (for rendering with
 external tools):
 
-.. code-block:: plantuml
-   :caption: Three-tier configuration architecture (PlantUML)
+.. code-block:: text
+   :caption: Three-tier configuration architecture (PlantUML source)
 
    @startuml
    skinparam rectangle {

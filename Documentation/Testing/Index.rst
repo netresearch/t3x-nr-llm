@@ -8,11 +8,15 @@ Testing guide
 
 Comprehensive testing guide for the TYPO3 LLM extension.
 
-.. TODO: Add a CI pipeline diagram showing:
-   Push/MR -> Lint (PHP-CS-Fixer, PHPStan) -> Unit Tests
-   -> Functional Tests -> Integration Tests -> E2E Tests
-   -> Coverage Report. Show TYPO3 v13/v14 matrix.
-   Save as /Images/diagram-ci-pipeline.png
+..  figure:: /Images/diagram-ci-pipeline.svg
+    :alt: A push or pull request fans out into static analysis, the test matrix,
+        security checks and documentation rendering; a subset of the resulting
+        contexts is required by the branch ruleset, and the merge queue re-runs
+        them before the merge lands.
+    :class: with-border
+
+    The jobs run in parallel, not in sequence. Which of them can actually block
+    a merge is a property of the branch ruleset, not of the workflow.
 
 .. _testing-overview:
 

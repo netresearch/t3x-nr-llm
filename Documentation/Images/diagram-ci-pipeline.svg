@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="470" viewBox="0 0 760 470" role="img"
+     aria-label="A push or pull request fans out into static analysis, the test matrix, security checks and documentation rendering; a subset of the resulting contexts is required by the branch ruleset, and the merge queue re-runs them before the merge lands.">
+  <style>
+    .box   { fill: #ffffff; stroke: #c9ccd2; stroke-width: 1.5; rx: 6; }
+    .key   { fill: #ffffff; stroke: #2F99A4; stroke-width: 2; rx: 6; }
+    .band  { fill: #f4f6f7; stroke: #dfe3e6; stroke-width: 1; rx: 6; }
+    .h     { font: 600 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .t     { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #24262b; }
+    .s     { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #595A62; }
+    .m     { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #595A62; }
+    .a     { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2F99A4; }
+    .arrow { stroke: #595A62; stroke-width: 1.5; fill: none; marker-end: url(#a); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#595A62"/>
+    </marker>
+  </defs>
+
+  <rect width="760" height="470" fill="#ffffff"/>
+
+  <rect class="band" x="250" y="16" width="260" height="38"/>
+  <text class="h" x="290" y="34">Push to main · pull request</text>
+  <text class="s" x="290" y="48">merge_group · weekly schedule</text>
+
+  <path class="arrow" d="M 380 54 L 380 74"/>
+  <line x1="120" y1="74" x2="640" y2="74" stroke="#595A62" stroke-width="1.5"/>
+  <path class="arrow" d="M 120 74 L 120 92"/>
+  <path class="arrow" d="M 380 74 L 380 92"/>
+  <path class="arrow" d="M 640 74 L 640 92"/>
+
+  <!-- static analysis -->
+  <rect class="box" x="20" y="94" width="210" height="120"/>
+  <text class="h" x="34" y="114">Static analysis</text>
+  <text class="m" x="34" y="134">ci / Lint</text>
+  <text class="m" x="34" y="152">ci / Code Style</text>
+  <text class="m" x="34" y="170">ci / PHPStan — level 10</text>
+  <text class="m" x="34" y="188">ci / Rector — pinned to PHP 8.2</text>
+  <text class="m" x="34" y="206">ci / Fractor</text>
+
+  <!-- tests -->
+  <rect class="key" x="250" y="94" width="260" height="120"/>
+  <text class="h" x="264" y="114">Test matrix</text>
+  <text class="m" x="264" y="134">ci / Unit Tests</text>
+  <text class="m" x="264" y="152">ci / Functional Tests SQLite</text>
+  <text class="m" x="264" y="170">ci-functional-mariadb / Functional Tests</text>
+  <text class="m" x="264" y="188">e2e / E2E — Playwright</text>
+  <text class="m" x="264" y="206">fuzz / Fuzz Tests</text>
+
+  <!-- security -->
+  <rect class="box" x="530" y="94" width="210" height="120"/>
+  <text class="h" x="544" y="114">Security and supply chain</text>
+  <text class="m" x="544" y="134">security / Composer Audit</text>
+  <text class="m" x="544" y="152">security / SAST (Opengrep)</text>
+  <text class="m" x="544" y="170">codeql · gitleaks · zizmor</text>
+  <text class="m" x="544" y="188">scorecard · dependency-review</text>
+  <text class="m" x="544" y="206">license-check / PHP License Audit</text>
+
+  <!-- matrix band -->
+  <rect class="band" x="20" y="230" width="720" height="52"/>
+  <text class="h" x="34" y="250">Matrix</text>
+  <text class="t" x="100" y="250">PHP 8.2 · 8.3 · 8.4 · 8.5   ×   TYPO3 ^13.4 · ^14.3</text>
+  <text class="s" x="34" y="270">The merge queue narrows the PHP axis to 8.2 and 8.4. Mutation testing runs on the weekly schedule only, report-only.</text>
+
+  <path class="arrow" d="M 380 282 L 380 302"/>
+
+  <!-- required -->
+  <rect class="key" x="20" y="304" width="720" height="62"/>
+  <text class="h" x="34" y="324">Required by the branch ruleset</text>
+  <text class="s" x="34" y="342">23 contexts — PHPStan, unit and functional on 8.4 across both TYPO3 legs, Rector, Code Style, Composer Audit, SAST, CodeQL actions, E2E, Fuzz, License Audit, DCO</text>
+  <text class="s" x="34" y="358">gitleaks, zizmor, dependency-review, scorecard and SonarCloud run and report, but do not block</text>
+
+  <path class="arrow" d="M 380 366 L 380 386"/>
+
+  <rect class="box" x="230" y="388" width="300" height="40"/>
+  <text class="h" x="244" y="406">Merge queue</text>
+  <text class="s" x="244" y="422">re-runs the required contexts against main before landing</text>
+
+  <text class="a" x="20" y="452">Names are the check-run names as they appear on a commit.</text>
+</svg>

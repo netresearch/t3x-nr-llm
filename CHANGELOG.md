@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The four documentation diagrams that stood as `.. TODO:` placeholders are
+  drawn: architecture overview, tool-calling sequence, streaming data flow, CI
+  pipeline. Committed as SVG rather than PNG so they are reviewable in a diff
+  and need no build step. Each was traced against the code it depicts, so the
+  streaming figure shows the sliding redaction window and the tool figure shows
+  the gate running before the model is offered anything.
+- The PlantUML source block on the architecture page is marked `text`. It was
+  labelled `plantuml`, which no highlighter in the docs build knows, and every
+  render emitted a warning for it.
+
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
 rather than at the code: a backend module that told an administrator nothing
@@ -63,7 +75,6 @@ that drew a broken-image placeholder.
 
 - Requires nr-vault `^0.15.0`. The previous cap held the whole dependency tree
   below it, not just this package.
-
 
 - `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap
   sections is an open issue. Its top "Next" entry claimed all 41 builtin tools
