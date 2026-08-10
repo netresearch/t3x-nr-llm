@@ -491,3 +491,4 @@ Tools
    Adr144InjectedContextCarriesADataClass
    Adr145GovernanceProfilesDescribeNeverApply
    Adr146ThreeMoreEditorialWriters
+   Adr147NoSymfonyAiBridgeYet
