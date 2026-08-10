@@ -30,10 +30,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nr-vault. The root file now states what is actually verified, and says
   outright that there is no current full-scope audit.
 - `BASELINE.md` states what CI enforces instead of what it aims at: mutation
-  testing is a weekly report-only target, not a "minimum MSI 70%" gate; the
-  TYPO3 matrix is `^13.4` / `^14.3`, not 13.4 / 14.0; branch protection
-  requires no approving review and no status check, and the two-person rule is
-  listed as not met.
+  testing is a weekly report-only target, not a "minimum MSI 70%" gate, and the
+  TYPO3 matrix is `^13.4` / `^14.3`, not 13.4 / 14.0. Branch rules are read from
+  rulesets — 23 required status contexts, one required approving review, thread
+  resolution — because the legacy branch-protection endpoint reports `null` for
+  all of them. The real gaps are admin bypass on both rulesets and the security
+  checks that run without blocking.
+- `SECURITY_AUDIT.md` marks per check whether it is one of the 23 required
+  contexts. gitleaks, zizmor, dependency-review, scorecard and SonarCloud run
+  but do not block. CodeQL analyses `actions` and `javascript-typescript`, not
+  PHP; Opengrep is the PHP SAST. Tool egress is declared per tool *group*, and
+  the four-layer tool gate is described as a narrowing cascade rather than
+  fail-closed, because three of its four layers default open when unset.
 - Landing-page copy matches the shipped tool set: 43 built-in tools in 9
   groups, 41 of them read-only. It advertised "41 read-only tools in 8
   toggleable groups" and version 0.22.0.

@@ -20,9 +20,9 @@ namespace Netresearch\NrLlm\Domain\Enum;
  *
  * Fail-closed default: a tool that does not declare an effect is treated as
  * {@see self::READ_ONLY} (via {@see \Netresearch\NrLlm\Service\Tool\ToolEffectInterface}).
- * That is correct for every tool shipped today — all are read-only — and a tool
- * that DOES write must opt in explicitly, so a new write can never be silently
- * treated as a repeatable read.
+ * That is correct for the 41 read-only builtins, and a tool that DOES write
+ * must opt in explicitly, so a new write can never be silently treated as a
+ * repeatable read. Two builtins opt in today (ADR-134, ADR-135).
  */
 enum ToolEffect: string
 {

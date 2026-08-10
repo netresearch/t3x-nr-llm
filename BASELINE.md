@@ -11,7 +11,13 @@ Last verified: 2026-08-10
 This file states what is enforced, not what is aimed at. A criterion that is a
 goal rather than a gate says so in its own row, and anything not met is in
 [Known gaps](#known-gaps) below. `Tests/Unit/BaselineConsistencyTest.php` fails
-CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`.
+CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`, and
+when this attestation goes a year unverified.
+
+Branch rules live in **rulesets**, not in classic branch protection. Read them
+with `gh api repos/netresearch/t3x-nr-llm/rules/branches/main` — the legacy
+`…/branches/main/protection` endpoint reports `null` for everything a ruleset
+enforces and reads as "nothing is required".
 
 ## Vulnerability Management
 
@@ -28,8 +34,8 @@ CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`.
 |---|---|
 | Source under public version control | This repository on github.com/netresearch/t3x-nr-llm |
 | Required signed commits | `git commit -S --signoff` enforced via `Build/captainhook.json` and branch protection (`required_signatures: enabled`) |
-| Code review before merge | All changes via pull request; `pr-quality` reusable workflow plus Copilot/Gemini reviews. **Not enforced by branch protection** — `required_approving_review_count` is 0, so a human approval is convention, not a gate |
-| Two-person rule | **Not met.** See the gap list below |
+| Code review before merge | Enforced by ruleset `t3x-pull-request`: 1 required approving review, required review-thread resolution, stale reviews dismissed on push. Plus the `pr-quality` reusable workflow and Copilot/Gemini reviews |
+| Two-person rule | Enforced for non-bypassing actors by the same ruleset. Repository admins hold `bypass_mode: pull_request` — see the gap list |
 
 ## Build Integrity
 
@@ -66,25 +72,29 @@ CI when the CI matrix claimed here drifts from `.github/workflows/ci.yml`.
 |---|---|
 | Pinned third-party actions | All third-party actions pinned to commit SHA (verified by `step-security/harden-runner`) |
 | Reusable workflow centralisation | CI/security/release delegated to `netresearch/typo3-ci-workflows` and `netresearch/.github` reusable workflows |
-| Workflow permissions | `permissions: {}` declared at workflow level; per-job grants only what's needed |
+| Workflow permissions | `permissions: {}` at workflow level in 12 of 13 workflows; `ci.yml` declares `contents: read`. Per-job grants add only what is needed |
 | Container hardening | `step-security/harden-runner` applied via the org reusable workflows |
 
 ## Supply-Chain Defenses
 
 | Criterion | Artefact |
 |---|---|
-| Branch protection | `main` requires signed commits and dismisses stale reviews; it does **not** require an approving review or any status check — see the gap list |
+| Branch protection | Rulesets on `main`: `main-branch-rules` (23 required status contexts, merge queue, no deletion, no force-push), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch`. All `enforcement: active` |
 | Dependency review | `actions/dependency-review-action` runs on every PR (via `netresearch/.github` reusable workflow) |
 | Auto-merge gating | Auto-merge for Dependabot PRs gates on full CI green + Copilot review (no race condition) |
 | Secret scanning | GitHub native secret scanning + Gitleaks in CI |
 
 ## Known gaps
 
-- **Branch protection: required status checks are `null`.** No check is
-  configured as required on the GitHub side; merges are gated by the
-  merge queue and by convention, not by branch protection. Verify with
-  `gh api repos/netresearch/t3x-nr-llm/branches/main/protection`.
-- **Two-person rule not enforced.** `required_approving_review_count` is 0.
+- **Repository admins can bypass both rulesets.** `main-branch-rules` grants
+  `RepositoryRole` 5 (admin) `bypass_mode: always`, and `t3x-pull-request`
+  grants admin plus two GitHub App integrations `bypass_mode: pull_request`. An
+  admin can therefore merge red and unreviewed. The rules hold for everyone
+  else.
+- **Some security checks run but do not block.** `gitleaks / Secret Scanning`,
+  `zizmor / zizmor analysis`, `dependency-review`, `scorecard`, the
+  `All security checks` gate job and `SonarCloud Code Analysis` are not among
+  the 23 required contexts. A red result there is visible, not blocking.
 - **Mutation testing is not a gate.** Weekly, report-only,
   `continue-on-error`; MSI 70 / covered MSI 74 are targets.
 - **No current full-scope security audit.** The last one is from 2026-01-05

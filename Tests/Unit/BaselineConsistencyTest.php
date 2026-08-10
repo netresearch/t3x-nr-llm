@@ -44,10 +44,17 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
      */
     private function ciTypo3Versions(): array
     {
+        // Anchored on the `ci:` job. `ci-functional-mariadb` declares its own,
+        // narrower list, and a plain first-match would silently assert against
+        // whichever job happens to come first in the file.
         self::assertSame(
             1,
-            preg_match("/^\\s*typo3-versions:\\s*'(\\[[^']*\\])'/m", $this->ciWorkflow(), $matches),
-            'ci.yml must declare typo3-versions for the blocking matrix.',
+            preg_match(
+                "/^  ci:\\n.*?^\\s*typo3-versions:\\s*'(\\[[^']*\\])'/ms",
+                $this->ciWorkflow(),
+                $matches,
+            ),
+            'ci.yml must declare typo3-versions inside the `ci:` job.',
         );
 
         $decoded = json_decode($matches[1], true);
@@ -93,17 +100,21 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function mutationTestingStillRunsOnTheWeeklyScheduleOnly(): void
+    {
+        // Asserted rather than skipped over: BASELINE.md states this positively
+        // ("runs on the weekly schedule only"), so the day it stops being true
+        // the attestation is wrong and must fail, not go quiet.
+        self::assertSame(
+            1,
+            preg_match('/run-mutation-tests:\s*\$\{\{[^}]*schedule[^}]*\}\}/', $this->ciWorkflow()),
+            'BASELINE.md says mutation runs on the weekly schedule only. ci.yml no longer gates it that way.',
+        );
+    }
+
+    #[Test]
     public function baselineDoesNotPresentMutationTestingAsAnEnforcedMinimum(): void
     {
-        $mutationIsScheduleOnly = preg_match(
-            '/run-mutation-tests:\s*\$\{\{[^}]*schedule[^}]*\}\}/',
-            $this->ciWorkflow(),
-        ) === 1;
-
-        if (!$mutationIsScheduleOnly) {
-            self::markTestSkipped('Mutation testing now runs outside the weekly schedule — revisit the claim in BASELINE.md.');
-        }
-
         self::assertSame(
             0,
             preg_match('/\b(minimum|required|enforced)\s+(covered\s+)?MSI\b/i', $this->baseline()),
@@ -112,8 +123,19 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
         );
     }
 
+    /**
+     * How long an attestation may stand before it must be re-checked.
+     *
+     * This deliberately makes the build fail on a calendar, which is otherwise
+     * a bad property for a test. It is the right one here: the archived
+     * 2026-01-05 audit set its own review date to 2026-07-05, that date passed
+     * unnoticed, and the document kept saying "Ready for production" for
+     * another five months. A yearly red build is the reminder that was missing.
+     */
+    private const MAX_AGE_DAYS = 365;
+
     #[Test]
-    public function baselineDeclaresWhenItWasLastVerified(): void
+    public function baselineDeclaresWhenItWasLastVerifiedAndIsNotStale(): void
     {
         self::assertSame(
             1,
@@ -124,6 +146,23 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
         self::assertTrue(
             checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1]),
             'BASELINE.md "Last verified" must be a real date.',
+        );
+
+        $verified = (int)mktime(0, 0, 0, (int)$matches[2], (int)$matches[3], (int)$matches[1]);
+        $ageDays  = (int)floor((time() - $verified) / 86400);
+
+        self::assertLessThanOrEqual(
+            self::MAX_AGE_DAYS,
+            $ageDays,
+            'BASELINE.md was last verified ' . $ageDays . ' days ago. Re-check every criterion against the '
+            . 'repository and the rulesets (gh api repos/netresearch/t3x-nr-llm/rules/branches/main), then '
+            . 'bump the date. Do not bump it without re-checking.',
+        );
+
+        self::assertGreaterThanOrEqual(
+            0,
+            $ageDays,
+            'BASELINE.md claims it was verified in the future.',
         );
     }
 }

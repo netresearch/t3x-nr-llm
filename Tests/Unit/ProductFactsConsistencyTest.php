@@ -24,7 +24,7 @@ use ReflectionClass;
  * copied by hand into the README, the administration guide and the public
  * landing page — and they drifted: the landing page still advertised "41
  * read-only tools in 8 toggleable groups" after the first two writing tools
- * and the `editing` group had shipped (ADR-135, ADR-136).
+ * and the `editing` group had shipped (ADR-134, ADR-135).
  *
  * This test does not check prose. It checks that no surface states a group
  * count, a tool count or an extension version that the source contradicts,
@@ -116,14 +116,22 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         return $readOnly;
     }
 
-    private function groupCount(): int
+    /**
+     * @return list<string>
+     */
+    private function toolGroups(): array
     {
         $groups = [];
         foreach ($this->builtinToolClasses() as $class) {
             $groups[$this->toolInstance($class)->getGroup()] = true;
         }
 
-        return count($groups);
+        return array_keys($groups);
+    }
+
+    private function groupCount(): int
+    {
+        return count($this->toolGroups());
     }
 
     private function extensionVersion(): string
@@ -187,8 +195,14 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         $total    = $this->totalToolCount();
         $readOnly = $this->readOnlyToolCount();
 
+        // Adjacency only. `2 of the 43 built-in tools` is a true statement whose
+        // leading number is an arbitrary subset, so bridging over `of the` /
+        // `der` would reject it; the number next to the noun phrase is the
+        // claim. German uses the predicative `nur lesend` — no trailing `e` —
+        // which an earlier version missed, leaving the read-only count
+        // unguarded on every German surface.
         preg_match_all(
-            '/(\d+)\s+(?:der\s+)?(?:eingebaute[nr]?|built-in|Built-in-Tools|read-only|nur\s+lesende)/iu',
+            '/(\d+)\s+(?:eingebaute[nr]?|built-in|builtin|Built-in-Tools|read-only|nur\s+lesend|Function-Calling-Tools)/iu',
             $this->surfaceContents($surface),
             $matches,
         );
@@ -216,7 +230,7 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
                 '/\b(?:all|every\s+one\s+of\s+the|alle|jedes\s+der)\s+\d+\s+(?:built-in|builtin|eingebaute|Built-in-Tools)/iu',
                 $this->surfaceContents($surface),
             ),
-            $surface . ' still claims that every builtin tool is read-only. Two write (ADR-135, ADR-136).',
+            $surface . ' still claims that every builtin tool is read-only. Two write (ADR-134, ADR-135).',
         );
     }
 
@@ -238,13 +252,81 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         }
     }
 
-    #[Test]
-    public function everyBuiltinToolIsAccountedForInOneGroup(): void
+    /**
+     * The tool name each builtin registers, read from its `ToolSpec::function(…)`
+     * literal.
+     *
+     * Not via reflection: `UpdatePageMetadataTool::getSpec()` reads `$this`
+     * (its field allow-list depends on whether EXT:seo is installed), so an
+     * uninitialised instance cannot answer for every tool the way `getGroup()`
+     * and `getEffect()` can.
+     *
+     * @return list<string>
+     */
+    private function builtinToolNames(): array
     {
-        // Sanity check on the two counters above: if reflection silently stopped
-        // resolving classes, the surface assertions would pass vacuously.
-        self::assertGreaterThan(40, $this->totalToolCount());
-        self::assertGreaterThan(0, $this->groupCount());
-        self::assertLessThanOrEqual($this->totalToolCount(), $this->readOnlyToolCount());
+        $names = [];
+        foreach ($this->builtinToolClasses() as $class) {
+            $file     = (string)(new ReflectionClass($class))->getFileName();
+            $contents = (string)file_get_contents($file);
+
+            self::assertSame(
+                1,
+                preg_match("/ToolSpec::function\\(\\s*'([a-z_]+)'/", $contents, $matches),
+                $class . ' must register its name through ToolSpec::function().',
+            );
+
+            $names[] = $matches[1];
+        }
+
+        return $names;
+    }
+
+    #[Test]
+    public function theAdministrationGuideListsEveryToolAndGroup(): void
+    {
+        // Tools.rst spells its counts out in words, so the numeric assertions
+        // above never fire on it. Its group table is the artifact that drifts,
+        // and this is what guards it.
+        $guide = $this->surfaceContents('Documentation/Administration/Tools.rst');
+
+        foreach ($this->builtinToolNames() as $name) {
+            // The table writes raw variants as a shorthand: ``get_env`` (+ raw).
+            $needle = str_ends_with($name, '_raw')
+                ? substr($name, 0, -4)
+                : $name;
+
+            self::assertStringContainsString(
+                '``' . $needle . '``',
+                $guide,
+                'Documentation/Administration/Tools.rst does not list the tool ' . $name . '.',
+            );
+        }
+
+        if (in_array(true, array_map(static fn(string $n): bool => str_ends_with($n, '_raw'), $this->builtinToolNames()), true)) {
+            self::assertStringContainsString('(+ raw)', $guide, 'Raw variants ship but the guide drops the shorthand.');
+        }
+
+        foreach ($this->toolGroups() as $group) {
+            self::assertStringContainsString(
+                '``' . $group . '``',
+                $guide,
+                'Documentation/Administration/Tools.rst does not list the tool group ' . $group . '.',
+            );
+        }
+    }
+
+    #[Test]
+    public function theCountersResolveTheWholeBuiltinDirectory(): void
+    {
+        // If reflection silently stopped resolving classes, every surface
+        // assertion above would pass vacuously. Tie the counters to the file
+        // count instead of a hand-picked floor.
+        $files = glob($this->repoRoot() . '/Classes/Service/Tool/Builtin/*Tool.php');
+        self::assertIsArray($files);
+
+        self::assertCount($this->totalToolCount(), $files);
+        self::assertCount($this->totalToolCount(), $this->builtinToolNames());
+        self::assertSame($this->totalToolCount(), $this->readOnlyToolCount() + 2, 'Exactly two builtins write (ADR-134, ADR-135).');
     }
 }

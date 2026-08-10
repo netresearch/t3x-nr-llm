@@ -99,7 +99,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 
 | File | Purpose |
 |------|---------|
-| `ext_emconf.php` | Extension metadata, version 0.16.1 |
+| `ext_emconf.php` | Extension metadata and the authoritative version |
 | `ext_localconf.php` | Extension bootstrap |
 | `composer.json` | Dependencies (composer.lock NOT committed) |
 | `Build/phpunit.xml` | PHPUnit configuration |
