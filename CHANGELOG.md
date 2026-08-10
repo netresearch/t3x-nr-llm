@@ -49,6 +49,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The system prompt and task input are deliberately not classified: neither
     has a per-record home for a declaration.
 
+- **Three more editorial writing tools** (ADR-146, closes #702). Two shipped;
+  the write fence now arms on every executing segment (ADR-141), so a third,
+  fourth and fifth inherit a fenced path rather than each re-establishing one.
+  All three ship disabled, sit in the `editing` group, pause for a human
+  decision, preview at suspend, write through the `DataHandler` as the acting
+  user and verify their write by reading it back.
+  - `move_content_element` moves one element to a page and a column. It creates
+    nothing and destroys nothing — the record keeps its uid, content, language,
+    history and references — which is why it is the only one of the three that
+    is idempotent. **Both** pages are authorised: moving an element out of a
+    page edits that page's content as much as moving one in. An anchor on the
+    wrong page is refused rather than silently corrected.
+  - `create_content_element_draft` creates one element, **always hidden**, with
+    no argument to switch that off. The content type is an allow-list (`header`,
+    `text`, `textmedia`, `bullets`) intersected with the live TCA, so `list`,
+    `html` and `shortcut` are unreachable. If the acting user lacks the
+    exclude-field grant for `hidden`, the `DataHandler` drops it silently and
+    the element would be live — the read-back catches that and **deletes the
+    element again**, because a half-made element nobody approved is worse than
+    none.
+  - `create_translation_draft` runs core's own `localize` command, so connected
+    translations, inline children and localisation hooks behave as they do in
+    the backend. It adds the part core does not: the result is hidden, since
+    `localize` copies the source's visibility. An existing translation stops the
+    call and is named; `overwrite` is the only way past it, deletes that
+    translation recoverably, and gets its own line on the approval card.
+  - The effects diverge for the first time: two of the three declare
+    `NON_IDEMPOTENT_WRITE`. ADR-135 kept `getEffect()` per tool against exactly
+    this possibility, so the prediction is now an observation — and the review
+    that ADR scheduled for the third writer is recorded too: one thing became
+    common (a deleted-restricted row lookup, written four times), it is a query
+    rather than a decision, and the trait does not grow.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the

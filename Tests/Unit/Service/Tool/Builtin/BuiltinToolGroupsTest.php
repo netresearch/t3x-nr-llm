@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
@@ -39,6 +41,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListMiddlewaresTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListSchedulerTasksTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ProbeUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadRecordsTool;
@@ -113,6 +116,9 @@ final class BuiltinToolGroupsTest extends TestCase
             'find_missing_files' => [FindMissingFilesTool::class, 'files'],
             'update_page_metadata' => [UpdatePageMetadataTool::class, 'editing'],
             'set_file_alternative_text' => [SetFileAlternativeTextTool::class, 'editing'],
+            'move_content_element' => [MoveContentElementTool::class, 'editing'],
+            'create_content_element_draft' => [CreateContentElementDraftTool::class, 'editing'],
+            'create_translation_draft' => [CreateTranslationDraftTool::class, 'editing'],
         ];
     }
 

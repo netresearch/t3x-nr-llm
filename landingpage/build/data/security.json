@@ -13,7 +13,7 @@
       "Admin-only backend module, plus per-capability TYPO3 backend-group permissions",
       "Guardrail pipeline that screens and redacts input, output, reasoning, and streamed chunks",
       "Human-in-the-loop approval gate for actions with side effects",
-      "43 built-in tools in fail-closed groups — 41 read-only, two writing and approval-gated — with fail-closed network egress",
+      "46 built-in tools in fail-closed groups — 41 read-only, five writing and approval-gated — with fail-closed network egress",
       "Per-user budgets (requests, tokens, cost — daily and monthly) with usage analytics",
       "Run entirely on local Ollama or any OpenAI-compatible endpoint — no data egress",
       "Signed releases: SLSA Level 3 provenance, Cosign signatures, SPDX + CycloneDX SBOMs"
@@ -52,7 +52,7 @@
       "heading": "Human-in-the-loop approval",
       "paragraphs": [
         "A tool that writes or has side effects can require a human gate before it runs. The tool opts in with a single marker; the agent loop then pauses the whole turn, persists a serialized transcript to the run in a waiting-for-approval state, and surfaces it for an operator to approve or deny.",
-        "On approval the run resumes exactly where it paused; on denial the model is told and continues. 41 of the 43 tools that ship today are read-only, so this path never fires for them and their behavior is unchanged. The two writing tools declare a write effect, and a declared write effect is what triggers the pause — neither can act without a human decision first. A guardrail's require-approval verdict routes into the same review seam."
+        "On approval the run resumes exactly where it paused; on denial the model is told and continues. 41 of the 46 tools that ship today are read-only, so this path never fires for them and their behavior is unchanged. The five writing tools declare a write effect, and a declared write effect is what triggers the pause — none can act without a human decision first. A guardrail's require-approval verdict routes into the same review seam."
       ],
       "adrs": [84]
     },
@@ -60,7 +60,7 @@
       "id": "tools",
       "heading": "Tool safety",
       "paragraphs": [
-        "41 of the 43 built-in tools are read-only, and each follows one security contract: model-chosen arguments are validated and scoped, output volumes are capped, and any secret-bearing output is redacted or gated behind a separate raw variant that ships disabled. Most tools require admin; the read-only structure, content, and file tools offered to non-admins self-enforce that user's own TYPO3 permissions. The two writing tools are narrow by design — one sets descriptive fields on one page, the other the alternative text of one file — ship disabled, write through the DataHandler as the acting backend user, and pause for human approval first.",
+        "41 of the 46 built-in tools are read-only, and each follows one security contract: model-chosen arguments are validated and scoped, output volumes are capped, and any secret-bearing output is redacted or gated behind a separate raw variant that ships disabled. Most tools require admin; the read-only structure, content, and file tools offered to non-admins self-enforce that user's own TYPO3 permissions. The five writing tools are narrow by design — each performs one named editorial act on one record, and the two that create anything create it hidden — ship disabled, write through the DataHandler as the acting backend user, and pause for human approval first.",
         "Tools are organized into groups with a three-level, fail-closed enable cascade: a disabled group cannot be re-enabled by a per-tool override, and a tool a skill did not grant can never be reached through prompt injection. Network egress is governed per group and is fail-closed — a group with no declaration makes no outbound request, and there is no \"any host\" scope. Host-level tools resolve through a path guard that makes settings.php and key material structurally unreadable even for admins, and the URL probe is contained to the instance's own site. Each run is a bounded agent loop."
       ],
       "adrs": [38, 43, 44, 47]
@@ -121,7 +121,7 @@
       },
       {
         "q": "What stops the AI agent from reading secrets or changing data?",
-        "a": "41 of the 43 built-in tools are read-only; secret-bearing output is redacted or kept behind disabled raw variants; files such as settings.php are structurally unreadable; tool groups and network egress are fail-closed; and the two write-capable tools ship disabled and suspend the run for human approval first."
+        "a": "41 of the 46 built-in tools are read-only; secret-bearing output is redacted or kept behind disabled raw variants; files such as settings.php are structurally unreadable; tool groups and network egress are fail-closed; and the five write-capable tools ship disabled and suspend the run for human approval first."
       },
       {
         "q": "How do I stop one editor from running up the bill?",
