@@ -35,8 +35,14 @@ historically wrong; what it must never do is *look* current when it is not. The
 
 The link is written from both ends. The newer record declares ``:Amends:`` or
 ``:Supersedes:``; the older one declares ``:Amended:`` or ``:Superseded:`` with
-the date. ``Tests/Unit/AdrLifecycleTest.php`` fails when only one end is
-written.
+the date. ``Tests/Unit/AdrLifecycleTest.php`` fails when only one end of an
+**ADR-to-ADR** link is written.
+
+Not every successor is an ADR. :ref:`ADR-012 <adr-012>` was superseded by the
+nr-vault integration, which no record decided, so its field names that in prose
+and has no counterpart. A field whose body references no ADR is outside the
+pairing check by construction — which is also why prose there must stay
+specific enough to follow.
 
 Two rules follow from that:
 

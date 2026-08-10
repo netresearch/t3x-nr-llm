@@ -4,8 +4,10 @@ What is not built yet, ordered by priority. Nothing shipped appears here:
 released work is in [CHANGELOG.md](CHANGELOG.md) and the decisions behind it in
 `Documentation/Adr/`. No dates — items land when they meet the quality gate.
 
-Every item below is an open GitHub issue. If a line here has no issue, it is
-not roadmap, it is a wish.
+Every item in the two sections below is an open GitHub issue. If a line there
+has no issue, it is not roadmap, it is a wish. The last two sections are not
+roadmap: one points at a decision recorded elsewhere, the other lists what this
+project does not do.
 
 ## Known gaps
 
@@ -41,10 +43,12 @@ label.
 ## Decisions that live elsewhere
 
 - **Package split.** [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst)
-  is the single source: one extension until 1.0, split re-evaluated **with or
-  before** the 1.0 release, against the criteria listed there. Do not restate
-  the timing anywhere else — a roadmap and an ADR that disagreed about it is
-  what this line replaces.
+  decides it: one extension until 1.0, split re-evaluated **with or before**
+  the 1.0 release, against the criteria listed there. The README repeats the
+  timing where it explains the anticipated seams, and must keep matching
+  ADR-090. Nothing else states it — a roadmap and an ADR that disagreed, with
+  the roadmap citing the ADR for the opposite of its decision, is what this
+  line replaces.
 
 ## Non-goals
 

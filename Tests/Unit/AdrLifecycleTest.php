@@ -18,8 +18,12 @@ use PHPUnit\Framework\Attributes\Test;
  * This checks form, not meaning: no test can tell that ADR-122's "all 44
  * builtin tools read" stopped being true. What it can tell is that a status
  * naming another record carries the matching :Amended: / :Superseded: field,
- * that the field points at a record that exists, and that nobody invents a
- * fifth status word.
+ * that every cross-reference resolves, and that nobody invents a status word
+ * outside the documented three.
+ *
+ * The pairing check covers ADR-to-ADR links only. A record superseded by
+ * something that is not an ADR — ADR-012, replaced by the nr-vault integration
+ * — names it in prose and has no counterpart to pair with.
  */
 #[CoversNothing]
 final class AdrLifecycleTest extends AbstractUnitTestCase
@@ -63,18 +67,46 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
     }
 
     /**
-     * The `:Status:` value, joined across its RST continuation lines.
+     * Every value of the named RST field(s), each joined across its
+     * continuation lines.
+     *
+     * A field body wraps onto indented lines (ADR-021's status does), so a
+     * single-line match would drop the tail — and with it any cross-reference
+     * living there. The alternation is the field NAME, so `:php:` roles at
+     * column 0 inside a body cannot terminate or start a match.
+     *
+     * @return list<string>
      */
-    private function statusOf(string $file): string
+    private function fieldValues(string $contents, string $names): array
     {
-        $contents = (string)file_get_contents($file);
-        self::assertSame(
-            1,
-            preg_match('/^:Status:[ \t]*(.+?)(?=^:[A-Za-z-]+:)/ms', $contents, $matches),
-            basename($file) . ' must declare a :Status: field.',
+        preg_match_all(
+            '/^:(?:' . $names . '):[ \t]*(.*(?:\n[ \t]+\S.*)*)$/m',
+            $contents,
+            $matches,
         );
 
-        return trim((string)preg_replace('/\s+/', ' ', $matches[1]));
+        return array_map(
+            static fn(string $value): string => trim((string)preg_replace('/\s+/', ' ', $value)),
+            $matches[1],
+        );
+    }
+
+    private function statusOf(string $file): string
+    {
+        $values = $this->fieldValues((string)file_get_contents($file), 'Status');
+        self::assertCount(1, $values, basename($file) . ' must declare exactly one :Status: field.');
+
+        return $values[0];
+    }
+
+    /**
+     * @return list<string> the `adr-NNN` labels a field body cross-references
+     */
+    private function referencedLabels(string $value): array
+    {
+        preg_match_all('/:ref:`[^`]*?<?(adr-\d{3})>?`/', $value, $matches);
+
+        return $matches[1];
     }
 
     #[Test]
@@ -101,7 +133,7 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
 
             // Section labels such as `adr-021-scope` are self-references, not
             // cross-record ones, and carry no lifecycle claim.
-            if (preg_match('/:ref:`[^`]*<?(adr-\d{3})>?`/', $status) !== 1) {
+            if ($this->referencedLabels($status) === []) {
                 continue;
             }
 
@@ -121,19 +153,22 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         $known = $this->knownAdrLabels();
 
         foreach ($this->adrFiles() as $file) {
-            preg_match_all(
-                '/^:(?:Amended|Superseded|Amends|Supersedes):[ \t]*(.+)$/m',
-                (string)file_get_contents($file),
-                $fields,
+            $contents = (string)file_get_contents($file);
+
+            // The status line names records too — `Accepted (… amended by
+            // :ref:`ADR-135 <adr-135>`)` — and a typo there renders as an
+            // unresolved reference just the same.
+            $values = array_merge(
+                $this->fieldValues($contents, 'Amended|Superseded|Amends|Supersedes'),
+                $this->fieldValues($contents, 'Status'),
             );
 
-            foreach ($fields[1] as $value) {
-                preg_match_all('/:ref:`[^`]*?<?(adr-\d{3})>?`/', $value, $refs);
-                foreach ($refs[1] as $label) {
+            foreach ($values as $value) {
+                foreach ($this->referencedLabels($value) as $label) {
                     self::assertContains(
                         $label,
                         $known,
-                        basename($file) . ' points its lifecycle field at ' . $label . ', which no record defines.',
+                        basename($file) . ' references ' . $label . ', which no record defines.',
                     );
                 }
             }
@@ -143,16 +178,13 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
     /**
      * @return array<string, list<string>> file basename => ADR labels it names
      */
-    private function lifecycleLinks(string $pattern): array
+    private function lifecycleLinks(string $names): array
     {
         $links = [];
         foreach ($this->adrFiles() as $file) {
-            preg_match_all($pattern, (string)file_get_contents($file), $fields);
-
             $targets = [];
-            foreach ($fields[1] as $value) {
-                preg_match_all('/:ref:`[^`]*?<?(adr-\d{3})>?`/', $value, $refs);
-                foreach ($refs[1] as $label) {
+            foreach ($this->fieldValues((string)file_get_contents($file), $names) as $value) {
+                foreach ($this->referencedLabels($value) as $label) {
                     $targets[] = $label;
                 }
             }
@@ -181,8 +213,8 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
         // "Amending is the amender's job" — the forward field on the newer
         // record and the backward field on the older one are written together
         // or the pair is incomplete.
-        $forward  = $this->lifecycleLinks('/^:(?:Amends|Supersedes):[ \t]*(.+)$/m');
-        $backward = $this->lifecycleLinks('/^:(?:Amended|Superseded):[ \t]*(.+)$/m');
+        $forward  = $this->lifecycleLinks('Amends|Supersedes');
+        $backward = $this->lifecycleLinks('Amended|Superseded');
 
         foreach ($forward as $file => $targets) {
             foreach ($targets as $target) {
