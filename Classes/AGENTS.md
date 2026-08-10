@@ -4,7 +4,7 @@
 
 <!-- AGENTS-GENERATED:START overview -->
 ## Overview
-PHP 8.2+ source code (264 files) with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
+PHP 8.2+ source code with strict typing, PSR-12, PHPStan level 10. Three-tier domain: Providers -> Models -> Configurations.
 <!-- AGENTS-GENERATED:END overview -->
 
 <!-- AGENTS-GENERATED:START setup -->
@@ -32,22 +32,22 @@ Full test matrix in root `AGENTS.md` Setup section.
 | Directory | Purpose |
 |-----------|---------|
 | `Attribute/` | `#[AsLlmProvider]` auto-registration attribute |
-| `Controller/Backend/` | Backend module controllers (13), request DTOs (4), Response objects (9) |
+| `Controller/Backend/` | Backend module controllers, request DTOs, Response objects |
 | `DependencyInjection/` | ProviderCompilerPass |
-| `Domain/DTO/` | BudgetCheckResult, FallbackChain, ModelSelectionCriteria |
-| `Domain/Enum/` | ModelCapability, ModelSelectionMode, TaskCategory, TaskInputType, TaskOutputFormat |
-| `Domain/Model/` | Entities: Provider, Model, LlmConfiguration, Task, UserBudget |
-| `Domain/Repository/` | LlmConfiguration, Model, Provider, Task, UserBudget |
-| `Domain/ValueObject/` | ChatMessage (currently unused — tracked in audit 2026-04-23) |
-| `Exception/` | AccessDenied, ConfigurationNotFound, InvalidArgument |
-| `Form/` | ModelIdElement (TCA), ModelConstraintsWizard (field wizard) |
+| `Domain/DTO/` | BudgetCheckResult, CapabilitySet, FallbackChain, ModelSelectionCriteria, ProviderOptions |
+| `Domain/Enum/` | Backed enums for capabilities, task shape, agent-run state, tool data class / effect / egress, trust zone, governance |
+| `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, BackendUserGroup) and the response/result types |
+| `Domain/Repository/` | LlmConfiguration, Model, PromptSnippet, Provider, Skill, SkillSource, Task, UserBudget |
+| `Domain/ValueObject/` | Immutable payloads across the runtime — `ChatMessage` is the central one (constructed via `::system()` / `::user()` / `::toolResult()`) |
+| `Exception/` | Core domain exceptions (access, configuration, budget, guardrail, context) — all implement `NrLlmExceptionInterface` |
+| `Form/` | ModelIdElement (TCA element), ModelConstraintsWizard (field wizard), and the GuardrailItems / SnippetTagItems / ToolGroupItems item providers |
 | `Provider/` | 7 adapters: OpenAI, Claude, Gemini, Groq, Mistral, Ollama, OpenRouter |
 | `Provider/Contract/` | ProviderInterface, Streaming/Tool/Vision/DocumentCapableInterface |
-| `Provider/Exception/` | 5 typed provider exceptions |
+| `Provider/Exception/` | Typed provider exceptions (authentication, configuration, connection, rate limit, response, unsupported feature, circuit open, fallback exhausted) |
 | `Service/` | LlmServiceManager, CacheManager, ModelSelectionService, WizardGeneratorService, BudgetService |
 | `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
-| `Service/Feature/` | CompletionService, EmbeddingService, TranslationService, VisionService |
-| `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions |
+| `Service/Feature/` | CompletionService, ConversationService, EmbeddingService, ToolCallingService, TranslationService, VisionService — each with its interface |
+| `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
 | `Utility/` | SafeCastTrait, ErrorMessageSanitizerTrait |
@@ -122,7 +122,7 @@ See `Tests/Architecture/` for enforcement tests.
 
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
-- Architecture decisions: `Documentation/Adr/` (38 ADRs)
-- API reference: `Documentation/Api/` (9 pages)
+- Architecture decisions: `Documentation/Adr/`
+- API reference: `Documentation/Api/`
 - Run `./Build/Scripts/runTests.sh -s phpstan` to check types
 <!-- AGENTS-GENERATED:END help -->
