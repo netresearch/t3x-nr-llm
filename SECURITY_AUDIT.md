@@ -30,9 +30,9 @@ branch-protection endpoint.
 | Code quality | `SonarCloud Code Analysis` (GitHub App, driven by `.sonarcloud.properties`) | no |
 | Secret scanning, CI | `gitleaks / Secret Scanning` | no — reported only |
 | Secret scanning, push | GitHub native secret scanning with push protection `enabled` | yes — it rejects the push, before CI |
-| Dependency vulnerabilities | `security / Composer Audit` (required), `dependency-review` (not required) | partly |
+| Dependency vulnerabilities | `security / Composer Audit` (required), `dependency-review / Dependency Review` (not required) | partly |
 | Workflow hardening | `zizmor / zizmor analysis`, `step-security/harden-runner` | no |
-| Supply-chain posture | `scorecard / Scorecard analysis` | no |
+| Supply-chain posture | `scorecard` | no |
 | Licence compliance | `license-check / PHP License Audit` | yes |
 | Sign-off | `dco / DCO` | yes |
 | Provenance and signing | SLSA Level 3 attestation and Cosign keyless signing on every release, via the org release workflow | release-time |

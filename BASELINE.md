@@ -98,7 +98,8 @@ that endpoint alone and attested that neither reviews nor checks were required.
   holder can merge red and unreviewed; the rules hold for everyone else.
   Classic protection's `enforce_admins` is likewise `false`.
 - **Some security checks run but do not block.** `gitleaks / Secret Scanning`,
-  `zizmor / zizmor analysis`, `dependency-review`, `scorecard`, the
+  `zizmor / zizmor analysis`, `dependency-review / Dependency Review`,
+  `scorecard`, the
   `All security checks` gate job and `SonarCloud Code Analysis` are not among
   the 23 required contexts. A red result there is visible, not blocking.
 - **Mutation testing is not a gate.** Weekly, report-only,
