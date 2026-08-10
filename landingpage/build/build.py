@@ -22,6 +22,9 @@ import json
 import os
 import re
 import shutil
+import sys
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from docutils import nodes
@@ -62,6 +65,117 @@ def url(path: str) -> str:
 
 def load(name: str):
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# Project manifest
+# ---------------------------------------------------------------------------
+# Four values that mean four different things, kept apart on purpose:
+#
+#   main_version    what ext_emconf.php says on the default branch
+#   latest_release  the newest published release tag
+#   docs_version    the version the published documentation describes
+#   last_verified   when a person last checked the page's non-derived copy
+#
+# Only the last one is written by hand. Everything mechanical is read from the
+# repository, so the page cannot state a version the extension does not have.
+MANIFEST_FILE = "project-manifest.json"
+
+CONTACT_BASE = "https://www.netresearch.de/kontakt/"
+
+
+def contact_url(position: str) -> str:
+    """Business CTA target, tagged so the campaign report can tell positions apart."""
+    return CONTACT_BASE + "?" + urllib.parse.urlencode({
+        "utm_source": "github-pages",
+        "utm_medium": "referral",
+        "utm_campaign": "nr-llm",
+        "utm_content": position,
+    })
+
+
+def read_main_version() -> str:
+    """The authoritative version: ext_emconf.php on this branch."""
+    text = (REPO / "ext_emconf.php").read_text(encoding="utf-8")
+    match = re.search(r"'version'\s*=>\s*'([^']+)'", text)
+    if not match:
+        raise SystemExit("build: no version in ext_emconf.php")
+    return match.group(1)
+
+
+def read_requirements() -> dict:
+    """Supported TYPO3 and PHP versions, read from composer.json."""
+    composer = json.loads((REPO / "composer.json").read_text(encoding="utf-8"))
+    require = composer.get("require", {})
+    php = require.get("php", "")
+    typo3 = require.get("typo3/cms-core", "")
+
+    def versions(constraint: str) -> list[str]:
+        # "^13.4 || ^14.3" -> ["13.4", "14.3"]; "^8.2" -> ["8.2"]
+        return [m.group(1) for m in re.finditer(r"(\d+\.\d+)", constraint)]
+
+    return {"php_versions": versions(php), "typo3_versions": versions(typo3)}
+
+
+def read_latest_release() -> tuple[str | None, str | None]:
+    """Newest release tag and its date, from the GitHub API when reachable.
+
+    A build without network access still produces a manifest — it simply says
+    the release is unknown rather than guessing that main is released.
+    """
+    api = "https://api.github.com/repos/netresearch/t3x-nr-llm/releases/latest"
+    request = urllib.request.Request(api, headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.load(response)
+    except Exception as exc:  # noqa: BLE001 — any failure means "unknown", not "fail"
+        print(f"build: latest release unavailable ({exc}); manifest reports none", file=sys.stderr)
+        return None, None
+    published = payload.get("published_at")
+    return payload.get("tag_name"), published[:10] if published else None
+
+
+def build_project() -> dict:
+    """The published manifest: derived facts plus the editorial half."""
+    editorial = load("project")
+    editorial.pop("_comment", None)
+    main_version = read_main_version()
+    latest_release, release_date = read_latest_release()
+
+    return {
+        "manifest_version": 1,
+        "name": "nr-llm",
+        "slug": BASE,
+        "main_version": main_version,
+        "latest_release": latest_release,
+        "release_date": release_date,
+        # The published documentation is rendered from this branch, so it
+        # describes the same version. Stated explicitly rather than implied.
+        "docs_version": main_version,
+        **read_requirements(),
+        **editorial,
+    }
+
+
+def substitute_project(obj, values: dict):
+    """Replace {VERSION}-style placeholders anywhere in the loaded content.
+
+    The version used to be typed into four separate files. Now it appears in the
+    copy as a placeholder and is filled from the manifest, so a release bump
+    cannot leave a stale number behind on the page.
+    """
+    if isinstance(obj, str):
+        for key, value in values.items():
+            obj = obj.replace("{" + key + "}", value)
+        return obj
+    if isinstance(obj, list):
+        return [substitute_project(item, values) for item in obj]
+    if isinstance(obj, dict):
+        return {k: substitute_project(v, values) for k, v in obj.items()}
+    return obj
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +541,28 @@ def main():
     security = {"en": load("security"),
                 "de": load("security_de") if (DATA / "security_de.json").exists() else load("security")}
 
+    project = build_project()
+
+    # Every version and requirement the copy mentions comes from here. The
+    # conjunction is language-specific, so the placeholder set is built per
+    # language rather than once in English.
+    def placeholders_for(lang: str) -> dict:
+        conjunction = " oder " if lang == "de" else " or "
+        return {
+            "VERSION": project["main_version"],
+            "LATEST_RELEASE": project["latest_release"] or project["main_version"],
+            "TYPO3_VERSIONS": conjunction.join(f"v{v} LTS" for v in project["typo3_versions"]),
+            "PHP_VERSION": project["php_versions"][0] if project["php_versions"] else "",
+            "CONTACT_HERO": contact_url("hero"),
+            "CONTACT_BAND": contact_url("cta-band"),
+            "CONTACT_FOOTER": contact_url("footer"),
+        }
+
+    content = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in content.items()}
+    features = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in features.items()}
+    security = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in security.items()}
+    seo = substitute_project(seo, placeholders_for("en"))
+
     adrs = collect_adrs(adr_meta)
     group_order = [g["name"] for g in adr_meta.get("groups", [])]
     grouped = group_adrs(adrs, group_order)
@@ -453,7 +589,8 @@ def main():
         autoescape=select_autoescape(default=True, default_for_string=True),
         trim_blocks=True, lstrip_blocks=True,
     )
-    env.globals.update(BASE=BASE, SITE_URL=SITE_URL, url=url)
+    env.globals.update(BASE=BASE, SITE_URL=SITE_URL, url=url, project=project,
+                       contact_url=contact_url)
 
     # Clean output
     if OUT.exists():
@@ -462,6 +599,12 @@ def main():
 
     # Assets
     shutil.copytree(SRC / "assets", OUT / "assets")
+
+    # The manifest other sites read. Published at the site root so the portfolio
+    # aggregator can fetch it without knowing anything about this build.
+    (OUT / MANIFEST_FILE).write_text(
+        json.dumps(project, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
     # Cache-busting version derived from asset content (CSS + JS).
     hasher = hashlib.sha256()
