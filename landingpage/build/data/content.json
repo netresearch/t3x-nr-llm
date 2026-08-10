@@ -175,7 +175,7 @@
     "items": [
       {
         "q": "Which TYPO3 and PHP versions are supported?",
-        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.27.0)."
+        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.28.0)."
       },
       {
         "q": "Which AI providers can I use?",
