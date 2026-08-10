@@ -5,7 +5,7 @@
 
 RUNTESTS := Build/Scripts/runTests.sh
 
-.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-func test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix docs clean ci ci-full
+.PHONY: help up start down restart install install-all sync seed seed-tasks ollama test test-unit test-integration test-func test-fuzzy test-e2e coverage mutation cgl cgl-fix phpstan rector rector-fix changelog gate docs clean ci ci-full
 
 # Default target
 help:
@@ -132,6 +132,32 @@ rector: ## Run Rector dry-run
 
 rector-fix:
 	$(RUNTESTS) -s rector
+
+changelog: ## Refuse a self-repeating [Unreleased] section
+	@php Build/Scripts/check-changelog-unreleased.php
+
+# The pre-push gate AGENTS.md documents, as one command. `ci` below is a
+# different, older set (it carries integration and omits rector and
+# functional), and running the six by hand is how `rector` and `fuzzy` get
+# forgotten — they are the two the CI matrix then finds.
+#
+# Rector is pinned to PHP 8.2 because its PHPUnit rules resolve against the
+# phpunit version composer installed, and CI pins the same. In a worktree whose
+# .Build was resolved under 8.4 that pin makes composer's platform_check FATAL,
+# so the failure is named rather than reported as a finding.
+gate: changelog cgl phpstan test-unit test-fuzzy
+	@echo "--- rector (pinned to PHP 8.2, as in CI) ---"
+	@$(RUNTESTS) -s rector -n -p 8.2 || { \
+		echo ""; \
+		echo "rector did not run to a verdict. If the output above is a"; \
+		echo "platform_check FATAL, this worktree's .Build was resolved under a"; \
+		echo "newer PHP than the pinned 8.2 — the gate cannot run here and CI is"; \
+		echo "the only place it will. Say so rather than reporting it green."; \
+		exit 1; \
+	}
+	@echo "--- functional (sqlite) ---"
+	@$(RUNTESTS) -s functional -d sqlite
+	@echo "Pre-push gate passed (the six suites AGENTS.md documents)"
 
 ci: cgl phpstan test-unit test-integration test-fuzzy
 	@echo "All CI checks passed"
