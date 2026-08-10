@@ -11,9 +11,11 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -39,6 +41,10 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ModelDiscoveryController extends ActionController
 {
+    // This controller serialises its JSON by hand rather than through
+    // ErrorResponse, so the redaction that class performs at the response
+    // boundary has to happen here explicitly.
+    use ErrorMessageSanitizerTrait;
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
 
@@ -124,6 +130,14 @@ final class ModelDiscoveryController extends ActionController
                 'providerName' => $provider->getName(),
                 'source' => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
             ]);
+        } catch (ProviderConfigurationException $e) {
+            // A misconfiguration is our own diagnostic, not a provider response
+            // body: the message names the setting at fault and is what the
+            // administrator on this screen has to act on. ErrorResponse redacts
+            // credential-bearing URL parameters at the boundary.
+            $this->logger->warning('Model fetchAvailableModels: provider is misconfigured', ['exception' => $e]);
+            $error = $this->sanitizeErrorMessage($e->getMessage());
+            $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
             $error = 'LLM provider error while fetching model IDs. See system log for details.';
@@ -242,6 +256,14 @@ final class ModelDiscoveryController extends ActionController
                 'costInput' => $foundModel->costInput,
                 'costOutput' => $foundModel->costOutput,
             ]);
+        } catch (ProviderConfigurationException $e) {
+            // A misconfiguration is our own diagnostic, not a provider response
+            // body: the message names the setting at fault and is what the
+            // administrator on this screen has to act on. ErrorResponse redacts
+            // credential-bearing URL parameters at the boundary.
+            $this->logger->warning('Model detectLimits: provider is misconfigured', ['exception' => $e]);
+            $error = $this->sanitizeErrorMessage($e->getMessage());
+            $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model detectLimits: provider error', ['exception' => $e]);
             $error = 'LLM provider error while detecting model limits. See system log for details.';

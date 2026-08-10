@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -229,6 +230,19 @@ final class ProviderController extends ActionController
             ]);
             $response = new JsonResponse(
                 (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.testUpstreamError', 'Upstream LLM provider returned an error during connection test.')))->jsonSerialize(),
+                502,
+            );
+        } catch (ProviderConfigurationException $e) {
+            // A misconfiguration is our own diagnostic, not a provider response
+            // body: the message names the setting at fault and is what the
+            // administrator on this screen has to act on. ErrorResponse redacts
+            // credential-bearing URL parameters at the boundary.
+            $this->logger->error('Provider testConnection: provider is misconfigured', [
+                'exception'    => $e,
+                'provider_uid' => $uid,
+            ]);
+            $response = new JsonResponse(
+                (new ErrorResponse($e->getMessage()))->jsonSerialize(),
                 502,
             );
         } catch (ProviderException $e) {

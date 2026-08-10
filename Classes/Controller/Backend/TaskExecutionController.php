@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
@@ -250,8 +251,22 @@ final class TaskExecutionController extends ActionController
                 'task_uid'    => $task->getUid(),
             ]);
             $payload = (new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize();
+        } catch (ProviderConfigurationException $e) {
+            // A misconfiguration is not a provider response. Every message of this
+            // type is authored in this extension and names the setting at fault
+            // ("API key identifier is required for provider OpenAI", "endpoint host
+            // is not allowed by the SSRF host filter") — which is precisely what the
+            // administrator looking at this screen needs, and what a bare "See system
+            // log for details" withholds from them. REC #8b is about provider
+            // response bodies; this is our own diagnostic. ErrorResponse still
+            // redacts credential-bearing URL parameters at the boundary.
+            $this->logger->error('Task execution failed: provider is misconfigured', [
+                'exception' => $e,
+                'task_uid'  => $task->getUid(),
+            ]);
+            $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
         } catch (ProviderException $e) {
-            // Other provider failures (connection / configuration / fallback exhausted /
+            // Other provider failures (connection / fallback exhausted /
             // unsupported feature). Log and surface a generic message — the underlying
             // exception text often references provider internals.
             $this->logger->error('Task execution failed: provider error', [
