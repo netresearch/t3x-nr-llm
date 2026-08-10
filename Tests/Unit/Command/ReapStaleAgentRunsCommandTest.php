@@ -110,6 +110,43 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
     }
 
     #[Test]
+    public function deadLettersAnAbandonedSegmentThatStoredNoRequestToReExecute(): void
+    {
+        // ADR-141: a synchronous run and a resume hold a lease now, so an
+        // abandoned one becomes stale and lands here. Neither stored a request
+        // payload, and runQueued() refuses a QUEUED row it cannot rehydrate — a
+        // reclaim would strand it QUEUED forever. Dead-letter instead.
+        $this->repository->staleRunning = [$this->staleRun('run-interactive', requeueCount: 0, queuedRequest: null)];
+
+        $tester = new CommandTester($this->command());
+        $exit   = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exit);
+        self::assertSame([], $this->repository->staleRequeues, 'nothing to re-execute, so nothing is reclaimed');
+        self::assertSame([], $this->dispatched, 'no wake-up for a run no worker could pick up');
+        self::assertCount(1, $this->repository->staleDeadLetters);
+        self::assertSame(AgentRunTerminationReason::NOT_RETRYABLE->value, $this->repository->staleDeadLetters[0]['reason']);
+    }
+
+    #[Test]
+    public function deadLettersAnAbandonedSegmentReapedMidWriteWithoutConsultingItsBudget(): void
+    {
+        // Order matters: the fence check runs FIRST, so an abandoned segment
+        // caught mid non-idempotent write is refused for the stronger reason —
+        // the side effect may already have landed — not merely because it has
+        // nothing to re-execute.
+        $this->repository->staleRunning = [
+            $this->staleRun('run-w2', requeueCount: 0, pendingEffect: ToolEffect::NON_IDEMPOTENT_WRITE->value, queuedRequest: null),
+        ];
+
+        $tester = new CommandTester($this->command());
+
+        self::assertSame(Command::SUCCESS, $tester->execute([]));
+        self::assertSame([], $this->repository->staleRequeues);
+        self::assertSame(AgentRunTerminationReason::NOT_RETRYABLE->value, $this->repository->staleDeadLetters[0]['reason']);
+    }
+
+    #[Test]
     public function skipsARunRenewedBetweenSelectAndUpdate(): void
     {
         // The repository's staleness re-check fails (a heartbeat renewed the
@@ -196,7 +233,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
         return $bus;
     }
 
-    private function staleRun(string $uuid, int $requeueCount, string $pendingEffect = ''): AgentRun
+    private function staleRun(string $uuid, int $requeueCount, string $pendingEffect = '', ?string $queuedRequest = '{"messages":[]}'): AgentRun
     {
         return new AgentRun(
             uid: 1,
@@ -216,7 +253,7 @@ final class ReapStaleAgentRunsCommandTest extends TestCase
             startedAt: 0,
             finishedAt: 0,
             crdate: 0,
-            queuedRequest: '{"messages":[]}',
+            queuedRequest: $queuedRequest,
             claimedBy: 'dead-worker:1',
             leaseExpires: 1,
             requeueCount: $requeueCount,

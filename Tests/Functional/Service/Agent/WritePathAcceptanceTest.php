@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -57,6 +58,7 @@ use Netresearch\NrLlm\Service\Tool\TrustZoneResolver;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
+use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\FenceRecordingRunRepository;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -95,47 +97,39 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * - The AMBIENT `$GLOBALS['BE_USER']` is uid 2 as well, and never writes
  *   anything: the acting identity comes from the run, not from the request.
  *
- * WHAT THIS TEST DOES NOT COVER: the ADR-112 write fence.
- * ======================================================
+ * THE WRITE FENCE, AND WHY THIS TEST NOW COVERS IT
+ * ================================================
  *
- * The fence is armed only for a lease-owning execution, and the approval resume
- * this test drives — like every other shipped entry point — has no lease. The
- * chain, verified against the code rather than quoted from the ADR:
+ * Until ADR-141 this section said the opposite: the ADR-112 fence armed only
+ * under a worker lease, `executeResume()` took no lease owner at all, and the
+ * only producer of one — `QueuedRunCoordinator::runQueued()` — was reachable
+ * solely through `enqueue()`, which had no in-repo caller outside `Tests/`.
+ * Every shipped write therefore ran unfenced.
  *
- * 1. {@see \Netresearch\NrLlm\Service\Agent\AgentRunExecutor::trace()} installs
- *    the fencing `onBeforeTool` hook under
- *    `$leaseOwner === null || !$handle instanceof AgentRunHandle ? null : …`
- *    (AgentRunExecutor.php:217). No lease owner, no hook, no `pending_effect`.
- * 2. `$leaseOwner` exists only as a parameter of
- *    {@see \Netresearch\NrLlm\Service\Agent\AgentRunExecutor::executeRequest()}.
- *    {@see \Netresearch\NrLlm\Service\Agent\AgentRunExecutor::executeResume()} —
- *    the method behind `approve()` and `submitInput()` — calls `trace()` with no
- *    lease owner at all, so NO resume can ever be fenced.
- * 3. The only producer of a lease owner is
- *    {@see \Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator::runQueued()}
- *    (QueuedRunCoordinator.php:172, from its own `workerIdentity()`).
- * 4. `runQueued()` acts only on a row that is QUEUED and carries a
- *    `queued_request`. That row is created solely by
- *    {@see AgentRunPersister::enqueue()}, whose only caller is
- *    {@see \Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator::enqueue()},
- *    reachable solely through
- *    {@see \Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface::enqueue()}.
- * 5. `enqueue()` has NO in-repo caller outside `Tests/`. `runQueued()` does have
- *    production callers — the messenger handler
- *    {@see \Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedHandler} and the
- *    reaper's re-dispatch — but neither can conjure a queued row: the reaper
- *    only reclaims RUNNING rows with `lease_expires > 0`, which an interactive
- *    run never has.
+ * What changed is which segment holds a lease, not what a lease does:
  *
- * This is NOT the transport's doing. `enqueue()` on the default `SyncTransport`
- * would arm the fence perfectly well; the gate is `run()` versus `enqueue()`,
- * and every shipped surface calls `run()`. A shipped write tool therefore runs
- * unfenced, and no document may claim "writes are fenced" (ADR-135's
- * non-guarantee section).
+ * 1. A resume CLAIMS the run under its own identity
+ *    ({@see \Netresearch\NrLlm\Service\Tool\AgentRunRepository::claimForResume()}
+ *    writes `claimed_by`/`lease_expires` instead of clearing them), and
+ *    {@see \Netresearch\NrLlm\Service\Agent\ResumeCoordinator} threads that
+ *    identity into `executeResume()`.
+ * 2. A synchronous run claims at birth, so the first pass is fenced too — which
+ *    matters for a remote tool that declares a write without its operator
+ *    setting the approval flag, since ADR-134's effect-implies-approval rule
+ *    exempts remote tools and such a call executes on the FIRST pass.
+ * 3. The fencing hook is installed unconditionally now, and REFUSES a
+ *    side-effecting tool it cannot fence
+ *    ({@see \Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException}).
+ *    A future entry point that forgets to claim its run cannot execute a write
+ *    at all — it fails closed instead of silently skipping the fence.
  *
- * Do not confuse that with the fail-closed AUDIT, which holds on every path
- * because it sits OUTSIDE the lease branch — the two tests at the bottom of this
- * class pin exactly that on the unfenced resume path.
+ * The test below asserts (1) directly: the write is stamped BEFORE it runs and
+ * cleared after, observed in order rather than read back from a column that is
+ * empty again by the time the run returns.
+ *
+ * The fail-closed AUDIT is a separate guarantee and always held on every path,
+ * because it sits outside the lease branch — the two tests at the bottom of this
+ * class pin that.
  */
 #[CoversClass(AgentRuntime::class)]
 #[CoversClass(ResumeCoordinator::class)]
@@ -284,6 +278,45 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         self::assertSame('update_page_metadata', $tool->payload['toolName'] ?? null);
         self::assertNotTrue($tool->payload['toolIsError'] ?? null, 'the write itself must not be an error step');
         self::assertGreaterThan($approval->sequence, $tool->sequence, 'the decision precedes the execution it authorised');
+    }
+
+    /**
+     * The fence, on the segment that actually executes the write (ADR-141).
+     *
+     * A write suspends before it runs (ADR-134), so the tool executes on the
+     * RESUME. That segment now claims the run under its own lease, which is what
+     * lets `markPendingEffect`'s ownership guard match — and the stamp is what a
+     * reaper reads to refuse retrying a side effect that may already have
+     * landed.
+     */
+    #[Test]
+    public function theWriteIsFencedOnTheResumeThatExecutesIt(): void
+    {
+        $recording = new FenceRecordingRunRepository($this->realRepository());
+        $runtime   = $this->runtime($this->scriptedWriteCall(), $recording);
+
+        $uuid      = $runtime->run($this->request())->runUuid;
+        $suspended = $this->storedRun($uuid);
+        $card      = $this->cardFor($suspended, $this->viewer(self::OWNER));
+
+        $approved = $runtime->approve($this->approver(), $uuid, new ApprovalDecision(true, self::APPROVER, $card->turnDigest));
+        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string)$approved->error?->getMessage());
+
+        // The write happened — the fence must not have prevented it.
+        self::assertSame(self::NEW_DESCRIPTION, $this->pageRow()['description'] ?? null);
+
+        // Stamped with the declared effect before the tool ran, cleared after.
+        self::assertSame(
+            [ToolEffect::IDEMPOTENT_WRITE->value, ''],
+            array_column($recording->fenceWrites, 'effect'),
+        );
+
+        // Both writes were made under the lease the resume claimed — an
+        // ownership-guarded UPDATE under any other identity would affect no row.
+        self::assertCount(1, $recording->resumeClaims);
+        $leaseOwner = $recording->resumeClaims[0]['claimedBy'];
+        self::assertStringStartsWith('resume:', $leaseOwner);
+        self::assertSame([$leaseOwner, $leaseOwner], array_column($recording->fenceWrites, 'claimedBy'));
     }
 
     /**
