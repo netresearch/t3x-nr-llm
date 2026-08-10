@@ -71,6 +71,7 @@ final class TaskExecutionController extends ActionController
     use BackendUserUidTrait;
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_task';
 
@@ -252,19 +253,12 @@ final class TaskExecutionController extends ActionController
             ]);
             $payload = (new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize();
         } catch (ProviderConfigurationException $e) {
-            // A misconfiguration is not a provider response. Every message of this
-            // type is authored in this extension and names the setting at fault
-            // ("API key identifier is required for provider OpenAI", "endpoint host
-            // is not allowed by the SSRF host filter") — which is precisely what the
-            // administrator looking at this screen needs, and what a bare "See system
-            // log for details" withholds from them. REC #8b is about provider
-            // response bodies; this is our own diagnostic. ErrorResponse still
-            // redacts credential-bearing URL parameters at the boundary.
-            $this->logger->error('Task execution failed: provider is misconfigured', [
-                'exception' => $e,
-                'task_uid'  => $task->getUid(),
-            ]);
-            $payload = (new ErrorResponse($e->getMessage()))->jsonSerialize();
+            $payload = (new ErrorResponse($this->describeMisconfiguration(
+                $e,
+                $this->logger,
+                'Task execution',
+                ['task_uid' => $task->getUid()],
+            )))->jsonSerialize();
         } catch (ProviderException $e) {
             // Other provider failures (connection / fallback exhausted /
             // unsupported feature). Log and surface a generic message — the underlying

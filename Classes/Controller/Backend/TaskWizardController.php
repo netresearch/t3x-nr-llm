@@ -18,7 +18,6 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\WizardGeneratorService;
-use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -56,11 +55,9 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class TaskWizardController extends ActionController
 {
-    // Flash messages bypass ErrorResponse, which is where the redaction of
-    // credential-bearing URL parameters normally happens.
-    use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -145,13 +142,7 @@ final class TaskWizardController extends ActionController
             return $moduleTemplate->renderResponse('Backend/Task/WizardPreview');
         } catch (Throwable $e) {
             if ($e instanceof ProviderConfigurationException) {
-                // A misconfiguration is our own diagnostic, not provider output: it
-                // names the setting at fault, which is what the administrator in this
-                // wizard has to change. REC #8b below covers provider RESPONSE text;
-                // this message never contains any. Sanitized because a flash message
-                // does not pass ErrorResponse's boundary redaction.
-                $this->logger->error('Task wizard: provider is misconfigured', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->sanitizeErrorMessage($e->getMessage()), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             } elseif ($e instanceof ProviderException) {
                 // REC #8b: provider error text often references endpoints / payloads /
                 // model names that aren't safe to render verbatim into the backend UI.
@@ -204,13 +195,7 @@ final class TaskWizardController extends ActionController
             return $moduleTemplate->renderResponse('Backend/Task/WizardChainPreview');
         } catch (Throwable $e) {
             if ($e instanceof ProviderConfigurationException) {
-                // A misconfiguration is our own diagnostic, not provider output: it
-                // names the setting at fault, which is what the administrator in this
-                // wizard has to change. REC #8b below covers provider RESPONSE text;
-                // this message never contains any. Sanitized because a flash message
-                // does not pass ErrorResponse's boundary redaction.
-                $this->logger->error('Task wizard: provider is misconfigured', ['exception' => $e]);
-                $this->enqueueFlashMessage($this->sanitizeErrorMessage($e->getMessage()), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
+                $this->enqueueFlashMessage($this->describeMisconfiguration($e, $this->logger, 'Task wizard'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);
             } elseif ($e instanceof ProviderException) {
                 $this->logger->error('Task wizard: chain generation failed (provider)', ['exception' => $e]);
                 $this->enqueueFlashMessage($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.generationFailed.provider', 'Generation failed (LLM provider error). See system log for details.'), $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:flash.task.error.title', 'Error'), ContextualFeedbackSeverity::ERROR);

@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
-use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -41,12 +40,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ModelDiscoveryController extends ActionController
 {
-    // This controller serialises its JSON by hand rather than through
-    // ErrorResponse, so the redaction that class performs at the response
-    // boundary has to happen here explicitly.
-    use ErrorMessageSanitizerTrait;
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const ERROR_NO_PROVIDER_UID = 'No provider UID specified';
 
@@ -131,12 +127,7 @@ final class ModelDiscoveryController extends ActionController
                 'source' => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
             ]);
         } catch (ProviderConfigurationException $e) {
-            // A misconfiguration is our own diagnostic, not a provider response
-            // body: the message names the setting at fault and is what the
-            // administrator on this screen has to act on. ErrorResponse redacts
-            // credential-bearing URL parameters at the boundary.
-            $this->logger->warning('Model fetchAvailableModels: provider is misconfigured', ['exception' => $e]);
-            $error = $this->sanitizeErrorMessage($e->getMessage());
+            $error = $this->describeMisconfiguration($e, $this->logger, 'Model detectLimits');
             $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);

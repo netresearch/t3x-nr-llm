@@ -51,6 +51,7 @@ final class ProviderController extends ActionController
 {
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_provider';
 
@@ -233,16 +234,13 @@ final class ProviderController extends ActionController
                 502,
             );
         } catch (ProviderConfigurationException $e) {
-            // A misconfiguration is our own diagnostic, not a provider response
-            // body: the message names the setting at fault and is what the
-            // administrator on this screen has to act on. ErrorResponse redacts
-            // credential-bearing URL parameters at the boundary.
-            $this->logger->error('Provider testConnection: provider is misconfigured', [
-                'exception'    => $e,
-                'provider_uid' => $uid,
-            ]);
             $response = new JsonResponse(
-                (new ErrorResponse($e->getMessage()))->jsonSerialize(),
+                (new ErrorResponse($this->describeMisconfiguration(
+                    $e,
+                    $this->logger,
+                    'Provider testConnection',
+                    ['provider_uid' => $uid],
+                )))->jsonSerialize(),
                 502,
             );
         } catch (ProviderException $e) {
