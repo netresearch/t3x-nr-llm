@@ -85,7 +85,7 @@ that endpoint alone and attested that neither reviews nor checks were required.
 
 | Criterion | Artefact |
 |---|---|
-| Branch protection | Rulesets on `main`, all `enforcement: active`: `main-branch-rules` (23 required status contexts, merge queue), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch` (which also carries the no-deletion and no-force-push rules). Classic protection adds signed commits, conversation resolution, and denies force-push and deletion |
+| Branch protection | Rulesets on `main`, all `enforcement: active`: `main-branch-rules` (16 required status contexts, merge queue), `t3x-pull-request` (1 approval, thread resolution, stale-review dismissal), `require-signed-commits`, `Copilot review for default branch` (which also carries the no-deletion and no-force-push rules). Classic protection adds signed commits, conversation resolution, and denies force-push and deletion |
 | Dependency review | `actions/dependency-review-action` runs on every PR (via `netresearch/.github` reusable workflow) |
 | Auto-merge gating | Auto-merge for Dependabot PRs gates on full CI green + Copilot review (no race condition) |
 | Secret scanning | GitHub native secret scanning + Gitleaks in CI |
@@ -97,11 +97,10 @@ that endpoint alone and attested that neither reviews nor checks were required.
   same role plus two GitHub App integrations `bypass_mode: pull_request`. That
   holder can merge red and unreviewed; the rules hold for everyone else.
   Classic protection's `enforce_admins` is likewise `false`.
-- **Some security checks run but do not block.** `gitleaks / Secret Scanning`,
-  `zizmor / zizmor analysis`, `dependency-review / Dependency Review`,
-  `scorecard`, the
-  `All security checks` gate job and `SonarCloud Code Analysis` are not among
-  the 23 required contexts. A red result there is visible, not blocking.
+- **SonarCloud reports without blocking.** `SonarCloud Code Analysis` is not
+  among the 16 required contexts, so a failed quality gate is visible but does
+  not stop a merge. Everything else that runs is required, either directly or
+  through the `All security checks` gate.
 - **Mutation testing is not a gate.** Weekly, report-only,
   `continue-on-error`; MSI 70 / covered MSI 74 are targets.
 - **No current full-scope security audit.** The last one is from 2026-01-05

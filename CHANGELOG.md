@@ -33,6 +33,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The `main-branch-rules` ruleset requires `All security checks` instead of the
+  nine individual contexts that gate job already covers. gitleaks, zizmor,
+  dependency-review, scorecard and pr-quality run on every pull request and
+  could not block one; they can now. This is what `checks.yml`'s own header
+  comment always described, and what this repository was not doing.
+- `fuzz-mutation / Fuzz Tests` replaces `fuzz / Fuzz Tests` as a required
+  context. The required one came from `checks.yml`, which passes no inputs to
+  the fuzz reusable and is therefore always `skipped` — a requirement that
+  enforced nothing. The fuzzy suite that actually runs is `ci.yml`'s, verified
+  green on three merge-queue runs before it was required.
+- `BASELINE.md`, `SECURITY_AUDIT.md` and the CI diagram state the new
+  enforcement: 16 required contexts, and SonarCloud as the one check that
+  reports without blocking.
+- The four documentation diagrams that stood as `.. TODO:` placeholders are
+  drawn: architecture overview, tool-calling sequence, streaming data flow, CI
+  pipeline. Committed as SVG rather than PNG so they are reviewable in a diff
+  and need no build step. Each was traced against the code it depicts, so the
+  streaming figure shows the sliding redaction window and the tool figure shows
+  the gate running before the model is offered anything.
+- The PlantUML source block on the architecture page is marked `text`. It was
+  labelled `plantuml`, which no highlighter in the docs build knows, and every
+  render emitted a warning for it.
+
+
 - `TrustZoneResolver` and `DataClassEnforcementResolver` moved from
   `Service\Tool` to `Service\Governance`. Neither is about tools — a trust zone
   is a property of a provider, the enforcement switch governs an axis — and they
@@ -86,6 +110,45 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   construction keeps its exact previous behaviour — a null context window means
   "bounded by the provider", which is what these paths did.
 
+- **A criteria-mode configuration was sized against the wrong context window**
+  (ADR-143). `ContextWindowManager` read the window from
+  `$configuration->getLlmModel()`, but a criteria-mode record carries no model
+  relation — `ConfigurationCallPlanner` deliberately does not write the
+  resolution back, because that would mark the entity dirty and Extbase would
+  persist `model_uid`, silently converting a dynamic configuration into a fixed
+  one. So every dynamically-selected call fell through to the unknown-model
+  fallback and budgeted against a number unrelated to the model on the wire; the
+  response reserve came off the same empty relation. The window and the reserve
+  now come from the model that actually serves the send. This is a behaviour
+  change on the paths that already bound a window: a transcript that previously
+  slipped through against a 128k assumption is pruned against the 4k model
+  answering it.
+
+- **Chat, tool calling and streaming through `LlmServiceManager` are bounded
+  like a conversation or an agent loop** (ADR-143, closes #688). A tool-calling
+  send counts its tool schemas against the same budget, because they are on the
+  wire with the transcript. Embeddings are deliberately not bounded: they carry
+  neither skills nor snippets nor a transcript, and their limit is the
+  provider's own input limit rather than a window to prune turns out of. Only
+  `ConversationService` and `ToolLoopService` bound their sends, so which API a
+  consumer happened to call decided whether a long transcript was pruned or
+  handed to the provider whole. The bind sits inside the middleware-pipeline
+  terminal, the first point that knows the resolved model; for a stream it runs
+  inside the opener, before the adapter is asked for the first chunk, because
+  once a stream is open there is nothing left to prune.
+- A completion **reports** rather than prunes. A raw prompt is a single unit —
+  there are no older turns to drop, and shortening a caller's prompt behind
+  their back would change what they asked for. An overflowing completion is now
+  named, with the model and the budget it exceeded, instead of surfacing later
+  as an opaque provider error.
+- A payload that overflows even at its floor is still sent, matching what
+  `ConversationService` already did: the estimate errs high, so it may well
+  succeed, and if it does not the provider's own error is what the caller would
+  have received anyway.
+- `LlmServiceManager` gained two optional constructor arguments (the context
+  window manager and a logger). Both default to null and every existing
+  construction keeps its exact previous behaviour — a null context window means
+  "bounded by the provider", which is what these paths did.
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
 rather than at the code: a backend module that told an administrator nothing
@@ -143,7 +206,6 @@ that drew a broken-image placeholder.
 
 - Requires nr-vault `^0.15.0`. The previous cap held the whole dependency tree
   below it, not just this package.
-
 
 - `ROADMAP.md` lists only unbuilt work, and every item in its two roadmap
   sections is an open issue. Its top "Next" entry claimed all 41 builtin tools
