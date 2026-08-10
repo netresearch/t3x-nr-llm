@@ -6,11 +6,9 @@
 ADR-010: Tool/Function Calling Design
 =======================================
 
-.. _adr-010-status:
-
-Status
-======
-**Accepted** (2024-04)
+:Status: Accepted
+:Date: 2024-04
+:Authors: Netresearch DTT GmbH
 
 .. _adr-010-context:
 

@@ -6,11 +6,9 @@
 ADR-001: Provider Abstraction Layer
 ===================================
 
-.. _adr-001-status:
-
-Status
-======
-**Accepted** (2024-01)
+:Status: Accepted
+:Date: 2024-01
+:Authors: Netresearch DTT GmbH
 
 .. _adr-001-context:
 

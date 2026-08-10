@@ -6,11 +6,9 @@
 ADR-002: Feature Services Architecture
 ========================================
 
-.. _adr-002-status:
-
-Status
-======
-**Accepted** (2024-02)
+:Status: Accepted
+:Date: 2024-02
+:Authors: Netresearch DTT GmbH
 
 .. _adr-002-context:
 

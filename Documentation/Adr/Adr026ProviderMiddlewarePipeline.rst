@@ -8,6 +8,7 @@ ADR-026: Provider Middleware Pipeline
 
 :Status: Accepted
 :Date: 2026-04
+:Supersedes: :ref:`ADR-004 <adr-004>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-026-context:

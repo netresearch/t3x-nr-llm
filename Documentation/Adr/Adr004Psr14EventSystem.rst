@@ -6,11 +6,10 @@
 ADR-004: PSR-14 Event System
 ==============================
 
-.. _adr-004-status:
-
-Status
-======
-**Superseded by** :ref:`ADR-026 <adr-026>` (2024-02, superseded 2026)
+:Status: Superseded
+:Date: 2024-02
+:Superseded: 2026 by :ref:`ADR-026 <adr-026>`
+:Authors: Netresearch DTT GmbH
 
 .. note::
 

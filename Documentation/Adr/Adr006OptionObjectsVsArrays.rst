@@ -6,11 +6,10 @@
 ADR-006: Option Objects vs Arrays
 ===================================
 
-.. _adr-006-status:
-
-Status
-======
-**Superseded** by :ref:`ADR-011 <adr-011>` (2024-12)
+:Status: Superseded
+:Date: 2024-12
+:Superseded: 2024-12 by :ref:`ADR-011 <adr-011>`
+:Authors: Netresearch DTT GmbH
 
 .. _adr-006-context:
 

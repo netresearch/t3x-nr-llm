@@ -8,6 +8,7 @@ ADR-091: Sessions are owned — an explicit actor context on every turn
 
 :Status: Accepted
 :Date: 2026-07-20
+:Supersedes: the ownership and configuration binding of :ref:`ADR-083 <adr-083>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-091-context:

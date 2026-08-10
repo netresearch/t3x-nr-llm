@@ -6,11 +6,9 @@
 ADR-009: Streaming Implementation
 ===================================
 
-.. _adr-009-status:
-
-Status
-======
-**Accepted** (2024-03)
+:Status: Accepted
+:Date: 2024-03
+:Authors: Netresearch DTT GmbH
 
 .. _adr-009-context:
 

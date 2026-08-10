@@ -6,9 +6,19 @@
 ADR-084: Human-in-the-loop tool approval with suspend and resume
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the trigger is widened by :ref:`ADR-134 <adr-134>`)
 :Date: 2026-07-18
+:Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   The suspend-and-resume mechanism below is what ships. What changed is when
+   it fires: the `RequiresApprovalInterface` marker is no longer the only
+   trigger — a builtin's declared write effect implies approval as well
+   (:ref:`ADR-134 <adr-134>`). The "41 shipped tools, which are read-only"
+   this record reasons from is a 2026-07 count; two builtins write since
+   :ref:`ADR-135 <adr-135>`, and both pause here.
 
 .. _adr-084-context:
 

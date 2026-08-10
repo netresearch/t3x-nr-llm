@@ -8,6 +8,7 @@ ADR-136: The write preview is produced when the run suspends
 
 :Status: Accepted
 :Date: 2026-08-09
+:Amends: :ref:`ADR-122 <adr-122>` (the deferred preview)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-136-context:

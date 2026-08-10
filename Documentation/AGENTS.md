@@ -95,7 +95,9 @@ Subsection (~)
 - `.. note::` / `.. warning::` / `.. tip::` for admonitions
 
 ### ADR Format (Adr/)
-ADRs use numbered naming: `AdrNNNTitle.rst`. 26 exist; follow existing format for new ADRs.
+ADRs use numbered naming: `AdrNNNTitle.rst`; follow the existing format for new ones.
+
+`Adr/Index.rst` documents the record lifecycle — the `:Status:` vocabulary and the paired `:Amends:` / `:Amended:` and `:Supersedes:` / `:Superseded:` fields. An ADR that overturns part of an earlier one edits that earlier record in the same change; `Tests/Unit/AdrLifecycleTest.php` fails the build when only one end of an ADR-to-ADR link is written. A record superseded by something that is not an ADR names it in prose and has no counterpart — see `Adr/Index.rst` for that carve-out.
 
 ### Branding
 Documentation uses Netresearch branding: teal underline SVG for headings, emoji icons for feature cards, footer card with company info. See `guides.xml` `<extension>` attributes for project links.

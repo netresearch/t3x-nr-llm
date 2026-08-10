@@ -6,6 +6,7 @@ ADR-132: Fail-closed approval audit and turn binding
 
 :Status: Accepted
 :Date: 2026-08-09
+:Supersedes: the stale-review binding of :ref:`ADR-109 <adr-109>`
 
 Context
 =======
