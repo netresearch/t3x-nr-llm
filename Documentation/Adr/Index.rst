@@ -490,3 +490,4 @@ Tools
    Adr143BoundEverySendAgainstTheServingModel
    Adr144InjectedContextCarriesADataClass
    Adr145GovernanceProfilesDescribeNeverApply
+   Adr147NoSymfonyAiBridgeYet
