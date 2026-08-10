@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Controller\Backend\Response\TestConnectionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
@@ -50,6 +51,7 @@ final class ProviderController extends ActionController
 {
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_provider';
 
@@ -229,6 +231,16 @@ final class ProviderController extends ActionController
             ]);
             $response = new JsonResponse(
                 (new ErrorResponse($this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.provider.testUpstreamError', 'Upstream LLM provider returned an error during connection test.')))->jsonSerialize(),
+                502,
+            );
+        } catch (ProviderConfigurationException $e) {
+            $response = new JsonResponse(
+                (new ErrorResponse($this->describeMisconfiguration(
+                    $e,
+                    $this->logger,
+                    'Provider testConnection',
+                    ['provider_uid' => $uid],
+                )))->jsonSerialize(),
                 502,
             );
         } catch (ProviderException $e) {

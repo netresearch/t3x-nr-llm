@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\SetupWizard\DTO\DetectedProvider;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
@@ -41,6 +42,7 @@ final class ModelDiscoveryController extends ActionController
 {
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const ERROR_NO_PROVIDER_UID = 'No provider UID specified';
 
@@ -124,6 +126,9 @@ final class ModelDiscoveryController extends ActionController
                 'providerName' => $provider->getName(),
                 'source' => $this->modelDiscovery->wasLastDiscoveryFromFallback() ? 'fallback' : 'live',
             ]);
+        } catch (ProviderConfigurationException $e) {
+            $error = $this->describeMisconfiguration($e, $this->logger, 'Model detectLimits');
+            $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model fetchAvailableModels: provider error', ['exception' => $e]);
             $error = 'LLM provider error while fetching model IDs. See system log for details.';
@@ -242,6 +247,14 @@ final class ModelDiscoveryController extends ActionController
                 'costInput' => $foundModel->costInput,
                 'costOutput' => $foundModel->costOutput,
             ]);
+        } catch (ProviderConfigurationException $e) {
+            // A misconfiguration is our own diagnostic, not a provider response
+            // body: the message names the setting at fault and is what the
+            // administrator on this screen has to act on. ErrorResponse redacts
+            // credential-bearing URL parameters at the boundary.
+            $this->logger->warning('Model detectLimits: provider is misconfigured', ['exception' => $e]);
+            $error = $this->sanitizeErrorMessage($e->getMessage());
+            $status = 502;
         } catch (ProviderException $e) {
             $this->logger->warning('Model detectLimits: provider error', ['exception' => $e]);
             $error = 'LLM provider error while detecting model limits. See system log for details.';

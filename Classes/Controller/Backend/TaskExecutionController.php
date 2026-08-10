@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\TaskRepository;
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
@@ -70,6 +71,7 @@ final class TaskExecutionController extends ActionController
     use BackendUserUidTrait;
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ProviderMisconfigurationTrait;
 
     private const TABLE_NAME = 'tx_nrllm_task';
 
@@ -250,8 +252,15 @@ final class TaskExecutionController extends ActionController
                 'task_uid'    => $task->getUid(),
             ]);
             $payload = (new ErrorResponse('Upstream LLM provider returned an error.'))->jsonSerialize();
+        } catch (ProviderConfigurationException $e) {
+            $payload = (new ErrorResponse($this->describeMisconfiguration(
+                $e,
+                $this->logger,
+                'Task execution',
+                ['task_uid' => $task->getUid()],
+            )))->jsonSerialize();
         } catch (ProviderException $e) {
-            // Other provider failures (connection / configuration / fallback exhausted /
+            // Other provider failures (connection / fallback exhausted /
             // unsupported feature). Log and surface a generic message — the underlying
             // exception text often references provider internals.
             $this->logger->error('Task execution failed: provider error', [
