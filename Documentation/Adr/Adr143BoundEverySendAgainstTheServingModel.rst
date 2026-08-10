@@ -39,11 +39,17 @@ will actually serve the send and prefers it over the configuration's relation;
 the response reserve follows the same model. Passing nothing keeps the entity's
 model, which is the fixed-mode case and the behaviour every existing caller had.
 
-**Every configuration-driven send is bounded, at the point that knows the
-model.** The bind sits inside the middleware-pipeline terminal in
-:php:`LlmServiceManager`, because that is the first place the resolved model
-exists. For a stream it runs inside the opener, before the adapter is asked for
-the first chunk — once a stream is open there is nothing left to prune.
+**Every configuration-driven send of a transcript is bounded, at the point that
+knows the model.** The bind sits inside the middleware-pipeline terminal in
+:php:`LlmServiceManager` — chat, tool calling and, in its opener, streaming —
+because that is the first place the resolved model exists. For a stream it runs
+before the adapter is asked for the first chunk: once a stream is open there is
+nothing left to prune. A tool-calling send counts its tool schemas against the
+same budget, because they are on the wire with the transcript.
+
+Embeddings are deliberately not bounded here. They carry neither skills nor
+snippets nor a transcript, and their size limit is the provider's own input
+limit rather than a context window to prune turns out of.
 
 **A completion reports; it does not prune.** A raw prompt is a single unit: there
 are no older turns to drop, and silently shortening a caller's prompt would

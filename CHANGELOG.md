@@ -24,8 +24,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Chat and streaming through `LlmServiceManager` are bounded like a
-  conversation or an agent loop** (ADR-143, closes #688). Only
+- **Chat, tool calling and streaming through `LlmServiceManager` are bounded
+  like a conversation or an agent loop** (ADR-143, closes #688). A tool-calling
+  send counts its tool schemas against the same budget, because they are on the
+  wire with the transcript. Embeddings are deliberately not bounded: they carry
+  neither skills nor snippets nor a transcript, and their limit is the
+  provider's own input limit rather than a window to prune turns out of. Only
   `ConversationService` and `ToolLoopService` bound their sends, so which API a
   consumer happened to call decided whether a long transcript was pruned or
   handed to the provider whole. The bind sits inside the middleware-pipeline

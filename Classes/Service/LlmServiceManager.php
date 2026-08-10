@@ -204,10 +204,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
+     * @param list<array<string, mixed>>             $toolSpecs the tool schemas this send carries, empty for a plain chat
      *
      * @return list<ChatMessage|array<string, mixed>>
      */
-    private function fitToContextWindow(array $messages, LlmConfiguration $configuration, Model $llmModel, array $options): array
+    private function fitToContextWindow(array $messages, LlmConfiguration $configuration, Model $llmModel, array $options, array $toolSpecs = []): array
     {
         if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
             return $messages;
@@ -222,7 +223,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             $chatOptions,
             null,
-            [],
+            $toolSpecs,
             '',
             is_string($systemPrompt) ? $systemPrompt : null,
             $llmModel,
@@ -696,9 +697,22 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 }
 
                 $callOptions = $this->planner->callOptions($config, $llmModel, $optionOverrides);
+                // The tool schemas are on the wire for THIS send, so they are
+                // counted against the same budget rather than left out of it
+                // (ADR-107's $toolSpecs).
+                $bounded = $this->fitToContextWindow(
+                    $normalisedMessages,
+                    $config,
+                    $llmModel,
+                    $callOptions,
+                    // The estimator counts what goes on the wire, so the specs
+                    // are handed over in their serialised shape rather than as
+                    // value objects.
+                    array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                );
 
                 return $adapter->chatCompletionWithTools(
-                    $this->applyAndScreenSystemPrompt($normalisedMessages, $callOptions),
+                    $this->applyAndScreenSystemPrompt($bounded, $callOptions),
                     $normalisedTools,
                     $callOptions,
                 );
