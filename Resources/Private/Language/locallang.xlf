@@ -307,6 +307,99 @@
             <trans-unit id="governance.value.unknown">
                 <source>unknown</source>
             </trans-unit>
+            <trans-unit id="governance.simulator.heading">
+                <source>Would this be allowed?</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.lead">
+                <source>Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.tool">
+                <source>Tool</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.submit">
+                <source>Simulate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.allowed">
+                <source>Allowed</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.denied">
+                <source>Refused</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.dataClass">
+                <source>data class</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.zone">
+                <source>trust zone reachable</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.ceiling">
+                <source>permits at most</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.observed">
+                <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.heading">
+                <source>Compare against a profile</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.lead">
+                <source>A profile is a named posture, not a switch. Selecting one compares it against the values above and shows where they differ; nothing is changed, and no profile is ever applied.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.none">
+                <source>No profile</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.drift.title">
+                <source>Deviations</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.drift.count">
+                <source>This installation differs from the selected profile in %s setting(s).</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.compliant.title">
+                <source>Matches the profile</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.compliant.text">
+                <source>Every setting this profile describes matches what the runtime applies. Keys the profile says nothing about are not compared.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.column.current">
+                <source>Current</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.column.expected">
+                <source>Profile expects</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.column.where">
+                <source>Change it in</source>
+            </trans-unit>
+            <trans-unit id="governance.where.extensionConfiguration">
+                <source>Install Tool &gt; Settings &gt; Extension Configuration &gt; nr_llm</source>
+            </trans-unit>
+            <trans-unit id="governance.where.unknown">
+                <source>Not recorded — see the documentation for this key</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.LOCAL_ONLY">
+                <source>Local only</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.LOCAL_ONLY.description">
+                <source>Every provider runs on your own infrastructure. Content can be kept in full because it never leaves the installation.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.CONTROLLED_CLOUD">
+                <source>Controlled cloud</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.CONTROLLED_CLOUD.description">
+                <source>External providers under contract. Content is stored redacted, retention is short, and skills must have been reviewed.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.ENTERPRISE_STRICT">
+                <source>Enterprise strict</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.ENTERPRISE_STRICT.description">
+                <source>Metadata only, minimal retention, first-party skills alone.</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.DEVELOPMENT">
+                <source>Development</source>
+            </trans-unit>
+            <trans-unit id="governance.profile.DEVELOPMENT.description">
+                <source>Full content for debugging, short retention, and the data-class axis in observe so you see what would be blocked instead of being blocked.</source>
+            </trans-unit>
             <trans-unit id="governance.unknown.note">
                 <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
             </trans-unit>
