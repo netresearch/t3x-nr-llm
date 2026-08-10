@@ -293,6 +293,7 @@ final class LlmModuleController extends ActionController
         $profile = GovernanceProfile::fromValue($this->profileArgument());
 
         $policyRows = $this->effectivePolicyReadout->rows();
+        $simulation = $this->simulate();
 
         $moduleTemplate->assignMultiple([
             'policyRows'     => $policyRows,
@@ -301,7 +302,10 @@ final class LlmModuleController extends ActionController
             'deviations'     => $profile instanceof GovernanceProfile ? $this->governanceProfileEvaluator->deviations($policyRows, $profile) : [],
             'configurations' => $this->configurationRepository->findActive(),
             'toolNames'      => $this->toolRegistry->names(),
-            'simulation'     => $this->simulate(),
+            'simulation'     => $simulation,
+            // message() does not follow the get/is/has convention Fluid needs,
+            // so the string is assigned rather than reached through the object.
+            'simulationMessage' => $simulation?->message(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Governance');

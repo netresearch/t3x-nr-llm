@@ -109,9 +109,14 @@
     </f:form>
 
     <f:if condition="{simulation}">
-        <f:be.infobox state="{f:if(condition: simulation.allowed, then: '0', else: '2')}"
-                      title="{f:if(condition: simulation.allowed, then: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed\', default: \'Allowed\')}', else: '{f:translate(key: \'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied\', default: \'Refused\')}')}">
-            <p class="mb-1">{simulation.message}</p>
+        <f:variable name="simulationTitle">
+            <f:if condition="{simulation.allowed}">
+                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed" default="Allowed" /></f:then>
+                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied" default="Refused" /></f:else>
+            </f:if>
+        </f:variable>
+        <f:be.infobox state="{f:if(condition: simulation.allowed, then: 0, else: 2)}" title="{simulationTitle -> f:format.trim()}">
+            <p class="mb-1">{simulationMessage}</p>
             <ul class="mb-0 small">
                 <li><code>{simulation.toolName}</code> — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{simulation.dataClass.value}</code></li>
                 <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code>{simulation.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code>{simulation.ceiling.value}</code>)</li>

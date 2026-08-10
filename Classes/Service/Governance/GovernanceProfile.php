@@ -98,14 +98,20 @@ enum GovernanceProfile: string
         };
     }
 
-    public function labelKey(): string
+    /**
+     * Named `get…` because Fluid reaches a method only through the
+     * get/is/has convention: `{profile.labelKey}` resolves `getLabelKey()`,
+     * and a plain `labelKey()` silently yields null — which reaches
+     * `f:translate` as an empty key and throws at render time.
+     */
+    public function getLabelKey(): string
     {
         return 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.profile.' . $this->name;
     }
 
-    public function descriptionKey(): string
+    public function getDescriptionKey(): string
     {
-        return $this->labelKey() . '.description';
+        return $this->getLabelKey() . '.description';
     }
 
     public static function fromValue(?string $value): ?self
