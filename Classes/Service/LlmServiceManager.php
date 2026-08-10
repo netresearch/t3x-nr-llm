@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Option\EmbeddingOptions;
@@ -36,6 +37,7 @@ use Netresearch\NrLlm\Service\Option\VisionOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -65,6 +67,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // constructions that omit it keep the pre-snippet behaviour verbatim;
         // production wiring is autowired.
         private ?ConfigurationSnippetResolver $snippetResolver = null,
+        // Bounds what goes on the wire against the window of the model that
+        // will actually serve the send (ADR-107, ADR-143). Optional so the
+        // constructions that omit it keep the pre-binding behaviour verbatim —
+        // and so the shared test factory's pinned signature keeps working;
+        // production wiring is autowired. A null means the send is bounded by
+        // the provider, which is what every generic path did before.
+        private ?ContextWindowManagerInterface $contextWindow = null,
+        // Reports the one condition the bound above cannot fix: a payload that
+        // overflows even at its floor. Optional like the collaborators above.
+        private ?LoggerInterface $logger = null,
     ) {
         // Built here from the manager's own dependencies, not injected: the
         // constructor signature is pinned by the shared test factory, and both
@@ -170,6 +182,114 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     private function applyAndScreenSystemPrompt(array $messages, array $options): array
     {
         return $this->screenInput($this->messageShaper->applySystemPrompt($messages, $options));
+    }
+
+    /**
+     * Bound a configuration-driven send against the window of the model that
+     * will serve it (ADR-143).
+     *
+     * Placed here, inside the pipeline terminal, because this is the first
+     * point that knows the RESOLVED model: a criteria-mode configuration
+     * carries no model relation, so anything earlier would be sizing against
+     * an unknown window. For a stream this runs before the opener returns,
+     * which is what makes the bound hold before the first chunk.
+     *
+     * Skills are NOT passed as injected text on this path: the configuration
+     * entry points inject them into the message list before the send, so they
+     * are already counted in `$messages`. Passing them again would charge them
+     * twice. `$lastUsage` is null because each send here is standalone — there
+     * is no loop whose previous call could calibrate this one, and the null
+     * also resets the manager's per-run state, which matters because this
+     * facade is a singleton.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $options
+     * @param list<array<string, mixed>>             $toolSpecs the tool schemas this send carries, empty for a plain chat
+     *
+     * @return list<ChatMessage|array<string, mixed>>
+     */
+    private function fitToContextWindow(array $messages, LlmConfiguration $configuration, Model $llmModel, array $options, array $toolSpecs = []): array
+    {
+        if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
+            return $messages;
+        }
+
+        $maxTokens    = $options['max_tokens'] ?? null;
+        $chatOptions  = is_int($maxTokens) && $maxTokens > 0 ? (new ChatOptions())->withMaxTokens($maxTokens) : null;
+        $systemPrompt = $options['system_prompt'] ?? null;
+
+        $fit = $this->contextWindow->fit(
+            $messages,
+            $configuration,
+            $chatOptions,
+            null,
+            $toolSpecs,
+            '',
+            is_string($systemPrompt) ? $systemPrompt : null,
+            $llmModel,
+        );
+
+        if ($fit->overflowAtFloor) {
+            // Send it anyway, exactly as ConversationService does: the estimate
+            // errs high, so this may well succeed, and if it does not the
+            // provider's own error is what the caller would have got before
+            // this bound existed. Refusing here would turn a call that might
+            // have worked into one that certainly does not.
+            $this->logger?->warning('Send does not fit the model context window even at its floor; sending it unpruned', [
+                'configuration'   => $configuration->getIdentifier(),
+                'model'           => $llmModel->getModelId(),
+                'estimatedTokens' => $fit->estimatedTokens,
+                'budget'          => $fit->budget,
+            ]);
+        }
+
+        return $fit->messages;
+    }
+
+    /**
+     * The completion path's half of the same bound (ADR-143).
+     *
+     * A raw prompt is a single unit. There are no older turns to drop, so the
+     * fit can only ever report — pruning a caller's prompt behind their back
+     * would silently change what they asked for, and the caller is the only
+     * one who knows which part of it is expendable. What this does deliver is
+     * the decision being EXPLICIT: an overflowing completion is named, with the
+     * model and the budget it exceeded, instead of surfacing later as an opaque
+     * provider error.
+     *
+     * @param array<string, mixed> $options
+     */
+    private function reportPromptOverflow(string $prompt, LlmConfiguration $configuration, Model $llmModel, array $options): void
+    {
+        if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
+            return;
+        }
+
+        $maxTokens   = $options['max_tokens'] ?? null;
+        $chatOptions = is_int($maxTokens) && $maxTokens > 0 ? (new ChatOptions())->withMaxTokens($maxTokens) : null;
+        $system      = $options['system_prompt'] ?? null;
+
+        $fit = $this->contextWindow->fit(
+            [ChatMessage::user($prompt)],
+            $configuration,
+            $chatOptions,
+            null,
+            [],
+            '',
+            is_string($system) ? $system : null,
+            $llmModel,
+        );
+
+        if (!$fit->overflowAtFloor) {
+            return;
+        }
+
+        $this->logger?->warning('Completion prompt exceeds the model context window; sending it unchanged', [
+            'configuration'   => $configuration->getIdentifier(),
+            'model'           => $llmModel->getModelId(),
+            'estimatedTokens' => $fit->estimatedTokens,
+            'budget'          => $fit->budget,
+        ]);
     }
 
     /**
@@ -577,9 +697,22 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 }
 
                 $callOptions = $this->planner->callOptions($config, $llmModel, $optionOverrides);
+                // The tool schemas are on the wire for THIS send, so they are
+                // counted against the same budget rather than left out of it
+                // (ADR-107's $toolSpecs).
+                $bounded = $this->fitToContextWindow(
+                    $normalisedMessages,
+                    $config,
+                    $llmModel,
+                    $callOptions,
+                    // The estimator counts what goes on the wire, so the specs
+                    // are handed over in their serialised shape rather than as
+                    // value objects.
+                    array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                );
 
                 return $adapter->chatCompletionWithTools(
-                    $this->applyAndScreenSystemPrompt($normalisedMessages, $callOptions),
+                    $this->applyAndScreenSystemPrompt($bounded, $callOptions),
                     $normalisedTools,
                     $callOptions,
                 );
@@ -769,7 +902,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
-                return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $options), $options);
+                $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options);
+
+                return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($bounded, $options), $options);
             },
             $metadata,
         );
@@ -795,6 +930,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $llmModel = $this->planner->resolveModel($config, ProviderOperation::Completion);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
+                $this->reportPromptOverflow($prompt, $config, $llmModel, $options);
+
                 return $adapter->complete($prompt, $options);
             },
             $metadata,
@@ -1026,8 +1163,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
             $this->assertStreamingCapable($adapter, 1735300101);
 
+            // Before the first chunk, deliberately: once the stream is open
+            // there is nothing left to prune.
+            $bounded = $this->fitToContextWindow($this->messageShaper->normalise($messages), $config, $llmModel, $options);
+
             return $adapter->streamChatCompletion(
-                $this->applyAndScreenSystemPrompt($this->messageShaper->normalise($messages), $options),
+                $this->applyAndScreenSystemPrompt($bounded, $options),
                 $options,
             );
         };
