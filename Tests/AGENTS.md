@@ -32,11 +32,11 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 | `Unit/` | PHPUnit 11/12/13 | Fast isolated unit tests |
 | `Integration/` | PHPUnit + PSR-18 mocking | API client tests |
 | `Functional/` | TYPO3 Testing Framework | Database, repositories, controllers |
-| `Architecture/` | PHPat | Layer boundary enforcement (3 test files) |
+| `Architecture/` | PHPat | Layer boundary enforcement |
 | `Fuzzy/` | Eris | Property-based/fuzz testing |
-| `E2E/Backend/` | PHPUnit | Backend E2E tests (9 test files) |
+| `E2E/Backend/` | PHPUnit | Backend E2E tests |
 | `E2E/TCA/` | PHPUnit | TCA field tests |
-| `E2E/Playwright/` | Playwright (TS) | Browser-based UI tests (10 spec files) |
+| `E2E/Playwright/` | Playwright (TS) | Browser-based UI tests |
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
@@ -85,7 +85,7 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
-- Test docs: `Documentation/Testing/` (4 pages: Unit, Functional, E2E, CI)
+- Test docs: `Documentation/Testing/` — UnitTesting, FunctionalTesting, EndToEndTesting, CiConfiguration
 - PHPUnit 11/12/13 compat: see `MEMORY.md` PHPUnit section
 - Run with `-v` for verbose: `./Build/Scripts/runTests.sh -s unit -v`
 <!-- AGENTS-GENERATED:END help -->
