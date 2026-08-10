@@ -167,7 +167,7 @@ jobs:
       # Actions must be SHA-pinned (repo and org both set sha_pinning_required),
       # and no setup-php step: the runner image already ships a PHP the check
       # runs on, and it needs no extensions.
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - run: php Build/Scripts/check-changelog-unreleased.php
