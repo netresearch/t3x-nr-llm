@@ -118,6 +118,11 @@ final class EditorActionController extends ActionController
             // record", so a guessed tool name learns nothing about what exists.
             $this->flash('editorActions.flash.notAvailable', ContextualFeedbackSeverity::ERROR);
 
+            // Extbase's redirect() takes an ACTION NAME, not a URL. The
+            // Symfony rule reads the first argument as a destination; here it
+            // is the literal 'catalogue', and recordTable/recordUid travel as
+            // query arguments the target action re-validates.
+            // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
             return $this->redirect('catalogue', null, null, [
                 'recordTable' => $recordTable,
                 'recordUid'   => $recordUid,
@@ -131,11 +136,13 @@ final class EditorActionController extends ActionController
 
             // The existing inbox, in this same module: the card there carries
             // the preview the pause captured (ADR-136).
+            // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
             return $this->redirect('list', 'Backend\\AgentRun');
         }
 
         $this->flashTerminalOutcome($result);
 
+        // nosemgrep: php.symfony.security.audit.symfony-non-literal-redirect.symfony-non-literal-redirect
         return $this->redirect('catalogue', null, null, [
             'recordTable' => $recordTable,
             'recordUid'   => $recordUid,
