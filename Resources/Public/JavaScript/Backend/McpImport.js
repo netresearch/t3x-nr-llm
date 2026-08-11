@@ -4,7 +4,7 @@
  */
 
 /**
- * Triggers an MCP catalogue import from the MCP server module (ES6 Module).
+ * Triggers the two MCP server actions from the MCP server module (ES6 Module).
  *
  * Event delegation on the body, the POST/reload flow from the shared
  * ModuleAction helper (AjaxRequest underneath, which injects TYPO3's CSRF
@@ -14,9 +14,16 @@
  * A partial import is reported rather than silently celebrated: an import that
  * skipped half a catalogue is a success by status and a problem in fact, and
  * the operator only finds out if the count is shown.
+ *
+ * The connection test is the one action here that does NOT reload. Its answer
+ * — the protocol revision the server chose and what the server calls itself —
+ * is stored nowhere (ADR-154 decision 4), so it exists only in the response,
+ * and a reload in the same tick would destroy it before it could be read. It
+ * is written into the server's card instead, together with the refreshed
+ * contact line, which is the only thing a reload would have brought.
  */
 import Notification from '@typo3/backend/notification.js';
-import { postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
+import { post, postAndReload, resolveAjaxUrl } from '@netresearch/nr-llm/Backend/ModuleAction.js';
 
 class McpImport {
     constructor() {
@@ -29,13 +36,20 @@ class McpImport {
 
     init() {
         document.body.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-nrllm-mcp-import]');
-            if (!btn) {
+            const importBtn = e.target.closest('[data-nrllm-mcp-import]');
+            if (importBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleImport(importBtn);
                 return;
             }
-            e.preventDefault();
-            e.stopPropagation();
-            this.handleImport(btn);
+
+            const testBtn = e.target.closest('[data-nrllm-mcp-test]');
+            if (testBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleTest(testBtn);
+            }
         });
     }
 
@@ -54,6 +68,57 @@ class McpImport {
                 ? `${data.imported} imported, ${skipped} skipped`
                 : `${data.imported} imported`;
             Notification.success('MCP import', message);
+        });
+    }
+
+    handleTest(btn) {
+        const url = resolveAjaxUrl('nrllm_mcp_test');
+        if (!url) {
+            return;
+        }
+
+        const uid = btn.dataset.nrllmMcpTest;
+        const formData = new FormData();
+        formData.append('server', uid);
+
+        // The card is not reloaded, so the previous report survives until
+        // something replaces it. Cleared before the request goes out, because
+        // a server that stops answering holds the connection for the whole
+        // transport timeout, and a stale "Reachable" standing there for those
+        // fifteen seconds is the opposite of what the operator asked.
+        const report = document.querySelector(`[data-nrllm-mcp-report="${uid}"]`);
+        if (report) {
+            report.className = '';
+            report.textContent = '';
+        }
+
+        post(url, formData, btn, (data) => {
+            // Composed and localised server-side. The report ends with what
+            // the server wrote about itself, so it goes in as `textContent`:
+            // remote text is never parsed as markup here.
+            if (report) {
+                report.className = 'alert alert-success mb-2';
+                report.textContent = data.report;
+            }
+
+            // The row said "never reached" until this handshake; leaving
+            // either of these would contradict the report right above them.
+            const contact = document.querySelector(`[data-nrllm-mcp-contact="${uid}"]`);
+            if (contact) {
+                contact.textContent = data.contact;
+            }
+            document.querySelector(`[data-nrllm-mcp-never="${uid}"]`)?.remove();
+        }, {
+            // The toast is not the only reader: a failed probe belongs on the
+            // card it was fired from, in the place its success would have gone.
+            // The reason is composed server-side and can quote the far side,
+            // so it goes in as `textContent` too.
+            onFailure: (data) => {
+                if (report) {
+                    report.className = 'alert alert-danger mb-2';
+                    report.textContent = data.error;
+                }
+            },
         });
     }
 }

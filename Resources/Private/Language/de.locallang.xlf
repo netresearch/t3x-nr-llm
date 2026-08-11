@@ -3420,6 +3420,10 @@
                 <source>Unknown MCP server</source>
                 <target>Unbekannter MCP-Server</target>
             </trans-unit>
+            <trans-unit id="error.mcp.noUrl">
+                <source>The server has no URL.</source>
+                <target>Der Server hat keine URL.</target>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
                 <target>Konfiguration(en) eingerichtet</target>

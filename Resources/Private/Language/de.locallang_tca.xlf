@@ -1454,10 +1454,6 @@
                 <source>Never imported</source>
                 <target>Nie importiert</target>
             </trans-unit>
-            <trans-unit id="tx_nrllm_mcp_server.import_status.importing">
-                <source>Importing</source>
-                <target>Import l&#228;uft</target>
-            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.import_status.ok">
                 <source>OK</source>
                 <target>OK</target>
@@ -1481,6 +1477,18 @@
             <trans-unit id="tx_nrllm_mcp_server.tool_count">
                 <source>Imported tools</source>
                 <target>Importierte Tools</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_contact">
+                <source>Last successful contact</source>
+                <target>Letzter erfolgreicher Kontakt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_contact.description">
+                <source>When this installation last completed a round trip against the server — a tool call, a catalogue import or a connection test. Recorded automatically.</source>
+                <target>Wann diese Installation zuletzt eine Anfrage an den Server abgeschlossen hat — ein Tool-Aufruf, ein Katalog-Import oder ein Verbindungstest. Wird automatisch festgehalten.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_latency_ms">
+                <source>Latency of that contact (ms)</source>
+                <target>Laufzeit dieses Kontakts (ms)</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.enabled">
                 <source>Enabled</source>

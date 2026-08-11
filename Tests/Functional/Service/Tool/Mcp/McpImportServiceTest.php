@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpToolRepository;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
@@ -109,7 +110,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $transport->setHttpClient($fake);
 
         return new McpImportService(
-            new McpClient($transport),
+            new McpClient($transport, new RecordedContacts()),
             $this->servers,
             $this->catalogue,
             new McpToolNameMapper(),
@@ -333,7 +334,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
             new StreamFactory(),
         );
 
-        return new McpClient($transport);
+        return new McpClient($transport, new RecordedContacts());
     }
 
     /**

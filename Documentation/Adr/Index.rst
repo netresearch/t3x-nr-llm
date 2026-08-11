@@ -495,6 +495,7 @@ Tools
    Adr148RoutingReadoutOnTheGovernanceTab
    Adr149CriteriaModeZoneFromTheResolvedModel
    Adr152EditorActionDeclaration
+   Adr154McpServerHealth
    Adr155SystemPromptCarriesADataClass
    Adr156PersistTheRoutingDecisionObserveComplexity
    Adr157TheSimulationCoversTheRunAndAnswersForAnActor

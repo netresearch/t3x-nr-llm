@@ -331,6 +331,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   adds are not counted, and the upper price assumes every request returns the
   configured token ceiling. It shows no price range unless the model carries both
   an input and an output price and the configuration sets an output ceiling.
+- **An operator can tell whether an MCP server is alive** (ADR-154). Nothing in
+  the installation measured or stored anything about the far side except how the
+  last catalogue import went, so a server that had been answering `tools/call`
+  for six weeks read as untouched since that import — and the only way to find
+  out whether it was reachable was to run the import, the one action that also
+  rewrites the catalogue.
+  - `tx_nrllm_mcp_server` gains `last_contact` and `last_latency_ms`, written on
+    every successful client operation: a tool call, an import or a connection
+    test. A failed operation records nothing.
+  - **Test connection** performs the handshake and stops — it writes no
+    catalogue row and leaves the import status and the last import error
+    exactly as they were. It reports the latency, the protocol revision the
+    server chose and the server's own name, rendered onto the server's card:
+    only the latency is stored, so this one action does not reload the page —
+    a reload would destroy the answer. A failure is shown, never stored:
+    `import_error` describes the last import and must not be overwritten by a
+    probe.
+  - The write can never fail the call it rides on. `McpHealthRecorder` swallows
+    every failure into a warning, because it sits behind a tool call whose
+    answer a backend user is waiting for.
+  - The MCP Servers module shows status, last successful contact and latency,
+    transport, authentication mode, tools discovered, data class, approval and
+    the last error — without a reader the columns would be a declaration nobody
+    consults.
+- A direct `RemoteToolInterface` case in `ToolCallPolicyTest`: a remote tool
+  above the trust-zone ceiling is refused even in `observe` mode (ADR-115). The
+  branch was covered only indirectly, through the governance readout's fake
+  tool, so it could have been deleted with the policy's own suite still green.
 
 ### Changed
 
@@ -482,6 +510,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   registry's second, narrower ban on the explicit `RequiresApprovalInterface`
   marker is gone with it: that marker is the shared rule's first branch, so one
   condition (code `1786226400`) now answers for every route into approval.
+- The MCP import status no longer offers `importing` (ADR-154). It was declared
+  in TCA and in both language files and written by nothing: the import runs to
+  completion inside the request that starts it, so no reader could ever observe
+  the state, and a request that died mid-import would have left a row stuck in
+  it with nothing to clear it.
+- `McpClient` takes a `McpHealthRecorderInterface`, and
+  `McpHttpTransport::call()` returns a `durationMs` alongside the result. Both
+  are `@internal` (ADR-127).
 
 ### Fixed
 

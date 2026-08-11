@@ -28,6 +28,29 @@ How it works
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.
 
+Is the server alive?
+====================
+
+:guilabel:`Test connection` performs the MCP handshake and reports what came
+back: how long it took, which protocol revision the server chose and what the
+server calls itself. The report appears on the server's card and stays there
+until you leave the page — only the latency is stored, so the rest would be
+lost to a page reload, and this is the one action in the module that therefore
+does not reload. It **writes no catalogue** — no tool is added, removed or
+orphaned, and the import status and the last import error stay exactly as they
+were. Use it to check a server before enabling it, and to tell "the server is
+down" from "the server is fine and this tool is gone".
+
+Each server card also shows **Last successful contact**. That is the last time
+this installation completed *any* round trip against the server — a tool call,
+an import or a connection test — together with how long that round trip took.
+It is deliberately not the same as :guilabel:`Last import`: a server that has
+been answering tool calls all month can still show an import from six weeks
+ago, and previously there was no way to see the difference.
+
+A failed connection test replaces the report on the card with its reason, and
+is stored nowhere. Only a success moves the contact date.
+
 Guard rails
 ===========
 
@@ -50,4 +73,6 @@ Guard rails
   — a remote call crosses the network while a backend user waits, and
   nothing else limits how many a model asks for at once.
 
-See :ref:`ADR-116 <adr-116>` for the design rationale.
+See :ref:`ADR-116 <adr-116>` for the design rationale, and
+:ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
+connection test writes nothing.

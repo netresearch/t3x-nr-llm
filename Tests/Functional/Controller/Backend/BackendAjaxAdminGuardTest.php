@@ -114,6 +114,23 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
         $this->assertForbidden($controller->importAction($request));
     }
 
+    /**
+     * The connection test writes nothing, but it still reaches the external
+     * server and still reports whether it answered — both are worth a
+     * non-admin nothing (ADR-154).
+     */
+    #[Test]
+    public function mcpConnectionTestDeniedForNonAdmin(): void
+    {
+        $controller = $this->get(McpServerController::class);
+        self::assertInstanceOf(McpServerController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/mcp/test'))
+            ->withParsedBody(['server' => 1]);
+
+        $this->assertForbidden($controller->testConnectionAction($request));
+    }
+
     #[Test]
     public function providerToggleActiveDeniedForNonAdmin(): void
     {

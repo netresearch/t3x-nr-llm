@@ -2580,6 +2580,9 @@
             <trans-unit id="error.mcp.unknownServer">
                 <source>Unknown MCP server</source>
             </trans-unit>
+            <trans-unit id="error.mcp.noUrl">
+                <source>The server has no URL.</source>
+            </trans-unit>
             <trans-unit id="card.count.configurations">
                 <source>configuration(s) configured</source>
             </trans-unit>
