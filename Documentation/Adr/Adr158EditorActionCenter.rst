@@ -8,6 +8,7 @@ ADR-158: The Editor Action Center adds a catalogue, not a runtime
 
 :Status: Accepted
 :Date: 2026-08-11
+:Amended: 2026-08-11 by :ref:`ADR-162 <adr-162>` (its rejection of a bulk surface)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-158-context:
@@ -149,9 +150,16 @@ Alternatives considered
 entry count a dumping ground. A second editor-facing module would also need its
 own be_groups tick to be reachable at all.
 
-**A bulk surface — one action over many records.** Rejected, and ADR-152 already
-said why: the approval unit is a turn, and :ref:`ADR-133 <adr-133>` refuses a
-per-call verdict. "Approve 200 writes" is not a decision a card can carry.
+**A bulk surface — one action over many records.** Rejected here, and ADR-152
+already said why: the approval unit is a turn, and :ref:`ADR-133 <adr-133>`
+refuses a per-call verdict. "Approve 200 writes" is not a decision a card can
+carry.
+
+   Amended by :ref:`ADR-162 <adr-162>`. That objection is about ONE run holding
+   many writes; it says nothing about many runs. N records planned as N ordinary
+   runs are N turns, N digests, N verdicts and N fence stamps, so the approval
+   unit is untouched. ADR-162 adds the multi-record entry point on that basis and
+   still builds no bulk runtime.
 
 **Filtering the catalogue by hand from** :php:`enabledNames()`. Rejected: that
 is one of the gate's five checks. It would show an editor actions their

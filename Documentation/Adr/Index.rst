@@ -494,3 +494,4 @@ Tools
    Adr147NoSymfonyAiBridgeYet
    Adr152EditorActionDeclaration
    Adr158EditorActionCenter
+   Adr162BulkEditorActionsAsOrdinaryRuns

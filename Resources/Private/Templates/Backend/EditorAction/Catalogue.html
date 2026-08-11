@@ -88,6 +88,11 @@
                                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.start" default="Start and send for approval" />
                                                 </button>
                                             </f:form>
+                                            <f:link.action action="batch"
+                                                           class="btn btn-link btn-sm px-0 mt-2"
+                                                           arguments="{toolName: offer.toolName, recordTable: recordTable, recordUids: recordUid}">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.batch" default="Run this on several records" />
+                                            </f:link.action>
                                         </f:then>
                                         <f:else>
                                             <small class="text-body-secondary">

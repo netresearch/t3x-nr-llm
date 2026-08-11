@@ -1390,6 +1390,170 @@
                 <source>The run failed. Nothing was written.</source>
                 <target>Der Lauf ist fehlgeschlagen. Es wurde nichts geschrieben.</target>
             </trans-unit>
+            <trans-unit id="editorActions.btn.batch">
+                <source>Run this on several records</source>
+                <target>Auf mehrere Datensätze anwenden</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.title">
+                <source>AI action on several records</source>
+                <target>KI-Aktion auf mehreren Datensätzen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.intro">
+                <source>Each record becomes its own run. Each run stops for its own approval and appears as its own card in the inbox, with its own preview. Nothing is written until you approve it there.</source>
+                <target>Jeder Datensatz wird zu einem eigenen Lauf. Jeder Lauf hält für seine eigene Freigabe an und erscheint als eigene Karte im Posteingang, mit eigener Vorschau. Geschrieben wird erst, wenn Sie dort freigeben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.notAvailable">
+                <source>This action is not available to you for that table. Nothing can be started here.</source>
+                <target>Diese Aktion steht Ihnen für diese Tabelle nicht zur Verfügung. Hier lässt sich nichts starten.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.uids.label">
+                <source>Record numbers</source>
+                <target>Datensatznummern</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.uids.hint">
+                <source>Separated by commas or spaces, all from the same table.</source>
+                <target>Durch Komma oder Leerzeichen getrennt, alle aus derselben Tabelle.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.uids.cap">
+                <source>At most %s records are planned; the rest are listed as skipped.</source>
+                <target>Höchstens %s Datensätze werden geplant; der Rest steht als übersprungen in der Liste.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.instruction.hint">
+                <source>The same note goes to every run. It describes the result; it never changes which records are touched.</source>
+                <target>Dieselbe Notiz geht an jeden Lauf. Sie beschreibt das Ergebnis; sie ändert nie, welche Datensätze angefasst werden.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.btn.recalculate">
+                <source>Recalculate</source>
+                <target>Neu berechnen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.btn.start">
+                <source>Start the runs and send them for approval</source>
+                <target>Läufe starten und zur Freigabe schicken</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.btn.backToCatalogue">
+                <source>Back to the AI actions</source>
+                <target>Zurück zu den KI-Aktionen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.title">
+                <source>What this is expected to cost</source>
+                <target>Was das voraussichtlich kostet</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.runs">
+                <source>Runs</source>
+                <target>Läufe</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.requests">
+                <source>Provider requests (at least)</source>
+                <target>Provider-Anfragen (mindestens)</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.inputTokens">
+                <source>Input tokens (at least)</source>
+                <target>Eingabe-Token (mindestens)</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.outputCeiling">
+                <source>Output ceiling per request</source>
+                <target>Ausgabe-Obergrenze je Anfrage</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.noCeiling">
+                <source>No ceiling is configured, so the length of an answer is unbounded.</source>
+                <target>Es ist keine Obergrenze konfiguriert, die Länge einer Antwort ist also unbegrenzt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.price">
+                <source>Price range (USD)</source>
+                <target>Preisspanne (USD)</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.unpriced">
+                <source>No range is shown. One needs an input price and an output price on the model record and an output ceiling on the configuration; at least one of the three is missing.</source>
+                <target>Hier steht keine Spanne. Dafür braucht es einen Eingabe- und einen Ausgabepreis am Modell-Datensatz und eine Ausgabe-Obergrenze an der Konfiguration; mindestens eines der drei fehlt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.accuracy">
+                <source>How wrong this can be: the input count is measured on the messages these runs carry, but the system prompt and skills the runtime adds are not counted, so the real input is higher. The lower price assumes no output at all and the upper one assumes every request returns the full ceiling, which an editorial change never does. Prices come from what an administrator stored on the model record.</source>
+                <target>Wie falsch das sein kann: Die Eingabe ist an den Nachrichten dieser Läufe gemessen, aber der System-Prompt und die Skills, die die Laufzeit ergänzt, sind nicht mitgezählt — die echte Eingabe liegt darüber. Der untere Preis nimmt gar keine Ausgabe an, der obere die volle Obergrenze bei jeder Anfrage, was eine redaktionelle Änderung nie erreicht. Die Preise stammen aus dem, was eine Administratorin am Modell-Datensatz hinterlegt hat.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.estimate.none">
+                <source>Nothing would run, so there is nothing to estimate.</source>
+                <target>Es würde nichts laufen, also gibt es nichts zu schätzen.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.title">
+                <source>The records</source>
+                <target>Die Datensätze</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.record">
+                <source>Record</source>
+                <target>Datensatz</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.status">
+                <source>Status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.willRun">
+                <source>Will run</source>
+                <target>Wird laufen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.skipped">
+                <source>Skipped</source>
+                <target>Übersprungen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.records.none">
+                <source>No record numbers were given.</source>
+                <target>Es wurden keine Datensatznummern angegeben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.discarded">
+                <source>%s entries were not record numbers and were ignored.</source>
+                <target>%s Einträge waren keine Datensatznummern und wurden ignoriert.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.skip.notOffered">
+                <source>This action is not available to you for this record. Records skipped:</source>
+                <target>Diese Aktion steht Ihnen für diesen Datensatz nicht zur Verfügung. Übersprungene Datensätze:</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.skip.overCap">
+                <source>Beyond the largest batch this page starts in one go. Records skipped:</source>
+                <target>Jenseits der größten Menge, die diese Seite auf einmal startet. Übersprungene Datensätze:</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.skip.duplicate">
+                <source>Named more than once and planned only once. Records skipped:</source>
+                <target>Mehrfach genannt und nur einmal eingeplant. Übersprungene Datensätze:</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.started">
+                <source>%d actions were started. Each one is waiting for its own approval in the inbox.</source>
+                <target>%d Aktionen wurden gestartet. Jede wartet im Posteingang auf ihre eigene Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.discarded">
+                <source>%d entries were not record numbers and were ignored.</source>
+                <target>%d Einträge waren keine Datensatznummern und wurden ignoriert.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.withoutPause">
+                <source>%d runs finished without proposing a change. Nothing was written for those records.</source>
+                <target>%d Läufe endeten ohne Änderungsvorschlag. Für diese Datensätze wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.blocked">
+                <source>%d runs were stopped by a guardrail. Nothing was written for those records.</source>
+                <target>%d Läufe wurden von einer Schutzregel gestoppt. Für diese Datensätze wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.cancelled">
+                <source>%d runs were cancelled. Nothing was written for those records.</source>
+                <target>%d Läufe wurden abgebrochen. Für diese Datensätze wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.failed">
+                <source>%d runs failed. Nothing was written for those records, and none of them is waiting for approval.</source>
+                <target>%d Läufe sind fehlgeschlagen. Für diese Datensätze wurde nichts geschrieben, und keiner davon wartet auf eine Freigabe.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.budgetStopped">
+                <source>The AI budget for your account ran out, so the batch stopped. Nothing was written for the record it stopped on.</source>
+                <target>Das KI-Budget Ihres Kontos ist aufgebraucht, deshalb hat der Stapel angehalten. Für den Datensatz, bei dem er angehalten hat, wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.notAttempted">
+                <source>These records were never started:</source>
+                <target>Diese Datensätze wurden nie gestartet:</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.nothingNamed">
+                <source>No records were named, so nothing was started.</source>
+                <target>Es wurden keine Datensätze genannt, also wurde nichts gestartet.</target>
+            </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
                 <target>Lesen Sie die Hilfe im Modul und die Online-Dokumentation für Einrichtungshinweise und Fehlerbehebung.</target>

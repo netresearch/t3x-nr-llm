@@ -10,21 +10,29 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\EditorActionController;
+use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
 use Netresearch\NrLlm\Domain\ValueObject\EditorActionOfferGroup;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmConfigurationServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
+use Netresearch\NrLlm\Service\Tool\EditorActionBatchPlanner;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogue;
 use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -39,6 +47,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
 use ReflectionProperty;
+use RuntimeException;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
@@ -67,6 +76,7 @@ use TYPO3\CMS\Extbase\Service\ExtensionService;
  */
 #[CoversClass(EditorActionController::class)]
 #[CoversClass(EditorActionCatalogue::class)]
+#[CoversClass(EditorActionBatchPlanner::class)]
 final class EditorActionControllerTest extends AbstractFunctionalTestCase
 {
     private const TOOL = 'update_page_metadata';
@@ -290,6 +300,286 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         self::assertContains('This action is not available for that record.', $this->flashMessages());
     }
 
+    // --- bulk (ADR-162) ----------------------------------------------------
+
+    #[Test]
+    public function batchActionsDenyABackendUserWithoutTheGrant(): void
+    {
+        $this->signIn(2); // non-admin, no tasks_use grant
+
+        $catalogue = $this->createMock(EditorActionCatalogueInterface::class);
+        $catalogue->expects(self::never())->method('runRequestFor');
+
+        $controller = $this->makeController($catalogue, $this->neverRunningRuntime());
+
+        $this->setRequest($controller, 'batch');
+        self::assertSame(403, $controller->batchAction(self::TOOL, 'pages', '1,2')->getStatusCode());
+
+        $this->setRequest($controller, 'startBatch');
+        self::assertSame(403, $controller->startBatchAction(self::TOOL, 'pages', '1,2')->getStatusCode());
+    }
+
+    #[Test]
+    public function batchActionRendersThePlanAndTheEstimateWithoutStartingAnything(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueOffering([41]), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'batch');
+
+        $response = $controller->batchAction(self::TOOL, 'pages', '41, 42');
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+
+        // The action is named to a human, never by its wire name (ADR-152).
+        self::assertStringContainsString('Update page metadata', $body);
+        // Both records appear — the one that will run and the one that will not,
+        // with the reason next to it.
+        self::assertStringContainsString('#41', $body);
+        self::assertStringContainsString('#42', $body);
+        self::assertStringContainsString('This action is not available to you for this record.', $body);
+        // And the estimate, derived from the one request the plan holds.
+        self::assertStringContainsString('Provider requests (at least)', $body);
+        self::assertStringContainsString('How wrong this can be', $body);
+    }
+
+    #[Test]
+    public function startBatchActionStartsOneOrdinaryRunPerRecordAndLandsInTheInbox(): void
+    {
+        $this->signIn(1);
+
+        $seen    = [];
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturnCallback(
+            static function (AgentRunRequest $request) use (&$seen): AgentRunResult {
+                $seen[] = $request;
+
+                return new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', []);
+            },
+        );
+
+        $controller = $this->makeController($this->catalogueOffering([41, 42, 43]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        $response = $controller->startBatchAction(self::TOOL, 'pages', '41 42 43');
+
+        self::assertSame(303, $response->getStatusCode());
+        // Three records, three runs — not one run with three calls.
+        self::assertCount(3, $seen);
+        foreach ($seen as $request) {
+            self::assertSame([self::TOOL], $request->allowedToolNames);
+        }
+
+        self::assertContains(
+            '3 actions were started. Each one is waiting for its own approval in the inbox.',
+            $this->flashMessages(),
+        );
+    }
+
+    /**
+     * A record the catalogue refuses is reported by number. The failure this
+     * guards is the quiet one: a batch that starts two of three runs and says
+     * three.
+     */
+    #[Test]
+    public function startBatchActionNamesTheRecordsItSkipped(): void
+    {
+        $this->signIn(1);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->expects(self::once())->method('run')->willReturn(
+            new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', []),
+        );
+
+        $controller = $this->makeController($this->catalogueOffering([41]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41,42,43,41,nonsense')->getStatusCode());
+
+        $messages = $this->flashMessages();
+        self::assertContains('This action is not available to you for this record. Records skipped: 42, 43', $messages);
+        self::assertContains('Named more than once and planned only once. Records skipped: 41', $messages);
+        self::assertContains('1 entries were not record numbers and were ignored.', $messages);
+    }
+
+    /**
+     * The half-done batch this design does not pretend away (ADR-162): N runs
+     * hit the budget N times, so it can run out partway. What must not happen is
+     * silence about the records that never started.
+     *
+     * The denied run is settled the way the RUNTIME settles one, not the way a
+     * denial reads: {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
+     * catches the exception and returns a truncated result, which the executor
+     * settles as COMPLETED with no `error` — asserted in
+     * AgentRuntimeTest::aBudgetExhaustedLoopResultSettlesCompletedAndCarriesTheReason.
+     * A guard that watched `error` would never fire here.
+     */
+    #[Test]
+    public function startBatchActionStopsAtTheBudgetAndNamesWhatItNeverStarted(): void
+    {
+        $this->signIn(1);
+
+        $calls   = 0;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturnCallback(
+            static function () use (&$calls): AgentRunResult {
+                ++$calls;
+
+                if ($calls === 1) {
+                    return new AgentRunResult(AgentRunOutcome::AWAITING_APPROVAL, 'run-uuid', []);
+                }
+
+                return new AgentRunResult(
+                    AgentRunOutcome::COMPLETED,
+                    'run-uuid',
+                    [],
+                    loopResult: new ToolLoopResult(
+                        '',
+                        [],
+                        1,
+                        true,
+                        UsageStatistics::fromTokens(3, 0),
+                        AgentRunTerminationReason::BUDGET_EXHAUSTED,
+                    ),
+                );
+            },
+        );
+
+        $controller = $this->makeController($this->catalogueOffering([41, 42, 43, 44]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41,42,43,44')->getStatusCode());
+
+        // One started, one denied, and the two after it never attempted.
+        self::assertSame(2, $calls);
+        $messages = $this->flashMessages();
+        self::assertContains('1 actions were started. Each one is waiting for its own approval in the inbox.', $messages);
+        // Record 42 IS the one that ran into the budget, so it is not among the
+        // never-started — and it is not counted as a run that merely proposed
+        // nothing either.
+        self::assertContains(
+            'The AI budget for your account ran out, so the batch stopped. Nothing was written for the record it stopped on. These records were never started: 43, 44',
+            $messages,
+        );
+        self::assertNotContains('1 runs finished without proposing a change. Nothing was written for those records.', $messages);
+    }
+
+    /**
+     * A denial on the LAST record names nobody, and must still say the budget
+     * ran out. The earlier shape folded both facts into one sentence, so an
+     * empty list silenced the whole message.
+     */
+    #[Test]
+    public function startBatchActionReportsABudgetStopOnTheLastRecordWithNothingLeftToName(): void
+    {
+        $this->signIn(1);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturn(new AgentRunResult(
+            AgentRunOutcome::COMPLETED,
+            'run-uuid',
+            [],
+            loopResult: new ToolLoopResult('', [], 1, true, UsageStatistics::fromTokens(3, 0), AgentRunTerminationReason::BUDGET_EXHAUSTED),
+        ));
+
+        $controller = $this->makeController($this->catalogueOffering([41]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41')->getStatusCode());
+
+        self::assertContains(
+            'The AI budget for your account ran out, so the batch stopped. Nothing was written for the record it stopped on.',
+            $this->flashMessages(),
+        );
+    }
+
+    /**
+     * A budget denial that DOES arrive as a throwable — the no-tools branch,
+     * where the send sits outside the loop's own catch and the exception
+     * propagates to the generic failure arm.
+     */
+    #[Test]
+    public function startBatchActionStopsAtABudgetDenialThatArrivesAsAWrappedThrowable(): void
+    {
+        $this->signIn(1);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturn(new AgentRunResult(
+            AgentRunOutcome::FAILED,
+            '',
+            [],
+            // Wrapped, as a middleware layer may hand it back: the whole chain
+            // is walked, not the outermost type.
+            error: new RuntimeException('run failed', 0, new BudgetExceededException(
+                BudgetCheckResult::denied('daily_cost', 12.0, 10.0),
+            )),
+        ));
+
+        $controller = $this->makeController($this->catalogueOffering([41, 42]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41,42')->getStatusCode());
+
+        self::assertContains(
+            'The AI budget for your account ran out, so the batch stopped. Nothing was written for the record it stopped on. These records were never started: 42',
+            $this->flashMessages(),
+        );
+    }
+
+    /**
+     * A batch where everything failed must not read like a batch where nothing
+     * needed changing. The single-record path distinguishes these outcomes; the
+     * batch report is held to the same line.
+     */
+    #[Test]
+    public function startBatchActionReportsFailedAndBlockedRunsApartFromQuietOnes(): void
+    {
+        $this->signIn(1);
+
+        $outcomes = [
+            AgentRunOutcome::FAILED,
+            AgentRunOutcome::SUSPEND_FAILED,
+            AgentRunOutcome::GUARDRAIL_BLOCKED,
+            AgentRunOutcome::COMPLETED,
+        ];
+
+        $calls   = 0;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('run')->willReturnCallback(
+            static function () use (&$calls, $outcomes): AgentRunResult {
+                return new AgentRunResult($outcomes[$calls++], 'run-uuid', []);
+            },
+        );
+
+        $controller = $this->makeController($this->catalogueOffering([41, 42, 43, 44]), $runtime);
+        $this->setRequest($controller, 'startBatch');
+
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41,42,43,44')->getStatusCode());
+
+        $messages = $this->flashMessages();
+        // SUSPEND_FAILED joins FAILED: an approval was required and could not be
+        // stored, so no resume is possible — the sharpest case of all.
+        self::assertContains('2 runs failed. Nothing was written for those records, and none of them is waiting for approval.', $messages);
+        self::assertContains('1 runs were stopped by a guardrail. Nothing was written for those records.', $messages);
+        self::assertContains('1 runs finished without proposing a change. Nothing was written for those records.', $messages);
+    }
+
+    #[Test]
+    public function startBatchActionStartsNothingForRecordsTheCatalogueDoesNotOffer(): void
+    {
+        $this->signIn(1);
+
+        $controller = $this->makeController($this->catalogueOffering([]), $this->neverRunningRuntime());
+        $this->setRequest($controller, 'startBatch');
+
+        // Back to the plan rather than to the inbox: nothing is waiting there.
+        self::assertSame(303, $controller->startBatchAction(self::TOOL, 'pages', '41,42')->getStatusCode());
+        self::assertContains(
+            'This action is not available to you for this record. Records skipped: 41, 42',
+            $this->flashMessages(),
+        );
+    }
+
     // --- helpers -----------------------------------------------------------
 
     private function signIn(int $uid): void
@@ -353,7 +643,17 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         return new EditorActionCatalogue($availability, $policy, $configurationRepository, $configurations);
     }
 
-    private function catalogueOffering(): EditorActionCatalogueInterface
+    /**
+     * A catalogue that offers the one action.
+     *
+     * `$runnableUids` additionally stubs the per-record question the batch loop
+     * asks: those record numbers get a run request, every other number gets the
+     * refusal a real catalogue would give. Null leaves `runRequestFor()`
+     * unstubbed, for the single-record tests that arrange it themselves.
+     *
+     * @param list<int>|null $runnableUids
+     */
+    private function catalogueOffering(?array $runnableUids = null): EditorActionCatalogueInterface
     {
         $offer = new EditorActionOffer(
             self::TOOL,
@@ -374,6 +674,23 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
                 [$offer],
             ),
         ]);
+
+        if ($runnableUids !== null) {
+            $catalogue->method('runRequestFor')->willReturnCallback(
+                static function (string $toolName, string $recordTable, int $recordUid) use ($runnableUids): ?AgentRunRequest {
+                    if (!in_array($recordUid, $runnableUids, true)) {
+                        return null;
+                    }
+
+                    return new AgentRunRequest(
+                        configuration: new LlmConfiguration(),
+                        messages: [ChatMessage::user(sprintf('Call "%s" for %s #%d.', $toolName, $recordTable, $recordUid))],
+                        actor: AiActorContext::backendUser(1, true),
+                        allowedToolNames: [$toolName],
+                    );
+                },
+            );
+        }
 
         return $catalogue;
     }
@@ -423,7 +740,16 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         $moduleTemplateFactory = $this->get(ModuleTemplateFactory::class);
         self::assertInstanceOf(ModuleTemplateFactory::class, $moduleTemplateFactory);
 
-        return new EditorActionController($moduleTemplateFactory, $catalogue, $runtime);
+        // The planner is real, over the same catalogue double: it owns no
+        // authorisation of its own (ADR-162), so a double would only hide the
+        // loop this class exercises.
+        $planner = new EditorActionBatchPlanner(
+            $catalogue,
+            new ToolRegistry([new FakeEditorActionTool(self::TOOL)]),
+            new TranscriptEstimator(),
+        );
+
+        return new EditorActionController($moduleTemplateFactory, $catalogue, $runtime, $planner);
     }
 
     /**

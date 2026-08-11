@@ -1,0 +1,205 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <core:icon identifier="module-nrllm-task" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.title" default="AI action on several records" />
+        </h1>
+        <f:link.action action="catalogue" arguments="{recordTable: recordTable}" class="btn btn-secondary">
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.btn.backToCatalogue" default="Back to the AI actions" />
+        </f:link.action>
+    </div>
+
+    <f:if condition="{plan.offer}">
+        <f:then>
+            <p>
+                <core:icon identifier="{plan.offer.action.iconIdentifier}" size="small" />
+                <strong><f:translate key="{plan.offer.action.labelKey}" /></strong>
+                <span class="badge text-bg-secondary ms-2"><code>{plan.recordTable}</code></span>
+            </p>
+            <p class="text-muted">
+                <f:translate key="{plan.offer.action.descriptionKey}" />
+            </p>
+        </f:then>
+        <f:else>
+            <div class="callout callout-danger">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.notAvailable" default="This action is not available to you for that table. Nothing can be started here." /></p>
+            </div>
+        </f:else>
+    </f:if>
+
+    <p class="text-muted">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.intro"
+                     default="Each record becomes its own run. Each run stops for its own approval and appears as its own card in the inbox, with its own preview. Nothing is written until you approve it there." />
+    </p>
+
+    <f:form action="batch" method="post" class="mb-4">
+        <f:form.hidden name="toolName" value="{toolName}" />
+        <f:form.hidden name="recordTable" value="{recordTable}" />
+
+        <div class="mb-3">
+            <label class="form-label" for="nrllm-batch-uids">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.label" default="Record numbers" />
+            </label>
+            <f:form.textarea name="recordUids" id="nrllm-batch-uids" class="form-control" rows="3" value="{recordUids}" />
+            <small class="form-text text-body-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.hint" default="Separated by commas or spaces, all from the same table." />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.cap" default="At most %s records are planned; the rest are listed as skipped." arguments="{0: maxRecords}" />
+            </small>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="nrllm-batch-instruction">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.label" default="What should change? (optional)" />
+            </label>
+            <f:form.textfield name="instruction" id="nrllm-batch-instruction" class="form-control" maxlength="1000" value="{instruction}" />
+            <small class="form-text text-body-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.instruction.hint" default="The same note goes to every run. It describes the result; it never changes which records are touched." />
+            </small>
+        </div>
+
+        <button type="submit" class="btn btn-secondary">
+            <core:icon identifier="actions-refresh" size="small" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.btn.recalculate" default="Recalculate" />
+        </button>
+        <f:if condition="{plan.estimate.records} > 0">
+            <button type="submit" class="btn btn-primary" formaction="{f:uri.action(action: 'startBatch')}">
+                <core:icon identifier="actions-play" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.btn.start" default="Start the runs and send them for approval" />
+            </button>
+        </f:if>
+    </f:form>
+
+    <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.title" default="What this is expected to cost" /></h2>
+
+    <f:if condition="{plan.estimate.records} > 0">
+        <f:then>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.runs" default="Runs" /></th>
+                            <td>{plan.estimate.records}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.requests" default="Provider requests (at least)" /></th>
+                            <td>{plan.estimate.providerRequests}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.inputTokens" default="Input tokens (at least)" /></th>
+                            <td>{plan.estimate.inputTokensTotal} <span class="text-body-secondary">({plan.estimate.inputTokensPerRequest} &times; {plan.estimate.providerRequests})</span></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.outputCeiling" default="Output ceiling per request" /></th>
+                            <td>
+                                <f:if condition="{plan.estimate.hasOutputCeiling}">
+                                    <f:then>{plan.estimate.maxOutputTokensPerRequest}</f:then>
+                                    <f:else>
+                                        <span class="text-body-secondary">
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.noCeiling" default="No ceiling is configured, so the length of an answer is unbounded." />
+                                        </span>
+                                    </f:else>
+                                </f:if>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.model" default="Model" /></th>
+                            <td><code>{plan.estimate.modelId}</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.price" default="Price range (USD)" /></th>
+                            <td>
+                                <f:if condition="{plan.estimate.priced}">
+                                    <f:then>
+                                        {plan.estimate.costLow -> f:format.number(decimals: 4)}
+                                        &ndash;
+                                        {plan.estimate.costHigh -> f:format.number(decimals: 4)}
+                                    </f:then>
+                                    <f:else>
+                                        <span class="text-body-secondary">
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.unpriced" default="No range is shown. One needs an input price and an output price on the model record and an output ceiling on the configuration; at least one of the three is missing." />
+                                        </span>
+                                    </f:else>
+                                </f:if>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="callout callout-warning">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.accuracy"
+                                default="How wrong this can be: the input count is measured on the messages these runs carry, but the system prompt and skills the runtime adds are not counted, so the real input is higher. The lower price assumes no output at all and the upper one assumes every request returns the full ceiling, which an editorial change never does. Prices come from what an administrator stored on the model record." /></p>
+            </div>
+        </f:then>
+        <f:else>
+            <div class="callout callout-info">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.none" default="Nothing would run, so there is nothing to estimate." /></p>
+            </div>
+        </f:else>
+    </f:if>
+
+    <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.title" default="The records" /></h2>
+
+    <f:if condition="{plan.discardedInputs} > 0">
+        <div class="callout callout-warning">
+            <p>
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.discarded"
+                             default="%s entries were not record numbers and were ignored." arguments="{0: plan.discardedInputs}" />
+            </p>
+        </div>
+    </f:if>
+
+    <f:if condition="{plan.entries}">
+        <f:then>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.record" default="Record" /></th>
+                            <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.status" default="Status" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{plan.entries}" as="entry">
+                            <tr>
+                                <td><code>{plan.recordTable}</code> #{entry.recordUid}</td>
+                                <td>
+                                    <f:if condition="{entry.runnable}">
+                                        <f:then>
+                                            <span class="badge text-bg-success">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.willRun" default="Will run" />
+                                            </span>
+                                        </f:then>
+                                        <f:else>
+                                            <span class="badge text-bg-warning">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.skipped" default="Skipped" />
+                                            </span>
+                                            <f:translate key="{entry.skipReasonKey}" />
+                                        </f:else>
+                                    </f:if>
+                                </td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:then>
+        <f:else>
+            <div class="callout callout-info">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.none" default="No record numbers were given." /></p>
+            </div>
+        </f:else>
+    </f:if>
+</f:section>
+
+</html>
