@@ -691,8 +691,8 @@
                 <target>Art der Antwort (Anbieter / Katalog)</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities_source.description">
-                <source>"discovery" = the provider's own model endpoint answered. "catalog" = the provider did not answer and the bundled static catalog was substituted, which is a guess, not a confirmation.</source>
-                <target>„discovery“ = der Modell-Endpunkt des Anbieters hat geantwortet. „catalog“ = der Anbieter hat nicht geantwortet und der mitgelieferte statische Katalog wurde eingesetzt – eine Annahme, keine Bestätigung.</target>
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
+                <target>„discovery“ = der Modell-Endpunkt des Anbieters hat diese Fähigkeiten gemeldet. „catalog“ = er hat es nicht – entweder war er nicht erreichbar, oder er listet Modell-IDs ohne Fähigkeiten – und der mitgelieferte statische Katalog hat sie geliefert: eine Annahme, keine Bestätigung.</target>
             </trans-unit>
 
             <!-- Capability labels and descriptions -->

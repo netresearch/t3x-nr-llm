@@ -1293,8 +1293,8 @@
                 <target>Am %s vom Anbieter bestätigt</target>
             </trans-unit>
             <trans-unit id="model.capability.catalog">
-                <source>From the bundled model catalog — the provider did not answer, so this is an assumption</source>
-                <target>Aus dem mitgelieferten Modellkatalog – der Anbieter hat nicht geantwortet, das ist also eine Annahme</target>
+                <source>From the bundled model catalog — the provider did not report this capability, so this is an assumption</source>
+                <target>Aus dem mitgelieferten Modellkatalog – der Anbieter hat diese Fähigkeit nicht gemeldet, das ist also eine Annahme</target>
             </trans-unit>
             <trans-unit id="model.capability.operator">
                 <source>Declared by an operator — never confirmed against the provider</source>

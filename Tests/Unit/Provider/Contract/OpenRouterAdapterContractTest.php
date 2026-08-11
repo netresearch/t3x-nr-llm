@@ -66,6 +66,9 @@ final class OpenRouterAdapterContractTest extends AbstractOpenAiDialectContractT
      * DEVIATION: OpenRouter's own mapping sends every non-special status
      * through `ProviderResponseException`, so a 502 from the gateway is a
      * response error here and a connection error on every other adapter.
+     * 503 is not among them: `handleOpenRouterError()` has its own arm for it
+     * and throws `ProviderConnectionException`, the same class the shared path
+     * would. The deviation is a 5xx OTHER than 503.
      *
      * What this does NOT change is retry and fallback. `FailureClassifier`
      * (ADR-095) reads the carried status, not the class: a

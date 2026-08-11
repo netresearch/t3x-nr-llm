@@ -536,7 +536,7 @@
                 <source>Kind of answer (discovery / catalog)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities_source.description">
-                <source>"discovery" = the provider's own model endpoint answered. "catalog" = the provider did not answer and the bundled static catalog was substituted, which is a guess, not a confirmation.</source>
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
             </trans-unit>
 
             <!-- Capability labels and descriptions -->

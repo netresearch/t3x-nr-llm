@@ -64,13 +64,31 @@ final readonly class CapabilityVerifier
 
         $model->recordCapabilityDiscovery(
             array_values(array_filter($discovered->capabilities, is_string(...))),
-            $this->modelDiscovery->wasLastDiscoveryFromFallback()
-                ? CapabilitySource::Catalog
-                : CapabilitySource::Discovery,
+            $this->sourceOf($discovered),
             $now,
         );
 
         return true;
+    }
+
+    /**
+     * `Discovery` means the provider's endpoint reported these capability
+     * TOKENS — not that the model LIST was live. The two come apart routinely:
+     * OpenAI's and Anthropic's model endpoints return an id and nothing else,
+     * so their discoverers read the tokens out of the bundled catalog on the
+     * live path exactly as on the fallback path, and Gemini's curated table
+     * wins over the listing for every model it knows. Deciding the source from
+     * `wasLastDiscoveryFromFallback()` alone would stamp "confirmed by the
+     * provider" on all of those.
+     *
+     * A model list that fell back to the catalog is `Catalog` regardless of
+     * the flag, because those DTOs are the catalog.
+     */
+    private function sourceOf(DiscoveredModel $discovered): CapabilitySource
+    {
+        return $this->modelDiscovery->wasLastDiscoveryFromFallback() || !$discovered->capabilitiesFromApi
+            ? CapabilitySource::Catalog
+            : CapabilitySource::Discovery;
     }
 
     private function findModel(Provider $provider, string $modelId): ?DiscoveredModel

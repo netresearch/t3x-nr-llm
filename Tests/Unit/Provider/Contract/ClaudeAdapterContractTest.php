@@ -109,6 +109,16 @@ final class ClaudeAdapterContractTest extends AbstractAdapterContractTestCase
         self::assertSame($tool['name'] ?? null, $choice['name'] ?? null);
     }
 
+    /**
+     * The Messages API has no `response_format` and no `json_schema`, so the
+     * shared marker list cannot fail here. The shape a leak would take is the
+     * forced tool from `assertSchemaEnforcedOnTheWire()`.
+     */
+    protected function structuredOutputMarkers(): array
+    {
+        return ['input_schema', 'tool_choice'];
+    }
+
     protected function assertUnsupportedSchemaDegrades(array $payload, array $schema): void
     {
         self::markTestSkipped(

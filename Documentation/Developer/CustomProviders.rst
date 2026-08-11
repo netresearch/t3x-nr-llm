@@ -139,11 +139,13 @@ The declared deviations
 Two rules above are not universal, and the contract says which adapter breaks
 them rather than softening the rule for everyone:
 
-*  ``OpenRouterProvider`` maps a 5xx to :php:`ProviderResponseException`, not
-   :php:`ProviderConnectionException`, because it carries its own request path
-   for the attribution headers and the 402 = out-of-credits mapping. Retry and
-   fallback are unaffected — :php:`FailureClassifier` reads the carried HTTP
-   status, so a 5xx classifies as ``SERVER_ERROR`` and hops either way. What
+*  ``OpenRouterProvider`` maps a 5xx **other than 503** to
+   :php:`ProviderResponseException`, not :php:`ProviderConnectionException`,
+   because it carries its own request path for the attribution headers and the
+   402 = out-of-credits mapping. 503 has its own arm there and stays
+   :php:`ProviderConnectionException`, matching the shared path. Retry and
+   fallback are unaffected either way — :php:`FailureClassifier` reads the
+   carried HTTP status, so a 5xx classifies as ``SERVER_ERROR`` and hops. What
    differs is the class a caller catches and the message text.
 *  The same adapter does not retry transport failures at all; that path has no
    retry loop, so ``maxRetries`` is inert for it.

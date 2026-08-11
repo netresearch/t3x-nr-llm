@@ -17,23 +17,28 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * so nothing could tell a verified capability from an assumed one. This enum
  * is the missing half.
  *
- * `Catalog` is deliberately separate from `Discovery`. When a provider's
- * model endpoint is unreachable, `ModelDiscovery` substitutes the static
- * catalog bundled with the extension (see `DiscoveryResult::fallback()`).
- * Folding that into `Discovery` would report an assumption as a
- * confirmation — the exact conflation this record exists to end.
+ * `Catalog` is deliberately separate from `Discovery`, and it is the wider of
+ * the two. It covers both ways the bundled static catalog ends up supplying
+ * the tokens: an unreachable model endpoint, where `ModelDiscovery`
+ * substitutes the catalog wholesale (see `DiscoveryResult::fallback()`), and a
+ * reachable one that lists model ids and nothing else — OpenAI's and
+ * Anthropic's do — where the model LIST is live but the capability tokens are
+ * still the shipped guess. Folding either into `Discovery` would report an
+ * assumption as a confirmation, the exact conflation this record exists to
+ * end.
  *
  * @api
  */
 enum CapabilitySource: string
 {
     /**
-     * The provider's own model endpoint reported it.
+     * The provider's own model endpoint reported these capabilities.
      */
     case Discovery = 'discovery';
 
     /**
-     * The bundled static catalog supplied it because the provider did not answer.
+     * The bundled static catalog supplied them, because the provider's model
+     * endpoint either did not answer or does not report capabilities.
      */
     case Catalog = 'catalog';
 

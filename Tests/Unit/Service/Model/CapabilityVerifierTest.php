@@ -57,7 +57,12 @@ final class CapabilityVerifierTest extends AbstractUnitTestCase
         $model = $this->modelOnProvider('gpt-4o', 'chat,vision');
 
         $verified = $this->verifier([
-            new DiscoveredModel(modelId: 'gpt-4o', name: 'GPT-4o', capabilities: ['chat', 'vision']),
+            new DiscoveredModel(
+                modelId: 'gpt-4o',
+                name: 'GPT-4o',
+                capabilities: ['chat', 'vision'],
+                capabilitiesFromApi: true,
+            ),
         ])->verify($model, new DateTimeImmutable(self::NOW));
 
         self::assertTrue($verified);
@@ -67,6 +72,32 @@ final class CapabilityVerifierTest extends AbstractUnitTestCase
             (new DateTimeImmutable(self::NOW))->getTimestamp(),
             $model->getCapabilitiesConfirmedDate()?->getTimestamp(),
         );
+    }
+
+    /**
+     * A live model LIST does not make the capability TOKENS live. OpenAI's and
+     * Anthropic's endpoints answer with a model id and nothing else, so their
+     * discoverers read the tokens out of the bundled catalog on the live path
+     * too — and say so with `capabilitiesFromApi: false`. Stamping `Discovery`
+     * on that would manufacture the confidence provenance exists to remove.
+     */
+    #[Test]
+    public function catalogueDerivedTokensOnALiveRunAreRecordedAsCatalog(): void
+    {
+        $model = $this->modelOnProvider('gpt-4o', 'chat,vision');
+
+        $verified = $this->verifier([
+            new DiscoveredModel(
+                modelId: 'gpt-4o',
+                name: 'GPT-4o',
+                capabilities: ['chat', 'vision'],
+                capabilitiesFromApi: false,
+            ),
+        ])->verify($model, new DateTimeImmutable(self::NOW));
+
+        self::assertTrue($verified);
+        self::assertSame(CapabilitySource::Catalog->value, $model->_getProperty('capabilitiesSource'));
+        self::assertFalse($model->getCapabilityProvenance()[0]->isVerified());
     }
 
     /**
@@ -80,7 +111,15 @@ final class CapabilityVerifierTest extends AbstractUnitTestCase
         $model = $this->modelOnProvider('gpt-4o', 'chat');
 
         $verified = $this->verifier(
-            [new DiscoveredModel(modelId: 'gpt-4o', name: 'GPT-4o', capabilities: ['chat'])],
+            // `capabilitiesFromApi: true` isolates the arm under test: the
+            // substituted catalog decides the source even for a discoverer
+            // that derives its tokens from the payload when reached.
+            [new DiscoveredModel(
+                modelId: 'gpt-4o',
+                name: 'GPT-4o',
+                capabilities: ['chat'],
+                capabilitiesFromApi: true,
+            )],
             fromFallback: true,
         )->verify($model, new DateTimeImmutable(self::NOW));
 

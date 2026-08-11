@@ -197,6 +197,9 @@ final class GeminiModelDiscoverer extends AbstractModelDiscoverer
             costInput: $spec['costInput'] ?? 0,
             costOutput: $spec['costOutput'] ?? 0,
             recommended: $spec['recommended'] ?? false,
+            // The curated table wins over the listing, so a model it knows
+            // carries bundled tokens even on a live run (ADR-160).
+            capabilitiesFromApi: !isset($spec['capabilities']),
         );
     }
 

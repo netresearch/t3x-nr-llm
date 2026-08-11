@@ -979,7 +979,7 @@
                 <source>Confirmed by provider discovery on %s</source>
             </trans-unit>
             <trans-unit id="model.capability.catalog">
-                <source>From the bundled model catalog — the provider did not answer, so this is an assumption</source>
+                <source>From the bundled model catalog — the provider did not report this capability, so this is an assumption</source>
             </trans-unit>
             <trans-unit id="model.capability.operator">
                 <source>Declared by an operator — never confirmed against the provider</source>

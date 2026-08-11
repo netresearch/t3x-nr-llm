@@ -25,7 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Capability provenance on `tx_nrllm_model`** (ADR-160). Three columns —
   `capabilities_discovered`, `capabilities_confirmed_at`, `capabilities_source`
   — record what the last provider discovery reported, when, and whether the
-  answer was live or the bundled static catalog. Per-capability attribution is
+  capability tokens came from the provider's own response or from the bundled
+  static catalog. Per-capability attribution is
   derived by comparing the declared set against the discovered one, so a
   capability only an operator ticked is attributed to the operator and a record
   written before provenance reads back as unconfirmed. The model backend module
@@ -33,9 +34,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   provider never confirmed, a "last confirmed" line per row, and a "Confirm
   capabilities" row action that runs discovery and records the answer.
   `CapabilitySource::Catalog` is kept distinct from `Discovery` — a substituted
-  catalog is an assumption, not a confirmation. Routing does not read
-  provenance: gating eligibility on it would silently drop hand-declared
-  models.
+  catalog is an assumption, not a confirmation — and it follows the capability
+  tokens rather than the model list, so OpenAI, Anthropic and Groq confirm as
+  `Catalog` even against a reachable API: their model endpoints list ids and no
+  capabilities, so the tokens are the bundled catalog on a live run too.
+  Routing does not read provenance: gating eligibility on it would silently
+  drop hand-declared models.
 
 - A side-effecting tool that cannot be fenced is refused before it runs
   (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is

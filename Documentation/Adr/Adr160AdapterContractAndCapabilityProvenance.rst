@@ -89,10 +89,12 @@ one intermediate case.
 
 Three rules keep it a contract rather than a lowest common denominator:
 
-**A capability an adapter does not have is skipped by name.** The tool,
-document, unsupported-schema and credential contracts call
-``markTestSkipped()`` with the reason. A reader of the run sees nine named
-skips and can tell "cannot" from "not tested" — which is the entire point.
+**A capability an adapter does not have is skipped by name.** The document,
+unsupported-schema, credential and retry contracts call ``markTestSkipped()``
+with the reason. A reader of the run sees nine named skips and can tell
+"cannot" from "not tested" — which is the entire point. The tool contracts
+carry the same guard and never fire it: all seven bundled adapters implement
+``ToolCapableInterface``. The guard stays for the eighth.
 
 **A deliberate deviation is declared, not tolerated.** Three hooks —
 ``expectedServerErrorException()``, ``retriesTransportFailures()`` and
@@ -145,6 +147,24 @@ it, and it now says so.
 ``CapabilitySource::Catalog`` is deliberately distinct from ``Discovery``.
 Folding the substituted static catalog into "confirmed by the provider" would
 manufacture exactly the confidence this record exists to remove.
+
+**The source follows the capability tokens, not the model list.** These come
+apart, and reading only ``ModelDiscovery::wasLastDiscoveryFromFallback()``
+would have been the same conflation one level down. OpenAI's ``/v1/models``
+returns ``id``/``object``/``created``/``owned_by``, Anthropic's returns no
+capabilities either, and Groq's listing has no capability field: their
+discoverers read the tokens out of the bundled catalog on the live path
+exactly as on the fallback path. Gemini's curated table wins over the listing
+for every model it names. So ``DiscoveredModel`` carries
+``capabilitiesFromApi``, set by the discoverer and true only where the tokens
+were derived from the response payload — Mistral's ``capabilities`` object,
+OpenRouter's ``supported_parameters`` and ``input_modalities``, Ollama's
+``/api/show`` array, and Gemini's ``supportedGenerationMethods`` for a model
+the table does not know. ``CapabilityVerifier`` records ``Discovery`` only
+when a live list and payload-derived tokens both hold; everything else is
+``Catalog``. The practical consequence is that confirming an OpenAI or
+Anthropic model against a reachable API yields ``Catalog``, which is the true
+answer — nothing about those tokens was confirmed.
 
 .. _adr-160-decision-consumer:
 
@@ -208,10 +228,11 @@ tool calls — but it is a behaviour change for anything that branched on the
 wrong one.
 
 ✕ Two contract holes exist by declaration, both from OpenRouter's private
-request path. It maps 5xx to ``ProviderResponseException`` rather than
-``ProviderConnectionException``, and it does not retry transport failures at
-all. Neither is fixed here, because unifying that path means changing its
-401/402/429/500 messages, which existing tests pin.
+request path. It maps a 5xx other than 503 to ``ProviderResponseException``
+rather than ``ProviderConnectionException`` — 503 has its own arm in
+``handleOpenRouterError()`` and keeps the shared class — and it does not retry
+transport failures at all. Neither is fixed here, because unifying that path
+means changing its 401/402/429/500 messages, which existing tests pin.
 
 The 5xx mapping does **not** cost a fallback hop. ``FailureClassifier``
 (:ref:`ADR-095 <adr-095>`) reads the carried HTTP status, not the exception

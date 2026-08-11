@@ -46,10 +46,13 @@ use RuntimeException;
  *
  * Three rules keep it a contract rather than a lowest common denominator:
  *
- * 1. **A capability an adapter does not have is skipped BY NAME.** The tool
- *    and document contracts call `markTestSkipped()` with the reason instead
- *    of being silently absent, so a reader of the run can tell "cannot" from
- *    "not tested". That distinction is the point of the suite.
+ * 1. **A capability an adapter does not have is skipped BY NAME.** The
+ *    document, credential, retry and unsupported-schema contracts call
+ *    `markTestSkipped()` with the reason instead of being silently absent, so
+ *    a reader of the run can tell "cannot" from "not tested". That
+ *    distinction is the point of the suite. The tool contracts carry the same
+ *    guard and never fire it — all seven bundled adapters implement
+ *    `ToolCapableInterface` — and it stays for the eighth.
  * 2. **A deliberate deviation is declared, not tolerated.** The three hooks
  *    {@see expectedServerErrorException()}, {@see retriesTransportFailures()}
  *    and {@see requiresApiKey()} carry the differences that are real: the
@@ -605,13 +608,31 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
         $adapter->chatCompletion([['role' => 'user', 'content' => 'Just talk']]);
 
         $body = $this->lastRequestBody();
-        foreach (['json_schema', 'responseSchema', 'structured_output', '"format"'] as $marker) {
+        foreach ($this->structuredOutputMarkers() as $marker) {
             self::assertStringNotContainsString(
                 $marker,
                 $body,
                 'A plain completion must not carry a structured-output instruction.',
             );
         }
+    }
+
+    /**
+     * The strings that betray a structured-output instruction in THIS
+     * adapter's request body.
+     *
+     * The default covers the OpenAI dialect's `json_schema`, Gemini's
+     * `responseSchema` and Ollama's top-level `format`. An adapter whose
+     * native shape uses none of them has to override this, or the contract
+     * passes vacuously for exactly the adapter it does not describe —
+     * `ClaudeAdapterContractTest` is that case (ADR-128: a forced tool whose
+     * `input_schema` is the schema).
+     *
+     * @return list<string>
+     */
+    protected function structuredOutputMarkers(): array
+    {
+        return ['json_schema', 'responseSchema', 'structured_output', '"format"'];
     }
 
     /**

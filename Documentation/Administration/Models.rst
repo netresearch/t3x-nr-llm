@@ -85,9 +85,19 @@ own model endpoint declared that capability, and the
 row says when. A yellow badge with a question mark
 means nobody confirmed it: either an administrator
 ticked it by hand, or it came from the static model
-catalogue bundled with the extension because the
-provider did not answer. Hover the badge for the
-reason.
+catalogue bundled with the extension. Hover the
+badge for the reason.
+
+Expect the yellow badge for OpenAI, Anthropic, Groq
+and the Gemini models the extension knows by name,
+even against a reachable API. Those model endpoints
+list model ids and no capabilities, so the tokens
+come from the bundled catalogue on a live run
+exactly as on an unreachable one, and the badge says
+so rather than borrowing the provider's authority.
+Mistral, OpenRouter, Ollama and Gemini releases
+newer than this extension do report capabilities per
+model, and those confirm to grey.
 
 Use the :guilabel:`Confirm capabilities` row action
 to ask the provider. It runs the same discovery the
