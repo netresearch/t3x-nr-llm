@@ -154,6 +154,65 @@ final class InputContextTrustGateTest extends TestCase
         self::assertStringNotContainsString('merger', $recorded[0]->detail);
     }
 
+    #[Test]
+    public function decideReportsNoConstraintWhenNothingIsDeclared(): void
+    {
+        $decision = $this->gate([$this->snippet('legal', '')])
+            ->decide($this->configuration(TrustZone::EXTERNAL_GLOBAL));
+
+        self::assertTrue($decision->isPermitted());
+        self::assertNull($decision->declaredClass);
+        // Nothing was compared, so no zone was resolved. Filling it in would
+        // report a comparison the gate never made.
+        self::assertNull($decision->zone);
+        self::assertNull($decision->enforcing);
+    }
+
+    #[Test]
+    public function decideReportsARefusalInsteadOfThrowing(): void
+    {
+        $decision = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)])
+            ->decide($this->configuration(TrustZone::EXTERNAL_GLOBAL));
+
+        self::assertFalse($decision->isPermitted());
+        self::assertTrue($decision->zoneRefused);
+        self::assertFalse($decision->isObservedOnly());
+        self::assertSame(ToolDataClass::SECRET_ADJACENT, $decision->declaredClass);
+        self::assertSame(TrustZone::EXTERNAL_GLOBAL, $decision->zone);
+        self::assertStringContainsString('legal-policy', $decision->source);
+    }
+
+    #[Test]
+    public function decideSeparatesObserveModeFromPermitted(): void
+    {
+        // The reason a simulator cannot just catch the exception: in observe
+        // mode assertPermitted() throws NOTHING for a send the runtime records
+        // as blocked, so "no exception" would read as "allowed".
+        $decision = $this->gate(
+            [$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)],
+            enforcing: false,
+        )->decide($this->configuration(TrustZone::EXTERNAL_GLOBAL));
+
+        self::assertTrue($decision->isPermitted(), 'observe mode lets the send through');
+        self::assertTrue($decision->zoneRefused, 'and the gate still refused it');
+        self::assertTrue($decision->isObservedOnly());
+        self::assertStringContainsString('observe mode', $decision->message());
+    }
+
+    #[Test]
+    public function decideWritesNoGovernanceEvent(): void
+    {
+        // ADR-157: the audit records what the installation DID. decide() runs
+        // for the simulator too, and a simulation blocked nothing.
+        $recorded = [];
+        $this->gate(
+            [$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)],
+            events: $this->recordingEvents($recorded),
+        )->decide($this->configuration(TrustZone::EXTERNAL_GLOBAL));
+
+        self::assertSame([], $recorded);
+    }
+
     /**
      * @param list<GovernanceEvent> $sink
      */

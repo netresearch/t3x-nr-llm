@@ -11,8 +11,10 @@ namespace Netresearch\NrLlm\Service\Context;
 
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\InputContextDecision;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
@@ -57,6 +59,36 @@ final readonly class InputContextTrustGate
     ) {}
 
     /**
+     * The gate's answer, without acting on it (ADR-157).
+     *
+     * The rule lives HERE and {@see self::assertPermitted()} consumes it, so
+     * the classification-versus-zone comparison exists once. A simulator that
+     * called `assertPermitted()` and caught the exception would get the wrong
+     * answer in observe mode, where nothing is thrown for a configuration the
+     * runtime records as blocked.
+     *
+     * Pure: it resolves, compares and reports. Recording the governance event
+     * and throwing belong to the caller that is actually running the send.
+     */
+    public function decide(LlmConfiguration $configuration): InputContextDecision
+    {
+        $classification = $this->classifier->classify($configuration);
+        if (!$classification->isDeclared()) {
+            return InputContextDecision::undeclared();
+        }
+
+        /** @var ToolDataClass $declared a declared classification always carries one */
+        $declared = $classification->effective;
+
+        $zone = $this->trustZoneResolver->zoneFor($configuration);
+        if ($zone->permits($declared)) {
+            return InputContextDecision::permitted($declared, $classification->source, $zone);
+        }
+
+        return InputContextDecision::refused($declared, $classification->source, $zone, $this->enforcement->enforcing());
+    }
+
+    /**
      * Throw when this configuration may not carry the context it injects.
      *
      * In observe mode nothing is thrown and the refusal is recorded instead, so
@@ -65,23 +97,19 @@ final readonly class InputContextTrustGate
      */
     public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0): void
     {
-        $classification = $this->classifier->classify($configuration);
-        if (!$classification->isDeclared()) {
+        $decision = $this->decide($configuration);
+        if (!$decision->zoneRefused) {
             return;
         }
 
-        /** @var ToolDataClass $declared a declared classification always carries one */
-        $declared = $classification->effective;
+        /** @var ToolDataClass $declared a refusal always carries the class it refused */
+        $declared = $decision->declaredClass;
+        /** @var TrustZone $zone a refusal always carries the zone that refused */
+        $zone = $decision->zone;
 
-        $zone = $this->trustZoneResolver->zoneFor($configuration);
-        if ($zone->permits($declared)) {
-            return;
-        }
+        $this->record($configuration, $beUser, $declared, $decision->source, !$decision->isObservedOnly());
 
-        $enforcing = $this->enforcement->enforcing();
-        $this->record($configuration, $beUser, $declared, $classification->source, $enforcing);
-
-        if (!$enforcing) {
+        if ($decision->isObservedOnly()) {
             $this->logger?->warning(
                 'Injected context is classified above the trust zone this configuration can reach. '
                 . 'Enforcement is set to observe, so the call proceeds.',
@@ -89,7 +117,7 @@ final readonly class InputContextTrustGate
                     'configuration' => $configuration->getIdentifier(),
                     'trustZone'     => $zone->value,
                     'declaredClass' => $declared->value,
-                    'source'        => $classification->source,
+                    'source'        => $decision->source,
                 ],
             );
 
@@ -100,7 +128,7 @@ final readonly class InputContextTrustGate
             $configuration->getIdentifier(),
             $zone,
             $declared,
-            $classification->source,
+            $decision->source,
         );
     }
 

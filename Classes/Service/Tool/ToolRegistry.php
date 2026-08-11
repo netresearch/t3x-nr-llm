@@ -102,17 +102,18 @@ final class ToolRegistry
             // unsupported however it is expressed, so it fails at the container
             // boot rather than silently at runtime.
             //
-            // The predicate mirrors ToolLoopService::requiresHumanApproval(),
-            // including the remote exemption: narrowing the exemption there
-            // means narrowing it here, or a tool the loop would suspend becomes
-            // registrable again.
-            if ($tool instanceof RequiresInputInterface
-                && !$tool instanceof RemoteToolInterface
-                && $tool instanceof ToolEffectInterface
-                && $tool->getEffect()->isWrite()) {
+            // The predicate is ToolApprovalRule — the same one the loop's
+            // approval scan asks (ADR-157), rather than a second copy of it
+            // here. The copy this replaced exempted every RemoteToolInterface,
+            // so a remote tool carrying a RemoteApprovalInterface declaration
+            // the loop DOES honour stayed registrable alongside
+            // RequiresInputInterface: precisely the deadlock below. A remote
+            // tool with no declaration is still exempt, because the rule
+            // exempts it.
+            if ($tool instanceof RequiresInputInterface && ToolApprovalRule::requiresApproval($tool)) {
                 throw new LogicException(
                     sprintf(
-                        'Tool "%s" may not declare a write effect and implement RequiresInputInterface; a declared write binds the approval scan (ADR-134), which runs before the input scan, so the tool would suspend for approval and never receive its input.',
+                        'Tool "%s" may not be approval-bound and implement RequiresInputInterface; approval binds through a declared write effect (ADR-134) or a RemoteApprovalInterface declaration, and the approval scan runs before the input scan, so the tool would suspend for approval and never receive its input.',
                         $name,
                     ),
                     1786226400,

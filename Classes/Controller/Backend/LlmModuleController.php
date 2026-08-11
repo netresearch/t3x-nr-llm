@@ -15,9 +15,9 @@ use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
-use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
+use Netresearch\NrLlm\Service\Governance\SimulationActorDirectory;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\OperationCapabilityMap;
@@ -32,7 +33,7 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
-use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\GovernanceSimulator;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -70,7 +71,8 @@ final class LlmModuleController extends ActionController
         private readonly EffectivePolicyReadout $effectivePolicyReadout,
         private readonly GovernanceProfileEvaluator $governanceProfileEvaluator,
         private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly ToolCallPolicy $toolCallPolicy,
+        private readonly GovernanceSimulator $governanceSimulator,
+        private readonly SimulationActorDirectory $simulationActors,
         private readonly ToolRegistry $toolRegistry,
         private readonly ModelSelectionServiceInterface $modelSelectionService,
         private readonly PageRenderer $pageRenderer,
@@ -323,16 +325,23 @@ final class LlmModuleController extends ActionController
             // and reading them together is the point.
             'simulateTool'          => $this->queryParam('simulateTool'),
             'simulateConfiguration' => $this->queryParam('simulateConfiguration'),
+            'simulateActor'         => $this->queryParam('simulateActor'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
             'deviations'     => $profile instanceof GovernanceProfile ? $this->governanceProfileEvaluator->deviations($policyRows, $profile) : [],
             'configurations' => $this->configurationRepository->findActive(),
             'toolNames'      => $this->toolRegistry->names(),
-            'simulation'     => $simulation,
+            // Backend users the simulation can answer for (ADR-157). A read of
+            // be_users, not an impersonation surface — see
+            // SimulationActorDirectory.
+            'simulationActors' => $this->simulationActors->actors(),
+            'simulation'       => $simulation,
             // message() does not follow the get/is/has convention Fluid needs,
-            // so the string is assigned rather than reached through the object.
-            'simulationMessage' => $simulation?->message(),
+            // so the strings are assigned rather than reached through the
+            // objects.
+            'simulationToolMessage'    => $simulation?->tool->message(),
+            'simulationContextMessage' => $simulation?->context->message(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Governance');
@@ -353,28 +362,29 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * Answer "would this tool be allowed for this configuration" through the
-     * REAL gate (ADR-145).
+     * Answer "would this run be allowed" through the REAL gates (ADR-145,
+     * ADR-157).
      *
-     * {@see ToolCallPolicy::decide()} is the call the runtime makes, not a
-     * reimplementation of its rules — a simulator with its own copy of the
-     * policy is worse than none, because the two can disagree and only one of
-     * them runs.
+     * {@see GovernanceSimulator} calls the four runtime services in turn — the
+     * tool gate, the input-context gate, the routing decision and the approval
+     * predicate — and folds their answers into one verdict. None of them is
+     * reimplemented here: a simulator with its own copy of a policy is worse
+     * than none, because the two can disagree and only one of them runs.
      *
-     * The acting user is the operator running the simulation. That is a real
-     * answer to a real question ("may I do this"), and it is honest about
-     * whose permissions it used; simulating for someone else needs a user
-     * picker, which is a separate surface.
+     * This method parses three query parameters and hands them over. The actor
+     * is a uid, resolved read-only inside the service through
+     * {@see \Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface};
+     * absent or 0, the answer is for the operator reading the page, which is
+     * what ADR-145 shipped.
      *
      * Returns null when the request names no pair to simulate.
      */
-    private function simulate(): ?ToolPolicyDecision
+    private function simulate(): ?GovernanceSimulation
     {
-        $params        = $this->request->getQueryParams();
-        $toolName      = $params['simulateTool'] ?? null;
-        $configuration = $params['simulateConfiguration'] ?? null;
+        $toolName      = $this->queryParam('simulateTool');
+        $configuration = $this->queryParam('simulateConfiguration');
 
-        if (!is_string($toolName) || $toolName === '' || !is_string($configuration) || $configuration === '') {
+        if ($toolName === '' || $configuration === '') {
             return null;
         }
 
@@ -383,9 +393,14 @@ final class LlmModuleController extends ActionController
             return null;
         }
 
-        $user = $GLOBALS['BE_USER'] ?? null;
+        $operator = $GLOBALS['BE_USER'] ?? null;
 
-        return $this->toolCallPolicy->decide($toolName, $entity, $user instanceof BackendUserAuthentication ? $user : null);
+        return $this->governanceSimulator->simulate(
+            $toolName,
+            $entity,
+            (int)$this->queryParam('simulateActor'),
+            $operator instanceof BackendUserAuthentication ? $operator : null,
+        );
     }
 
     /**

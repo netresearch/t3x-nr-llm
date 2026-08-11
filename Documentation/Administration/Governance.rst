@@ -298,6 +298,81 @@ Governance events are purged on ``privacy.retention.governance`` — make
 sure that window is longer than your observation period, or the evidence is
 gone before you read it.
 
+.. _administration-governance-simulator:
+
+Would this be allowed?
+======================
+
+Pick a configuration, a tool and — optionally — a backend user, then press
+:guilabel:`Simulate`. The tab runs that call past every gate that could stop
+it and reports one verdict plus each gate's own answer
+(:ref:`ADR-157 <adr-157>`).
+
+The verdict is one of three:
+
+``Allowed``
+   Every gate permits the call and it would run unattended.
+
+``Allowed, after a human approves``
+   Every gate permits the call, and the tool is approval-bound
+   (:ref:`ADR-134 <adr-134>`): the run suspends and waits for a decision
+   before it executes. Folding this into ``Allowed`` would hide the axis at
+   exactly the moment it decides, so it is its own outcome.
+
+``Blocked``
+   At least one gate refuses. The table says which.
+
+Four gates are asked, each through the service the runtime itself calls:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Gate
+     - What it decides
+     - Depends on the actor?
+   * - Tool gate (:ref:`ADR-094 <adr-094>`)
+     - registered, enabled, permitted, within the configuration's tool groups,
+       within the provider trust zone's data-class ceiling
+     - **Yes** — through the tool's ``requiresAdmin()``
+   * - Input-context gate (:ref:`ADR-144 <adr-144>`)
+     - whether the snippets and skills this configuration injects may reach the
+       trust zone it can send to
+     - No
+   * - Routing (:ref:`ADR-142 <adr-142>`)
+     - whether any model resolves for a tool-calling run at all
+     - No
+   * - Human approval (:ref:`ADR-134 <adr-134>`)
+     - whether the tool is bound to an operator decision
+     - No
+
+**Only one axis is actor-scoped, and the table says so.** Routing reads the
+model catalogue with enable-fields ignored and no user context, the
+input-context gate compares a configuration against a trust zone, and the
+approval requirement is a property of the tool's own declaration. A picker
+that implied four per-user answers where there is one would be worse than no
+picker.
+
+**The actor picker is not impersonation.** The selected backend user is
+resolved read-only through the same seam a queue worker uses to authorise for
+the user who queued its work (:ref:`ADR-083 <adr-083>`): the uid is looked up,
+the fresh database record supplies the permission surface, and the gates are
+asked. No session is switched, nothing executes as that user, and nothing is
+written. Privilege comes from the record, so the picker cannot grant rights
+the account does not have — and a uid that no longer resolves, because the
+account was deleted or disabled, produces a stated refusal rather than a
+silent fall back to your own rights.
+
+**A simulation is not recorded.** The runtime writes a governance event when
+it *blocks* a call; a simulation blocks nothing, so writing one would put rows
+into the audit for calls that never happened. The trade is deliberate and it
+has a cost: "who checked what, and when" cannot be answered from the audit.
+See :ref:`ADR-157 <adr-157>`.
+
+**Observe mode is visible on both gates.** A configuration the input-context
+gate refuses while ``tools.dataClassEnforcement`` is ``observe`` is reported
+as permitted *and* refused: the send proceeds and the refusal is recorded.
+Reading only "no exception" would have called that allowed.
+
 .. _administration-governance-routing:
 
 Why this model?

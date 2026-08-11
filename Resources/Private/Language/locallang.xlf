@@ -311,7 +311,7 @@
                 <source>Would this be allowed?</source>
             </trans-unit>
             <trans-unit id="governance.simulator.lead">
-                <source>Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing.</source>
+                <source>Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration">
                 <source>Configuration</source>
@@ -339,6 +339,99 @@
             </trans-unit>
             <trans-unit id="governance.simulator.observed">
                 <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.none">
+                <source>Choose</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.tool.none">
+                <source>Choose</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor">
+                <source>Acting as</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.operator">
+                <source>You, the operator reading this page</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.admin">
+                <source>administrator</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.answeredFor">
+                <source>Answered for the backend user %s.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.anonymous">
+                <source>Answered with no backend user at all.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.unresolved">
+                <source>No backend user resolves for uid %s, so the gates were asked with no user at all. That is how the runtime fails closed for a deleted or disabled account.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.notAudited">
+                <source>Nothing here is recorded. The runtime writes a governance event when it blocks a call; a simulation blocks nothing, so the audit stays a record of what the installation actually did.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW">
+                <source>Allowed</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW_WITH_APPROVAL">
+                <source>Allowed, after a human approves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.BLOCK">
+                <source>Blocked</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.axis">
+                <source>Gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.answer">
+                <source>Answer</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.scope">
+                <source>Depends on the actor?</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.tool">
+                <source>Tool gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.context">
+                <source>Input-context gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.routing">
+                <source>Routing</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.approval">
+                <source>Human approval</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.actor">
+                <source>Yes, through requiresAdmin().</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.context">
+                <source>No, it compares the classes this configuration injects against the trust zone it can reach.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.routing">
+                <source>No, the model catalogue is read with enable-fields ignored and no user context.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.approval">
+                <source>No, it is a property of the tool's own declaration.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.context.observed">
+                <source>Reported only, because enforcement is set to observe, so the send would proceed and the refusal would be recorded.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.resolved">
+                <source>A model resolves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.lead">
+                <source>Asked for a tool-calling run, which is what a tool simulation describes. The section below explains the ranking.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.none">
+                <source>No model resolves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.noneLead">
+                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all. The section below names the refused candidates.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.required">
+                <source>Required</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.requiredLead">
+                <source>The run suspends and waits for a human decision before this tool executes.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.notRequired">
+                <source>Not required</source>
             </trans-unit>
             <trans-unit id="governance.profile.heading">
                 <source>Compare against a profile</source>
