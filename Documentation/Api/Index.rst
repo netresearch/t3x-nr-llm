@@ -12,6 +12,8 @@ Complete API reference for the TYPO3 LLM extension.
    :maxdepth: 2
 
    Stability
+   Deprecation
+   SupportMatrix
    LlmServiceManager
    CompletionService
    EmbeddingService
