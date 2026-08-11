@@ -160,6 +160,15 @@
                 <target>Anfängliche Anweisungen zur Definition des KI-Verhaltens und -Kontexts</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class">
+                <source>System prompt data class</source>
+                <target>Datenklasse des System-Prompts</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class.description">
+                <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode that constrains which model the configuration may resolve to. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
+                <target>Wie vertraulich der System-Prompt oben ist. Eine Konfiguration mit Angabe kann nicht an einen Provider in einer niedrigeren Vertrauenszone senden — im Kriterien-Modus schränkt das ein, auf welches Modell die Konfiguration auflösen darf. Leer lassen heißt: keine Angabe; ein nicht eingestufter System-Prompt schränkt nichts ein, genau wie vor Einführung dieses Feldes.</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
                 <target>Temperatur</target>

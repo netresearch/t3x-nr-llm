@@ -118,6 +118,25 @@ Optional
    fallback — chunks cannot be replayed against a
    different provider.
 
+.. confval:: system_prompt_data_class
+   :name: confval-config-system-prompt-data-class
+   :type: select
+   :Default: (empty — undeclared)
+
+   The sensitivity ceiling for :ref:`confval-config-system-prompt
+   <confval-config-system-prompt>`. Declaring one refuses any send whose serving
+   model sits in a weaker trust zone than the class allows, the same axis
+   snippets and skills carry (:ref:`ADR-144 <adr-144>`, :ref:`ADR-155
+   <adr-155>`).
+
+   Empty means no statement was made and constrains nothing, so existing
+   configurations behave exactly as before. The class describes the *text*: a
+   configuration whose system prompt is blank declares nothing whatever this
+   field says.
+
+   Enforcement follows the instance-wide ``tools.dataClassEnforcement`` switch —
+   see :ref:`administration-governance-keys`.
+
    Example payload::
 
        {"configurationIdentifiers": ["claude-sonnet", "ollama-local"]}

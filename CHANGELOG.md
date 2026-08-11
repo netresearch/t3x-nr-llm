@@ -112,6 +112,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
 
+- **A configuration can declare a data class for its system prompt** (ADR-155,
+  closes #724, amends ADR-144). ADR-144 classified snippets and skills and
+  declined the system prompt, because a system prompt sits on a configuration
+  that already knows its provider — true of a fixed-mode record, and not of a
+  criteria-mode one, which knows no provider until routing runs. Now that the
+  zone comes from the resolved model (ADR-149), a declared class decides which
+  models the configuration may resolve to.
+  - `tx_nrllm_configuration` gains `system_prompt_data_class` on the same
+    `ToolDataClass` scale, with a TCA field beside `system_prompt`. Empty means
+    undeclared and constrains nothing; nothing is guessed for existing rows.
+  - It binds in the existing input-context gate, folded in beside the snippets
+    and the skills, and the strictest declaration still decides. Routing
+    eligibility was the alternative and is worse: it would let a governance
+    declaration decide which model serves a call — the inversion ADR-149
+    forbids — it would not bind in fixed mode, which never consults the
+    eligibility evaluator, and the gate would still ask the same question
+    afterwards. No new gate and no new switch.
+  - The class classifies the TEXT: a configuration whose `system_prompt` is
+    empty declares nothing whatever the column says.
+  - **Task input stays unclassified.** ADR-144's second argument is untouched —
+    the accepted input is a runtime string with no per-record home. `tx_nrllm_task`
+    gains nothing.
+  - `LlmConfiguration` is `@api` and gains three accessors
+    (`getSystemPromptDataClass()`, `getSystemPromptDataClassEnum()`,
+    `setSystemPromptDataClass()`). Additive; no existing signature changes.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the

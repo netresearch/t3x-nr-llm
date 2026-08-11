@@ -118,6 +118,87 @@ final class InputContextTrustGateTest extends TestCase
     }
 
     #[Test]
+    public function anUndeclaredSystemPromptPlacesNoConstraint(): void
+    {
+        // The ADR-155 migration guarantee, the same one the snippet column got:
+        // every system prompt that existed before this column did is
+        // undeclared, and an undeclared one constrains nothing.
+        $configuration = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $configuration->setSystemPrompt('You are a helpful assistant.');
+
+        $this->gate([])->assertPermitted($configuration);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function aDeclaredSystemPromptCannotReachAnExternalProvider(): void
+    {
+        $configuration = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $configuration->setSystemPrompt('Our margin floor is 12%.');
+        $configuration->setSystemPromptDataClass(ToolDataClass::SECRET_ADJACENT->value);
+
+        try {
+            $this->gate([])->assertPermitted($configuration);
+            self::fail('Expected InputContextTrustZoneException');
+        } catch (InputContextTrustZoneException $e) {
+            self::assertStringContainsString('system prompt', $e->getMessage(), 'an operator has to know WHICH source');
+            self::assertStringNotContainsString('margin', $e->getMessage(), 'the content is the thing being protected');
+        }
+    }
+
+    #[Test]
+    public function aDeclaredSystemPromptConstrainsWhichModelCriteriaModeMayResolveTo(): void
+    {
+        // The consumer ADR-144 said the declaration would not have. A
+        // criteria-mode configuration has no provider of its own, so the
+        // declaration binds against the model routing selected: local passes,
+        // external is refused, and the difference is the whole point of the
+        // column.
+        $configuration = $this->criteriaConfiguration();
+        $configuration->setSystemPrompt('Our margin floor is 12%.');
+        $configuration->setSystemPromptDataClass(ToolDataClass::SECRET_ADJACENT->value);
+
+        $this->gate([])->assertPermitted($configuration, 0, $this->modelIn(TrustZone::LOCAL));
+
+        $this->expectException(InputContextTrustZoneException::class);
+        $this->gate([])->assertPermitted($configuration, 0, $this->modelIn(TrustZone::EXTERNAL_GLOBAL));
+    }
+
+    #[Test]
+    public function aClassOnAnEmptySystemPromptDeclaresNothing(): void
+    {
+        // The class classifies the text. A configuration whose prompt was
+        // cleared sends none, and refusing it would name a source the operator
+        // cannot find — the same reading an unselected snippet gets.
+        $configuration = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $configuration->setSystemPromptDataClass(ToolDataClass::SECRET_ADJACENT->value);
+
+        $this->gate([])->assertPermitted($configuration);
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function theSystemPromptCompetesWithTheOtherSourcesForStrictest(): void
+    {
+        // Three sources, one fold: the strictest wins wherever it came from,
+        // and the readout the operator gets names that one.
+        $configuration = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $configuration->setSystemPrompt('Our margin floor is 12%.');
+        $configuration->setSystemPromptDataClass(ToolDataClass::SECRET_ADJACENT->value);
+
+        try {
+            $this->gate([$this->snippet('tone', ToolDataClass::PUBLIC_CONTENT->value)])
+                ->assertPermitted($configuration);
+            self::fail('Expected InputContextTrustZoneException');
+        } catch (InputContextTrustZoneException $e) {
+            self::assertStringContainsString('system prompt', $e->getMessage());
+            self::assertStringNotContainsString('tone', $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function aCriteriaModeConfigurationTakesItsZoneFromTheServingModel(): void
     {
         // The ADR-149 case. The configuration has no provider relation at all,
@@ -151,7 +232,7 @@ final class InputContextTrustGateTest extends TestCase
         $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
 
         $this->expectException(InputContextTrustZoneException::class);
-        $gate->assertPermitted($this->criteriaConfiguration(), 0, null);
+        $gate->assertPermitted($this->criteriaConfiguration(), 0);
     }
 
     #[Test]

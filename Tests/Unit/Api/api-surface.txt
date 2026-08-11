@@ -413,6 +413,8 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getSnippetTagList(): array
   method getSnippetTags(): string
   method getSystemPrompt(): string
+  method getSystemPromptDataClass(): string
+  method getSystemPromptDataClassEnum(): ?Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method getTemperature(): float
   method getTimeout(): int
   method getTopP(): float
@@ -452,6 +454,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
   method setSystemPrompt(string $systemPrompt): void
+  method setSystemPromptDataClass(string $systemPromptDataClass): void
   method setTemperature(float $temperature): void
   method setTimeout(int $timeout): void
   method setTopP(float $topP): void

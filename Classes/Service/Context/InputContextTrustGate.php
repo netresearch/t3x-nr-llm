@@ -38,8 +38,9 @@ use Psr\Log\LoggerInterface;
  *
  * A configuration that injects nothing is never refused, which matters because
  * this runs for every configuration-driven operation: the vision path builds a
- * transient configuration with no snippets and no skills, and refusing it would
- * block a send that does not carry the classified content at all.
+ * transient configuration with no snippets, no skills and no system prompt, and
+ * refusing it would block a send that does not carry the classified content at
+ * all.
  *
  * The zone is the LEAST trusted the run can reach, fallbacks included
  * ({@see TrustZoneResolver::zoneFor()}): a configuration that can fail over to
