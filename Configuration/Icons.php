@@ -83,4 +83,29 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/provider-groq.svg',
     ],
+
+    // Editor actions (ADR-152) — one per writing tool, rendered by the Tools
+    // module beside the action's translated name. No `.legacy` twin: these are
+    // inline list icons, not module tiles, so the v14 three-color style reads
+    // correctly on v13 as well.
+    'nrllm-editor-action-page-metadata' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-page-metadata.svg',
+    ],
+    'nrllm-editor-action-file-alt-text' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-file-alt-text.svg',
+    ],
+    'nrllm-editor-action-move-content' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-move-content.svg',
+    ],
+    'nrllm-editor-action-create-content' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-create-content.svg',
+    ],
+    'nrllm-editor-action-create-translation' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-create-translation.svg',
+    ],
 ];

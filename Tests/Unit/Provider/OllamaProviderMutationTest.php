@@ -192,13 +192,18 @@ class OllamaProviderMutationTest extends AbstractUnitTestCase
         self::assertTrue($provider->supportsFeature('streaming'));
     }
 
+    /**
+     * This test used to assert the opposite, on the comment "Ollama does not
+     * implement ToolCapableInterface". The adapter does implement it — see the
+     * class declaration and `OllamaProviderToolsTest` — so the declaration was
+     * the defect and the assertion pinned it. Corrected with ADR-160.
+     */
     #[Test]
-    public function supportsFeatureReturnsFalseForTools(): void
+    public function supportsFeatureReturnsTrueForTools(): void
     {
         $provider = $this->createProvider();
 
-        // Ollama does not implement ToolCapableInterface
-        self::assertFalse($provider->supportsFeature('tools'));
+        self::assertTrue($provider->supportsFeature('tools'));
     }
 
     #[Test]

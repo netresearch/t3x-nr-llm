@@ -14,12 +14,18 @@
             <core:icon identifier="module-nrllm-task" size="medium" />
             <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.title" default="AI tasks" />
         </h1>
-        <f:if condition="{showApprovals}">
-            <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
-                <core:icon identifier="module-nrllm-runs" size="small" />
-                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
+        <div class="btn-group">
+            <f:link.action action="catalogue" controller="Backend\EditorAction" class="btn btn-secondary">
+                <core:icon identifier="module-nrllm-task" size="small" />
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.title" default="AI actions" />
             </f:link.action>
-        </f:if>
+            <f:if condition="{showApprovals}">
+                <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
+                    <core:icon identifier="module-nrllm-runs" size="small" />
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
+                </f:link.action>
+            </f:if>
+        </div>
     </div>
 
     <p class="text-muted">

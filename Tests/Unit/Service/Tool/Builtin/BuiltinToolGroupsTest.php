@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
@@ -51,6 +52,8 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SearchCodeTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchFalFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SiteFetchSourceTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SiteRagQueryTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -119,6 +122,8 @@ final class BuiltinToolGroupsTest extends TestCase
             'move_content_element' => [MoveContentElementTool::class, 'editing'],
             'create_content_element_draft' => [CreateContentElementDraftTool::class, 'editing'],
             'create_translation_draft' => [CreateTranslationDraftTool::class, 'editing'],
+            'site_rag_query'    => [SiteRagQueryTool::class, 'rag'],
+            'site_fetch_source' => [SiteFetchSourceTool::class, 'rag'],
         ];
     }
 
@@ -132,5 +137,44 @@ final class BuiltinToolGroupsTest extends TestCase
         $tool = (new ReflectionClass($class))->newInstanceWithoutConstructor();
 
         self::assertSame($expectedGroup, $tool->getGroup());
+        // …and the curated group is one the enum knows, so this list cannot
+        // drift away from the taxonomy that carries the labels (ADR-152).
+        self::assertNotNull(
+            ToolGroup::tryFrom($expectedGroup),
+            'ToolGroup has no case for the group ' . $expectedGroup . ' declared by ' . $class,
+        );
+    }
+
+    /**
+     * The provider above is hand-written, so "every builtin declares a curated
+     * group" is only true while the list is complete. A builtin absent from it
+     * is asserted against nothing — its group never reaches
+     * {@see ToolGroup::tryFrom()} (ADR-152). This closes the list against the
+     * directory it claims to cover.
+     */
+    #[Test]
+    public function everyBuiltinToolIsListedInTheTaxonomy(): void
+    {
+        $listed = array_map(static fn(array $row): string => $row[0], self::taxonomy());
+
+        $files = glob(dirname(__DIR__, 5) . '/Classes/Service/Tool/Builtin/*.php');
+        self::assertIsArray($files);
+        self::assertNotEmpty($files);
+
+        $missing = [];
+
+        foreach ($files as $file) {
+            $class = 'Netresearch\\NrLlm\\Service\\Tool\\Builtin\\' . basename($file, '.php');
+
+            if (!is_a($class, ToolInterface::class, true)) {
+                continue;
+            }
+
+            if (!in_array($class, $listed, true)) {
+                $missing[] = $class;
+            }
+        }
+
+        self::assertSame([], $missing, 'Builtin tools absent from the taxonomy: ' . implode(', ', $missing));
     }
 }

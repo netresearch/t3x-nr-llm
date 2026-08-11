@@ -352,6 +352,13 @@ services:
   Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface:
     alias: Netresearch\NrLlm\Service\Tool\ToolAvailabilityService
 
+  # The Editor Action Center's one seam (ADR-158): which declared editor
+  # actions a given backend user may start, and the ordinary agent run that
+  # starts one. Private — the editor module's controller and the context-menu
+  # item provider autowire it; nothing resolves it by class name.
+  Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface:
+    alias: Netresearch\NrLlm\Service\Tool\EditorActionCatalogue
+
   # Concrete BudgetService is private (autoregistered); consumers wire
   # against the public BudgetServiceInterface alias.
   Netresearch\NrLlm\Service\BudgetServiceInterface:

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -57,7 +59,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * element lands where the approval card said it would even when the anchor
  * element sits in a different column than the caller assumed.
  */
-final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -259,6 +261,26 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
         // place. Nothing is created and nothing accumulates, so a reaped and
         // requeued run may safely repeat it.
         return ToolEffect::IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The human-facing declaration (ADR-152).
+     *
+     * `tt_content` is the subject: `uid` is the element an editor selects. The
+     * second required argument, `target_page`, is NOT derivable from that
+     * subject — no read tool is offered beside this one — so the destination
+     * can only come from the editor's free-text note. The human description
+     * says so; the approval card shows the destination the preview resolved,
+     * which is where a guessed page is caught.
+     */
+    public function getEditorAction(): EditorAction
+    {
+        return new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.move_content_element.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.move_content_element.description',
+            'nrllm-editor-action-move-content',
+            [self::TABLE],
+        );
     }
 
     /**

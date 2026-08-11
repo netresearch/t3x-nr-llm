@@ -9,8 +9,11 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\Model;
 
+use DateTimeImmutable;
 use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
+use Netresearch\NrLlm\Domain\Enum\CapabilitySource;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 /**
@@ -58,6 +61,30 @@ class Model extends AbstractEntity
      * @var string Comma-separated capability tokens, exactly as persisted
      */
     protected string $capabilities = '';
+
+    /**
+     * What the LAST provider discovery reported for this model, as the same
+     * comma-separated token list `$capabilities` uses. Empty when no
+     * discovery ever answered for this record — which is the honest state
+     * for a hand-created model (ADR-160).
+     *
+     * The `@var` tag is load-bearing for the same ClassSchema reason as
+     * `$capabilities` above: keep it.
+     *
+     * @var string Comma-separated capability tokens, exactly as persisted
+     */
+    protected string $capabilitiesDiscovered = '';
+
+    /** Unix timestamp of that discovery run; 0 = never confirmed. */
+    protected int $capabilitiesConfirmedAt = 0;
+
+    /**
+     * Which kind of answer the confirmation was — a
+     * {@see CapabilitySource} value, or empty when nothing confirmed yet.
+     * A live provider answer and the bundled static catalog are NOT the same
+     * claim, so they are not stored as the same value.
+     */
+    protected string $capabilitiesSource = '';
 
     protected int $defaultTimeout = 120;
 
@@ -210,6 +237,95 @@ class Model extends AbstractEntity
     public function getCapabilitySet(): CapabilitySet
     {
         return CapabilitySet::fromCsv($this->capabilities);
+    }
+
+    // ========================================
+    // Capability provenance (ADR-160)
+    // ========================================
+
+    /**
+     * When the last provider discovery answered for this model, or null when
+     * none ever did.
+     *
+     * Deliberately nullable rather than "timestamp 0": a Fluid
+     * `<f:if condition="{model.capabilitiesConfirmedDate}">` over an integer
+     * 0 takes the else branch for the right reason by accident and the wrong
+     * one as soon as the value becomes legitimate. Null is unambiguous.
+     */
+    public function getCapabilitiesConfirmedDate(): ?DateTimeImmutable
+    {
+        if ($this->capabilitiesConfirmedAt <= 0) {
+            return null;
+        }
+
+        return (new DateTimeImmutable())->setTimestamp($this->capabilitiesConfirmedAt);
+    }
+
+    /**
+     * Every declared capability with where it came from and when it was last
+     * confirmed (ADR-160).
+     *
+     * The attribution is a set comparison, not a second stored field per
+     * capability: a capability the last discovery named carries that run's
+     * source and date; one only the operator ticked carries
+     * {@see CapabilitySource::Operator} and no date, because there is no
+     * confirmation to date. That also gives the right answer for a record
+     * written before provenance existed — nothing confirmed it, and it says
+     * so.
+     *
+     * Ordered like the declared capability set, so the operator surface can
+     * render it in place of the bare token list.
+     *
+     * @return list<CapabilityProvenance>
+     */
+    public function getCapabilityProvenance(): array
+    {
+        $confirmedSource = CapabilitySource::tryFromStored($this->capabilitiesSource);
+        $confirmedAt     = $this->getCapabilitiesConfirmedDate();
+        $discovered      = CapabilitySet::fromCsv($this->capabilitiesDiscovered);
+
+        // A source without a date (or the reverse) is a half-written
+        // confirmation; treat the whole record as unconfirmed rather than
+        // reporting half a claim.
+        $confirmationIsComplete = $confirmedSource instanceof CapabilitySource
+            && $confirmedAt instanceof DateTimeImmutable;
+
+        $provenance = [];
+        foreach ($this->getCapabilitySet()->capabilities as $capability) {
+            $wasDiscovered = $confirmationIsComplete && $discovered->has($capability);
+
+            $provenance[] = new CapabilityProvenance(
+                capability: $capability,
+                source: $wasDiscovered && $confirmedSource instanceof CapabilitySource
+                    ? $confirmedSource
+                    : CapabilitySource::Operator,
+                confirmedAt: $wasDiscovered ? $confirmedAt : null,
+            );
+        }
+
+        return $provenance;
+    }
+
+    /**
+     * Record what a discovery run reported for this model.
+     *
+     * The declared capability set is NOT overwritten: an operator who ticked
+     * a capability the provider does not advertise keeps it, and it is now
+     * visibly attributed to them instead of borrowing the provider's
+     * authority.
+     *
+     * @param list<string>|CapabilitySet $discovered what the run reported
+     */
+    public function recordCapabilityDiscovery(
+        array|CapabilitySet $discovered,
+        CapabilitySource $source,
+        DateTimeImmutable $confirmedAt,
+    ): void {
+        $set = $discovered instanceof CapabilitySet ? $discovered : CapabilitySet::fromArray($discovered);
+
+        $this->capabilitiesDiscovered  = $set->toCsv();
+        $this->capabilitiesSource      = $source->value;
+        $this->capabilitiesConfirmedAt = $confirmedAt->getTimestamp();
     }
 
     public function getDefaultTimeout(): int

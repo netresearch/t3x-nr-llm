@@ -112,9 +112,14 @@ interface ToolInterface
      * per-configuration `allowed_tool_groups` gate and the playground's
      * grouped checkboxes).
      *
-     * Builtins use the curated taxonomy `content`, `structure`,
-     * `configuration`, `code`, `files`, `system`, `accounts`, `rag`.
-     * Third-party tools declare their own group;
+     * Builtins use the curated taxonomy `content`, `editing`, `structure`,
+     * `configuration`, `code`, `files`, `system`, `accounts`, `rag` —
+     * enumerated, with a translatable label each, by
+     * {@see \Netresearch\NrLlm\Domain\Enum\ToolGroup}. `editing` is the
+     * writers' own group (ADR-135): a configuration that grants a read-only
+     * group must not inherit write capability because a tool joined it.
+     * The return type stays a plain string because the set is OPEN —
+     * third-party tools declare their own group, and
      * the recommended value is the providing extension's key. Enablement
      * cascades fail-closed: a tool is only offered when its group is enabled
      * AND the tool itself is enabled AND the run's configuration permits the

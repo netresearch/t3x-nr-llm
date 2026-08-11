@@ -17,15 +17,24 @@ namespace Netresearch\NrLlm\Service\SetupWizard\DTO;
 final readonly class DiscoveredModel
 {
     /**
-     * @param string        $modelId         The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
-     * @param string        $name            Human-readable name
-     * @param string        $description     Model description
-     * @param array<string> $capabilities    List of capabilities (chat, vision, tools, etc.)
-     * @param int           $contextLength   Context window size in tokens
-     * @param int           $maxOutputTokens Maximum output tokens
-     * @param int           $costInput       Cost per 1M input tokens in cents
-     * @param int           $costOutput      Cost per 1M output tokens in cents
-     * @param bool          $recommended     Whether this model is recommended for general use
+     * @param string        $modelId             The API model identifier (e.g., gpt-5.2, claude-opus-4-5)
+     * @param string        $name                Human-readable name
+     * @param string        $description         Model description
+     * @param array<string> $capabilities        List of capabilities (chat, vision, tools, etc.)
+     * @param int           $contextLength       Context window size in tokens
+     * @param int           $maxOutputTokens     Maximum output tokens
+     * @param int           $costInput           Cost per 1M input tokens in cents
+     * @param int           $costOutput          Cost per 1M output tokens in cents
+     * @param bool          $recommended         Whether this model is recommended for general use
+     * @param bool          $capabilitiesFromApi Whether `$capabilities` was derived from the
+     *                                           provider's own response payload. False — the
+     *                                           default — means the tokens come from the
+     *                                           bundled catalog or from the model id, even
+     *                                           when the model LIST was live. Only the writer
+     *                                           of the tokens can know this, so every
+     *                                           discoverer states it (ADR-160). Not exposed
+     *                                           in `toArray()`: it is provenance for
+     *                                           `CapabilityVerifier`, not wizard payload.
      */
     public function __construct(
         public string $modelId,
@@ -37,6 +46,7 @@ final readonly class DiscoveredModel
         public int $costInput = 0,
         public int $costOutput = 0,
         public bool $recommended = false,
+        public bool $capabilitiesFromApi = false,
     ) {}
 
     /**

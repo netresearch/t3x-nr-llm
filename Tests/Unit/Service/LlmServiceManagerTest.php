@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -623,10 +624,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $selection = $this->createMock(ModelSelectionServiceInterface::class);
         $selection->expects(self::once())
-            ->method('resolveModel')
+            // The planner takes the resolution that carries its own reasoning,
+            // so one evaluation answers both the model and the telemetry
+            // question (ADR-156).
+            ->method('resolveModelForCall')
             // The generic adapter lookup has no operation and must say so.
             ->with($config, null)
-            ->willReturn($resolvedModel);
+            ->willReturn(ModelResolution::withoutDecision($resolvedModel));
 
         $mockAdapter = self::createStub(ProviderInterface::class);
         $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
@@ -648,7 +652,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
 
         $selection = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturn(null);
+        $selection->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision(null));
 
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
 
@@ -1548,18 +1552,18 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $resolutions = [];
         $selection   = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturnCallback(
+        $selection->method('resolveModelForCall')->willReturnCallback(
             static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (
                 &$resolutions,
                 $embeddingModel,
                 $otherModel,
-            ): Model {
+            ): ModelResolution {
                 // Distinct models per operation, so a site that forgets to pass
                 // the operation resolves visibly differently.
                 $model         = $operation === ProviderOperation::Embedding ? $embeddingModel : $otherModel;
                 $resolutions[] = ['operation' => $operation, 'model' => $model];
 
-                return $model;
+                return ModelResolution::withoutDecision($model);
             },
         );
 
