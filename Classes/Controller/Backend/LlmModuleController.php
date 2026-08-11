@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -467,7 +468,7 @@ final class LlmModuleController extends ActionController
     private function candidateRows(?RoutingReadout $readout, bool $eligible): array
     {
         $decision = $readout?->decision;
-        if ($decision === null) {
+        if (!$decision instanceof RoutingDecision) {
             return [];
         }
 
