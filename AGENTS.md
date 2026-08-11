@@ -269,6 +269,16 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   block under the matching heading. `composer ci:test:changelog` (pre-commit,
   and its own CI job) refuses the repeated result.
 
+- **A workflow action must be pinned to a commit SHA.** This repository and the
+  `netresearch` organisation both set `sha_pinning_required`, and a tag ref does
+  not fail like a normal check: the run dies at `Set up job` before any step
+  executes, so the log shows no step output. On 2026-08-11 two tag refs turned
+  six checks red at once — `Set up job`, zizmor, Opengrep, CodeQL, SonarCloud
+  and the aggregate security gate — all naming the same two lines.
+  `composer ci:test:workflows` (pre-commit) catches it before the push; CI's
+  zizmor catches it after. `netresearch/*` reusable workflows stay at `@main` on
+  purpose and are exempt.
+
 - **A fresh worktree needs its own dependency resolution.** `.Build/` is not
   tracked, so a new worktree has none; copying it from `main/.Build` is the usual
   shortcut and avoids the WSL2 segfault on a fresh composer resolve. But that copy

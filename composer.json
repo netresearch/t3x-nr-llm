@@ -104,6 +104,7 @@
             "@ci",
             "@ci:test:php:functional"
         ],
+        "ci:test:workflows": "php Build/Scripts/check-workflow-action-pins.php",
         "ci:test:changelog": "php Build/Scripts/check-changelog-unreleased.php",
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
