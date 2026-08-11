@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeRemoteTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -114,6 +115,47 @@ final class ToolCallPolicyTest extends TestCase
 
         // A local provider may receive it either way.
         self::assertTrue($enforcing->decide('system_tool', $this->configuration(TrustZone::LOCAL), $this->admin())->allowed);
+    }
+
+    /**
+     * Observe mode covers builtins only. It exists so an UPGRADE does not
+     * silently start dropping tools that already worked (ADR-115); no remote
+     * tool worked before, so there is nothing to preserve, and an upgraded
+     * install must not end up more permissive than a fresh one.
+     *
+     * The branch is `enforcing() || $tool instanceof RemoteToolInterface`: the
+     * ceiling itself is ADR-094, the observe-mode carve-out that this branch
+     * denies is ADR-115, quoted in ADR-140. Both tools below sit in the same
+     * group, so they carry the same data class and the same ceiling; the
+     * marker interface is the only difference between them, and it is what
+     * decides the outcome.
+     */
+    #[Test]
+    public function aRemoteToolNeverBenefitsFromObserveMode(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeTool('local_tool', 'ok', true, false, 'system'),
+            new FakeRemoteTool('remote_tool', 'system'),
+        ]);
+        $policy = $this->policy($registry, enforcement: 'observe');
+        $config = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+
+        $local = $policy->decide('local_tool', $config, $this->admin());
+        self::assertTrue($local->allowed, 'a builtin above the ceiling is still offered in observe mode');
+        self::assertTrue($local->observedOnly);
+
+        $remote = $policy->decide('remote_tool', $config, $this->admin());
+        self::assertFalse($remote->allowed, 'a remote tool above the ceiling is denied even in observe mode');
+        self::assertFalse($remote->observedOnly, 'the denial is real, not an observation');
+        self::assertSame(ToolDenialReason::TRUST_ZONE, $remote->reason);
+        self::assertSame(ToolDataClass::SYSTEM_DIAGNOSTICS, $remote->dataClass);
+        self::assertSame(ToolDataClass::EDITOR_CONTENT, $remote->ceiling);
+
+        // And the marker is not a blanket ban: under a ceiling that permits the
+        // class, the same remote tool is offered.
+        self::assertTrue(
+            $policy->decide('remote_tool', $this->configuration(TrustZone::LOCAL), $this->admin())->allowed,
+        );
     }
 
     #[Test]

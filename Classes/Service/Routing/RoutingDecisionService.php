@@ -50,11 +50,18 @@ final readonly class RoutingDecisionService
      * rejected candidate, it is not a candidate. Reporting it would say more
      * about the catalogue than about the decision.
      *
+     * `$policyMode` answers "what would a different mode choose" without
+     * changing what runs (ADR-148). It is READ ONLY: passing one evaluates the
+     * hypothetical for this call and nothing else — the install setting is
+     * neither written nor consulted, and the next call without it is back to
+     * the configured mode. Null keeps the configured mode, which is the
+     * runtime's only path.
+     *
      * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
      */
-    public function decide(array $criteria): RoutingDecision
+    public function decide(array $criteria, ?RoutingPolicyMode $policyMode = null): RoutingDecision
     {
-        $mode = $this->policyMode();
+        $mode = $policyMode ?? $this->policyMode();
 
         $eligible = [];
         $rejected = [];

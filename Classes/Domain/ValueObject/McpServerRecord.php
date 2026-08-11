@@ -45,6 +45,11 @@ final readonly class McpServerRecord
         public string $importError,
         public int $lastImported,
         public int $toolCount,
+        // The last round trip this installation completed against the server,
+        // and how long it took (ADR-154). Written on every successful client
+        // operation, not only on an import; 0 means never reached.
+        public int $lastContact,
+        public int $lastLatencyMs,
         public int $tstamp,
         public int $crdate,
     ) {}

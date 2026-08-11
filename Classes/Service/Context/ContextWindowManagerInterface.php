@@ -33,6 +33,8 @@ interface ContextWindowManagerInterface
      * turn. The returned {@see ContextFitResult::$messages} is what to send; when
      * {@see ContextFitResult::$overflowAtFloor} is true the caller must not send
      * it (even the floor overflows).
+     * {@see ContextFitResult::$breakdown} says where the window went, component
+     * by component (ADR-151), for a surface that has to explain the decision.
      *
      * The two trailing arguments describe payload the send carries that is not
      * in `$messages`. They are separate because they differ in kind: one is

@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
+use Netresearch\NrLlm\Controller\Backend\EditorActionController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -326,6 +327,23 @@ return [
             AiTaskController::class => [
                 'list',
                 'executeForm',
+            ],
+            // The Editor Action Center (ADR-158). Here rather than in a module
+            // of its own: it is the same audience, the same grant and the same
+            // inbox as the two entries below, and ADR-119 already calls the
+            // admin tree's twelve entries a dumping ground. Both actions
+            // re-check the `tasks_use` grant — the module switch alone never
+            // grants execution — and which actions exist is the tool gate's
+            // answer, not this registration's.
+            EditorActionController::class => [
+                'catalogue',
+                'start',
+                // The same action over several records (ADR-162). No new grant
+                // and no new runtime: 'batch' plans and 'startBatch' loops the
+                // 'start' path, so both re-check `tasks_use` and both get their
+                // authorisation from the catalogue, per record.
+                'batch',
+                'startBatch',
             ],
             // The approvals inbox actions, shared with 'nrllm_runs': the
             // controller scopes visibility by actor (admin/approval grant =>

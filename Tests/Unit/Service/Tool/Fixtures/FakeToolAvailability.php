@@ -17,8 +17,8 @@ use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
  *
  * Carries a fixed list of globally-enabled tool names so a test can exercise
  * the fail-closed gate (intersection with the per-run allow-list) without a
- * database. The richer {@see states()} payload is unused by the loop and
- * returns an empty list.
+ * database. The richer {@see states()} payload and the editor-action
+ * declarations are unused by the loop and return empty.
  */
 final readonly class FakeToolAvailability implements ToolAvailabilityServiceInterface
 {
@@ -33,6 +33,11 @@ final readonly class FakeToolAvailability implements ToolAvailabilityServiceInte
     }
 
     public function states(): array
+    {
+        return [];
+    }
+
+    public function editorActions(): array
     {
         return [];
     }

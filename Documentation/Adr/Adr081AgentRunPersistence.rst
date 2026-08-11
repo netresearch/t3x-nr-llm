@@ -6,10 +6,20 @@
 ADR-081: Agent run persistence and a durable event stream
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the event vocabulary has grown — see :ref:`ADR-151 <adr-151>`)
 :Date: 2026-07-18
-:Amended: 2026-08-11 by :ref:`ADR-153 <adr-153>`
+:Amended: 2026-08-11 by :ref:`ADR-151 <adr-151>` and :ref:`ADR-153 <adr-153>`
 :Authors: Netresearch DTT GmbH
+
+.. note::
+
+   The mechanism below is unchanged. The count in "Type the vocabulary" is not:
+   `RunStep` produces a fifth kind, ``context`` (the round's context-window
+   accounting, :ref:`ADR-151 <adr-151>`), and `AgentEventKind` declares it —
+   which is what "richer kinds are added by the epics that emit them" asks for.
+   ``approval`` (:ref:`ADR-101 <adr-101>`) and ``input``
+   (:ref:`ADR-105 <adr-105>`) were added the same way; they are event kinds
+   only, never `RunStep` kinds.
 
 .. _adr-081-context:
 

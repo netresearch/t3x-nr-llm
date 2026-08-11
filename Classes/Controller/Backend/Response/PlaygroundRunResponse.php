@@ -26,7 +26,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 final readonly class PlaygroundRunResponse
 {
     /**
-     * @param list<RunStep> $steps
+     * @param list<RunStep>                                                                                                             $steps
+     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}|null $contextClassification How sensitive what this run injected is (ADR-144/ADR-151); null when it was not computed — a resumed continuation, which reports the shape it always did.
      */
     public function __construct(
         public string $finalContent,
@@ -38,6 +39,7 @@ final readonly class PlaygroundRunResponse
         public int $completionTokens,
         public int $totalTokens,
         public ?float $estimatedCost,
+        public ?array $contextClassification = null,
     ) {}
 
     /**
@@ -45,7 +47,7 @@ final readonly class PlaygroundRunResponse
      */
     public function toArray(): array
     {
-        return [
+        $out = [
             'success'      => true,
             'finalContent' => $this->finalContent,
             'iterations'   => $this->iterations,
@@ -59,5 +61,13 @@ final readonly class PlaygroundRunResponse
                 'estimatedCost'    => $this->estimatedCost,
             ],
         ];
+
+        // Omitted rather than sent as null: absent means "not computed on this
+        // path", which the client renders differently from "nothing declared".
+        if ($this->contextClassification !== null) {
+            $out['contextClassification'] = $this->contextClassification;
+        }
+
+        return $out;
     }
 }

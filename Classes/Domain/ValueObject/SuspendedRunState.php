@@ -217,6 +217,23 @@ final readonly class SuspendedRunState
     }
 
     /**
+     * Whether this state is an INPUT pause (ADR-105) rather than an approval
+     * one.
+     *
+     * The marker is the target tool name: ADR-105 makes the two markers
+     * mutually exclusive, so naming a tool is exactly what distinguishes the
+     * two pauses. The rule lives here because three call sites branch on it —
+     * which pause to restore after a refusal, which digest binds the turn
+     * (ADR-150), and which inbox card to render — and a site that got it wrong
+     * would strand a run in the pause whose claim guard can no longer pick it
+     * up.
+     */
+    public function isInputPause(): bool
+    {
+        return $this->inputToolName !== null;
+    }
+
+    /**
      * The pending turn's calls, rebuilt as typed {@see ToolCall} objects for
      * execution on resume.
      *

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -59,7 +61,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * The permission bar is NOT left to core: `localize()` asks only for
  * {@see Permission::PAGE_SHOW}, which is far too weak for a write.
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -285,6 +287,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
         // have started editing between the two attempts. Both are wrong answers
         // an at-least-once runtime must not produce on its own.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The human-facing declaration (ADR-152).
+     *
+     * Both tables, because the call names one of them: which record type the
+     * action addresses is the caller's choice, not a property of the tool.
+     */
+    public function getEditorAction(): EditorAction
+    {
+        return new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_translation_draft.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_translation_draft.description',
+            'nrllm-editor-action-create-translation',
+            self::TABLES,
+        );
     }
 
     /**

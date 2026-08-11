@@ -8,6 +8,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **One contract every provider adapter answers to** (ADR-160).
+  `AbstractAdapterContractTestCase` fixes the identifier, the capability
+  declaration, error normalisation per exception type, refusing to send without
+  a credential, timeout behaviour, usage reporting and — where declared — the
+  tool-call and structured-output request shapes, for all seven adapters. A
+  capability an adapter does not have is skipped **by name**, so a reader of the
+  run can tell "cannot" from "not tested". Three deviation hooks
+  (`expectedServerErrorException()`, `retriesTransportFailures()`,
+  `requiresApiKey()`) carry the differences that are real — the first two
+  because `OpenRouterProvider` sends through its own request path, the third
+  because a local Ollama authenticates nothing; overriding one is where that
+  deviation is now written down. The suite lives in the `unit` testsuite
+  deliberately — no CI job runs the `integration` one.
+
+- **Capability provenance on `tx_nrllm_model`** (ADR-160). Three columns —
+  `capabilities_discovered`, `capabilities_confirmed_at`, `capabilities_source`
+  — record what the last provider discovery reported, when, and whether the
+  capability tokens came from the provider's own response or from the bundled
+  static catalog. Per-capability attribution is
+  derived by comparing the declared set against the discovered one, so a
+  capability only an operator ticked is attributed to the operator and a record
+  written before provenance reads back as unconfirmed. The model backend module
+  renders it: a warning badge and a tooltip naming the source for anything the
+  provider never confirmed, a "last confirmed" line per row, and a "Confirm
+  capabilities" row action that runs discovery and records the answer.
+  `CapabilitySource::Catalog` is kept distinct from `Discovery` — a substituted
+  catalog is an assumption, not a confirmation — and it follows the capability
+  tokens rather than the model list, so OpenAI, Anthropic and Groq confirm as
+  `Catalog` even against a reachable API: their model endpoints list ids and no
+  capabilities, so the tokens are the bundled catalog on a live run too.
+  Routing does not read provenance: gating eligibility on it would silently
+  drop hand-declared models.
+
 - A side-effecting tool that cannot be fenced is refused before it runs
   (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is
   installed unconditionally now; a segment holding no persisted run or no lease
@@ -112,6 +145,297 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
 
+- **A deprecation and removal policy, half of it enforced**
+  (`Documentation/Api/Deprecation.rst`). From 1.0 a public removal needs a
+  deprecation that ships in a minor and survives at least one further minor
+  line, and it needs a written migration. The page says which half is a gate
+  and which is a review duty rather than implying both: the snapshot test makes
+  a removal impossible to land unread, and the new
+  `Tests/Unit/Api/DeprecationInventoryTest` binds the inventory to the
+  `@deprecated` docblocks in both directions — no deprecated `@api` member
+  without a row whose "Use instead" cell names a replacement, no row for
+  something the code no longer deprecates. All five declaration shapes count:
+  method, constant, public property, enum case and the type itself.
+  The notice period itself is *not* enforced and the page says so: nothing here
+  knows in which release a docblock tag first appeared.
+
+- **A support matrix that cannot drift** (`Documentation/Api/SupportMatrix.rst`)
+  — TYPO3 13.4 LTS and 14.3 LTS, PHP 8.2–8.5, with the end of each upstream
+  line. `VersionConsistencyTest` gains three assertions that pin its declared
+  literals against `composer.json`, `ext_emconf.php` and the union of every
+  matrix in `.github/workflows/ci.yml`, the same way it already pins the
+  release-version surfaces against each other.
+
+- **ADR-159 answers ADR-090's re-evaluation** at the API freeze, against the
+  code rather than in principle: the core seam is enforced (`ModuleSeamTest`)
+  but no consumer has asked for a subset; the agent runtime adds zero composer
+  packages, so "heavy dependencies" is retired as a split argument; MCP is 10 of
+  658 files and already inert without configured servers; and every recent minor
+  touched a dozen module directories at once, so there is no independent cadence
+  to separate. Outcome: one extension through 1.0, re-evaluated at the first
+  minor after it. ADR-090 carries the matching `:Amended:` backlink.
+- **A configuration can declare a data class for its system prompt** (ADR-155,
+  closes #724, amends ADR-144). ADR-144 classified snippets and skills and
+  declined the system prompt, because a system prompt sits on a configuration
+  that already knows its provider — true of a fixed-mode record, and not of a
+  criteria-mode one, which knows no provider until routing runs. Now that the
+  zone comes from the resolved model (ADR-149), a declared class refuses a send
+  whose resolved model sits in a weaker zone.
+  - `tx_nrllm_configuration` gains `system_prompt_data_class` on the same
+    `ToolDataClass` scale, with a TCA field beside `system_prompt`. Empty means
+    undeclared and constrains nothing; nothing is guessed for existing rows.
+  - It binds in the existing input-context gate, folded in beside the snippets
+    and the skills, and the strictest declaration still decides. Routing
+    eligibility was the alternative and is worse: it would let a governance
+    declaration decide which model serves a call — the inversion ADR-149
+    forbids — it would not bind in fixed mode, which never consults the
+    eligibility evaluator, and the gate would still ask the same question
+    afterwards. No new gate and no new switch.
+  - The class classifies the TEXT: a configuration whose `system_prompt` is
+    empty declares nothing whatever the column says.
+  - **Task input stays unclassified.** ADR-144's second argument is untouched —
+    the accepted input is a runtime string with no per-record home. `tx_nrllm_task`
+    gains nothing.
+  - `LlmConfiguration` is `@api` and gains three accessors
+    (`getSystemPromptDataClass()`, `getSystemPromptDataClassEnum()`,
+    `setSystemPromptDataClass()`). Additive; no existing signature changes.
+- A routing readout on the Governance tab answers "why this model and not that
+  one" (ADR-148). Pick a configuration, an operation and optionally a policy
+  mode to try, and the page runs the SAME `RoutingDecisionService` the runtime
+  runs: the selected model, the eligible candidates in rank order with their
+  score and per-signal values, and every refused candidate with its reason. A
+  fixed-mode configuration is reported as no decision — the operator named the
+  model — rather than as a decision with one candidate. Trying a policy mode
+  evaluates a hypothetical and never writes the install setting.
+  `RoutingRejectionReason` and `RoutingPolicyMode` gained label keys (EN + DE);
+  the dead `RoutingDecision::noCandidates()` was removed, and the empty-catalogue
+  case it described now has a reader in `RoutingReadout::isEmptyCatalogue()`.
+- **The Governance simulation covers the whole run, and answers for a backend
+  user other than the one reading the page** (ADR-157, closes #721 and #722).
+  ADR-145's simulator asked the tool gate alone, which is one of the four gates
+  the tab now asks; a page saying "Allowed" while the
+  input-context gate refuses the send is a wrong answer, not a partial one.
+  - One verdict — `ALLOW` / `ALLOW + APPROVAL` / `BLOCK` — folded from four
+    axes, each keeping its own row: the tool gate (ADR-094), the input-context
+    gate (ADR-144), routing eligibility (ADR-142) and the approval requirement
+    (ADR-134). Every axis is the runtime's own service, not a copy of its
+    rules. `ALLOW + APPROVAL` is its own outcome because a call that waits for
+    a human is not one that runs unattended.
+  - `InputContextTrustGate::decide()` returns an `InputContextDecision`;
+    `assertPermitted()` calls it, records the governance event and throws. One
+    rule, two callers. Catching the exception would have been wrong: observe
+    mode throws nothing for a send the runtime records as blocked, so the
+    decision carries "the gate refused" and "the send proceeded" separately.
+  - An actor picker resolves a backend user read-only through
+    `ActingBackendUserResolverInterface` (ADR-083) — no session switch, no
+    execution as the user, no write. Privilege comes from the fresh database
+    record, so the picker can lower it but never mint it, and a uid that no
+    longer resolves is reported instead of falling back to your own rights.
+    `ToolCallPolicyInterface::decide()` is unchanged.
+  - The readout states which axes are NOT actor-scoped. Routing reads the model
+    catalogue with enable-fields ignored and no user context; the
+    input-context gate and the approval requirement do not read a user either.
+    Only `requiresAdmin()` does. A simulator that silently answered the same
+    for every actor on three axes would imply a dimension that is not there.
+  - The four gates are what the tab asks, not everything that can stop a call.
+    Configuration access (ADR-070), the budget check and the guardrail pipeline
+    are outside them, and the admin guide and ADR-157 say so next to the picker:
+    the configuration list is unfiltered, so a group-restricted configuration
+    paired with a non-member reads "Allowed" here and is refused at runtime.
+  - **A simulation is not recorded**, deliberately. The audit's value is that
+    every row is something the installation actually did; the cost is that "who
+    checked what" is not answerable from it. The reasoning is in ADR-157.
+- `tx_nrllm_telemetry` records WHY the model that served a call was chosen, and
+  the Governance tab reads it back (ADR-156). Six new columns per row — policy
+  mode, candidate count, the distinct rejection reasons, and whether the
+  quality, health and cost signals actually moved the ranking — written from the
+  one resolution the runtime already performs, on both the non-streaming and the
+  streamed path. `Calls that were routed` on the Governance tab shows the last
+  seven days of them, so "why model A" is answerable for a call that happened
+  and not only for a hypothetical. The selected model and fallback hops are not
+  duplicated: `served_model` and `fallback_attempts` already carry them, and the
+  candidate model list is deliberately not stored. A run that chose nothing
+  (fixed mode, or a path with no configuration) writes an empty policy mode
+  rather than zeros, and the reader filters those out in SQL so a mostly
+  fixed-mode installation cannot crowd its real decisions out of the window.
+  **Breaking:** `ModelSelectionServiceInterface` gains `resolveModelForCall()`,
+  which returns the model together with the decision that produced it — an
+  implementation of the interface outside this extension has to add it.
+  `resolveModel()` is unchanged and now delegates to it, so callers are
+  unaffected. `ConfigurationCallPlanner::resolveModel()` takes an optional third
+  argument (the telemetry scratchpad); existing calls are unchanged.
+- Request complexity is measured on every configuration-driven send and
+  recorded, and nothing routes on it (ADR-156). Six more telemetry columns: a
+  0-100 structural score, the payload size in bytes, the token estimate, the
+  tool count, the context utilisation and the request shape (single-turn /
+  multi-turn / tool-assisted). The provider-pinned entry points measure nothing
+  — `chatWithTools()`, `vision()`, and `chat()`/`complete()` where no default
+  configuration resolves — as do embeddings and the specialized image and speech
+  services; their rows carry an empty shape and the Governance readout says so
+  instead of showing zeros.
+  ADR-142 declined complexity routing for want of evidence that the score
+  predicts anything; this collects that evidence and changes no behaviour —
+  there is no new signal in `CandidateRanker`, no weight in `RoutingPolicyMode`,
+  no predicate in `EligibilityEvaluator` and no flag that would add one. ADR-156
+  writes down what has to hold before anything may route on it: cheaper models
+  hold for simple requests, quality does not degrade, and real cost drops — all
+  three, over a sample. The token and utilisation figures come from the context
+  fit and stay SQL NULL where no fit ran, because an unmeasured send is not an
+  empty one. Still prompt-free: sizes, counts and enum names only.
+- **An editor action is declared metadata on a writing tool, not a second kind
+  of thing** (ADR-152). The opt-in `EditorActionInterface` returns an
+  `EditorAction` carrying a translatable label, a human description distinct
+  from the model-facing one, an icon and the record types the action addresses;
+  all five writing tools declare one. Nothing about execution changes — an
+  editor action runs on the tool path, behind the same fence, approval pause and
+  audit. Deliberately not built, each with its reason in the record:
+  `bulkCapability`, a caller-facing preview service with a structured
+  before/after diff, and a per-action grant.
+- The Tools module renders a writing tool as its icon, translated name, human
+  sentence and applicable record types instead of a bare wire name and the
+  paragraph written for the language model. Tool groups have translatable names
+  through the new `ToolGroup` enum; a third-party group keeps its raw
+  identifier. `ToolInterface`'s docblock listed the group taxonomy without
+  `editing` — the group every writer uses — which is fixed.
+- **An editor can find and start an editor action** — the Editor Action Center
+  (ADR-158) in the editor module `nrllm_aitasks`. A context-menu item on a page
+  or content element opens a catalogue of the actions that apply to it; starting
+  one creates an ordinary agent run restricted to that single tool, and the
+  declared write suspends for approval on the existing inbox card with its
+  preview. The catalogue is driven by `editorActions()`, the composite tool gate
+  and access to the default LLM configuration itself (a user outside its allowed
+  backend groups is offered nothing and can start nothing) — no permission rule
+  is re-implemented, and no second executor exists.
+  The catalogue never reads the record, so it shows `pages #42` rather than a
+  title; the record is resolved and authorised later, by the preview.
+  Deliberately not built: bulk, a record picker, and a grant of its own.
+- **One editor action over several records, as N ordinary runs** (ADR-162).
+  Once a record is selected — the Editor Action Center opened from that record's
+  context menu — each action there offers "Run this on several records": a page
+  that takes record numbers of one table, asks the catalogue again for every one
+  of them, lists the ones it will not run on with the reason, shows a cost
+  estimate derived from the requests it actually built, and then starts one
+  ordinary agent run per record. Opened from the module menu the catalogue has no
+  record and offers no bulk entry point either. No bulk runtime, no batch approval
+  and no queue — N runs are N turns, so each write suspends for its own approval
+  and gets its own inbox card with its own preview, and budget, audit, routing and
+  the write fence are untouched. Bounded at 20 records because the runs execute
+  inside one backend request, and at 100 parsed entries so that a pasted megabyte
+  cannot become a page and a flash message nobody can read. The budget is hit once per run, so a batch can run out partway
+  through: it stops at the first denial — detected on the run's
+  `BUDGET_EXHAUSTED` termination reason, since the loop catches the denial and
+  the run settles COMPLETED — and names the records the stop kept from starting.
+  Runs that ended for another reason are counted by kind, so a batch in which
+  everything failed does not read like one in which nothing needed changing. The
+  estimate states how wrong it can be — the system prompt and skills the runtime
+  adds are not counted, and the upper price assumes every request returns the
+  configured token ceiling. It shows no price range unless the model carries both
+  an input and an output price and the configuration sets an output ceiling.
+- **An operator can tell whether an MCP server is alive** (ADR-154). Nothing in
+  the installation measured or stored anything about the far side except how the
+  last catalogue import went, so a server that had been answering `tools/call`
+  for six weeks read as untouched since that import — and the only way to find
+  out whether it was reachable was to run the import, the one action that also
+  rewrites the catalogue.
+  - `tx_nrllm_mcp_server` gains `last_contact` and `last_latency_ms`, written on
+    every successful client operation: a tool call, an import or a connection
+    test. A failed operation records nothing.
+  - **Test connection** performs the handshake and stops — it writes no
+    catalogue row and leaves the import status and the last import error
+    exactly as they were. It reports the latency, the protocol revision the
+    server chose and the server's own name, rendered onto the server's card:
+    only the latency is stored, so this one action does not reload the page —
+    a reload would destroy the answer. A failure is shown, never stored:
+    `import_error` describes the last import and must not be overwritten by a
+    probe.
+  - The write can never fail the call it rides on. `McpHealthRecorder` swallows
+    every failure into a warning, because it sits behind a tool call whose
+    answer a backend user is waiting for.
+  - The MCP Servers module shows status, last successful contact and latency,
+    transport, authentication mode, tools discovered, data class, approval and
+    the last error — without a reader the columns would be a declaration nobody
+    consults.
+- A direct `RemoteToolInterface` case in `ToolCallPolicyTest`: a remote tool
+  above the trust-zone ceiling is refused even in `observe` mode (ADR-115). The
+  branch was covered only indirectly, through the governance readout's fake
+  tool, so it could have been deleted with the policy's own suite still green.
+- **One conformance suite every MCP connection is held to** (ADR-161). The
+  client was well covered by class and covered by nothing that asked whether
+  what this extension supports as an MCP client is policy-, audit- and
+  health-integrated. `AbstractMcpConformanceTestCase` holds the list — connect,
+  capability discovery, tool discovery, schema normalisation, tool execution,
+  timeouts, cancellation, server failure, invalid schema, oversized response,
+  audit, data classification, trust-zone enforcement — and a concrete case
+  supplies one connection profile and nothing else. Two ship (stateless and
+  session-issuing HTTP); a new transport is a profile plus a three-line
+  subclass. Everything runs through a faked PSR-18 client, so no check touches
+  the network. The items that are claims about database rows are covered in the
+  functional suite instead, and ADR-161's table says which and where: the audit
+  half in `McpRunAuditTest`, and the two the catalogue resolves — a tool's data
+  class against the annotations the server wrote about itself, and a stored
+  schema that no longer decodes to an object — in `McpImportServiceTest`.
+  - **Cancellation is recorded as a gap, not faked green.** The transport has no
+    abort path, so a cancellation raised mid-call changes nothing and the run
+    waits out the leg. There is no behaviour to assert, so the suite asserts the
+    absence instead: neither the client nor the transport takes a cancellation
+    collaborator or argument, or offers a method to abort what is open. That
+    check goes red on the first commit that adds one, which makes building an
+    abort path a deliberate change to a recorded decision.
+  - **`McpRunAuditTest`** drives a real run through the real persister: an
+    executed remote call becomes a TOOL event, and a run whose row cannot be
+    written never reaches the server at all — the ADR-141 fence refuses a
+    write-effect tool it cannot fence, and every imported MCP tool declares one.
+    "An MCP tool ran unaudited" is therefore not a reachable state, which is why
+    the client keeps no audit stream of its own and the governance log stays
+    denial-only.
+- **Context budget readout in the playground inspector** (ADR-151, #725).
+  `ContextFitResult` said whether a transcript fit and how many turns were
+  dropped; it never said what filled the window. It now carries a
+  `ContextBudgetBreakdown`: window, reserved output, safety margin, budget, and
+  four component lines — transcript, tool schema, system prompt, skills — plus
+  the estimated total and what is left. The lines close by construction (the
+  four components sum to the estimate the pruning decision used, and
+  `contextLength − reservedOutput − safetyMargin` is the budget), because a
+  breakdown a reader subtracts with must not drift from the figure the manager
+  acted on.
+  - The agent loop records it as a `context` run step ahead of each request
+    step, and also when the floor overflows and the run stops. The playground
+    inspector renders it, next to the ADR-144 classification of what the run
+    injects: every snippet and skill by name with the class it declared, and
+    the effective strictest one. `InputContextClassifier::classify()` is now the
+    fold over its new `sources()`, so the panel and the input-context gate
+    answer from one list. `sources()` also takes the per-run forced snippets and
+    skills, which the playground really does inject — the panel would otherwise
+    report "injects nothing" for a run carrying a classified forced snippet. The
+    ADR-144 gate still asks `classify()` and therefore still answers for the
+    configuration alone: a forced source is shown and is not gated.
+  - The `context` step is a `RunStep`, so every traced run — interactive,
+    queued or resumed, not only the playground's — persists it to
+    `tx_nrllm_agentrun_event` like any other step, and `AgentEventKind` gains a
+    `CONTEXT` case so the stored kind stays one the enum declares (amends
+    ADR-081). Budget for roughly a third to a half more event rows per run, and
+    for the per-step cancellation read and lease renewal that go with them. No
+    surface renders the stored step yet.
+  - Snippets get no line of their own: `ConfigurationSnippetResolver` composes
+    them into the effective system prompt before the estimator sees them, so
+    the line is labelled "System prompt (incl. snippets)" rather than merged
+    silently. Nothing about the estimate changes — no run is pruned that was
+    not pruned before.
+  - **Two of the four component lines are always empty on the playground**, and
+    the panel says so instead of showing an unexplained zero. The agent loop
+    bakes the effective system prompt as message 0 and injects skill prose into
+    the transcript before the fit runs, so on that path both are counted on the
+    transcript line by construction. The rows stay because they are part of the
+    sum; separating them at the loop's seam would change what the loop
+    assembles, which is not an observability change.
+  - **Breaking:** `ContextFitResult`'s constructor takes a ninth argument,
+    `ContextBudgetBreakdown $breakdown`, required and positional. No default is
+    offered: the breakdown restates `budget` and `estimatedTokens`, so a
+    defaulted one would let a `ContextFitResult` exist whose two halves
+    contradict each other, and every surface reading it would report "no
+    accounting" for a fit that was measured. Construction is
+    `ContextWindowManager`'s alone in production; a third party that builds the
+    result itself must pass the breakdown the same fit produced.
 - **One correlation per agent run, and the view that reads it (ADR-153).** A run
   made N provider calls under N unrelated correlation ids, because
   `ProviderCallContext::forConfiguration()` minted one internally and no caller
@@ -142,6 +466,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     (`agentrun_uid`, `crdate`) index is added for the new query.
 
 ### Changed
+
+- **An input submission is authorised against the tool it feeds, and bound to
+  the turn its form was rendered from** (ADR-150, closes #690). `submitInput()`
+  authorised the submitter with the `agent_approve` grant and nothing else,
+  while the resumed call executes under the run OWNER's identity (ADR-083) — a
+  non-admin could satisfy an admin-only tool that then ran on the owner's
+  authority. Latent only because no builtin implements `RequiresInputInterface`.
+  - The submitter now passes the same tool gate the execution would, on EVERY
+    pending call plus the declared input tool. Not only the writing ones as on
+    the approval path (ADR-133): an input-requiring tool declares no effect, so
+    that filter would have selected nothing. A service account, and a uid that
+    no longer resolves to an enabled user, are refused outright.
+  - `InputSubmission` carries a `turnDigest`. Null and mismatching are refused
+    alike — both mean the turn is not known. The digest is a second method on
+    the existing `PendingTurnDigest` rather than a parallel one, and covers the
+    pending calls plus the target tool and the declared input schema; the
+    approval digest is byte-identical to before, so open approval cards stay
+    valid.
+  - Both gates judge the state loaded AFTER the claim, which is now also the
+    state that executes. Previously the pre-claim copy ran, so a lost race fed
+    the operator's values into a turn they were never shown. A refusal releases
+    the run back to `WAITING_FOR_INPUT`; nothing runs, nothing settles.
+  - The inbox's input form carries the digest in a hidden field like the
+    approval form; the playground's `awaiting_input` payload emits it and
+    `submitInputAction` reads it back (409 on a stale turn, 403 on a refused
+    submitter).
+  - **Breaking:** `InputSubmission` is `@api` and its constructor takes the
+    turn digest. A caller outside this extension that omits it has every
+    submission refused — the same shape ADR-132 gave `ApprovalDecision`, and
+    refusing is the point: a submission that cannot name its turn is one this
+    gate exists to stop.
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the
   nine individual contexts that gate job already covers. gitleaks, zizmor,
@@ -250,8 +605,96 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `Skill` gains `getDataClass()` / `getDataClassEnum()` on the `@api` surface.
 
+- **The `@api` snapshot records constructors, and classifies its own failure.**
+  `Tests/Unit/Api/api-surface.txt` held no constructor at all, so a new required
+  constructor argument on an `@api` class passed the gate in silence. It now
+  renders a `constructor(...)` line for every `@api` class that has a public
+  constructor — its own, or one inherited from a base inside
+  `Netresearch\NrLlm` (70 lines on 97 classes, nothing removed or changed).
+  Six of those come from a base rather than the class itself: the four
+  `Specialized` image/speech services, which inherit a twelve-argument
+  constructor from `AbstractSpecializedService`, and the two empty
+  `ProviderResponseException` subclasses. A declared-only rule would have left
+  those six blind — `new` binds to the inherited signature, so a required
+  argument added to the base moves nothing in the snapshot. A constructor
+  inherited from **outside** the repository (TYPO3 core's `AbstractEntity`,
+  `\RuntimeException`) stays out: it is not ours and differs between the 13.4
+  and 14.x legs. Service constructors are included even though `Stability.rst`
+  puts them out of the caller contract: no mechanical rule separates a value
+  object built with `new` from a service that is only ever injected, and
+  recording none of them is what let the break through.
+
+  The rendering moved to `Tests/Unit/Api/Support/ApiSurfaceRenderer` so it can be
+  exercised against fixture classes — a snapshot can only ever show that today
+  equals yesterday, never that a given break would be caught, and
+  `ApiSurfaceRendererTest` now checks that claim. The mismatch message is
+  produced by `ApiSurfaceDiff`, which matches members by name and reports
+  *additive* (regenerate and note it) separately from *breaking* (removed or
+  changed — decide first, then follow the deprecation policy). A changed
+  signature is not automatically a break and the message says so: an added
+  optional parameter breaks no caller, an added required one breaks every
+  call, and the rendering marks optional parameters with ` = …`.
+- The approval predicate is one resolver, `ToolApprovalRule::requiresApproval()`,
+  asked by `ToolLoopService`'s approval scan, `ToolRegistry`'s boot validation
+  and the Governance simulation (ADR-157). The two copies it replaced had
+  drifted: the registry exempted every remote tool, including one carrying the
+  `RemoteApprovalInterface` declaration the loop honours, so a remote tool the
+  loop would suspend for approval was still registrable alongside
+  `RequiresInputInterface` — the deadlock ADR-134's check exists to prevent.
+  Such a tool is now rejected at the container boot. No shipped tool implements
+  the combination, so nothing that registers today stops registering. The
+  registry's second, narrower ban on the explicit `RequiresApprovalInterface`
+  marker is gone with it: that marker is the shared rule's first branch, so one
+  condition (code `1786226400`) now answers for every route into approval.
+- The MCP import status no longer offers `importing` (ADR-154). It was declared
+  in TCA and in both language files and written by nothing: the import runs to
+  completion inside the request that starts it, so no reader could ever observe
+  the state, and a request that died mid-import would have left a row stuck in
+  it with nothing to clear it.
+- `McpClient` takes a `McpHealthRecorderInterface`, and
+  `McpHttpTransport::call()` returns a `durationMs` alongside the result. Both
+  are `@internal` (ADR-127).
+- **A remote tool result names the content blocks it could not carry**
+  (ADR-161). MCP servers answer with typed blocks and this client reads text
+  only; an image or an embedded resource was dropped and the caller was told
+  nothing, so a model handed a partial answer could not tell — and a model
+  handed only non-text blocks was told the tool "returned no textual content"
+  about a call that returned an image. The answer now begins with a note
+  counting the dropped blocks and naming their types — it leads rather than
+  trails because a tool result is cut to 50 000 bytes before the model sees it,
+  and a trailing note is removed by exactly the cut that makes the answer
+  partial. The note is ours and carries none of the server's bytes: a dropped
+  block is named by matching its type against the protocol's own non-text types
+  (`image`, `audio`, `resource`, `resource_link`) and anything else is `other`.
+  The count stays exact, so a server that invents a type per block moves the
+  number and nothing else.
 
 ### Fixed
+
+- **`OllamaProvider` denied a capability it has.** It implements
+  `ToolCapableInterface` and `supportsTools()` returns true, but `tools` was
+  missing from its declared feature list — so the service layer's `instanceof`
+  gate let a tool call through while
+  `LlmServiceManager::supportsFeature('tools', 'ollama')` denied the same
+  capability to whoever asked. Found by the adapter-contract suite (ADR-160).
+  `supportsFeature('tools', 'ollama')` now returns true.
+
+- **A transport failure escaped `OpenRouterProvider` untyped.** Its private
+  request path — needed for the attribution headers and the 402 mapping — did
+  not go through `AbstractProvider::sendRequest()`, so a connection refusal or
+  a cURL timeout left the adapter as a raw PSR-18 exception and reached the
+  caller as an unhandled 500. It is now a `ProviderConnectionException`, like
+  the unparseable-body case beside it. Found by the adapter-contract suite
+  (ADR-160).
+
+- **An unconfigured `OpenRouterProvider` sent a keyless request.** The same
+  private request path never called `validateConfiguration()`, so an OpenRouter
+  with no vault key fell through to the api-key-less HTTP client and the
+  operator saw the provider's 401 instead of a `ProviderConfigurationException`
+  naming the misconfiguration. `chatCompletion()`, `chatCompletionWithTools()`,
+  `embeddings()` and `analyzeImage()` now refuse before building a request, as
+  `streamChatCompletion()` already did. Found by the adapter-contract suite
+  (ADR-160).
 
 - **A criteria-mode configuration was sized against the wrong context window**
   (ADR-143). `ContextWindowManager` read the window from
@@ -295,6 +738,47 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   window manager and a logger). Both default to null and every existing
   construction keeps its exact previous behaviour — a null context window means
   "bounded by the provider", which is what these paths did.
+
+- **A criteria-mode configuration is judged against the model that will serve
+  the call, not against a provider relation it does not have** (ADR-149, closes
+  #723). The input-context trust gate read the zone through
+  `LlmConfiguration::getProvider()`, which reads through the model relation a
+  criteria-mode record leaves empty — so every such configuration answered
+  `EXTERNAL_GLOBAL` and could not carry a classified snippet, however local the
+  model routing actually picked. The resolved model is now threaded in from
+  `LlmServiceManager`, which already knows the operation.
+  - The gate does not resolve anything itself. Reaching routing from a
+    governance check would let the check decide which model serves a call.
+  - A routing failure is not a context failure: with no serving model there is
+    no serving provider, `EXTERNAL_GLOBAL` stands — the same answer this path
+    gave before — and the routing error is raised by the dispatch that follows.
+  - One shape does newly refuse. A criteria-mode record that still carries a
+    `model_uid` from an earlier fixed-mode edit was judged against that stale
+    relation; it is now judged against the model the criteria select. Where the
+    stale relation is local and the criteria select an external model, a send
+    that was permitted throws. The TCA `displayCond` hides that column in
+    criteria mode, it does not clear it, and nothing else clears it either.
+  - Fixed mode is unchanged and asks routing nothing: its provider IS the
+    model's provider, so a resolution there could only return what the gate
+    already had.
+  - The fallback hops keep reading their own relations. A criteria-mode
+    fallback still contributes `EXTERNAL_GLOBAL`, because resolving per hop
+    would run the routing decision once for every entry of a chain that may
+    never be walked.
+  - The `context_blocked` audit row now names the provider and model the zone
+    was read from, instead of the empty relation.
+- **A failed remote tool call was audited as a successful step** (ADR-161).
+  `McpTool::execute()` returned a transport failure as ordinary text, so a
+  server that was down became a persisted tool step with `isError = false`
+  whose content merely read like an error — and "how often does this server
+  fail" had no answer that was not a string search. The same held for MCP's own
+  tool-level `isError`, which is how a *working* server reports a tool that
+  failed and is the more common of the two: `McpClient::callTool()` folded it
+  into a prefixed sentence and the flag was lost at the return type. Both are
+  error results now. `callTool()` returns an `McpCallOutcome` instead of a
+  string; the method is not part of the frozen API surface and `McpTool` is its
+  only production caller. The run's control flow is unchanged: the loop still
+  carries on and the model is still told plainly what failed.
 
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance

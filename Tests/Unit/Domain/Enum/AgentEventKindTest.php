@@ -21,7 +21,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'approval', 'input'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'approval', 'input'], AgentEventKind::values());
     }
 
     #[Test]
@@ -40,6 +40,9 @@ final class AgentEventKindTest extends TestCase
         self::assertSame(AgentEventKind::LLM, AgentEventKind::fromRunStepKind(RunStep::KIND_LLM));
         self::assertSame(AgentEventKind::TOOL, AgentEventKind::fromRunStepKind(RunStep::KIND_TOOL));
         self::assertSame(AgentEventKind::ASSEMBLED, AgentEventKind::fromRunStepKind(RunStep::KIND_ASSEMBLED));
+        // ADR-151. Persisted like the other four: the fit records it on every
+        // traced run, not only in the playground.
+        self::assertSame(AgentEventKind::CONTEXT, AgentEventKind::fromRunStepKind(RunStep::KIND_CONTEXT));
     }
 
     #[Test]

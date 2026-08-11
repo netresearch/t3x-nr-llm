@@ -75,6 +75,15 @@ CREATE TABLE tx_nrllm_model (
     -- Capabilities (comma-separated: chat,completion,embeddings,vision,streaming,tools)
     capabilities varchar(255) DEFAULT '' NOT NULL,
 
+    -- Capability provenance (ADR-160): what the last provider discovery
+    -- reported, when, and whether that answer was live or the bundled static
+    -- catalog. A capability declared above but absent here is the operator's
+    -- own claim; capabilities_confirmed_at = 0 means nothing ever confirmed
+    -- any of them.
+    capabilities_discovered varchar(255) DEFAULT '' NOT NULL,
+    capabilities_confirmed_at int(11) unsigned DEFAULT '0' NOT NULL,
+    capabilities_source varchar(20) DEFAULT '' NOT NULL,
+
     -- Default timeout for LLM inference (seconds, 0 = provider default)
     default_timeout int(11) DEFAULT '120' NOT NULL,
 
@@ -123,6 +132,13 @@ CREATE TABLE tx_nrllm_configuration (
     -- Translation service
     translator varchar(50) DEFAULT '' NOT NULL,
     system_prompt mediumtext,
+
+    -- Operator-declared sensitivity ceiling for system_prompt (ADR-155), a
+    -- ToolDataClass value on the same scale snippets and skills use. Declared
+    -- here rather than refused per record: what a criteria-mode configuration
+    -- may resolve to depends on it. EMPTY means undeclared and constrains
+    -- nothing, so every existing row keeps reaching the providers it reached.
+    system_prompt_data_class varchar(32) DEFAULT '' NOT NULL,
 
     -- Model parameters
     temperature decimal(3,2) DEFAULT '0.70' NOT NULL,
@@ -598,6 +614,53 @@ CREATE TABLE tx_nrllm_telemetry (
     -- which is deliberately distinct from a real 0 ms first token.
     time_to_first_token_ms int(11) unsigned DEFAULT NULL,
 
+    -- Why THIS model, for a call that already happened (ADR-156). Written only
+    -- for a criteria-mode configuration: routing_policy_mode is '' whenever no
+    -- automatic selection took place (fixed mode names its own model, and the
+    -- service paths resolve no configuration at all), which is what separates
+    -- "no decision" from "a decision with nothing in it".
+    --
+    -- The selected model and whether a fallback ran are NOT repeated here —
+    -- served_model and fallback_attempts above already carry them.
+    --
+    -- Prompt-free like the rest of the row: a mode name, a count, enum names
+    -- and three booleans. The candidate MODELS are deliberately not stored;
+    -- the Governance tab answers "which models exist and which lost" against
+    -- the live catalogue, and a per-request copy would go stale on a rename.
+    routing_policy_mode varchar(32) DEFAULT '' NOT NULL,
+    routing_candidates smallint(5) unsigned DEFAULT '0' NOT NULL,
+    -- Comma-separated DISTINCT RoutingRejectionReason names, sorted, so the
+    -- same outcome always reads as the same string.
+    routing_rejections varchar(255) DEFAULT '' NOT NULL,
+    -- Whether the signal both carried weight in the mode AND had data for an
+    -- eligible candidate — i.e. whether it moved this decision at all.
+    routing_signal_quality smallint(5) unsigned DEFAULT '0' NOT NULL,
+    routing_signal_health smallint(5) unsigned DEFAULT '0' NOT NULL,
+    routing_signal_cost smallint(5) unsigned DEFAULT '0' NOT NULL,
+
+    -- How involved the request was (ADR-156). OBSERVATION ONLY: nothing routes
+    -- on these columns, and ADR-156 names the three things that must hold
+    -- before anything is allowed to. Sizes and counts, never content.
+    --
+    -- complexity_shape is '' on the paths that measure nothing: the provider-
+    -- pinned entry points (chatWithTools(), vision(), and chat()/complete()
+    -- with no default configuration), embeddings by identifier, and the
+    -- specialized image/speech services. Only a configuration-driven chat,
+    -- completion, tool or stream send runs the context fit the measurement
+    -- hangs off. The empty shape is the flag for "this row carries no
+    -- complexity", the way routing_policy_mode is for the decision, and the
+    -- Governance readout reads it before showing the other five figures.
+    complexity_score smallint(5) unsigned DEFAULT '0' NOT NULL,
+    complexity_payload_bytes int(11) unsigned DEFAULT '0' NOT NULL,
+    -- NULL where no context fit ran, which is not the same as an empty send.
+    complexity_tokens int(11) unsigned DEFAULT NULL,
+    complexity_tools smallint(5) unsigned DEFAULT '0' NOT NULL,
+    -- Estimated tokens as a percentage of the model's budget; NULL like the
+    -- token count above. May exceed 100 — that is the ADR-143 overflow case,
+    -- and clamping it here would hide it.
+    complexity_context_percent int(11) unsigned DEFAULT NULL,
+    complexity_shape varchar(32) DEFAULT '' NOT NULL,
+
     -- Standard TYPO3 field (append-only; no tstamp — rows are never updated)
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
@@ -610,7 +673,12 @@ CREATE TABLE tx_nrllm_telemetry (
     -- Failure-rate / latency breakdowns filter by operation over a window.
     KEY operation_lookup (operation, crdate),
     -- "which provider fails most" breakdowns.
-    KEY provider_lookup (provider, success, crdate)
+    KEY provider_lookup (provider, success, crdate),
+    -- The Governance tab's routed-call reader: newest rows that carry a
+    -- decision, within a window. Without the mode in the key an installation
+    -- whose configurations are all fixed-mode would scan the whole window to
+    -- find nothing.
+    KEY routed_lookup (routing_policy_mode, crdate)
 );
 
 #
@@ -967,6 +1035,15 @@ CREATE TABLE tx_nrllm_mcp_server (
     import_error text,
     last_imported int(11) unsigned DEFAULT '0' NOT NULL,
     tool_count int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Liveness (ADR-154). Written on every successful client round trip, not
+    -- only on an import: a server answering tools/call for weeks used to read
+    -- as untouched since its last catalogue import. 0 = never reached.
+    last_contact int(11) unsigned DEFAULT '0' NOT NULL,
+    -- Duration of the round trip that set last_contact, in milliseconds. Only
+    -- meaningful together with it; 0 with last_contact = 0 means "no
+    -- measurement", 0 with a contact means "under half a millisecond".
+    last_latency_ms int(11) unsigned DEFAULT '0' NOT NULL,
 
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
