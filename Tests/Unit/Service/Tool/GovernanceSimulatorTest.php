@@ -193,7 +193,6 @@ final class GovernanceSimulatorTest extends TestCase
             new InputContextClassifier(new ConfigurationSnippetResolver($repository, new PromptSnippetComposer())),
             new TrustZoneResolver(),
             new DataClassEnforcementResolver($extensionConfiguration),
-            null,
         );
     }
 

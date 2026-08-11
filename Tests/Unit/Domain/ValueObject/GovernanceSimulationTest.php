@@ -117,13 +117,13 @@ final class GovernanceSimulationTest extends TestCase
     public function approvalDoesNotRescueARefusingAxis(): void
     {
         $simulation = $this->simulation(
-            approvalRequired: true,
             context: InputContextDecision::refused(
                 ToolDataClass::SECRET_ADJACENT,
                 'skill "hr-handbook"',
                 TrustZone::EXTERNAL_GLOBAL,
                 true,
             ),
+            approvalRequired: true,
         );
 
         self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
