@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 
@@ -61,18 +62,33 @@ final readonly class ConfigurationCallPlanner
      * the SAME call must pass the SAME operation — a cache key derived from one
      * resolution and a terminal that resolves again would otherwise be able to
      * disagree about which model the call runs on.
+     *
+     * `$signals` is the running call's telemetry scratchpad. Given one, the
+     * reasoning behind a criteria-mode selection is recorded on it for the
+     * telemetry row (ADR-156); the resolution is unchanged either way, and the
+     * paths with no pipeline context (a bare adapter lookup) pass null.
      */
-    public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): Model
-    {
+    public function resolveModel(
+        LlmConfiguration $configuration,
+        ?ProviderOperation $operation,
+        ?TelemetrySignals $signals = null,
+    ): Model {
         // Criteria-mode configurations carry no direct model relation (model_uid = 0);
         // their model is selected at call time from the stored criteria. Resolve
         // through ModelSelectionService — which returns the directly configured model
         // unchanged for fixed-mode configs — so both selection modes reach a concrete
         // model here. Without this, every *ForConfiguration() call on a criteria-mode
         // configuration threw "has no model assigned".
-        $llmModel = $this->modelSelectionService instanceof ModelSelectionServiceInterface
-            ? $this->modelSelectionService->resolveModel($configuration, $operation)
-            : $configuration->getLlmModel();
+        $llmModel = $configuration->getLlmModel();
+        if ($this->modelSelectionService instanceof ModelSelectionServiceInterface) {
+            // One evaluation answers both questions — which model, and why. See
+            // ModelSelectionServiceInterface::resolveModelForCall() for why this
+            // is not resolveModel() plus explainRouting().
+            $resolution = $this->modelSelectionService->resolveModelForCall($configuration, $operation);
+            $llmModel   = $resolution->model;
+            $signals?->recordRoutingSummary($resolution->routingSummary);
+        }
+
         if (!$llmModel instanceof Model) {
             throw new ProviderException(
                 sprintf('Configuration "%s" has no model assigned', $configuration->getIdentifier()),

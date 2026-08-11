@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
+use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Localization\LanguageService;
@@ -86,6 +87,20 @@ final class EditorActionItemProviderTest extends AbstractUnitTestCase
         self::assertFalse($provider->canHandle());
     }
 
+    /**
+     * The grant and the module tick are separate axes: `nrllm_aitasks` is
+     * registered `access: 'user'`, so holding `tasks_use` does not put the
+     * module in a group's list. The item links into that module.
+     */
+    #[Test]
+    public function refusesABackendUserWhoCannotOpenTheModule(): void
+    {
+        $provider = $this->provider($this->grantedUser(), offers: true, moduleAccess: false);
+        $provider->setContext('pages', '42');
+
+        self::assertFalse($provider->canHandle());
+    }
+
     #[Test]
     public function refusesAnIdentifierThatIsNotARecord(): void
     {
@@ -108,7 +123,11 @@ final class EditorActionItemProviderTest extends AbstractUnitTestCase
         $catalogue = $this->createMock(EditorActionCatalogueInterface::class);
         $catalogue->method('groupsFor')->willThrowException(new RuntimeException('no container here'));
 
-        $provider = new EditorActionItemProvider($catalogue, self::createStub(BackendUriBuilder::class));
+        $provider = new EditorActionItemProvider(
+            $catalogue,
+            self::createStub(BackendUriBuilder::class),
+            $this->moduleProvider(true),
+        );
         $provider->setContext('pages', '42');
 
         self::assertFalse($provider->canHandle());
@@ -129,7 +148,7 @@ final class EditorActionItemProviderTest extends AbstractUnitTestCase
         return $user;
     }
 
-    private function provider(BackendUserAuthentication $user, bool $offers): EditorActionItemProvider
+    private function provider(BackendUserAuthentication $user, bool $offers, bool $moduleAccess = true): EditorActionItemProvider
     {
         // AbstractProvider's constructor reads both globals, so they must exist
         // before the subject is built.
@@ -141,6 +160,18 @@ final class EditorActionItemProviderTest extends AbstractUnitTestCase
             $offers ? [new EditorActionOfferGroup('editing', null, [])] : [],
         );
 
-        return new EditorActionItemProvider($catalogue, self::createStub(BackendUriBuilder::class));
+        return new EditorActionItemProvider(
+            $catalogue,
+            self::createStub(BackendUriBuilder::class),
+            $this->moduleProvider($moduleAccess),
+        );
+    }
+
+    private function moduleProvider(bool $accessGranted): ModuleProvider
+    {
+        $moduleProvider = $this->createMock(ModuleProvider::class);
+        $moduleProvider->method('accessGranted')->willReturn($accessGranted);
+
+        return $moduleProvider;
     }
 }

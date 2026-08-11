@@ -34,16 +34,6 @@ final readonly class RoutingDecision
     ) {}
 
     /**
-     * A decision over an empty field: the criteria matched no active model at
-     * all. Distinct from a decision whose candidates were all rejected, which
-     * carries the reasons.
-     */
-    public static function noCandidates(RoutingPolicyMode $mode): self
-    {
-        return new self(null, [], $mode);
-    }
-
-    /**
      * @return list<RoutingCandidate>
      */
     public function eligibleCandidates(): array

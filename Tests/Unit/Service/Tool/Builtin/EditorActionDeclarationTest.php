@@ -39,8 +39,23 @@ use ReflectionClass;
 #[CoversNothing]
 final class EditorActionDeclarationTest extends TestCase
 {
-    /** @var list<string> the tables the five writers address */
-    private const KNOWN_RECORD_TYPES = ['pages', 'tt_content', 'sys_file'];
+    /**
+     * Which required argument may carry a uid of which table.
+     *
+     * `recordTypes` names the table whose uid the arguments IDENTIFY
+     * (ADR-152), and the catalogue hands a run nothing but that table and that
+     * uid — one offered tool, no lookup tool beside it. A declaration naming a
+     * table no required argument can be filled from therefore offers an action
+     * that can only refuse or guess. `create_content_element_draft` declared
+     * `tt_content` while requiring a `pages` uid, which is exactly that.
+     *
+     * @var array<string, list<string>>
+     */
+    private const SUBJECT_ARGUMENTS = [
+        'pages'      => ['uid', 'page'],
+        'tt_content' => ['uid'],
+        'sys_file'   => ['uid'],
+    ];
 
     /**
      * @return array<string, array{class-string<ToolInterface>, list<string>}>
@@ -51,7 +66,7 @@ final class EditorActionDeclarationTest extends TestCase
             'update_page_metadata'         => [UpdatePageMetadataTool::class, ['pages']],
             'set_file_alternative_text'    => [SetFileAlternativeTextTool::class, ['sys_file']],
             'move_content_element'         => [MoveContentElementTool::class, ['tt_content']],
-            'create_content_element_draft' => [CreateContentElementDraftTool::class, ['tt_content']],
+            'create_content_element_draft' => [CreateContentElementDraftTool::class, ['pages']],
             'create_translation_draft'     => [CreateTranslationDraftTool::class, ['pages', 'tt_content']],
         ];
     }
@@ -124,15 +139,34 @@ final class EditorActionDeclarationTest extends TestCase
     /**
      * @param class-string<ToolInterface> $class
      */
+    /**
+     * Every declared record type is a table one of the tool's own REQUIRED
+     * arguments can be filled from.
+     *
+     * The offer is the whole context the run gets: the prompt names one table
+     * and one uid, and `allowedToolNames` holds exactly this tool. An action
+     * whose declaration points at a table it cannot be told about is an action
+     * that can only fail or write somewhere else.
+     *
+     * @param class-string<ToolInterface> $class
+     */
     #[Test]
     #[DataProvider('writerClasses')]
-    public function theDeclaredRecordTypesAreRealTableNames(string $class): void
+    public function everyDeclaredRecordTypeCanFillARequiredArgument(string $class): void
     {
         $tool = $this->instantiate($class);
         self::assertInstanceOf(EditorActionInterface::class, $tool);
 
+        $declared = $tool->getSpec()->parameters['required'] ?? [];
+        self::assertIsArray($declared);
+        $required = array_values(array_filter($declared, is_string(...)));
+
         foreach ($tool->getEditorAction()->recordTypes as $table) {
-            self::assertContains($table, self::KNOWN_RECORD_TYPES, 'Unexpected record type ' . $table);
+            self::assertNotSame(
+                [],
+                array_intersect(self::SUBJECT_ARGUMENTS[$table] ?? [], $required),
+                sprintf('%s declares "%s" but requires no argument that carries such a uid.', $class, $table),
+            );
         }
     }
 

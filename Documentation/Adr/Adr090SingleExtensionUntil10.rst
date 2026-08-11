@@ -6,8 +6,9 @@
 ADR-090: One extension until 1.0, with documented split seams
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its 1.0 re-evaluation is answered — see :ref:`ADR-159 <adr-159>`)
 :Date: 2026-07-19
+:Amended: 2026-08-11 by :ref:`ADR-159 <adr-159>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-090-context:
@@ -123,7 +124,10 @@ Consequences
   or one feature module reaching into another, fails CI. A deliberate new
   dependency across a seam therefore has to change this ADR and the rule
   together, which is the point.
-- **At 1.0:** re-evaluate against the criteria above. If the seams have held,
+- **At 1.0:** re-evaluate against the criteria above. That re-evaluation has
+  happened — :ref:`ADR-159 <adr-159>` answers it against the code at the API
+  freeze and confirms one extension, with the evidence and the numbers. The
+  next one is due at the first minor after 1.0. If the seams have held,
   the split is largely a ``composer.json`` / ``ext_emconf.php`` repackaging plus
   moving files along the documented boundaries; if a consumer need is real
   before 1.0, a single package (most likely ``nr_llm_specialized`` or

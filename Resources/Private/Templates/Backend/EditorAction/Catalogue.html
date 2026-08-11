@@ -27,7 +27,10 @@
                              default="These AI actions apply to the record you selected. Starting one hands the change to an approver before anything is written." />
             </p>
             <p>
-                <span class="badge text-bg-secondary"><code>{recordTable}</code> #{recordUid}</span>
+                <!-- No <code> inside the badge: TYPO3's global `code{color:…!important}`
+                     beats the badge's own white text and would render the table name at
+                     1.43:1 on the grey badge, while the uid beside it stays white. -->
+                <span class="badge text-bg-secondary">{recordTable} #{recordUid}</span>
             </p>
         </f:then>
         <f:else>

@@ -409,8 +409,8 @@
                 <target>Wäre das erlaubt?</target>
             </trans-unit>
             <trans-unit id="governance.simulator.lead">
-                <source>Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing.</source>
-                <target>Frag dasselbe Gate, das die Runtime fragt. Hier läuft die echte Tool-Policy — keine Kopie ihrer Regeln — gegen deine eigenen Rechte, und es wird nichts geändert.</target>
+                <source>Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
+                <target>Frag die Gates, die die Runtime fragt. Hier laufen die echte Tool-Policy, das echte Eingabekontext-Gate, die echte Routing-Entscheidung und das echte Freigabe-Prädikat, und ihre Antworten werden zu einem Urteil zusammengefasst. Wähle einen Backend-Benutzer, um für jemand anderen als dich selbst zu antworten: der Benutzer wird nur lesend aufgelöst, es wird nichts in seinem Namen ausgeführt und nichts geschrieben.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration">
                 <source>Configuration</source>
@@ -445,8 +445,132 @@
                 <target>erlaubt höchstens</target>
             </trans-unit>
             <trans-unit id="governance.simulator.observed">
-                <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
-                <target>Nur gemeldet — die Durchsetzung steht auf Beobachten, der Aufruf würde also durchlaufen.</target>
+                <source>Reported only, because enforcement is set to observe, so the tool was still offered.</source>
+                <target>Nur gemeldet, weil die Durchsetzung auf Beobachten steht; das Tool wurde trotzdem angeboten.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.none">
+                <source>Choose</source>
+                <target>Bitte wählen</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.tool.none">
+                <source>Choose</source>
+                <target>Bitte wählen</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor">
+                <source>Acting as</source>
+                <target>Handelnd als</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.operator">
+                <source>You, the operator reading this page</source>
+                <target>Du selbst, als die Person, die diese Seite liest</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.admin">
+                <source>administrator</source>
+                <target>Administrator</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.answeredFor">
+                <source>Answered for the backend user %s.</source>
+                <target>Beantwortet für den Backend-Benutzer %s.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.anonymous">
+                <source>Answered with no backend user at all.</source>
+                <target>Ohne jeden Backend-Benutzer beantwortet.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.unresolved">
+                <source>No backend user resolves for uid %s, so the gates were asked with no user at all. That is how the runtime fails closed for a deleted or disabled account.</source>
+                <target>Zu UID %s lässt sich kein Backend-Benutzer auflösen; die Gates wurden deshalb ohne Benutzer befragt. Genau so verhält sich die Runtime bei einem gelöschten oder deaktivierten Konto.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.notAudited">
+                <source>Nothing here is recorded. The runtime writes a governance event when it blocks a call; a simulation blocks nothing, so the audit stays a record of what the installation actually did.</source>
+                <target>Hier wird nichts protokolliert. Die Runtime schreibt ein Governance-Ereignis, wenn sie einen Aufruf blockiert; eine Simulation blockiert nichts, und das Audit bleibt eine Aufzeichnung dessen, was die Installation tatsächlich getan hat.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW">
+                <source>Allowed</source>
+                <target>Erlaubt</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW_WITH_APPROVAL">
+                <source>Allowed, after a human approves</source>
+                <target>Erlaubt, nach menschlicher Freigabe</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.BLOCK">
+                <source>Blocked</source>
+                <target>Blockiert</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.axis">
+                <source>Gate</source>
+                <target>Gate</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.answer">
+                <source>Answer</source>
+                <target>Antwort</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.scope">
+                <source>Depends on the actor?</source>
+                <target>Hängt vom Handelnden ab?</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.tool">
+                <source>Tool gate</source>
+                <target>Tool-Gate</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.context">
+                <source>Input-context gate</source>
+                <target>Eingabekontext-Gate</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.routing">
+                <source>Routing</source>
+                <target>Routing</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.approval">
+                <source>Human approval</source>
+                <target>Menschliche Freigabe</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.actor">
+                <source>Yes, through requiresAdmin().</source>
+                <target>Ja, über requiresAdmin().</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.context">
+                <source>No, it compares the classes this configuration injects against the trust zone it can reach.</source>
+                <target>Nein, es vergleicht die Klassen, die diese Konfiguration einspeist, mit der erreichbaren Vertrauenszone.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.routing">
+                <source>No, the model catalogue is read with enable-fields ignored and no user context.</source>
+                <target>Nein, der Modellkatalog wird ohne Enable-Fields und ohne Benutzerkontext gelesen.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.approval">
+                <source>No, it is a property of the tool's own declaration.</source>
+                <target>Nein, das ist eine Eigenschaft der Deklaration des Tools selbst.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.context.observed">
+                <source>Reported only, because enforcement is set to observe, so the send would proceed and the refusal would be recorded.</source>
+                <target>Nur gemeldet, weil die Durchsetzung auf Beobachten steht; der Versand liefe durch und die Ablehnung würde protokolliert.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.resolved">
+                <source>A model resolves</source>
+                <target>Ein Modell wird aufgelöst</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.lead">
+                <source>Asked for a tool-calling run, which is what a tool simulation describes.</source>
+                <target>Gefragt für einen Lauf mit Tool-Aufrufen, denn genau den beschreibt eine Tool-Simulation.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.none">
+                <source>No model resolves</source>
+                <target>Kein Modell wird aufgelöst</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.noneLead">
+                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all.</source>
+                <target>Für diese Konfiguration kann kein Modell einen Lauf mit Tool-Aufrufen bedienen; der Aufruf lässt sich also gar nicht senden.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.required">
+                <source>Required</source>
+                <target>Erforderlich</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.requiredLead">
+                <source>The run suspends and waits for a human decision before this tool executes.</source>
+                <target>Der Lauf pausiert und wartet auf eine menschliche Entscheidung, bevor dieses Tool ausgeführt wird.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.notRequired">
+                <source>Not required</source>
+                <target>Nicht erforderlich</target>
             </trans-unit>
             <trans-unit id="governance.profile.heading">
                 <source>Compare against a profile</source>
@@ -535,6 +659,268 @@
             <trans-unit id="governance.note.remoteAlwaysEnforced">
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
                 <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
+            </trans-unit>
+
+            <!-- Routing readout (ADR-148) -->
+            <trans-unit id="routing.heading">
+                <source>Why this model?</source>
+                <target>Warum dieses Modell?</target>
+            </trans-unit>
+            <trans-unit id="routing.lead">
+                <source>Ask the decision point the runtime asks. This runs the real routing decision — not a copy of its rules — and changes nothing. Trying a different policy mode answers a hypothetical; it does not alter the installed setting.</source>
+                <target>Fragt die Entscheidungsstelle, die auch die Laufzeit fragt. Hier läuft die echte Routing-Entscheidung, keine Kopie ihrer Regeln, und es wird nichts verändert. Ein anderer Policy-Modus beantwortet eine Was-wäre-wenn-Frage; die installierte Einstellung bleibt unberührt.</target>
+            </trans-unit>
+            <trans-unit id="routing.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="routing.configuration.none">
+                <source>— Choose —</source>
+                <target>— Auswählen —</target>
+            </trans-unit>
+            <trans-unit id="routing.operation">
+                <source>Operation</source>
+                <target>Operation</target>
+            </trans-unit>
+            <trans-unit id="routing.operation.none">
+                <source>No operation</source>
+                <target>Keine Operation</target>
+            </trans-unit>
+            <trans-unit id="routing.policyMode">
+                <source>Policy mode</source>
+                <target>Policy-Modus</target>
+            </trans-unit>
+            <trans-unit id="routing.policyMode.configured">
+                <source>As configured</source>
+                <target>Wie konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="routing.submit">
+                <source>Explain</source>
+                <target>Erklären</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.title">
+                <source>No decision: the operator named the model</source>
+                <target>Keine Entscheidung: der Betreiber hat das Modell benannt</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.text">
+                <source>This configuration selects a fixed model. Nothing is chosen at call time, so there are no candidates, no ranking and no policy mode — and none is invented here.</source>
+                <target>Diese Konfiguration nutzt ein festes Modell. Zur Laufzeit wird nichts ausgewählt, also gibt es keine Kandidaten, kein Ranking und keinen Policy-Modus — und hier wird auch nichts davon erfunden.</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.none">
+                <source>The configuration is in fixed mode but names no model. Every call through it fails at resolution.</source>
+                <target>Die Konfiguration steht auf festem Modell, benennt aber keines. Jeder Aufruf darüber scheitert schon bei der Auflösung.</target>
+            </trans-unit>
+            <trans-unit id="routing.selected.title">
+                <source>Selected</source>
+                <target>Ausgewählt</target>
+            </trans-unit>
+            <trans-unit id="routing.none.title">
+                <source>No model would serve this call</source>
+                <target>Kein Modell würde diesen Aufruf bedienen</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.label">
+                <source>Policy mode</source>
+                <target>Policy-Modus</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.overridden">
+                <source>(tried out — the installed setting is unchanged)</source>
+                <target>(nur ausprobiert — die installierte Einstellung bleibt unverändert)</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.label">
+                <source>Operation capability</source>
+                <target>Operations-Capability</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.enforcing">
+                <source>enforcing: models that declare capabilities without it were refused.</source>
+                <target>wird durchgesetzt: Modelle, die Capabilities ohne diese angeben, wurden abgelehnt.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.observing">
+                <source>observing: the requirement did NOT constrain this decision.</source>
+                <target>wird nur beobachtet: die Anforderung hat diese Entscheidung NICHT eingeschränkt.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOn">
+                <source>The switch itself is set to enforce.</source>
+                <target>Der Schalter selbst steht auf Durchsetzen.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOff">
+                <source>The switch itself is set to observe, so no operation would constrain a decision on this installation.</source>
+                <target>Der Schalter selbst steht auf Beobachten. Auf dieser Installation schränkt deshalb keine Operation eine Entscheidung ein.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.none">
+                <source>the chosen operation requires no declared capability, so it constrains nothing.</source>
+                <target>die gewählte Operation verlangt keine angegebene Capability und schränkt daher nichts ein.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.noOperation">
+                <source>no operation was selected, so the operation-capability axis was not applied to this decision.</source>
+                <target>es wurde keine Operation gewählt, die Operations-Capability-Achse wurde auf diese Entscheidung also nicht angewendet.</target>
+            </trans-unit>
+            <trans-unit id="routing.empty.title">
+                <source>No candidates at all</source>
+                <target>Überhaupt keine Kandidaten</target>
+            </trans-unit>
+            <trans-unit id="routing.empty.text">
+                <source>There is no active model to consider. That is an empty catalogue, not a criteria problem — activate a model before reading the criteria.</source>
+                <target>Es gibt kein aktives Modell, das betrachtet werden könnte. Das ist ein leerer Katalog und kein Kriterien-Problem — erst ein Modell aktivieren, dann die Kriterien lesen.</target>
+            </trans-unit>
+            <trans-unit id="routing.eligible.heading">
+                <source>Eligible, in rank order</source>
+                <target>Geeignet, in Rangfolge</target>
+            </trans-unit>
+            <trans-unit id="routing.rejected.heading">
+                <source>Refused, and why</source>
+                <target>Abgelehnt, und warum</target>
+            </trans-unit>
+            <trans-unit id="routing.column.rank">
+                <source>#</source>
+                <target>#</target>
+            </trans-unit>
+            <trans-unit id="routing.column.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="routing.column.provider">
+                <source>Provider</source>
+                <target>Provider</target>
+            </trans-unit>
+            <trans-unit id="routing.column.score">
+                <source>Score</source>
+                <target>Score</target>
+            </trans-unit>
+            <trans-unit id="routing.column.signals">
+                <source>Signals</source>
+                <target>Signale</target>
+            </trans-unit>
+            <trans-unit id="routing.column.reason">
+                <source>Reason</source>
+                <target>Grund</target>
+            </trans-unit>
+            <trans-unit id="routing.signal.noData">
+                <source>no data</source>
+                <target>keine Daten</target>
+            </trans-unit>
+            <trans-unit id="routing.signal.unused">
+                <source>not collected — this mode does not weigh measured signals</source>
+                <target>nicht erhoben — dieser Modus gewichtet keine gemessenen Signale</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.PROVIDER_PRIORITY">
+                <source>Provider priority</source>
+                <target>Provider-Priorität</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.BALANCED">
+                <source>Balanced</source>
+                <target>Ausgewogen</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.QUALITY">
+                <source>Quality</source>
+                <target>Qualität</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.ECONOMY">
+                <source>Economy</source>
+                <target>Kosten</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CAPABILITY_MISSING">
+                <source>Does not have every capability the criteria require.</source>
+                <target>Hat nicht alle Capabilities, die die Kriterien verlangen.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.OPERATION_CAPABILITY_MISSING">
+                <source>Declares capabilities, and the one this operation needs is not among them.</source>
+                <target>Gibt Capabilities an, und die von dieser Operation benötigte ist nicht dabei.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.ADAPTER_NOT_ALLOWED">
+                <source>Its provider uses an adapter type the criteria exclude.</source>
+                <target>Sein Provider nutzt einen Adaptertyp, den die Kriterien ausschließen.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CONTEXT_TOO_SMALL">
+                <source>Its context window is smaller than the criteria require, or unknown.</source>
+                <target>Sein Kontextfenster ist kleiner als von den Kriterien verlangt oder unbekannt.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.COST_ABOVE_LIMIT">
+                <source>Its input cost exceeds the ceiling the criteria set.</source>
+                <target>Seine Eingabekosten liegen über der von den Kriterien gesetzten Obergrenze.</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.heading">
+                <source>Calls that were routed</source>
+                <target>Aufrufe, die geroutet wurden</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.lead">
+                <source>The last %s days of calls whose model was chosen automatically, newest first. Fixed-mode calls are absent — nothing was chosen for them. The complexity columns are measured and recorded only; no routing decision reads them.</source>
+                <target>Die letzten %s Tage an Aufrufen, deren Modell automatisch gewählt wurde, neueste zuerst. Aufrufe im festen Modus fehlen — dort wurde nichts gewählt. Die Komplexitätsspalten werden nur gemessen und festgehalten; keine Routing-Entscheidung liest sie.</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.when">
+                <source>When</source>
+                <target>Wann</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.servedModel">
+                <source>Served by</source>
+                <target>Beantwortet von</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.decision">
+                <source>Decision</source>
+                <target>Entscheidung</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.complexity">
+                <source>Complexity (observed)</source>
+                <target>Komplexität (nur beobachtet)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.failed">
+                <source>failed</source>
+                <target>fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.fallbackAttempts">
+                <source>%s fallback attempt(s)</source>
+                <target>%s Fallback-Versuch(e)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.mode">
+                <source>%s, %s candidate(s)</source>
+                <target>%s, %s Kandidat(en)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals">
+                <source>Signals used</source>
+                <target>Genutzte Signale</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals.none">
+                <source>none — provider priority and the tiebreaks decided</source>
+                <target>keine — Provider-Priorität und die Tiebreaks haben entschieden</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.refusedBy">
+                <source>Refused by</source>
+                <target>Abgelehnt wegen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.score">
+                <source>score %s/100</source>
+                <target>Wert %s/100</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.tools">
+                <source>%s tool(s)</source>
+                <target>%s Tool(s)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.bytes">
+                <source>%s bytes on the wire</source>
+                <target>%s Bytes auf der Leitung</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.context">
+                <source>~%s tokens, %s%% of the window</source>
+                <target>~%s Tokens, %s%% des Fensters</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.context.unmeasured">
+                <source>window not measured for this send</source>
+                <target>Fenster für diesen Versand nicht gemessen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.complexity.unmeasured">
+                <source>complexity not measured for this send</source>
+                <target>Komplexität für diesen Versand nicht gemessen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.title">
+                <source>No routed calls recorded</source>
+                <target>Keine gerouteten Aufrufe erfasst</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.text">
+                <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
+                <target>Im Zeitraum hat nichts ein Modell automatisch gewählt. Entweder lief kein Aufruf, jede Konfiguration nennt ein festes Modell, oder die Telemetrie ist abgeschaltet.</target>
             </trans-unit>
 
             <!-- Dashboard overview cards -->
@@ -1307,8 +1693,8 @@
                 <target>Inhaltselement verschieben</target>
             </trans-unit>
             <trans-unit id="editorAction.move_content_element.description">
-                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
-                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Es wird nichts angelegt und nichts gelöscht.</target>
+                <source>Moves one content element to another page and column. Name the target page in the note — the element itself does not name a destination. Nothing is created and nothing is deleted.</source>
+                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Die Zielseite gehört in die Notiz — das Element selbst nennt kein Ziel. Es wird nichts angelegt und nichts gelöscht.</target>
             </trans-unit>
             <trans-unit id="editorAction.create_content_element_draft.label">
                 <source>Create content element draft</source>
@@ -1595,6 +1981,34 @@
             <trans-unit id="model.reassignProvider">
                 <source>Reassign Provider</source>
                 <target>Anbieter neu zuweisen</target>
+            </trans-unit>
+            <trans-unit id="model.verifyCapabilities">
+                <source>Confirm capabilities against the provider</source>
+                <target>Fähigkeiten beim Anbieter bestätigen lassen</target>
+            </trans-unit>
+            <trans-unit id="model.capability.confirmed">
+                <source>Confirmed by provider discovery on %s</source>
+                <target>Am %s vom Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="model.capability.catalog">
+                <source>From the bundled model catalog — the provider did not report this capability, so this is an assumption</source>
+                <target>Aus dem mitgelieferten Modellkatalog – der Anbieter hat diese Fähigkeit nicht gemeldet, das ist also eine Annahme</target>
+            </trans-unit>
+            <trans-unit id="model.capability.operator">
+                <source>Declared by an operator — never confirmed against the provider</source>
+                <target>Von einer Administratorin eingetragen – nie beim Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="model.capability.lastConfirmed">
+                <source>Last confirmed %s</source>
+                <target>Zuletzt bestätigt am %s</target>
+            </trans-unit>
+            <trans-unit id="model.capability.neverConfirmed">
+                <source>Never confirmed against the provider</source>
+                <target>Nie beim Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="error.model.notDiscoverable">
+                <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
+                <target>Der Anbieter führt dieses Modell nicht, seine Fähigkeiten ließen sich daher nicht bestätigen.</target>
             </trans-unit>
             <trans-unit id="task.noActive.warning">
                 <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>

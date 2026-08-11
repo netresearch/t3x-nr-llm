@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Backend\ContextMenu\ItemProviders\AbstractProvider;
+use TYPO3\CMS\Backend\Module\ModuleProvider;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -52,9 +53,12 @@ final class EditorActionItemProvider extends AbstractProvider
 
     private const ITEM_NAME = 'nrllmEditorActions';
 
+    private const MODULE = 'nrllm_aitasks';
+
     public function __construct(
         private readonly EditorActionCatalogueInterface $catalogue,
         private readonly BackendUriBuilder $backendUriBuilder,
+        private readonly ModuleProvider $moduleProvider,
         private readonly ?LoggerInterface $logger = null,
     ) {
         parent::__construct();
@@ -95,6 +99,18 @@ final class EditorActionItemProvider extends AbstractProvider
         // a 403 page is worse than no item — the module remains the enforcement
         // point either way.
         if (!$this->currentActor()->hasGrant(BackendUserGrant::TASKS_USE)) {
+            return false;
+        }
+
+        // The grant and the module tick are independent axes (ADR-130/131):
+        // `nrllm_aitasks` is registered with `access: 'user'`, so a user may
+        // hold `tasks_use` and still not have the module in their group list.
+        // The item links into that module, and a link into a module the user
+        // cannot open is the 403 the check above exists to avoid. Asked through
+        // ModuleProvider rather than `check('modules', …)` so the registration
+        // stays the single source: change `access` in Modules.php and this
+        // answer follows.
+        if (!$this->moduleProvider->accessGranted(self::MODULE, $user)) {
             return false;
         }
 

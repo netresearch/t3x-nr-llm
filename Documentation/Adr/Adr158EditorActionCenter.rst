@@ -127,6 +127,27 @@ that restricts tool groups must list ``editing``. ADR-152 deferred a
 *per-action* grant to its consumer; the consumer's answer is that the axis it
 would add is already covered twice.
 
+**The item checks the module, not only the grant.** ``nrllm_aitasks`` is
+registered ``access: 'user'``, so the be_groups tick and ``tasks_use`` are
+independent axes (:ref:`ADR-130 <adr-130>`, :ref:`ADR-131 <adr-131>`). The item
+is a link into that module, so :php:`canHandle()` asks
+:php:`ModuleProvider::accessGranted()` as well — through the provider rather
+than a copy of the ``user`` gate, so changing ``access`` in
+``Configuration/Backend/Modules.php`` changes this answer with it. Without it a
+user holding the grant but not the module would be offered an item leading to a
+403, which is the outcome the grant check exists to avoid.
+
+**The offer carries the subject and nothing else.** The prompt names one table
+and one uid, and ``allowedToolNames`` holds exactly the offered tool — there is
+no lookup tool beside it. So a declared ``recordTypes`` entry must be a table
+one of the tool's own required arguments can be filled from
+(:ref:`ADR-152 <adr-152>` states the rule; a unit test enforces it). An
+argument that is neither the subject nor derivable from it —
+``move_content_element``'s ``target_page`` — can only come from the editor's
+free-text note, so that action's human description asks for it. The safety net
+is unchanged either way: a guessed destination arrives as an approval card
+showing the page the preview resolved, not as a write.
+
 **Files have no context-menu entry.** In the file list the context menu's
 identifier is a FAL combined identifier (``1:/path/file.jpg``), not a uid, while
 ``set_file_alternative_text`` declares ``sys_file`` and takes a uid. Casting one

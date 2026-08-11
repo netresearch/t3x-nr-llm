@@ -171,6 +171,8 @@ nr_llm/
 - **Stuck on a "this works locally but breaks in CI" issue?** Reproduce inside `Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
 - **Adding a config option?** TCA + `LLL:` translation key in `Resources/Private/Language/locallang*.xlf` for both EN and DE.
 - **Touching the public surface?** Add an ADR under `Documentation/Adr/`. Format: `Adr<N>Description.rst`.
+- **Changing an `@api` signature?** `Tests/Unit/Api/api-surface.txt` freezes it, constructors included — the class's own, or the one it inherits from a base inside `Netresearch\NrLlm`; one inherited from TYPO3 core or the SPL is left out because it differs across the version matrix. The failure says whether the diff is additive (regenerate + `### Added`) or breaking (decide first). Removals follow `Documentation/Api/Deprecation.rst`, whose inventory is asserted against the `@deprecated` docblocks in both directions.
+- **Changing the supported TYPO3 / PHP range?** `VersionConsistencyTest` pins four surfaces against each other — `composer.json`, `ext_emconf.php`, the `ci.yml` matrix and `Documentation/Api/SupportMatrix.rst` — and fails on the first of those you forget. It does **not** see the prose: `README.md` (the two badges and the Requirements list), `Documentation/Installation/Index.rst`, `Documentation/Introduction/Index.rst`, `Documentation/Developer/FeatureServices/Index.rst`, `Documentation/Testing/CiConfiguration.rst` (a hand-copied matrix excerpt) and `Documentation/Developer/IntegrationGuide.rst` (the TER constraint in its `ext_emconf.php` example) repeat the same range with nothing checking them. Update those by hand in the same change — and grep for the old floor before you finish, because that list is what has been found, not a guarantee. `BASELINE.md`'s "Multi-version CI" row is the one prose surface that IS asserted, by `Tests/Unit/BaselineConsistencyTest`.
 - **Linking between backend controllers?** Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`; the bot's suggested namespaced form is wrong for this instance). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END heuristics -->
 
@@ -268,6 +270,25 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   of merging it — take the incoming version verbatim and re-insert your own
   block under the matching heading. `composer ci:test:changelog` (pre-commit,
   and its own CI job) refuses the repeated result.
+
+- **This repository defines no workflow jobs of its own.** Every workflow calls
+  a shared `netresearch/*` reusable workflow, so action pinning, runner
+  hardening and security review happen once there — for all thirty callers. The
+  single exception is the aggregate `gate` job in `checks.yml`, which evaluates
+  the other jobs' results and therefore cannot be a reusable-workflow call.
+
+  A **repo-specific check** goes in the shared workflow's `repo-checks` job, not
+  in a job here: set `run-repo-checks: true` in `ci.yml` and add the command to
+  the `ci:test:repo` composer script. That script is also what pre-commit runs,
+  so the local and CI halves are the same command.
+
+  Why this is a rule and not a preference: a local job carries its own action
+  pins, and a wrong pin does not fail like a normal check. Repo and org both set
+  `sha_pinning_required`, so a tag ref kills the run at `Set up job` — before any
+  step executes, so the log has no step output — and zizmor, Opengrep, CodeQL
+  and SonarCloud then each flag the same lines. On 2026-08-11 that was six red
+  checks for one mistake, none of them naming the cause.
+  `composer ci:test:workflows` (pre-commit) refuses a job with local steps.
 
 - **A fresh worktree needs its own dependency resolution.** `.Build/` is not
   tracked, so a new worktree has none; copying it from `main/.Build` is the usual

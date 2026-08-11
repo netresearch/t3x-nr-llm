@@ -311,6 +311,14 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /**
      * The human-facing declaration (ADR-152).
+     *
+     * The subject is `pages`, not `tt_content`: `recordTypes` names the table
+     * whose uid the arguments IDENTIFY, and the only record identifier this
+     * tool requires is `page`. Declaring `tt_content` would offer the action on
+     * an element while the run has no way to learn that element's pid — the
+     * catalogue never reads a record and the run is restricted to this one tool
+     * — so the model could only refuse or guess. The row it writes is a
+     * `tt_content` row; the record an editor selects is the page.
      */
     public function getEditorAction(): EditorAction
     {
@@ -318,7 +326,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.label',
             'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.description',
             'nrllm-editor-action-create-content',
-            [self::TABLE],
+            [self::PAGES_TABLE],
         );
     }
 
