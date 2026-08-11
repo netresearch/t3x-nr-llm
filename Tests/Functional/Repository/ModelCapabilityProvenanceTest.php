@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\CapabilitySource;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -25,7 +25,7 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * "never confirmed" for a model that was confirmed a minute ago (the same
  * failure mode ADR-138 documents for `capabilities` itself).
  */
-#[CoversClass(Model::class)]
+#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 final class ModelCapabilityProvenanceTest extends AbstractFunctionalTestCase
 {
     private ModelRepository $repository;

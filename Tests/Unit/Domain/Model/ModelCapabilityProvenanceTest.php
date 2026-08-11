@@ -15,13 +15,13 @@ use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Capability provenance on the model entity (ADR-160).
  */
-#[CoversClass(Model::class)]
+#[CoversNothing] // Domain/Model excluded from coverage in phpunit.xml
 final class ModelCapabilityProvenanceTest extends AbstractUnitTestCase
 {
     private function modelWithCapabilities(string $capabilities): Model
