@@ -17,9 +17,12 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
+use Netresearch\NrLlm\Domain\ValueObject\InputContextDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
+use Netresearch\NrLlm\Domain\ValueObject\SimulationActor;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyRow;
@@ -114,15 +117,16 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     #[Test]
     public function aRefusedSimulationRendersTheDecisionAndTheTwoFactsBehindIt(): void
     {
-        $body = $this->render(null, [], new ToolPolicyDecision(
+        $body = $this->render(null, [], $this->simulation(tool: new ToolPolicyDecision(
             'read_secrets',
             false,
             ToolDataClass::SECRET_ADJACENT,
             TrustZone::EXTERNAL_GLOBAL,
             ToolDataClass::PUBLIC_CONTENT,
             ToolDenialReason::TRUST_ZONE,
-        ));
+        )));
 
+        self::assertStringContainsString('Blocked', $body, 'the verdict folds the refusing axis');
         self::assertStringContainsString('Refused', $body);
         self::assertStringContainsString('read_secrets', $body);
         self::assertStringContainsString('secretAdjacent', $body, 'the tool data class explains the refusal');
@@ -133,16 +137,102 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     #[Test]
     public function anAllowedSimulationRendersAsAllowed(): void
     {
-        $body = $this->render(null, [], new ToolPolicyDecision(
-            'get_page_tree',
-            true,
-            ToolDataClass::EDITOR_CONTENT,
-            TrustZone::LOCAL,
-            ToolDataClass::SECRET_ADJACENT,
-        ));
+        $body = $this->render(null, [], $this->simulation());
 
         self::assertStringContainsString('Allowed', $body);
         self::assertStringNotContainsString('Refused', $body);
+        self::assertStringNotContainsString('Blocked', $body);
+    }
+
+    #[Test]
+    public function everyAxisIsShownWithItsOwnAnswerAndItsScope(): void
+    {
+        // The verdict alone cannot say which gate decided, and the fix differs
+        // per gate. The scope column is the other half: three of the four axes
+        // answer the same for every actor, and a simulator that implied
+        // otherwise would be worse than one that says so.
+        $body = $this->render(null, [], $this->simulation());
+
+        self::assertStringContainsString('Tool gate', $body);
+        self::assertStringContainsString('Input-context gate', $body);
+        self::assertStringContainsString('Routing', $body);
+        self::assertStringContainsString('Human approval', $body);
+        self::assertStringContainsString('Yes, through requiresAdmin().', $body);
+        self::assertStringContainsString('enable-fields ignored and no user context', $body);
+        self::assertStringContainsString('constrains nothing', $body, 'the undeclared input context says so in words');
+    }
+
+    #[Test]
+    public function anApprovalBoundToolIsNotPresentedAsAPlainAllow(): void
+    {
+        $body = $this->render(null, [], $this->simulation(approvalRequired: true));
+
+        self::assertStringContainsString('Allowed, after a human approves', $body);
+        self::assertStringContainsString('Required', $body);
+        self::assertStringContainsString('waits for a human decision', $body);
+    }
+
+    #[Test]
+    public function theReadoutNamesTheActorItAnsweredFor(): void
+    {
+        $body = $this->render(null, [], $this->simulation());
+
+        self::assertStringContainsString('Answered for the backend user editor', $body);
+        // ADR-157's audit decision, stated where an operator can read it.
+        self::assertStringContainsString('Nothing here is recorded', $body);
+    }
+
+    #[Test]
+    public function anUnresolvableActorIsSaidOutLoudRatherThanFallingBackSilently(): void
+    {
+        $body = $this->render(null, [], $this->simulation(actor: new SimulationActor(42, '', false, false)));
+
+        self::assertStringContainsString('No backend user resolves for uid 42', $body);
+        self::assertStringNotContainsString('Answered for the backend user', $body);
+    }
+
+    #[Test]
+    public function noAmbientBackendUserIsNotReportedAsAUidNobodyPicked(): void
+    {
+        // uid 0 with nothing resolved is the operator branch with no ambient
+        // $GLOBALS['BE_USER'] — an answer given with no user at all. Reporting
+        // it as "no backend user resolves for uid 0" would name a uid the
+        // operator never chose and blame a deleted account that does not exist.
+        $body = $this->render(null, [], $this->simulation(actor: new SimulationActor(0, '', false, false)));
+
+        self::assertStringContainsString('Answered with no backend user at all', $body);
+        self::assertStringNotContainsString('uid 0', $body);
+        self::assertStringNotContainsString('Answered for the backend user', $body);
+    }
+
+    #[Test]
+    public function routingRefusingIsNamedAsTheAxisThatBlocked(): void
+    {
+        $body = $this->render(null, [], $this->simulation(routing: RoutingReadout::decided(
+            new RoutingDecision(null, [], RoutingPolicyMode::BALANCED),
+            false,
+            null,
+            false,
+            false,
+        )));
+
+        self::assertStringContainsString('Blocked', $body);
+        self::assertStringContainsString('No model resolves', $body);
+        self::assertStringContainsString('cannot be sent at all', $body);
+    }
+
+    #[Test]
+    public function theActorPickerOffersTheBackendUsersAndTheOperator(): void
+    {
+        $body = $this->render(null, [], null, actors: [
+            new SimulationActor(3, 'editor', false),
+            new SimulationActor(1, 'root', true),
+        ]);
+
+        self::assertStringContainsString('Acting as', $body);
+        self::assertStringContainsString('the operator reading this page', $body, 'answering for yourself stays the default');
+        self::assertStringContainsString('editor', $body);
+        self::assertStringContainsString('administrator', $body, 'an admin is marked, because the tool gate reads exactly that');
     }
 
     #[Test]
@@ -367,17 +457,49 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A simulation with every axis permitting, so each test can refuse exactly
+     * one and see it decide.
+     */
+    private function simulation(
+        ?ToolPolicyDecision $tool = null,
+        ?InputContextDecision $context = null,
+        ?RoutingReadout $routing = null,
+        bool $approvalRequired = false,
+        ?SimulationActor $actor = null,
+    ): GovernanceSimulation {
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setName('GPT-4o');
+
+        return new GovernanceSimulation(
+            $tool ?? new ToolPolicyDecision('get_page_tree', true, ToolDataClass::EDITOR_CONTENT, TrustZone::LOCAL, ToolDataClass::SECRET_ADJACENT),
+            $context ?? InputContextDecision::undeclared(),
+            $routing ?? RoutingReadout::decided(
+                new RoutingDecision($model, [RoutingCandidate::eligible($model, 0.62, [])], RoutingPolicyMode::BALANCED),
+                false,
+                null,
+                false,
+                false,
+            ),
+            $approvalRequired,
+            $actor ?? new SimulationActor(3, 'editor', false),
+        );
+    }
+
+    /**
      * @param list<GovernanceProfileDeviation>                                                                                                                               $deviations
      * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $eligible
      * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $rejected
+     * @param list<SimulationActor>                                                                                                                                          $actors
      */
     private function render(
         ?GovernanceProfile $profile,
         array $deviations,
-        ?ToolPolicyDecision $simulation,
+        ?GovernanceSimulation $simulation,
         ?RoutingReadout $routing = null,
         array $eligible = [],
         array $rejected = [],
+        array $actors = [],
     ): string {
         $view = $this->getService(ViewFactoryInterface::class)->create(new ViewFactoryData(
             templateRootPaths: ['EXT:nr_llm/Resources/Private/Templates/'],
@@ -400,7 +522,16 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'deviations'     => $deviations,
             'configurations' => [],
             'toolNames'      => ['get_page_tree'],
-            'simulation'     => $simulation,
+            // ADR-157: the whole-run simulation, its actor picker, and the two
+            // message() strings the controller assigns because they do not
+            // follow Fluid's get/is/has convention.
+            'simulationActors'         => $actors,
+            'simulation'               => $simulation,
+            'simulationToolMessage'    => $simulation?->tool->message(),
+            'simulationContextMessage' => $simulation?->context->message(),
+            'simulateConfiguration'    => '',
+            'simulateTool'             => '',
+            'simulateActor'            => '',
             // ADR-148: the routing readout, with the candidate tables already
             // flattened the way the controller flattens them.
             'routing'              => $routing,

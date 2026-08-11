@@ -210,6 +210,41 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `RoutingRejectionReason` and `RoutingPolicyMode` gained label keys (EN + DE);
   the dead `RoutingDecision::noCandidates()` was removed, and the empty-catalogue
   case it described now has a reader in `RoutingReadout::isEmptyCatalogue()`.
+- **The Governance simulation covers the whole run, and answers for a backend
+  user other than the one reading the page** (ADR-157, closes #721 and #722).
+  ADR-145's simulator asked the tool gate alone, which is one of the four gates
+  the tab now asks; a page saying "Allowed" while the
+  input-context gate refuses the send is a wrong answer, not a partial one.
+  - One verdict — `ALLOW` / `ALLOW + APPROVAL` / `BLOCK` — folded from four
+    axes, each keeping its own row: the tool gate (ADR-094), the input-context
+    gate (ADR-144), routing eligibility (ADR-142) and the approval requirement
+    (ADR-134). Every axis is the runtime's own service, not a copy of its
+    rules. `ALLOW + APPROVAL` is its own outcome because a call that waits for
+    a human is not one that runs unattended.
+  - `InputContextTrustGate::decide()` returns an `InputContextDecision`;
+    `assertPermitted()` calls it, records the governance event and throws. One
+    rule, two callers. Catching the exception would have been wrong: observe
+    mode throws nothing for a send the runtime records as blocked, so the
+    decision carries "the gate refused" and "the send proceeded" separately.
+  - An actor picker resolves a backend user read-only through
+    `ActingBackendUserResolverInterface` (ADR-083) — no session switch, no
+    execution as the user, no write. Privilege comes from the fresh database
+    record, so the picker can lower it but never mint it, and a uid that no
+    longer resolves is reported instead of falling back to your own rights.
+    `ToolCallPolicyInterface::decide()` is unchanged.
+  - The readout states which axes are NOT actor-scoped. Routing reads the model
+    catalogue with enable-fields ignored and no user context; the
+    input-context gate and the approval requirement do not read a user either.
+    Only `requiresAdmin()` does. A simulator that silently answered the same
+    for every actor on three axes would imply a dimension that is not there.
+  - The four gates are what the tab asks, not everything that can stop a call.
+    Configuration access (ADR-070), the budget check and the guardrail pipeline
+    are outside them, and the admin guide and ADR-157 say so next to the picker:
+    the configuration list is unfiltered, so a group-restricted configuration
+    paired with a non-member reads "Allowed" here and is refused at runtime.
+  - **A simulation is not recorded**, deliberately. The audit's value is that
+    every row is something the installation actually did; the cost is that "who
+    checked what" is not answerable from it. The reasoning is in ADR-157.
 
 ### Changed
 
@@ -349,6 +384,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   signature is not automatically a break and the message says so: an added
   optional parameter breaks no caller, an added required one breaks every
   call, and the rendering marks optional parameters with ` = …`.
+- The approval predicate is one resolver, `ToolApprovalRule::requiresApproval()`,
+  asked by `ToolLoopService`'s approval scan, `ToolRegistry`'s boot validation
+  and the Governance simulation (ADR-157). The two copies it replaced had
+  drifted: the registry exempted every remote tool, including one carrying the
+  `RemoteApprovalInterface` declaration the loop honours, so a remote tool the
+  loop would suspend for approval was still registrable alongside
+  `RequiresInputInterface` — the deadlock ADR-134's check exists to prevent.
+  Such a tool is now rejected at the container boot. No shipped tool implements
+  the combination, so nothing that registers today stops registering. The
+  registry's second, narrower ban on the explicit `RequiresApprovalInterface`
+  marker is gone with it: that marker is the shared rule's first branch, so one
+  condition (code `1786226400`) now answers for every route into approval.
 
 ### Fixed
 

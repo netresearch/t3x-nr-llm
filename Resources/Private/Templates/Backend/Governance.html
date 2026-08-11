@@ -78,25 +78,42 @@
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.heading" default="Would this be allowed?" /></h2>
     <p class="text-body-secondary">
-        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing." />
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written." />
     </p>
 
     <f:form action="governance" method="get" class="row g-2 align-items-end mb-3">
         <div class="col-auto">
             <label class="form-label" for="simulateConfiguration"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration" default="Configuration" /></label>
-            <select class="form-select form-select-sm" id="simulateConfiguration" name="simulateConfiguration">
+            <f:form.select id="simulateConfiguration" name="simulateConfiguration" class="form-select form-select-sm"
+                           value="{simulateConfiguration}"
+                           prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration.none', default: 'Choose')}"
+                           prependOptionValue="">
                 <f:for each="{configurations}" as="configuration">
-                    <option value="{configuration.identifier}">{configuration.identifier}</option>
+                    <f:form.select.option value="{configuration.identifier}">{configuration.identifier}</f:form.select.option>
                 </f:for>
-            </select>
+            </f:form.select>
         </div>
         <div class="col-auto">
             <label class="form-label" for="simulateTool"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.tool" default="Tool" /></label>
-            <select class="form-select form-select-sm" id="simulateTool" name="simulateTool">
+            <f:form.select id="simulateTool" name="simulateTool" class="form-select form-select-sm"
+                           value="{simulateTool}"
+                           prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.tool.none', default: 'Choose')}"
+                           prependOptionValue="">
                 <f:for each="{toolNames}" as="toolName">
-                    <option value="{toolName}">{toolName}</option>
+                    <f:form.select.option value="{toolName}">{toolName}</f:form.select.option>
                 </f:for>
-            </select>
+            </f:form.select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label" for="simulateActor"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor" default="Acting as" /></label>
+            <f:form.select id="simulateActor" name="simulateActor" class="form-select form-select-sm"
+                           value="{simulateActor}"
+                           prependOptionLabel="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor.operator', default: 'You, the operator reading this page')}"
+                           prependOptionValue="">
+                <f:for each="{simulationActors}" as="candidateActor">
+                    <f:form.select.option value="{candidateActor.uid}">{candidateActor.username}<f:if condition="{candidateActor.admin}"> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor.admin" default="administrator" />)</f:if></f:form.select.option>
+                </f:for>
+            </f:form.select>
         </div>
         <div class="col-auto">
             <f:if condition="{profile}">
@@ -118,22 +135,119 @@
     </f:form>
 
     <f:if condition="{simulation}">
-        <f:variable name="simulationTitle">
-            <f:if condition="{simulation.allowed}">
-                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed" default="Allowed" /></f:then>
-                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied" default="Refused" /></f:else>
-            </f:if>
-        </f:variable>
-        <f:be.infobox state="{f:if(condition: simulation.allowed, then: 0, else: 2)}" title="{simulationTitle -> f:format.trim()}">
-            <p class="mb-1">{simulationMessage}</p>
-            <ul class="mb-0 small">
-                <li><code>{simulation.toolName}</code> — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{simulation.dataClass.value}</code></li>
-                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code>{simulation.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code>{simulation.ceiling.value}</code>)</li>
-                <f:if condition="{simulation.observedOnly}">
-                    <li class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.observed" default="Reported only — enforcement is set to observe, so the call would proceed." /></li>
+        <f:be.infobox state="{simulation.verdict.infoboxState}" title="{f:translate(key: simulation.verdict.labelKey, default: 'Verdict')}">
+            <p class="mb-1">
+                <f:if condition="{simulation.actor.resolved}">
+                    <f:then>
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor.answeredFor"
+                                     arguments="{0: '{simulation.actor.username}'}"
+                                     default="Answered for the backend user %s." />
+                    </f:then>
+                    <f:else>
+                        <f:comment>
+                            An unresolved actor is two different situations, and naming a uid
+                            the operator never picked would describe the wrong one: uid 0 is
+                            "no ambient backend user at all", any other uid is an account that
+                            no longer resolves.
+                        </f:comment>
+                        <f:if condition="{simulation.actor.uid} > 0">
+                            <f:then>
+                                <span class="text-warning">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor.unresolved"
+                                                 arguments="{0: '{simulation.actor.uid}'}"
+                                                 default="No backend user resolves for uid %s, so the gates were asked with no user at all. That is how the runtime fails closed for a deleted or disabled account." />
+                                </span>
+                            </f:then>
+                            <f:else>
+                                <span class="text-warning">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.actor.anonymous" default="Answered with no backend user at all." />
+                                </span>
+                            </f:else>
+                        </f:if>
+                    </f:else>
                 </f:if>
-            </ul>
+            </p>
+            <p class="mb-0 small text-body-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.notAudited" default="Nothing here is recorded. The runtime writes a governance event when it blocks a call; a simulation blocks nothing, so the audit stays a record of what the installation actually did." />
+            </p>
         </f:be.infobox>
+
+        <div class="table-fit">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.column.axis" default="Gate" /></th>
+                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.column.answer" default="Answer" /></th>
+                        <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.column.scope" default="Depends on the actor?" /></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.tool" default="Tool gate" /></td>
+                        <td>
+                            <f:if condition="{simulation.tool.allowed}">
+                                <f:then><span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed" default="Allowed" /></span></f:then>
+                                <f:else><span class="text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied" default="Refused" /></span></f:else>
+                            </f:if>
+                            <div class="small">{simulationToolMessage}</div>
+                            <ul class="mb-0 small">
+                                <li><code>{simulation.tool.toolName}</code> &mdash; <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{simulation.tool.dataClass.value}</code></li>
+                                <li><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.zone" default="trust zone reachable" />: <code>{simulation.tool.zone.value}</code> (<f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.ceiling" default="permits at most" /> <code>{simulation.tool.ceiling.value}</code>)</li>
+                                <f:if condition="{simulation.tool.observedOnly}">
+                                    <li class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.observed" default="Reported only, because enforcement is set to observe, so the tool was still offered." /></li>
+                                </f:if>
+                            </ul>
+                        </td>
+                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.actor" default="Yes, through requiresAdmin()." /></td>
+                    </tr>
+                    <tr>
+                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.context" default="Input-context gate" /></td>
+                        <td>
+                            <f:if condition="{simulation.context.permitted}">
+                                <f:then><span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed" default="Allowed" /></span></f:then>
+                                <f:else><span class="text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied" default="Refused" /></span></f:else>
+                            </f:if>
+                            <div class="small">{simulationContextMessage}</div>
+                            <f:if condition="{simulation.context.observedOnly}">
+                                <div class="small text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.context.observed" default="Reported only, because enforcement is set to observe, so the send would proceed and the refusal would be recorded." /></div>
+                            </f:if>
+                        </td>
+                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.context" default="No, it compares the classes this configuration injects against the trust zone it can reach." /></td>
+                    </tr>
+                    <tr>
+                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.routing" default="Routing" /></td>
+                        <td>
+                            <f:if condition="{simulation.servingModel}">
+                                <f:then>
+                                    <span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.resolved" default="A model resolves" /></span>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.lead" default="Asked for a tool-calling run, which is what a tool simulation describes." /></div>
+                                </f:then>
+                                <f:else>
+                                    <span class="text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.none" default="No model resolves" /></span>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.noneLead" default="Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all." /></div>
+                                </f:else>
+                            </f:if>
+                        </td>
+                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.routing" default="No, the model catalogue is read with enable-fields ignored and no user context." /></td>
+                    </tr>
+                    <tr>
+                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.approval" default="Human approval" /></td>
+                        <td>
+                            <f:if condition="{simulation.approvalRequired}">
+                                <f:then>
+                                    <span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.approval.required" default="Required" /></span>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.approval.requiredLead" default="The run suspends and waits for a human decision before this tool executes." /></div>
+                                </f:then>
+                                <f:else>
+                                    <span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.approval.notRequired" default="Not required" /></span>
+                                </f:else>
+                            </f:if>
+                        </td>
+                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.approval" default="No, it is a property of the tool's own declaration." /></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </f:if>
 
     <f:if condition="{profile}">
@@ -233,6 +347,9 @@
             </f:if>
             <f:if condition="{simulateTool}">
                 <input type="hidden" name="simulateTool" value="{simulateTool}" />
+            </f:if>
+            <f:if condition="{simulateActor}">
+                <input type="hidden" name="simulateActor" value="{simulateActor}" />
             </f:if>
             <button type="submit" class="btn btn-sm btn-primary">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.submit" default="Explain" />
