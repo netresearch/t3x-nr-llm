@@ -733,7 +733,24 @@ Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
   property readonly toolCallId: ?string
   property readonly toolCalls: ?array
 
+Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown (class)
+  method isMeasured(): bool
+  method static none(): self
+  method toArray(): array
+  property readonly budget: int
+  property readonly contextLength: int
+  property readonly estimatedTokens: int
+  property readonly remaining: int
+  property readonly reservedOutput: int
+  property readonly safetyMargin: int
+  property readonly skillTokens: int
+  property readonly systemPromptInTranscript: bool
+  property readonly systemPromptTokens: int
+  property readonly toolSchemaTokens: int
+  property readonly transcriptTokens: int
+
 Netresearch\NrLlm\Domain\ValueObject\ContextFitResult (class)
+  property readonly breakdown: Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown
   property readonly budget: int
   property readonly calibration: float
   property readonly droppedTurns: int
@@ -1457,6 +1474,7 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method capturesRaw(): bool
   method getSteps(): array
   method recordAssembledMessages(array $messages): void
+  method recordContextBudget(int $round, Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown $breakdown): void
   method recordLlmCall(int $round, float $durationMs, Netresearch\NrLlm\Domain\Model\CompletionResponse $response): void
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void

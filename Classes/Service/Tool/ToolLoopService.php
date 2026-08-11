@@ -186,7 +186,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // continuation with no offered tools can still be over-long. No tools
             // go on this wire, so pass toolSpecs = [].
             try {
-                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, []);
+                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, [], $runTrace);
             } catch (ContextTruncatedException $e) {
                 $this->logger?->warning('Agent loop stopped: transcript exceeds the context window even at its floor.', ['exception' => $e]);
 
@@ -238,6 +238,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $lastUsage,
                     $iterations,
                     array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                    $runTrace,
                 );
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
@@ -352,7 +353,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // bound it with toolSpecs = [] (ADR-107) — counting phantom schema
             // bytes here, on the run's largest transcript, could otherwise
             // discard a real final answer as a spurious overflow.
-            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, []);
+            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, [], $runTrace);
             $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0    = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
@@ -410,6 +411,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<array<string, mixed>>             $toolSpecs the tool schemas on THIS wire; [] for a plain completion
+     * @param RunTrace|null                          $runTrace  records the round's context accounting for the inspector (ADR-151); null for every production caller, which traces nothing
      *
      * @throws ContextTruncatedException when the pruned floor still exceeds the window
      *
@@ -422,6 +424,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?UsageStatistics $lastUsage,
         int $iteration,
         array $toolSpecs,
+        ?RunTrace $runTrace = null,
     ): array {
         if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
             return $messages;
@@ -438,6 +441,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // its prompt itself rather than having one prepended after the fit.
             effectiveSystemPrompt: $this->effectiveSystemPrompt($configuration, $options),
         );
+
+        // Before the overflow throw: a run that stops here is exactly the run
+        // whose operator most needs to see which component filled the window.
+        $runTrace?->recordContextBudget($iteration, $fit->breakdown);
 
         if ($fit->overflowAtFloor) {
             throw ContextTruncatedException::fromFit($fit);

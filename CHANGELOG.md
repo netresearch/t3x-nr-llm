@@ -112,6 +112,48 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
 
+- **Context budget readout in the playground inspector** (ADR-151, #725).
+  `ContextFitResult` said whether a transcript fit and how many turns were
+  dropped; it never said what filled the window. It now carries a
+  `ContextBudgetBreakdown`: window, reserved output, safety margin, budget, and
+  four component lines — transcript, tool schema, system prompt, skills — plus
+  the estimated total and what is left. The lines close by construction (the
+  four components sum to the estimate the pruning decision used, and
+  `contextLength − reservedOutput − safetyMargin` is the budget), because a
+  breakdown a reader subtracts with must not drift from the figure the manager
+  acted on.
+  - The agent loop records it as a `context` run step ahead of each request
+    step, and also when the floor overflows and the run stops. The playground
+    inspector renders it, next to the ADR-144 classification of what the run
+    injects: every snippet and skill by name with the class it declared, and
+    the effective strictest one. `InputContextClassifier::classify()` is now the
+    fold over its new `sources()`, so the panel and the input-context gate
+    answer from one list. `sources()` also takes the per-run forced snippets and
+    skills, which the playground really does inject — the panel would otherwise
+    report "injects nothing" for a run carrying a classified forced snippet. The
+    ADR-144 gate still asks `classify()` and therefore still answers for the
+    configuration alone: a forced source is shown and is not gated.
+  - Snippets get no line of their own: `ConfigurationSnippetResolver` composes
+    them into the effective system prompt before the estimator sees them, so
+    the line is labelled "System prompt (incl. snippets)" rather than merged
+    silently. Nothing about the estimate changes — no run is pruned that was
+    not pruned before.
+  - **Two of the four component lines are always empty on the playground**, and
+    the panel says so instead of showing an unexplained zero. The agent loop
+    bakes the effective system prompt as message 0 and injects skill prose into
+    the transcript before the fit runs, so on that path both are counted on the
+    transcript line by construction. The rows stay because they are part of the
+    sum; separating them at the loop's seam would change what the loop
+    assembles, which is not an observability change.
+  - **Breaking:** `ContextFitResult`'s constructor takes a ninth argument,
+    `ContextBudgetBreakdown $breakdown`, required and positional. No default is
+    offered: the breakdown restates `budget` and `estimatedTokens`, so a
+    defaulted one would let a `ContextFitResult` exist whose two halves
+    contradict each other, and every surface reading it would report "no
+    accounting" for a fit that was measured. Construction is
+    `ContextWindowManager`'s alone in production; a third party that builds the
+    result itself must pass the breakdown the same fit produced.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the

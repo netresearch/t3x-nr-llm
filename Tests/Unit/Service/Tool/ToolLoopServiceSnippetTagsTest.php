@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -181,7 +182,7 @@ final class ToolLoopServiceSnippetTagsTest extends TestCase
             ) use (&$seen): ContextFitResult {
                 $seen = $effectiveSystemPrompt;
 
-                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15);
+                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none());
             },
         );
 

@@ -48,6 +48,15 @@ class ToolPlayground {
         this.msgNoTools = this.root.dataset.msgNotools || 'No tools offered for this round.';
         this.msgNoMessages = this.root.dataset.msgNomessages || 'No messages.';
         this.msgAssembling = this.root.dataset.msgAssembling || 'Assembling…';
+        this.msgContextBudget = this.root.dataset.msgContextbudget || 'Context budget';
+        this.msgContextComponents = this.root.dataset.msgContextcomponents || 'Where the window went';
+        this.msgContextSources = this.root.dataset.msgContextsources || 'Injected context';
+        this.msgContextNotMeasured = this.root.dataset.msgContextnotmeasured || 'No accounting: the send was handed to the provider without an estimate.';
+        this.msgContextNoSources = this.root.dataset.msgContextnosources || 'This run injects no snippets and no skills.';
+        this.msgContextUnclassified = this.root.dataset.msgContextunclassified || 'not classified';
+        this.msgContextInTranscript = this.root.dataset.msgContextintranscript || 'counted in the transcript';
+        this.msgContextNoClassification = this.root.dataset.msgContextnoclassification || 'Not reported for this run.';
+        this.msgContextAssembled = this.root.dataset.msgContextassembled || 'On this surface the system-prompt and skills lines are always empty: the agent loop builds both into the transcript before the fit measures it, so their content sits in the transcript line. They carry separate figures only for a send that injects them after the fit.';
         this.configSelect = document.getElementById('nrllm-tool-config');
         this.promptInput = document.getElementById('nrllm-tool-prompt');
         this.runButton = document.getElementById('nrllm-tool-run');
@@ -220,6 +229,10 @@ class ToolPlayground {
                 if (event.event === 'step' && event.step) {
                     live.steps.push(event.step);
                     this.safeRender(live);
+                } else if (event.event === 'context') {
+                    // Arrives before the first step: what this run injects and
+                    // how it is classified (ADR-151).
+                    live.contextClassification = event.contextClassification || null;
                 } else if (event.event === 'done') {
                     live.running = false;
                     live.finalContent = event.finalContent || '';
@@ -446,6 +459,20 @@ class ToolPlayground {
             title.textContent = `${this.msgRequest} · round ${step.round}`;
             const tools = (step.toolSpecs || []).length;
             sub.textContent = `${(step.messagesSent || []).length} messages · ${tools} tools`;
+        } else if (step.kind === 'context') {
+            const b = step.contextBudget || {};
+            icon.classList.add('is-context');
+            icon.textContent = '▤';
+            title.textContent = `${this.msgContextBudget} · round ${step.round}`;
+            sub.textContent = b.measured
+                ? `${this.num(b.estimatedTokens)} / ${this.num(b.budget)} tok`
+                : this.msgContextNotMeasured;
+            if (b.measured) {
+                metrics.textContent = `${this.num(b.remaining)} left`;
+                if (b.remaining < 0) {
+                    metrics.classList.add('is-over');
+                }
+            }
         } else if (step.kind === 'assembled') {
             icon.classList.add('is-assembled');
             icon.textContent = '⧉';
@@ -513,6 +540,20 @@ class ToolPlayground {
         if (step.kind === 'assembled') {
             detail.appendChild(this.detailHeader('Assembled prompt (dry run)', '', ''));
             detail.appendChild(this.messagesList(step.messagesSent || []));
+            return;
+        }
+
+        if (step.kind === 'context') {
+            const b = step.contextBudget || {};
+            detail.appendChild(this.detailHeader(
+                `${this.msgContextBudget} · round ${step.round}`,
+                b.measured ? `${this.num(b.estimatedTokens)} / ${this.num(b.budget)} tok` : '',
+                '',
+            ));
+            detail.appendChild(this.tabBox([
+                [this.msgContextComponents, () => this.contextComponents(b)],
+                [this.msgContextSources, () => this.contextSources(data && data.contextClassification)],
+            ]));
             return;
         }
 
@@ -726,6 +767,112 @@ class ToolPlayground {
         ].join('');
         wrapper.appendChild(iframe);
         return wrapper;
+    }
+
+    /**
+     * The per-component context accounting for one round (ADR-151).
+     *
+     * The row keys are hardcoded English like the summary strip's cells one
+     * screen up; the prose around them (tab names, the two empty-state
+     * sentences, the "counted in the transcript" marker) is translated and
+     * arrives via data-msg-*, which is the split this module already uses.
+     *
+     * The four component rows sum to "Estimated total" by construction — the
+     * server derives them from the one figure the pruning decision used. The
+     * system-prompt row is labelled as INCLUDING composed snippets: they are
+     * merged into the effective prompt before the estimator sees them, so there
+     * is no honest way to give them a row of their own here.
+     *
+     * Two of those four rows are structurally empty on THIS surface, and the
+     * note under the table says so rather than leaving an operator to wonder
+     * (ADR-151): the agent loop bakes the system prompt as message 0 and
+     * injects skill prose into the transcript before the fit runs, so both are
+     * counted on the transcript line. The rows stay, because dropping them
+     * would break the visible sum they are part of.
+     */
+    contextComponents(b) {
+        if (!b.measured) {
+            return this.note(this.msgContextNotMeasured);
+        }
+
+        const rows = [
+            ['Context length', this.num(b.contextLength)],
+            ['− Reserved output', this.num(b.reservedOutput)],
+            ['− Safety margin', this.num(b.safetyMargin)],
+            ['= Budget', this.num(b.budget)],
+            ['Transcript', this.num(b.transcriptTokens)],
+            ['Tool schema', this.num(b.toolSchemaTokens)],
+            [
+                'System prompt (incl. snippets)',
+                b.systemPromptInTranscript ? this.msgContextInTranscript : this.num(b.systemPromptTokens),
+            ],
+            ['Skills', this.num(b.skillTokens)],
+            ['= Estimated total', this.num(b.estimatedTokens)],
+            ['Remaining', this.num(b.remaining)],
+        ];
+
+        const table = document.createElement('dl');
+        table.className = 'nrllm-pg-kv';
+        rows.forEach(([key, value]) => {
+            const k = document.createElement('dt');
+            k.textContent = key;
+            const v = document.createElement('dd');
+            v.textContent = value;
+            if (key === 'Remaining' && b.remaining < 0) {
+                v.classList.add('is-over');
+            }
+            table.appendChild(k);
+            table.appendChild(v);
+        });
+
+        const wrap = document.createElement('div');
+        wrap.appendChild(table);
+        wrap.appendChild(this.note(this.msgContextAssembled));
+        return wrap;
+    }
+
+    /**
+     * What the run injects and how each source is classified (ADR-144), plus
+     * the effective (strictest) class the input-context gate would act on.
+     *
+     * Source NAMES only — a snippet identifier or a skill name, never its text.
+     */
+    contextSources(classification) {
+        // Absent is not "nothing declared": the resume paths continue a run
+        // whose classification the initiating response already carried, and
+        // saying "injects nothing" there would be a claim we cannot make.
+        if (!classification) {
+            return this.note(this.msgContextNoClassification);
+        }
+
+        const sources = Array.isArray(classification.sources) ? classification.sources : [];
+        if (sources.length === 0) {
+            return this.note(this.msgContextNoSources);
+        }
+
+        const wrap = document.createElement('div');
+        const table = document.createElement('dl');
+        table.className = 'nrllm-pg-kv';
+        sources.forEach((source) => {
+            const k = document.createElement('dt');
+            k.textContent = String(source.source || '');
+            const v = document.createElement('dd');
+            v.textContent = source.dataClass ? String(source.dataClass) : this.msgContextUnclassified;
+            if (!source.dataClass) {
+                v.classList.add('is-muted');
+            }
+            table.appendChild(k);
+            table.appendChild(v);
+        });
+        wrap.appendChild(table);
+
+        const effective = document.createElement('p');
+        effective.className = 'nrllm-pg-note';
+        effective.textContent = classification.effective
+            ? `Effective: ${classification.effective} (${classification.effectiveSource})`
+            : `Effective: ${this.msgContextUnclassified}`;
+        wrap.appendChild(effective);
+        return wrap;
     }
 
     pre(value) {

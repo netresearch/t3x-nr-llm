@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -1499,7 +1500,7 @@ final class ToolLoopServiceTest extends TestCase
 
         $pruned  = [$this->userTurn('PRUNED')];
         $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
-            new ContextFitResult($pruned, true, 2, 1, 10, 100, false, 1.15),
+            new ContextFitResult($pruned, true, 2, 1, 10, 100, false, 1.15, ContextBudgetBreakdown::none()),
         ));
 
         $service->runLoop([$this->userTurn('a'), $this->userTurn('b')], $this->localConfiguration(), ToolExecutionContext::none(), null);
@@ -1516,13 +1517,59 @@ final class ToolLoopServiceTest extends TestCase
         $mgr->expects(self::never())->method('chatWithConfiguration');
 
         $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
-            new ContextFitResult([], false, 0, 1, 999999, 100, true, 1.15),
+            new ContextFitResult([], false, 0, 1, 999999, 100, true, 1.15, ContextBudgetBreakdown::none()),
         ));
 
         $result = $service->runLoop([$this->userTurn('x')], $this->localConfiguration(), ToolExecutionContext::none(), null);
 
         self::assertSame(AgentRunTerminationReason::CONTEXT_TRUNCATED, $result->terminationReason);
         self::assertTrue($result->truncated);
+    }
+
+    #[Test]
+    public function theRoundsContextAccountingIsTracedAheadOfItsRequestStep(): void
+    {
+        // ADR-151. The fit decides which messages the request carries, so its
+        // accounting is recorded before the request step it explains.
+        $breakdown = new ContextBudgetBreakdown(8192, 1000, 246, 6946, 500, 40, 30, false, 20, 590, 6356);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+
+        $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
+            new ContextFitResult([$this->userTurn('a')], false, 0, 1, 590, 6946, false, 1.15, $breakdown),
+        ));
+
+        $trace = new RunTrace();
+        $service->runLoop([$this->userTurn('a')], $this->localConfiguration(), ToolExecutionContext::none(), null, runTrace: $trace);
+
+        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        self::assertSame([RunStep::KIND_CONTEXT, RunStep::KIND_REQUEST, RunStep::KIND_LLM], $kinds);
+        self::assertSame($breakdown, $trace->getSteps()[0]->contextBudget);
+    }
+
+    #[Test]
+    public function theAccountingIsTracedEvenWhenTheFloorOverflowsAndTheRunStops(): void
+    {
+        // The run that stops here is the one whose operator most needs to see
+        // which component filled the window, so the step is recorded before the
+        // truncation throw rather than lost with it.
+        $breakdown = new ContextBudgetBreakdown(4000, 1000, 120, 2880, 99999, 0, 0, true, 0, 99999, -97119);
+
+        $mgr = $this->createMock(LlmServiceManagerInterface::class);
+        $mgr->expects(self::never())->method('chatWithToolsForConfiguration');
+
+        $service = $this->serviceWithContextWindow($mgr, $this->fakeContextWindow(
+            new ContextFitResult([], false, 0, 1, 99999, 2880, true, 1.15, $breakdown),
+        ));
+
+        $trace  = new RunTrace();
+        $result = $service->runLoop([$this->userTurn('x')], $this->localConfiguration(), ToolExecutionContext::none(), null, runTrace: $trace);
+
+        self::assertSame(AgentRunTerminationReason::CONTEXT_TRUNCATED, $result->terminationReason);
+        self::assertCount(1, $trace->getSteps());
+        self::assertSame(RunStep::KIND_CONTEXT, $trace->getSteps()[0]->kind);
+        self::assertSame($breakdown, $trace->getSteps()[0]->contextBudget);
     }
 
     private function fakeContextWindow(ContextFitResult $result): ContextWindowManagerInterface
