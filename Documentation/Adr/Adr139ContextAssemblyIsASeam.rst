@@ -102,6 +102,12 @@ consumer, not a hypothetical one.
 A data classification for injected context
 ------------------------------------------
 
+.. note::
+
+   Closed on 2026-08-10 by :ref:`ADR-144 <adr-144>` for snippets and skills;
+   the system prompt and the task input stay unclassified. The paragraphs
+   below are kept as written on 2026-08-09.
+
 Only tool *output* is classified today
 (:php:`ToolDataClassResolver`), and the trust-zone ceiling is enforced in one
 place: the tool gate. Skills, snippets, the system prompt and task input carry
@@ -131,14 +137,16 @@ Named here so the next reader does not mistake the seam for full coverage.
 
 .. note::
 
-   **Both gaps below were closed the following day and this section is kept as
-   written on 2026-08-09.** :ref:`ADR-143 <adr-143>` binds a window on the
-   generic :php:`LlmServiceManager` paths (`#688`), and :ref:`ADR-144
-   <adr-144>` gives snippets and skills a declared data class with a
-   trust-zone ceiling (`#689`). Read those two for the current state; do not
-   use the paragraphs below as a map of what is open. What ADR-144 did *not*
-   classify — the system prompt and the task input — is the live remainder,
-   and its own `Revisit when` explains under which condition that changes.
+   **The two gaps this record leaves open were closed the following day and
+   the text is kept as written on 2026-08-09.** :ref:`ADR-143 <adr-143>` binds
+   a window on the generic :php:`LlmServiceManager` paths described below
+   (`#688`), and :ref:`ADR-144 <adr-144>` gives snippets and skills a declared
+   data class with a trust-zone ceiling (`#689`, the deferred item above).
+   Read those two for the current state; do not use this record as a map of
+   what is open. What ADR-144 did *not* classify — the system prompt and the
+   task input — is the live remainder: it changes once a criteria-mode
+   configuration resolves its real zone (`#723`), which gives routing
+   eligibility a reason to read a system-prompt class (`#724`).
 
 :php:`LlmServiceManager` binds **no** context window at all. Its chat,
 completion and streaming paths inject skills and send; only
@@ -169,6 +177,7 @@ separately.
 ◐ Consumers keep owning their vocabulary. A new fragment kind is an editorial
 act, not a release.
 
-✕ Two gaps stay open and are written down rather than closed: the generic paths
-have no window binding, and injected context has no trust-zone ceiling. Both
-have named triggers above.
+✕ Two gaps stayed open at the time of writing and were written down rather than
+closed: the generic paths had no window binding, and injected context had no
+trust-zone ceiling. Both were closed on 2026-08-10 by :ref:`ADR-143 <adr-143>`
+and :ref:`ADR-144 <adr-144>`.

@@ -13,8 +13,9 @@ project does not do.
 
 Decisions that were deliberately not built. An accepted ADR that declines to
 build something closes the decision, not the gap — these stay open until code
-closes them, and carry the [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
-label.
+closes them. The [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
+label marks issues an ADR explicitly deferred; it spans this section and
+Toward 1.0 alike, so it defines neither.
 
 - **[#690](https://github.com/netresearch/t3x-nr-llm/issues/690) — input-resume authorises the submitter against nothing.**
   Unreachable today because no tool implements `RequiresInputInterface`, and
