@@ -492,4 +492,5 @@ Tools
    Adr145GovernanceProfilesDescribeNeverApply
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
+   Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance
