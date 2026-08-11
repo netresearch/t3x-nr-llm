@@ -126,7 +126,7 @@ final class TelemetrySignals
      */
     public function recordRoutingSummary(?RoutingSummary $summary): void
     {
-        if ($summary === null) {
+        if (!$summary instanceof RoutingSummary) {
             return;
         }
 
