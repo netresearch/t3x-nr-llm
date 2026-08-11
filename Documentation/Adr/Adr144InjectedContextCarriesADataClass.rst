@@ -5,10 +5,12 @@ ADR-144: Injected context carries a declared data class
 ==========================================================
 
 :Status: Accepted (the criteria-mode zone now comes from the resolved model —
-    see :ref:`ADR-149 <adr-149>`)
+    see :ref:`ADR-149 <adr-149>`; the system prompt is classified after all —
+    see :ref:`ADR-155 <adr-155>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-094 <adr-094>` (the axis now binds in both directions)
-:Amended: 2026-08-11 by :ref:`ADR-149 <adr-149>`
+:Amended: 2026-08-11 by :ref:`ADR-149 <adr-149>`, and 2026-08-11 by
+    :ref:`ADR-155 <adr-155>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -57,6 +59,13 @@ classified: neither has a per-record home for a declaration — a system prompt 
 a field on the configuration that already knows its own provider, and task input
 is whatever the caller passed this second. A column for them would be a
 declaration with nowhere to live and no one to set it.
+
+**Amended by** :ref:`ADR-155 <adr-155>` for the system prompt: that argument
+holds for a fixed-mode configuration, whose provider is named on the record, and
+not for a criteria-mode one, which knows no provider until routing runs. Once
+ADR-149 made the zone follow the resolved model, a class on the system prompt
+gained a consumer — it constrains which models the configuration may resolve to.
+The task-input half stands unchanged.
 
 **The strictest declaration decides**, because that is what the send carries.
 One confidential snippet makes the whole prompt confidential regardless of what

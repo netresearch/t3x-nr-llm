@@ -133,6 +133,13 @@ CREATE TABLE tx_nrllm_configuration (
     translator varchar(50) DEFAULT '' NOT NULL,
     system_prompt mediumtext,
 
+    -- Operator-declared sensitivity ceiling for system_prompt (ADR-155), a
+    -- ToolDataClass value on the same scale snippets and skills use. Declared
+    -- here rather than refused per record: what a criteria-mode configuration
+    -- may resolve to depends on it. EMPTY means undeclared and constrains
+    -- nothing, so every existing row keeps reaching the providers it reached.
+    system_prompt_data_class varchar(32) DEFAULT '' NOT NULL,
+
     -- Model parameters
     temperature decimal(3,2) DEFAULT '0.70' NOT NULL,
     max_tokens int(11) DEFAULT '1000' NOT NULL,

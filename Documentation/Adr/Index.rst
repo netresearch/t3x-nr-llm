@@ -493,5 +493,6 @@ Tools
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
    Adr149CriteriaModeZoneFromTheResolvedModel
+   Adr155SystemPromptCarriesADataClass
    Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance
