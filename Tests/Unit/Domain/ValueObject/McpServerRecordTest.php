@@ -64,6 +64,8 @@ final class McpServerRecordTest extends TestCase
             importError: '',
             lastImported: 0,
             toolCount: 0,
+            lastContact: 0,
+            lastLatencyMs: 0,
             tstamp: 0,
             crdate: 0,
         );

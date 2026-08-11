@@ -492,4 +492,16 @@ Tools
    Adr145GovernanceProfilesDescribeNeverApply
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
+   Adr148RoutingReadoutOnTheGovernanceTab
+   Adr149CriteriaModeZoneFromTheResolvedModel
    Adr150SubmitterGateAndInputTurnBinding
+   Adr152EditorActionDeclaration
+   Adr154McpServerHealth
+   Adr155SystemPromptCarriesADataClass
+   Adr156PersistTheRoutingDecisionObserveComplexity
+   Adr157TheSimulationCoversTheRunAndAnswersForAnActor
+   Adr158EditorActionCenter
+   Adr159OneExtensionConfirmedAtTheFreeze
+   Adr160AdapterContractAndCapabilityProvenance
+   Adr161McpClientConformance
+   Adr162BulkEditorActionsAsOrdinaryRuns

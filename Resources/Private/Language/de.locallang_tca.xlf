@@ -160,6 +160,15 @@
                 <target>Anfängliche Anweisungen zur Definition des KI-Verhaltens und -Kontexts</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class">
+                <source>System prompt data class</source>
+                <target>Datenklasse des System-Prompts</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class.description">
+                <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode the class is checked against the model routing actually selected, and a send that resolves to a weaker zone is refused. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
+                <target>Wie vertraulich der System-Prompt oben ist. Eine Konfiguration mit Angabe kann nicht an einen Provider in einer niedrigeren Vertrauenszone senden — im Kriterien-Modus wird die Klasse gegen das tatsächlich gewählte Modell geprüft; ein Aufruf, der auf ein Modell in einer schwächeren Zone auflöst, wird abgelehnt. Leer lassen heißt: keine Angabe; ein nicht eingestufter System-Prompt schränkt nichts ein, genau wie vor Einführung dieses Feldes.</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
                 <target>Temperatur</target>
@@ -665,6 +674,34 @@
             <trans-unit id="tx_nrllm_model.capabilities.description">
                 <source>Select features supported by this model. Used for filtering models in configurations and validating API requests.</source>
                 <target>Wählen Sie die von diesem Modell unterstützten Funktionen. Wird zur Filterung von Modellen in Konfigurationen und zur Validierung von API-Anfragen verwendet.</target>
+            </trans-unit>
+            <trans-unit id="palette.capability_provenance">
+                <source>Where the capabilities came from</source>
+                <target>Herkunft der Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered">
+                <source>Confirmed by the provider</source>
+                <target>Vom Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered.description">
+                <source>What the last provider discovery reported. Written by the "Confirm capabilities" action in the model module, never by hand. A capability selected above but missing here is your own declaration.</source>
+                <target>Was die letzte Abfrage beim Anbieter gemeldet hat. Wird von der Aktion „Fähigkeiten bestätigen“ im Modell-Modul geschrieben, nie von Hand. Eine oben ausgewählte, hier fehlende Fähigkeit ist Ihre eigene Angabe.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at">
+                <source>Confirmed at (timestamp, 0 = never)</source>
+                <target>Bestätigt am (Zeitstempel, 0 = nie)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at.description">
+                <source>Unix timestamp of the last confirmation. 0 means no discovery ever answered for this model, so every capability above is an assumption.</source>
+                <target>Unix-Zeitstempel der letzten Bestätigung. 0 heißt, dass nie eine Abfrage für dieses Modell geantwortet hat – jede Fähigkeit oben ist dann eine Annahme.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source">
+                <source>Kind of answer (discovery / catalog)</source>
+                <target>Art der Antwort (Anbieter / Katalog)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source.description">
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
+                <target>„discovery“ = der Modell-Endpunkt des Anbieters hat diese Fähigkeiten gemeldet. „catalog“ = er hat es nicht – entweder war er nicht erreichbar, oder er listet Modell-IDs ohne Fähigkeiten – und der mitgelieferte statische Katalog hat sie geliefert: eine Annahme, keine Bestätigung.</target>
             </trans-unit>
 
             <!-- Capability labels and descriptions -->
@@ -1417,10 +1454,6 @@
                 <source>Never imported</source>
                 <target>Nie importiert</target>
             </trans-unit>
-            <trans-unit id="tx_nrllm_mcp_server.import_status.importing">
-                <source>Importing</source>
-                <target>Import l&#228;uft</target>
-            </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.import_status.ok">
                 <source>OK</source>
                 <target>OK</target>
@@ -1444,6 +1477,18 @@
             <trans-unit id="tx_nrllm_mcp_server.tool_count">
                 <source>Imported tools</source>
                 <target>Importierte Tools</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_contact">
+                <source>Last successful contact</source>
+                <target>Letzter erfolgreicher Kontakt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_contact.description">
+                <source>When this installation last completed a round trip against the server — a tool call, a catalogue import or a connection test. Recorded automatically.</source>
+                <target>Wann diese Installation zuletzt eine Anfrage an den Server abgeschlossen hat — ein Tool-Aufruf, ein Katalog-Import oder ein Verbindungstest. Wird automatisch festgehalten.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_mcp_server.last_latency_ms">
+                <source>Latency of that contact (ms)</source>
+                <target>Laufzeit dieses Kontakts (ms)</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.enabled">
                 <source>Enabled</source>

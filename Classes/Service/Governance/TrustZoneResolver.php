@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Governance;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 
@@ -52,10 +53,29 @@ final readonly class TrustZoneResolver
     /**
      * The least trusted zone the run can reach: the configuration's own
      * provider, or any provider one fallback hop away.
+     *
+     * `$servingModel` is the model that will actually serve the call, where the
+     * caller already resolved one (ADR-149). It exists because a criteria-mode
+     * configuration has no model relation and therefore no provider of its own:
+     * without it every such configuration answers `EXTERNAL_GLOBAL`, however
+     * local the model routing picks. Passing nothing keeps the configuration's
+     * own relation, which is the fixed-mode case and what every caller had
+     * before — and in fixed mode the two are the same object anyway, because
+     * {@see LlmConfiguration::getProvider()} reads through that relation.
+     *
+     * Nothing here resolves a model. The zone follows routing; it must never
+     * drive it.
+     *
+     * The fallback hops are deliberately NOT given the same treatment: a
+     * criteria-mode fallback still contributes `EXTERNAL_GLOBAL`. Resolving a
+     * model for every chain entry would run the routing decision once per hop
+     * for a chain that may never be walked.
      */
-    public function zoneFor(LlmConfiguration $configuration): TrustZone
+    public function zoneFor(LlmConfiguration $configuration, ?Model $servingModel = null): TrustZone
     {
-        $zone = $this->zoneForProvider($configuration->getProvider());
+        $zone = $this->zoneForProvider(
+            $servingModel instanceof Model ? $servingModel->getProvider() : $configuration->getProvider(),
+        );
 
         foreach ($configuration->getFallbackChainDTO()->configurationIdentifiers as $identifier) {
             $fallback = $this->configurationRepository?->findOneByIdentifier($identifier);

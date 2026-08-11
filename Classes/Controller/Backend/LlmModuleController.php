@@ -10,22 +10,33 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
-use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
+use Netresearch\NrLlm\Service\Governance\SimulationActorDirectory;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
+use Netresearch\NrLlm\Service\OperationCapabilityMap;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
-use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
+use Netresearch\NrLlm\Service\Tool\GovernanceSimulator;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -50,6 +61,12 @@ final class LlmModuleController extends ActionController
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
 
+    /** How far back the routed-call readout looks (ADR-156). */
+    private const ROUTED_CALL_WINDOW_DAYS = 7;
+
+    /** How many routed calls the readout shows, newest first. */
+    private const ROUTED_CALL_LIMIT = 20;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -63,8 +80,15 @@ final class LlmModuleController extends ActionController
         private readonly EffectivePolicyReadout $effectivePolicyReadout,
         private readonly GovernanceProfileEvaluator $governanceProfileEvaluator,
         private readonly LlmConfigurationRepository $configurationRepository,
-        private readonly ToolCallPolicy $toolCallPolicy,
+        private readonly GovernanceSimulator $governanceSimulator,
+        private readonly SimulationActorDirectory $simulationActors,
         private readonly ToolRegistry $toolRegistry,
+        private readonly ModelSelectionServiceInterface $modelSelectionService,
+        // The routed-call reader (ADR-156). Injected directly rather than behind
+        // a report service: unlike the fallback rescues, which need a domain
+        // rule to classify a hop, "which recent calls recorded a decision" is
+        // the repository query itself.
+        private readonly TelemetryRepositoryInterface $telemetryRepository,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -294,18 +318,50 @@ final class LlmModuleController extends ActionController
 
         $policyRows = $this->effectivePolicyReadout->rows();
         $simulation = $this->simulate();
+        $routing    = $this->explainRouting();
 
         $moduleTemplate->assignMultiple([
+            // The routing readout (ADR-148). The candidate tables are flattened
+            // here for the same reason indexAction pre-computes its bar widths:
+            // a signal of null means "no data" and a score is a formatted
+            // number, and neither distinction survives a Fluid conditional.
+            'routing'               => $routing,
+            'routingEligible'       => $this->candidateRows($routing, true),
+            'routingRejected'       => $this->candidateRows($routing, false),
+            'routingOperations'     => $this->constrainingOperations(),
+            'routingModes'          => RoutingPolicyMode::cases(),
+            'routingConfiguration'  => $this->queryParam('routeConfiguration'),
+            'routingOperation'      => $this->queryParam('routeOperation'),
+            'routingPolicyMode'     => $this->queryParam('routePolicyMode'),
+            // The other half of the same question (ADR-156). The readout above
+            // answers "which model WOULD serve this"; this answers "which model
+            // DID, and why" for calls that already ran. It needs no form: it is
+            // not a query an operator composes, it is what happened.
+            'routedCalls'           => $this->recentRoutedCalls(),
+            'routedCallsDays'       => self::ROUTED_CALL_WINDOW_DAYS,
+            // Both forms GET to the same action, so each has to carry the
+            // other's state or submitting one wipes the other's answer off the
+            // page — the tab holds two questions about the same configuration
+            // and reading them together is the point.
+            'simulateTool'          => $this->queryParam('simulateTool'),
+            'simulateConfiguration' => $this->queryParam('simulateConfiguration'),
+            'simulateActor'         => $this->queryParam('simulateActor'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
             'deviations'     => $profile instanceof GovernanceProfile ? $this->governanceProfileEvaluator->deviations($policyRows, $profile) : [],
             'configurations' => $this->configurationRepository->findActive(),
             'toolNames'      => $this->toolRegistry->names(),
-            'simulation'     => $simulation,
+            // Backend users the simulation can answer for (ADR-157). A read of
+            // be_users, not an impersonation surface — see
+            // SimulationActorDirectory.
+            'simulationActors' => $this->simulationActors->actors(),
+            'simulation'       => $simulation,
             // message() does not follow the get/is/has convention Fluid needs,
-            // so the string is assigned rather than reached through the object.
-            'simulationMessage' => $simulation?->message(),
+            // so the strings are assigned rather than reached through the
+            // objects.
+            'simulationToolMessage'    => $simulation?->tool->message(),
+            'simulationContextMessage' => $simulation?->context->message(),
         ]);
 
         return $moduleTemplate->renderResponse('Backend/Governance');
@@ -326,28 +382,29 @@ final class LlmModuleController extends ActionController
     }
 
     /**
-     * Answer "would this tool be allowed for this configuration" through the
-     * REAL gate (ADR-145).
+     * Answer "would this run be allowed" through the REAL gates (ADR-145,
+     * ADR-157).
      *
-     * {@see ToolCallPolicy::decide()} is the call the runtime makes, not a
-     * reimplementation of its rules — a simulator with its own copy of the
-     * policy is worse than none, because the two can disagree and only one of
-     * them runs.
+     * {@see GovernanceSimulator} calls the four runtime services in turn — the
+     * tool gate, the input-context gate, the routing decision and the approval
+     * predicate — and folds their answers into one verdict. None of them is
+     * reimplemented here: a simulator with its own copy of a policy is worse
+     * than none, because the two can disagree and only one of them runs.
      *
-     * The acting user is the operator running the simulation. That is a real
-     * answer to a real question ("may I do this"), and it is honest about
-     * whose permissions it used; simulating for someone else needs a user
-     * picker, which is a separate surface.
+     * This method parses three query parameters and hands them over. The actor
+     * is a uid, resolved read-only inside the service through
+     * {@see \Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface};
+     * absent or 0, the answer is for the operator reading the page, which is
+     * what ADR-145 shipped.
      *
      * Returns null when the request names no pair to simulate.
      */
-    private function simulate(): ?ToolPolicyDecision
+    private function simulate(): ?GovernanceSimulation
     {
-        $params        = $this->request->getQueryParams();
-        $toolName      = $params['simulateTool'] ?? null;
-        $configuration = $params['simulateConfiguration'] ?? null;
+        $toolName      = $this->queryParam('simulateTool');
+        $configuration = $this->queryParam('simulateConfiguration');
 
-        if (!is_string($toolName) || $toolName === '' || !is_string($configuration) || $configuration === '') {
+        if ($toolName === '' || $configuration === '') {
             return null;
         }
 
@@ -356,9 +413,160 @@ final class LlmModuleController extends ActionController
             return null;
         }
 
-        $user = $GLOBALS['BE_USER'] ?? null;
+        $operator = $GLOBALS['BE_USER'] ?? null;
 
-        return $this->toolCallPolicy->decide($toolName, $entity, $user instanceof BackendUserAuthentication ? $user : null);
+        return $this->governanceSimulator->simulate(
+            $toolName,
+            $entity,
+            (int)$this->queryParam('simulateActor'),
+            $operator instanceof BackendUserAuthentication ? $operator : null,
+        );
+    }
+
+    /**
+     * Answer "why this model and not that one" through the REAL decision point
+     * (ADR-148).
+     *
+     * {@see ModelSelectionServiceInterface::explainRouting()} is the same
+     * resolution the runtime performs — the fixed-vs-criteria branch, the
+     * operation-capability switch and the ranking all come from the service
+     * that owns them. This method parses three query parameters and renders
+     * what it gets back; it decides nothing.
+     *
+     * Returns null when the request names no configuration to explain.
+     */
+    private function explainRouting(): ?RoutingReadout
+    {
+        $identifier = $this->queryParam('routeConfiguration');
+        if ($identifier === '') {
+            return null;
+        }
+
+        $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
+        if (!$configuration instanceof LlmConfiguration) {
+            return null;
+        }
+
+        return $this->modelSelectionService->explainRouting(
+            $configuration,
+            ProviderOperation::tryFrom($this->queryParam('routeOperation')),
+            // tryFrom(), NOT RoutingPolicyMode::fromValue(): an unrecognised
+            // value here must mean "no override" so the page answers for what
+            // actually runs. fromValue() answers a different question — it
+            // defaults a broken SETTING to the established ordering — and
+            // reusing it would turn a typo in the URL into a mode the operator
+            // never selected.
+            RoutingPolicyMode::tryFrom(trim($this->queryParam('routePolicyMode'))),
+        );
+    }
+
+    /**
+     * The operations worth offering: the ones that actually constrain a
+     * criteria-mode decision.
+     *
+     * Filtered through {@see OperationCapabilityMap} rather than listed, so the
+     * selector follows the map instead of drifting from it. An operation the
+     * map answers null for adds no constraint, and offering it would promise a
+     * dimension the decision does not have.
+     *
+     * @return list<ProviderOperation>
+     */
+    private function constrainingOperations(): array
+    {
+        return array_values(array_filter(
+            ProviderOperation::cases(),
+            static fn(ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability,
+        ));
+    }
+
+    /**
+     * One display row per candidate, eligible or rejected.
+     *
+     * @return list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}>
+     */
+    private function candidateRows(?RoutingReadout $readout, bool $eligible): array
+    {
+        $decision = $readout?->decision;
+        if (!$decision instanceof RoutingDecision) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($eligible ? $decision->eligibleCandidates() : $decision->rejectedCandidates() as $candidate) {
+            $rows[] = [
+                'modelId'   => $candidate->modelId(),
+                'name'      => $candidate->model->getName(),
+                'provider'  => $candidate->providerIdentifier(),
+                'score'     => $candidate->score === null ? '' : number_format($candidate->score, 3),
+                'reasonKey' => $candidate->rejectionReason?->getLabelKey() ?? '',
+                'signals'   => $this->signalRows($candidate),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The per-signal values behind one candidate's score.
+     *
+     * `known` is carried separately because a signal with no data is null and a
+     * measured zero is 0.0 — in Fluid both are falsy, and collapsing them would
+     * report "this model scored nothing" where the truth is "nobody measured
+     * it".
+     *
+     * @return list<array{name: string, value: string, known: bool}>
+     */
+    private function signalRows(RoutingCandidate $candidate): array
+    {
+        $rows = [];
+        foreach ($candidate->signals as $name => $value) {
+            $rows[] = [
+                'name'  => $name,
+                'value' => $value === null ? '' : number_format($value, 2),
+                'known' => $value !== null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The recent calls whose model was chosen automatically (ADR-156).
+     *
+     * The reader ADR-142 made the condition of persisting the decision at all.
+     * Fixed window and fixed cap rather than a form: the page already carries
+     * two forms, and a third control for "how far back" would ask an operator
+     * to tune a query before they have seen an answer. A week of decisions at
+     * twenty rows is enough to see whether the modes correspond to anything —
+     * which is the question ADR-142's "revisit when" names.
+     *
+     * Fail-soft: the routed-call table is an observation, and a read error must
+     * not take the whole Governance tab down with it.
+     *
+     * @return list<RoutedCall>
+     */
+    private function recentRoutedCalls(): array
+    {
+        try {
+            return $this->telemetryRepository->recentRoutedCalls(
+                time() - (self::ROUTED_CALL_WINDOW_DAYS * 86400),
+                self::ROUTED_CALL_LIMIT,
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning('Failed to read recent routed calls for the Governance tab', ['exception' => $e]);
+
+            return [];
+        }
+    }
+
+    /**
+     * A query parameter as a string, empty when absent or not a string.
+     */
+    private function queryParam(string $name): string
+    {
+        $value = $this->request->getQueryParams()[$name] ?? null;
+
+        return is_string($value) ? $value : '';
     }
 
     public function helpAction(): ResponseInterface

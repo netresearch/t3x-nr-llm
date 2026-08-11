@@ -125,6 +125,19 @@ final class RoutingDecisionServiceTest extends TestCase
     }
 
     #[Test]
+    public function anExplicitPolicyModeIsUsedInsteadOfTheConfiguredOne(): void
+    {
+        // The readout's "what would ECONOMY choose" (ADR-148). The install
+        // setting is read-only here: it is not consulted for this call and not
+        // written by it.
+        $service = $this->subject([$this->model('a')], ['routing' => ['policyMode' => 'providerPriority']]);
+
+        self::assertSame(RoutingPolicyMode::ECONOMY, $service->decide([], RoutingPolicyMode::ECONOMY)->mode);
+        // The very next call without an override is back to what runs.
+        self::assertSame(RoutingPolicyMode::PROVIDER_PRIORITY, $service->decide([])->mode);
+    }
+
+    #[Test]
     public function anUnknownPolicyModeFallsBackToTheEstablishedOrdering(): void
     {
         $decision = $this->subject([$this->model('a')], ['routing' => ['policyMode' => 'cheapest-possible']])->decide([]);

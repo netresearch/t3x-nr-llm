@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -64,7 +65,7 @@ final class McpToolTest extends AbstractUnitTestCase
             ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]],
             $dataClass,
             $requiresApproval,
-            new McpClient($transport),
+            new McpClient($transport, new RecordedContacts()),
         );
     }
 

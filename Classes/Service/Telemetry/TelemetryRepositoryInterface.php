@@ -61,4 +61,18 @@ interface TelemetryRepositoryInterface
      * @return list<FallbackHop>
      */
     public function recentFallbackHops(int $since, int $limit): array;
+
+    /**
+     * The most recent runs whose model was chosen automatically, newest first,
+     * capped at $limit (ADR-156).
+     *
+     * "Chosen automatically" is the narrowing: a row with an empty
+     * `routing_policy_mode` recorded no decision — fixed mode names its own
+     * model, a service path resolves no configuration, and a row written before
+     * the columns existed says nothing either way. None of them belong in a
+     * readout of decisions, and none of them may consume $limit.
+     *
+     * @return list<RoutedCall>
+     */
+    public function recentRoutedCalls(int $since, int $limit): array;
 }

@@ -89,6 +89,7 @@ final class OpenRouterModelDiscoverer extends AbstractModelDiscoverer
             costInput: (int)($promptCost * 100000000),
             costOutput: (int)($completionCost * 100000000),
             recommended: false,
+            capabilitiesFromApi: true,
         );
     }
 

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -74,7 +76,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * ADR-136): the arguments alone are the NEW values, and an approver deciding
  * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -359,6 +361,21 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
         // Setting named scalar fields to given values converges on repeat, so a
         // reaped-and-requeued run may safely repeat it.
         return ToolEffect::IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The human-facing declaration (ADR-152). The wire name and the spec
+     * description above are written for the model; these are written for the
+     * editor who is offered the action.
+     */
+    public function getEditorAction(): EditorAction
+    {
+        return new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.update_page_metadata.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.update_page_metadata.description',
+            'nrllm-editor-action-page-metadata',
+            [self::TABLE],
+        );
     }
 
     /**

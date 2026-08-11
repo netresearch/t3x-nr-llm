@@ -96,6 +96,10 @@ return [
         'path' => '/nrllm/model/detect-limits',
         'target' => ModelDiscoveryController::class . '::detectLimitsAction',
     ],
+    'nrllm_model_verify_capabilities' => [
+        'path' => '/nrllm/model/verify-capabilities',
+        'target' => ModelController::class . '::verifyCapabilitiesAction',
+    ],
 
     // Configuration routes
     'nrllm_config_toggle_active' => [
@@ -211,6 +215,12 @@ return [
     'nrllm_mcp_import' => [
         'path' => '/nrllm/mcp/import',
         'target' => McpServerController::class . '::importAction',
+    ],
+
+    // MCP connection test: handshake only, writes no catalogue row (ADR-154)
+    'nrllm_mcp_test' => [
+        'path' => '/nrllm/mcp/test',
+        'target' => McpServerController::class . '::testConnectionAction',
     ],
 
     // Setup Wizard routes
