@@ -8,6 +8,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **An editor action is declared metadata on a writing tool, not a second kind
+  of thing** (ADR-152). The opt-in `EditorActionInterface` returns an
+  `EditorAction` carrying a translatable label, a human description distinct
+  from the model-facing one, an icon and the record types the action addresses;
+  all five writing tools declare one. Nothing about execution changes — an
+  editor action runs on the tool path, behind the same fence, approval pause and
+  audit. Deliberately not built, each with its reason in the record:
+  `bulkCapability`, a caller-facing preview service with a structured
+  before/after diff, and a per-action grant.
+
+- The Tools module renders a writing tool as its icon, translated name, human
+  sentence and applicable record types instead of a bare wire name and the
+  paragraph written for the language model. Tool groups have translatable names
+  through the new `ToolGroup` enum; a third-party group keeps its raw
+  identifier. `ToolInterface`'s docblock listed the group taxonomy without
+  `editing` — the group every writer uses — which is fixed.
+
 - A side-effecting tool that cannot be fenced is refused before it runs
   (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is
   installed unconditionally now; a segment holding no persisted run or no lease

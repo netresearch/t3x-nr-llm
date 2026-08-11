@@ -77,6 +77,12 @@
             <trans-unit id="group.disabledHint">
                 <source>All tools of this group are refused; per-tool toggles have no effect while the group is disabled.</source>
             </trans-unit>
+            <trans-unit id="manage.action.appliesTo">
+                <source>Applies to</source>
+            </trans-unit>
+            <trans-unit id="manage.action.editorAction">
+                <source>Editor action</source>
+            </trans-unit>
             <trans-unit id="playground.help.title">
                 <source>How to add a tool</source>
             </trans-unit>

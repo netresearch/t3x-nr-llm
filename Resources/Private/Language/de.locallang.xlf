@@ -1250,6 +1250,82 @@
                 <source>Manage tools</source>
                 <target>Werkzeuge verwalten</target>
             </trans-unit>
+            <trans-unit id="tool.group.content">
+                <source>Content</source>
+                <target>Inhalte</target>
+            </trans-unit>
+            <trans-unit id="tool.group.editing">
+                <source>Editing</source>
+                <target>Bearbeitung</target>
+            </trans-unit>
+            <trans-unit id="tool.group.structure">
+                <source>Structure</source>
+                <target>Struktur</target>
+            </trans-unit>
+            <trans-unit id="tool.group.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="tool.group.code">
+                <source>Code</source>
+                <target>Quelltext</target>
+            </trans-unit>
+            <trans-unit id="tool.group.files">
+                <source>Files</source>
+                <target>Dateien</target>
+            </trans-unit>
+            <trans-unit id="tool.group.system">
+                <source>System</source>
+                <target>System</target>
+            </trans-unit>
+            <trans-unit id="tool.group.accounts">
+                <source>Accounts</source>
+                <target>Benutzerkonten</target>
+            </trans-unit>
+            <trans-unit id="tool.group.rag">
+                <source>Site search</source>
+                <target>Website-Suche</target>
+            </trans-unit>
+            <trans-unit id="editorAction.update_page_metadata.label">
+                <source>Update page metadata</source>
+                <target>Seiten-Metadaten ändern</target>
+            </trans-unit>
+            <trans-unit id="editorAction.update_page_metadata.description">
+                <source>Sets descriptive text fields on one page: title, navigation title, abstract, keywords and the SEO fields.</source>
+                <target>Setzt beschreibende Textfelder einer Seite: Titel, Navigationstitel, Kurzfassung, Schlagwörter und die SEO-Felder.</target>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_alternative_text.label">
+                <source>Set alternative text</source>
+                <target>Alternativtext setzen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_alternative_text.description">
+                <source>Sets the alternative text of one file that already carries a metadata record.</source>
+                <target>Setzt den Alternativtext einer Datei, die bereits einen Metadatensatz hat.</target>
+            </trans-unit>
+            <trans-unit id="editorAction.move_content_element.label">
+                <source>Move content element</source>
+                <target>Inhaltselement verschieben</target>
+            </trans-unit>
+            <trans-unit id="editorAction.move_content_element.description">
+                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
+                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Es wird nichts angelegt und nichts gelöscht.</target>
+            </trans-unit>
+            <trans-unit id="editorAction.create_content_element_draft.label">
+                <source>Create content element draft</source>
+                <target>Inhaltselement als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.create_content_element_draft.description">
+                <source>Creates one hidden content element of a curated type. A human makes it visible.</source>
+                <target>Legt ein verstecktes Inhaltselement eines freigegebenen Typs an. Sichtbar schaltet es ein Mensch.</target>
+            </trans-unit>
+            <trans-unit id="editorAction.create_translation_draft.label">
+                <source>Create translation draft</source>
+                <target>Übersetzung als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.create_translation_draft.description">
+                <source>Translates one page or content element into another language. The translation is created hidden.</source>
+                <target>Übersetzt eine Seite oder ein Inhaltselement in eine andere Sprache. Die Übersetzung wird versteckt angelegt.</target>
+            </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
                 <target>Lesen Sie die Hilfe im Modul und die Online-Dokumentation für Einrichtungshinweise und Fehlerbehebung.</target>

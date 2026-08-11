@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
@@ -132,5 +133,11 @@ final class BuiltinToolGroupsTest extends TestCase
         $tool = (new ReflectionClass($class))->newInstanceWithoutConstructor();
 
         self::assertSame($expectedGroup, $tool->getGroup());
+        // …and the curated group is one the enum knows, so this list cannot
+        // drift away from the taxonomy that carries the labels (ADR-152).
+        self::assertNotNull(
+            ToolGroup::tryFrom($expectedGroup),
+            'ToolGroup has no case for the group ' . $expectedGroup . ' declared by ' . $class,
+        );
     }
 }
