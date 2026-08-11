@@ -54,6 +54,12 @@
             <trans-unit id="show.plan.snippetTags">
                 <source>Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:</source>
             </trans-unit>
+            <trans-unit id="show.incoming">
+                <source>These existing snippets already carry one of the tags above. Adding the tags composes them into the pack's configuration as well:</source>
+            </trans-unit>
+            <trans-unit id="show.incoming.hint">
+                <source>The strictest data class among the composed snippets is the one the input-context gate applies to every send through this configuration. To keep it out, deactivate the snippet or remove the tag from it before installing.</source>
+            </trans-unit>
             <trans-unit id="show.affected">
                 <source>These existing configurations already select one of the pack's snippet tags. Installing adds the pack's snippets to their prompts as well:</source>
             </trans-unit>

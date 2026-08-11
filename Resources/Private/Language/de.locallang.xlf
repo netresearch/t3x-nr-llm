@@ -584,6 +584,10 @@
                 <source>%1$s: %2$d record(s) created, %3$d already present and left unchanged.</source>
                 <target>%1$s: %2$d Datensätze angelegt, %3$d bereits vorhanden und unverändert gelassen.</target>
             </trans-unit>
+            <trans-unit id="flash.usecase.installed.tags">
+                <source>Snippet tags added to the configuration: %s.</source>
+                <target>Snippet-Tags zur Konfiguration hinzugefügt: %s.</target>
+            </trans-unit>
             <trans-unit id="flash.usecase.installFailed.title">
                 <source>Pack not installed</source>
                 <target>Paket nicht installiert</target>

@@ -25,9 +25,9 @@ use Netresearch\NrLlm\Service\Preset\PresetPreflightResult;
  * condition="{plan.pendingCount}">` would silently take the else branch for a
  * fully installed pack — which is the case that matters most here.
  *
- * Two of the things installing changes are not records, and both are stated
- * here because the operator confirms this screen and can only confirm what it
- * shows:
+ * Three of the things installing changes are not records, and all three are
+ * stated here because the operator confirms this screen and can only confirm
+ * what it shows:
  *
  * - `missingSnippetTags` — the pack's snippet tags its configuration does not
  *   select yet. Installing adds them, and without them the pack's snippets are
@@ -35,9 +35,14 @@ use Netresearch\NrLlm\Service\Preset\PresetPreflightResult;
  * - `affectedConfigurations` — OTHER existing configurations that already
  *   select one of those tags. A snippet is selected by tag, not by owner
  *   (ADR-031), so the snippets this install creates enter their prompts too.
+ * - `incomingSnippets` — the same effect in the other direction: existing
+ *   snippets that already carry one of the added tags and therefore enter the
+ *   PACK's configuration. Their data class comes along, and the strictest one
+ *   among the composed snippets is what the input-context gate judges the
+ *   configuration by (ADR-115).
  *
- * Both are plain arrays and the templates ask them directly: an empty array is
- * falsy in Fluid, a non-empty one truthy. Deliberately no `hasX()` companions —
+ * All three are plain arrays and the templates ask them directly: an empty
+ * array is falsy in Fluid, a non-empty one truthy. No `hasX()` companions —
  * Fluid's property access prefers `get`/`is`/`has` over the property itself, so
  * a `hasMissingSnippetTags()` would make `{plan.missingSnippetTags}` resolve to
  * a boolean and `<f:for>` over it fail at render time.
@@ -45,10 +50,11 @@ use Netresearch\NrLlm\Service\Preset\PresetPreflightResult;
 final readonly class UseCasePackPlan
 {
     /**
-     * @param list<UseCasePackPlanItem>                     $tasks
-     * @param list<UseCasePackPlanItem>                     $snippets
-     * @param list<string>                                  $missingSnippetTags
-     * @param list<array{identifier: string, name: string}> $affectedConfigurations
+     * @param list<UseCasePackPlanItem>                                        $tasks
+     * @param list<UseCasePackPlanItem>                                        $snippets
+     * @param list<string>                                                     $missingSnippetTags
+     * @param list<array{identifier: string, name: string}>                    $affectedConfigurations
+     * @param list<array{identifier: string, name: string, dataClass: string}> $incomingSnippets
      */
     public function __construct(
         public UseCasePack $pack,
@@ -58,6 +64,7 @@ final readonly class UseCasePackPlan
         public PresetPreflightResult $preflight,
         public array $missingSnippetTags = [],
         public array $affectedConfigurations = [],
+        public array $incomingSnippets = [],
     ) {}
 
     /**

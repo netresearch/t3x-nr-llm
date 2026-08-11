@@ -10,8 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetRegistry;
 use Netresearch\NrLlm\Service\UseCase\EditorialStarterPackProvider;
@@ -140,6 +143,32 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString('already select one of the', $body);
         self::assertStringContainsString('House blog', $body);
+    }
+
+    #[Test]
+    public function thePlanScreenNamesTheExistingSnippetsTheAddedTagsWouldPullIn(): void
+    {
+        $this->importFixture('Providers.csv');
+        $this->importFixture('Models.csv');
+
+        $snippet = new PromptSnippet();
+        $snippet->setPid(0);
+        $snippet->setIdentifier('internal-voice');
+        $snippet->setName('Internal voice');
+        $snippet->setSnippet('Never mention the client by name.');
+        $snippet->setTags('tone_of_voice');
+        $snippet->setDataClass(ToolDataClass::SECRET_ADJACENT->value);
+        $snippet->setIsActive(true);
+        $this->getService(PromptSnippetRepository::class)->add($snippet);
+        $this->getService(PersistenceManagerInterface::class)->persistAll();
+
+        $body = $this->renderShow();
+
+        self::assertStringContainsString('already carry one of the tags above', $body);
+        self::assertStringContainsString('Internal voice', $body);
+        // The data class is the part that can refuse a send, so it has to be on
+        // the screen the operator confirms — not only in the plan object.
+        self::assertStringContainsString(ToolDataClass::SECRET_ADJACENT->value, $body);
     }
 
     #[Test]

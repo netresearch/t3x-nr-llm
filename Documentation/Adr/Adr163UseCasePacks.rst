@@ -87,14 +87,26 @@ never removes, and re-adds nothing that is already there. What it would add is
 listed on the plan screen, and a plan whose records all exist but whose tag link
 is missing still offers the confirm button — that is the state that repairs it.
 
-**A shared tag reaches other configurations, and the plan says so.** Snippets
-are selected by tag, not by owner, and the vocabulary is free-form and shared:
-any existing configuration that already selects ``tone_of_voice`` composes the
-pack's house-style snippet the moment it is created. The installer does not
-prevent that — scoping snippets to one configuration would be a second selection
-mechanism beside ADR-031 — but the plan screen names every configuration the new
-snippets would reach, because the operator confirms this screen and cannot
-confirm an effect they were not shown.
+**A shared tag reaches in both directions, and the plan says so both times.**
+Snippets are selected by tag, not by owner, and the vocabulary is free-form and
+shared. Outwards: any existing configuration that already selects
+``tone_of_voice`` composes the pack's house-style snippet the moment it is
+created. Inwards: adding ``tone_of_voice`` to the pack's own configuration
+composes every active snippet that already carries it, including operator
+snippets the pack never saw.
+
+The inward direction is the sharper one, because a snippet brings its data class
+with it. Classification takes the STRICTEST class over the composed snippets, so
+one CONFIDENTIAL operator snippet raises the whole configuration and an enforcing
+input-context gate then refuses every send through it — a configuration that
+worked before the install stops working, with nothing on the screen having
+predicted it.
+
+The installer prevents neither direction — scoping snippets to one configuration
+would be a second selection mechanism beside ADR-031 — but the plan screen names
+both: every configuration the new snippets would reach, and every existing
+snippet the added tags would pull in, with its data class. The operator confirms
+this screen and cannot confirm an effect they were not shown.
 
 What a pack does not contain
 ============================
@@ -128,6 +140,13 @@ configuration already selects.
 one of the pack's snippet tags. That follows from tag-based selection and is not
 prevented; it is computed read-only and listed on the plan screen before the
 operator confirms.
+
+◐ It changes the pack's own configuration the same way, in reverse: existing
+snippets carrying the added tags are composed into it, and the strictest data
+class among them becomes the configuration's. Where the input-context gate
+enforces, that can refuse sends the configuration made before. Also not
+prevented, also computed read-only, and listed on the plan screen with each
+snippet's data class.
 
 ✓ No second configuration system, no second policy engine, no bypassed gate. The
 pack's configuration lives in the preset lifecycle, its governance is a

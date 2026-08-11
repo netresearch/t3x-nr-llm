@@ -143,10 +143,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     snippets reach its prompts. It is added whether the configuration was
     created by the pack or by importing its preset in the Configuration module,
     it never removes a tag the operator selected, and the plan screen lists what
-    it would add.
-  - Because snippets are selected by tag and not by owner (ADR-031), a pack's
+    it would add. The success message names the tags it wrote, so a run that
+    only added them is not reported as one that changed nothing.
+  - Because snippets are selected by tag and not by owner (ADR-031), the link
+    reaches both ways and the plan screen names both. Outwards: a pack's
     snippets also reach existing configurations that already select one of those
-    tags. The plan screen names those configurations before you confirm.
+    tags. Inwards: existing snippets carrying one of the added tags are composed
+    into the pack's own configuration — listed with their data class, because
+    the strictest one among the composed snippets is what the input-context gate
+    applies to every send through that configuration.
   - Packs install no skills. A skill carries provenance and a trust level from
     the source it was synced from, and a pack can produce neither; ADR-163 says
     why the pack points at the Skills module instead.

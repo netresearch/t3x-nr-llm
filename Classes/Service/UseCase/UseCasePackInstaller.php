@@ -111,14 +111,17 @@ final readonly class UseCasePackInstaller
             }
         }
 
+        $missingSnippetTags = $this->missingSnippetTags($pack, $existingConfiguration);
+
         return new UseCasePackPlan(
             pack: $pack,
             configuration: $configurationItem,
             tasks: $tasks,
             snippets: $snippets,
             preflight: $this->presetImportService->preflight($preset),
-            missingSnippetTags: $this->missingSnippetTags($pack, $existingConfiguration),
+            missingSnippetTags: $missingSnippetTags,
             affectedConfigurations: $this->configurationsReachedBy($preset->identifier, $pendingSnippetTags),
+            incomingSnippets: $this->snippetsPulledInBy($pack, $missingSnippetTags),
         );
     }
 
@@ -140,7 +143,7 @@ final readonly class UseCasePackInstaller
 
         // Before any record is created: a refusal here must not leave snippets
         // behind that nothing reads.
-        $this->linkSnippetTags($pack, $record);
+        $addedSnippetTags = $this->linkSnippetTags($pack, $record);
 
         $createdTasks = [];
         $skippedTasks = [];
@@ -174,6 +177,7 @@ final readonly class UseCasePackInstaller
             skippedTasks: $skippedTasks,
             createdSnippets: $createdSnippets,
             skippedSnippets: $skippedSnippets,
+            addedSnippetTags: $addedSnippetTags,
         );
     }
 
@@ -222,12 +226,15 @@ final readonly class UseCasePackInstaller
      *
      * @throws InvalidArgumentException when the merged selection would not fit
      *                                  the varchar(255) column
+     *
+     * @return list<string> the tags actually written, so the result can report
+     *                      the one record an install changes without creating
      */
-    private function linkSnippetTags(UseCasePack $pack, LlmConfiguration $configuration): void
+    private function linkSnippetTags(UseCasePack $pack, LlmConfiguration $configuration): array
     {
         $missing = $this->missingSnippetTags($pack, $configuration);
         if ($missing === []) {
-            return;
+            return [];
         }
 
         $merged = implode(',', [...$configuration->getSnippetTagList(), ...$missing]);
@@ -245,6 +252,8 @@ final readonly class UseCasePackInstaller
 
         $configuration->setSnippetTags($merged);
         $this->configurationRepository->update($configuration);
+
+        return $missing;
     }
 
     /**
@@ -305,6 +314,78 @@ final readonly class UseCasePackInstaller
         }
 
         return $reached;
+    }
+
+    /**
+     * Existing snippets the tags this install ADDS would pull INTO the pack's
+     * own configuration.
+     *
+     * The mirror image of {@see self::configurationsReachedBy()}, and the
+     * direction with the sharper edge: selection is by tag and not by owner
+     * (ADR-031), so adding `tone_of_voice` to the pack's configuration composes
+     * every active snippet already carrying that tag — including operator
+     * snippets the pack never saw. The tag vocabulary is free-form and shared,
+     * so a collision is the normal case rather than an exotic one.
+     *
+     * The data class is reported with each of them because it is the part that
+     * can break a send rather than only change its wording: the input-context
+     * classification takes the STRICTEST class over the composed snippets
+     * (ADR-115), so one CONFIDENTIAL operator snippet raises the whole
+     * configuration and an enforcing trust gate then refuses it.
+     *
+     * Hidden records are skipped, matching
+     * {@see \Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver::selectedSnippets()}
+     * — a snippet that is not composed must not be reported as one that would
+     * be. The pack's own snippets are skipped too: the plan table above already
+     * lists them.
+     *
+     * @param list<string> $addedTags tags the install would ADD to the pack's
+     *                                configuration; tags already selected pull
+     *                                in nothing new
+     *
+     * @return list<array{identifier: string, name: string, dataClass: string}>
+     */
+    private function snippetsPulledInBy(UseCasePack $pack, array $addedTags): array
+    {
+        if ($addedTags === []) {
+            return [];
+        }
+
+        $own = [];
+        foreach ($pack->snippets as $packSnippet) {
+            $own[strtolower(trim($packSnippet->identifier))] = true;
+        }
+
+        $pulled = [];
+        $seen = [];
+        foreach ($addedTags as $tag) {
+            foreach ($this->snippetRepository->findActiveByTag($tag) as $snippet) {
+                if ($snippet->isHidden()) {
+                    continue;
+                }
+
+                $identifier = strtolower(trim($snippet->getIdentifier()));
+                if ($identifier !== '' && isset($own[$identifier])) {
+                    continue;
+                }
+
+                $key = $identifier !== ''
+                    ? 'id:' . $identifier
+                    : 'uid:' . ($snippet->getUid() ?? spl_object_id($snippet));
+                if (isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+                $pulled[] = [
+                    'identifier' => $snippet->getIdentifier(),
+                    'name' => $snippet->getName(),
+                    'dataClass' => $snippet->getDataClass(),
+                ];
+            }
+        }
+
+        return $pulled;
     }
 
     /**

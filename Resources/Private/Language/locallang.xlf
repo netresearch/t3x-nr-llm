@@ -442,6 +442,9 @@
             <trans-unit id="flash.usecase.installed.body">
                 <source>%1$s: %2$d record(s) created, %3$d already present and left unchanged.</source>
             </trans-unit>
+            <trans-unit id="flash.usecase.installed.tags">
+                <source>Snippet tags added to the configuration: %s.</source>
+            </trans-unit>
             <trans-unit id="flash.usecase.installFailed.title">
                 <source>Pack not installed</source>
             </trans-unit>

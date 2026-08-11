@@ -163,13 +163,26 @@ final class UseCasePackController extends ActionController
             return new RedirectResponse($this->uriBuilder->reset()->uriFor('show', ['pack' => $pack]));
         }
 
+        $body = sprintf(
+            $this->localize(self::LANG . 'flash.usecase.installed.body', '%1$s: %2$d record(s) created, %3$d already present and left unchanged.'),
+            $useCasePack->name,
+            $result->getCreatedCount(),
+            $result->getSkippedCount(),
+        );
+
+        // The tag link is the one thing an install writes on a record it did
+        // not create. Saying only "created / left unchanged" would describe the
+        // preset-first case — configuration already there, tags just written —
+        // as the case where nothing was touched.
+        if ($result->addedSnippetTags !== []) {
+            $body .= ' ' . sprintf(
+                $this->localize(self::LANG . 'flash.usecase.installed.tags', 'Snippet tags added to the configuration: %s.'),
+                implode(', ', $result->addedSnippetTags),
+            );
+        }
+
         $this->enqueueFlashMessage(
-            sprintf(
-                $this->localize(self::LANG . 'flash.usecase.installed.body', '%1$s: %2$d record(s) created, %3$d already present and left unchanged.'),
-                $useCasePack->name,
-                $result->getCreatedCount(),
-                $result->getSkippedCount(),
-            ),
+            $body,
             $this->localize(self::LANG . 'flash.usecase.installed.title', 'Pack installed'),
             ContextualFeedbackSeverity::OK,
         );

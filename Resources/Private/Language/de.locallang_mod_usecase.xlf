@@ -71,6 +71,14 @@
                 <source>Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:</source>
                 <target>Die Installation ergänzt außerdem diese Snippet-Tags in der Auswahl der Konfiguration, damit die Snippets des Pakets in deren Prompts landen:</target>
             </trans-unit>
+            <trans-unit id="show.incoming">
+                <source>These existing snippets already carry one of the tags above. Adding the tags composes them into the pack's configuration as well:</source>
+                <target>Diese vorhandenen Snippets tragen bereits eines der Tags von oben. Mit den Tags landen sie ebenfalls in der Konfiguration des Pakets:</target>
+            </trans-unit>
+            <trans-unit id="show.incoming.hint">
+                <source>The strictest data class among the composed snippets is the one the input-context gate applies to every send through this configuration. To keep it out, deactivate the snippet or remove the tag from it before installing.</source>
+                <target>Maßgeblich für das Input-Context-Gate ist die strengste Datenklasse unter den zusammengesetzten Snippets — sie gilt dann für jeden Aufruf über diese Konfiguration. Um das zu vermeiden, deaktivieren Sie das Snippet oder entfernen Sie das Tag daraus, bevor Sie installieren.</target>
+            </trans-unit>
             <trans-unit id="show.affected">
                 <source>These existing configurations already select one of the pack's snippet tags. Installing adds the pack's snippets to their prompts as well:</source>
                 <target>Diese vorhandenen Konfigurationen wählen bereits eines der Snippet-Tags des Pakets aus. Die Installation ergänzt die Snippets des Pakets auch in deren Prompts:</target>

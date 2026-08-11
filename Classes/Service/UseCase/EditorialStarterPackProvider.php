@@ -52,8 +52,12 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 configurationPreset: new ConfigurationPreset(
                     identifier: 'nr_llm.editorial_starter',
                     name: 'Editorial Starter',
+                    // No `allowedToolGroups` here, and the description must not
+                    // read as if there were: an empty group list means NO group
+                    // restriction, not none allowed. Which tools exist at all
+                    // is the Tools module's admin enable.
                     description: 'Configuration for the Editorial Starter tasks: low temperature, room for a '
-                        . 'medium-length article, no tool access.',
+                        . 'medium-length article, no tool group restriction of its own.',
                     criteria: new ModelSelectionCriteria(capabilities: [ModelCapability::CHAT->value]),
                     systemPrompt: 'You are an editorial assistant for a website. You edit text that has already '
                         . 'been written: you do not invent facts, add claims, or change meaning. Keep the '

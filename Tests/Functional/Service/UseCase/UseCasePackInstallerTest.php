@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\UseCase;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Task;
@@ -138,6 +139,15 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
 
         $result = $this->installer->install($pack);
         self::assertFalse($result->createdConfiguration, 'the preset import already created it');
+        // The configuration was not created — and it was not left unchanged
+        // either. Reporting it as skipped would name the one record the
+        // installer wrote as the one it did not touch.
+        self::assertSame($pack->getSnippetTags(), $result->addedSnippetTags);
+        self::assertSame(
+            count($pack->tasks) + count($pack->snippets),
+            $result->getCreatedCount(),
+        );
+        self::assertSame(0, $result->getSkippedCount());
 
         $configuration = $this->configurationRepository->findOneByIdentifier($pack->configurationPreset->identifier);
         self::assertInstanceOf(LlmConfiguration::class, $configuration);
@@ -284,6 +294,80 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
         $this->installer->install($this->pack());
 
         self::assertSame([], $this->installer->plan($this->pack())->affectedConfigurations);
+    }
+
+    #[Test]
+    public function planNamesTheExistingSnippetsTheAddedTagsWouldPullIn(): void
+    {
+        // The other direction of ADR-031, and the one that can break a working
+        // configuration: this snippet's CONFIDENTIAL class becomes the pack
+        // configuration's the moment `tone_of_voice` is selected, and an
+        // enforcing input-context gate then refuses every send through it.
+        $this->importModels();
+        $this->addSnippet('internal-voice', 'Internal voice', 'tone_of_voice', ToolDataClass::SECRET_ADJACENT->value);
+
+        $plan = $this->installer->plan($this->pack());
+
+        self::assertSame(
+            [[
+                'identifier' => 'internal-voice',
+                'name' => 'Internal voice',
+                'dataClass' => ToolDataClass::SECRET_ADJACENT->value,
+            ]],
+            $plan->incomingSnippets,
+        );
+    }
+
+    #[Test]
+    public function planReportsNoIncomingSnippetForATagTheConfigurationAlreadySelects(): void
+    {
+        // Nothing new enters the prompt: the tag is not being added, so the
+        // snippet is already composed and warning about it would be noise.
+        $this->importModels();
+        $this->addSnippet('internal-voice', 'Internal voice', 'tone_of_voice', ToolDataClass::SECRET_ADJACENT->value);
+        $this->installer->install($this->pack());
+
+        self::assertSame([], $this->installer->plan($this->pack())->incomingSnippets);
+    }
+
+    #[Test]
+    public function planSkipsHiddenAndPackOwnedSnippetsAmongTheIncomingOnes(): void
+    {
+        // A hidden snippet is not composed (the resolver skips it), and the
+        // pack's own snippets are already listed as rows in the plan table.
+        $this->importModels();
+        $hidden = $this->addSnippet('archived-voice', 'Archived voice', 'tone_of_voice', '');
+        $hidden->setHidden(true);
+
+        $this->snippetRepository->update($hidden);
+        $this->persistenceManager->persistAll();
+
+        $pack = $this->pack();
+        $this->addSnippet(
+            $pack->snippets[0]->identifier,
+            'House style, installed by hand',
+            'tone_of_voice',
+            '',
+        );
+
+        self::assertSame([], $this->installer->plan($pack)->incomingSnippets);
+    }
+
+    private function addSnippet(string $identifier, string $name, string $tags, string $dataClass): PromptSnippet
+    {
+        $snippet = new PromptSnippet();
+        $snippet->setPid(0);
+        $snippet->setIdentifier($identifier);
+        $snippet->setName($name);
+        $snippet->setSnippet('…');
+        $snippet->setTags($tags);
+        $snippet->setDataClass($dataClass);
+        $snippet->setIsActive(true);
+
+        $this->snippetRepository->add($snippet);
+        $this->persistenceManager->persistAll();
+
+        return $snippet;
     }
 
     #[Test]

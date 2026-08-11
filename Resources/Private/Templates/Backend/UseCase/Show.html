@@ -115,6 +115,35 @@
                 </div>
 
                 <f:comment>
+                    The other direction of the same rule: the tags above also
+                    pull EXISTING snippets into the pack's own configuration.
+                    The data class is the part that can break a send rather than
+                    only change its wording — the strictest one among the
+                    composed snippets is what the input-context gate judges the
+                    configuration by (ADR-115).
+                </f:comment>
+                <f:if condition="{plan.incomingSnippets}">
+                    <f:be.infobox state="1">
+                        <p class="mb-1">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.incoming" default="These existing snippets already carry one of the tags above. Adding the tags composes them into the pack's configuration as well:" />
+                        </p>
+                        <ul class="mb-1">
+                            <f:for each="{plan.incomingSnippets}" as="incoming">
+                                <li>
+                                    {incoming.name} <code>{incoming.identifier}</code>
+                                    <f:if condition="{incoming.dataClass}">
+                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{incoming.dataClass}</code>
+                                    </f:if>
+                                </li>
+                            </f:for>
+                        </ul>
+                        <p class="mb-0 small">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.incoming.hint" default="The strictest data class among the composed snippets is the one the input-context gate applies to every send through this configuration. To keep it out, deactivate the snippet or remove the tag from it before installing." />
+                        </p>
+                    </f:be.infobox>
+                </f:if>
+
+                <f:comment>
                     A snippet is selected by tag, not by owner (ADR-031), so the
                     snippets this install creates also reach configurations that
                     already carry one of those tags. The operator confirms this
