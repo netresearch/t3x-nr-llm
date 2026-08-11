@@ -1138,6 +1138,9 @@
             <trans-unit id="editorActions.batch.discarded">
                 <source>%s entries were not record numbers and were ignored.</source>
             </trans-unit>
+            <trans-unit id="editorActions.batch.truncated">
+                <source>Only the first %s entries of the list were read; everything after them was ignored.</source>
+            </trans-unit>
             <trans-unit id="editorActions.batch.skip.notOffered">
                 <source>This action is not available to you for this record. Records skipped:</source>
             </trans-unit>
@@ -1153,7 +1156,10 @@
             <trans-unit id="editorActions.batch.flash.discarded">
                 <source>%d entries were not record numbers and were ignored.</source>
             </trans-unit>
-            <trans-unit id="editorActions.batch.flash.withoutPause">
+            <trans-unit id="editorActions.batch.flash.truncated">
+                <source>Only the first %d entries of the list were read; everything after them was ignored.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.completedWithoutWrite">
                 <source>%d runs finished without proposing a change. Nothing was written for those records.</source>
             </trans-unit>
             <trans-unit id="editorActions.batch.flash.blocked">

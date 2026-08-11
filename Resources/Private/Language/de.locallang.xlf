@@ -1506,6 +1506,10 @@
                 <source>%s entries were not record numbers and were ignored.</source>
                 <target>%s Einträge waren keine Datensatznummern und wurden ignoriert.</target>
             </trans-unit>
+            <trans-unit id="editorActions.batch.truncated">
+                <source>Only the first %s entries of the list were read; everything after them was ignored.</source>
+                <target>Nur die ersten %s Einträge der Liste wurden gelesen; alles danach wurde ignoriert.</target>
+            </trans-unit>
             <trans-unit id="editorActions.batch.skip.notOffered">
                 <source>This action is not available to you for this record. Records skipped:</source>
                 <target>Diese Aktion steht Ihnen für diesen Datensatz nicht zur Verfügung. Übersprungene Datensätze:</target>
@@ -1526,7 +1530,11 @@
                 <source>%d entries were not record numbers and were ignored.</source>
                 <target>%d Einträge waren keine Datensatznummern und wurden ignoriert.</target>
             </trans-unit>
-            <trans-unit id="editorActions.batch.flash.withoutPause">
+            <trans-unit id="editorActions.batch.flash.truncated">
+                <source>Only the first %d entries of the list were read; everything after them was ignored.</source>
+                <target>Nur die ersten %d Einträge der Liste wurden gelesen; alles danach wurde ignoriert.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.batch.flash.completedWithoutWrite">
                 <source>%d runs finished without proposing a change. Nothing was written for those records.</source>
                 <target>%d Läufe endeten ohne Änderungsvorschlag. Für diese Datensätze wurde nichts geschrieben.</target>
             </trans-unit>

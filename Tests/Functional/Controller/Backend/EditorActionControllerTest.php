@@ -341,6 +341,17 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         // And the estimate, derived from the one request the plan holds.
         self::assertStringContainsString('Provider requests (at least)', $body);
         self::assertStringContainsString('How wrong this can be', $body);
+        // The configuration carries the default maxTokens of 1000, so the
+        // ceiling row prints that number. Asserted on the row rather than on
+        // the string, because the page also carries a `maxlength="1000"`: the
+        // Fluid path that decides this cell is a trap, and
+        // `{estimate.hasOutputCeiling}` resolves to null and would print the
+        // unbounded sentence for every configuration there is.
+        self::assertMatchesRegularExpression(
+            '#Output ceiling per request</th>\s*<td>\s*1000\s*</td>#',
+            $body,
+        );
+        self::assertStringNotContainsString('No ceiling is configured', $body);
     }
 
     #[Test]

@@ -213,6 +213,17 @@ is planned once and the second mention is listed as skipped. Entries that are no
 record numbers at all are counted and reported. Records beyond the cap are listed
 as skipped rather than truncated away.
 
+**A second ceiling bounds the input, not the runs.** The cap of 20 bounds how
+many runs START. It does not bound how much is parsed: every number past it
+still becomes an entry, a table row and a record number in a session-stored
+flash message, so a pasted megabyte would build a page nobody can read. The raw
+list is therefore cut at ``MAX_INPUTS`` — five times the cap, which leaves room
+for duplicates, junk and a generous over-paste — and the cut is reported on the
+page and in the messages. It falls on a separator, never inside a number: a
+truncation that shortened ``1234`` to ``12`` would name a different record. The
+count of what was dropped is deliberately NOT given, because counting the tail
+means parsing the tail, which is the work the ceiling exists to refuse.
+
 **The entry point takes record numbers, and does not pick them.** ADR-158
 withheld a record picker because a picker is a read boundary
 (:ref:`ADR-130 <adr-130>`), and that reasoning is unchanged: this surface

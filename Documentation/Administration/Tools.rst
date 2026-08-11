@@ -503,11 +503,19 @@ listed in the catalogue but has no per-record entry point.
 Several records at once
 -----------------------
 
-Each action in the catalogue also offers :guilabel:`Run this on several
-records` (:ref:`ADR-162 <adr-162>`). That page takes a list of record numbers
-from the same table and shows, before anything starts, which of them the action
-can run on, which are skipped and why, and what the batch is expected to cost in
-requests, tokens and money.
+Once a record is selected — that is, when the catalogue was opened from a
+record's context menu — each action there also offers :guilabel:`Run this on
+several records` (:ref:`ADR-162 <adr-162>`). The catalogue opened from the
+module menu has no record and therefore no bulk entry point either; an action
+needs a subject, and this module picks none. That page takes a list of record
+numbers from the same table, seeded with the record that was selected, and
+shows, before anything starts, which of them the action can run on, which are
+skipped and why, and what the batch is expected to cost in requests, tokens and
+money.
+
+At most 100 entries of that list are read at all. A longer paste is cut there
+and the page says so, because everything past the cut would otherwise become a
+table row and a record number in a message no one can read.
 
 Starting it creates **one ordinary run per record**. There is no bulk mode: each
 record gets its own approval card with its own preview, and an approver decides

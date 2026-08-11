@@ -119,6 +119,57 @@ final class EditorActionBatchPlannerTest extends AbstractUnitTestCase
         }
     }
 
+    /**
+     * MAX_RECORDS bounds what STARTS; it does not bound what is parsed. Without
+     * a second ceiling a pasted megabyte becomes a million entries, a million
+     * table rows and a flash message naming a million uids in the session — so
+     * the raw list is cut at MAX_INPUTS and the cut is reported.
+     */
+    #[Test]
+    public function readsNoMoreOfTheListThanTheInputCeilingAndSaysWhenItCut(): void
+    {
+        $uids    = range(1, EditorActionBatchPlanner::MAX_INPUTS + 40);
+        $planner = $this->planner(offering: $uids);
+
+        $plan = $this->plan($planner, implode(',', $uids));
+
+        self::assertTrue($plan->inputTruncated);
+        self::assertCount(EditorActionBatchPlanner::MAX_INPUTS, $plan->entries);
+    }
+
+    /**
+     * The cut falls on a separator, never inside a number: a truncation that
+     * shortened `1234` to `12` would act on a different record than the one an
+     * editor named.
+     */
+    #[Test]
+    public function cutsTheListAtASeparatorSoNoRecordNumberIsShortened(): void
+    {
+        $uids    = range(1000, 1000 + EditorActionBatchPlanner::MAX_INPUTS);
+        $planner = $this->planner(offering: $uids);
+
+        $plan = $this->plan($planner, implode(',', $uids));
+
+        self::assertTrue($plan->inputTruncated);
+        self::assertSame(0, $plan->discardedInputs);
+        self::assertSame(
+            array_slice($uids, 0, EditorActionBatchPlanner::MAX_INPUTS),
+            array_map(static fn(EditorActionBatchEntry $e): int => $e->recordUid, $plan->entries),
+        );
+    }
+
+    #[Test]
+    public function readsAListThatFitsTheCeilingWhole(): void
+    {
+        $uids    = range(1, EditorActionBatchPlanner::MAX_INPUTS);
+        $planner = $this->planner(offering: $uids);
+
+        $plan = $this->plan($planner, implode(',', $uids));
+
+        self::assertFalse($plan->inputTruncated);
+        self::assertCount(EditorActionBatchPlanner::MAX_INPUTS, $plan->entries);
+    }
+
     #[Test]
     public function countsEntriesThatAreNotRecordNumbersInsteadOfSwallowingThem(): void
     {

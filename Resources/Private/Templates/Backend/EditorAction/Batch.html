@@ -50,7 +50,7 @@
             <label class="form-label" for="nrllm-batch-uids">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.label" default="Record numbers" />
             </label>
-            <f:form.textarea name="recordUids" id="nrllm-batch-uids" class="form-control" rows="3" value="{recordUids}" />
+            <f:form.textarea name="recordUids" id="nrllm-batch-uids" class="form-control" rows="3" maxlength="2000" value="{recordUids}" />
             <small class="form-text text-body-secondary">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.hint" default="Separated by commas or spaces, all from the same table." />
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.uids.cap" default="At most %s records are planned; the rest are listed as skipped." arguments="{0: maxRecords}" />
@@ -101,7 +101,7 @@
                         <tr>
                             <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.estimate.outputCeiling" default="Output ceiling per request" /></th>
                             <td>
-                                <f:if condition="{plan.estimate.hasOutputCeiling}">
+                                <f:if condition="{plan.estimate.outputCeiling}">
                                     <f:then>{plan.estimate.maxOutputTokensPerRequest}</f:then>
                                     <f:else>
                                         <span class="text-body-secondary">
@@ -149,6 +149,15 @@
     </f:if>
 
     <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.records.title" default="The records" /></h2>
+
+    <f:if condition="{plan.inputTruncated}">
+        <div class="callout callout-warning">
+            <p>
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.batch.truncated"
+                             default="Only the first %s entries of the list were read; everything after them was ignored." arguments="{0: maxInputs}" />
+            </p>
+        </div>
+    </f:if>
 
     <f:if condition="{plan.discardedInputs} > 0">
         <div class="callout callout-warning">

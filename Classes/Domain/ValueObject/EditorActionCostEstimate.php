@@ -69,6 +69,12 @@ final readonly class EditorActionCostEstimate
      * Fluid asks this rather than the number: a ceiling is a positive integer
      * and its absence is null, both of which are falsy there, so a condition on
      * the value could not tell "unbounded" from a ceiling of zero.
+     *
+     * The template writes `{estimate.outputCeiling}`, NOT
+     * `{estimate.hasOutputCeiling}`. Fluid resolves a path segment by trying
+     * `get`, `is` and `has` in front of it and a public property last, so the
+     * `has` prefix belongs to the accessor and never to the path — a path that
+     * spells it out looks for `getHasOutputCeiling()` and silently yields null.
      */
     public function hasOutputCeiling(): bool
     {

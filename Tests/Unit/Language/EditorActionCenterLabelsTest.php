@@ -47,7 +47,8 @@ final class EditorActionCenterLabelsTest extends TestCase
             // so a missing key renders the key at the editor.
             'editorActions.batch.flash.started',
             'editorActions.batch.flash.discarded',
-            'editorActions.batch.flash.withoutPause',
+            'editorActions.batch.flash.truncated',
+            'editorActions.batch.flash.completedWithoutWrite',
             'editorActions.batch.flash.blocked',
             'editorActions.batch.flash.cancelled',
             'editorActions.batch.flash.failed',

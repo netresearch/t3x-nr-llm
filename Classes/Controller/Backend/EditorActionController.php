@@ -183,6 +183,7 @@ final class EditorActionController extends ActionController
             'recordUids'  => $recordUids,
             'instruction' => $instruction,
             'maxRecords'  => EditorActionBatchPlanner::MAX_RECORDS,
+            'maxInputs'   => EditorActionBatchPlanner::MAX_INPUTS,
         ]);
 
         return $moduleTemplate->renderResponse('Backend/EditorAction/Batch');
@@ -249,7 +250,7 @@ final class EditorActionController extends ActionController
                 continue;
             }
 
-            [$key, $severity] = $this->batchTerminalLabel($result->outcome);
+            [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.batch.flash.');
             $terminal[$key]   = [($terminal[$key][0] ?? 0) + 1, $severity];
         }
 
@@ -314,6 +315,10 @@ final class EditorActionController extends ActionController
             );
         }
 
+        if ($plan->inputTruncated) {
+            $this->flashCount('editorActions.batch.flash.truncated', EditorActionBatchPlanner::MAX_INPUTS, ContextualFeedbackSeverity::WARNING);
+        }
+
         if ($plan->discardedInputs > 0) {
             $this->flashCount('editorActions.batch.flash.discarded', $plan->discardedInputs, ContextualFeedbackSeverity::WARNING);
         }
@@ -376,25 +381,29 @@ final class EditorActionController extends ActionController
     }
 
     /**
-     * Which batch counter a terminal outcome belongs in, and how loudly it
-     * reads.
+     * Which bucket a terminal outcome belongs in, and how loudly it reads.
      *
-     * The same partition {@see flashTerminalOutcome()} uses for one record: a
-     * batch must not report a failed, guardrail-stopped or unresumable run as
-     * the benign "finished without proposing a change". SUSPEND_FAILED is the
+     * ONE partition for both surfaces, differing only in the label namespace
+     * the caller passes: the single-record path says it of one run, the batch
+     * says it of a count. They said the same thing in two match statements
+     * before, which is a pair that drifts the moment an {@see AgentRunOutcome}
+     * case is added or moved.
+     *
+     * Neither surface may report a failed, guardrail-stopped or unresumable run
+     * as the benign "finished without proposing a change". SUSPEND_FAILED is the
      * sharpest of those — an approval was required and could not be stored, so
      * no resume is possible — and lands in the default arm with FAILED.
      * {@see AgentRunOutcome} is non-exhaustive (ADR-101), hence that arm.
      *
      * @return array{string, ContextualFeedbackSeverity}
      */
-    private function batchTerminalLabel(AgentRunOutcome $outcome): array
+    private function terminalLabel(AgentRunOutcome $outcome, string $prefix): array
     {
         return match ($outcome) {
-            AgentRunOutcome::COMPLETED => ['editorActions.batch.flash.withoutPause', ContextualFeedbackSeverity::INFO],
-            AgentRunOutcome::GUARDRAIL_BLOCKED, AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => ['editorActions.batch.flash.blocked', ContextualFeedbackSeverity::WARNING],
-            AgentRunOutcome::CANCELLED => ['editorActions.batch.flash.cancelled', ContextualFeedbackSeverity::INFO],
-            default => ['editorActions.batch.flash.failed', ContextualFeedbackSeverity::ERROR],
+            AgentRunOutcome::COMPLETED => [$prefix . 'completedWithoutWrite', ContextualFeedbackSeverity::INFO],
+            AgentRunOutcome::GUARDRAIL_BLOCKED, AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => [$prefix . 'blocked', ContextualFeedbackSeverity::WARNING],
+            AgentRunOutcome::CANCELLED => [$prefix . 'cancelled', ContextualFeedbackSeverity::INFO],
+            default => [$prefix . 'failed', ContextualFeedbackSeverity::ERROR],
         };
     }
 
@@ -411,18 +420,12 @@ final class EditorActionController extends ActionController
      * A run that ended without asking anyone.
      *
      * For a writing action that is the unusual case — the model declined to
-     * call the tool, a guardrail stopped it, or it failed — so none of these
-     * arms claims a write happened. {@see AgentRunOutcome} is non-exhaustive
-     * (ADR-101), hence the default arm.
+     * call the tool, a guardrail stopped it, or it failed — so no sentence
+     * {@see terminalLabel()} names claims a write happened.
      */
     private function flashTerminalOutcome(AgentRunResult $result): void
     {
-        [$key, $severity] = match ($result->outcome) {
-            AgentRunOutcome::COMPLETED => ['editorActions.flash.completedWithoutWrite', ContextualFeedbackSeverity::INFO],
-            AgentRunOutcome::GUARDRAIL_BLOCKED, AgentRunOutcome::GUARDRAIL_APPROVAL_REQUIRED => ['editorActions.flash.blocked', ContextualFeedbackSeverity::WARNING],
-            AgentRunOutcome::CANCELLED => ['editorActions.flash.cancelled', ContextualFeedbackSeverity::INFO],
-            default => ['editorActions.flash.failed', ContextualFeedbackSeverity::ERROR],
-        };
+        [$key, $severity] = $this->terminalLabel($result->outcome, 'editorActions.flash.');
 
         $this->flash($key, $severity);
     }

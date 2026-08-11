@@ -62,6 +62,23 @@ final readonly class EditorActionBatchPlanner
      */
     public const MAX_RECORDS = 20;
 
+    /**
+     * The largest raw list this surface reads at all.
+     *
+     * {@see MAX_RECORDS} bounds how many runs START; it does not bound how much
+     * input is parsed, rendered and named in a flash message. Every number past
+     * the cap still becomes an entry, a table row and a uid in a session-stored
+     * message, so a paste of a hundred thousand numbers is a page nobody can
+     * read built from a request nobody meant.
+     *
+     * Five times the cap leaves room for duplicates, junk and a generous
+     * over-paste while keeping the page and the messages bounded. Everything
+     * past it is dropped as a whole and SAID so — never silently, and never
+     * partially: the tail is cut at a separator, so no record number is ever
+     * shortened into a different one.
+     */
+    public const MAX_INPUTS = self::MAX_RECORDS * 5;
+
     public const REASON_NOT_OFFERED = self::LL . 'editorActions.batch.skip.notOffered';
 
     public const REASON_OVER_CAP = self::LL . 'editorActions.batch.skip.overCap';
@@ -102,7 +119,7 @@ final readonly class EditorActionBatchPlanner
         AiActorContext $actor,
         ?BackendUserAuthentication $user,
     ): EditorActionBatchPlan {
-        [$tokens, $discarded] = $this->parse($recordUidList);
+        [$tokens, $discarded, $truncated] = $this->parse($recordUidList);
 
         $entries = [];
         $seen    = [];
@@ -141,11 +158,11 @@ final readonly class EditorActionBatchPlanner
         }
 
         return new EditorActionBatchPlan(
-            $toolName,
             $recordTable,
             $this->offer($toolName, $recordTable, $user),
             $entries,
             $discarded,
+            $truncated,
             $this->estimate($entries, $toolName),
         );
     }
@@ -173,18 +190,31 @@ final readonly class EditorActionBatchPlanner
     }
 
     /**
-     * The record numbers a raw request value names, and how many of its entries
-     * were not record numbers.
+     * The record numbers a raw request value names, how many of its entries
+     * were not record numbers, and whether the list was cut at
+     * {@see MAX_INPUTS}.
      *
-     * @return array{0: list<int>, 1: int}
+     * The split is limited rather than counted: asking how many entries a
+     * discarded tail holds means splitting the tail, which is the unbounded
+     * work this ceiling exists to refuse. `preg_split()`'s limit leaves the
+     * whole remainder in one last element, so dropping that element cuts the
+     * list at a separator and never mid-number.
+     *
+     * @return array{0: list<int>, 1: int, 2: bool}
      */
     private function parse(string $recordUidList): array
     {
-        $tokens = preg_split('/[\s,]+/', trim($recordUidList), -1, PREG_SPLIT_NO_EMPTY);
+        $tokens = preg_split('/[\s,]+/', trim($recordUidList), self::MAX_INPUTS + 1, PREG_SPLIT_NO_EMPTY);
+        $tokens = $tokens === false ? [] : $tokens;
+
+        $truncated = count($tokens) > self::MAX_INPUTS;
+        if ($truncated) {
+            array_pop($tokens);
+        }
 
         $uids      = [];
         $discarded = 0;
-        foreach ($tokens === false ? [] : $tokens as $token) {
+        foreach ($tokens as $token) {
             if (preg_match('/^\d+$/', $token) === 1 && (int)$token > 0) {
                 $uids[] = (int)$token;
                 continue;
@@ -193,7 +223,7 @@ final readonly class EditorActionBatchPlanner
             ++$discarded;
         }
 
-        return [$uids, $discarded];
+        return [$uids, $discarded, $truncated];
     }
 
     /**

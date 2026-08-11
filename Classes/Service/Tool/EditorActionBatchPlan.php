@@ -30,6 +30,11 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorActionOffer;
  * again inside the POST that starts it. The second build is the authoritative
  * one — a plan carried across the request would be a permission carried across
  * a request.
+ *
+ * There is deliberately no `$toolName` on it either, for the same reason as
+ * {@see getSkipped()}'s missing twin: the controller and the template both hold
+ * the tool name they were handed, and a copy here would be a second source
+ * nobody reads.
  */
 final readonly class EditorActionBatchPlan
 {
@@ -42,13 +47,17 @@ final readonly class EditorActionBatchPlan
      *                                                      in the order the request named them
      * @param int                          $discardedInputs how many entries of the request were not record
      *                                                      numbers at all and were dropped before planning
+     * @param bool                         $inputTruncated  whether the raw list was longer than
+     *                                                      {@see EditorActionBatchPlanner::MAX_INPUTS} and was cut
+     *                                                      there. A flag rather than a count on purpose: counting
+     *                                                      the tail means parsing the tail.
      */
     public function __construct(
-        public string $toolName,
         public string $recordTable,
         public ?EditorActionOffer $offer,
         public array $entries,
         public int $discardedInputs,
+        public bool $inputTruncated,
         public EditorActionCostEstimate $estimate,
     ) {}
 
