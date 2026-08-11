@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+    <file source-language="en" target-language="de" datatype="plaintext" original="messages" date="2026-08-11T00:00:00Z" product-name="nr_llm">
+        <header/>
+        <body>
+            <trans-unit id="mlang_labels_tabdescr" resname="mlang_labels_tabdescr">
+                <source>Get Started - pick a use case and install a matching pack</source>
+                <target>Erste Schritte - Anwendungsfall wählen und passendes Paket installieren</target>
+            </trans-unit>
+            <trans-unit id="mlang_labels_tablabel" resname="mlang_labels_tablabel">
+                <source>Get Started</source>
+                <target>Erste Schritte</target>
+            </trans-unit>
+            <trans-unit id="mlang_tabs_tab" resname="mlang_tabs_tab">
+                <source>Get Started</source>
+                <target>Erste Schritte</target>
+            </trans-unit>
+            <trans-unit id="index.title">
+                <source>What do you want to do?</source>
+                <target>Was möchten Sie tun?</target>
+            </trans-unit>
+            <trans-unit id="index.intro">
+                <source>Pick the job you have. A pack sets up a configuration, tasks and prompt snippets for it in one confirmed step, and tells you which governance posture and which tool groups it was written for. Nothing is created until you confirm.</source>
+                <target>Wählen Sie die Aufgabe, die Sie haben. Ein Paket legt dafür eine Konfiguration, Tasks und Prompt-Snippets in einem bestätigten Schritt an und nennt die Governance-Haltung und die Tool-Gruppen, für die es geschrieben wurde. Vor Ihrer Bestätigung wird nichts angelegt.</target>
+            </trans-unit>
+            <trans-unit id="index.noPack">
+                <source>No pack yet</source>
+                <target>Noch kein Paket</target>
+            </trans-unit>
+            <trans-unit id="index.useWizard">
+                <source>Set this up with the setup wizard</source>
+                <target>Mit dem Einrichtungsassistenten einrichten</target>
+            </trans-unit>
+            <trans-unit id="overview.card.description">
+                <source>Start from the job instead of the provider. A use-case pack installs a configuration, tasks and prompt snippets in one confirmed step.</source>
+                <target>Beginnen Sie bei der Aufgabe statt beim Anbieter. Ein Anwendungsfall-Paket legt Konfiguration, Tasks und Prompt-Snippets in einem bestätigten Schritt an.</target>
+            </trans-unit>
+            <trans-unit id="overview.card.button">
+                <source>Pick a use case</source>
+                <target>Anwendungsfall wählen</target>
+            </trans-unit>
+            <trans-unit id="wizard.hint">
+                <source>Not sure which provider you need? Start from the job instead and let a use-case pack suggest the setup.</source>
+                <target>Unklar, welcher Anbieter passt? Beginnen Sie stattdessen bei der Aufgabe und lassen Sie sich die Einrichtung von einem Anwendungsfall-Paket vorschlagen.</target>
+            </trans-unit>
+            <trans-unit id="show.preflight.ok">
+                <source>Requirements met. The configuration would resolve to:</source>
+                <target>Anforderungen erfüllt. Die Konfiguration würde aufgelöst auf:</target>
+            </trans-unit>
+            <trans-unit id="show.preflight.missing">
+                <source>No active model satisfies this pack's requirement:</source>
+                <target>Kein aktives Modell erfüllt die Anforderung dieses Pakets:</target>
+            </trans-unit>
+            <trans-unit id="show.plan.title">
+                <source>What this pack installs</source>
+                <target>Was dieses Paket anlegt</target>
+            </trans-unit>
+            <trans-unit id="show.plan.kind">
+                <source>Record</source>
+                <target>Datensatz</target>
+            </trans-unit>
+            <trans-unit id="show.plan.identifier">
+                <source>Identifier</source>
+                <target>Bezeichner</target>
+            </trans-unit>
+            <trans-unit id="show.plan.state">
+                <source>State</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="show.plan.snippetTags">
+                <source>Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:</source>
+                <target>Die Installation ergänzt außerdem diese Snippet-Tags in der Auswahl der Konfiguration, damit die Snippets des Pakets in deren Prompts landen:</target>
+            </trans-unit>
+            <trans-unit id="show.affected">
+                <source>These existing configurations already select one of the pack's snippet tags. Installing adds the pack's snippets to their prompts as well:</source>
+                <target>Diese vorhandenen Konfigurationen wählen bereits eines der Snippet-Tags des Pakets aus. Die Installation ergänzt die Snippets des Pakets auch in deren Prompts:</target>
+            </trans-unit>
+            <trans-unit id="show.affected.hint">
+                <source>To keep them unchanged, edit their snippet-tag selection before installing, or rename the pack's tags after the install.</source>
+                <target>Damit sie unverändert bleiben, ändern Sie deren Snippet-Tag-Auswahl vor der Installation oder benennen Sie die Tags des Pakets danach um.</target>
+            </trans-unit>
+            <trans-unit id="show.state.installed">
+                <source>Already there</source>
+                <target>Bereits vorhanden</target>
+            </trans-unit>
+            <trans-unit id="show.state.pending">
+                <source>Would be created</source>
+                <target>Würde angelegt</target>
+            </trans-unit>
+            <trans-unit id="show.install">
+                <source>Create the missing records</source>
+                <target>Fehlende Datensätze anlegen</target>
+            </trans-unit>
+            <trans-unit id="show.install.hint">
+                <source>Existing records with the same identifier are left untouched. The only field an install adds to is the configuration's snippet-tag selection.</source>
+                <target>Vorhandene Datensätze mit demselben Bezeichner bleiben unverändert. Das einzige Feld, das eine Installation ergänzt, ist die Snippet-Tag-Auswahl der Konfiguration.</target>
+            </trans-unit>
+            <trans-unit id="show.alreadyInstalled">
+                <source>Every record this pack declares already exists. There is nothing left to create.</source>
+                <target>Alle Datensätze dieses Pakets sind bereits vorhanden. Es bleibt nichts anzulegen.</target>
+            </trans-unit>
+            <trans-unit id="show.blocked">
+                <source>The pack's configuration cannot be created until a model satisfies its requirements. Add or activate one, then come back.</source>
+                <target>Die Konfiguration des Pakets lässt sich erst anlegen, wenn ein Modell die Anforderungen erfüllt. Legen Sie eines an oder aktivieren Sie eines und kommen Sie zurück.</target>
+            </trans-unit>
+            <trans-unit id="show.capabilities">
+                <source>Required model capabilities</source>
+                <target>Erforderliche Modell-Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="show.governance">
+                <source>Recommended governance posture</source>
+                <target>Empfohlene Governance-Haltung</target>
+            </trans-unit>
+            <trans-unit id="show.governance.hint">
+                <source>Installing the pack does not change any governance setting. Compare this posture with what is in force:</source>
+                <target>Die Installation ändert keine Governance-Einstellung. Vergleichen Sie diese Haltung mit der geltenden:</target>
+            </trans-unit>
+            <trans-unit id="show.toolGroups">
+                <source>Optional tool groups</source>
+                <target>Optionale Tool-Gruppen</target>
+            </trans-unit>
+            <trans-unit id="show.toolGroups.hint">
+                <source>The pack does not enable these. Enabling a tool group stays an administrator decision:</source>
+                <target>Das Paket aktiviert diese nicht. Eine Tool-Gruppe zu aktivieren bleibt eine Entscheidung der Administration:</target>
+            </trans-unit>
+            <trans-unit id="show.skills">
+                <source>Skills</source>
+                <target>Skills</target>
+            </trans-unit>
+            <trans-unit id="show.skills.hint">
+                <source>A pack installs no skills. A skill carries provenance and a trust level from the source it was synced from, and a pack cannot produce either. Add a skill source instead.</source>
+                <target>Ein Paket installiert keine Skills. Ein Skill trägt Herkunft und Vertrauensstufe aus der Quelle, aus der er synchronisiert wurde; beides kann ein Paket nicht erzeugen. Legen Sie stattdessen eine Skill-Quelle an.</target>
+            </trans-unit>
+        </body>
+    </file>
+</xliff>

@@ -1,4 +1,5 @@
 <html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
       xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
       data-namespace-typo3-fluid="true">
 <!--
@@ -11,6 +12,20 @@
 <f:section name="Content">
     <div>
     <div class="setup-wizard" id="setup-wizard">
+        <f:comment>
+            This wizard starts at the endpoint, which is the last question an
+            operator can answer. The earlier one — what do you want to do? —
+            lives in its own module (ADR-163); point at it before step 1.
+        </f:comment>
+        <f:be.infobox state="-2">
+            <p class="mb-0">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:wizard.hint" default="Not sure which provider you need? Start from the job instead and let a use-case pack suggest the setup." />
+                <a href="{be:moduleLink(route: 'nrllm_usecase')}">
+                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" />
+                </a>
+            </p>
+        </f:be.infobox>
+
         <f:comment>Progress Steps</f:comment>
         <div class="wizard-progress mb-4">
             <div class="wizard-steps d-flex justify-content-between">

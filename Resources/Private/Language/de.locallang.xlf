@@ -528,6 +528,70 @@
                 <source>Full content for debugging, short retention, and the data-class axis in observe so you see what would be blocked instead of being blocked.</source>
                 <target>Vollständige Inhalte zum Debuggen, kurze Aufbewahrung, und die Datenklassen-Achse im Beobachtungsmodus — du siehst, was blockiert würde, statt blockiert zu werden.</target>
             </trans-unit>
+            <trans-unit id="usecase.EDITORIAL">
+                <source>Editorial assistance</source>
+                <target>Redaktionelle Unterstützung</target>
+            </trans-unit>
+            <trans-unit id="usecase.EDITORIAL.description">
+                <source>Draft, rewrite, proofread and summarise editorial copy.</source>
+                <target>Redaktionelle Texte entwerfen, umschreiben, korrigieren und zusammenfassen.</target>
+            </trans-unit>
+            <trans-unit id="usecase.TRANSLATION">
+                <source>Translation</source>
+                <target>Übersetzung</target>
+            </trans-unit>
+            <trans-unit id="usecase.TRANSLATION.description">
+                <source>Translate existing content into further site languages.</source>
+                <target>Vorhandene Inhalte in weitere Sprachen der Website übersetzen.</target>
+            </trans-unit>
+            <trans-unit id="usecase.METADATA">
+                <source>Metadata</source>
+                <target>Metadaten</target>
+            </trans-unit>
+            <trans-unit id="usecase.METADATA.description">
+                <source>Titles, descriptions, keywords and other page metadata.</source>
+                <target>Titel, Beschreibungen, Schlagwörter und weitere Seiten-Metadaten.</target>
+            </trans-unit>
+            <trans-unit id="usecase.MEDIA_ACCESSIBILITY">
+                <source>Media accessibility</source>
+                <target>Barrierefreie Medien</target>
+            </trans-unit>
+            <trans-unit id="usecase.MEDIA_ACCESSIBILITY.description">
+                <source>Alternative texts, captions and transcripts for media.</source>
+                <target>Alternativtexte, Bildunterschriften und Transkripte für Medien.</target>
+            </trans-unit>
+            <trans-unit id="usecase.AGENT_WORKFLOWS">
+                <source>Agent workflows</source>
+                <target>Agenten-Workflows</target>
+            </trans-unit>
+            <trans-unit id="usecase.AGENT_WORKFLOWS.description">
+                <source>Multi-step agent runs with tools and approvals.</source>
+                <target>Mehrschrittige Agentenläufe mit Tools und Freigaben.</target>
+            </trans-unit>
+            <trans-unit id="usecase.DEVELOPER_INTEGRATION">
+                <source>Developer integration</source>
+                <target>Entwickler-Integration</target>
+            </trans-unit>
+            <trans-unit id="usecase.DEVELOPER_INTEGRATION.description">
+                <source>Use nr_llm as a provider layer from your own extension code.</source>
+                <target>nr_llm als Provider-Schicht aus eigenem Extension-Code nutzen.</target>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installed.title">
+                <source>Pack installed</source>
+                <target>Paket installiert</target>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installed.body">
+                <source>%1$s: %2$d record(s) created, %3$d already present and left unchanged.</source>
+                <target>%1$s: %2$d Datensätze angelegt, %3$d bereits vorhanden und unverändert gelassen.</target>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installFailed.title">
+                <source>Pack not installed</source>
+                <target>Paket nicht installiert</target>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installError.body">
+                <source>Failed to install the pack. See the system log for details.</source>
+                <target>Das Paket konnte nicht installiert werden. Details stehen im System-Log.</target>
+            </trans-unit>
             <trans-unit id="governance.unknown.note">
                 <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
                 <target>Eine Zeile zeigt „unbekannt“, wenn ihr Resolver nicht befragt werden konnte. Sie fällt nie auf einen ausgelieferten Default zurück, denn ein hier gezeigter Wert muss einer sein, den die Laufzeit auch anwenden würde.</target>

@@ -400,6 +400,54 @@
             <trans-unit id="governance.profile.DEVELOPMENT.description">
                 <source>Full content for debugging, short retention, and the data-class axis in observe so you see what would be blocked instead of being blocked.</source>
             </trans-unit>
+            <trans-unit id="usecase.EDITORIAL">
+                <source>Editorial assistance</source>
+            </trans-unit>
+            <trans-unit id="usecase.EDITORIAL.description">
+                <source>Draft, rewrite, proofread and summarise editorial copy.</source>
+            </trans-unit>
+            <trans-unit id="usecase.TRANSLATION">
+                <source>Translation</source>
+            </trans-unit>
+            <trans-unit id="usecase.TRANSLATION.description">
+                <source>Translate existing content into further site languages.</source>
+            </trans-unit>
+            <trans-unit id="usecase.METADATA">
+                <source>Metadata</source>
+            </trans-unit>
+            <trans-unit id="usecase.METADATA.description">
+                <source>Titles, descriptions, keywords and other page metadata.</source>
+            </trans-unit>
+            <trans-unit id="usecase.MEDIA_ACCESSIBILITY">
+                <source>Media accessibility</source>
+            </trans-unit>
+            <trans-unit id="usecase.MEDIA_ACCESSIBILITY.description">
+                <source>Alternative texts, captions and transcripts for media.</source>
+            </trans-unit>
+            <trans-unit id="usecase.AGENT_WORKFLOWS">
+                <source>Agent workflows</source>
+            </trans-unit>
+            <trans-unit id="usecase.AGENT_WORKFLOWS.description">
+                <source>Multi-step agent runs with tools and approvals.</source>
+            </trans-unit>
+            <trans-unit id="usecase.DEVELOPER_INTEGRATION">
+                <source>Developer integration</source>
+            </trans-unit>
+            <trans-unit id="usecase.DEVELOPER_INTEGRATION.description">
+                <source>Use nr_llm as a provider layer from your own extension code.</source>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installed.title">
+                <source>Pack installed</source>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installed.body">
+                <source>%1$s: %2$d record(s) created, %3$d already present and left unchanged.</source>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installFailed.title">
+                <source>Pack not installed</source>
+            </trans-unit>
+            <trans-unit id="flash.usecase.installError.body">
+                <source>Failed to install the pack. See the system log for details.</source>
+            </trans-unit>
             <trans-unit id="governance.unknown.note">
                 <source>A row reads "unknown" when its resolver could not be asked. It never falls back to a shipped default, because a value shown here must be one the runtime would apply.</source>
             </trans-unit>
