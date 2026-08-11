@@ -151,7 +151,9 @@ final class InputContextTrustGateTest extends TestCase
         $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
 
         $this->expectException(InputContextTrustZoneException::class);
-        $gate->assertPermitted($this->criteriaConfiguration(), 0, null);
+        // No third argument, which IS the case under test: the caller resolved
+        // nothing. Spelling `null` out reads better and Rector removes it.
+        $gate->assertPermitted($this->criteriaConfiguration(), 0);
     }
 
     #[Test]
