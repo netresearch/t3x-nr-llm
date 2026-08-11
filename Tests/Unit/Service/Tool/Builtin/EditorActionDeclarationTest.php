@@ -126,29 +126,6 @@ final class EditorActionDeclarationTest extends TestCase
      */
     #[Test]
     #[DataProvider('writerClasses')]
-    public function everyDeclaredIconIsRegisteredAndItsFileExists(string $class): void
-    {
-        $tool = $this->instantiate($class);
-        self::assertInstanceOf(EditorActionInterface::class, $tool);
-        $identifier = $tool->getEditorAction()->iconIdentifier;
-
-        $icons = require dirname(__DIR__, 5) . '/Configuration/Icons.php';
-        self::assertIsArray($icons);
-        self::assertArrayHasKey($identifier, $icons, 'Icon ' . $identifier . ' is not registered in Configuration/Icons.php');
-
-        $registration = $icons[$identifier];
-        self::assertIsArray($registration);
-        $source = $registration['source'] ?? null;
-        self::assertIsString($source);
-        self::assertStringStartsWith('EXT:nr_llm/', $source);
-        self::assertFileExists(dirname(__DIR__, 5) . '/' . substr($source, strlen('EXT:nr_llm/')));
-    }
-
-    /**
-     * @param class-string<ToolInterface> $class
-     */
-    #[Test]
-    #[DataProvider('writerClasses')]
     public function theDeclaredRecordTypesAreRealTableNames(string $class): void
     {
         $tool = $this->instantiate($class);

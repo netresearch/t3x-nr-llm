@@ -58,7 +58,8 @@ final class EditorActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1786406401);
 
-        new EditorAction($label, $description, $icon, ['pages']);
+        $refused = new EditorAction($label, $description, $icon, ['pages']);
+        self::fail('A declaration missing a rendering key was accepted: ' . $refused->labelKey);
     }
 
     /**
@@ -82,6 +83,7 @@ final class EditorActionTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1786406402);
 
-        new EditorAction('label', 'description', 'icon', $recordTypes);
+        $refused = new EditorAction('label', 'description', 'icon', $recordTypes);
+        self::fail('An unplaceable declaration was accepted: ' . implode(',', $refused->recordTypes));
     }
 }
