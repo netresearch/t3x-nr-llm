@@ -54,10 +54,11 @@ Decision
 call.** :php:`ResumeCoordinator::submitInput()` resolves the SUBMITTER's live
 backend user and asks :php:`ToolCallPolicy::decide()` about every call of the
 pending turn — not only the writing ones — plus the state's declared
-:php:`inputToolName`. The declared tool is checked even when it already appears
-among the pending calls (the normal case, one repeated verdict) so that a
-degenerate state whose pending calls do not name it cannot become an ungated
-submit. A denial refuses the submission with
+:php:`inputToolName`. The declared tool is appended only when the pending calls
+do not already name it — normally the turn's own call covers it, so no tool is
+asked about twice; the append exists so that a degenerate state whose pending
+calls do not name it cannot become an ungated submit. A denial refuses the
+submission with
 :php:`SubmitterNotPermittedException`.
 
 **One gate implementation, two selection rules.** The walk that asks the policy

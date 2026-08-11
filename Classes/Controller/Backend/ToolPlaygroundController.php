@@ -472,12 +472,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         }
 
         // The two pauses are bound by different digests (ADR-150), and the state
-        // says which pause this is: only an input pause names a target tool.
-        // Emitting the approval digest for an input pause would hand the client
-        // a value the runtime never accepts.
-        return $state->inputToolName === null
-            ? $this->turnDigest->forState($state)
-            : $this->turnDigest->forInputState($state);
+        // says which pause this is. Emitting the approval digest for an input
+        // pause would hand the client a value the runtime never accepts.
+        return $state->isInputPause()
+            ? $this->turnDigest->forInputState($state)
+            : $this->turnDigest->forState($state);
     }
 
     /**

@@ -346,11 +346,10 @@ final readonly class ResumeCoordinator
      * claim and the lease and writes the (unchanged) state back, so the run is
      * actionable again.
      *
-     * Which pause to restore is read off the state rather than passed in: an
-     * input pause is exactly the state that names a target tool (ADR-105 makes
-     * the two markers mutually exclusive), so the decision cannot be got wrong
-     * at a call site. Restoring the wrong one would move a run between the two
-     * inbox forms.
+     * Which pause to restore is read off the state rather than passed in, and
+     * through {@see SuspendedRunState::isInputPause()} rather than a local
+     * comparison, so the decision cannot be got wrong at a call site.
+     * Restoring the wrong one would move a run between the two inbox forms.
      *
      * A release that itself fails would leave the run RUNNING with no worker —
      * invisible to the inbox and to the stale-run reaper alike — so that case
@@ -358,9 +357,9 @@ final readonly class ResumeCoordinator
      */
     private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid): void
     {
-        $restored = $state->inputToolName === null
-            ? $this->persister->suspend($handle, $state)
-            : $this->persister->suspendForInput($handle, $state);
+        $restored = $state->isInputPause()
+            ? $this->persister->suspendForInput($handle, $state)
+            : $this->persister->suspend($handle, $state);
 
         if ($restored) {
             return;
@@ -483,9 +482,11 @@ final readonly class ResumeCoordinator
      * path the danger is not that something changes state unattended but that a
      * user who may not run a tool supplies the values it runs with.
      *
-     * The declared tool is checked even when it is already among the pending
-     * calls (the normal case, costing one repeated verdict) so that a degenerate
-     * state whose pending calls do NOT name it cannot become an ungated submit.
+     * The declared tool is APPENDED only when the pending calls do not already
+     * name it — normally the turn's own call covers it, so the policy is never
+     * asked about the same tool twice. The append exists for the degenerate
+     * state whose pending calls do NOT name it, which must not become an
+     * ungated submit.
      */
     private function submitterRefusal(AiActorContext $actor, LlmConfiguration $configuration, SuspendedRunState $state, string $runUuid): ?SubmitterNotPermittedException
     {

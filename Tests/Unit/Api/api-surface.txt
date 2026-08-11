@@ -755,6 +755,7 @@ Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   property readonly verdict: Netresearch\NrLlm\Domain\Enum\GuardrailVerdict
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
+  method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
   method toolCalls(): array
