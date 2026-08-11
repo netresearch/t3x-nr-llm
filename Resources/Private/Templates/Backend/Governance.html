@@ -220,11 +220,11 @@
                             <f:if condition="{simulation.servingModel}">
                                 <f:then>
                                     <span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.resolved" default="A model resolves" /></span>
-                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.lead" default="Asked for a tool-calling run, which is what a tool simulation describes. The section below explains the ranking." /></div>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.lead" default="Asked for a tool-calling run, which is what a tool simulation describes." /></div>
                                 </f:then>
                                 <f:else>
                                     <span class="text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.none" default="No model resolves" /></span>
-                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.noneLead" default="Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all. The section below names the refused candidates." /></div>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.routing.noneLead" default="Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all." /></div>
                                 </f:else>
                             </f:if>
                         </td>

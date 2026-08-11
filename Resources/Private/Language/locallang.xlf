@@ -338,7 +338,7 @@
                 <source>permits at most</source>
             </trans-unit>
             <trans-unit id="governance.simulator.observed">
-                <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
+                <source>Reported only, because enforcement is set to observe, so the tool was still offered.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration.none">
                 <source>Choose</source>
@@ -416,13 +416,13 @@
                 <source>A model resolves</source>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.lead">
-                <source>Asked for a tool-calling run, which is what a tool simulation describes. The section below explains the ranking.</source>
+                <source>Asked for a tool-calling run, which is what a tool simulation describes.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.none">
                 <source>No model resolves</source>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.noneLead">
-                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all. The section below names the refused candidates.</source>
+                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.approval.required">
                 <source>Required</source>

@@ -126,8 +126,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **The Governance simulation covers the whole run, and answers for a backend
   user other than the one reading the page** (ADR-157, closes #721 and #722).
-  ADR-145's simulator asked the tool gate alone, which is one of four things
-  that can stop a tool-calling run; a page saying "Allowed" while the
+  ADR-145's simulator asked the tool gate alone, which is one of the four gates
+  the tab now asks; a page saying "Allowed" while the
   input-context gate refuses the send is a wrong answer, not a partial one.
   - One verdict — `ALLOW` / `ALLOW + APPROVAL` / `BLOCK` — folded from four
     axes, each keeping its own row: the tool gate (ADR-094), the input-context
@@ -151,6 +151,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     input-context gate and the approval requirement do not read a user either.
     Only `requiresAdmin()` does. A simulator that silently answered the same
     for every actor on three axes would imply a dimension that is not there.
+  - The four gates are what the tab asks, not everything that can stop a call.
+    Configuration access (ADR-070), the budget check and the guardrail pipeline
+    are outside them, and the admin guide and ADR-157 say so next to the picker:
+    the configuration list is unfiltered, so a group-restricted configuration
+    paired with a non-member reads "Allowed" here and is refused at runtime.
   - **A simulation is not recorded**, deliberately. The audit's value is that
     every row is something the installation actually did; the cost is that "who
     checked what" is not answerable from it. The reasoning is in ADR-157.
@@ -272,7 +277,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   loop would suspend for approval was still registrable alongside
   `RequiresInputInterface` — the deadlock ADR-134's check exists to prevent.
   Such a tool is now rejected at the container boot. No shipped tool implements
-  the combination, so nothing that registers today stops registering.
+  the combination, so nothing that registers today stops registering. The
+  registry's second, narrower ban on the explicit `RequiresApprovalInterface`
+  marker is gone with it: that marker is the shared rule's first branch, so one
+  condition (code `1786226400`) now answers for every route into approval.
 
 
 ### Fixed

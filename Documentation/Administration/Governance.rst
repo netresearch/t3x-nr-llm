@@ -304,23 +304,23 @@ Would this be allowed?
 ======================
 
 Pick a configuration, a tool and — optionally — a backend user, then press
-:guilabel:`Simulate`. The tab runs that call past every gate that could stop
-it and reports one verdict plus each gate's own answer
+:guilabel:`Simulate`. The tab runs that call past the four gates listed below
+and reports one verdict plus each gate's own answer
 (:ref:`ADR-157 <adr-157>`).
 
 The verdict is one of three:
 
 ``Allowed``
-   Every gate permits the call and it would run unattended.
+   All four gates permit the call and it would run unattended.
 
 ``Allowed, after a human approves``
-   Every gate permits the call, and the tool is approval-bound
+   All four gates permit the call, and the tool is approval-bound
    (:ref:`ADR-134 <adr-134>`): the run suspends and waits for a decision
    before it executes. Folding this into ``Allowed`` would hide the axis at
    exactly the moment it decides, so it is its own outcome.
 
 ``Blocked``
-   At least one gate refuses. The table says which.
+   At least one of the four refuses. The table says which.
 
 Four gates are asked, each through the service the runtime itself calls:
 
@@ -351,6 +351,21 @@ input-context gate compares a configuration against a trust zone, and the
 approval requirement is a property of the tool's own declaration. A picker
 that implied four per-user answers where there is one would be worse than no
 picker.
+
+**Three things that can stop a real call are not asked here**, so ``Allowed``
+does not promise them.
+
+Configuration access (:ref:`ADR-070 <adr-070>`) is the one the picker makes
+easy to miss. ``ConfigurationResolver`` refuses a configuration whose backend
+groups the acting user is not a member of. The configuration selector lists
+every active configuration and applies no such filter. So a group-restricted
+configuration paired with a non-member reads ``Allowed`` on this tab and is
+refused at runtime. It is the second axis that reads the user's groups, and it
+is the one the tab does not ask.
+
+The other two are the budget check and the guardrail pipeline. Both decide on
+the call itself — the remaining spend, the text of the prompt — and a picker
+supplies neither.
 
 **The actor picker is not impersonation.** The selected backend user is
 resolved read-only through the same seam a queue worker uses to authorise for

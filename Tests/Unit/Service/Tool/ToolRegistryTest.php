@@ -64,7 +64,10 @@ final class ToolRegistryTest extends TestCase
     public function aToolThatIsBothApprovalAndInputGatedIsRejected(): void
     {
         // ADR-105 M1: the combination is unsupported — the approval-resume path
-        // carries no user input and would silently drop the mandatory data.
+        // carries no user input and would silently drop the mandatory data. The
+        // code pins WHICH check answers: the explicit marker is the shared
+        // rule's first branch, so the one condition below covers it too and the
+        // inline marker check the registry used to carry is gone (ADR-157).
         $dualMarker = new class implements ToolInterface, RequiresApprovalInterface, RequiresInputInterface {
             public function getSpec(): ToolSpec
             {
@@ -104,6 +107,7 @@ final class ToolRegistryTest extends TestCase
         };
 
         $this->expectException(LogicException::class);
+        $this->expectExceptionCode(1786226400);
         self::assertInstanceOf(ToolRegistry::class, new ToolRegistry([$dualMarker]));
     }
 

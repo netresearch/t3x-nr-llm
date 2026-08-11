@@ -445,8 +445,8 @@
                 <target>erlaubt höchstens</target>
             </trans-unit>
             <trans-unit id="governance.simulator.observed">
-                <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
-                <target>Nur gemeldet — die Durchsetzung steht auf Beobachten, der Aufruf würde also durchlaufen.</target>
+                <source>Reported only, because enforcement is set to observe, so the tool was still offered.</source>
+                <target>Nur gemeldet, weil die Durchsetzung auf Beobachten steht; das Tool wurde trotzdem angeboten.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration.none">
                 <source>Choose</source>
@@ -549,16 +549,16 @@
                 <target>Ein Modell wird aufgelöst</target>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.lead">
-                <source>Asked for a tool-calling run, which is what a tool simulation describes. The section below explains the ranking.</source>
-                <target>Gefragt für einen Lauf mit Tool-Aufrufen, denn genau den beschreibt eine Tool-Simulation. Der Abschnitt weiter unten erklärt die Rangfolge.</target>
+                <source>Asked for a tool-calling run, which is what a tool simulation describes.</source>
+                <target>Gefragt für einen Lauf mit Tool-Aufrufen, denn genau den beschreibt eine Tool-Simulation.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.none">
                 <source>No model resolves</source>
                 <target>Kein Modell wird aufgelöst</target>
             </trans-unit>
             <trans-unit id="governance.simulator.routing.noneLead">
-                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all. The section below names the refused candidates.</source>
-                <target>Für diese Konfiguration kann kein Modell einen Lauf mit Tool-Aufrufen bedienen; der Aufruf lässt sich also gar nicht senden. Der Abschnitt weiter unten nennt die abgelehnten Kandidaten.</target>
+                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all.</source>
+                <target>Für diese Konfiguration kann kein Modell einen Lauf mit Tool-Aufrufen bedienen; der Aufruf lässt sich also gar nicht senden.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.approval.required">
                 <source>Required</source>

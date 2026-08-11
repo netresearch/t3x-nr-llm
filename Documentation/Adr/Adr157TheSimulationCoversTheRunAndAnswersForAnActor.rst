@@ -137,8 +137,9 @@ also asks are a dependency in the allowed direction.
 Consequences
 ============
 
-✓ An operator can answer "would this specific call run, for this specific
-person" in one place, and see which gate decided.
+✓ An operator can answer "would this specific call pass the tool gate, the
+input-context gate, routing and the approval check, for this specific person"
+in one place, and see which gate decided.
 
 ✓ The approval requirement has one definition. Narrowing the remote exemption
 is one edit instead of three kept in step by a comment.
@@ -158,6 +159,14 @@ refusal wants to know whether the next one is waiting behind it.
 ◐ Routing is asked for a tool-calling operation, because that is the run a tool
 simulation describes. A configuration used for something else may route
 differently, and the readout below the simulator is where that is asked.
+
+✕ Configuration access is not one of the four, and it is actor-scoped today.
+:php:`ConfigurationResolver::actorMayUse()` (:ref:`ADR-070 <adr-070>`) reads
+``backendGroupIds`` and refuses a group-restricted configuration for a
+non-member; the picker's configuration list is unfiltered. That pairing
+therefore reads ``Allowed`` here and is refused at runtime. Budget and
+guardrails are outside the four as well, but neither is a pairing the picker
+can produce. The docs page states the limitation next to the picker.
 
 ✕ Simulations leave no trace. See :ref:`the audit decision <adr-157-audit>`.
 

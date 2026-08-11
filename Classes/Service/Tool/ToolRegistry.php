@@ -75,45 +75,35 @@ final class ToolRegistry
                 );
             }
 
-            // ADR-105 M1: a tool may not be both approval- and input-gated. The
-            // approval-resume path carries no user input and would silently drop
-            // the mandatory data; the combination is unsupported, so reject it
-            // at registration rather than fail open at resume.
-            if ($tool instanceof RequiresApprovalInterface && $tool instanceof RequiresInputInterface) {
-                throw new LogicException(
-                    sprintf(
-                        'Tool "%s" may not implement both RequiresApprovalInterface and RequiresInputInterface; combined approval+input pauses are unsupported (ADR-105).',
-                        $name,
-                    ),
-                    1784600104,
-                );
-            }
-
+            // ADR-105 M1: a tool may not be both approval- and input-gated, and
             // ADR-134 extends that ban to the IMPLICIT form of approval-gating.
             // A declared write on a non-remote tool binds the approval scan
-            // exactly as the marker does, and that scan runs BEFORE the input
-            // scan (ToolLoopService): such a tool suspends AWAITING_APPROVAL,
-            // resume() then refuses it for the input it never received, the
-            // model re-requests, and it suspends again — unexecutable, one
-            // operator decision per cycle, with submitInput() unreachable
-            // because the status is never WAITING_FOR_INPUT. A combined
-            // approval+input pause is what would be needed, and ADR-105 banned
-            // the combination rather than build one; until it exists it is
-            // unsupported however it is expressed, so it fails at the container
-            // boot rather than silently at runtime.
+            // exactly as the RequiresApprovalInterface marker does, and that
+            // scan runs BEFORE the input scan (ToolLoopService): such a tool
+            // suspends AWAITING_APPROVAL, resume() then refuses it for the input
+            // it never received, the model re-requests, and it suspends again —
+            // unexecutable, one operator decision per cycle, with submitInput()
+            // unreachable because the status is never WAITING_FOR_INPUT. A
+            // combined approval+input pause is what would be needed, and ADR-105
+            // banned the combination rather than build one; until it exists it
+            // is unsupported however it is expressed, so it fails at the
+            // container boot rather than silently at runtime.
             //
-            // The predicate is ToolApprovalRule — the same one the loop's
-            // approval scan asks (ADR-157), rather than a second copy of it
-            // here. The copy this replaced exempted every RemoteToolInterface,
-            // so a remote tool carrying a RemoteApprovalInterface declaration
-            // the loop DOES honour stayed registrable alongside
-            // RequiresInputInterface: precisely the deadlock below. A remote
-            // tool with no declaration is still exempt, because the rule
-            // exempts it.
+            // ONE condition covers every route in, because the predicate is
+            // ToolApprovalRule — the same one the loop's approval scan asks
+            // (ADR-157) — and its first branch is the explicit marker. The
+            // inline `instanceof RequiresApprovalInterface` check that used to
+            // stand here was therefore a second ban on a subset of this one and
+            // is gone. The copy this replaced also exempted every
+            // RemoteToolInterface, so a remote tool carrying a
+            // RemoteApprovalInterface declaration the loop DOES honour stayed
+            // registrable alongside RequiresInputInterface: precisely the
+            // deadlock above. A remote tool with no declaration is still exempt,
+            // because the rule exempts it.
             if ($tool instanceof RequiresInputInterface && ToolApprovalRule::requiresApproval($tool)) {
                 throw new LogicException(
                     sprintf(
-                        'Tool "%s" may not be approval-bound and implement RequiresInputInterface; approval binds through a declared write effect (ADR-134) or a RemoteApprovalInterface declaration, and the approval scan runs before the input scan, so the tool would suspend for approval and never receive its input.',
+                        'Tool "%s" may not be approval-bound and implement RequiresInputInterface; approval binds through the RequiresApprovalInterface marker (ADR-105), a declared write effect (ADR-134) or a RemoteApprovalInterface declaration, and the approval scan runs before the input scan, so the tool would suspend for approval and never receive its input.',
                         $name,
                     ),
                     1786226400,
