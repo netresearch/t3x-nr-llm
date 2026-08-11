@@ -42,7 +42,7 @@
                 <div class="card-body">
                     <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.intro" default="Installed extensions declare the following LLM configurations they need. Importing creates a criteria-mode configuration record; the model is resolved at runtime from the providers and models you configured." /></p>
                     <div class="table-fit mb-0">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="nrllm-configuration-presets">
                             <thead>
                                 <tr>
                                     <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.name" default="Name" /></th>
@@ -136,7 +136,7 @@
         <f:if condition="{configurations -> f:count()}">
             <f:then>
                 <div class="table-fit">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="nrllm-configuration-list">
                         <thead>
                             <tr>
                                 <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.name" default="Name" /></th>

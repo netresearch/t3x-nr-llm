@@ -184,12 +184,15 @@ test.describe('LLM Backend Module - Multi-Tier Architecture', () => {
       // Verify heading confirms we're on the right page
       await expect(moduleFrame.getByRole('heading', { level: 1 })).toContainText('LLM Configurations');
 
-      // Check if there are configurations
-      const configRows = await moduleFrame.locator('table tbody tr').count();
+      // Scoped to the configuration table by id, not to "the first table on
+      // the page": the pending-presets card above it is also a table, and it
+      // has rows as soon as one preset is registered.
+      const configTable = moduleFrame.locator('#nrllm-configuration-list');
+      const configRows = await configTable.locator('tbody tr').count();
 
       if (configRows > 0) {
         // Each configuration should have action buttons
-        const actionButtons = moduleFrame.locator('table tbody tr:first-child .btn-group button, table tbody tr:first-child .btn-group a');
+        const actionButtons = configTable.locator('tbody tr:first-child .btn-group button, tbody tr:first-child .btn-group a');
         await expect(actionButtons.first()).toBeVisible({ timeout: 5000 });
       } else {
         // No configurations - verify empty state message exists
