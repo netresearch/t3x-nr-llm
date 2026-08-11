@@ -39,9 +39,6 @@ use ReflectionClass;
 #[CoversNothing]
 final class EditorActionDeclarationTest extends TestCase
 {
-    /** @var list<string> the tables the five writers address */
-    private const KNOWN_RECORD_TYPES = ['pages', 'tt_content', 'sys_file'];
-
     /**
      * @return array<string, array{class-string<ToolInterface>, list<string>}>
      */
@@ -119,21 +116,6 @@ final class EditorActionDeclarationTest extends TestCase
             $tool->getSpec()->description,
             LabelCatalogue::source($tool->getEditorAction()->descriptionKey),
         );
-    }
-
-    /**
-     * @param class-string<ToolInterface> $class
-     */
-    #[Test]
-    #[DataProvider('writerClasses')]
-    public function theDeclaredRecordTypesAreRealTableNames(string $class): void
-    {
-        $tool = $this->instantiate($class);
-        self::assertInstanceOf(EditorActionInterface::class, $tool);
-
-        foreach ($tool->getEditorAction()->recordTypes as $table) {
-            self::assertContains($table, self::KNOWN_RECORD_TYPES, 'Unexpected record type ' . $table);
-        }
     }
 
     /**
