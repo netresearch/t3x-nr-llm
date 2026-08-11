@@ -61,4 +61,15 @@ interface TelemetryRepositoryInterface
      * @return list<FallbackHop>
      */
     public function recentFallbackHops(int $since, int $limit): array;
+
+    /**
+     * Every provider call that carried this correlation id, oldest first — the
+     * calls of one agent run (ADR-153), whose uuid IS that id.
+     *
+     * Empty for an unknown or empty id: '' is the "no trace" marker, never a
+     * bucket to read back. Like every read here the rows are metadata only.
+     *
+     * @return list<TelemetryCall>
+     */
+    public function findByCorrelation(string $correlationId): array;
 }

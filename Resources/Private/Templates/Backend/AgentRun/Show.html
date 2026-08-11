@@ -1,0 +1,124 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * Read-only run detail (ADR-153). Everything rendered here is metadata: the
+ * timeline entries carry an allow-list of non-content payload keys, and the
+ * suspended state / queued request are never assigned to this view.
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div>
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.title" default="Run timeline" /></h1>
+
+        <p>
+            <f:link.action action="list">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.back" default="Back to the run list" />
+            </f:link.action>
+        </p>
+
+        <section aria-labelledby="run-summary-heading">
+            <h2 id="run-summary-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.summary" default="Run" /></h2>
+            <div class="table-fit">
+                <table class="table table-striped">
+                    <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.summary" default="Run" /></caption>
+                    <tbody>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.uuid" default="Correlation" /></th>
+                            <td><code>{run.uuid}</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.status" default="Status" /></th>
+                            <td>{run.status}<f:if condition="{run.terminationReason}"> ({run.terminationReason})</f:if></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.config" default="Configuration" /></th>
+                            <td><code>{run.configurationIdentifier}</code></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.created" default="Created" /></th>
+                            <td><f:format.date date="@{run.crdate}" format="Y-m-d H:i:s" /></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.finished" default="Finished" /></th>
+                            <td><f:if condition="{run.finishedAt} > 0"><f:format.date date="@{run.finishedAt}" format="Y-m-d H:i:s" /></f:if></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.iterations" default="Rounds" /></th>
+                            <td>{run.iterations}<f:if condition="{run.truncated}"> — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.truncated" default="truncated" /></f:if></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.tokens" default="Tokens (prompt / completion / total)" /></th>
+                            <td>{run.totalPromptTokens} / {run.totalCompletionTokens} / {run.totalTokens}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
+                            <td>{run.estimatedCost}</td>
+                        </tr>
+                        <f:if condition="{run.errorClass}">
+                            <tr>
+                                <th scope="row"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.errorClass" default="Error class" /></th>
+                                <td><code>{run.errorClass}</code></td>
+                            </tr>
+                        </f:if>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section aria-labelledby="run-timeline-heading" class="mt-4">
+            <h2 id="run-timeline-heading"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.timeline" default="Timeline" /></h2>
+
+            <f:be.infobox state="-1">
+                <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.privacy" default="Metadata only: prompts, answers, tool arguments and tool results are never shown here, whatever the configured privacy level." /></p>
+            </f:be.infobox>
+
+            <f:if condition="{timeline}">
+                <f:then>
+                    <div class="table-fit">
+                        <table class="table table-striped">
+                            <caption class="visually-hidden"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.timeline" default="Timeline" /></caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.time" default="Time" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.source" default="Source" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.kind" default="Kind" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.round" default="Round" /></th>
+                                    <th scope="col" class="text-end"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.duration" default="ms" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.outcome" default="Outcome" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.facts" default="Details" /></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <f:for each="{timeline}" as="entry">
+                                    <tr>
+                                        <td><f:format.date date="@{entry.occurredAt}" format="H:i:s" /></td>
+                                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.source.{entry.source}" /></td>
+                                        <td><code>{entry.kind}</code></td>
+                                        <td><f:if condition="{entry.round} > 0">{entry.round}</f:if></td>
+                                        <td class="text-end"><f:if condition="{entry.durationMs} > 0">{entry.durationMs}</f:if></td>
+                                        <td>
+                                            <f:if condition="{entry.outcome}">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.outcome.{entry.outcome}" />
+                                            </f:if>
+                                        </td>
+                                        <td><code>{entry.detail}</code></td>
+                                    </tr>
+                                </f:for>
+                            </tbody>
+                        </table>
+                    </div>
+                </f:then>
+                <f:else>
+                    <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.empty" default="This run recorded no steps, provider calls or governance decisions." /></p>
+                </f:else>
+            </f:if>
+        </section>
+    </div>
+</f:section>
+</html>

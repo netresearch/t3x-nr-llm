@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Psr\Http\Message\ResponseInterface;
@@ -80,6 +81,7 @@ final class AgentRunController extends ActionController
         private readonly SchemaInputCoercer $coercer,
         private readonly AgentRuntimeInterface $agentRuntime,
         private readonly PageRenderer $pageRenderer,
+        private readonly RunTimelineFactory $timelineFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -101,6 +103,36 @@ final class AgentRunController extends ActionController
     public function listAction(string $errorRunUuid = '', array $rawInput = [], string $errorSummary = ''): ResponseInterface
     {
         return $this->renderList($errorRunUuid, $rawInput, $errorSummary);
+    }
+
+    /**
+     * One run, end to end and READ-ONLY (ADR-153): its persisted step stream,
+     * the provider calls it caused and the governance decisions taken during it,
+     * in one ordered timeline.
+     *
+     * Authorisation is the runtime's: {@see AgentRuntimeInterface::status()} and
+     * {@see AgentRuntimeInterface::events()} both go through
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()},
+     * so a run this user may not read is indistinguishable from an unknown one —
+     * both redirect to the list. No repository is read from here (the tail of
+     * the timeline is assembled by {@see RunTimelineFactory} from the run the
+     * runtime already released).
+     */
+    public function showAction(string $runUuid = ''): ResponseInterface
+    {
+        $actor = $this->currentActor();
+        $run   = $runUuid === '' ? null : $this->agentRuntime->status($actor, $runUuid);
+
+        if (!$run instanceof AgentRun) {
+            return $this->flashRedirect('runs.detail.notFound', ContextualFeedbackSeverity::WARNING);
+        }
+
+        $this->moduleTemplate->assignMultiple([
+            'run'      => $run,
+            'timeline' => $this->timelineFactory->build($run, $this->agentRuntime->events($actor, $runUuid)),
+        ]);
+
+        return $this->moduleTemplate->renderResponse('Backend/AgentRun/Show');
     }
 
     /**

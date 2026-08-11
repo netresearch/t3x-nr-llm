@@ -14,6 +14,7 @@
                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.created" default="Created" /></th>
                         <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.finished" default="Finished" /></th>
                         <th scope="col" class="text-end"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.cost" default="Cost" /></th>
+                        <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detail" default="Detail" /></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -27,6 +28,12 @@
                             </td>
                             <td class="text-end">
                                 <f:if condition="{run.formattedCost}">{run.formattedCost}</f:if>
+                            </td>
+                            <td>
+                                <f:link.action action="show" arguments="{runUuid: run.runUuid}">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detailLink" default="Timeline" />
+                                    <span class="visually-hidden"> {run.runUuid}</span>
+                                </f:link.action>
                             </td>
                         </tr>
                     </f:for>

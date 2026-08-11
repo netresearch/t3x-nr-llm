@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
@@ -34,9 +35,19 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class ToolExecutionContext
 {
+    /**
+     * @param ?AgentRunReference $run the persisted run this execution belongs to (ADR-153).
+     *                                Carried here because it is built once per run, exactly
+     *                                like the actor, and reaches the loop through the same
+     *                                parameter — the loop stamps it onto the provider calls it
+     *                                makes and onto the governance rows it writes. Null for a
+     *                                bare {@see ToolLoopServiceInterface} consumer that drives
+     *                                the loop without a persisted run.
+     */
     public function __construct(
         public AiActorContext $actor,
         public ?BackendUserAuthentication $backendUser = null,
+        public ?AgentRunReference $run = null,
     ) {}
 
     /**

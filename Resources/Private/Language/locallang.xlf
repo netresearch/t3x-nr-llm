@@ -2388,6 +2388,84 @@
             <trans-unit id="runs.terminal.empty">
                 <source>No recent runs.</source>
             </trans-unit>
+            <trans-unit id="runs.terminal.detail">
+                <source>Detail</source>
+            </trans-unit>
+            <trans-unit id="runs.terminal.detailLink">
+                <source>Timeline</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.title">
+                <source>Run timeline</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.back">
+                <source>Back to the run list</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.notFound">
+                <source>That run does not exist, or you may not view it.</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.summary">
+                <source>Run</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.uuid">
+                <source>Correlation</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.iterations">
+                <source>Rounds</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.truncated">
+                <source>truncated</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.tokens">
+                <source>Tokens (prompt / completion / total)</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.errorClass">
+                <source>Error class</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.timeline">
+                <source>Timeline</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.privacy">
+                <source>Metadata only: prompts, answers, tool arguments and tool results are never shown here, whatever the configured privacy level.</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.empty">
+                <source>This run recorded no steps, provider calls or governance decisions.</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.time">
+                <source>Time</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.source">
+                <source>Source</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.step">
+                <source>Step</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.call">
+                <source>Provider call</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.governance">
+                <source>Governance</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.kind">
+                <source>Kind</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.round">
+                <source>Round</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.duration">
+                <source>ms</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome">
+                <source>Outcome</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome.ok">
+                <source>ok</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome.failed">
+                <source>failed</source>
+            </trans-unit>
+            <trans-unit id="runs.detail.facts">
+                <source>Details</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

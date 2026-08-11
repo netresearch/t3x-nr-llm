@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
@@ -315,6 +316,31 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
         self::assertNotNull($this->repository->finished);
         self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function theLoopReceivesTheRunItIsExecuting(): void
+    {
+        // ADR-153: the persisted run's identity travels on the execution context
+        // the executor builds, which is what lets the loop correlate its provider
+        // calls and attribute the governance rows it writes.
+        $seen = null;
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context) use (&$seen): ToolLoopResult {
+                $seen = $context->run;
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $result = $this->runtime($loop)->run($this->request());
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertSame($result->runUuid, $seen->uuid);
+        self::assertSame($seen->uuid, $seen->correlationId(), 'The run uuid IS the correlation id.');
+        self::assertGreaterThan(0, $seen->uid);
+        self::assertSame($this->repository->startedRuns[0]['uuid'], $seen->uuid);
     }
 
     #[Test]

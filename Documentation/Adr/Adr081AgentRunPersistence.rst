@@ -8,6 +8,7 @@ ADR-081: Agent run persistence and a durable event stream
 
 :Status: Accepted
 :Date: 2026-07-18
+:Amended: 2026-08-11 by :ref:`ADR-153 <adr-153>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-081-context:

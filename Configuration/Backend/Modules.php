@@ -283,6 +283,9 @@ return [
                 'list',
                 'approve',
                 'submitInput',
+                // Read-only run detail (ADR-153); authorised per run by the
+                // runtime, like the two write actions above.
+                'show',
             ],
         ],
     ],
@@ -330,6 +333,7 @@ return [
                 'list',
                 'approve',
                 'submitInput',
+                'show',
             ],
         ],
     ],

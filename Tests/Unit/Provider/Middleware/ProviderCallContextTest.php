@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionParameter;
 
 #[CoversClass(ProviderCallContext::class)]
 final class ProviderCallContextTest extends TestCase
@@ -29,6 +31,62 @@ final class ProviderCallContextTest extends TestCase
             '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
             $context->correlationId,
         );
+    }
+
+    #[Test]
+    public function theConfigurationFactoryAdoptsAnExistingCorrelationIdInsteadOfMintingOne(): void
+    {
+        // ADR-153: an agent run hands its uuid down so all its provider calls
+        // share one trace. Before this it minted internally and N rounds of one
+        // run produced N unrelated telemetry rows.
+        //
+        // Only this factory takes it. `for()` and `forService()` are reached by
+        // no agent-run path — a run drives a configuration — so widening them
+        // for symmetry would add an argument nothing passes. Asserted below by
+        // reflection rather than by prose, so re-widening them has to be
+        // deliberate.
+        $runUuid = '2f1c9a3e-0000-4000-8000-00000000abcd';
+
+        self::assertSame(
+            $runUuid,
+            ProviderCallContext::forConfiguration(ProviderOperation::Tools, new LlmConfiguration(), [], $runUuid)->correlationId,
+        );
+    }
+
+    #[Test]
+    public function theOtherTwoFactoriesTakeNoCorrelationBecauseNoRunReachesThem(): void
+    {
+        foreach (['for', 'forService'] as $factory) {
+            $names = array_map(
+                static fn(ReflectionParameter $p): string => $p->getName(),
+                (new ReflectionMethod(ProviderCallContext::class, $factory))->getParameters(),
+            );
+
+            self::assertNotContains(
+                'correlationId',
+                $names,
+                sprintf(
+                    'ProviderCallContext::%s() gained a correlation parameter. Widen it only together with '
+                    . 'the run path that passes one, and say so in ADR-153.',
+                    $factory,
+                ),
+            );
+        }
+    }
+
+    #[Test]
+    public function anAbsentOrEmptyCorrelationIdStillMintsAFreshOne(): void
+    {
+        // '' is the "no trace" marker an unpersisted run leaves behind; adopting
+        // it would collide every such call into one bucket.
+        $minted = ProviderCallContext::forConfiguration(ProviderOperation::Chat, new LlmConfiguration(), [], '');
+        // No fourth argument at all, which is the "absent" half of the case.
+        $absent = ProviderCallContext::forConfiguration(ProviderOperation::Chat, new LlmConfiguration());
+
+        $rfc4122 = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/';
+        self::assertMatchesRegularExpression($rfc4122, $minted->correlationId);
+        self::assertMatchesRegularExpression($rfc4122, $absent->correlationId);
+        self::assertNotSame($minted->correlationId, $absent->correlationId);
     }
 
     #[Test]

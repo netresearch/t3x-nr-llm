@@ -169,6 +169,68 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
         return $hops;
     }
 
+    public function findByCorrelation(string $correlationId): array
+    {
+        // '' is the "no trace" marker every write point uses when it has none;
+        // selecting on it would return unrelated calls as if they were one run.
+        if ($correlationId === '') {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select(
+                'operation',
+                'provider',
+                'model',
+                'served_provider',
+                'served_model',
+                'success',
+                'error_class',
+                'latency_ms',
+                'cache_hit',
+                'fallback_attempts',
+                'time_to_first_token_ms',
+                'crdate',
+            )
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq(
+                    'correlation_id',
+                    $queryBuilder->createNamedParameter($correlationId, Connection::PARAM_STR),
+                ),
+            )
+            ->orderBy('crdate', 'ASC')
+            ->addOrderBy('uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $calls = [];
+        foreach ($rows as $row) {
+            $ttft = $row['time_to_first_token_ms'] ?? null;
+
+            $calls[] = new TelemetryCall(
+                operation: $this->str($row, 'operation'),
+                provider: $this->str($row, 'provider'),
+                model: $this->str($row, 'model'),
+                servedProvider: $this->str($row, 'served_provider'),
+                servedModel: $this->str($row, 'served_model'),
+                success: $this->int($row, 'success') === 1,
+                errorClass: $this->str($row, 'error_class'),
+                latencyMs: $this->int($row, 'latency_ms'),
+                cacheHit: $this->int($row, 'cache_hit') === 1,
+                fallbackAttempts: $this->int($row, 'fallback_attempts'),
+                // NULL is a non-streamed call, which is not the same as 0 ms.
+                timeToFirstTokenMs: is_numeric($ttft) ? (int)$ttft : null,
+                crdate: $this->int($row, 'crdate'),
+            );
+        }
+
+        return $calls;
+    }
+
     /**
      * @param array<string, mixed> $row
      */

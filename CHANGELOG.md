@@ -112,6 +112,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
 
+- **One correlation per agent run, and the view that reads it (ADR-153).** A run
+  made N provider calls under N unrelated correlation ids, because
+  `ProviderCallContext::forConfiguration()` minted one internally and no caller
+  could pass one in. It now accepts an existing id, and a run hands down its own
+  uuid — which is already an RFC 4122 uuid in a `varchar(36)`, the same shape as
+  `tx_nrllm_telemetry.correlation_id`, so no column was added to carry it.
+  Passing nothing still mints per call. `::for()` and `::forService()` are
+  unchanged: no agent-run path reaches either, and widening them for symmetry
+  would add an argument nothing passes.
+  - `tx_nrllm_governance_event.agentrun_uid` gets its first writer: all three
+    write points stamp it — the tool gate from the run's execution context, the
+    guardrail middleware from the pipeline metadata, the input-context gate from
+    the manager. `0` now means "not inside a run" (a plain provider call, or a
+    bare `ToolLoopServiceInterface` consumer), not "identity dropped".
+  - New read-only run detail at `AgentRunController::showAction`, linked from the
+    recent-runs table. It consumes `AgentRuntimeInterface::events()` and
+    `::status()` — the authorised API that until now had no caller — and renders
+    the run's steps, its telemetry rows and its governance decisions as one
+    ordered timeline. Metadata only: `RunTimelineFactory` renders an allow-list of
+    non-content payload keys, so a raised privacy level cannot turn the page into
+    a transcript viewer, and the verbatim `suspended_state` / `queued_request` are
+    never shown.
+  - `ext_tables.sql`: the comment claiming a governance row linked "via the run's
+    correlation, to its agent run" was false and is corrected; a
+    (`agentrun_uid`, `crdate`) index is added for the new query.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the

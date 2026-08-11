@@ -31,11 +31,45 @@ The module shows two lists:
 - **Awaiting your decision** — runs paused for an approval or for input, each
   rendered as a card with the controls to resolve it.
 - **Recent runs** — a read-only table of the most recently finished runs
-  (configuration, status, created, finished, and cost when non-zero).
+  (configuration, status, created, finished, cost when non-zero, and a
+  :guilabel:`Timeline` link to the run's detail page).
 
 If the store cannot be read, the page shows a warning box rather than a
 silently empty inbox — an empty list therefore means "nothing waiting", not
 "load failed".
+
+.. _administration-agent-runs-timeline:
+
+The run timeline
+================
+
+:guilabel:`Timeline` opens one run end to end, read-only. It shows the run's
+summary — correlation, status and why it ended, configuration, rounds, tokens,
+cost — and below it a single time-ordered list of everything the run produced:
+
+- **Step** — a recorded loop step (a request, a model answer, a tool execution).
+- **Provider call** — a telemetry row: which provider and model served it, how
+  long it took, whether a cache hit or a fallback was involved, and the error
+  class when it failed. These are joined to the run because since
+  :ref:`ADR-153 <adr-153>` every provider call a run makes carries the run's
+  uuid as its correlation id.
+- **Governance** — a decision taken during the run: a tool the gate withheld, a
+  guardrail block, an approval requirement, an injected-context refusal.
+
+You can only open a run you are allowed to see. A run belonging to someone else,
+without the approval grant, is indistinguishable from one that does not exist —
+both send you back to the list.
+
+.. note::
+
+   The timeline is **metadata only**. Prompts, model answers, reasoning, tool
+   arguments and tool results are never rendered here, whatever
+   ``privacy.level`` is set to, and neither is the verbatim resumable state of a
+   waiting run. What you see are counts, sizes, names, timings and token
+   figures. For live prompt and answer inspection use the playground.
+
+A run started before this extension version has steps but no provider calls:
+its calls were traced individually and cannot be attributed retroactively.
 
 .. _administration-agent-runs-approve:
 

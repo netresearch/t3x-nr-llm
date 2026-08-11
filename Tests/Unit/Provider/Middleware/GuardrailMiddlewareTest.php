@@ -251,6 +251,32 @@ final class GuardrailMiddlewareTest extends TestCase
     }
 
     #[Test]
+    public function aDenyInsideAnAgentRunCarriesTheRunUidAndItsCorrelation(): void
+    {
+        $recorder   = new InMemoryGovernanceEventRepository();
+        $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))], governanceEvents: $recorder);
+
+        // What the runtime threads down for a call made inside a run (ADR-153).
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            new LlmConfiguration(),
+            [GuardrailMiddleware::METADATA_AGENT_RUN_UID => 77],
+            'a4d9c1f2-0000-4000-8000-000000000001',
+        );
+
+        try {
+            $middleware->handle($context, fn(): CompletionResponse => $this->response('bad'));
+            self::fail('Expected a GuardrailViolationException.');
+        } catch (GuardrailViolationException) {
+            // expected — the record happens before the throw.
+        }
+
+        self::assertCount(1, $recorder->recorded);
+        self::assertSame(77, $recorder->recorded[0]->agentrunUid);
+        self::assertSame('a4d9c1f2-0000-4000-8000-000000000001', $recorder->recorded[0]->correlationId);
+    }
+
+    #[Test]
     public function aProviderFilteredDenyIsTaggedContentFilter(): void
     {
         $recorder   = new InMemoryGovernanceEventRepository();

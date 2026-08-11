@@ -62,8 +62,11 @@ final readonly class InputContextTrustGate
      * In observe mode nothing is thrown and the refusal is recorded instead, so
      * an operator can see what enforcement would do before switching it on —
      * the shape ADR-113 established for the tool gate.
+     *
+     * $agentRunUid attributes the refusal to the agent run that triggered it
+     * (ADR-153); 0 for a plain provider call, which has no run.
      */
-    public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0): void
+    public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0, int $agentRunUid = 0): void
     {
         $classification = $this->classifier->classify($configuration);
         if (!$classification->isDeclared()) {
@@ -79,7 +82,7 @@ final readonly class InputContextTrustGate
         }
 
         $enforcing = $this->enforcement->enforcing();
-        $this->record($configuration, $beUser, $declared, $classification->source, $enforcing);
+        $this->record($configuration, $beUser, $declared, $classification->source, $enforcing, $agentRunUid);
 
         if (!$enforcing) {
             $this->logger?->warning(
@@ -118,8 +121,11 @@ final readonly class InputContextTrustGate
         ToolDataClass $declared,
         string $source,
         bool $enforcing,
+        int $agentRunUid,
     ): void {
         $this->governanceEvents?->record(new GovernanceEvent(
+            // This gate runs BEFORE the ProviderCallContext exists, so there is
+            // no trace id to write; the run uid below is the join key instead.
             correlationId: '',
             decision: GovernanceDecision::CONTEXT_BLOCKED->value,
             reason: $declared->value,
@@ -128,7 +134,7 @@ final readonly class InputContextTrustGate
             configurationIdentifier: $configuration->getIdentifier(),
             beUser: $beUser,
             toolName: '',
-            agentrunUid: 0,
+            agentrunUid: $agentRunUid,
             guardrail: '',
             detail: $enforcing ? $source : $source . ' (observe)',
         ));

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -198,8 +199,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * classified anything.
      *
      * @param array<string, mixed> $metadata
+     * @param int                  $agentRunUid the run this call belongs to (ADR-153), stamped onto the
+     *                                          refusal row; 0 when the call is not part of a run
      */
-    private function assertContextPermitted(LlmConfiguration $configuration, array $metadata): void
+    private function assertContextPermitted(LlmConfiguration $configuration, array $metadata, int $agentRunUid = 0): void
     {
         if (!$this->inputContextGate instanceof InputContextTrustGate) {
             return;
@@ -207,7 +210,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         $beUser = $metadata['beUser'] ?? 0;
 
-        $this->inputContextGate->assertPermitted($configuration, is_int($beUser) ? $beUser : 0);
+        $this->inputContextGate->assertPermitted($configuration, is_int($beUser) ? $beUser : 0, $agentRunUid);
     }
 
     /**
@@ -687,8 +690,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<ToolSpec|array<string, mixed>>    $tools
+     * @param ?AgentRunReference                     $run      the agent run driving this round (ADR-153); null outside a run
      */
-    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null): CompletionResponse
+    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null, ?AgentRunReference $run = null): CompletionResponse
     {
         $options ??= new ToolOptions();
         $optionOverrides = $options->toArray();
@@ -744,6 +748,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 );
             },
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $run,
         );
     }
 
@@ -914,8 +919,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $metadata
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
+     * @param ?AgentRunReference                     $run             the agent run driving this call (ADR-153); null outside a run
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null): CompletionResponse
     {
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
@@ -933,6 +939,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($bounded, $options), $options);
             },
             $metadata,
+            $run,
         );
     }
 
@@ -1032,6 +1039,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @template T
      *
+     * A non-null `$run` (ADR-153) makes this call part of an agent run: the
+     * context inherits the run's correlation id instead of minting a fresh one,
+     * so every round of one run lands on the same trace, and the run's uid joins
+     * the metadata for the governance rows the pipeline may write.
+     *
      * @param callable(ProviderCallContext): T $terminal
      * @param array<string, mixed>             $metadata
      *
@@ -1042,16 +1054,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         ProviderOperation $operation,
         callable $terminal,
         array $metadata = [],
+        ?AgentRunReference $run = null,
     ): mixed {
+        // Disjoint key sets merge with `+`, as everywhere else metadata is built.
+        $metadata += $this->metadata->agentRun($run);
+
         // Before anything is dispatched: a configuration that may not carry
         // the context it injects does not get to try (ADR-144). Placed here
         // rather than in each terminal because it is a property of the
         // configuration, not of the payload, and every configuration-driven
         // operation runs through this pipeline.
-        $this->assertContextPermitted($configuration, $metadata);
+        $this->assertContextPermitted($configuration, $metadata, $run->uid ?? 0);
 
         return $this->pipeline->run(
-            ProviderCallContext::forConfiguration($operation, $configuration, $metadata),
+            ProviderCallContext::forConfiguration($operation, $configuration, $metadata, $run?->correlationId()),
             $terminal,
         );
     }

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Fixture;
 
 use Netresearch\NrLlm\Service\Telemetry\FallbackHop;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Throwable;
@@ -88,5 +89,23 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
         $this->hopsLimit = $limit;
 
         return \array_slice($this->fallbackHops, 0, max(1, $limit));
+    }
+
+    /**
+     * Rows findByCorrelation() hands back, keyed by correlation id — so a test
+     * states which trace holds which calls rather than one global list.
+     *
+     * @var array<string, list<TelemetryCall>>
+     */
+    public array $callsByCorrelation = [];
+
+    /** The correlation id the last findByCorrelation() was asked for. */
+    public ?string $correlationAsked = null;
+
+    public function findByCorrelation(string $correlationId): array
+    {
+        $this->correlationAsked = $correlationId;
+
+        return $this->callsByCorrelation[$correlationId] ?? [];
     }
 }
