@@ -48,8 +48,8 @@ It is deliberately not the same as :guilabel:`Last import`: a server that has
 been answering tool calls all month can still show an import from six weeks
 ago, and previously there was no way to see the difference.
 
-A failed connection test is reported on screen and stored nowhere. Only a
-success moves the contact date.
+A failed connection test replaces the report on the card with its reason, and
+is stored nowhere. Only a success moves the contact date.
 
 Guard rails
 ===========

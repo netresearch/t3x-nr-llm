@@ -61,14 +61,27 @@ export function postUidAndReload(urlKey, btn) {
  * whose answer lives in the response rather than in the reloaded page: a
  * reload runs in the same tick as the callback and destroys anything the
  * callback rendered, so an action that reports something must not reload.
- * The button is re-enabled either way — nothing navigates away from it here.
+ * Here the button is re-enabled on success too, because nothing navigates
+ * away from it — {@see postAndReload} turns that off, since re-enabling a
+ * state-changing button while its reload is still pending invites a second
+ * POST of the same action.
+ *
+ * `onFailure` exists for the same reason as `onSuccess`: a caller that paints
+ * the answer into the page has to paint the refusal there as well, or the last
+ * success stands beside the error toast as if it still held.
  *
  * @param {string} url Resolved AJAX endpoint URL
  * @param {FormData} formData POST payload
  * @param {HTMLButtonElement} btn Triggering button; disabled while the request is in flight
  * @param {(data: object) => void} [onSuccess] Callback run with the resolved response payload
+ * @param {{onFailure?: (data: object) => void, reenableOnSuccess?: boolean}} [options]
+ *        `onFailure` runs with the payload of a `{ success: false }` answer, after the
+ *        error notification; `reenableOnSuccess` (default `true`) re-enables the button
+ *        on success
  */
-export function post(url, formData, btn, onSuccess) {
+export function post(url, formData, btn, onSuccess, options = {}) {
+    const { onFailure, reenableOnSuccess = true } = options;
+
     btn.disabled = true;
     new AjaxRequest(url)
         .post(formData)
@@ -78,10 +91,16 @@ export function post(url, formData, btn, onSuccess) {
                 if (onSuccess) {
                     onSuccess(data);
                 }
+                if (reenableOnSuccess) {
+                    btn.disabled = false;
+                }
             } else {
                 Notification.error('Error', data.error || 'Unknown error');
+                if (onFailure) {
+                    onFailure(data);
+                }
+                btn.disabled = false;
             }
-            btn.disabled = false;
         })
         .catch(async err => {
             Notification.error('Error', await readAjaxError(err));
@@ -93,6 +112,8 @@ export function post(url, formData, btn, onSuccess) {
  * @param {string} url Resolved AJAX endpoint URL
  * @param {FormData} formData POST payload
  * @param {HTMLButtonElement} btn Triggering button; disabled during flight, re-enabled on failure
+ *        only — on success the reload replaces the page, and a button live in the meantime
+ *        could fire the same state-changing POST twice
  * @param {(data: object) => void} [onSuccess] Optional callback run with the resolved response
  *        payload before the reload — e.g. to show a success notification with result statistics
  */
@@ -102,5 +123,5 @@ export function postAndReload(url, formData, btn, onSuccess) {
             onSuccess(data);
         }
         location.reload();
-    });
+    }, { reenableOnSuccess: false });
 }

@@ -81,11 +81,21 @@ class McpImport {
         const formData = new FormData();
         formData.append('server', uid);
 
+        // The card is not reloaded, so the previous report survives until
+        // something replaces it. Cleared before the request goes out, because
+        // a server that stops answering holds the connection for the whole
+        // transport timeout, and a stale "Reachable" standing there for those
+        // fifteen seconds is the opposite of what the operator asked.
+        const report = document.querySelector(`[data-nrllm-mcp-report="${uid}"]`);
+        if (report) {
+            report.className = '';
+            report.textContent = '';
+        }
+
         post(url, formData, btn, (data) => {
             // Composed and localised server-side. The report ends with what
             // the server wrote about itself, so it goes in as `textContent`:
             // remote text is never parsed as markup here.
-            const report = document.querySelector(`[data-nrllm-mcp-report="${uid}"]`);
             if (report) {
                 report.className = 'alert alert-success mb-2';
                 report.textContent = data.report;
@@ -98,6 +108,17 @@ class McpImport {
                 contact.textContent = data.contact;
             }
             document.querySelector(`[data-nrllm-mcp-never="${uid}"]`)?.remove();
+        }, {
+            // The toast is not the only reader: a failed probe belongs on the
+            // card it was fired from, in the place its success would have gone.
+            // The reason is composed server-side and can quote the far side,
+            // so it goes in as `textContent` too.
+            onFailure: (data) => {
+                if (report) {
+                    report.className = 'alert alert-danger mb-2';
+                    report.textContent = data.error;
+                }
+            },
         });
     }
 }

@@ -71,6 +71,9 @@
             <trans-unit id="server.authentication.header">
                 <source>Vault secret in header</source>
             </trans-unit>
+            <trans-unit id="server.authentication.other">
+                <source>Stored placement, not one this module offers</source>
+            </trans-unit>
             <trans-unit id="server.toolsDiscovered">
                 <source>Tools discovered</source>
             </trans-unit>

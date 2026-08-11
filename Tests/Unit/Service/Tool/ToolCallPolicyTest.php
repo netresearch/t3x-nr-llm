@@ -123,11 +123,12 @@ final class ToolCallPolicyTest extends TestCase
      * tool worked before, so there is nothing to preserve, and an upgraded
      * install must not end up more permissive than a fresh one.
      *
-     * The branch is `enforcing() || $tool instanceof RemoteToolInterface`
-     * (ADR-094, quoted in ADR-140). Both tools below sit in the same group, so
-     * they carry the same data class and the same ceiling; the marker
-     * interface is the only difference between them, and it is what decides
-     * the outcome.
+     * The branch is `enforcing() || $tool instanceof RemoteToolInterface`: the
+     * ceiling itself is ADR-094, the observe-mode carve-out that this branch
+     * denies is ADR-115, quoted in ADR-140. Both tools below sit in the same
+     * group, so they carry the same data class and the same ceiling; the
+     * marker interface is the only difference between them, and it is what
+     * decides the outcome.
      */
     #[Test]
     public function aRemoteToolNeverBenefitsFromObserveMode(): void
