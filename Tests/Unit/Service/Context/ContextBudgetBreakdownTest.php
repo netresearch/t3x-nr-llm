@@ -54,6 +54,49 @@ final class ContextBudgetBreakdownTest extends TestCase
     }
 
     #[Test]
+    public function theLinesCloseWhenAllFourOfThemCarrySomething(): void
+    {
+        // The sum above is a four-term sum only on paper: with no tool specs, no
+        // injected block and a leading system message, three of its addends are
+        // structurally 0 and it would hold with them hardcoded. This is the same
+        // invariant over a fit where every line is non-empty at once — no
+        // leading system message, schemas on the wire, a skill block and a
+        // prompt the shaper will prepend.
+        $toolSpecs = [[
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'fetch_page',
+                'description' => str_repeat('d', 400),
+                'parameters'  => ['type' => 'object', 'properties' => ['uid' => ['type' => 'integer']]],
+            ],
+        ]];
+
+        $breakdown = (new ContextWindowManager())
+            ->fit(
+                [ChatMessage::user('hi')],
+                $this->config(128000),
+                null,
+                null,
+                $toolSpecs,
+                str_repeat('s', 4000),
+                str_repeat('p', 2000),
+            )
+            ->breakdown;
+
+        self::assertGreaterThan(0, $breakdown->transcriptTokens);
+        self::assertGreaterThan(0, $breakdown->toolSchemaTokens);
+        self::assertGreaterThan(0, $breakdown->systemPromptTokens);
+        self::assertGreaterThan(0, $breakdown->skillTokens);
+        self::assertSame(
+            $breakdown->estimatedTokens,
+            $breakdown->transcriptTokens
+                + $breakdown->toolSchemaTokens
+                + $breakdown->systemPromptTokens
+                + $breakdown->skillTokens,
+        );
+    }
+
+    #[Test]
     public function theWindowArithmeticCloses(): void
     {
         $model = new Model();

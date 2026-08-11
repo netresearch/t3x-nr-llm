@@ -411,7 +411,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<array<string, mixed>>             $toolSpecs the tool schemas on THIS wire; [] for a plain completion
-     * @param RunTrace|null                          $runTrace  records the round's context accounting for the inspector (ADR-151); null for every production caller, which traces nothing
+     * @param RunTrace|null                          $runTrace  records the round's context accounting (ADR-151). Non-null for every run the AgentRuntime drives, so the step is persisted as a ``context`` event too, not only streamed to the playground inspector; null only where the caller passes no trace at all
      *
      * @throws ContextTruncatedException when the pruned floor still exceeds the window
      *
@@ -452,7 +452,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         if ($fit->pruned) {
             // Observability: distinguishes "trimmed history, run fine" from a
-            // failure. A dedicated inspector RunStep is a follow-up (ADR-107).
+            // failure. The dedicated inspector RunStep ADR-107 wanted is the
+            // context step recorded above (ADR-151); this line stays for the
+            // runs that carry no trace.
             $this->logger?->info('Agent loop transcript pruned to fit the context window', [
                 'iteration'       => $iteration,
                 'droppedTurns'    => $fit->droppedTurns,

@@ -133,6 +133,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     report "injects nothing" for a run carrying a classified forced snippet. The
     ADR-144 gate still asks `classify()` and therefore still answers for the
     configuration alone: a forced source is shown and is not gated.
+  - The `context` step is a `RunStep`, so every traced run — interactive,
+    queued or resumed, not only the playground's — persists it to
+    `tx_nrllm_agentrun_event` like any other step, and `AgentEventKind` gains a
+    `CONTEXT` case so the stored kind stays one the enum declares (amends
+    ADR-081). Budget for roughly a third to a half more event rows per run, and
+    for the per-step cancellation read and lease renewal that go with them. No
+    surface renders the stored step yet.
   - Snippets get no line of their own: `ConfigurationSnippetResolver` composes
     them into the effective system prompt before the estimator sees them, so
     the line is labelled "System prompt (incl. snippets)" rather than merged

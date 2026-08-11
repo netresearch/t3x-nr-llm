@@ -8,6 +8,8 @@ ADR-151: The context budget is a breakdown, not a number
 
 :Status: Accepted
 :Date: 2026-08-11
+:Amends: :ref:`ADR-081 <adr-081>` (a fifth ``RunStep`` kind, and therefore a
+   fifth persisted event kind)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-151-context:
@@ -77,6 +79,17 @@ was the follow-up ADR-107 wanted. The accounting is recorded as its own
 recorded even when the floor overflows and the run stops — that is the run whose
 operator most needs it.
 
+**A RunStep is a persisted event, so the vocabulary grows with it.** Every
+traced run — the playground's, an interactive one, a queued one, a resume —
+goes through :php:`RunTrace::onRecord`, which the
+:php:`AgentRunExecutor` wires to :php:`AgentRunPersister::recordStep()`
+(:ref:`ADR-081 <adr-081>`). The context step is therefore written to
+``tx_nrllm_agentrun_event`` like any other, and :php:`AgentEventKind` gains a
+``CONTEXT`` case: ADR-081 requires the stored kind to be one the enum declares,
+so that a reader can discriminate the payload. Recording it only for a
+handle-less trace was not available as a "playground only" gate — the playground
+run *is* a persisted run.
+
 **The classification is read from the gate's own service.** The same panel shows
 every source the run injects — each snippet and skill by name, with the class it
 declared or none — and the effective, strictest class.
@@ -139,10 +152,14 @@ under the table why those two are empty here. They carry real figures for a
 send that injects either after the fit; :php:`fit()` supports that and the unit
 tests pin it.
 
-**It does not reach the AgentRun module or the generic API paths.** The
-:php:`LlmServiceManager` send-level fit (ADR-143) now produces a breakdown, but
-nothing there renders it; its overflow still surfaces as a log line. The
-consumer would be a run-history view, and that view does not exist yet.
+**It is not RENDERED outside the playground.** The context step reaches the
+AgentRun event stream — see the decision above; it is stored for every traced
+run — but no surface reads it back: the AgentRun module does not render the
+``context`` kind, and the :php:`LlmServiceManager` send-level fit (ADR-143)
+produces a breakdown that nothing displays, its overflow still surfacing as a
+log line. The consumer would be a run-history view, and that view does not exist
+yet. What ships now is the data, in the stream it belongs to, plus the one
+surface that reads it live.
 
 **It is not merged with the routing decision trace.** :ref:`ADR-142 <adr-142>`
 raised the same surface question for routing, and ADR-143 said the two should
@@ -179,6 +196,16 @@ production, and the closure rule made :php:`ContextBudgetBreakdown`
 
 ◐ One extra estimator pass per fit, over the list that is about to cross a
 network. The fit already makes at least two.
+
+◐ One extra recorded step per round on **every** traced run, not only the
+playground's. A recorded step costs what ADR-081/103/104 make it cost: one
+indexed ``findRun`` read for the cancellation probe, one guarded lease-renewal
+update for a leased segment, and one event row. That is roughly a third to a
+half more rows in ``tx_nrllm_agentrun_event`` per run. It is accepted rather
+than gated because the step boundaries it adds are the same ones the loop
+already has, the row is small, and a run whose accounting is missing from the
+persisted stream would make the eventual run-history view a second estimator —
+which is exactly what the closure rule above refuses.
 
 ✕ The four lines are estimates scaled by the manager's calibration factor, not
 tokenizer counts. ADR-107's limits are unchanged: a breakdown that adds up is

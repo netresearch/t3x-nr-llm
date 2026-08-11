@@ -252,7 +252,7 @@
             </trans-unit>
             <trans-unit id="playground.context.noSources">
                 <source>This run injects no snippets and no skills.</source>
-                <target>Diese Konfiguration speist weder Snippets noch Skills ein.</target>
+                <target>Dieser Lauf speist weder Snippets noch Skills ein.</target>
             </trans-unit>
             <trans-unit id="playground.context.unclassified">
                 <source>not classified</source>
