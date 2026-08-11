@@ -10,17 +10,30 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
+use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
+use Netresearch\NrLlm\Domain\ValueObject\InputContextDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
+use Netresearch\NrLlm\Domain\ValueObject\SimulationActor;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyRow;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileDeviation;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -105,15 +118,16 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     #[Test]
     public function aRefusedSimulationRendersTheDecisionAndTheTwoFactsBehindIt(): void
     {
-        $body = $this->render(null, [], new ToolPolicyDecision(
+        $body = $this->render(null, [], $this->simulation(tool: new ToolPolicyDecision(
             'read_secrets',
             false,
             ToolDataClass::SECRET_ADJACENT,
             TrustZone::EXTERNAL_GLOBAL,
             ToolDataClass::PUBLIC_CONTENT,
             ToolDenialReason::TRUST_ZONE,
-        ));
+        )));
 
+        self::assertStringContainsString('Blocked', $body, 'the verdict folds the refusing axis');
         self::assertStringContainsString('Refused', $body);
         self::assertStringContainsString('read_secrets', $body);
         self::assertStringContainsString('secretAdjacent', $body, 'the tool data class explains the refusal');
@@ -124,16 +138,460 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     #[Test]
     public function anAllowedSimulationRendersAsAllowed(): void
     {
-        $body = $this->render(null, [], new ToolPolicyDecision(
-            'get_page_tree',
-            true,
-            ToolDataClass::EDITOR_CONTENT,
-            TrustZone::LOCAL,
-            ToolDataClass::SECRET_ADJACENT,
-        ));
+        $body = $this->render(null, [], $this->simulation());
 
         self::assertStringContainsString('Allowed', $body);
         self::assertStringNotContainsString('Refused', $body);
+        self::assertStringNotContainsString('Blocked', $body);
+    }
+
+    #[Test]
+    public function everyAxisIsShownWithItsOwnAnswerAndItsScope(): void
+    {
+        // The verdict alone cannot say which gate decided, and the fix differs
+        // per gate. The scope column is the other half: three of the four axes
+        // answer the same for every actor, and a simulator that implied
+        // otherwise would be worse than one that says so.
+        $body = $this->render(null, [], $this->simulation());
+
+        self::assertStringContainsString('Tool gate', $body);
+        self::assertStringContainsString('Input-context gate', $body);
+        self::assertStringContainsString('Routing', $body);
+        self::assertStringContainsString('Human approval', $body);
+        self::assertStringContainsString('Yes, through requiresAdmin().', $body);
+        self::assertStringContainsString('enable-fields ignored and no user context', $body);
+        self::assertStringContainsString('constrains nothing', $body, 'the undeclared input context says so in words');
+    }
+
+    #[Test]
+    public function anApprovalBoundToolIsNotPresentedAsAPlainAllow(): void
+    {
+        $body = $this->render(null, [], $this->simulation(approvalRequired: true));
+
+        self::assertStringContainsString('Allowed, after a human approves', $body);
+        self::assertStringContainsString('Required', $body);
+        self::assertStringContainsString('waits for a human decision', $body);
+    }
+
+    #[Test]
+    public function theReadoutNamesTheActorItAnsweredFor(): void
+    {
+        $body = $this->render(null, [], $this->simulation());
+
+        self::assertStringContainsString('Answered for the backend user editor', $body);
+        // ADR-157's audit decision, stated where an operator can read it.
+        self::assertStringContainsString('Nothing here is recorded', $body);
+    }
+
+    #[Test]
+    public function anUnresolvableActorIsSaidOutLoudRatherThanFallingBackSilently(): void
+    {
+        $body = $this->render(null, [], $this->simulation(actor: new SimulationActor(42, '', false, false)));
+
+        self::assertStringContainsString('No backend user resolves for uid 42', $body);
+        self::assertStringNotContainsString('Answered for the backend user', $body);
+    }
+
+    #[Test]
+    public function noAmbientBackendUserIsNotReportedAsAUidNobodyPicked(): void
+    {
+        // uid 0 with nothing resolved is the operator branch with no ambient
+        // $GLOBALS['BE_USER'] — an answer given with no user at all. Reporting
+        // it as "no backend user resolves for uid 0" would name a uid the
+        // operator never chose and blame a deleted account that does not exist.
+        $body = $this->render(null, [], $this->simulation(actor: new SimulationActor(0, '', false, false)));
+
+        self::assertStringContainsString('Answered with no backend user at all', $body);
+        self::assertStringNotContainsString('uid 0', $body);
+        self::assertStringNotContainsString('Answered for the backend user', $body);
+    }
+
+    #[Test]
+    public function routingRefusingIsNamedAsTheAxisThatBlocked(): void
+    {
+        $body = $this->render(null, [], $this->simulation(routing: RoutingReadout::decided(
+            new RoutingDecision(null, [], RoutingPolicyMode::BALANCED),
+            false,
+            null,
+            false,
+            false,
+        )));
+
+        self::assertStringContainsString('Blocked', $body);
+        self::assertStringContainsString('No model resolves', $body);
+        self::assertStringContainsString('cannot be sent at all', $body);
+    }
+
+    #[Test]
+    public function theActorPickerOffersTheBackendUsersAndTheOperator(): void
+    {
+        $body = $this->render(null, [], null, actors: [
+            new SimulationActor(3, 'editor', false),
+            new SimulationActor(1, 'root', true),
+        ]);
+
+        self::assertStringContainsString('Acting as', $body);
+        self::assertStringContainsString('the operator reading this page', $body, 'answering for yourself stays the default');
+        self::assertStringContainsString('editor', $body);
+        self::assertStringContainsString('administrator', $body, 'an admin is marked, because the tool gate reads exactly that');
+    }
+
+    #[Test]
+    public function aFixedConfigurationRendersAsNoDecisionRatherThanAsOne(): void
+    {
+        // The trap ADR-148 exists to avoid: a named model must not be dressed
+        // up as a decision with one winning candidate.
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setName('GPT-4o');
+
+        $body = $this->render(null, [], null, RoutingReadout::fixed($model));
+
+        self::assertStringContainsString('No decision: the operator named the model', $body);
+        self::assertStringContainsString('gpt-4o', $body);
+        self::assertStringNotContainsString('Eligible, in rank order', $body);
+        self::assertStringNotContainsString('Policy mode:', $body, 'no mode was consulted, so none is shown');
+    }
+
+    #[Test]
+    public function aDecisionRendersTheRankedCandidatesTheSignalsAndTheRefusals(): void
+    {
+        $selected = new Model();
+        $selected->setModelId('gpt-4o');
+        $selected->setName('GPT-4o');
+
+        $body = $this->render(null, [], null, RoutingReadout::decided(
+            new RoutingDecision($selected, [RoutingCandidate::eligible($selected, 0.62, ['quality' => 0.8])], RoutingPolicyMode::BALANCED),
+            true,
+            ModelCapability::TOOLS,
+            true,
+            false,
+        ), [
+            [
+                'modelId'   => 'gpt-4o',
+                'name'      => 'GPT-4o',
+                'provider'  => 'openai',
+                'score'     => '0.620',
+                'reasonKey' => '',
+                'signals'   => [
+                    ['name' => 'quality', 'value' => '0.80', 'known' => true],
+                    ['name' => 'health', 'value' => '', 'known' => false],
+                ],
+            ],
+        ], [
+            [
+                'modelId'   => 'llama3',
+                'name'      => 'Llama 3',
+                'provider'  => 'ollama',
+                'score'     => '',
+                'reasonKey' => RoutingRejectionReason::ADAPTER_NOT_ALLOWED->getLabelKey(),
+                'signals'   => [],
+            ],
+        ]);
+
+        self::assertStringContainsString('Selected', $body);
+        self::assertStringNotContainsString('No candidates at all', $body);
+        self::assertStringContainsString('Eligible, in rank order', $body);
+        self::assertStringContainsString('0.620', $body);
+        self::assertStringContainsString('quality:', $body);
+        // The distinction a Fluid truthiness check would have destroyed.
+        self::assertStringContainsString('no data', $body);
+        self::assertStringContainsString('Refused, and why', $body);
+        self::assertStringContainsString('adapter type the criteria exclude', $body, 'the rejection reason is translated, not printed as an enum value');
+        // "Balanced" alone would also match the mode selector, so assert the
+        // readout's own line instead.
+        self::assertStringContainsString('Policy mode:', $body);
+        self::assertStringContainsString('enforcing: models that declare capabilities without it were refused.', $body);
+    }
+
+    #[Test]
+    public function anObservedOperationCapabilityIsNotPresentedAsEnforced(): void
+    {
+        $body = $this->render(null, [], null, RoutingReadout::decided(
+            new RoutingDecision(null, [], RoutingPolicyMode::PROVIDER_PRIORITY),
+            true,
+            ModelCapability::TOOLS,
+            false,
+            true,
+        ));
+
+        self::assertStringContainsString('did NOT constrain this decision', $body);
+        self::assertStringContainsString('the installed setting is unchanged', $body, 'a tried mode is marked as hypothetical');
+        self::assertStringContainsString('No candidates at all', $body, 'an empty catalogue is named as such');
+    }
+
+    #[Test]
+    public function noOperationSelectedIsNotReportedAsAnOperationThatConstrainsNothing(): void
+    {
+        // The default path: a configuration picked, the operation selector left
+        // on "No operation". Both states arrive as a null capability, and
+        // reporting them with one sentence would describe an operation the
+        // operator never chose.
+        $body = $this->render(null, [], null, RoutingReadout::decided(
+            new RoutingDecision(null, [], RoutingPolicyMode::PROVIDER_PRIORITY),
+            false,
+            null,
+            true,
+            false,
+        ));
+
+        self::assertStringContainsString('no operation was selected', $body);
+        self::assertStringNotContainsString('the chosen operation requires no declared capability', $body);
+        self::assertStringContainsString('The switch itself is set to enforce.', $body, 'the switch is still reported');
+    }
+
+    #[Test]
+    public function theFlattenedRowsCarryExactlyTheKeysTheTemplateReads(): void
+    {
+        // The render tests above hand-write the flattened rows, so the
+        // flattener and the template are otherwise verified only against each
+        // other by eye: renaming a key in candidateRows() would blank a column
+        // in production while phpstan, unit and functional all stay green.
+        // This asserts the two agree, by taking the keys from the controller
+        // and the paths from the template file.
+        $this->extbaseRequest();
+
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setName('GPT-4o');
+
+        $readout = RoutingReadout::decided(
+            new RoutingDecision(
+                $model,
+                [
+                    RoutingCandidate::eligible($model, 0.62, ['quality' => 0.8, 'health' => null]),
+                    RoutingCandidate::rejected($model, RoutingRejectionReason::ADAPTER_NOT_ALLOWED),
+                ],
+                RoutingPolicyMode::BALANCED,
+            ),
+            true,
+            ModelCapability::TOOLS,
+            true,
+            false,
+        );
+
+        $controller = $this->getService(LlmModuleController::class);
+        $flatten    = new ReflectionMethod($controller, 'candidateRows');
+
+        $eligible = $flatten->invoke($controller, $readout, true);
+        $rejected = $flatten->invoke($controller, $readout, false);
+        assert(is_array($eligible) && is_array($rejected));
+        self::assertCount(1, $eligible);
+        self::assertCount(1, $rejected);
+
+        $candidateRow = $eligible[0];
+        $refusedRow   = $rejected[0];
+        assert(is_array($candidateRow) && is_array($refusedRow));
+        assert(isset($candidateRow['signals']) && is_array($candidateRow['signals']));
+        $signalRow = $candidateRow['signals'][0];
+        assert(is_array($signalRow));
+
+        $template = (string)file_get_contents(
+            dirname(__DIR__, 4) . '/Resources/Private/Templates/Backend/Governance.html',
+        );
+
+        // The alias is `routeCandidate`, not `candidate`: the profile selector
+        // higher up the same template already loops `as="candidate"` over
+        // GovernanceProfile, and two unrelated shapes under one name is how a
+        // reader — and this test — reads the wrong one.
+        foreach (['routeCandidate' => $candidateRow, 'signal' => $signalRow] as $alias => $row) {
+            $found = preg_match_all('/\{' . $alias . '\.([a-zA-Z]+)/', $template, $matches);
+            self::assertGreaterThan(
+                0,
+                $found,
+                'the template reads no {' . $alias . '.…} path, so this test is checking nothing',
+            );
+
+            foreach (array_unique($matches[1]) as $path) {
+                self::assertArrayHasKey(
+                    $path,
+                    $row,
+                    sprintf('the template reads {%s.%s} and the controller does not produce it', $alias, $path),
+                );
+            }
+        }
+
+        // The other direction: the rejected row carries a reason instead of a
+        // score, and nothing else.
+        self::assertSame(['modelId', 'name', 'provider', 'score', 'reasonKey', 'signals'], array_keys($refusedRow));
+        self::assertSame('', $refusedRow['score'], 'a refused candidate carries no score');
+        self::assertSame([], $refusedRow['signals'], 'a refused candidate carries no signals');
+    }
+
+    #[Test]
+    public function theRoutedCallReadoutRendersTheDecisionBehindACallThatAlreadyRan(): void
+    {
+        // ADR-142 made a reader the condition of persisting the trace at all.
+        // This is that reader: the readout above answers a hypothetical, this
+        // answers "why model A" for a run that happened.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-1',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o-mini',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 812,
+                policyMode: 'balanced',
+                candidateCount: 4,
+                rejectionReasons: ['CAPABILITY_MISSING'],
+                qualitySignalUsed: true,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 35,
+                payloadBytes: 4096,
+                complexityTokens: 900,
+                toolCount: 2,
+                contextPercent: 11,
+                shape: 'toolAssisted',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('Calls that were routed', $body);
+        self::assertStringContainsString('editorial.summary', $body);
+        self::assertStringContainsString('gpt-4o-mini', $body);
+        self::assertStringContainsString('balanced, 4 candidate(s)', $body);
+        self::assertStringContainsString('CAPABILITY_MISSING', $body, 'the reason set explains who was refused');
+        self::assertStringContainsString('score 35/100', $body);
+        self::assertStringContainsString('toolAssisted', $body);
+        self::assertStringContainsString('~900 tokens, 11% of the window', $body);
+        // Every recorded complexity figure has a reader, the byte count included.
+        self::assertStringContainsString('4096 bytes on the wire', $body);
+        self::assertStringNotContainsString('No routed calls recorded', $body);
+        // The observation is labelled as one, on the page as well as in the ADR.
+        self::assertStringContainsString('Complexity (observed)', $body);
+    }
+
+    #[Test]
+    public function aMeasuredZeroPercentWindowRendersAsAMeasurementNotAsUnmeasured(): void
+    {
+        // Fluid casts a numeric condition through (bool)(float), so guarding the
+        // measured branch with {call.contextPercent} makes a measured 0 read as
+        // "not measured" — and hides the token estimate with it. On a 128k model
+        // that is every send under roughly 590 tokens: most short chats.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-3',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o-mini',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 120,
+                policyMode: 'balanced',
+                candidateCount: 3,
+                rejectionReasons: [],
+                qualitySignalUsed: true,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 5,
+                payloadBytes: 180,
+                complexityTokens: 42,
+                toolCount: 0,
+                contextPercent: 0,
+                shape: 'singleTurn',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('~42 tokens, 0% of the window', $body);
+        self::assertStringNotContainsString('window not measured for this send', $body);
+    }
+
+    #[Test]
+    public function aDecisionThatUsedNoMeasuredSignalSaysSoRatherThanShowingNothing(): void
+    {
+        // "The mode was quality" and "quality decided anything" are different
+        // facts; a blank cell would read as the first.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-2',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o',
+                success: false,
+                fallbackAttempts: 2,
+                latencyMs: 40,
+                policyMode: 'quality',
+                candidateCount: 2,
+                rejectionReasons: [],
+                qualitySignalUsed: false,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 5,
+                payloadBytes: 180,
+                complexityTokens: null,
+                toolCount: 0,
+                contextPercent: null,
+                shape: 'singleTurn',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('none — provider priority and the tiebreaks decided', $body);
+        // An unmeasured window is named, not rendered as a zero nobody measured.
+        self::assertStringContainsString('window not measured for this send', $body);
+        // The byte count needs no context fit, so it is still there to read.
+        self::assertStringContainsString('180 bytes on the wire', $body);
+        self::assertStringContainsString('failed', $body);
+        self::assertStringContainsString('2 fallback attempt(s)', $body);
+    }
+
+    #[Test]
+    public function aRowThatMeasuredNoComplexitySaysSoInsteadOfShowingTheColumnDefaults(): void
+    {
+        // A criteria-mode embeddings configuration resolves a model — so the row
+        // carries a decision and the reader returns it — but it never runs a
+        // context fit, so nothing measures the payload. The six complexity
+        // columns then hold their defaults, and rendering them unguarded reports
+        // a send nobody counted as one that measured zero of everything.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-4',
+                operation: 'embedding',
+                configurationIdentifier: 'nr_ai_search.embeddings',
+                servedModel: 'text-embedding-3-small',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 61,
+                policyMode: 'cost',
+                candidateCount: 2,
+                rejectionReasons: [],
+                qualitySignalUsed: false,
+                healthSignalUsed: false,
+                costSignalUsed: true,
+                complexityScore: 0,
+                payloadBytes: 0,
+                complexityTokens: null,
+                toolCount: 0,
+                contextPercent: null,
+                shape: '',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        // The decision half is still shown — that is what the row does carry.
+        self::assertStringContainsString('nr_ai_search.embeddings', $body);
+        self::assertStringContainsString('cost, 2 candidate(s)', $body);
+
+        self::assertStringContainsString('complexity not measured for this send', $body);
+        self::assertStringNotContainsString('score 0/100', $body);
+        self::assertStringNotContainsString('0 bytes on the wire', $body);
+        self::assertStringNotContainsString('0 tool(s)', $body);
+        // Not the narrower "a fit did not run" message either: there is no
+        // measurement to qualify.
+        self::assertStringNotContainsString('window not measured for this send', $body);
+    }
+
+    #[Test]
+    public function anEmptyRoutedCallWindowSaysSoInsteadOfShowingAnEmptyTable(): void
+    {
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('No routed calls recorded', $body);
+        self::assertStringContainsString('every configuration names a fixed model', $body);
     }
 
     /**
@@ -176,10 +634,52 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @param list<GovernanceProfileDeviation> $deviations
+     * A simulation with every axis permitting, so each test can refuse exactly
+     * one and see it decide.
      */
-    private function render(?GovernanceProfile $profile, array $deviations, ?ToolPolicyDecision $simulation): string
-    {
+    private function simulation(
+        ?ToolPolicyDecision $tool = null,
+        ?InputContextDecision $context = null,
+        ?RoutingReadout $routing = null,
+        bool $approvalRequired = false,
+        ?SimulationActor $actor = null,
+    ): GovernanceSimulation {
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setName('GPT-4o');
+
+        return new GovernanceSimulation(
+            $tool ?? new ToolPolicyDecision('get_page_tree', true, ToolDataClass::EDITOR_CONTENT, TrustZone::LOCAL, ToolDataClass::SECRET_ADJACENT),
+            $context ?? InputContextDecision::undeclared(),
+            $routing ?? RoutingReadout::decided(
+                new RoutingDecision($model, [RoutingCandidate::eligible($model, 0.62, [])], RoutingPolicyMode::BALANCED),
+                false,
+                null,
+                false,
+                false,
+            ),
+            $approvalRequired,
+            $actor ?? new SimulationActor(3, 'editor', false),
+        );
+    }
+
+    /**
+     * @param list<GovernanceProfileDeviation>                                                                                                                               $deviations
+     * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $eligible
+     * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $rejected
+     * @param list<RoutedCall>                                                                                                                                               $routedCalls
+     * @param list<SimulationActor>                                                                                                                                          $actors
+     */
+    private function render(
+        ?GovernanceProfile $profile,
+        array $deviations,
+        ?GovernanceSimulation $simulation,
+        ?RoutingReadout $routing = null,
+        array $eligible = [],
+        array $rejected = [],
+        array $routedCalls = [],
+        array $actors = [],
+    ): string {
         $view = $this->getService(ViewFactoryInterface::class)->create(new ViewFactoryData(
             templateRootPaths: ['EXT:nr_llm/Resources/Private/Templates/'],
             partialRootPaths: ['EXT:nr_llm/Resources/Private/Partials/'],
@@ -201,7 +701,30 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'deviations'     => $deviations,
             'configurations' => [],
             'toolNames'      => ['get_page_tree'],
-            'simulation'     => $simulation,
+            // ADR-157: the whole-run simulation, its actor picker, and the two
+            // message() strings the controller assigns because they do not
+            // follow Fluid's get/is/has convention.
+            'simulationActors'         => $actors,
+            'simulation'               => $simulation,
+            'simulationToolMessage'    => $simulation?->tool->message(),
+            'simulationContextMessage' => $simulation?->context->message(),
+            'simulateConfiguration'    => '',
+            'simulateTool'             => '',
+            'simulateActor'            => '',
+            // ADR-148: the routing readout, with the candidate tables already
+            // flattened the way the controller flattens them.
+            'routing'              => $routing,
+            'routingEligible'      => $eligible,
+            'routingRejected'      => $rejected,
+            'routingOperations'    => [ProviderOperation::Chat, ProviderOperation::Vision, ProviderOperation::Tools],
+            'routingModes'         => RoutingPolicyMode::cases(),
+            'routingConfiguration' => '',
+            'routingOperation'     => '',
+            'routingPolicyMode'    => '',
+            // ADR-156: the decisions that already happened, as the controller
+            // hands them over.
+            'routedCalls'          => $routedCalls,
+            'routedCallsDays'      => 7,
         ]);
 
         return $view->render();

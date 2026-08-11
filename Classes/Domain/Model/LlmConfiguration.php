@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Domain\Model;
 use Netresearch\NrLlm\Domain\DTO\FallbackChain;
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
 use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
@@ -59,6 +60,14 @@ class LlmConfiguration extends AbstractEntity
     protected string $translator = '';
 
     protected string $systemPrompt = '';
+
+    /**
+     * The sensitivity ceiling an operator declared for {@see $systemPrompt}
+     * (ADR-155), as a {@see ToolDataClass} backed value. EMPTY means
+     * UNDECLARED and constrains nothing — see
+     * {@see self::getSystemPromptDataClassEnum()}.
+     */
+    protected string $systemPromptDataClass = '';
 
     protected float $temperature = 0.7;
 
@@ -275,6 +284,40 @@ class LlmConfiguration extends AbstractEntity
     public function getSystemPrompt(): string
     {
         return $this->systemPrompt;
+    }
+
+    public function getSystemPromptDataClass(): string
+    {
+        return $this->systemPromptDataClass;
+    }
+
+    /**
+     * The declared class of this configuration's system prompt, or null when
+     * the operator declared none (ADR-155).
+     *
+     * Null where the prompt itself is EMPTY, too. The class classifies the
+     * text, and a configuration with no system prompt sends none — a refusal
+     * over a value describing an absent field would name a source the operator
+     * cannot find.
+     *
+     * Deliberately NOT the reading a snippet gets: a selected-but-empty snippet
+     * still constrains, because selection is a tag match an operator made on
+     * purpose. This field is on the record being sent, so blank means the
+     * configuration contributes no text of its own. ADR-155 states the
+     * asymmetry and its one-directional cost.
+     *
+     * Null is otherwise not a guessed default, for the reason
+     * {@see PromptSnippet::getDataClassEnum()} gives: guessing low would
+     * silently authorise, guessing high would refuse prompts that have shipped
+     * for months.
+     */
+    public function getSystemPromptDataClassEnum(): ?ToolDataClass
+    {
+        if ($this->systemPrompt === '') {
+            return null;
+        }
+
+        return ToolDataClass::tryFrom($this->systemPromptDataClass);
     }
 
     public function getTemperature(): float
@@ -560,6 +603,11 @@ class LlmConfiguration extends AbstractEntity
     public function setSystemPrompt(string $systemPrompt): void
     {
         $this->systemPrompt = $systemPrompt;
+    }
+
+    public function setSystemPromptDataClass(string $systemPromptDataClass): void
+    {
+        $this->systemPromptDataClass = $systemPromptDataClass;
     }
 
     public function setTemperature(float $temperature): void

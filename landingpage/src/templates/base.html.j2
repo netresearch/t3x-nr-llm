@@ -97,7 +97,7 @@
   <footer class="site-footer">
     <div class="container site-footer__inner">
       <div class="site-footer__brand">
-        <img src="{{ url('assets/img/netresearch-logo.svg') }}" width="40" height="40" alt="Netresearch" style="filter: brightness(0) invert(1);">
+        {#- Brand rule: the logo appears exactly once, in the header. -#}
         <p class="site-footer__tagline">{{ brand.footer.tagline }}</p>
       </div>
       <ul class="site-footer__links">
@@ -109,6 +109,8 @@
       </ul>
       <div class="site-footer__meta">
         <span>{{ brand.footer.copyright }} · Netresearch DTT GmbH</span>
+        <a href="{{ contact_url('footer') }}" data-cta="business" data-cta-position="footer">{{ 'Kontakt' if lang == 'de' else 'Contact' }}</a>
+        <span>{{ 'Seite zuletzt geprüft' if lang == 'de' else 'Page last reviewed' }}: <time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time></span>
         <span>nr-llm · GPL-2.0-or-later</span>
       </div>
     </div>

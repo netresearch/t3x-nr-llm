@@ -1,15 +1,15 @@
 {
   "hero": {
     "eyebrow": "TYPO3 Extension · nr-llm",
-    "headline": "One LLM setup. Every extension. Full admin control.",
-    "subhead": "nr-llm is shared AI infrastructure for TYPO3 — like the caching framework, but for language models. Administrators configure providers once in the backend; every AI-powered extension on the site uses them automatically. Supports OpenAI, Anthropic Claude, Google Gemini, Ollama, and more.",
+    "headline": "The AI control plane for TYPO3.",
+    "subhead": "Connect a provider once, steer access centrally, cap budgets, and make AI features available to every extension on the site — under control.",
     "ctaPrimary": {
-      "label": "Get started",
-      "href": "#dev-kickstart"
+      "label": "Evaluate LLM governance in TYPO3",
+      "href": "{CONTACT_HERO}"
     },
     "ctaSecondary": {
-      "label": "View on GitHub",
-      "href": "https://github.com/netresearch/t3x-nr-llm"
+      "label": "Technical starting point",
+      "href": "#dev-kickstart"
     }
   },
   "problem": {
@@ -168,14 +168,14 @@
   },
   "architecture": {
     "heading": "Architecture",
-    "intro": "nr-llm uses a three-tier configuration hierarchy that separates concerns cleanly. A Configuration (use-case settings such as system prompt, temperature, and max tokens) references a Model (model id, capabilities, pricing), which references a Provider (endpoint, encrypted API key, adapter type). This lets you keep multiple API keys per provider type, point at custom endpoints such as Azure OpenAI or a local Ollama or vLLM instance, and reuse model definitions across configurations. Requests flow through a middleware pipeline that enforces fallback chains and records usage after each successful call. The extension targets PHP 8.2+ and TYPO3 v13.4 LTS or v14.3 LTS, with a PSR-18 HTTP client."
+    "intro": "nr-llm uses a three-tier configuration hierarchy that separates concerns cleanly. A Configuration (use-case settings such as system prompt, temperature, and max tokens) references a Model (model id, capabilities, pricing), which references a Provider (endpoint, encrypted API key, adapter type). This lets you keep multiple API keys per provider type, point at custom endpoints such as Azure OpenAI or a local Ollama or vLLM instance, and reuse model definitions across configurations. Requests flow through a middleware pipeline that enforces fallback chains and records usage after each successful call. The extension targets PHP {PHP_VERSION}+ and TYPO3 {TYPO3_VERSIONS}, with a PSR-18 HTTP client."
   },
   "faq": {
     "heading": "Frequently asked questions",
     "items": [
       {
         "q": "Which TYPO3 and PHP versions are supported?",
-        "a": "TYPO3 v13.4 LTS or v14.3 LTS, and PHP 8.2 or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version 0.28.0)."
+        "a": "TYPO3 {TYPO3_VERSIONS}, and PHP {PHP_VERSION} or higher. A PSR-18 compatible HTTP client (such as guzzlehttp/guzzle) is also required. The extension is currently in beta (version {VERSION})."
       },
       {
         "q": "Which AI providers can I use?",
@@ -280,5 +280,235 @@
       "nr-llm"
     ],
     "ogDescription": "One LLM setup. Every extension. Full admin control. Shared AI infrastructure for TYPO3 supporting OpenAI, Anthropic, Gemini, Ollama, and more."
+  },
+  "status": {
+    "heading": "Status",
+    "stageLabel": "Maturity",
+    "releaseLabel": "Latest release",
+    "mainLabel": "Main branch",
+    "docsLabel": "Documentation describes",
+    "verifiedLabel": "Page last reviewed",
+    "requirementsLabel": "Requires",
+    "note": "Four different values. A difference between them is not a contradiction — the release is what you install, main is what is being built, and the review date is when a person last checked this page's wording.",
+    "stages": {
+      "concept": "Concept",
+      "poc": "Proof of concept",
+      "alpha": "Alpha",
+      "beta": "Beta",
+      "stable": "Stable",
+      "maintenance": "Maintenance"
+    }
+  },
+  "outcomes": {
+    "heading": "What changes for the organisation",
+    "intro": "The technical description is further down. These are the effects that decide whether it is worth adopting.",
+    "items": [
+      {
+        "title": "One provider integration instead of one per extension",
+        "body": "Every extension that wants AI calls the same service. Adding the second AI feature no longer means building the second provider integration, the second key store and the second error handler."
+      },
+      {
+        "title": "Switching provider is a setting, not a project",
+        "body": "Configurations name a provider and a model. Moving from a commercial API to a self-hosted endpoint changes a backend record, not the code in the consuming extensions."
+      },
+      {
+        "title": "Keys stop multiplying",
+        "body": "API keys live in nr-vault as identifiers. They are not in the database in plaintext, not in a configuration file, and not in three extensions at once."
+      },
+      {
+        "title": "Cost becomes visible before the invoice",
+        "body": "Usage is recorded per provider, model, service and backend user, with an estimated cost. Budgets cap it per user and per period."
+      },
+      {
+        "title": "AI features become reusable",
+        "body": "Translation, alt text, embeddings and retrieval are services other extensions inject rather than reimplement."
+      },
+      {
+        "title": "Local and self-hosted stay on the table",
+        "body": "Ollama, vLLM and LocalAI are configured the same way as a commercial API, so a data-residency requirement does not force a different architecture."
+      }
+    ]
+  },
+  "governance": {
+    "heading": "Governance and control",
+    "intro": "What an administrator can actually decide, and where the software enforces it.",
+    "items": [
+      {
+        "title": "Who may use what",
+        "body": "Per-capability permissions are granted to backend groups. The configuration module itself is administrator-only."
+      },
+      {
+        "title": "How much each person may spend",
+        "body": "Budgets cap requests, tokens or estimated cost per backend user, daily or monthly. A run that would exceed the budget fails with a typed exception rather than silently continuing."
+      },
+      {
+        "title": "Which tools a model may call",
+        "body": "Built-in tools are grouped and each group is toggled on or off. Read-only tools are the default; the writing tools ship disabled."
+      },
+      {
+        "title": "What needs a human",
+        "body": "An approval-gated tool suspends the run and waits for a person to decide. There is no timeout that approves by default."
+      },
+      {
+        "title": "What is recorded",
+        "body": "Provider, model, service, user, token counts and estimated cost per request. Prompt content is not part of the usage record."
+      },
+      {
+        "title": "What happens when a provider fails",
+        "body": "A configuration can name fallbacks, retried on connection errors, HTTP 5xx and rate limits, in the order declared. An exhausted chain raises a typed exception rather than returning an empty answer."
+      }
+    ]
+  },
+  "dataflow": {
+    "heading": "Where the data goes",
+    "intro": "One request, end to end.",
+    "steps": [
+      {
+        "title": "An extension calls the service",
+        "body": "It passes messages and options. It does not know which provider is configured and never sees a key."
+      },
+      {
+        "title": "nr-llm resolves the configuration",
+        "body": "Configuration → model → provider. The key is fetched from nr-vault by identifier and used for this request only."
+      },
+      {
+        "title": "Guardrails screen the payload",
+        "body": "Input, output, reasoning and streamed chunks pass a policy pipeline that can redact. Secret patterns are denied on the way out."
+      },
+      {
+        "title": "The provider receives the request",
+        "body": "Whatever the configuration names: a commercial API, an EU-hosted provider, your own Azure deployment, or an endpoint inside your network."
+      },
+      {
+        "title": "The answer comes back and is recorded",
+        "body": "The response goes to the calling extension. The usage record keeps provider, model, service, user, tokens and estimated cost — not the prompt."
+      }
+    ],
+    "notes": [
+      "What is transferred: the prompt the extension built, plus any site content a retrieval tool included.",
+      "Where keys are stored: in nr-vault, envelope-encrypted, referenced by identifier. nr-llm never stores or logs a raw key.",
+      "What can stay local: everything, if the configuration points at a self-hosted endpoint. Provider choice is per configuration, not per site."
+    ]
+  },
+  "operating": {
+    "heading": "Provider and operating models",
+    "intro": "All configured the same way. The choice is an administrative decision, not an architectural one.",
+    "columns": {
+      "model": "Model",
+      "data": "Where data is processed",
+      "fit": "Fits when",
+      "tradeoff": "What it costs you"
+    },
+    "rows": [
+      {
+        "model": "Commercial API (OpenAI, Anthropic, Google, Mistral, Groq)",
+        "data": "At the provider",
+        "fit": "Model quality and choice decide",
+        "tradeoff": "A contractual and data-protection review per provider"
+      },
+      {
+        "model": "EU-hosted provider",
+        "data": "At the provider, inside the EU",
+        "fit": "The processing location is prescribed",
+        "tradeoff": "A smaller model selection"
+      },
+      {
+        "model": "Azure OpenAI or an OpenAI-compatible endpoint",
+        "data": "In your own cloud account",
+        "fit": "A framework agreement already exists",
+        "tradeoff": "Commitment to the platform"
+      },
+      {
+        "model": "Self-hosted (Ollama, vLLM, LocalAI)",
+        "data": "In your infrastructure",
+        "fit": "Data must not leave the network",
+        "tradeoff": "Your own operations, hardware and model maintenance"
+      },
+      {
+        "model": "Mixed",
+        "data": "Different per configuration",
+        "fit": "Sensitive and uncritical cases differ",
+        "tradeoff": "More configuration and more to explain"
+      }
+    ]
+  },
+  "cost": {
+    "heading": "Cost control",
+    "intro": "What the extension actually does about cost. No savings figure is claimed here — that depends on volumes we do not know.",
+    "items": [
+      {
+        "title": "Budget types",
+        "body": "Requests, tokens or estimated cost. Each can be capped daily or monthly, per backend user."
+      },
+      {
+        "title": "Cost per model and service",
+        "body": "Usage analytics break estimated cost down by provider, model, service and user, over a rolling window."
+      },
+      {
+        "title": "What happens at the limit",
+        "body": "The request is refused with a typed BudgetExceededException. The calling extension decides how to present that."
+      },
+      {
+        "title": "Falling back to something cheaper",
+        "body": "A configuration can name fallbacks — a smaller model, or a self-hosted endpoint with no per-token cost."
+      },
+      {
+        "title": "How the estimate is made",
+        "body": "From the per-model pricing recorded in the backend, applied to the token counts the provider returns. It is an estimate, not the provider's invoice."
+      }
+    ]
+  },
+  "scenarios": {
+    "heading": "Three ways to evaluate it",
+    "intro": "Each is small enough to finish and specific enough to judge.",
+    "items": [
+      {
+        "title": "Centrally steered translation",
+        "body": "Configure one provider, grant the translation capability to the editorial group, set a monthly budget, translate a page tree. Afterwards you can see who translated what, at which model, at what estimated cost.",
+        "checks": "Tests: provider configuration, permissions, budgets, analytics."
+      },
+      {
+        "title": "Alt text for images",
+        "body": "Point a configuration at a vision-capable model and generate alt text for a media folder. Compare a commercial model against a self-hosted one on the same images.",
+        "checks": "Tests: vision service, provider switching, output quality on your own data."
+      },
+      {
+        "title": "Editorial research with cited sources",
+        "body": "Enable the retrieval tool group and ask questions about your own site content. Check that every answer names the pages it came from.",
+        "checks": "Tests: retrieval, tool groups, citation, and whether the answers are good enough for your editors."
+      }
+    ]
+  },
+  "capabilityCard": {
+    "heading": "AI capability card",
+    "intro": "The same fields on every Netresearch AI product, so they can be compared rather than admired.",
+    "labels": {
+      "intended_purpose": "Intended purpose",
+      "excluded_uses": "Excluded uses",
+      "stage": "Maturity",
+      "models": "Models and providers",
+      "data": "Data processed",
+      "processing_location": "Processing location",
+      "human_oversight": "Human oversight",
+      "permissions": "Permissions",
+      "logging": "Logging",
+      "retention": "Retention",
+      "cost_control": "Cost control",
+      "security_controls": "Security controls",
+      "known_limitations": "Known limitations",
+      "last_verified": "Last reviewed"
+    },
+    "locations": {
+      "browser": "In the browser",
+      "own-server": "Your own server",
+      "external-provider": "An external provider"
+    }
+  },
+  "ctaBand": {
+    "heading": "Evaluating AI in TYPO3?",
+    "body": "We can work through which capabilities you need, which operating model fits your constraints, and what a first controlled step looks like.",
+    "business": "Evaluate LLM governance in TYPO3",
+    "technical": "Read the documentation",
+    "technicalHref": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Index.rst"
   }
 }

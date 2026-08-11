@@ -756,6 +756,14 @@ final class OpenRouterProvider extends AbstractProvider implements
      */
     private function sendOpenRouterRequest(string $endpoint, array $payload, ?int $timeout = null): array
     {
+        // This path bypasses AbstractProvider::sendRequest(), which validates
+        // first. Without this line an OpenRouter with no vault key falls
+        // through getHttpClient()'s api-key-less branch and sends a keyless
+        // request, so a local misconfiguration reaches the operator as the
+        // provider's 401 instead of a ProviderConfigurationException naming it
+        // (ADR-160). streamChatCompletion() already validates.
+        $this->validateConfiguration();
+
         $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
 
         $request = $this->requestFactory->createRequest('POST', $url)
@@ -777,7 +785,24 @@ final class OpenRouterProvider extends AbstractProvider implements
         $body = $this->streamFactory->createStream(json_encode($payload, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         $request = $request->withBody($body);
 
-        $response = $this->getHttpClient($timeout)->sendRequest($request);
+        $httpClient = $this->getHttpClient($timeout);
+
+        try {
+            $response = $httpClient->sendRequest($request);
+        } catch (Throwable $e) {
+            // This path does not go through AbstractProvider::sendRequest(),
+            // so nothing else turns a transport failure — connection refused,
+            // DNS failure, cURL timeout — into a typed provider error. Without
+            // this the raw PSR-18 exception escapes the adapter and reaches the
+            // caller as an unhandled 500 (ADR-160). The same reasoning already
+            // covers the unparseable-body case below.
+            throw new ProviderConnectionException(
+                'Failed to reach OpenRouter: ' . $this->sanitizeErrorMessage($e->getMessage()),
+                1784600501,
+                $e,
+            );
+        }
+
         $statusCode = $response->getStatusCode();
         $responseBody = $response->getBody()->getContents();
 
