@@ -494,6 +494,7 @@ Tools
    Adr147NoSymfonyAiBridgeYet
    Adr148RoutingReadoutOnTheGovernanceTab
    Adr149CriteriaModeZoneFromTheResolvedModel
+   Adr150SubmitterGateAndInputTurnBinding
    Adr152EditorActionDeclaration
    Adr154McpServerHealth
    Adr155SystemPromptCarriesADataClass

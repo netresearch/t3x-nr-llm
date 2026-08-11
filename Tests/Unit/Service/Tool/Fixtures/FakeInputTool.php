@@ -34,6 +34,11 @@ final class FakeInputTool implements ToolInterface, RequiresInputInterface
     public function __construct(
         private readonly string $name = 'ask_user',
         private readonly array $schema = ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']],
+        // The admin axis of the tool gate, so the submitter gate (ADR-150) can
+        // be exercised against an input-requiring tool the submitter may not
+        // run. No builtin implements RequiresInputInterface (a tripwire pins
+        // that, see InputPauseCoverageTest), so the case only exists here.
+        private readonly bool $requiresAdmin = false,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -58,7 +63,7 @@ final class FakeInputTool implements ToolInterface, RequiresInputInterface
 
     public function requiresAdmin(): bool
     {
-        return false;
+        return $this->requiresAdmin;
     }
 
     public function getGroup(): string

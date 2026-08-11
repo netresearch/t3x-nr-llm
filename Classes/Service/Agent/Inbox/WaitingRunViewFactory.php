@@ -94,7 +94,7 @@ final readonly class WaitingRunViewFactory
     public function inputSchemaForRun(AgentRun $run): ?array
     {
         $state = $this->decodeState($run);
-        if (!$state instanceof SuspendedRunState || $state->inputToolName === null || !$this->isRenderableObjectSchema($state->inputSchema)) {
+        if (!$state instanceof SuspendedRunState || !$state->isInputPause() || !$this->isRenderableObjectSchema($state->inputSchema)) {
             return null;
         }
 
@@ -108,9 +108,9 @@ final readonly class WaitingRunViewFactory
             return $this->unreadable($run, 'state-unreadable');
         }
 
-        return $state->inputToolName === null
-            ? $this->buildApproval($run, $state, $viewer)
-            : $this->buildInput($run, $state);
+        return $state->isInputPause()
+            ? $this->buildInput($run, $state)
+            : $this->buildApproval($run, $state, $viewer);
     }
 
     private function buildApproval(AgentRun $run, SuspendedRunState $state, ?BackendUserAuthentication $viewer): WaitingRunView
@@ -224,6 +224,11 @@ final readonly class WaitingRunViewFactory
             mode: WaitingRunView::MODE_INPUT,
             createdAt: $run->crdate,
             configLabel: $this->configLabel($run),
+            // ADR-150: the input form carries the same kind of binding the
+            // approval form does, computed over the fields an input pause is
+            // decided on — the pending calls, the target tool and the schema
+            // these very fields were built from.
+            turnDigest: $this->digest->forInputState($state),
             inputFields: $fields,
         );
     }

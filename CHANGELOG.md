@@ -391,6 +391,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **An input submission is authorised against the tool it feeds, and bound to
+  the turn its form was rendered from** (ADR-150, closes #690). `submitInput()`
+  authorised the submitter with the `agent_approve` grant and nothing else,
+  while the resumed call executes under the run OWNER's identity (ADR-083) — a
+  non-admin could satisfy an admin-only tool that then ran on the owner's
+  authority. Latent only because no builtin implements `RequiresInputInterface`.
+  - The submitter now passes the same tool gate the execution would, on EVERY
+    pending call plus the declared input tool. Not only the writing ones as on
+    the approval path (ADR-133): an input-requiring tool declares no effect, so
+    that filter would have selected nothing. A service account, and a uid that
+    no longer resolves to an enabled user, are refused outright.
+  - `InputSubmission` carries a `turnDigest`. Null and mismatching are refused
+    alike — both mean the turn is not known. The digest is a second method on
+    the existing `PendingTurnDigest` rather than a parallel one, and covers the
+    pending calls plus the target tool and the declared input schema; the
+    approval digest is byte-identical to before, so open approval cards stay
+    valid.
+  - Both gates judge the state loaded AFTER the claim, which is now also the
+    state that executes. Previously the pre-claim copy ran, so a lost race fed
+    the operator's values into a turn they were never shown. A refusal releases
+    the run back to `WAITING_FOR_INPUT`; nothing runs, nothing settles.
+  - The inbox's input form carries the digest in a hidden field like the
+    approval form; the playground's `awaiting_input` payload emits it and
+    `submitInputAction` reads it back (409 on a stale turn, 403 on a refused
+    submitter).
+  - **Breaking:** `InputSubmission` is `@api` and its constructor takes the
+    turn digest. A caller outside this extension that omits it has every
+    submission refused — the same shape ADR-132 gave `ApprovalDecision`, and
+    refusing is the point: a submission that cannot name its turn is one this
+    gate exists to stop.
+
 - The `main-branch-rules` ruleset requires `All security checks` instead of the
   nine individual contexts that gate job already covers. gitleaks, zizmor,
   dependency-review, scorecard and pr-quality run on every pull request and

@@ -37,6 +37,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
@@ -307,12 +309,18 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $body    = $request->getParsedBody();
         $runUuid = trim($this->stringFromBody($body, 'runUuid'));
+        // The digest of the turn the caller was shown (ADR-150), the input
+        // sibling of resumeAction()'s. Passed through verbatim; the runtime
+        // compares it against the claimed state. An empty body value becomes
+        // null, which the runtime refuses like a mismatch — a client that does
+        // not send it cannot submit.
+        $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
         try {
             $result = $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
-                new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid()),
+                new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
             );
         } catch (RunNotAwaitingInputException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
@@ -327,6 +335,27 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.inputSchemaMismatch', 'The submitted input did not match the required schema.'),
             ], 422);
+        } catch (StaleInputTurnException) {
+            // Retryable like an invalid submission: the run was released back to
+            // its input pause, so re-signal awaiting_input and let the client
+            // re-fetch the CURRENT turn and its digest.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_input',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.staleInput', 'The pending action changed since you viewed it — please re-open the form.'),
+            ], 409);
+        } catch (SubmitterNotPermittedException) {
+            // ADR-150: the submitter may not run the tool they are feeding.
+            // Nothing was executed and the run is submittable again, so
+            // awaiting_input is re-signalled — but 403, because the obstacle is
+            // who is asking.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_input',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.submitterNotPermitted', 'You may not supply input for a tool you are not permitted to use yourself.'),
+            ], 403);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
@@ -438,8 +467,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     private function turnDigestFor(AgentRunResult $result): string
     {
         $state = $result->suspendedState;
+        if (!$state instanceof SuspendedRunState) {
+            return '';
+        }
 
-        return $state instanceof SuspendedRunState ? $this->turnDigest->forState($state) : '';
+        // The two pauses are bound by different digests (ADR-150), and the state
+        // says which pause this is. Emitting the approval digest for an input
+        // pause would hand the client a value the runtime never accepts.
+        return $state->isInputPause()
+            ? $this->turnDigest->forInputState($state)
+            : $this->turnDigest->forState($state);
     }
 
     /**
@@ -482,7 +519,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     /**
      * The JSON body for a run that suspended for typed input (ADR-105): the
      * target tool and its declared input schema the client renders a form from,
-     * plus the steps recorded up to the pause.
+     * the digest binding a later submission to exactly that form (ADR-150), plus
+     * the steps recorded up to the pause.
      *
      * @return array<string, mixed>
      */
@@ -498,6 +536,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'tool'   => $state instanceof SuspendedRunState ? ($state->inputToolName ?? '') : '',
                 'schema' => $state instanceof SuspendedRunState ? $state->inputSchema : [],
             ],
+            'turnDigest'   => $this->turnDigestFor($result),
             'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
@@ -626,6 +665,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                         'tool'   => $inputState instanceof SuspendedRunState ? ($inputState->inputToolName ?? '') : '',
                         'schema' => $inputState instanceof SuspendedRunState ? $inputState->inputSchema : [],
                     ],
+                    // The streamed pause carries the same binding as the batch
+                    // payload (ADR-150) — both surfaces show a form, so both
+                    // must let the client prove which form was shown.
+                    'turnDigest'   => $this->turnDigestFor($result),
                 ]);
 
                 return;

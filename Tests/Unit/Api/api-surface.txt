@@ -818,6 +818,7 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …)
+  method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
   method toolCalls(): array
@@ -1117,9 +1118,10 @@ Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   property readonly runUuid: string
 
 Netresearch\NrLlm\Service\Agent\InputSubmission (class)
-  constructor(array $data, int $submittedByBeUser)
+  constructor(array $data, int $submittedByBeUser, ?string $turnDigest = …)
   property readonly data: array
   property readonly submittedByBeUser: int
+  property readonly turnDigest: ?string
 
 Netresearch\NrLlm\Service\BudgetServiceInterface (interface)
   method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
