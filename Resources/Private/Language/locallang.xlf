@@ -633,6 +633,69 @@
             <trans-unit id="routing.rejection.COST_ABOVE_LIMIT">
                 <source>Its input cost exceeds the ceiling the criteria set.</source>
             </trans-unit>
+            <trans-unit id="routedCalls.heading">
+                <source>Calls that were routed</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.lead">
+                <source>The last %s days of calls whose model was chosen automatically, newest first. Fixed-mode calls are absent — nothing was chosen for them. The complexity columns are measured and recorded only; no routing decision reads them.</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.when">
+                <source>When</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.servedModel">
+                <source>Served by</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.decision">
+                <source>Decision</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.complexity">
+                <source>Complexity (observed)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.failed">
+                <source>failed</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.fallbackAttempts">
+                <source>%s fallback attempt(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.mode">
+                <source>%s, %s candidate(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals">
+                <source>Signals used</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals.none">
+                <source>none — provider priority and the tiebreaks decided</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.refusedBy">
+                <source>Refused by</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.score">
+                <source>score %s/100</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.tools">
+                <source>%s tool(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.bytes">
+                <source>%s bytes on the wire</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.context">
+                <source>~%s tokens, %s%% of the window</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.context.unmeasured">
+                <source>window not measured for this send</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.complexity.unmeasured">
+                <source>complexity not measured for this send</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.title">
+                <source>No routed calls recorded</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.text">
+                <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
+            </trans-unit>
 
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">

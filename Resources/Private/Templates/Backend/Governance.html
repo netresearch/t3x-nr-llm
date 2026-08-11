@@ -497,5 +497,109 @@
             </f:else>
         </f:if>
     </f:if>
+
+    <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.heading" default="Calls that were routed" /></h2>
+    <p class="text-body-secondary">
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.lead" arguments="{0: routedCallsDays}" />
+    </p>
+
+    <f:if condition="{routedCalls}">
+        <f:then>
+            <div class="table-fit">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.column.when" default="When" /></th>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.column.configuration" default="Configuration" /></th>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.column.servedModel" default="Served by" /></th>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.column.decision" default="Decision" /></th>
+                            <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.column.complexity" default="Complexity (observed)" /></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <f:for each="{routedCalls}" as="call">
+                            <tr>
+                                <td class="small">
+                                    <f:format.date format="Y-m-d H:i">@{call.crdate}</f:format.date>
+                                    <span class="d-block text-body-secondary">{call.operation} — {call.latencyMs} ms</span>
+                                </td>
+                                <td>
+                                    <code>{call.configurationIdentifier}</code>
+                                    <f:if condition="{call.success} == 0">
+                                        <span class="d-block small text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.failed" default="failed" /></span>
+                                    </f:if>
+                                    <f:if condition="{call.fallbackAttempts} > 0">
+                                        <span class="d-block small text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.fallbackAttempts" arguments="{0: call.fallbackAttempts}" /></span>
+                                    </f:if>
+                                </td>
+                                <td><code>{call.servedModel}</code></td>
+                                <td class="small">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.mode" arguments="{0: call.policyMode, 1: call.candidateCount}" />
+                                    <span class="d-block">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.signals" default="Signals used" />:
+                                        <f:if condition="{call.qualitySignalUsed}"><code class="me-1">quality</code></f:if>
+                                        <f:if condition="{call.healthSignalUsed}"><code class="me-1">health</code></f:if>
+                                        <f:if condition="{call.costSignalUsed}"><code class="me-1">cost</code></f:if>
+                                        <f:if condition="{call.qualitySignalUsed} || {call.healthSignalUsed} || {call.costSignalUsed}">
+                                            <f:then></f:then>
+                                            <f:else>
+                                                <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.signals.none" default="none — provider priority and the tiebreaks decided" /></span>
+                                            </f:else>
+                                        </f:if>
+                                    </span>
+                                    <f:if condition="{call.rejectionReasons}">
+                                        <span class="d-block text-body-secondary">
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.refusedBy" default="Refused by" />:
+                                            <f:for each="{call.rejectionReasons}" as="reason"><code class="me-1">{reason}</code></f:for>
+                                        </span>
+                                    </f:if>
+                                </td>
+                                <td class="small">
+                                    <f:comment>
+                                        complexityMeasured resolves isComplexityMeasured(), which
+                                        asks the empty-shape flag. A row can carry a decision and
+                                        no measurement at all — a criteria-mode embeddings
+                                        configuration resolves a model but never runs a fit — and
+                                        its score, tool count and byte count are then column
+                                        defaults, not observations. See RoutedCall.
+                                    </f:comment>
+                                    <f:if condition="{call.complexityMeasured}">
+                                        <f:then>
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.score" arguments="{0: call.complexityScore}" />
+                                            <span class="d-block text-body-secondary">
+                                                <code>{call.shape}</code>,
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.tools" arguments="{0: call.toolCount}" />,
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.bytes" arguments="{0: call.payloadBytes}" />
+                                            </span>
+                                            <span class="d-block text-body-secondary">
+                                                <f:comment>
+                                                    contextMeasured resolves isContextMeasured(), NOT the
+                                                    percentage. Fluid casts a numeric condition through
+                                                    (bool)(float), so a measured 0 % would fall into the
+                                                    f:else and report "not measured" — see RoutedCall.
+                                                </f:comment>
+                                                <f:if condition="{call.contextMeasured}">
+                                                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context" arguments="{0: call.complexityTokens, 1: call.contextPercent}" /></f:then>
+                                                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context.unmeasured" default="window not measured for this send" /></f:else>
+                                                </f:if>
+                                            </span>
+                                        </f:then>
+                                        <f:else>
+                                            <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.complexity.unmeasured" default="complexity not measured for this send" /></span>
+                                        </f:else>
+                                    </f:if>
+                                </td>
+                            </tr>
+                        </f:for>
+                    </tbody>
+                </table>
+            </div>
+        </f:then>
+        <f:else>
+            <f:be.infobox state="-1" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.empty.title', default: 'No routed calls recorded')}">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.empty.text" default="Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off." />
+            </f:be.infobox>
+        </f:else>
+    </f:if>
 </f:section>
 </html>

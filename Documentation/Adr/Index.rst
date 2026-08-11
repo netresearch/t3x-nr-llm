@@ -495,6 +495,7 @@ Tools
    Adr148RoutingReadoutOnTheGovernanceTab
    Adr149CriteriaModeZoneFromTheResolvedModel
    Adr155SystemPromptCarriesADataClass
+   Adr156PersistTheRoutingDecisionObserveComplexity
    Adr157TheSimulationCoversTheRunAndAnswersForAnActor
    Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance

@@ -441,6 +441,94 @@ opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no
 active model, while a populated :guilabel:`Refused, and why` table means the
 criteria and the model records disagree.
 
+.. _administration-governance-routed-calls:
+
+Calls that were routed
+======================
+
+The readout above answers a hypothetical. :guilabel:`Calls that were routed`
+answers the same question about calls that already ran: the last seven days
+of runs whose model was chosen automatically, newest first, twenty at a time
+(:ref:`ADR-156 <adr-156>`).
+
+Each row names when the call ran and against which configuration, which model
+answered it, and the decision behind that: the policy mode, how many
+candidates were considered, which measured signals actually moved the ranking,
+and the distinct reasons that refused the rest.
+
+**Fixed-mode calls are absent, and that is the point.** Nothing was chosen for
+them, so there is no decision to show. If the table is empty on a busy
+installation, the likely reasons are that every configuration names a fixed
+model, or that ``telemetry.enabled`` is off in the Install Tool.
+
+**"Signals used" means the signal moved this decision**, not that the mode
+weighs it and not that the ranking collected it. A ``quality`` decision over a
+catalogue nobody has scored shows no signals used and ranks exactly as
+:guilabel:`Provider priority` would — the weights only apply to signals that
+have data. A signal the mode weighs at zero is not listed either: ``quality``
+weighs cost at zero, so :guilabel:`Prefer Lowest Cost` on a ``quality``
+configuration shows no cost signal, even though it still breaks ties between
+models that scored equally.
+
+**The candidate models are not stored per call.** Which models exist and which
+lost is a catalogue question; read it off the live catalogue with the readout
+above. The row keeps the count and the reason set, which is what varies from
+request to request.
+
+Rows are purged with the rest of the telemetry table by
+``nrllm:telemetry:purge``; a window shorter than your observation period
+deletes the evidence before you read it.
+
+.. _administration-governance-complexity:
+
+The complexity columns are observed, not applied
+================================================
+
+The same rows carry a measurement of how involved each request was: a 0-100
+structural score, the request shape (a single question, a conversation, or a
+tool-assisted transcript), the number of tool schemas on the wire, the payload
+size in bytes, the token estimate and how much of the model's context window it
+filled.
+
+**You see them for routed calls only.** The measurement is taken on every
+configuration-driven send, fixed-mode ones included, but it is stored on the
+telemetry row and the table above shows only rows whose model was chosen
+automatically. An installation with no criteria-mode configuration collects
+these columns and displays none of them; the figures are in
+``tx_nrllm_telemetry`` if you query it directly.
+
+**Nothing routes on any of it.** There is no setting that turns it into a
+routing signal, and none is planned until three things have been shown on real
+traffic: that cheaper models hold for simple requests, that quality does not
+degrade, and that real cost drops by enough to be worth a permanent branch in
+the decision path (:ref:`ADR-156 <adr-156>` states the criteria in full). The
+columns exist so that question can be settled with data rather than opinion.
+
+Two readings need care:
+
+**The score is uncalibrated.** It is three capped terms — conversation turns,
+tool count, context utilisation — chosen to be defensible, not fitted to
+anything. Correlate against it; do not treat it as a threshold.
+
+**"window not measured" is not "empty".** The token and utilisation figures
+come from the context fit (:ref:`ADR-143 <adr-143>`). Where no fit ran they are
+stored as NULL, and the page says so rather than showing a zero nobody
+measured. The byte count is unaffected — it needs no fit — so a row that says
+"window not measured" still tells you how large the send was. A utilisation
+above 100 % is real: it is the overflow case, and it is deliberately not
+clamped.
+
+**A measured 0 % is a measurement.** A short chat against a large window rounds
+to zero, and the page shows ``~N tokens, 0% of the window`` for it rather than
+falling back to "not measured".
+
+**"complexity not measured" replaces the whole cell**, and is a different
+statement from "window not measured". Some calls choose a model without ever
+sending a measurable payload through the context fit — an embeddings
+configuration in criteria mode is the usual one. Its row has a decision to show
+and nothing to measure, so the score, the shape, the tool count and the byte
+count are absent rather than shown as zeros.
+
 .. _administration-governance-no-apply:
 
 Why there is no apply button

@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
@@ -118,11 +119,11 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
         $seen  = [];
 
         $selection = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturnCallback(
-            static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (&$seen, $model): Model {
+        $selection->method('resolveModelForCall')->willReturnCallback(
+            static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (&$seen, $model): ModelResolution {
                 $seen[] = $operation;
 
-                return $model;
+                return ModelResolution::withoutDecision($model);
             },
         );
 
@@ -142,11 +143,11 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
         // added none.
         $resolutions = 0;
         $selection   = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturnCallback(
-            static function (LlmConfiguration $configuration) use (&$resolutions): ?Model {
+        $selection->method('resolveModelForCall')->willReturnCallback(
+            static function (LlmConfiguration $configuration) use (&$resolutions): ModelResolution {
                 ++$resolutions;
 
-                return $configuration->getLlmModel();
+                return ModelResolution::withoutDecision($configuration->getLlmModel());
             },
         );
 
@@ -171,7 +172,7 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
     private function selecting(?Model $model): ModelSelectionServiceInterface
     {
         $selection = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturn($model);
+        $selection->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision($model));
 
         return $selection;
     }

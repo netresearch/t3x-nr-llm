@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -27,7 +28,9 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
+use Netresearch\NrLlm\Service\Complexity\RequestComplexityEstimator;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
@@ -282,12 +285,28 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $options
      * @param list<array<string, mixed>>             $toolSpecs the tool schemas this send carries, empty for a plain chat
+     * @param ?TelemetrySignals                      $signals   the running call's scratchpad; given one, this send's
+     *                                                          complexity is measured onto it (ADR-156). The fit is the
+     *                                                          only place that knows the token estimate AND the budget,
+     *                                                          which is why the observation hangs here rather than on a
+     *                                                          pass of its own over the same messages.
      *
      * @return list<ChatMessage|array<string, mixed>>
      */
-    private function fitToContextWindow(array $messages, LlmConfiguration $configuration, Model $llmModel, array $options, array $toolSpecs = []): array
-    {
+    private function fitToContextWindow(
+        array $messages,
+        LlmConfiguration $configuration,
+        Model $llmModel,
+        array $options,
+        array $toolSpecs = [],
+        ?TelemetrySignals $signals = null,
+    ): array {
         if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
+            // Still measurable: size, tool count and shape do not need a fit.
+            // Only the token and utilisation figures do, and they stay null
+            // rather than being guessed from the byte count.
+            $this->measureComplexity($signals, $messages, count($toolSpecs), null);
+
             return $messages;
         }
 
@@ -305,6 +324,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             is_string($systemPrompt) ? $systemPrompt : null,
             $llmModel,
         );
+
+        // Measured against what actually goes on the wire — the fit's own
+        // message list, post-pruning — because that is the list its token
+        // estimate describes. Measuring the input would report a size the
+        // provider never saw.
+        $this->measureComplexity($signals, $fit->messages, count($toolSpecs), $fit);
 
         if ($fit->overflowAtFloor) {
             // Send it anyway, exactly as ConversationService does: the estimate
@@ -335,10 +360,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * provider error.
      *
      * @param array<string, mixed> $options
+     * @param ?TelemetrySignals    $signals as on {@see self::fitToContextWindow()}
      */
-    private function reportPromptOverflow(string $prompt, LlmConfiguration $configuration, Model $llmModel, array $options): void
-    {
+    private function reportPromptOverflow(
+        string $prompt,
+        LlmConfiguration $configuration,
+        Model $llmModel,
+        array $options,
+        ?TelemetrySignals $signals = null,
+    ): void {
+        $promptMessages = [ChatMessage::user($prompt)];
+
         if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
+            $this->measureComplexity($signals, $promptMessages, 0, null);
+
             return;
         }
 
@@ -347,7 +382,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $system      = $options['system_prompt'] ?? null;
 
         $fit = $this->contextWindow->fit(
-            [ChatMessage::user($prompt)],
+            $promptMessages,
             $configuration,
             $chatOptions,
             null,
@@ -356,6 +391,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             is_string($system) ? $system : null,
             $llmModel,
         );
+
+        $this->measureComplexity($signals, $fit->messages, 0, $fit);
 
         if (!$fit->overflowAtFloor) {
             return;
@@ -367,6 +404,41 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             'estimatedTokens' => $fit->estimatedTokens,
             'budget'          => $fit->budget,
         ]);
+    }
+
+    /**
+     * Record how involved this send was, for the telemetry row (ADR-156).
+     *
+     * OBSERVATION. The figure reaches one column and no decision: nothing in
+     * {@see \Netresearch\NrLlm\Service\Routing\CandidateRanker},
+     * {@see \Netresearch\NrLlm\Service\Routing\EligibilityEvaluator} or
+     * {@see \Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode} reads it, and
+     * ADR-156 states the three conditions that must hold before anything may.
+     *
+     * Fail-soft, like every other observation on this path: a measurement error
+     * must not turn a working call into a failed one, so it is logged and
+     * swallowed.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     */
+    private function measureComplexity(
+        ?TelemetrySignals $signals,
+        array $messages,
+        int $toolCount,
+        ?ContextFitResult $fit,
+    ): void {
+        if (!$signals instanceof TelemetrySignals) {
+            return;
+        }
+
+        try {
+            // Constructed here rather than injected: the estimator is a
+            // stateless pure function object, and this manager's constructor is
+            // pinned by the shared test factory.
+            $signals->recordComplexity((new RequestComplexityEstimator())->estimate($messages, $toolCount, $fit));
+        } catch (Throwable $e) {
+            $this->logger?->warning('Failed to measure request complexity; the call is unaffected', ['exception' => $e]);
+        }
     }
 
     /**
@@ -764,7 +836,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Tools,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $normalisedTools, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Tools);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Tools, $ctx->telemetrySignals);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter instanceof ToolCapableInterface) {
                     throw new UnsupportedFeatureException(
@@ -786,6 +858,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     // are handed over in their serialised shape rather than as
                     // value objects.
                     array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+                    $ctx->telemetrySignals,
                 );
 
                 return $adapter->chatCompletionWithTools(
@@ -871,7 +944,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderCallContext::forConfiguration(ProviderOperation::Embedding, $configuration, $metadata),
             function (ProviderCallContext $ctx) use ($input, $optionOverrides): array {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Embedding, $ctx->telemetrySignals);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 if (!$adapter->supportsFeature('embeddings')) {
                     throw new UnsupportedFeatureException(
@@ -976,10 +1049,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Chat,
             function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
-                $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options);
+                $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options, [], $ctx->telemetrySignals);
 
                 return $adapter->chatCompletion($this->applyAndScreenSystemPrompt($bounded, $options), $options);
             },
@@ -1004,10 +1077,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             ProviderOperation::Completion,
             function (ProviderCallContext $ctx) use ($prompt, $optionOverrides): CompletionResponse {
                 $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Completion);
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Completion, $ctx->telemetrySignals);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
-                $this->reportPromptOverflow($prompt, $config, $llmModel, $options);
+                $this->reportPromptOverflow($prompt, $config, $llmModel, $options, $ctx->telemetrySignals);
 
                 return $adapter->complete($prompt, $options);
             },
@@ -1245,8 +1318,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // the input guardrails already behave on this path (ADR-087).
         $this->assertContextPermitted($configuration, $metadata, ProviderOperation::Stream);
 
-        $open = function (LlmConfiguration $config) use ($messages, $optionOverrides): Generator {
-            $llmModel = $this->planner->resolveModel($config, ProviderOperation::Stream);
+        $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
+
+        // Built before the opener rather than at the stream() call, so the
+        // opener can capture it: the routing decision and the complexity
+        // measurement both happen inside the opener, and the scratchpad on this
+        // context is what carries them out to
+        // StreamingDispatcher::recordTelemetry() (ADR-156). The metadata is
+        // complete at this point — the context copies it, so a later write
+        // would not reach the context anyway.
+        $streamContext = ProviderCallContext::for(ProviderOperation::Stream, $metadata);
+
+        $open = function (LlmConfiguration $config) use ($messages, $optionOverrides, $streamContext): Generator {
+            $signals  = $streamContext->telemetrySignals;
+            $llmModel = $this->planner->resolveModel($config, ProviderOperation::Stream, $signals);
             $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
             $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
 
@@ -1254,7 +1339,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
             // Before the first chunk, deliberately: once the stream is open
             // there is nothing left to prune.
-            $bounded = $this->fitToContextWindow($this->messageShaper->normalise($messages), $config, $llmModel, $options);
+            $bounded = $this->fitToContextWindow($this->messageShaper->normalise($messages), $config, $llmModel, $options, [], $signals);
 
             return $adapter->streamChatCompletion(
                 $this->applyAndScreenSystemPrompt($bounded, $options),
@@ -1277,10 +1362,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // an adapter the stream never runs on (ADR-138).
         $this->assertStreamingCapable($this->planner->adapterFor($configuration, ProviderOperation::Stream), 1735300101);
 
-        $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
-
         return $this->streaming->stream(
-            ProviderCallContext::for(ProviderOperation::Stream, $metadata),
+            $streamContext,
             $configuration,
             $open,
         );

@@ -620,6 +620,13 @@ final readonly class StreamingDispatcher
             servedProvider: $served->getProviderType(),
             servedModel: $served->getModelId(),
             timeToFirstTokenMs: $timeToFirstTokenMs,
+            // Recorded by the opener, which resolves the model and fits the
+            // transcript before the first chunk (ADR-156). Read off the same
+            // scratchpad the non-streaming path reads, so a streamed run is not
+            // a blind spot in the routing trace — the reason ADR-058's two
+            // write sites have to move together.
+            routingSummary: $context->telemetrySignals->routingSummary,
+            complexity: $context->telemetrySignals->complexity,
         ));
     }
 

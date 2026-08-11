@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Service\Governance\EffectivePolicyRow;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileDeviation;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
@@ -417,6 +418,182 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         self::assertSame([], $refusedRow['signals'], 'a refused candidate carries no signals');
     }
 
+    #[Test]
+    public function theRoutedCallReadoutRendersTheDecisionBehindACallThatAlreadyRan(): void
+    {
+        // ADR-142 made a reader the condition of persisting the trace at all.
+        // This is that reader: the readout above answers a hypothetical, this
+        // answers "why model A" for a run that happened.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-1',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o-mini',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 812,
+                policyMode: 'balanced',
+                candidateCount: 4,
+                rejectionReasons: ['CAPABILITY_MISSING'],
+                qualitySignalUsed: true,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 35,
+                payloadBytes: 4096,
+                complexityTokens: 900,
+                toolCount: 2,
+                contextPercent: 11,
+                shape: 'toolAssisted',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('Calls that were routed', $body);
+        self::assertStringContainsString('editorial.summary', $body);
+        self::assertStringContainsString('gpt-4o-mini', $body);
+        self::assertStringContainsString('balanced, 4 candidate(s)', $body);
+        self::assertStringContainsString('CAPABILITY_MISSING', $body, 'the reason set explains who was refused');
+        self::assertStringContainsString('score 35/100', $body);
+        self::assertStringContainsString('toolAssisted', $body);
+        self::assertStringContainsString('~900 tokens, 11% of the window', $body);
+        // Every recorded complexity figure has a reader, the byte count included.
+        self::assertStringContainsString('4096 bytes on the wire', $body);
+        self::assertStringNotContainsString('No routed calls recorded', $body);
+        // The observation is labelled as one, on the page as well as in the ADR.
+        self::assertStringContainsString('Complexity (observed)', $body);
+    }
+
+    #[Test]
+    public function aMeasuredZeroPercentWindowRendersAsAMeasurementNotAsUnmeasured(): void
+    {
+        // Fluid casts a numeric condition through (bool)(float), so guarding the
+        // measured branch with {call.contextPercent} makes a measured 0 read as
+        // "not measured" — and hides the token estimate with it. On a 128k model
+        // that is every send under roughly 590 tokens: most short chats.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-3',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o-mini',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 120,
+                policyMode: 'balanced',
+                candidateCount: 3,
+                rejectionReasons: [],
+                qualitySignalUsed: true,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 5,
+                payloadBytes: 180,
+                complexityTokens: 42,
+                toolCount: 0,
+                contextPercent: 0,
+                shape: 'singleTurn',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('~42 tokens, 0% of the window', $body);
+        self::assertStringNotContainsString('window not measured for this send', $body);
+    }
+
+    #[Test]
+    public function aDecisionThatUsedNoMeasuredSignalSaysSoRatherThanShowingNothing(): void
+    {
+        // "The mode was quality" and "quality decided anything" are different
+        // facts; a blank cell would read as the first.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-2',
+                operation: 'chat',
+                configurationIdentifier: 'editorial.summary',
+                servedModel: 'gpt-4o',
+                success: false,
+                fallbackAttempts: 2,
+                latencyMs: 40,
+                policyMode: 'quality',
+                candidateCount: 2,
+                rejectionReasons: [],
+                qualitySignalUsed: false,
+                healthSignalUsed: false,
+                costSignalUsed: false,
+                complexityScore: 5,
+                payloadBytes: 180,
+                complexityTokens: null,
+                toolCount: 0,
+                contextPercent: null,
+                shape: 'singleTurn',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        self::assertStringContainsString('none — provider priority and the tiebreaks decided', $body);
+        // An unmeasured window is named, not rendered as a zero nobody measured.
+        self::assertStringContainsString('window not measured for this send', $body);
+        // The byte count needs no context fit, so it is still there to read.
+        self::assertStringContainsString('180 bytes on the wire', $body);
+        self::assertStringContainsString('failed', $body);
+        self::assertStringContainsString('2 fallback attempt(s)', $body);
+    }
+
+    #[Test]
+    public function aRowThatMeasuredNoComplexitySaysSoInsteadOfShowingTheColumnDefaults(): void
+    {
+        // A criteria-mode embeddings configuration resolves a model — so the row
+        // carries a decision and the reader returns it — but it never runs a
+        // context fit, so nothing measures the payload. The six complexity
+        // columns then hold their defaults, and rendering them unguarded reports
+        // a send nobody counted as one that measured zero of everything.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-4',
+                operation: 'embedding',
+                configurationIdentifier: 'nr_ai_search.embeddings',
+                servedModel: 'text-embedding-3-small',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 61,
+                policyMode: 'cost',
+                candidateCount: 2,
+                rejectionReasons: [],
+                qualitySignalUsed: false,
+                healthSignalUsed: false,
+                costSignalUsed: true,
+                complexityScore: 0,
+                payloadBytes: 0,
+                complexityTokens: null,
+                toolCount: 0,
+                contextPercent: null,
+                shape: '',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        // The decision half is still shown — that is what the row does carry.
+        self::assertStringContainsString('nr_ai_search.embeddings', $body);
+        self::assertStringContainsString('cost, 2 candidate(s)', $body);
+
+        self::assertStringContainsString('complexity not measured for this send', $body);
+        self::assertStringNotContainsString('score 0/100', $body);
+        self::assertStringNotContainsString('0 bytes on the wire', $body);
+        self::assertStringNotContainsString('0 tool(s)', $body);
+        // Not the narrower "a fit did not run" message either: there is no
+        // measurement to qualify.
+        self::assertStringNotContainsString('window not measured for this send', $body);
+    }
+
+    #[Test]
+    public function anEmptyRoutedCallWindowSaysSoInsteadOfShowingAnEmptyTable(): void
+    {
+        $body = $this->render(null, [], null);
+
+        self::assertStringContainsString('No routed calls recorded', $body);
+        self::assertStringContainsString('every configuration names a fixed model', $body);
+    }
+
     /**
      * The Module layout renders f:flashMessages, which resolves its queue from
      * an extbase request. A plain PSR-7 request makes the LAYOUT fail before
@@ -490,6 +667,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
      * @param list<GovernanceProfileDeviation>                                                                                                                               $deviations
      * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $eligible
      * @param list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}> $rejected
+     * @param list<RoutedCall>                                                                                                                                               $routedCalls
      * @param list<SimulationActor>                                                                                                                                          $actors
      */
     private function render(
@@ -499,6 +677,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         ?RoutingReadout $routing = null,
         array $eligible = [],
         array $rejected = [],
+        array $routedCalls = [],
         array $actors = [],
     ): string {
         $view = $this->getService(ViewFactoryInterface::class)->create(new ViewFactoryData(
@@ -542,6 +721,10 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             'routingConfiguration' => '',
             'routingOperation'     => '',
             'routingPolicyMode'    => '',
+            // ADR-156: the decisions that already happened, as the controller
+            // hands them over.
+            'routedCalls'          => $routedCalls,
+            'routedCallsDays'      => 7,
         ]);
 
         return $view->render();
