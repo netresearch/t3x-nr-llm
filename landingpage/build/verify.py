@@ -14,6 +14,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_accessibility import check_accessibility  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 PUBLIC = HERE.parent / "public"
 REPO = HERE.parent.parent
@@ -121,6 +124,10 @@ def main() -> int:
         logos = re.findall(r"netresearch-logo\.svg", html)
         if len(logos) != 1:
             errors.append(f"{relative}: the logo appears {len(logos)} times, expected exactly once")
+
+        # Accessibility and semantics decidable from the markup alone.
+        for problem in check_accessibility(html):
+            errors.append(f"{relative}: {problem}")
 
         # Maturity above the fold, and the capability card's limitations present.
         if 'class="status-facts"' not in html:
