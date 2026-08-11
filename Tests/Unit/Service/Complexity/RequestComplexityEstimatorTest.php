@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Complexity;
 
 use Netresearch\NrLlm\Domain\Enum\RequestShape;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Complexity\RequestComplexityEstimator;
@@ -213,6 +214,11 @@ final class RequestComplexityEstimatorTest extends TestCase
             budget: $budget,
             overflowAtFloor: $estimatedTokens > $budget,
             calibration: 1.0,
+            // The estimator reads estimatedTokens and budget off the fit, not
+            // the per-source accounting, so these cases carry none() — the
+            // unmeasured breakdown — rather than inventing numbers that would
+            // suggest the assertions depend on them.
+            breakdown: ContextBudgetBreakdown::none(),
         );
     }
 }

@@ -20,6 +20,11 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * it (a provider 4xx), and stops the run on
  * {@see \Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason::CONTEXT_TRUNCATED}.
  *
+ * {@see breakdown} says where the window went (ADR-151). It restates
+ * {@see budget} and {@see estimatedTokens} so the accounting closes inside one
+ * object; the two scalars stay because they are the contract every existing
+ * consumer reads.
+ *
  * @api
  */
 final readonly class ContextFitResult
@@ -36,5 +41,6 @@ final readonly class ContextFitResult
         public int $budget,
         public bool $overflowAtFloor,
         public float $calibration,
+        public ContextBudgetBreakdown $breakdown,
     ) {}
 }

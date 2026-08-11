@@ -13,7 +13,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * One recorded step of an inspectable {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
  * run, as gathered by {@see \Netresearch\NrLlm\Service\Tool\RunTrace}.
  *
- * A step is one of four kinds:
+ * A step is one of five kinds:
+ * - {@see self::KIND_CONTEXT}: the context-window accounting for the round
+ *   that is about to be sent (ADR-151) — recorded BEFORE the request step,
+ *   because the fit is what decides which messages the request carries.
  * - {@see self::KIND_REQUEST}: the outbound half of a model round-trip,
  *   recorded (and streamed) BEFORE the provider call — the messages sent and
  *   the tool specs offered this round. Carries no timing/tokens; those belong
@@ -43,6 +46,8 @@ final readonly class RunStep
 
     public const KIND_ASSEMBLED = 'assembled';
 
+    public const KIND_CONTEXT = 'context';
+
     /**
      * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
      * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
@@ -50,6 +55,7 @@ final readonly class RunStep
      * @param array<string, mixed>|null                                                   $raw                Decoded raw provider response — only when capture was requested (LLM).
      * @param array<string, mixed>|null                                                   $toolArguments      Arguments the model supplied for a tool call (TOOL).
      * @param list<ToolArtifact>|null                                                     $toolArtifacts      Run-only structured artifacts a tool attached (TOOL); NEVER provider-facing.
+     * @param ContextBudgetBreakdown|null                                                 $contextBudget      Where the window went for this round (CONTEXT).
      */
     public function __construct(
         public string $kind,
@@ -71,6 +77,7 @@ final readonly class RunStep
         public ?string $toolResult = null,
         public ?bool $toolIsError = null,
         public ?array $toolArtifacts = null,
+        public ?ContextBudgetBreakdown $contextBudget = null,
     ) {}
 
     /**
@@ -106,6 +113,7 @@ final readonly class RunStep
             'toolArtifacts'      => $this->toolArtifacts === null
                 ? null
                 : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
+            'contextBudget'      => $this->contextBudget?->toArray(),
         ];
 
         foreach ($optional as $key => $value) {

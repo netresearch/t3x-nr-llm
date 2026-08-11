@@ -36,11 +36,14 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
+use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -566,6 +569,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
@@ -592,6 +596,61 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($last['success']);
         self::assertSame('Here are your recent logs.', $last['finalContent']);
         self::assertIsArray($last['usage']);
+    }
+
+    #[Test]
+    public function runActionReportsWhatTheRunInjectsAndHowItIsClassified(): void
+    {
+        // ADR-151: the readout comes from InputContextClassifier, the same
+        // service the ADR-144 input-context gate consults. A configuration that
+        // declares nothing reports an empty list rather than omitting the key —
+        // absent means "not computed", which is a different statement.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController();
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs', 'tools' => ['fetch_logs']]);
+        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertSame(
+            ['sources' => [], 'effective' => null, 'effectiveSource' => ''],
+            $payload['contextClassification'],
+        );
+    }
+
+    #[Test]
+    public function runActionReportsTheForcedSnippetsAndSkillsTheRunInjects(): void
+    {
+        // ADR-151: the panel is a data-classification readout, so it must cover
+        // what the RUN injects, not only what the configuration carries. A
+        // forced snippet really does become a leading system message; a readout
+        // derived from the configuration alone reported "injects nothing".
+        $this->importFixture('BeUsers.csv');
+        $this->importFixture('PromptSnippets.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController();
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody([
+                'configuration'  => 1,
+                'prompt'         => 'analyse the logs',
+                'tools'          => ['fetch_logs'],
+                'forcedSnippets' => ['1'],
+            ]);
+        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        $classification = $payload['contextClassification'];
+        self::assertIsArray($classification);
+        self::assertSame(
+            [['source' => 'snippet "tone-casual"', 'dataClass' => null]],
+            $classification['sources'],
+        );
     }
 
     #[Test]
@@ -685,6 +744,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
@@ -1101,6 +1161,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $last = end($events);
@@ -1415,7 +1476,25 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $skillRepository,
             $promptSnippetRepository,
             new PendingTurnDigest(),
+            // The real classifier over the real snippet resolver (ADR-151): the
+            // readout's whole point is that it answers from the same service
+            // the input-context gate consults.
+            new InputContextClassifier(
+                new ConfigurationSnippetResolver($promptSnippetRepository, new PromptSnippetComposer()),
+            ),
         );
+    }
+
+    /**
+     * The ADR-151 readout for a configuration that declares nothing — the shape
+     * runAction() hands the streamed protocol, spelled out here because these
+     * tests invoke the transport-free `streamRun()` directly.
+     *
+     * @return array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}
+     */
+    private function noContextClassification(): array
+    {
+        return ['sources' => [], 'effective' => null, 'effectiveSource' => ''];
     }
 
     /**

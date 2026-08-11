@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Psr\Log\LoggerInterface;
@@ -84,12 +85,14 @@ final class ContextWindowManager implements ContextWindowManagerInterface
 
         $this->recalibrate($lastUsage);
 
-        $budget = $ctx - $this->reserve($options, $model, $ctx) - (int)ceil($ctx * self::SAFETY_FRACTION);
+        $reserve = $this->reserve($options, $model, $ctx);
+        $safety  = (int)ceil($ctx * self::SAFETY_FRACTION);
+        $budget  = $ctx - $reserve - $safety;
         if ($budget <= 0) {
             // Misconfiguration (reserve larger than window): defer to the provider.
             $this->logger->warning('ContextWindow: non-positive budget, deferring to provider', ['contextLength' => $ctx]);
 
-            return $this->passthrough($messages);
+            return $this->passthrough($messages, 0, 0, ContextBudgetBreakdown::none());
         }
 
         // Payload that reaches the wire without being in $messages, counted here
@@ -105,19 +108,55 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         // a deduction large enough to push the budget to zero would trip the
         // non-positive-budget passthrough below and disable pruning outright,
         // which is the overflow this accounting exists to prevent.
-        $outsideTokens = $this->missingSystemPromptTokens($messages, $configuration, $effectiveSystemPrompt)
-            + $this->injectedTokens($injectedText);
-        $estimate = function (array $msgs) use ($toolSpecs, $outsideTokens): int {
+        $systemPromptInTranscript = isset($messages[0]) && $this->roleOf($messages[0]) === 'system';
+        $systemPromptTokens       = $this->missingSystemPromptTokens($messages, $configuration, $effectiveSystemPrompt);
+        $skillTokens              = $this->injectedTokens($injectedText);
+
+        $outsideTokens = $systemPromptTokens + $skillTokens;
+        $estimate      = function (array $msgs) use ($toolSpecs, $outsideTokens): int {
             /** @var list<ChatMessage|array<string, mixed>> $msgs the caller always passes the partitioned transcript */
             return $this->estimator->estimate($msgs, $toolSpecs, $this->calibration) + $outsideTokens;
         };
 
+        // The same figure the pruning decision used, divided (ADR-151). The
+        // transcript line is measured directly; the tool-schema line is the
+        // REMAINDER, which is what makes the four components sum to the total
+        // exactly instead of drifting by each content class's own rounding.
+        $breakdown = function (array $msgs, int $estimated) use (
+            $ctx,
+            $reserve,
+            $safety,
+            $budget,
+            $outsideTokens,
+            $systemPromptTokens,
+            $systemPromptInTranscript,
+            $skillTokens,
+        ): ContextBudgetBreakdown {
+            /** @var list<ChatMessage|array<string, mixed>> $msgs the list this fit settled on */
+            $transcript = $this->estimator->estimate($msgs, [], $this->calibration);
+
+            return new ContextBudgetBreakdown(
+                contextLength: $ctx,
+                reservedOutput: $reserve,
+                safetyMargin: $safety,
+                budget: $budget,
+                transcriptTokens: $transcript,
+                toolSchemaTokens: $estimated - $outsideTokens - $transcript,
+                systemPromptTokens: $systemPromptTokens,
+                systemPromptInTranscript: $systemPromptInTranscript,
+                skillTokens: $skillTokens,
+                estimatedTokens: $estimated,
+                remaining: $budget - $estimated,
+            );
+        };
+
         [$head, $turns] = $this->partition($messages);
 
-        if ($estimate($messages) <= $budget) {
-            $result = $this->passthrough($messages, $estimate($messages), $budget);
+        $estimated = $estimate($messages);
+        if ($estimated <= $budget) {
+            $result = $this->passthrough($messages, $estimated, $budget, $breakdown($messages, $estimated));
         } else {
-            $result = $this->drop($head, $turns, $budget, $estimate);
+            $result = $this->drop($head, $turns, $budget, $estimate, $breakdown);
         }
 
         // Never emit a known-orphaned request: if pruning somehow produced a
@@ -125,7 +164,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
         if (!$this->isPairingValid($result->messages)) {
             $this->logger->warning('ContextWindow: pruned array failed the pairing guard, deferring to provider');
 
-            return $this->passthrough($messages);
+            return $this->passthrough($messages, 0, 0, ContextBudgetBreakdown::none());
         }
 
         // Remember what we approved so the next recalibrate() divides real usage
@@ -167,6 +206,15 @@ final class ContextWindowManager implements ContextWindowManagerInterface
      * snippets (ADR-031) into it before the send, so re-deriving it from the
      * entity here would under-count the wire by exactly that block. Callers
      * that have nothing to compose pass null and get the entity's prompt.
+     *
+     * The presence check is `$messages[0]` only, while
+     * {@see \Netresearch\NrLlm\Service\MessageShaper::applySystemPrompt()} scans
+     * the whole list. A transcript whose system message sits further in is
+     * therefore charged for a prompt the shaper will not prepend — an
+     * over-count, which is the safe direction and deliberately kept. The
+     * ADR-151 breakdown makes that charge VISIBLE (a non-zero system-prompt
+     * line for a list that already carries a system message deeper down); it is
+     * a readout of the existing behaviour, not a new one.
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
@@ -257,11 +305,12 @@ final class ContextWindowManager implements ContextWindowManagerInterface
     }
 
     /**
-     * @param list<ChatMessage|array<string, mixed>>                $head
-     * @param list<list<ChatMessage|array<string, mixed>>>          $turns
-     * @param callable(list<ChatMessage|array<string, mixed>>): int $estimate
+     * @param list<ChatMessage|array<string, mixed>>                                        $head
+     * @param list<list<ChatMessage|array<string, mixed>>>                                  $turns
+     * @param callable(list<ChatMessage|array<string, mixed>>): int                         $estimate
+     * @param callable(list<ChatMessage|array<string, mixed>>, int): ContextBudgetBreakdown $breakdown
      */
-    private function drop(array $head, array $turns, int $budget, callable $estimate): ContextFitResult
+    private function drop(array $head, array $turns, int $budget, callable $estimate, callable $breakdown): ContextFitResult
     {
         $kept    = $turns;
         $dropped = 0;
@@ -285,6 +334,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             budget: $budget,
             overflowAtFloor: $overflow,
             calibration: $this->calibration,
+            breakdown: $breakdown($messages, $estimated),
         );
     }
 
@@ -309,7 +359,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
     /**
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function passthrough(array $messages, int $estimated = 0, int $budget = 0): ContextFitResult
+    private function passthrough(array $messages, int $estimated, int $budget, ContextBudgetBreakdown $breakdown): ContextFitResult
     {
         [, $turns] = $this->partition($messages);
 
@@ -322,6 +372,7 @@ final class ContextWindowManager implements ContextWindowManagerInterface
             budget: $budget,
             overflowAtFloor: false,
             calibration: $this->calibration,
+            breakdown: $breakdown,
         );
     }
 

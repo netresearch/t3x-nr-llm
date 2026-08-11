@@ -674,13 +674,37 @@ loop, while the Tools module governs *which* tools exist and are enabled.
 4. Read the **inspector** — live from the moment you click Run. A summary
    strip reports rounds, tool calls, the prompt/completion token split,
    estimated cost, wall time and status. The step list is the nr_llm ↔ LLM
-   dialog in order: each round's outbound **request** (the messages sent and
-   the tools offered) appears the instant it goes out, a waiting indicator
-   shows while the model works, then the **response** and each tool execution
-   stream in. Select a step to open its detail — requests carry
-   :guilabel:`Messages sent` and :guilabel:`Tools offered`; responses carry
-   :guilabel:`Structured`, :guilabel:`Raw JSON` and :guilabel:`Thinking`. The
-   model's **final answer** closes the run.
+   dialog in order: each round opens with a :guilabel:`Context budget` step,
+   then its outbound **request** (the messages sent and the tools offered)
+   appears the instant it goes out, a waiting indicator shows while the model
+   works, then the **response** and each tool execution stream in. Select a
+   step to open its detail — requests carry :guilabel:`Messages sent` and
+   :guilabel:`Tools offered`; responses carry :guilabel:`Structured`,
+   :guilabel:`Raw JSON` and :guilabel:`Thinking`. The model's **final answer**
+   closes the run.
+5. The :guilabel:`Context budget` step says where the window went for the round
+   that follows it, so you can act on the component that is yours to change
+   rather than only learn that history was dropped. It has two tabs:
+
+   :guilabel:`Where the window went`
+     The window, the output reserve, the safety margin and the resulting
+     budget, then four component lines — transcript, tool schema, system
+     prompt (incl. snippets) and skills — that **sum to the estimated total**,
+     plus what is left. On this surface the system-prompt line always reads
+     *counted in the transcript* and the skills line always reads 0: the agent
+     loop builds both into the transcript before the fit measures it, so their
+     content is already on the transcript line. The table says so under the
+     figures. A send whose reserve exceeds the whole window is handed to the
+     provider unmeasured, and the step reports *no accounting* instead of a
+     window of zero.
+
+   :guilabel:`Injected context`
+     Every snippet and skill this run injects, by **name only**, with the data
+     class it declared (:ref:`ADR-144 <adr-144>`) or *not classified*, and the
+     strictest class across all of them. The list covers the snippets and
+     skills you force-injected for this one run as well as the
+     configuration's own — the input-context gate itself still answers for the
+     configuration alone, so a forced source is shown here and is not gated.
 
 .. figure:: /Images/ToolPlaygroundRun.png
    :alt: A completed tool run — the summary strip, the ordered step list and

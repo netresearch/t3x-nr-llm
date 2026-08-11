@@ -495,6 +495,7 @@ Tools
    Adr148RoutingReadoutOnTheGovernanceTab
    Adr149CriteriaModeZoneFromTheResolvedModel
    Adr150SubmitterGateAndInputTurnBinding
+   Adr151ContextBudgetReadout
    Adr152EditorActionDeclaration
    Adr154McpServerHealth
    Adr155SystemPromptCarriesADataClass
