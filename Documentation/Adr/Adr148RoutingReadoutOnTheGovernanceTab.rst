@@ -131,7 +131,11 @@ would change.
 
 ◐ Only the operations that :php:`OperationCapabilityMap` maps to a capability
 are offered. The rest constrain nothing, and offering them would promise a
-dimension the decision does not have.
+dimension the decision does not have. "No operation selected" is reported as
+its own state rather than as an operation that requires nothing:
+:php:`RoutingReadout` carries whether one was named alongside the capability it
+required, because a null capability has both causes and one sentence for the
+two would describe an operation the operator never chose.
 
 ✕ No apply path, and no way to persist a tried policy mode from this page.
 ADR-140's reasoning is untouched.

@@ -124,6 +124,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
                 $this->constrainedCriteria($configuration->getModelSelectionCriteriaArray(), $capability, $enforcing),
                 $policyMode,
             ),
+            $operation instanceof ProviderOperation,
             $capability,
             $enforcing,
             $policyMode instanceof RoutingPolicyMode,
@@ -158,14 +159,15 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             return $this->findMatchingModel($criteria);
         }
 
-        if (!$this->enforcingOperationCapability()) {
+        $enforcing = $this->enforcingOperationCapability();
+        if (!$enforcing) {
             $model = $this->findMatchingModel($criteria);
             $this->reportObservedMismatch($model, $capability, $operation, $configuration);
 
             return $model;
         }
 
-        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, true));
+        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, $enforcing));
         if ($decision->hasSelection()) {
             return $decision->selected;
         }

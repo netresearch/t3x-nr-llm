@@ -433,6 +433,8 @@ the tab follows.
 
 Only operations that actually constrain the decision are offered. The others
 map to no required capability, so they would add nothing to the answer.
+Leaving the selector on :guilabel:`No operation` is answered as exactly that —
+the axis was not applied — and not as an operation that requires nothing.
 
 An empty result is reported in two distinguishable ways, because they need
 opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no

@@ -260,6 +260,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
 
         $body = $this->render(null, [], null, RoutingReadout::decided(
             new RoutingDecision($selected, [RoutingCandidate::eligible($selected, 0.62, ['quality' => 0.8])], RoutingPolicyMode::BALANCED),
+            true,
             ModelCapability::TOOLS,
             true,
             false,
@@ -306,6 +307,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     {
         $body = $this->render(null, [], null, RoutingReadout::decided(
             new RoutingDecision(null, [], RoutingPolicyMode::PROVIDER_PRIORITY),
+            true,
             ModelCapability::TOOLS,
             false,
             true,
@@ -314,6 +316,26 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('did NOT constrain this decision', $body);
         self::assertStringContainsString('the installed setting is unchanged', $body, 'a tried mode is marked as hypothetical');
         self::assertStringContainsString('No candidates at all', $body, 'an empty catalogue is named as such');
+    }
+
+    #[Test]
+    public function noOperationSelectedIsNotReportedAsAnOperationThatConstrainsNothing(): void
+    {
+        // The default path: a configuration picked, the operation selector left
+        // on "No operation". Both states arrive as a null capability, and
+        // reporting them with one sentence would describe an operation the
+        // operator never chose.
+        $body = $this->render(null, [], null, RoutingReadout::decided(
+            new RoutingDecision(null, [], RoutingPolicyMode::PROVIDER_PRIORITY),
+            false,
+            null,
+            true,
+            false,
+        ));
+
+        self::assertStringContainsString('no operation was selected', $body);
+        self::assertStringNotContainsString('the chosen operation requires no declared capability', $body);
+        self::assertStringContainsString('The switch itself is set to enforce.', $body, 'the switch is still reported');
     }
 
     #[Test]
@@ -340,6 +362,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
                 ],
                 RoutingPolicyMode::BALANCED,
             ),
+            true,
             ModelCapability::TOOLS,
             true,
             false,
