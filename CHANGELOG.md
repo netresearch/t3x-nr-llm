@@ -112,6 +112,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
 
+- **A deprecation and removal policy, half of it enforced**
+  (`Documentation/Api/Deprecation.rst`). From 1.0 a public removal needs a
+  deprecation that ships in a minor and survives at least one further minor
+  line, and it needs a written migration. The page says which half is a gate
+  and which is a review duty rather than implying both: the snapshot test makes
+  a removal impossible to land unread, and the new
+  `Tests/Unit/Api/DeprecationInventoryTest` binds the inventory to the
+  `@deprecated` docblocks in both directions — no deprecated `@api` member
+  without a row whose "Use instead" cell names a replacement, no row for
+  something the code no longer deprecates. All five declaration shapes count:
+  method, constant, public property, enum case and the type itself.
+  The notice period itself is *not* enforced and the page says so: nothing here
+  knows in which release a docblock tag first appeared.
+
+- **A support matrix that cannot drift** (`Documentation/Api/SupportMatrix.rst`)
+  — TYPO3 13.4 LTS and 14.3 LTS, PHP 8.2–8.5, with the end of each upstream
+  line. `VersionConsistencyTest` gains three assertions that pin its declared
+  literals against `composer.json`, `ext_emconf.php` and the union of every
+  matrix in `.github/workflows/ci.yml`, the same way it already pins the
+  release-version surfaces against each other.
+
+- **ADR-159 answers ADR-090's re-evaluation** at the API freeze, against the
+  code rather than in principle: the core seam is enforced (`ModuleSeamTest`)
+  but no consumer has asked for a subset; the agent runtime adds zero composer
+  packages, so "heavy dependencies" is retired as a split argument; MCP is 10 of
+  658 files and already inert without configured servers; and every recent minor
+  touched a dozen module directories at once, so there is no independent cadence
+  to separate. Outcome: one extension through 1.0, re-evaluated at the first
+  minor after it. ADR-090 carries the matching `:Amended:` backlink.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the
@@ -221,6 +251,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `Skill` gains `getDataClass()` / `getDataClassEnum()` on the `@api` surface.
 
+- **The `@api` snapshot records constructors, and classifies its own failure.**
+  `Tests/Unit/Api/api-surface.txt` held no constructor at all, so a new required
+  constructor argument on an `@api` class passed the gate in silence. It now
+  renders a `constructor(...)` line for every `@api` class that has a public
+  constructor — its own, or one inherited from a base inside
+  `Netresearch\NrLlm` (70 lines on 97 classes, nothing removed or changed).
+  Six of those come from a base rather than the class itself: the four
+  `Specialized` image/speech services, which inherit a twelve-argument
+  constructor from `AbstractSpecializedService`, and the two empty
+  `ProviderResponseException` subclasses. A declared-only rule would have left
+  those six blind — `new` binds to the inherited signature, so a required
+  argument added to the base moves nothing in the snapshot. A constructor
+  inherited from **outside** the repository (TYPO3 core's `AbstractEntity`,
+  `\RuntimeException`) stays out: it is not ours and differs between the 13.4
+  and 14.x legs. Service constructors are included even though `Stability.rst`
+  puts them out of the caller contract: no mechanical rule separates a value
+  object built with `new` from a service that is only ever injected, and
+  recording none of them is what let the break through.
+
+  The rendering moved to `Tests/Unit/Api/Support/ApiSurfaceRenderer` so it can be
+  exercised against fixture classes — a snapshot can only ever show that today
+  equals yesterday, never that a given break would be caught, and
+  `ApiSurfaceRendererTest` now checks that claim. The mismatch message is
+  produced by `ApiSurfaceDiff`, which matches members by name and reports
+  *additive* (regenerate and note it) separately from *breaking* (removed or
+  changed — decide first, then follow the deprecation policy). A changed
+  signature is not automatically a break and the message says so: an added
+  optional parameter breaks no caller, an added required one breaks every
+  call, and the rendering marks optional parameters with ` = …`.
 
 ### Fixed
 
