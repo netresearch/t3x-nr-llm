@@ -16,7 +16,7 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\WidenedConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceRenderer;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -33,8 +33,7 @@ use PHPUnit\Framework\TestCase;
  * that differ in one property each, so the claim "the snapshot catches a
  * widened constructor" is checked rather than asserted.
  */
-#[CoversClass(ApiSurfaceRenderer::class)]
-#[CoversClass(ApiSurfaceDiff::class)]
+#[CoversNothing] // both subjects live under Tests/, never a coverage target
 final class ApiSurfaceRendererTest extends TestCase
 {
     #[Test]
