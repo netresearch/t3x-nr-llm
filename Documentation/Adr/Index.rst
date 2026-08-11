@@ -492,5 +492,6 @@ Tools
    Adr145GovernanceProfilesDescribeNeverApply
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
+   Adr149CriteriaModeZoneFromTheResolvedModel
    Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance

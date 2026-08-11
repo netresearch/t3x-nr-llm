@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Context;
 
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -117,6 +118,90 @@ final class InputContextTrustGateTest extends TestCase
     }
 
     #[Test]
+    public function aCriteriaModeConfigurationTakesItsZoneFromTheServingModel(): void
+    {
+        // The ADR-149 case. The configuration has no provider relation at all,
+        // so before the serving model was threaded in this refused — a
+        // criteria-mode configuration that only ever picks local models was
+        // still treated as external.
+        $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)])
+            ->assertPermitted($this->criteriaConfiguration(), 0, $this->modelIn(TrustZone::LOCAL));
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function aServingModelOnAnExternalProviderStillRefuses(): void
+    {
+        // The control for the test above: the zone follows the model, it is not
+        // waived by having one.
+        $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
+
+        $this->expectException(InputContextTrustZoneException::class);
+        $gate->assertPermitted($this->criteriaConfiguration(), 0, $this->modelIn(TrustZone::EXTERNAL_GLOBAL));
+    }
+
+    #[Test]
+    public function routingSelectingNothingLeavesTheFailClosedZone(): void
+    {
+        // A routing failure must not turn into a different answer here. With no
+        // serving model there is no serving provider, so EXTERNAL_GLOBAL stands
+        // — which is exactly what this path answered before ADR-149, so nothing
+        // is newly refused either.
+        $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
+
+        $this->expectException(InputContextTrustZoneException::class);
+        // No third argument, which IS the case under test: the caller resolved
+        // nothing. Spelling `null` out reads better and Rector removes it.
+        $gate->assertPermitted($this->criteriaConfiguration(), 0);
+    }
+
+    #[Test]
+    public function fixedModeIsUnchangedByThreadingItsOwnModelIn(): void
+    {
+        // Characterisation. In fixed mode the configuration's provider IS the
+        // model's provider, so the third argument cannot move the verdict in
+        // either direction — permitted stays permitted, refused stays refused.
+        $trusted    = $this->configuration(TrustZone::LOCAL);
+        $external   = $this->configuration(TrustZone::EXTERNAL_GLOBAL);
+        $classified = fn(): InputContextTrustGate => $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
+
+        $classified()->assertPermitted($trusted);
+        $classified()->assertPermitted($trusted, 0, $trusted->getLlmModel());
+
+        $refusals = 0;
+        foreach ([null, $external->getLlmModel()] as $servingModel) {
+            try {
+                $classified()->assertPermitted($external, 0, $servingModel);
+            } catch (InputContextTrustZoneException) {
+                ++$refusals;
+            }
+        }
+
+        self::assertSame(2, $refusals, 'the fixed-mode verdict is the same with and without the model threaded in');
+    }
+
+    #[Test]
+    public function theAuditRowNamesTheProviderTheZoneWasReadFrom(): void
+    {
+        // A criteria-mode row used to carry an empty provider and model, which
+        // made "blocked at EXTERNAL_GLOBAL" impossible to check against
+        // anything.
+        $recorded = [];
+
+        try {
+            $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)], events: $this->recordingEvents($recorded))
+                ->assertPermitted($this->criteriaConfiguration(), 7, $this->modelIn(TrustZone::EXTERNAL_GLOBAL));
+        } catch (InputContextTrustZoneException) {
+            // The row it wrote is what is asserted.
+        }
+
+        self::assertCount(1, $recorded);
+        self::assertSame('some-provider', $recorded[0]->provider);
+        self::assertSame('some-model', $recorded[0]->model);
+    }
+
+    #[Test]
     public function observeModeRecordsTheRefusalAndLetsTheCallThrough(): void
     {
         $recorded = [];
@@ -209,21 +294,42 @@ final class InputContextTrustGateTest extends TestCase
 
     private function configuration(TrustZone $zone): LlmConfiguration
     {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('classified');
+        $configuration->setLlmModel($this->modelIn($zone));
+        $configuration->setSnippetTags('policy');
+
+        return $configuration;
+    }
+
+    /**
+     * A criteria-mode configuration: model_uid = 0, so no model relation and no
+     * provider — the record whose zone only the resolved model can supply.
+     */
+    private function criteriaConfiguration(): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier('classified-by-criteria');
+        $configuration->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+        $configuration->setSnippetTags('policy');
+
+        return $configuration;
+    }
+
+    /**
+     * The zone reaches a configuration through its model's provider —
+     * LlmConfiguration has no provider of its own.
+     */
+    private function modelIn(TrustZone $zone): Model
+    {
         $provider = new Provider();
         $provider->setIdentifier('some-provider');
         $provider->setTrustZone($zone->value);
 
-        // The zone reaches the configuration through its model's provider —
-        // LlmConfiguration has no provider of its own.
         $model = new Model();
         $model->setModelId('some-model');
         $model->setProvider($provider);
 
-        $configuration = new LlmConfiguration();
-        $configuration->setIdentifier('classified');
-        $configuration->setLlmModel($model);
-        $configuration->setSnippetTags('policy');
-
-        return $configuration;
+        return $model;
     }
 }

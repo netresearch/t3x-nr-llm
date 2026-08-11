@@ -4,9 +4,11 @@
 ADR-144: Injected context carries a declared data class
 ==========================================================
 
-:Status: Accepted
+:Status: Accepted (the criteria-mode zone now comes from the resolved model —
+    see :ref:`ADR-149 <adr-149>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-094 <adr-094>` (the axis now binds in both directions)
+:Amended: 2026-08-11 by :ref:`ADR-149 <adr-149>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -98,7 +100,10 @@ relation. That is fail-closed and therefore the safe direction, but it means a
 criteria-mode configuration that only ever selects local models is still treated
 as external. Resolving the model first would make the gate depend on routing;
 :ref:`ADR-142 <adr-142>` has just built the decision point that would make that
-answerable, and it is the natural follow-up.
+answerable, and it is the natural follow-up. **Amended by**
+:ref:`ADR-149 <adr-149>`: the serving model is threaded in from the manager, so
+a criteria-mode configuration now takes the zone of the model routing selected.
+The fail-closed answer stays for the case where routing selects nothing.
 
 ◐ Two entities gained a column and a TCA field. `Skill` is `@api`, so its two
 accessors extend the public surface.
@@ -111,7 +116,9 @@ Revisit when
 ============
 
 A criteria-mode configuration needs its real zone rather than the fail-closed
-one. The routing decision from ADR-142 is what would supply it.
+one. The routing decision from ADR-142 is what would supply it. **Answered by**
+:ref:`ADR-149 <adr-149>` for the configuration's own provider; the fallback
+hops are still read from their own relations.
 
 Also revisit if a consumer injects context through a path neither snippets nor
 skills cover — that is the ADR-139 revisit trigger, unchanged.
