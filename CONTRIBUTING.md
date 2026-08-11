@@ -54,6 +54,20 @@ type in its method signatures must be `@api` too. Extension-point interfaces
 must not gain a new abstract member within a major version. Everything else
 is `@internal`.
 
+The rendered `@api` surface — constructors included — is frozen in
+`Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
+failure: **additive** (a new class, method, property, constant or enum case)
+means regenerate the file and note it under `### Added`; **breaking**
+(anything removed or changed, a widened constructor included) means stop and
+decide.
+
+Removing or narrowing something `@api` follows
+`Documentation/Api/Deprecation.rst`: deprecate in a minor, keep it working
+through one further minor line, remove in the next major, and add the
+migration row the inventory test requires. Which TYPO3 and PHP versions the
+promise is made on is `Documentation/Api/SupportMatrix.rst`, and it is
+asserted against `composer.json`, `ext_emconf.php` and the CI matrix.
+
 ## Testing Requirements
 
 **All contributions MUST include appropriate tests.**

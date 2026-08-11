@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Context;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -37,12 +38,20 @@ use Psr\Log\LoggerInterface;
  *
  * A configuration that injects nothing is never refused, which matters because
  * this runs for every configuration-driven operation: the vision path builds a
- * transient configuration with no snippets and no skills, and refusing it would
- * block a send that does not carry the classified content at all.
+ * transient configuration with no snippets, no skills and no system prompt, and
+ * refusing it would block a send that does not carry the classified content at
+ * all.
  *
  * The zone is the LEAST trusted the run can reach, fallbacks included
  * ({@see TrustZoneResolver::zoneFor()}): a configuration that can fail over to
  * an external provider really can send there.
+ *
+ * A criteria-mode configuration has no provider relation, so its zone comes
+ * from the model the caller already resolved for this call (ADR-149). The gate
+ * never resolves one itself: that would invert the dependency and make the
+ * gate drive routing. When no model is threaded in — routing selected nothing,
+ * or the caller has none — `EXTERNAL_GLOBAL` stays the fail-closed answer,
+ * which is exactly what this path did before.
  *
  * @internal
  */
@@ -62,8 +71,11 @@ final readonly class InputContextTrustGate
      * In observe mode nothing is thrown and the refusal is recorded instead, so
      * an operator can see what enforcement would do before switching it on —
      * the shape ADR-113 established for the tool gate.
+     *
+     * `$servingModel` is the model the caller resolved for this call, where one
+     * exists; null keeps the pre-ADR-149 zone.
      */
-    public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0): void
+    public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0, ?Model $servingModel = null): void
     {
         $classification = $this->classifier->classify($configuration);
         if (!$classification->isDeclared()) {
@@ -73,13 +85,13 @@ final readonly class InputContextTrustGate
         /** @var ToolDataClass $declared a declared classification always carries one */
         $declared = $classification->effective;
 
-        $zone = $this->trustZoneResolver->zoneFor($configuration);
+        $zone = $this->trustZoneResolver->zoneFor($configuration, $servingModel);
         if ($zone->permits($declared)) {
             return;
         }
 
         $enforcing = $this->enforcement->enforcing();
-        $this->record($configuration, $beUser, $declared, $classification->source, $enforcing);
+        $this->record($configuration, $beUser, $declared, $classification->source, $enforcing, $servingModel);
 
         if (!$enforcing) {
             $this->logger?->warning(
@@ -111,6 +123,11 @@ final readonly class InputContextTrustGate
      * snippet or skill text. The classification exists because that text is
      * sensitive; writing it into an audit row to explain why it must not leave
      * the installation would be the same leak by another route.
+     *
+     * `provider` and `model` name whatever the zone was read from. For a
+     * criteria-mode configuration that is the resolved model, not the empty
+     * relation — a row that says "blocked at EXTERNAL_GLOBAL" with no provider
+     * in it cannot be checked against anything.
      */
     private function record(
         LlmConfiguration $configuration,
@@ -118,13 +135,16 @@ final readonly class InputContextTrustGate
         ToolDataClass $declared,
         string $source,
         bool $enforcing,
+        ?Model $servingModel,
     ): void {
+        $zoneModel = $servingModel ?? $configuration->getLlmModel();
+
         $this->governanceEvents?->record(new GovernanceEvent(
             correlationId: '',
             decision: GovernanceDecision::CONTEXT_BLOCKED->value,
             reason: $declared->value,
-            provider: $configuration->getProvider()?->getIdentifier() ?? '',
-            model: $configuration->getLlmModel()?->getModelId() ?? '',
+            provider: $zoneModel?->getProvider()?->getIdentifier() ?? '',
+            model: $zoneModel?->getModelId() ?? '',
             configurationIdentifier: $configuration->getIdentifier(),
             beUser: $beUser,
             toolName: '',
