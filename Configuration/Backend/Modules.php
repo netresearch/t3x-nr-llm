@@ -333,6 +333,12 @@ return [
             EditorActionController::class => [
                 'catalogue',
                 'start',
+                // The same action over several records (ADR-162). No new grant
+                // and no new runtime: 'batch' plans and 'startBatch' loops the
+                // 'start' path, so both re-check `tasks_use` and both get their
+                // authorisation from the catalogue, per record.
+                'batch',
+                'startBatch',
             ],
             // The approvals inbox actions, shared with 'nrllm_runs': the
             // controller scopes visibility by actor (admin/approval grant =>

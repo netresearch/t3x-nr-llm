@@ -43,6 +43,23 @@ final class EditorActionCenterLabelsTest extends TestCase
             'editorActions.flash.blocked',
             'editorActions.flash.cancelled',
             'editorActions.flash.failed',
+            // The bulk report (ADR-162). Same reason: these are built in PHP,
+            // so a missing key renders the key at the editor.
+            'editorActions.batch.flash.started',
+            'editorActions.batch.flash.discarded',
+            'editorActions.batch.flash.truncated',
+            'editorActions.batch.flash.completedWithoutWrite',
+            'editorActions.batch.flash.blocked',
+            'editorActions.batch.flash.cancelled',
+            'editorActions.batch.flash.failed',
+            'editorActions.batch.flash.budgetStopped',
+            'editorActions.batch.flash.notAttempted',
+            'editorActions.batch.flash.nothingNamed',
+            // EditorActionBatchPlanner's skip reasons, one per way a record
+            // stays out of the batch.
+            'editorActions.batch.skip.notOffered',
+            'editorActions.batch.skip.overCap',
+            'editorActions.batch.skip.duplicate',
         ];
 
         $cases = [];

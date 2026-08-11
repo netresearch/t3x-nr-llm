@@ -508,6 +508,46 @@ Files have no context-menu entry yet: the file list identifies a file by its
 combined identifier rather than by uid, so :guilabel:`Set alternative text` is
 listed in the catalogue but has no per-record entry point.
 
+Several records at once
+-----------------------
+
+Once a record is selected — that is, when the catalogue was opened from a
+record's context menu — each action there also offers :guilabel:`Run this on
+several records` (:ref:`ADR-162 <adr-162>`). The catalogue opened from the
+module menu has no record and therefore no bulk entry point either; an action
+needs a subject, and this module picks none. That page takes a list of record
+numbers from the same table, seeded with the record that was selected, and
+shows, before anything starts, which of them the action can run on, which are
+skipped and why, and what the batch is expected to cost in requests, tokens and
+money.
+
+At most 100 entries of that list are read at all. A longer paste is cut there
+and the page says so, because everything past the cut would otherwise become a
+table row and a record number in a message no one can read.
+
+Starting it creates **one ordinary run per record**. There is no bulk mode: each
+record gets its own approval card with its own preview, and an approver decides
+them one at a time. At most 20 records are started in one press, because the runs
+execute inside the one backend request.
+
+The AI budget is checked once per run, so a batch can run out of budget partway
+through. When that happens the batch stops and names the records the stop kept
+from starting — the record it stopped on was run, and is reported separately.
+Nothing is left half-written: the runs that did start are proposals awaiting
+approval, not changes.
+
+Runs that ended for some other reason are reported by kind — failed, stopped by
+a guardrail, cancelled, or simply finished without proposing a change — so a
+batch in which everything failed does not read like one in which nothing needed
+changing.
+
+The estimate on that page is deliberately rough and says so: it does not count
+the system prompt and skills the runtime adds, and its upper price assumes every
+request returns the configured token ceiling. It shows no price range at all
+unless the model record carries both an input and an output price and the
+configuration sets an output ceiling — an absent range means "unknown", which
+``0.00`` would not. Treat it as an order of magnitude, not an invoice.
+
 .. _administration-tools-groups:
 
 Tool groups

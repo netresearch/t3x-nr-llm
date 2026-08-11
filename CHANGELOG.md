@@ -309,6 +309,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The catalogue never reads the record, so it shows `pages #42` rather than a
   title; the record is resolved and authorised later, by the preview.
   Deliberately not built: bulk, a record picker, and a grant of its own.
+- **One editor action over several records, as N ordinary runs** (ADR-162).
+  Once a record is selected — the Editor Action Center opened from that record's
+  context menu — each action there offers "Run this on several records": a page
+  that takes record numbers of one table, asks the catalogue again for every one
+  of them, lists the ones it will not run on with the reason, shows a cost
+  estimate derived from the requests it actually built, and then starts one
+  ordinary agent run per record. Opened from the module menu the catalogue has no
+  record and offers no bulk entry point either. No bulk runtime, no batch approval
+  and no queue — N runs are N turns, so each write suspends for its own approval
+  and gets its own inbox card with its own preview, and budget, audit, routing and
+  the write fence are untouched. Bounded at 20 records because the runs execute
+  inside one backend request, and at 100 parsed entries so that a pasted megabyte
+  cannot become a page and a flash message nobody can read. The budget is hit once per run, so a batch can run out partway
+  through: it stops at the first denial — detected on the run's
+  `BUDGET_EXHAUSTED` termination reason, since the loop catches the denial and
+  the run settles COMPLETED — and names the records the stop kept from starting.
+  Runs that ended for another reason are counted by kind, so a batch in which
+  everything failed does not read like one in which nothing needed changing. The
+  estimate states how wrong it can be — the system prompt and skills the runtime
+  adds are not counted, and the upper price assumes every request returns the
+  configured token ceiling. It shows no price range unless the model carries both
+  an input and an output price and the configuration sets an output ceiling.
 
 ### Changed
 

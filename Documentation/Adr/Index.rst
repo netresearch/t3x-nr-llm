@@ -501,3 +501,4 @@ Tools
    Adr158EditorActionCenter
    Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance
+   Adr162BulkEditorActionsAsOrdinaryRuns
