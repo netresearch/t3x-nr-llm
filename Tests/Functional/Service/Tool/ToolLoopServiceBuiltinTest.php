@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -498,7 +499,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             ['type' => 'object', 'properties' => []],
             ToolDataClass::PUBLIC_CONTENT,
             $server->approvalRequired(),
-            new McpClient($transport),
+            new McpClient($transport, new RecordedContacts()),
         );
     }
 

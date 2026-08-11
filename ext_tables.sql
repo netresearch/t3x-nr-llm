@@ -959,6 +959,15 @@ CREATE TABLE tx_nrllm_mcp_server (
     last_imported int(11) unsigned DEFAULT '0' NOT NULL,
     tool_count int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Liveness (ADR-154). Written on every successful client round trip, not
+    -- only on an import: a server answering tools/call for weeks used to read
+    -- as untouched since its last catalogue import. 0 = never reached.
+    last_contact int(11) unsigned DEFAULT '0' NOT NULL,
+    -- Duration of the round trip that set last_contact, in milliseconds. Only
+    -- meaningful together with it; 0 with last_contact = 0 means "no
+    -- measurement", 0 with a contact means "under half a millisecond".
+    last_latency_ms int(11) unsigned DEFAULT '0' NOT NULL,
+
     -- Standard TYPO3 fields
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,

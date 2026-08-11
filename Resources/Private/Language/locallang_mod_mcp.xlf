@@ -53,6 +53,48 @@
             <trans-unit id="server.import">
                 <source>Import catalogue</source>
             </trans-unit>
+            <trans-unit id="server.testConnection">
+                <source>Test connection</source>
+            </trans-unit>
+            <trans-unit id="server.transport">
+                <source>Transport</source>
+            </trans-unit>
+            <trans-unit id="server.authentication">
+                <source>Authentication</source>
+            </trans-unit>
+            <trans-unit id="server.authentication.none">
+                <source>None — requests are sent unauthenticated</source>
+            </trans-unit>
+            <trans-unit id="server.authentication.bearer">
+                <source>Bearer token from the vault</source>
+            </trans-unit>
+            <trans-unit id="server.authentication.header">
+                <source>Vault secret in header</source>
+            </trans-unit>
+            <trans-unit id="server.toolsDiscovered">
+                <source>Tools discovered</source>
+            </trans-unit>
+            <trans-unit id="server.lastContact">
+                <source>Last successful contact</source>
+            </trans-unit>
+            <trans-unit id="server.lastContact.never">
+                <source>Never reached</source>
+            </trans-unit>
+            <trans-unit id="server.lastContact.hint">
+                <source>Any completed round trip counts: a tool call, an import or a connection test. It is not the same as the last import — a server that has been answering tool calls for weeks can have an old import date.</source>
+            </trans-unit>
+            <trans-unit id="server.latency">
+                <source>Latency</source>
+            </trans-unit>
+            <trans-unit id="server.lastError">
+                <source>Last import error</source>
+            </trans-unit>
+            <trans-unit id="server.report.reachable">
+                <source>Reachable</source>
+            </trans-unit>
+            <trans-unit id="server.report.protocol">
+                <source>Protocol</source>
+            </trans-unit>
             <trans-unit id="tools.title">
                 <source>Imported tools</source>
             </trans-unit>

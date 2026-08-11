@@ -126,6 +126,31 @@ final readonly class McpServerRepository
         );
     }
 
+    /**
+     * Record that a round trip against this server succeeded (ADR-154).
+     *
+     * Two columns only. `tstamp` is deliberately left alone: it stamps an
+     * operator edit, and bumping it on every tool call would make the record
+     * list report a change nobody made. `import_status` is left alone for the
+     * same reason in reverse — reaching a server does not say its catalogue is
+     * current.
+     *
+     * Callers must not let this decide whether their call succeeded; see
+     * {@see McpHealthRecorder}, which is the only caller and swallows the
+     * failure.
+     */
+    public function recordSuccessfulContact(int $uid, int $timestamp, int $latencyMs): void
+    {
+        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
+            self::TABLE,
+            [
+                'last_contact'    => $timestamp,
+                'last_latency_ms' => $latencyMs,
+            ],
+            ['uid' => $uid],
+        );
+    }
+
     private function queryBuilder(): QueryBuilder
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
@@ -159,6 +184,8 @@ final readonly class McpServerRepository
             importError: self::toStr($row['import_error'] ?? ''),
             lastImported: self::toInt($row['last_imported'] ?? 0),
             toolCount: self::toInt($row['tool_count'] ?? 0),
+            lastContact: self::toInt($row['last_contact'] ?? 0),
+            lastLatencyMs: self::toInt($row['last_latency_ms'] ?? 0),
             tstamp: self::toInt($row['tstamp'] ?? 0),
             crdate: self::toInt($row['crdate'] ?? 0),
         );

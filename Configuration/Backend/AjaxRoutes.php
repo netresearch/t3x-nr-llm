@@ -213,6 +213,12 @@ return [
         'target' => McpServerController::class . '::importAction',
     ],
 
+    // MCP connection test: handshake only, writes no catalogue row (ADR-154)
+    'nrllm_mcp_test' => [
+        'path' => '/nrllm/mcp/test',
+        'target' => McpServerController::class . '::testConnectionAction',
+    ],
+
     // Setup Wizard routes
     'nrllm_wizard_detect' => [
         'path' => '/nrllm/wizard/detect',

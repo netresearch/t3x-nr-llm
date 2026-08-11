@@ -38,17 +38,43 @@
                                     <f:then><span class="badge text-bg-success ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.enabled" default="Enabled" /></span></f:then>
                                     <f:else><span class="badge text-bg-secondary ms-2"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.disabled" default="Disabled" /></span></f:else>
                                 </f:if>
+                                <f:if condition="{entry.record.lastContact}">
+                                    <f:else><span class="badge text-bg-warning ms-2" data-nrllm-mcp-never="{entry.record.uid}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.never" default="Never reached" /></span></f:else>
+                                </f:if>
                             </div>
-                            <button type="button"
-                                    class="btn btn-sm btn-primary"
-                                    data-nrllm-mcp-import="{entry.record.uid}">
-                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.import" default="Import catalogue" />
-                            </button>
+                            <div class="btn-group">
+                                <button type="button"
+                                        class="btn btn-sm btn-default"
+                                        data-nrllm-mcp-test="{entry.record.uid}">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.testConnection" default="Test connection" />
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-primary"
+                                        data-nrllm-mcp-import="{entry.record.uid}">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.import" default="Import catalogue" />
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body">
                             <dl class="row mb-2">
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.url" default="Endpoint" /></dt>
                                 <dd class="col-sm-9"><code>{entry.record.url}</code></dd>
+
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.transport" default="Transport" /></dt>
+                                <dd class="col-sm-9">{entry.transport}</dd>
+
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication" default="Authentication" /></dt>
+                                <dd class="col-sm-9">
+                                    <f:if condition="{entry.record.authCredential}">
+                                        <f:then>
+                                            <f:if condition="{entry.record.authPlacement} == 'header'">
+                                                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.header" default="Vault secret in header" /> <code>{entry.record.authHeaderName}</code></f:then>
+                                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.bearer" default="Bearer token from the vault" /></f:else>
+                                            </f:if>
+                                        </f:then>
+                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.authentication.none" default="None — requests are sent unauthenticated" /></f:else>
+                                    </f:if>
+                                </dd>
 
                                 <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.dataClass" default="Data class" /></dt>
                                 <dd class="col-sm-9">
@@ -73,10 +99,24 @@
                                         <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.never" default="Never imported" /></f:else>
                                     </f:if>
                                 </dd>
+
+                                <dt class="col-sm-3" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact.hint')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastContact" default="Last successful contact" /></dt>
+                                <!-- Composed in the controller, not here: the connection test rewrites
+                                     this line in place from the same string, and two renderings of one
+                                     line are two chances to disagree. -->
+                                <dd class="col-sm-9" data-nrllm-mcp-contact="{entry.record.uid}">{entry.contact}</dd>
+
+                                <dt class="col-sm-3"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.toolsDiscovered" default="Tools discovered" /></dt>
+                                <dd class="col-sm-9">{entry.record.toolCount}</dd>
                             </dl>
 
+                            <!-- Filled by the connection test. What the handshake reported is stored
+                                 nowhere (ADR-154), so it is rendered here instead of in a notification
+                                 the operator has to catch. -->
+                            <div data-nrllm-mcp-report="{entry.record.uid}" role="status" aria-live="polite"></div>
+
                             <f:if condition="{entry.record.importError}">
-                                <f:be.infobox state="2">
+                                <f:be.infobox state="2" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_mcp.xlf:server.lastError')}">
                                     <pre class="mb-0">{entry.record.importError}</pre>
                                 </f:be.infobox>
                             </f:if>
