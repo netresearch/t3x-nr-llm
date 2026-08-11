@@ -80,9 +80,35 @@
                                     </td>
                                     <td><code>{model.modelId}</code></td>
                                     <td>
-                                        <f:for each="{model.capabilitiesArray}" as="capability">
-                                            <span class="badge text-bg-secondary">{capability}</span>
+                                        <f:for each="{model.capabilityProvenance}" as="provenance">
+                                            <f:if condition="{provenance.verified}">
+                                                <f:then>
+                                                    <span class="badge text-bg-secondary"
+                                                          title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.confirmed', arguments: {0: '{f:format.date(date: provenance.confirmedAt, format: \'Y-m-d H:i\')}'}, default: 'Confirmed by provider discovery')}">{provenance.name}</span>
+                                                </f:then>
+                                                <f:else>
+                                                    <f:variable name="unverifiedTitle"><f:switch expression="{provenance.sourceValue}"><f:case value="catalog"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.catalog" default="From the bundled model catalog — the provider did not answer, so this is an assumption" /></f:case><f:defaultCase><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.operator" default="Declared by an operator — never confirmed against the provider" /></f:defaultCase></f:switch></f:variable>
+                                                    <span class="badge text-bg-warning" title="{unverifiedTitle}">
+                                                        {provenance.name}
+                                                        <core:icon identifier="actions-question" size="small" />
+                                                    </span>
+                                                </f:else>
+                                            </f:if>
                                         </f:for>
+                                        <f:if condition="{model.capabilitiesConfirmedDate}">
+                                            <f:then>
+                                                <div class="small text-body-secondary">
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.lastConfirmed"
+                                                                 arguments="{0: '{f:format.date(date: model.capabilitiesConfirmedDate, format: \'Y-m-d H:i\')}'}"
+                                                                 default="Last confirmed {0}" />
+                                                </div>
+                                            </f:then>
+                                            <f:else>
+                                                <div class="small text-body-secondary">
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.capability.neverConfirmed" default="Never confirmed against the provider" />
+                                                </div>
+                                            </f:else>
+                                        </f:if>
                                     </td>
                                     <td>
                                         <f:if condition="{model.contextLength}">
@@ -134,6 +160,14 @@
                                                     {f:if(condition: model.isDefault, then: 'disabled')}>
                                                 <core:icon identifier="actions-star" size="small" />
                                             </button>
+                                            <f:if condition="{model.provider}">
+                                                <button type="button" class="btn btn-secondary btn-sm js-verify-capabilities"
+                                                        data-uid="{model.uid}"
+                                                        title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.verifyCapabilities')}"
+                                                        aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:model.verifyCapabilities')}">
+                                                    <core:icon identifier="actions-refresh" size="small" />
+                                                </button>
+                                            </f:if>
                                             <button type="button" class="btn btn-secondary btn-sm js-test-model"
                                                     data-uid="{model.uid}"
                                                     data-name="{model.name}"

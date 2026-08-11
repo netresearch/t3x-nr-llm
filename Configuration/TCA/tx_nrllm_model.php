@@ -36,6 +36,7 @@ return [
                     model_id,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.capabilities,
                     capabilities,
+                    --palette--;;capability_provenance,
                     --palette--;;limits,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.pricing,
                     --palette--;;pricing,
@@ -49,6 +50,10 @@ return [
         'identity' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.identity',
             'showitem' => 'identifier, name, --linebreak--, description',
+        ],
+        'capability_provenance' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.capability_provenance',
+            'showitem' => 'capabilities_discovered, --linebreak--, capabilities_source, capabilities_confirmed_at',
         ],
         'limits' => [
             'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:palette.model_limits',
@@ -243,6 +248,38 @@ return [
                     ],
                 ],
                 'default' => 'chat',
+            ],
+        ],
+        // Capability provenance (ADR-160). Written by
+        // `Service\Model\CapabilityVerifier`, never by hand — read-only here so
+        // the record editor shows where the declaration above came from without
+        // offering to forge it. The fields must exist in TCA regardless of the
+        // form: since TYPO3 v14 Extbase builds its column maps from the TCA
+        // schema, so a column absent here is silently not persisted.
+        'capabilities_discovered' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_discovered',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_discovered.description',
+            'config' => [
+                'type' => 'input',
+                'size' => 40,
+                'readOnly' => true,
+            ],
+        ],
+        'capabilities_confirmed_at' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_confirmed_at',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_confirmed_at.description',
+            'config' => [
+                'type' => 'number',
+                'readOnly' => true,
+            ],
+        ],
+        'capabilities_source' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_source',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_model.capabilities_source.description',
+            'config' => [
+                'type' => 'input',
+                'size' => 20,
+                'readOnly' => true,
             ],
         ],
         'cost_input' => [

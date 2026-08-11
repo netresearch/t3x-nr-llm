@@ -1284,6 +1284,34 @@
                 <source>Reassign Provider</source>
                 <target>Anbieter neu zuweisen</target>
             </trans-unit>
+            <trans-unit id="model.verifyCapabilities">
+                <source>Confirm capabilities against the provider</source>
+                <target>Fähigkeiten beim Anbieter bestätigen lassen</target>
+            </trans-unit>
+            <trans-unit id="model.capability.confirmed">
+                <source>Confirmed by provider discovery on %s</source>
+                <target>Am %s vom Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="model.capability.catalog">
+                <source>From the bundled model catalog — the provider did not answer, so this is an assumption</source>
+                <target>Aus dem mitgelieferten Modellkatalog – der Anbieter hat nicht geantwortet, das ist also eine Annahme</target>
+            </trans-unit>
+            <trans-unit id="model.capability.operator">
+                <source>Declared by an operator — never confirmed against the provider</source>
+                <target>Von einer Administratorin eingetragen – nie beim Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="model.capability.lastConfirmed">
+                <source>Last confirmed %s</source>
+                <target>Zuletzt bestätigt am %s</target>
+            </trans-unit>
+            <trans-unit id="model.capability.neverConfirmed">
+                <source>Never confirmed against the provider</source>
+                <target>Nie beim Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="error.model.notDiscoverable">
+                <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
+                <target>Der Anbieter führt dieses Modell nicht, seine Fähigkeiten ließen sich daher nicht bestätigen.</target>
+            </trans-unit>
             <trans-unit id="task.noActive.warning">
                 <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>
                 <target>Keine aktiven Aufgaben. Nur aktive Aufgaben werden nutzenden Erweiterungen und der API bereitgestellt. Aktivieren Sie eine Aufgabe, um sie verfügbar zu machen.</target>

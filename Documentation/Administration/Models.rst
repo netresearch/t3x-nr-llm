@@ -71,6 +71,49 @@ This is the recommended approach — it ensures model
 IDs match the provider exactly and keeps your
 catalogue current as providers release new models.
 
+.. _administration-models-provenance:
+
+Which capabilities the provider actually confirmed
+==================================================
+
+A capability badge in the model list says *that* the
+model has the capability, not *who said so*. Those
+are different claims, and the list separates them.
+
+A grey badge means a live answer from the provider's
+own model endpoint declared that capability, and the
+row says when. A yellow badge with a question mark
+means nobody confirmed it: either an administrator
+ticked it by hand, or it came from the static model
+catalogue bundled with the extension because the
+provider did not answer. Hover the badge for the
+reason.
+
+Use the :guilabel:`Confirm capabilities` row action
+to ask the provider. It runs the same discovery the
+wizard uses, records what came back, and refreshes
+the confirmation date. A model the provider does not
+list is reported as such — that is not a
+confirmation, so nothing is stored.
+
+Confirming never edits what you declared. A
+capability you ticked that the provider does not
+advertise stays on the model and simply stops
+borrowing the provider's authority for it. That
+matters most for a model created from the bundled
+catalogue: nothing about it was ever checked against
+the live API until you confirm it.
+
+The three underlying fields — what was confirmed,
+when, and whether the answer was live or from the
+catalogue — are also visible read-only on the
+:guilabel:`Capabilities` tab of the model record.
+
+Routing does not use this. Eligibility below still
+reads the declared capabilities, confirmed or not:
+making it depend on confirmation would silently drop
+every model an administrator declared by hand.
+
 .. _administration-models-routing:
 
 Which model a criteria-mode configuration picks
