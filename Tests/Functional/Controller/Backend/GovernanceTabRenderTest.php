@@ -210,6 +210,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     {
         $body = $this->render(null, [], $this->simulation(routing: RoutingReadout::decided(
             new RoutingDecision(null, [], RoutingPolicyMode::BALANCED),
+            false,
             null,
             false,
             false,
@@ -475,6 +476,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
             $context ?? InputContextDecision::undeclared(),
             $routing ?? RoutingReadout::decided(
                 new RoutingDecision($model, [RoutingCandidate::eligible($model, 0.62, [])], RoutingPolicyMode::BALANCED),
+                false,
                 null,
                 false,
                 false,

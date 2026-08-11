@@ -104,6 +104,7 @@ final class GovernanceSimulationTest extends TestCase
         // point: the call cannot be sent at all.
         $simulation = $this->simulation(routing: RoutingReadout::decided(
             new RoutingDecision(null, [], RoutingPolicyMode::BALANCED),
+            false,
             null,
             false,
             false,
@@ -144,6 +145,7 @@ final class GovernanceSimulationTest extends TestCase
             $context ?? InputContextDecision::undeclared(),
             $routing ?? RoutingReadout::decided(
                 new RoutingDecision($model, [RoutingCandidate::eligible($model, 0.62, [])], RoutingPolicyMode::BALANCED),
+                false,
                 null,
                 false,
                 false,

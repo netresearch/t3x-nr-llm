@@ -203,6 +203,7 @@ final class GovernanceSimulatorTest extends TestCase
 
         return RoutingReadout::decided(
             new RoutingDecision($model, [], RoutingPolicyMode::BALANCED),
+            false,
             null,
             false,
             false,
