@@ -4,9 +4,10 @@
 ADR-145: Governance profiles describe a posture, they never apply it
 =================================================================
 
-:Status: Accepted
+:Status: Accepted (the second gate this record named is wired in — see :ref:`ADR-148 <adr-148>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-140 <adr-140>` (the readout gains consumers, not an apply path)
+:Amended: 2026-08-11 by :ref:`ADR-148 <adr-148>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -77,9 +78,10 @@ permissions. That is a real answer to a real question and it is honest about
 whose rights it used — but "would this be allowed for an editor" needs a user
 picker, which is a separate surface.
 
-◐ The simulator covers the tool gate. The input-context gate
-(:ref:`ADR-144 <adr-144>`) and the routing decision
-(:ref:`ADR-142 <adr-142>`) are answerable the same way and are not wired in yet.
+◐ The simulator covers the tool gate. The routing decision
+(:ref:`ADR-142 <adr-142>`) was wired in the same way by
+:ref:`ADR-148 <adr-148>`; the input-context gate
+(:ref:`ADR-144 <adr-144>`) is answerable the same way and is not wired in yet.
 
 ✕ A profile does not describe everything an operator might mean by a posture.
 It compares the four keys the readout reports, because those are the ones with a

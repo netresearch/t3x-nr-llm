@@ -537,6 +537,180 @@
                 <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
             </trans-unit>
 
+            <!-- Routing readout (ADR-148) -->
+            <trans-unit id="routing.heading">
+                <source>Why this model?</source>
+                <target>Warum dieses Modell?</target>
+            </trans-unit>
+            <trans-unit id="routing.lead">
+                <source>Ask the decision point the runtime asks. This runs the real routing decision — not a copy of its rules — and changes nothing. Trying a different policy mode answers a hypothetical; it does not alter the installed setting.</source>
+                <target>Fragt die Entscheidungsstelle, die auch die Laufzeit fragt. Hier läuft die echte Routing-Entscheidung, keine Kopie ihrer Regeln, und es wird nichts verändert. Ein anderer Policy-Modus beantwortet eine Was-wäre-wenn-Frage; die installierte Einstellung bleibt unberührt.</target>
+            </trans-unit>
+            <trans-unit id="routing.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="routing.configuration.none">
+                <source>— Choose —</source>
+                <target>— Auswählen —</target>
+            </trans-unit>
+            <trans-unit id="routing.operation">
+                <source>Operation</source>
+                <target>Operation</target>
+            </trans-unit>
+            <trans-unit id="routing.operation.none">
+                <source>No operation</source>
+                <target>Keine Operation</target>
+            </trans-unit>
+            <trans-unit id="routing.policyMode">
+                <source>Policy mode</source>
+                <target>Policy-Modus</target>
+            </trans-unit>
+            <trans-unit id="routing.policyMode.configured">
+                <source>As configured</source>
+                <target>Wie konfiguriert</target>
+            </trans-unit>
+            <trans-unit id="routing.submit">
+                <source>Explain</source>
+                <target>Erklären</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.title">
+                <source>No decision: the operator named the model</source>
+                <target>Keine Entscheidung: der Betreiber hat das Modell benannt</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.text">
+                <source>This configuration selects a fixed model. Nothing is chosen at call time, so there are no candidates, no ranking and no policy mode — and none is invented here.</source>
+                <target>Diese Konfiguration nutzt ein festes Modell. Zur Laufzeit wird nichts ausgewählt, also gibt es keine Kandidaten, kein Ranking und keinen Policy-Modus — und hier wird auch nichts davon erfunden.</target>
+            </trans-unit>
+            <trans-unit id="routing.fixed.none">
+                <source>The configuration is in fixed mode but names no model. Every call through it fails at resolution.</source>
+                <target>Die Konfiguration steht auf festem Modell, benennt aber keines. Jeder Aufruf darüber scheitert schon bei der Auflösung.</target>
+            </trans-unit>
+            <trans-unit id="routing.selected.title">
+                <source>Selected</source>
+                <target>Ausgewählt</target>
+            </trans-unit>
+            <trans-unit id="routing.none.title">
+                <source>No model would serve this call</source>
+                <target>Kein Modell würde diesen Aufruf bedienen</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.label">
+                <source>Policy mode</source>
+                <target>Policy-Modus</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.overridden">
+                <source>(tried out — the installed setting is unchanged)</source>
+                <target>(nur ausprobiert — die installierte Einstellung bleibt unverändert)</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.label">
+                <source>Operation capability</source>
+                <target>Operations-Capability</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.enforcing">
+                <source>enforcing: models that declare capabilities without it were refused.</source>
+                <target>wird durchgesetzt: Modelle, die Capabilities ohne diese angeben, wurden abgelehnt.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.observing">
+                <source>observing: the requirement did NOT constrain this decision.</source>
+                <target>wird nur beobachtet: die Anforderung hat diese Entscheidung NICHT eingeschränkt.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOn">
+                <source>The switch itself is set to enforce.</source>
+                <target>Der Schalter selbst steht auf Durchsetzen.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOff">
+                <source>The switch itself is set to observe, so no operation would constrain a decision on this installation.</source>
+                <target>Der Schalter selbst steht auf Beobachten. Auf dieser Installation schränkt deshalb keine Operation eine Entscheidung ein.</target>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.none">
+                <source>the chosen operation requires no declared capability, so it constrains nothing.</source>
+                <target>die gewählte Operation verlangt keine angegebene Capability und schränkt daher nichts ein.</target>
+            </trans-unit>
+            <trans-unit id="routing.empty.title">
+                <source>No candidates at all</source>
+                <target>Überhaupt keine Kandidaten</target>
+            </trans-unit>
+            <trans-unit id="routing.empty.text">
+                <source>There is no active model to consider. That is an empty catalogue, not a criteria problem — activate a model before reading the criteria.</source>
+                <target>Es gibt kein aktives Modell, das betrachtet werden könnte. Das ist ein leerer Katalog und kein Kriterien-Problem — erst ein Modell aktivieren, dann die Kriterien lesen.</target>
+            </trans-unit>
+            <trans-unit id="routing.eligible.heading">
+                <source>Eligible, in rank order</source>
+                <target>Geeignet, in Rangfolge</target>
+            </trans-unit>
+            <trans-unit id="routing.rejected.heading">
+                <source>Refused, and why</source>
+                <target>Abgelehnt, und warum</target>
+            </trans-unit>
+            <trans-unit id="routing.column.rank">
+                <source>#</source>
+                <target>#</target>
+            </trans-unit>
+            <trans-unit id="routing.column.model">
+                <source>Model</source>
+                <target>Modell</target>
+            </trans-unit>
+            <trans-unit id="routing.column.provider">
+                <source>Provider</source>
+                <target>Provider</target>
+            </trans-unit>
+            <trans-unit id="routing.column.score">
+                <source>Score</source>
+                <target>Score</target>
+            </trans-unit>
+            <trans-unit id="routing.column.signals">
+                <source>Signals</source>
+                <target>Signale</target>
+            </trans-unit>
+            <trans-unit id="routing.column.reason">
+                <source>Reason</source>
+                <target>Grund</target>
+            </trans-unit>
+            <trans-unit id="routing.signal.noData">
+                <source>no data</source>
+                <target>keine Daten</target>
+            </trans-unit>
+            <trans-unit id="routing.signal.unused">
+                <source>not collected — this mode does not weigh measured signals</source>
+                <target>nicht erhoben — dieser Modus gewichtet keine gemessenen Signale</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.PROVIDER_PRIORITY">
+                <source>Provider priority</source>
+                <target>Provider-Priorität</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.BALANCED">
+                <source>Balanced</source>
+                <target>Ausgewogen</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.QUALITY">
+                <source>Quality</source>
+                <target>Qualität</target>
+            </trans-unit>
+            <trans-unit id="routing.mode.ECONOMY">
+                <source>Economy</source>
+                <target>Kosten</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CAPABILITY_MISSING">
+                <source>Does not have every capability the criteria require.</source>
+                <target>Hat nicht alle Capabilities, die die Kriterien verlangen.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.OPERATION_CAPABILITY_MISSING">
+                <source>Declares capabilities, and the one this operation needs is not among them.</source>
+                <target>Gibt Capabilities an, und die von dieser Operation benötigte ist nicht dabei.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.ADAPTER_NOT_ALLOWED">
+                <source>Its provider uses an adapter type the criteria exclude.</source>
+                <target>Sein Provider nutzt einen Adaptertyp, den die Kriterien ausschließen.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CONTEXT_TOO_SMALL">
+                <source>Its context window is smaller than the criteria require, or unknown.</source>
+                <target>Sein Kontextfenster ist kleiner als von den Kriterien verlangt oder unbekannt.</target>
+            </trans-unit>
+            <trans-unit id="routing.rejection.COST_ABOVE_LIMIT">
+                <source>Its input cost exceeds the ceiling the criteria set.</source>
+                <target>Seine Eingabekosten liegen über der von den Kriterien gesetzten Obergrenze.</target>
+            </trans-unit>
+
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
                 <source>Prompt Snippets</source>
