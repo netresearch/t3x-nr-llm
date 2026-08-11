@@ -68,7 +68,11 @@
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.matchedModel" default="Would currently use" />: {preset.matchedModelLabel}</span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
+                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                                    the 11px a badge renders at, and axe fails the page for it. This is
+                                                    also the truer state — a preset nothing satisfies yet is fixed by
+                                                    adding a model.</f:comment>
+                                                    <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.missing" default="Missing" />: <code>{preset.missingRequirement}</code></span>
                                                 </f:else>
                                             </f:if>
@@ -184,7 +188,7 @@
                                                 <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-danger" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
+                                                <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>

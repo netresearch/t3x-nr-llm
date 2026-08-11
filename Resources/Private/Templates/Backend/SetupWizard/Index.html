@@ -18,9 +18,15 @@
             lives in its own module (ADR-163); point at it before step 1.
         </f:comment>
         <f:be.infobox state="-2">
+            <f:comment>
+                The link is underlined, not merely coloured: axe's
+                `link-in-text-block` refuses a link inside a sentence that a
+                reader can only tell from the surrounding text by its colour,
+                and the backend strips the underline that would carry that job.
+            </f:comment>
             <p class="mb-0">
                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:wizard.hint" default="Not sure which provider you need? Start from the job instead and let a use-case pack suggest the setup." />
-                <a href="{be:moduleLink(route: 'nrllm_usecase')}">
+                <a href="{be:moduleLink(route: 'nrllm_usecase')}" class="text-decoration-underline">
                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" />
                 </a>
             </p>
