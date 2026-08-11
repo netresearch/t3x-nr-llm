@@ -51,6 +51,7 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
         self::assertNull($readout->decision, 'fixed mode chooses nothing, so there is no decision to show');
         self::assertNull($readout->getMode(), 'and no policy mode was consulted');
         self::assertNull($readout->operationCapabilityEnforcing);
+        self::assertNull($readout->operationSelected, 'an operation was named, but nothing was decided for it to bear on');
         self::assertSame($named, $readout->namedModel);
         self::assertTrue($readout->hasSelection());
     }
@@ -157,6 +158,19 @@ final class ModelSelectionServiceExplainRoutingTest extends TestCase
 
         self::assertNull($readout->requiredCapability);
         self::assertTrue($readout->hasSelection());
+        // Both causes of a null capability arrive here; the readout keeps them
+        // apart so the page does not report on an unchosen operation.
+        self::assertTrue($readout->operationSelected);
+    }
+
+    #[Test]
+    public function noOperationIsDistinctFromAnOperationThatConstrainsNothing(): void
+    {
+        $readout = $this->subject([$this->model('a')])
+            ->explainRouting($this->criteriaConfiguration([]), null, null);
+
+        self::assertNull($readout->requiredCapability);
+        self::assertFalse($readout->operationSelected);
     }
 
     #[Test]

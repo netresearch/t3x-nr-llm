@@ -289,7 +289,10 @@
                                     </f:if>
                                 </f:then>
                                 <f:else>
-                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.none" default="the chosen operation requires no declared capability, so it constrains nothing." />
+                                    <f:if condition="{routing.operationSelected}">
+                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.none" default="the chosen operation requires no declared capability, so it constrains nothing." /></f:then>
+                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.noOperation" default="no operation was selected, so the operation-capability axis was not applied to this decision." /></f:else>
+                                    </f:if>
                                     <f:if condition="{routing.operationCapabilityEnforcing}">
                                         <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.switchOn" default="The switch itself is set to enforce." /></f:then>
                                         <f:else><span class="text-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.enforcement.switchOff" default="The switch itself is set to observe, so no operation would constrain a decision on this installation." /></span></f:else>

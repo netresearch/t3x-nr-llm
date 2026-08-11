@@ -474,6 +474,9 @@
             <trans-unit id="routing.enforcement.none">
                 <source>the chosen operation requires no declared capability, so it constrains nothing.</source>
             </trans-unit>
+            <trans-unit id="routing.enforcement.noOperation">
+                <source>no operation was selected, so the operation-capability axis was not applied to this decision.</source>
+            </trans-unit>
             <trans-unit id="routing.empty.title">
                 <source>No candidates at all</source>
             </trans-unit>
