@@ -7,6 +7,7 @@ ADR-144: Injected context carries a declared data class
 :Status: Accepted
 :Date: 2026-08-10
 :Amends: :ref:`ADR-094 <adr-094>` (the axis now binds in both directions)
+         and :ref:`ADR-139 <adr-139>` (its "no trust-zone ceiling" gap)
 :Authors: Netresearch DTT GmbH
 
 Context

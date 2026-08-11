@@ -7,6 +7,7 @@ ADR-143: Bound every send against the model that actually serves it
 :Status: Accepted
 :Date: 2026-08-10
 :Amends: :ref:`ADR-107 <adr-107>` (which model's window, and which paths bind one)
+         and :ref:`ADR-139 <adr-139>` (its "generic paths bind no window" gap)
 :Authors: Netresearch DTT GmbH
 
 Context
