@@ -281,7 +281,10 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
 
     /**
      * The detail view is only reachable if the list points at it (ADR-153), so
-     * the recent-runs row must carry the affordance and the run it is for.
+     * a row the viewer may open must carry the affordance and the run it is for.
+     * The viewer here is an admin, who may read every run; which rows get the
+     * link at all is decided by WaitingRunViewFactory::buildTerminal() and
+     * asserted in its unit test.
      *
      * The generated href is NOT asserted: this harness calls the controller
      * directly, so the backend router holds no module routes and every
@@ -290,7 +293,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
      * limitation as an expectation.
      */
     #[Test]
-    public function theRecentRunsTableOffersATimelineForEachRun(): void
+    public function theRecentRunsTableOffersATimelineForARunTheViewerMayOpen(): void
     {
         $handle = $this->persister->begin(null, 1);
         self::assertNotNull($handle);

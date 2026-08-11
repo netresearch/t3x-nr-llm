@@ -269,8 +269,9 @@ return [
     // Agent Runs approvals inbox - child of main module (ADR-109)
     // Admin-only: surfaces runs suspended WAITING_FOR_APPROVAL (ADR-084) or
     // WAITING_FOR_INPUT (ADR-105) and lets an admin approve/deny or submit the
-    // required typed input. Native <form> PRG, no AjaxRoutes; access => admin is
-    // the sole authorization gate for all three actions.
+    // required typed input. Native <form> PRG, no AjaxRoutes; access => admin
+    // gates the three list/write actions, and `show` is additionally authorised
+    // per run by the runtime (AGENT_READ).
     'nrllm_runs' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -284,7 +285,8 @@ return [
                 'approve',
                 'submitInput',
                 // Read-only run detail (ADR-153); authorised per run by the
-                // runtime, like the two write actions above.
+                // runtime with AGENT_READ, which — unlike the approval the two
+                // write actions above ask for — has no grant equivalent.
                 'show',
             ],
         ],
@@ -333,6 +335,7 @@ return [
                 'list',
                 'approve',
                 'submitInput',
+                // Same per-run AGENT_READ gate as in 'nrllm_runs' (ADR-153).
                 'show',
             ],
         ],

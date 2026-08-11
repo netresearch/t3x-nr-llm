@@ -127,7 +127,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     the manager. `0` now means "not inside a run" (a plain provider call, or a
     bare `ToolLoopServiceInterface` consumer), not "identity dropped".
   - New read-only run detail at `AgentRunController::showAction`, linked from the
-    recent-runs table. It consumes `AgentRuntimeInterface::events()` and
+    recent-runs table on the rows the viewer may open — the list is wider than
+    the read, because the `agent_approve` grant lets a non-admin *decide*
+    another user's run but not read its timeline. It consumes
+    `AgentRuntimeInterface::events()` and
     `::status()` — the authorised API that until now had no caller — and renders
     the run's steps, its telemetry rows and its governance decisions as one
     ordered timeline. Metadata only: `RunTimelineFactory` renders an allow-list of

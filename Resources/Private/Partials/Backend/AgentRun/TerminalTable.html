@@ -30,10 +30,12 @@
                                 <f:if condition="{run.formattedCost}">{run.formattedCost}</f:if>
                             </td>
                             <td>
-                                <f:link.action action="show" arguments="{runUuid: run.runUuid}">
-                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detailLink" default="Timeline" />
-                                    <span class="visually-hidden"> {run.runUuid}</span>
-                                </f:link.action>
+                                <f:if condition="{run.openableByViewer}">
+                                    <f:link.action action="show" arguments="{runUuid: run.runUuid}">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.terminal.detailLink" default="Timeline" />
+                                        <span class="visually-hidden"> {run.runUuid}</span>
+                                    </f:link.action>
+                                </f:if>
                             </td>
                         </tr>
                     </f:for>

@@ -43,7 +43,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * The "Agent Runs" approvals inbox (ADR-109): the human-facing surface for runs
  * suspended WAITING_FOR_APPROVAL (ADR-084) or WAITING_FOR_INPUT (ADR-105).
  *
- * The three actions are module-route controllerActions, reachable through TWO
+ * The four actions are module-route controllerActions, reachable through TWO
  * modules since ADR-131: the admin inbox (`nrllm_runs`, `access => admin`) and
  * the editor module (`nrllm_aitasks`, `access => user`). Unlike the AJAX
  * endpoints on {@see ToolPlaygroundController}, a module-route action cannot
@@ -55,6 +55,11 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()},
  * so the list filter is a viewport, never the security boundary. The recorded
  * decidedBy/submittedBy uid is audit-only.
+ *
+ * showAction is read-only and authorised per run by the runtime with
+ * `ServiceAccountScope::AGENT_READ`, not by the module access string — and READ
+ * has no grant equivalent, so the approval grant widens the list but not the
+ * detail page (ADR-153).
  *
  * The page works fully with JavaScript OFF: native `<f:form>` POST, a
  * POST-redirect-GET flush with session flash messages, and a 422 in-place
@@ -261,7 +266,7 @@ final class AgentRunController extends ActionController
 
         $this->moduleTemplate->assignMultiple([
             'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
-            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? []),
+            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,

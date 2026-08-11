@@ -31,8 +31,8 @@ The module shows two lists:
 - **Awaiting your decision** — runs paused for an approval or for input, each
   rendered as a card with the controls to resolve it.
 - **Recent runs** — a read-only table of the most recently finished runs
-  (configuration, status, created, finished, cost when non-zero, and a
-  :guilabel:`Timeline` link to the run's detail page).
+  (configuration, status, created, finished, cost when non-zero, and — on the
+  runs you may open — a :guilabel:`Timeline` link to the run's detail page).
 
 If the store cannot be read, the page shows a warning box rather than a
 silently empty inbox — an empty list therefore means "nothing waiting", not
@@ -56,9 +56,12 @@ cost — and below it a single time-ordered list of everything the run produced:
 - **Governance** — a decision taken during the run: a tool the gate withheld, a
   guardrail block, an approval requirement, an injected-context refusal.
 
-You can only open a run you are allowed to see. A run belonging to someone else,
-without the approval grant, is indistinguishable from one that does not exist —
-both send you back to the list.
+You can only open your own runs; an administrator can open all of them. The
+approval grant lets you *decide* another user's waiting run, but not read its
+timeline — the :guilabel:`Timeline` link is therefore offered only on the rows
+you may open. Reaching a run you may not read directly by URL is
+indistinguishable from reaching one that does not exist: both send you back to
+the list.
 
 .. note::
 

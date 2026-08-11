@@ -94,6 +94,17 @@ controller sees them.
 **The view is read-only.** No approve, no retry, no cancel. Those exist on the
 inbox list, where they are authorised per run and per turn.
 
+**The link is offered only where the read would succeed.** The inbox list is
+deliberately wider than the read: an approval-grant holder sees every user's
+run, because :php:`AiActorContext::mayActOnRun()` grants the human equivalent of
+:php:`ServiceAccountScope::AGENT_APPROVE` and of no other scope (ADR-130). Read
+therefore stays owner-or-admin, and offering the row a :guilabel:`Timeline` link
+that can only redirect back would be an affordance for an authorisation nobody
+holds. :php:`TerminalRunView::$openableByViewer` asks the same
+:php:`mayActOnRun()` the controller will ask, so the two cannot drift; widening
+the read to the approval grant would be a change to the runtime, not to the
+template.
+
 Consequences
 ============
 

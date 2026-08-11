@@ -1056,8 +1056,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         array $metadata = [],
         ?AgentRunReference $run = null,
     ): mixed {
-        // Disjoint key sets merge with `+`, as everywhere else metadata is built.
-        $metadata += $this->metadata->agentRun($run);
+        // The run's own uid is authoritative and goes on the LEFT: `$metadata`
+        // is caller-supplied on the public entry points, and `+` keeps the left
+        // operand, so the other order would let a caller passing both a run and
+        // its own `agentRunUid` attribute the governance row to a run that did
+        // not make the call. The four producers in CallMetadataFactory are
+        // disjoint among themselves; an arbitrary caller array is not.
+        $metadata = $this->metadata->agentRun($run) + $metadata;
 
         // Before anything is dispatched: a configuration that may not carry
         // the context it injects does not get to try (ADR-144). Placed here
