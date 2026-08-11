@@ -92,11 +92,14 @@ classified snippet. The ADR-144 hole is closed for the primary provider.
 provider and model the zone was read from, instead of the empty relation a
 criteria-mode record has.
 
-◐ A criteria-mode send resolves its model twice — once for the gate, once in
-the dispatch. In the default routing mode that is one extra
+◐ A criteria-mode send resolves its model twice on the pipeline path — once for
+the gate, once in the dispatch — and three times on the streaming path, where
+:php:`LlmServiceManager::streamChatWithConfiguration()` resolves once more for
+its eager capability check before the opener resolves again. In the default
+routing mode each of those is one extra
 :php:`findActive()` query and an in-memory evaluation per send, against a call
 that is about to cross a network to an LLM. Memoising the decision per call
-would remove it, but that changes the routing invariant
+would remove the extras, but that changes the routing invariant
 (:ref:`ADR-142 <adr-142>`) rather than this gate, and it is not built here.
 Fixed mode adds nothing.
 
@@ -112,11 +115,27 @@ not here.
 reason, and permit where it previously did not. An installation that had
 classified sources and criteria-mode configurations was refusing all of them;
 after this it refuses only the ones whose selected model is genuinely external.
-No configuration that was permitted becomes refused.
+No configuration whose zone was read from a provider it actually reaches
+becomes refused.
 
-✕ Not a guarantee about the model that answers. Routing runs again at dispatch,
-and a change in the model set between the two resolutions would let them
-disagree. The window for that is the same one ADR-138 already lives with.
+One shape does newly refuse: a criteria-mode record that still carries a
+``model_uid`` from an earlier fixed-mode edit. The TCA ``displayCond`` on that
+column hides the field when the mode is criteria; it does not clear the value,
+and nothing else clears it either. Such a record used to be judged against that
+stale relation — a call it never reaches — and is now judged against the model
+the criteria select. Where the stale relation is local and the criteria select
+an external model, a send that used to be permitted now throws.
+
+✕ Not a guarantee about the model that answers. The permit is computed from the
+gate's resolution; the send runs on the dispatch's own. The window between the
+two is the one ADR-138 already lives with, but what falls through it is no
+longer a mismatched cache key or a capability check against the wrong adapter —
+it is a classified snippet reaching a provider the gate never approved. It does
+not take a change in the model set, either: :php:`CandidateRanker` feeds
+measured ``quality``, ``health`` and ``cost`` signals into the ordering for
+every mode that uses them, so the winner can move between two resolutions of
+one call. Before this record criteria mode was always ``EXTERNAL_GLOBAL``, so
+the disagreement had no governance consequence at all.
 
 Revisit when
 ============
@@ -129,6 +148,15 @@ The fallback chain needs its real zones too — that is the same question this
 record answers for the primary, and it needs a cheaper resolution than one
 routing decision per hop before it is worth answering.
 
-Also revisit if the routing decision gains a per-call memo: the extra
-resolution above disappears with it, and the two should be reconsidered
-together.
+A per-call memo on the routing decision is now the answer to the ✕ above and
+not only to its cost: one resolution per call closes the window in which the
+gate's model and the dispatch's can disagree. It changes the routing invariant
+(:ref:`ADR-142 <adr-142>`) rather than this gate, which is why it is not built
+here, but it is the change this record most wants.
+
+A criteria-mode record's leftover ``model_uid`` is load-bearing in two
+directions now — it is what the pre-ADR-149 zone was read from, and it is what
+a switch back to fixed mode restores. Clearing it on the mode switch, in a
+DataHandler hook or an update wizard, would remove the newly-refusing shape
+above; it is not done here because it changes what a mode switch does to stored
+data, which is a decision about the record, not about the gate.

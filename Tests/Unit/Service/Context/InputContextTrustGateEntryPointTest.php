@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
@@ -104,6 +105,31 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
         $this->expectException(ProviderException::class);
         $this->expectExceptionMessage('has no model assigned');
         $manager->chatWithConfiguration([ChatMessage::user('hi')], $configuration);
+    }
+
+    #[Test]
+    public function bothResolutionsOfOneSendNameTheSameOperation(): void
+    {
+        // ADR-149's "one operation, one selection". Every other stub in this
+        // file discards the operation, so a gate resolving under a different
+        // one than the terminal — judging a model the send never runs on —
+        // would leave them all green. This one looks at the argument.
+        $model = $this->modelIn(TrustZone::LOCAL);
+        $seen  = [];
+
+        $selection = self::createStub(ModelSelectionServiceInterface::class);
+        $selection->method('resolveModel')->willReturnCallback(
+            static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (&$seen, $model): Model {
+                $seen[] = $operation;
+
+                return $model;
+            },
+        );
+
+        $this->manager($selection)
+            ->chatWithConfiguration([ChatMessage::user('hi')], $this->criteriaConfiguration());
+
+        self::assertSame([ProviderOperation::Chat, ProviderOperation::Chat], $seen);
     }
 
     #[Test]

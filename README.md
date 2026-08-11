@@ -280,7 +280,7 @@ The anticipated seams, if/when we split:
 | `nr_llm_guardrail` | Guardrail / secret-redaction safety pipeline (may instead stay in core) |
 | `nr_llm_backend` | Tool Playground, analytics dashboard, setup wizard, skills management |
 
-See [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst) for the full rationale and the criteria that would trigger a split.
+See [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst) for the full rationale and the criteria that would trigger a split, and [ADR-159](Documentation/Adr/Adr159OneExtensionConfirmedAtTheFreeze.rst) for the re-evaluation at the 1.0 API freeze — it answers the criteria against the code and confirms one extension.
 
 ---
 

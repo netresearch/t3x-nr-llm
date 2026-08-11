@@ -33,12 +33,23 @@ use Throwable;
 #[AsLlmProvider(priority: 40)]
 final class OllamaProvider extends AbstractProvider implements StreamingCapableInterface, ToolCapableInterface
 {
-    /** @var array<string> */
+    /**
+     * FEATURE_TOOLS belongs here because the adapter implements
+     * `ToolCapableInterface` and `supportsTools()` returns true. Without it
+     * the two declarations contradicted each other: the service layer's
+     * `instanceof` gate let a tool call through while
+     * `LlmServiceManager::supportsFeature('tools', 'ollama')` denied the same
+     * capability to whoever asked. The adapter-contract suite (ADR-160) is
+     * what surfaced it.
+     *
+     * @var array<string>
+     */
     protected array $supportedFeatures = [
         self::FEATURE_CHAT,
         self::FEATURE_COMPLETION,
         self::FEATURE_EMBEDDINGS,
         self::FEATURE_STREAMING,
+        self::FEATURE_TOOLS,
     ];
 
     private const ENDPOINT_CHAT = 'api/chat';

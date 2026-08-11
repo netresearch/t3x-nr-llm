@@ -18,7 +18,9 @@ use Netresearch\NrLlm\Controller\Backend\Response\ToggleActiveResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
+use Netresearch\NrLlm\Service\Model\CapabilityVerifier;
 use Netresearch\NrLlm\Service\UsageAnalyticsService;
 use Netresearch\NrLlm\Service\UsageAnalyticsServiceInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -70,6 +72,7 @@ final class ModelController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly UsageAnalyticsServiceInterface $analytics,
+        private readonly CapabilityVerifier $capabilityVerifier,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -88,6 +91,7 @@ final class ModelController extends ActionController
             'nrllm_model_test' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_test'),
             'nrllm_model_fetch_available' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_fetch_available'),
             'nrllm_model_detect_limits' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_detect_limits'),
+            'nrllm_model_verify_capabilities' => (string)$this->backendUriBuilder->buildUriFromRoute('ajax_nrllm_model_verify_capabilities'),
         ]);
 
         // Load JavaScript for model list actions (ES6 module)
@@ -218,6 +222,61 @@ final class ModelController extends ActionController
         }
 
         return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), 500);
+    }
+
+    /**
+     * AJAX: ask the model's provider what the model can do, and record the
+     * answer as capability provenance (ADR-160).
+     *
+     * This is what turns "last confirmed" into a live fact rather than a
+     * creation date. A provider that does not list the model answers 404 —
+     * "the provider does not know it" is not a confirmation and must not be
+     * stored as one.
+     */
+    public function verifyCapabilitiesAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyNonAdmin()) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $uid   = $this->extractIntFromBody($request->getParsedBody(), 'uid');
+        $model = $this->resolveModelOrError($uid);
+        if (!$model instanceof Model) {
+            return $model;
+        }
+
+        try {
+            if (!$this->capabilityVerifier->verify($model, new DateTimeImmutable())) {
+                return new JsonResponse((new ErrorResponse($this->localize(
+                    'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.model.notDiscoverable',
+                    'The provider does not list this model, so its capabilities could not be confirmed.',
+                )))->jsonSerialize(), 404);
+            }
+
+            $this->modelRepository->update($model);
+            $this->persistenceManager->persistAll();
+
+            // `success` is the whole payload on purpose: the caller is
+            // postUidAndReload(), which reads `success` / `error` and then
+            // reloads the list — the reloaded page renders the stored
+            // provenance. A richer body here would be a declaration nothing
+            // reads.
+            return new JsonResponse(['success' => true]);
+        } catch (ProviderException $e) {
+            $this->logger->warning('Model verifyCapabilities: provider error', ['exception' => $e, 'model_uid' => $uid]);
+            $message = 'LLM provider error while confirming capabilities. See system log for details.';
+            $status  = 502;
+        } catch (DbalException $e) {
+            $this->logger->error('Model verifyCapabilities: persistence failed', ['exception' => $e, 'model_uid' => $uid]);
+            $message = 'Database error while storing the confirmed capabilities.';
+            $status  = 500;
+        } catch (Throwable $e) {
+            $this->logger->error('Model verifyCapabilities: unexpected error', ['exception' => $e, 'model_uid' => $uid]);
+            $message = 'Failed to confirm capabilities. See system log for details.';
+            $status  = 500;
+        }
+
+        return new JsonResponse((new ErrorResponse($message))->jsonSerialize(), $status);
     }
 
     /**
