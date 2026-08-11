@@ -465,6 +465,41 @@ The declaration is presentation only. It does not decide whether a tool writes
 — that is the tool's declared effect — and it changes nothing about how a call
 is fenced, approved or audited.
 
+What editors see
+----------------
+
+The declaration is what the **Editor Action Center**
+(:ref:`ADR-158 <adr-158>`) renders. It lives in the editor module
+:guilabel:`Web > AI tasks` and appears in two places: as an :guilabel:`AI
+actions` catalogue reachable from that module, and as an :guilabel:`AI actions`
+entry in the context menu of a record — a page or a content element — which
+opens the catalogue narrowed to the actions that address that record.
+
+An editor is offered an action only when all of the following hold, and every
+one of them is an administrator's decision:
+
+* the writing tool is enabled in this module (all five ship **disabled**);
+* its group — ``editing`` — is enabled, and where the default LLM
+  configuration restricts tool groups, ``editing`` is among them;
+* the tool's data class is within the configured provider's trust-zone ceiling;
+* the backend user holds ``tasks_use`` and has the module ticked in their
+  group;
+* the backend user may use the default LLM configuration itself — where that
+  configuration restricts :guilabel:`Allowed backend groups`, the user is in
+  one of them (see :ref:`administration-permissions`).
+
+That last point is checked again when the action is started, so an editor
+outside those groups cannot start a run by naming the action directly either.
+
+Starting an action creates an ordinary agent run restricted to that one tool.
+Because the tool declares a write, the run suspends before it touches anything
+and the change appears on an approval card with its preview — the editor is
+redirected straight to that inbox. Nothing is written until someone approves.
+
+Files have no context-menu entry yet: the file list identifies a file by its
+combined identifier rather than by uid, so :guilabel:`Set alternative text` is
+listed in the catalogue but has no per-record entry point.
+
 .. _administration-tools-groups:
 
 Tool groups

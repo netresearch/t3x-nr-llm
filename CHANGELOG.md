@@ -18,6 +18,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `bulkCapability`, a caller-facing preview service with a structured
   before/after diff, and a per-action grant.
 
+- **An editor can find and start an editor action** — the Editor Action Center
+  (ADR-158) in the editor module `nrllm_aitasks`. A context-menu item on a page
+  or content element opens a catalogue of the actions that apply to it; starting
+  one creates an ordinary agent run restricted to that single tool, and the
+  declared write suspends for approval on the existing inbox card with its
+  preview. The catalogue is driven by `editorActions()`, the composite tool gate
+  and access to the default LLM configuration itself (a user outside its allowed
+  backend groups is offered nothing and can start nothing) — no permission rule
+  is re-implemented, and no second executor exists.
+  The catalogue never reads the record, so it shows `pages #42` rather than a
+  title; the record is resolved and authorised later, by the preview.
+  Deliberately not built: bulk, a record picker, and a grant of its own.
+
 - The Tools module renders a writing tool as its icon, translated name, human
   sentence and applicable record types instead of a bare wire name and the
   paragraph written for the language model. Tool groups have translatable names

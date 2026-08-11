@@ -1003,6 +1003,54 @@
             <trans-unit id="editorAction.create_translation_draft.description">
                 <source>Translates one page or content element into another language. The translation is created hidden.</source>
             </trans-unit>
+            <trans-unit id="editorActions.title">
+                <source>AI actions</source>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.record">
+                <source>These AI actions apply to the record you selected. Starting one hands the change to an approver before anything is written.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.overview">
+                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page or content element and choose AI actions there.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.appliesTo">
+                <source>Applies to</source>
+            </trans-unit>
+            <trans-unit id="editorActions.instruction.label">
+                <source>What should change? (optional)</source>
+            </trans-unit>
+            <trans-unit id="editorActions.instruction.hint">
+                <source>Leave empty to let the assistant decide. Your note describes the result; it never changes which record is touched.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.btn.start">
+                <source>Start and send for approval</source>
+            </trans-unit>
+            <trans-unit id="editorActions.needsRecord">
+                <source>Select a record to start this action.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.empty">
+                <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.contextMenu.label">
+                <source>AI actions</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.notAvailable">
+                <source>This action is not available for that record.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.awaiting">
+                <source>The action is waiting for approval. Review it in the approvals inbox.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.completedWithoutWrite">
+                <source>The run finished without proposing a change. Nothing was written.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.blocked">
+                <source>A safety rule stopped this run. Nothing was written.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.cancelled">
+                <source>The run was cancelled. Nothing was written.</source>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.failed">
+                <source>The run failed. Nothing was written.</source>
+            </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
             </trans-unit>
