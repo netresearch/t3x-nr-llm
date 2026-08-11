@@ -8,6 +8,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **One contract every provider adapter answers to** (ADR-160).
+  `AbstractAdapterContractTestCase` fixes the identifier, the capability
+  declaration, error normalisation per exception type, refusing to send without
+  a credential, timeout behaviour, usage reporting and — where declared — the
+  tool-call and structured-output request shapes, for all seven adapters. A
+  capability an adapter does not have is skipped **by name**, so a reader of the
+  run can tell "cannot" from "not tested". Three deviation hooks
+  (`expectedServerErrorException()`, `retriesTransportFailures()`,
+  `requiresApiKey()`) carry the differences that are real — the first two
+  because `OpenRouterProvider` sends through its own request path, the third
+  because a local Ollama authenticates nothing; overriding one is where that
+  deviation is now written down. The suite lives in the `unit` testsuite
+  deliberately — no CI job runs the `integration` one.
+
+- **Capability provenance on `tx_nrllm_model`** (ADR-160). Three columns —
+  `capabilities_discovered`, `capabilities_confirmed_at`, `capabilities_source`
+  — record what the last provider discovery reported, when, and whether the
+  capability tokens came from the provider's own response or from the bundled
+  static catalog. Per-capability attribution is
+  derived by comparing the declared set against the discovered one, so a
+  capability only an operator ticked is attributed to the operator and a record
+  written before provenance reads back as unconfirmed. The model backend module
+  renders it: a warning badge and a tooltip naming the source for anything the
+  provider never confirmed, a "last confirmed" line per row, and a "Confirm
+  capabilities" row action that runs discovery and records the answer.
+  `CapabilitySource::Catalog` is kept distinct from `Discovery` — a substituted
+  catalog is an assumption, not a confirmation — and it follows the capability
+  tokens rather than the model list, so OpenAI, Anthropic and Groq confirm as
+  `Catalog` even against a reachable API: their model endpoints list ids and no
+  capabilities, so the tokens are the bundled catalog on a live run too.
+  Routing does not read provenance: gating eligibility on it would silently
+  drop hand-declared models.
+
 - A side-effecting tool that cannot be fenced is refused before it runs
   (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is
   installed unconditionally now; a segment holding no persisted run or no lease
@@ -282,6 +315,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   call, and the rendering marks optional parameters with ` = …`.
 
 ### Fixed
+
+- **`OllamaProvider` denied a capability it has.** It implements
+  `ToolCapableInterface` and `supportsTools()` returns true, but `tools` was
+  missing from its declared feature list — so the service layer's `instanceof`
+  gate let a tool call through while
+  `LlmServiceManager::supportsFeature('tools', 'ollama')` denied the same
+  capability to whoever asked. Found by the adapter-contract suite (ADR-160).
+  `supportsFeature('tools', 'ollama')` now returns true.
+
+- **A transport failure escaped `OpenRouterProvider` untyped.** Its private
+  request path — needed for the attribution headers and the 402 mapping — did
+  not go through `AbstractProvider::sendRequest()`, so a connection refusal or
+  a cURL timeout left the adapter as a raw PSR-18 exception and reached the
+  caller as an unhandled 500. It is now a `ProviderConnectionException`, like
+  the unparseable-body case beside it. Found by the adapter-contract suite
+  (ADR-160).
+
+- **An unconfigured `OpenRouterProvider` sent a keyless request.** The same
+  private request path never called `validateConfiguration()`, so an OpenRouter
+  with no vault key fell through to the api-key-less HTTP client and the
+  operator saw the provider's 401 instead of a `ProviderConfigurationException`
+  naming the misconfiguration. `chatCompletion()`, `chatCompletionWithTools()`,
+  `embeddings()` and `analyzeImage()` now refuse before building a request, as
+  `streamChatCompletion()` already did. Found by the adapter-contract suite
+  (ADR-160).
 
 - **A criteria-mode configuration was sized against the wrong context window**
   (ADR-143). `ContextWindowManager` read the window from

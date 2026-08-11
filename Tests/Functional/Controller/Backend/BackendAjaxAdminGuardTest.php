@@ -277,4 +277,31 @@ final class BackendAjaxAdminGuardTest extends AbstractFunctionalTestCase
             ->withParsedBody(['providerUid' => 1, 'modelId' => 'gpt-4o']);
         $this->assertForbidden($controller->detectLimitsAction($request));
     }
+
+    /**
+     * The capability-confirmation action writes to the record and makes an
+     * outbound provider call, so it is admin-only like every other writer
+     * here (ADR-160).
+     */
+    #[Test]
+    public function modelVerifyCapabilitiesDeniedForNonAdmin(): void
+    {
+        $modelRepository = $this->get(ModelRepository::class);
+        self::assertInstanceOf(ModelRepository::class, $modelRepository);
+
+        $controller = $this->get(ModelController::class);
+        self::assertInstanceOf(ModelController::class, $controller);
+
+        $request = (new ServerRequest('POST', '/ajax/nrllm/model/verify-capabilities'))
+            ->withParsedBody(['uid' => 3]);
+        $this->assertForbidden($controller->verifyCapabilitiesAction($request));
+
+        $reloaded = $modelRepository->findByUid(3);
+        self::assertNotNull($reloaded);
+        self::assertSame(
+            0,
+            $reloaded->_getProperty('capabilitiesConfirmedAt'),
+            'a denied confirmation must not stamp provenance',
+        );
+    }
 }

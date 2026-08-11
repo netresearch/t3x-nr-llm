@@ -171,6 +171,18 @@ Netresearch\NrLlm\Domain\Enum\BackendUserGrant (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\CapabilitySource (enum)
+  case Catalog
+  case Discovery
+  case Operator
+  method isVerification(): bool
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  method static tryFromStored(string $value): ?self
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
   case ALLOW
   case DENY
@@ -475,6 +487,8 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method getCapabilities(): string
   method getCapabilitiesArray(): array
   method getCapabilitiesAsEnums(): array
+  method getCapabilitiesConfirmedDate(): ?DateTimeImmutable
+  method getCapabilityProvenance(): array
   method getCapabilitySet(): Netresearch\NrLlm\Domain\DTO\CapabilitySet
   method getContextLength(): int
   method getCostInput(): int
@@ -500,6 +514,7 @@ Netresearch\NrLlm\Domain\Model\Model (class)
   method hasPricing(): bool
   method isActive(): bool
   method isDefault(): bool
+  method recordCapabilityDiscovery(Netresearch\NrLlm\Domain\DTO\CapabilitySet|array $discovered, Netresearch\NrLlm\Domain\Enum\CapabilitySource $source, DateTimeImmutable $confirmedAt): void
   method removeCapability(string $capability): void
   method setCapabilities(string $capabilities): void
   method setCapabilitiesArray(array $capabilities): void
@@ -726,6 +741,15 @@ Netresearch\NrLlm\Domain\ValueObject\AiSession (class)
   property readonly title: string
   property readonly uid: int
   property readonly uuid: string
+
+Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance (class)
+  constructor(Netresearch\NrLlm\Domain\Enum\ModelCapability $capability, Netresearch\NrLlm\Domain\Enum\CapabilitySource $source, ?DateTimeImmutable $confirmedAt = …)
+  method getName(): string
+  method getSourceValue(): string
+  method isVerified(): bool
+  property readonly capability: Netresearch\NrLlm\Domain\Enum\ModelCapability
+  property readonly confirmedAt: ?DateTimeImmutable
+  property readonly source: Netresearch\NrLlm\Domain\Enum\CapabilitySource
 
 Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
   constructor(Netresearch\NrLlm\Domain\Enum\MessageRole|string $role, string $content, ?array $toolCalls = …, ?string $toolCallId = …)
