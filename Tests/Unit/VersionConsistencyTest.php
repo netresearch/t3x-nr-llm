@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit;
 
+use Netresearch\NrLlm\Tests\Unit\Support\CiMatrixReaderTrait;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -33,6 +34,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversNothing]
 final class VersionConsistencyTest extends AbstractUnitTestCase
 {
+    use CiMatrixReaderTrait;
+
     private function repoRoot(): string
     {
         return dirname(__DIR__, 2);
@@ -151,6 +154,10 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
      * one, the MariaDB functional leg, and the merge queue's reduced PHP set.
      * The union is what the extension is actually tested against, so that is
      * what the page must name — a single cell is a subset by design.
+     *
+     * `BaselineConsistencyTest` reads the same key job-scoped, because it
+     * answers a different question; {@see CiMatrixReaderTrait} holds both
+     * readers and states which is which.
      */
     #[Test]
     public function supportMatrixMatchesTheCiMatrix(): void
@@ -170,35 +177,6 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
             'Documentation/Api/SupportMatrix.rst lists TYPO3 constraints the CI matrix in '
             . '.github/workflows/ci.yml does not run (or omits ones it does).',
         );
-    }
-
-    /**
-     * Every value the named matrix key carries anywhere in the workflow.
-     *
-     * @return list<string> sorted and deduplicated
-     */
-    private function ciMatrixUnion(string $workflow, string $key, string $valuePattern): array
-    {
-        self::assertGreaterThan(
-            0,
-            preg_match_all('/^\s*' . preg_quote($key, '/') . ':\s*(.*)$/m', $workflow, $lines),
-            '.github/workflows/ci.yml declares no ' . $key . ' — the matrix moved.',
-        );
-
-        $values = [];
-        foreach ($lines[1] as $line) {
-            preg_match_all($valuePattern, $line, $found);
-            foreach ($found[1] as $value) {
-                $values[] = $value;
-            }
-        }
-
-        $values = array_values(array_unique($values));
-        sort($values);
-
-        self::assertNotSame([], $values, 'No ' . $key . ' values parsed out of .github/workflows/ci.yml.');
-
-        return $values;
     }
 
     /**

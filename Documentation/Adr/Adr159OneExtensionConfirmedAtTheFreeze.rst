@@ -35,11 +35,24 @@ Does a consumer need only the provider core?
 
 **Architecturally yes; in evidence, unproven.**
 
-The seam exists and is enforced, not merely documented:
+The seam exists and is enforced in part.
 ``Tests/Architecture/ModuleSeamTest`` asserts that core depends on neither
-the tool/agent module, the specialized services, the guardrail module nor the
-backend UI, in either direction where the direction is wrong. Extracting the
-core would be a packaging change, as ADR-090 intended.
+the tool/agent/retrieval module (``testCoreDoesNotDependOnTheToolModule``)
+nor the backend UI (``testNothingOutsideTheBackendDependsOnIt``), on top of
+the two directions between the specialized services and the tool module and
+the guardrail module's independence from both.
+
+Two edges out of core are neither forbidden by that test nor absent from the
+code. Core → guardrail exists in three files
+(``Service\LlmServiceManager``, ``Provider\Middleware\GuardrailMiddleware``,
+``Service\Streaming\StreamingDispatcher``) and is ADR-090's expected
+outcome — the safety pipeline is invoked from the send path. Core →
+specialized exists in two (``Service\Feature\TranslationService`` and its
+interface, both taking
+``Specialized\Translation\TranslatorRegistryInterface``) and is a real seam
+crossing. ModuleSeamTest deliberately rules on neither; its docblock says
+so. Extracting the core is therefore a packaging change **plus** those two
+edges, not a pure repackaging.
 
 The cost of *not* splitting is measurable. ``Classes/`` holds 658 PHP files;
 the provider core a "only chat and embeddings" consumer uses is the 51 files
@@ -139,7 +152,7 @@ Of ADR-090's three extraction criteria:
 - *the contract with core has been stable across several releases* —
   **unproven**, and the instrument that would prove it is one release old.
   The snapshot did not record constructors until now, and adding them
-  surfaced 64 previously invisible signature lines. No release has yet
+  surfaced 70 previously invisible signature lines. No release has yet
   shipped under a complete frozen surface, so "stable across several
   releases" cannot honestly be claimed for any module.
 

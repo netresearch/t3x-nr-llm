@@ -35,9 +35,18 @@ use SplFileInfo;
  *    committed snapshot. An unintended signature change fails CI before
  *    review; an intended one updates the snapshot in the same PR — the diff
  *    is the review artifact.
- * 2. **Closure**: every `Netresearch\NrLlm` type a rendered signature
- *    mentions must itself be `@api`. This is the ADR-127 closure rule —
- *    phpat cannot express it (no docblock selector), the renderer can.
+ * 2. **Closure**: every `Netresearch\NrLlm` type a rendered *method or
+ *    property* signature mentions must itself be `@api`. This is the ADR-127
+ *    closure rule — phpat cannot express it (no docblock selector), the
+ *    renderer can.
+ *
+ *    Constructor parameter types are outside the rule, and deliberately so:
+ *    a DI-built service is handed its collaborators by the container, so its
+ *    constructor names internals by design (`InputGuardrailScreener`,
+ *    `JsonSchemaValidator`, `MiddlewarePipeline`, `KeyedProviderRegistry` do
+ *    appear on constructor lines today and are not `@api`). The lines are
+ *    still frozen — a widened constructor is a breaking diff — they are just
+ *    not a promise that the types on them are callable API.
  *
  * The rendering rules live in ApiSurfaceRenderer and are tested against
  * fixture classes in ApiSurfaceRendererTest — a snapshot can only show that

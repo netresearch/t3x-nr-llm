@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Api;
 
 use FilesystemIterator;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -44,6 +45,25 @@ final class DeprecationInventoryTest extends TestCase
     private const INVENTORY_START = '.. deprecation-inventory-start';
 
     private const INVENTORY_END = '.. deprecation-inventory-end';
+
+    /**
+     * One `@deprecated` docblock plus the declaration it belongs to.
+     *
+     * `(?:#\[...\]\s*)*` skips any attributes between the two — the shape
+     * every extension-point interface here already has, and the one a
+     * deprecation would otherwise slip through unseen. The optional type
+     * before a name is PHP 8.3's typed class constant: without it the pattern
+     * keys `public const string FOO` as `Class::string`, which no inventory
+     * row can satisfy. `declarationShapes()` is the fixture that keeps both
+     * true.
+     */
+    private const DECLARATION_PATTERN = '/\/\*\*(?<doc>(?:[^*]|\*(?!\/))*?@deprecated(?:[^*]|\*(?!\/))*)\*\/\s*'
+        . '(?:#\[[^\n]*\]\s*)*'
+        . '(?<mods>(?:(?:public|protected|private|final|static|readonly|abstract)\s+)*)'
+        . '(?:'
+        . '(?<kind>function|const|case|class|interface|trait|enum)\s+(?:[\w\\\\|?]+\s+(?=\w+\s*=))?(?<name>\w+)'
+        . '|(?<type>\??[\w\\\\]+(?:\|[\w\\\\]+)*)\s+\$(?<property>\w+)'
+        . ')/';
 
     #[Test]
     public function everyDeprecatedApiMemberIsListedWithAMigration(): void
@@ -120,6 +140,54 @@ final class DeprecationInventoryTest extends TestCase
     }
 
     /**
+     * The scanner must see every shape a deprecation can be written in.
+     *
+     * Two of these are not hypothetical. 66 files under `Classes/` put a PHP
+     * attribute between the docblock and the declaration — twelve of them
+     * `@api`, including every extension-point interface — and the CI matrix
+     * runs PHP 8.3+, where a class constant may carry a type. A shape the
+     * pattern does not see is a deprecation that ships with no migration and
+     * no failure, which is exactly what `Documentation/Api/Deprecation.rst`
+     * promises cannot happen.
+     */
+    #[Test]
+    #[DataProvider('declarationShapes')]
+    public function theScannerSeesEveryDeclarationShape(string $declaration, ?string $expected): void
+    {
+        self::assertSame(
+            1,
+            preg_match(self::DECLARATION_PATTERN, $declaration, $match),
+            'The pattern does not see this declaration at all, so a @deprecated tag on it '
+            . 'would never reach the inventory.',
+        );
+
+        self::assertSame($expected, $this->identifierOf('Subject', $match));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string|null}>
+     */
+    public static function declarationShapes(): array
+    {
+        $doc = "/**\n * @deprecated since 1.0, use something else\n */\n";
+
+        return [
+            'method'                => [$doc . 'public function foo(): void {}', 'Subject::foo()'],
+            'method behind an attribute' => [$doc . "#[\\Override]\npublic function foo(): void {}", 'Subject::foo()'],
+            'untyped constant'      => [$doc . "public const FOO = 'x';", 'Subject::FOO'],
+            'typed constant'        => [$doc . "public const string FOO = 'x';", 'Subject::FOO'],
+            'nullable typed constant' => [$doc . 'public const ?string FOO = null;', 'Subject::FOO'],
+            'public property'       => [$doc . "public string \$foo = 'x';", 'Subject::$foo'],
+            'nullable property'     => [$doc . 'public ?string $foo = null;', 'Subject::$foo'],
+            'enum case'             => [$doc . "case Foo = 'x';", 'Subject::Foo'],
+            'class'                 => [$doc . 'final class Subject {}', 'Subject'],
+            'interface behind an attribute' => [$doc . "#[\\Attribute]\ninterface Subject {}", 'Subject'],
+            // Not public, so not part of the surface the inventory covers.
+            'private method'        => [$doc . 'private function foo(): void {}', null],
+        ];
+    }
+
+    /**
      * Every `@deprecated` public member of an `@api`-marked class, plus the
      * class itself when the class docblock carries the tag.
      *
@@ -140,14 +208,7 @@ final class DeprecationInventoryTest extends TestCase
             $source = (string)file_get_contents($file->getPathname());
             $short  = $file->getBasename('.php');
 
-            $pattern = '/\/\*\*(?<doc>(?:[^*]|\*(?!\/))*?@deprecated(?:[^*]|\*(?!\/))*)\*\/\s*'
-                . '(?<mods>(?:(?:public|protected|private|final|static|readonly|abstract)\s+)*)'
-                . '(?:'
-                . '(?<kind>function|const|case|class|interface|trait|enum)\s+(?<name>\w+)'
-                . '|(?<type>\??[\w\\\\]+(?:\|[\w\\\\]+)*)\s+\$(?<property>\w+)'
-                . ')/';
-
-            if (preg_match_all($pattern, $source, $matches, PREG_SET_ORDER) === 0) {
+            if (preg_match_all(self::DECLARATION_PATTERN, $source, $matches, PREG_SET_ORDER) === 0) {
                 continue;
             }
 

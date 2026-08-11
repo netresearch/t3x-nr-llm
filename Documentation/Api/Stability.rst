@@ -95,9 +95,15 @@ Enforcement
 
 The rendered ``@api`` surface is frozen in
 ``Tests/Unit/Api/api-surface.txt``: an unintended signature change fails CI
-before review, and the same test asserts the closure rule (every type an
-``@api`` signature mentions is ``@api``). An intended change updates the
-snapshot in the same PR — the diff is the review artifact.
+before review, and the same test asserts the closure rule: every
+``Netresearch\NrLlm`` type an ``@api`` **method or property** signature
+mentions is itself ``@api``. An intended change updates the snapshot in the
+same PR — the diff is the review artifact.
+
+Constructor parameter types are outside the closure rule. A DI-built service
+is handed its collaborators by the container, so its constructor names
+internals by design; the line is still frozen — widening it is a breaking
+diff — but the types on it are not a promise that you may call them.
 
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, method, property,

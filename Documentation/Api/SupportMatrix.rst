@@ -64,10 +64,19 @@ first minor release after the upstream date above — not on the date itself.
 Dropping one raises the floor in ``composer.json``, ``ext_emconf.php`` and
 the CI matrix together, and this page moves in the same change.
 
-Three further places state the range in prose and are **not** asserted
-against anything: the ``README.md`` badges and its Requirements list,
-:ref:`installation` and :ref:`introduction`. A floor change has to edit them
-by hand — a green unit suite says nothing about them.
+Further places state the range in prose and are **not** asserted against
+anything. The ones known today: the ``README.md`` badges and its
+Requirements list, :ref:`installation`, :ref:`introduction`,
+``Documentation/Developer/FeatureServices/Index.rst`` (its requirements
+list), ``Documentation/Testing/CiConfiguration.rst`` (a hand-copied excerpt
+of the CI matrix) and ``Documentation/Developer/IntegrationGuide.rst`` (the
+TER constraint in its ``ext_emconf.php`` example). A floor change has to
+edit them by hand — a green unit suite says nothing about them, and the list
+is what has been found, not a proof that nothing else repeats the range.
+
+``BASELINE.md``'s "Multi-version CI" row is the exception: it *is* checked,
+by ``Tests/Unit/BaselineConsistencyTest``, against the ``ci:`` job's TYPO3
+matrix.
 
 PHP 8.2 is the nearest edge: its upstream security support ends 2026-12-31,
 so it is the next floor to rise.

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit;
 
+use Netresearch\NrLlm\Tests\Unit\Support\CiMatrixReaderTrait;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -24,6 +25,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversNothing]
 final class BaselineConsistencyTest extends AbstractUnitTestCase
 {
+    use CiMatrixReaderTrait;
+
     private function repoRoot(): string
     {
         return dirname(__DIR__, 2);
@@ -40,28 +43,18 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
     }
 
     /**
-     * @return list<string> e.g. ['^13.4', '^14.3']
+     * The TYPO3 constraints the main `ci:` job runs, e.g. ['^13.4', '^14.3'].
+     *
+     * Job-scoped on purpose: `ci-functional-mariadb` declares its own, narrower
+     * list, and BASELINE.md's row attests to the main matrix. The parsing rule
+     * itself lives in {@see CiMatrixReaderTrait}, alongside the union reader
+     * `VersionConsistencyTest` uses for the other question.
+     *
+     * @return list<string>
      */
     private function ciTypo3Versions(): array
     {
-        // Anchored on the `ci:` job. `ci-functional-mariadb` declares its own,
-        // narrower list, and a plain first-match would silently assert against
-        // whichever job happens to come first in the file.
-        self::assertSame(
-            1,
-            preg_match(
-                "/^  ci:\\n.*?^\\s*typo3-versions:\\s*'(\\[[^']*\\])'/ms",
-                $this->ciWorkflow(),
-                $matches,
-            ),
-            'ci.yml must declare typo3-versions inside the `ci:` job.',
-        );
-
-        $decoded = json_decode($matches[1], true);
-        self::assertIsArray($decoded);
-
-        /** @var list<string> $decoded */
-        return $decoded;
+        return $this->ciMatrixValuesOfJob($this->ciWorkflow(), 'ci', 'typo3-versions', '/"(\^?[\d.]+)"/');
     }
 
     #[Test]
