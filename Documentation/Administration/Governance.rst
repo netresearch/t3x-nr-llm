@@ -298,6 +298,59 @@ Governance events are purged on ``privacy.retention.governance`` — make
 sure that window is longer than your observation period, or the evidence is
 gone before you read it.
 
+.. _administration-governance-routing:
+
+Why this model?
+===============
+
+The same tab answers the other question an operator asks about a
+configuration: which model would actually serve a call through it, and why
+not one of the others. Pick a configuration, optionally the operation the
+call runs, optionally a policy mode to try, and press
+:guilabel:`Explain` (:ref:`ADR-148 <adr-148>`).
+
+The answer comes from :php:`Service\\Routing\\RoutingDecisionService` — the
+decision point the runtime itself uses, not a second implementation of the
+ranking. It reports:
+
+- the selected model, and the eligible candidates in the order they were
+  ranked, each with its score and the per-signal values behind it;
+- every refused candidate with the reason it was refused — a missing
+  capability, an excluded adapter type, a context window below the minimum,
+  a cost above the ceiling, or a declared capability set without the one the
+  operation needs;
+- the effective policy mode, and whether the operation-capability axis is
+  enforcing or only observing.
+
+Three things are worth knowing before reading it:
+
+**A fixed-mode configuration is not a decision.** If the configuration names
+its model, nothing is chosen at call time. The tab says so instead of
+presenting the named model as the winner of a one-candidate ranking — there
+are no criteria to debug in that case.
+
+**A signal without data is not a zero.** ``no data`` means nothing was
+measured for that model. It neither promotes nor demotes: the score is the
+weighted mean over the signals that *do* have data
+(:ref:`ADR-142 <adr-142>`). In :guilabel:`Provider priority` mode no signal
+is collected at all, and the ordering falls through to provider priority and
+the established tiebreaks.
+
+**Trying a policy mode changes nothing.** The mode selector evaluates a
+hypothetical for that one page view. ``routing.policyMode`` in the Install
+Tool is not written and not affected — the same read-only rule the rest of
+the tab follows.
+
+Only operations that actually constrain the decision are offered. The others
+map to no required capability, so they would add nothing to the answer.
+Leaving the selector on :guilabel:`No operation` is answered as exactly that —
+the axis was not applied — and not as an operation that requires nothing.
+
+An empty result is reported in two distinguishable ways, because they need
+opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no
+active model, while a populated :guilabel:`Refused, and why` table means the
+criteria and the model records disagree.
+
 .. _administration-governance-no-apply:
 
 Why there is no apply button

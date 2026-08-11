@@ -10,12 +10,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Routing\CandidateRanker;
@@ -88,6 +90,48 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
     }
 
     /**
+     * Explain what this configuration would resolve to, for an operator rather
+     * than for a caller (ADR-148).
+     *
+     * The same branch {@see self::resolveModel()} takes, answered with the
+     * reasoning attached instead of just the model. It lives here because this
+     * class already owns every predicate the answer needs — the fixed-vs-criteria
+     * branch, the stored criteria, the operation-capability map and the
+     * enforcement switch. A separate readout service would have to own second
+     * copies of all four.
+     *
+     * `$policyMode` evaluates a hypothetical mode and writes nothing; null
+     * answers for the mode the runtime would use.
+     */
+    public function explainRouting(
+        LlmConfiguration $configuration,
+        ?ProviderOperation $operation,
+        ?RoutingPolicyMode $policyMode,
+    ): RoutingReadout {
+        if (!$configuration->usesCriteriaSelection()) {
+            // Nothing is chosen here, so nothing is explained. See
+            // RoutingReadout for why this is not answered as a decision.
+            return RoutingReadout::fixed($configuration->getLlmModel());
+        }
+
+        $capability = $operation instanceof ProviderOperation
+            ? OperationCapabilityMap::capabilityFor($operation)
+            : null;
+        $enforcing = $this->enforcingOperationCapability();
+
+        return RoutingReadout::decided(
+            $this->routing()->decide(
+                $this->constrainedCriteria($configuration->getModelSelectionCriteriaArray(), $capability, $enforcing),
+                $policyMode,
+            ),
+            $operation instanceof ProviderOperation,
+            $capability,
+            $enforcing,
+            $policyMode instanceof RoutingPolicyMode,
+        );
+    }
+
+    /**
      * Resolve a model for the given configuration.
      *
      * If the configuration uses fixed mode, returns the configured model.
@@ -115,17 +159,15 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
             return $this->findMatchingModel($criteria);
         }
 
-        if (!$this->enforcingOperationCapability()) {
+        $enforcing = $this->enforcingOperationCapability();
+        if (!$enforcing) {
             $model = $this->findMatchingModel($criteria);
             $this->reportObservedMismatch($model, $capability, $operation, $configuration);
 
             return $model;
         }
 
-        $constrained                        = $criteria;
-        $constrained['operationCapability'] = $capability->value;
-
-        $decision = $this->routing()->decide($constrained);
+        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, $enforcing));
         if ($decision->hasSelection()) {
             return $decision->selected;
         }
@@ -161,6 +203,28 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         }
 
         return null;
+    }
+
+    /**
+     * The criteria a criteria-mode selection is actually evaluated against.
+     *
+     * The operation capability joins them only while enforcement is on — that
+     * rule exists once, here, and both the resolution and the readout read it,
+     * so the page cannot show a decision the runtime would not have taken.
+     *
+     * @param array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool} $criteria
+     *
+     * @return array{capabilities?: string[], operationCapability?: string, adapterTypes?: string[], minContextLength?: int, maxCostInput?: int, preferLowestCost?: bool}
+     */
+    private function constrainedCriteria(array $criteria, ?ModelCapability $capability, bool $enforcing): array
+    {
+        if (!$capability instanceof ModelCapability || !$enforcing) {
+            return $criteria;
+        }
+
+        $criteria['operationCapability'] = $capability->value;
+
+        return $criteria;
     }
 
     /**

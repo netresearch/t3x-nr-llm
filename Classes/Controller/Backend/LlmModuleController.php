@@ -10,17 +10,25 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Controller\Backend;
 
 use DateTimeImmutable;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Analytics\AnalyticsPeriod;
 use Netresearch\NrLlm\Service\Governance\EffectivePolicyReadout;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfileEvaluator;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
+use Netresearch\NrLlm\Service\OperationCapabilityMap;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
@@ -65,6 +73,7 @@ final class LlmModuleController extends ActionController
         private readonly LlmConfigurationRepository $configurationRepository,
         private readonly ToolCallPolicy $toolCallPolicy,
         private readonly ToolRegistry $toolRegistry,
+        private readonly ModelSelectionServiceInterface $modelSelectionService,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -294,8 +303,27 @@ final class LlmModuleController extends ActionController
 
         $policyRows = $this->effectivePolicyReadout->rows();
         $simulation = $this->simulate();
+        $routing    = $this->explainRouting();
 
         $moduleTemplate->assignMultiple([
+            // The routing readout (ADR-148). The candidate tables are flattened
+            // here for the same reason indexAction pre-computes its bar widths:
+            // a signal of null means "no data" and a score is a formatted
+            // number, and neither distinction survives a Fluid conditional.
+            'routing'               => $routing,
+            'routingEligible'       => $this->candidateRows($routing, true),
+            'routingRejected'       => $this->candidateRows($routing, false),
+            'routingOperations'     => $this->constrainingOperations(),
+            'routingModes'          => RoutingPolicyMode::cases(),
+            'routingConfiguration'  => $this->queryParam('routeConfiguration'),
+            'routingOperation'      => $this->queryParam('routeOperation'),
+            'routingPolicyMode'     => $this->queryParam('routePolicyMode'),
+            // Both forms GET to the same action, so each has to carry the
+            // other's state or submitting one wipes the other's answer off the
+            // page — the tab holds two questions about the same configuration
+            // and reading them together is the point.
+            'simulateTool'          => $this->queryParam('simulateTool'),
+            'simulateConfiguration' => $this->queryParam('simulateConfiguration'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
@@ -359,6 +387,123 @@ final class LlmModuleController extends ActionController
         $user = $GLOBALS['BE_USER'] ?? null;
 
         return $this->toolCallPolicy->decide($toolName, $entity, $user instanceof BackendUserAuthentication ? $user : null);
+    }
+
+    /**
+     * Answer "why this model and not that one" through the REAL decision point
+     * (ADR-148).
+     *
+     * {@see ModelSelectionServiceInterface::explainRouting()} is the same
+     * resolution the runtime performs — the fixed-vs-criteria branch, the
+     * operation-capability switch and the ranking all come from the service
+     * that owns them. This method parses three query parameters and renders
+     * what it gets back; it decides nothing.
+     *
+     * Returns null when the request names no configuration to explain.
+     */
+    private function explainRouting(): ?RoutingReadout
+    {
+        $identifier = $this->queryParam('routeConfiguration');
+        if ($identifier === '') {
+            return null;
+        }
+
+        $configuration = $this->configurationRepository->findOneByIdentifier($identifier);
+        if (!$configuration instanceof LlmConfiguration) {
+            return null;
+        }
+
+        return $this->modelSelectionService->explainRouting(
+            $configuration,
+            ProviderOperation::tryFrom($this->queryParam('routeOperation')),
+            // tryFrom(), NOT RoutingPolicyMode::fromValue(): an unrecognised
+            // value here must mean "no override" so the page answers for what
+            // actually runs. fromValue() answers a different question — it
+            // defaults a broken SETTING to the established ordering — and
+            // reusing it would turn a typo in the URL into a mode the operator
+            // never selected.
+            RoutingPolicyMode::tryFrom(trim($this->queryParam('routePolicyMode'))),
+        );
+    }
+
+    /**
+     * The operations worth offering: the ones that actually constrain a
+     * criteria-mode decision.
+     *
+     * Filtered through {@see OperationCapabilityMap} rather than listed, so the
+     * selector follows the map instead of drifting from it. An operation the
+     * map answers null for adds no constraint, and offering it would promise a
+     * dimension the decision does not have.
+     *
+     * @return list<ProviderOperation>
+     */
+    private function constrainingOperations(): array
+    {
+        return array_values(array_filter(
+            ProviderOperation::cases(),
+            static fn(ProviderOperation $operation): bool => OperationCapabilityMap::capabilityFor($operation) instanceof ModelCapability,
+        ));
+    }
+
+    /**
+     * One display row per candidate, eligible or rejected.
+     *
+     * @return list<array{modelId: string, name: string, provider: string, score: string, reasonKey: string, signals: list<array{name: string, value: string, known: bool}>}>
+     */
+    private function candidateRows(?RoutingReadout $readout, bool $eligible): array
+    {
+        $decision = $readout?->decision;
+        if (!$decision instanceof RoutingDecision) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($eligible ? $decision->eligibleCandidates() : $decision->rejectedCandidates() as $candidate) {
+            $rows[] = [
+                'modelId'   => $candidate->modelId(),
+                'name'      => $candidate->model->getName(),
+                'provider'  => $candidate->providerIdentifier(),
+                'score'     => $candidate->score === null ? '' : number_format($candidate->score, 3),
+                'reasonKey' => $candidate->rejectionReason?->getLabelKey() ?? '',
+                'signals'   => $this->signalRows($candidate),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The per-signal values behind one candidate's score.
+     *
+     * `known` is carried separately because a signal with no data is null and a
+     * measured zero is 0.0 — in Fluid both are falsy, and collapsing them would
+     * report "this model scored nothing" where the truth is "nobody measured
+     * it".
+     *
+     * @return list<array{name: string, value: string, known: bool}>
+     */
+    private function signalRows(RoutingCandidate $candidate): array
+    {
+        $rows = [];
+        foreach ($candidate->signals as $name => $value) {
+            $rows[] = [
+                'name'  => $name,
+                'value' => $value === null ? '' : number_format($value, 2),
+                'known' => $value !== null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A query parameter as a string, empty when absent or not a string.
+     */
+    private function queryParam(string $name): string
+    {
+        $value = $this->request->getQueryParams()[$name] ?? null;
+
+        return is_string($value) ? $value : '';
     }
 
     public function helpAction(): ResponseInterface

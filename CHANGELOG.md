@@ -199,6 +199,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `LlmConfiguration` is `@api` and gains three accessors
     (`getSystemPromptDataClass()`, `getSystemPromptDataClassEnum()`,
     `setSystemPromptDataClass()`). Additive; no existing signature changes.
+- A routing readout on the Governance tab answers "why this model and not that
+  one" (ADR-148). Pick a configuration, an operation and optionally a policy
+  mode to try, and the page runs the SAME `RoutingDecisionService` the runtime
+  runs: the selected model, the eligible candidates in rank order with their
+  score and per-signal values, and every refused candidate with its reason. A
+  fixed-mode configuration is reported as no decision — the operator named the
+  model — rather than as a decision with one candidate. Trying a policy mode
+  evaluates a hypothetical and never writes the install setting.
+  `RoutingRejectionReason` and `RoutingPolicyMode` gained label keys (EN + DE);
+  the dead `RoutingDecision::noCandidates()` was removed, and the empty-catalogue
+  case it described now has a reader in `RoutingReadout::isEmptyCatalogue()`.
 
 ### Changed
 

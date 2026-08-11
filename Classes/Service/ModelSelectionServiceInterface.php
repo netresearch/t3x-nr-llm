@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 
@@ -41,6 +43,36 @@ interface ModelSelectionServiceInterface
      *                                     declare they cannot serve `$operation`
      */
     public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): ?Model;
+
+    /**
+     * The same resolution, with its reasoning attached (ADR-148).
+     *
+     * `resolveModel()` answers a caller: it returns the model and throws when
+     * there is none to return. This answers an OPERATOR asking "why this model
+     * and not that one", so it returns the decision instead — the selected
+     * model, every candidate that was ranked, and every candidate that was
+     * refused with the reason. It resolves nothing a second time: the readout
+     * is the same {@see \Netresearch\NrLlm\Service\Routing\RoutingDecisionService}
+     * call the runtime makes.
+     *
+     * On the interface because a backend controller has to reach it;
+     * `decide()` deliberately stays off, because it takes a raw criteria array
+     * and knows nothing about the fixed-vs-criteria branch — a controller
+     * calling it would be choosing which half of the rule to apply.
+     *
+     * A fixed-mode configuration yields a readout that reports NO decision: the
+     * operator named the model, nothing was chosen, and there is nothing to
+     * explain.
+     *
+     * `$policyMode` asks what a different mode would choose. It is evaluated
+     * for this call only and never written back to the install setting; null
+     * answers for the mode the runtime is configured with.
+     */
+    public function explainRouting(
+        LlmConfiguration $configuration,
+        ?ProviderOperation $operation,
+        ?RoutingPolicyMode $policyMode,
+    ): RoutingReadout;
 
     /**
      * Find a model matching the given criteria.
