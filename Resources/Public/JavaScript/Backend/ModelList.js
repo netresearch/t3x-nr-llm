@@ -50,6 +50,15 @@ class ModelList {
                 return;
             }
 
+            // Confirm the declared capabilities against the provider (ADR-160)
+            const verifyBtn = e.target.closest('.js-verify-capabilities');
+            if (verifyBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleVerifyCapabilities(verifyBtn);
+                return;
+            }
+
             // Test model
             const testBtn = e.target.closest('.js-test-model');
             if (testBtn) {
@@ -68,6 +77,10 @@ class ModelList {
 
     handleSetDefault(btn) {
         postUidAndReload('nrllm_model_set_default', btn);
+    }
+
+    handleVerifyCapabilities(btn) {
+        postUidAndReload('nrllm_model_verify_capabilities', btn);
     }
 
     handleTestModel(btn) {

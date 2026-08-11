@@ -39,9 +39,6 @@ use ReflectionClass;
 #[CoversNothing]
 final class EditorActionDeclarationTest extends TestCase
 {
-    /** @var list<string> the tables the five writers address */
-    private const KNOWN_RECORD_TYPES = ['pages', 'tt_content', 'sys_file'];
-
     /**
      * Which required argument may carry a uid of which table.
      *
@@ -142,18 +139,6 @@ final class EditorActionDeclarationTest extends TestCase
     /**
      * @param class-string<ToolInterface> $class
      */
-    #[Test]
-    #[DataProvider('writerClasses')]
-    public function theDeclaredRecordTypesAreRealTableNames(string $class): void
-    {
-        $tool = $this->instantiate($class);
-        self::assertInstanceOf(EditorActionInterface::class, $tool);
-
-        foreach ($tool->getEditorAction()->recordTypes as $table) {
-            self::assertContains($table, self::KNOWN_RECORD_TYPES, 'Unexpected record type ' . $table);
-        }
-    }
-
     /**
      * Every declared record type is a table one of the tool's own REQUIRED
      * arguments can be filled from.

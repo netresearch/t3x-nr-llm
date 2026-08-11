@@ -121,6 +121,20 @@ enum RoutingPolicyMode: string
     }
 
     /**
+     * The label an operator reads instead of the wire value (ADR-148).
+     *
+     * Named `get…` because Fluid reaches a method only through the
+     * get/is/has convention: `{mode.labelKey}` resolves `getLabelKey()`,
+     * and a plain `labelKey()` silently yields null — which reaches
+     * `f:translate` as an empty key and throws at render time. Same shape as
+     * {@see \Netresearch\NrLlm\Service\Governance\GovernanceProfile::getLabelKey()}.
+     */
+    public function getLabelKey(): string
+    {
+        return 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.mode.' . $this->name;
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array

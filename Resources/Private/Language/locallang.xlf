@@ -311,7 +311,7 @@
                 <source>Would this be allowed?</source>
             </trans-unit>
             <trans-unit id="governance.simulator.lead">
-                <source>Ask the gate the runtime asks. This runs the real tool policy — not a copy of its rules — against your own permissions, and changes nothing.</source>
+                <source>Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration">
                 <source>Configuration</source>
@@ -338,7 +338,100 @@
                 <source>permits at most</source>
             </trans-unit>
             <trans-unit id="governance.simulator.observed">
-                <source>Reported only — enforcement is set to observe, so the call would proceed.</source>
+                <source>Reported only, because enforcement is set to observe, so the tool was still offered.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.none">
+                <source>Choose</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.tool.none">
+                <source>Choose</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor">
+                <source>Acting as</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.operator">
+                <source>You, the operator reading this page</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.admin">
+                <source>administrator</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.answeredFor">
+                <source>Answered for the backend user %s.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.anonymous">
+                <source>Answered with no backend user at all.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.actor.unresolved">
+                <source>No backend user resolves for uid %s, so the gates were asked with no user at all. That is how the runtime fails closed for a deleted or disabled account.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.notAudited">
+                <source>Nothing here is recorded. The runtime writes a governance event when it blocks a call; a simulation blocks nothing, so the audit stays a record of what the installation actually did.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW">
+                <source>Allowed</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.ALLOW_WITH_APPROVAL">
+                <source>Allowed, after a human approves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.verdict.BLOCK">
+                <source>Blocked</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.axis">
+                <source>Gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.answer">
+                <source>Answer</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.column.scope">
+                <source>Depends on the actor?</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.tool">
+                <source>Tool gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.context">
+                <source>Input-context gate</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.routing">
+                <source>Routing</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.axis.approval">
+                <source>Human approval</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.actor">
+                <source>Yes, through requiresAdmin().</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.context">
+                <source>No, it compares the classes this configuration injects against the trust zone it can reach.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.routing">
+                <source>No, the model catalogue is read with enable-fields ignored and no user context.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.approval">
+                <source>No, it is a property of the tool's own declaration.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.context.observed">
+                <source>Reported only, because enforcement is set to observe, so the send would proceed and the refusal would be recorded.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.resolved">
+                <source>A model resolves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.lead">
+                <source>Asked for a tool-calling run, which is what a tool simulation describes.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.none">
+                <source>No model resolves</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.routing.noneLead">
+                <source>Nothing can serve a tool-calling run for this configuration, so the call cannot be sent at all.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.required">
+                <source>Required</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.requiredLead">
+                <source>The run suspends and waits for a human decision before this tool executes.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.approval.notRequired">
+                <source>Not required</source>
             </trans-unit>
             <trans-unit id="governance.profile.heading">
                 <source>Compare against a profile</source>
@@ -405,6 +498,203 @@
             </trans-unit>
             <trans-unit id="governance.note.remoteAlwaysEnforced">
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
+            </trans-unit>
+
+            <!-- Routing readout (ADR-148) -->
+            <trans-unit id="routing.heading">
+                <source>Why this model?</source>
+            </trans-unit>
+            <trans-unit id="routing.lead">
+                <source>Ask the decision point the runtime asks. This runs the real routing decision — not a copy of its rules — and changes nothing. Trying a different policy mode answers a hypothetical; it does not alter the installed setting.</source>
+            </trans-unit>
+            <trans-unit id="routing.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="routing.configuration.none">
+                <source>— Choose —</source>
+            </trans-unit>
+            <trans-unit id="routing.operation">
+                <source>Operation</source>
+            </trans-unit>
+            <trans-unit id="routing.operation.none">
+                <source>No operation</source>
+            </trans-unit>
+            <trans-unit id="routing.policyMode">
+                <source>Policy mode</source>
+            </trans-unit>
+            <trans-unit id="routing.policyMode.configured">
+                <source>As configured</source>
+            </trans-unit>
+            <trans-unit id="routing.submit">
+                <source>Explain</source>
+            </trans-unit>
+            <trans-unit id="routing.fixed.title">
+                <source>No decision: the operator named the model</source>
+            </trans-unit>
+            <trans-unit id="routing.fixed.text">
+                <source>This configuration selects a fixed model. Nothing is chosen at call time, so there are no candidates, no ranking and no policy mode — and none is invented here.</source>
+            </trans-unit>
+            <trans-unit id="routing.fixed.none">
+                <source>The configuration is in fixed mode but names no model. Every call through it fails at resolution.</source>
+            </trans-unit>
+            <trans-unit id="routing.selected.title">
+                <source>Selected</source>
+            </trans-unit>
+            <trans-unit id="routing.none.title">
+                <source>No model would serve this call</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.label">
+                <source>Policy mode</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.overridden">
+                <source>(tried out — the installed setting is unchanged)</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.label">
+                <source>Operation capability</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.enforcing">
+                <source>enforcing: models that declare capabilities without it were refused.</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.observing">
+                <source>observing: the requirement did NOT constrain this decision.</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOn">
+                <source>The switch itself is set to enforce.</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.switchOff">
+                <source>The switch itself is set to observe, so no operation would constrain a decision on this installation.</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.none">
+                <source>the chosen operation requires no declared capability, so it constrains nothing.</source>
+            </trans-unit>
+            <trans-unit id="routing.enforcement.noOperation">
+                <source>no operation was selected, so the operation-capability axis was not applied to this decision.</source>
+            </trans-unit>
+            <trans-unit id="routing.empty.title">
+                <source>No candidates at all</source>
+            </trans-unit>
+            <trans-unit id="routing.empty.text">
+                <source>There is no active model to consider. That is an empty catalogue, not a criteria problem — activate a model before reading the criteria.</source>
+            </trans-unit>
+            <trans-unit id="routing.eligible.heading">
+                <source>Eligible, in rank order</source>
+            </trans-unit>
+            <trans-unit id="routing.rejected.heading">
+                <source>Refused, and why</source>
+            </trans-unit>
+            <trans-unit id="routing.column.rank">
+                <source>#</source>
+            </trans-unit>
+            <trans-unit id="routing.column.model">
+                <source>Model</source>
+            </trans-unit>
+            <trans-unit id="routing.column.provider">
+                <source>Provider</source>
+            </trans-unit>
+            <trans-unit id="routing.column.score">
+                <source>Score</source>
+            </trans-unit>
+            <trans-unit id="routing.column.signals">
+                <source>Signals</source>
+            </trans-unit>
+            <trans-unit id="routing.column.reason">
+                <source>Reason</source>
+            </trans-unit>
+            <trans-unit id="routing.signal.noData">
+                <source>no data</source>
+            </trans-unit>
+            <trans-unit id="routing.signal.unused">
+                <source>not collected — this mode does not weigh measured signals</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.PROVIDER_PRIORITY">
+                <source>Provider priority</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.BALANCED">
+                <source>Balanced</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.QUALITY">
+                <source>Quality</source>
+            </trans-unit>
+            <trans-unit id="routing.mode.ECONOMY">
+                <source>Economy</source>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CAPABILITY_MISSING">
+                <source>Does not have every capability the criteria require.</source>
+            </trans-unit>
+            <trans-unit id="routing.rejection.OPERATION_CAPABILITY_MISSING">
+                <source>Declares capabilities, and the one this operation needs is not among them.</source>
+            </trans-unit>
+            <trans-unit id="routing.rejection.ADAPTER_NOT_ALLOWED">
+                <source>Its provider uses an adapter type the criteria exclude.</source>
+            </trans-unit>
+            <trans-unit id="routing.rejection.CONTEXT_TOO_SMALL">
+                <source>Its context window is smaller than the criteria require, or unknown.</source>
+            </trans-unit>
+            <trans-unit id="routing.rejection.COST_ABOVE_LIMIT">
+                <source>Its input cost exceeds the ceiling the criteria set.</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.heading">
+                <source>Calls that were routed</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.lead">
+                <source>The last %s days of calls whose model was chosen automatically, newest first. Fixed-mode calls are absent — nothing was chosen for them. The complexity columns are measured and recorded only; no routing decision reads them.</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.when">
+                <source>When</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.servedModel">
+                <source>Served by</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.decision">
+                <source>Decision</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.complexity">
+                <source>Complexity (observed)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.failed">
+                <source>failed</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.fallbackAttempts">
+                <source>%s fallback attempt(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.mode">
+                <source>%s, %s candidate(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals">
+                <source>Signals used</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals.none">
+                <source>none — provider priority and the tiebreaks decided</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.refusedBy">
+                <source>Refused by</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.score">
+                <source>score %s/100</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.tools">
+                <source>%s tool(s)</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.bytes">
+                <source>%s bytes on the wire</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.context">
+                <source>~%s tokens, %s%% of the window</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.context.unmeasured">
+                <source>window not measured for this send</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.complexity.unmeasured">
+                <source>complexity not measured for this send</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.title">
+                <source>No routed calls recorded</source>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.text">
+                <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
             </trans-unit>
 
             <!-- Dashboard overview cards -->
@@ -1076,6 +1366,27 @@
             </trans-unit>
             <trans-unit id="model.reassignProvider">
                 <source>Reassign Provider</source>
+            </trans-unit>
+            <trans-unit id="model.verifyCapabilities">
+                <source>Confirm capabilities against the provider</source>
+            </trans-unit>
+            <trans-unit id="model.capability.confirmed">
+                <source>Confirmed by provider discovery on %s</source>
+            </trans-unit>
+            <trans-unit id="model.capability.catalog">
+                <source>From the bundled model catalog — the provider did not report this capability, so this is an assumption</source>
+            </trans-unit>
+            <trans-unit id="model.capability.operator">
+                <source>Declared by an operator — never confirmed against the provider</source>
+            </trans-unit>
+            <trans-unit id="model.capability.lastConfirmed">
+                <source>Last confirmed %s</source>
+            </trans-unit>
+            <trans-unit id="model.capability.neverConfirmed">
+                <source>Never confirmed against the provider</source>
+            </trans-unit>
+            <trans-unit id="error.model.notDiscoverable">
+                <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
             </trans-unit>
             <trans-unit id="task.noActive.warning">
                 <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>

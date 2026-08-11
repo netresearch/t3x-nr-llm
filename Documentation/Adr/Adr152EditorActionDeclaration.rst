@@ -50,7 +50,7 @@ tool path: the fence in :php:`AgentRunExecutor::trace()`
 (:ref:`ADR-111 <adr-111>`), the implied approval a declared write carries
 (:ref:`ADR-134 <adr-134>`), the preview produced at suspend
 (:ref:`ADR-136 <adr-136>`), and the acting-user authorisation each tool performs
-itself (:ref:`ADR-083 <adr-083>`). A parallel executor inherits none of that by
+itself (:ref:`ADR-135 <adr-135>`). A parallel executor inherits none of that by
 construction; it re-implements it, or it goes without.
 
 What is genuinely missing is not execution. It is the second, human-facing half
@@ -134,6 +134,8 @@ A grouping of actions needs something to render, and a group had no name at all
   makes it exhaustive by construction — a case cannot exist without a label —
   and tests now tie the other two lists to it: one fails when a case has no
   egress default, the other when a builtin declares a group that is not a case.
+  A third refuses a builtin the group test does not list, because a
+  hand-maintained list that may silently omit a tool asserts nothing about it.
 - A value object would be a string wrapper accepting any value. That is exactly
   the openness the bare string already provides, so it would add a type without
   adding a guarantee.
@@ -205,9 +207,11 @@ It is not the *only* place the taxonomy is written down: the egress default is
 still keyed by string in :php:`ToolDataClassResolver`, and the builtin-group
 test still names a group per builtin. Both are now tied to the enum in the
 direction that can go wrong — every case has an egress default, and every group
-a builtin declares is a case. The reverse is not asserted: an egress default for
-a group no case names is inert, and a case without a builtin is what a taxonomy
-looks like the day before its tools land.
+a builtin declares is a case, the latter over every builtin rather than every
+listed one, because the list is now closed against the directory. The reverse
+is not asserted: an egress default for a group no case names is inert, and a
+case without a builtin is what a taxonomy looks like the day before its tools
+land.
 
 ✕ The declaration is metadata and cannot be enforced. A third-party writing tool
 that does not implement the interface is still a write — the runtime's write
