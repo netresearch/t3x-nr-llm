@@ -224,6 +224,11 @@ final readonly class WaitingRunViewFactory
             mode: WaitingRunView::MODE_INPUT,
             createdAt: $run->crdate,
             configLabel: $this->configLabel($run),
+            // ADR-150: the input form carries the same kind of binding the
+            // approval form does, computed over the fields an input pause is
+            // decided on — the pending calls, the target tool and the schema
+            // these very fields were built from.
+            turnDigest: $this->digest->forInputState($state),
             inputFields: $fields,
         );
     }

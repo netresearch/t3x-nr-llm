@@ -2352,6 +2352,9 @@
             <trans-unit id="runs.error.approverNotPermitted">
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
             </trans-unit>
+            <trans-unit id="runs.error.submitterNotPermitted">
+                <source>This form feeds a tool you are not permitted to use yourself, so you may not submit its input. The run is still waiting for someone who is.</source>
+            </trans-unit>
             <trans-unit id="runs.flash.approved">
                 <source>Approval recorded; the run continued.</source>
             </trans-unit>

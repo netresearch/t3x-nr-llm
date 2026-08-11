@@ -28,10 +28,24 @@ namespace Netresearch\NrLlm\Service\Agent;
 final readonly class InputSubmission
 {
     /**
-     * @param array<string, mixed> $data the user-supplied input, validated against the tool's schema before use
+     * @param array<string, mixed> $data       the user-supplied input, validated against the tool's schema before use
+     * @param string|null          $turnDigest the {@see PendingTurnDigest::forInputState()} of the
+     *                                         turn the submitter's form was rendered from. It binds
+     *                                         the submission to THAT turn — pending calls, target
+     *                                         tool and declared schema:
+     *                                         {@see ResumeCoordinator::submitInput()} recomputes the
+     *                                         digest from the freshly claimed state and refuses a
+     *                                         mismatch, so a stale tab — or a second submitter whose
+     *                                         input already let the run suspend on a different turn
+     *                                         — cannot feed values into a call nobody was shown
+     *                                         (ADR-150). Optional in the SIGNATURE only, for source
+     *                                         compatibility; a null is refused at runtime exactly
+     *                                         like a wrong digest, because "no digest" and "the
+     *                                         wrong digest" prove the same thing.
      */
     public function __construct(
         public array $data,
         public int $submittedByBeUser,
+        public ?string $turnDigest = null,
     ) {}
 }

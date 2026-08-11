@@ -1031,6 +1031,7 @@ Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
 Netresearch\NrLlm\Service\Agent\InputSubmission (class)
   property readonly data: array
   property readonly submittedByBeUser: int
+  property readonly turnDigest: ?string
 
 Netresearch\NrLlm\Service\BudgetServiceInterface (interface)
   method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
+use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -32,6 +33,8 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -72,9 +75,12 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * Both refuse a caller that may not act on the run, and both resume tools under
  * the RUN OWNER's identity rather than the approver's or the submitter's
- * (ADR-083). Because the owner's identity is what executes, the APPROVER is
- * checked against the pending writes separately (ADR-133) — an approver who
- * could not run the call themselves may not have it run for them.
+ * (ADR-083). Because the owner's identity is what executes, the deciding actor
+ * is checked against the pending calls separately — an actor who could not run
+ * the call themselves may not have it run for them. The APPROVER is checked
+ * against the pending WRITES (ADR-133); the SUBMITTER is checked against EVERY
+ * pending call (ADR-150), because an input-requiring tool declares no effect and
+ * a write filter would check nothing at all.
  */
 final readonly class ResumeCoordinator
 {
@@ -336,8 +342,15 @@ final readonly class ResumeCoordinator
 
     /**
      * Hand a claimed run back to the operator: the existing RUNNING ->
-     * WAITING_FOR_APPROVAL transition, which clears the claim and the lease and
-     * writes the (unchanged) state back, so the run is decidable again.
+     * WAITING_FOR_APPROVAL (or WAITING_FOR_INPUT) transition, which clears the
+     * claim and the lease and writes the (unchanged) state back, so the run is
+     * actionable again.
+     *
+     * Which pause to restore is read off the state rather than passed in: an
+     * input pause is exactly the state that names a target tool (ADR-105 makes
+     * the two markers mutually exclusive), so the decision cannot be got wrong
+     * at a call site. Restoring the wrong one would move a run between the two
+     * inbox forms.
      *
      * A release that itself fails would leave the run RUNNING with no worker —
      * invisible to the inbox and to the stale-run reaper alike — so that case
@@ -345,13 +358,17 @@ final readonly class ResumeCoordinator
      */
     private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid): void
     {
-        if ($this->persister->suspend($handle, $state)) {
+        $restored = $state->inputToolName === null
+            ? $this->persister->suspend($handle, $state)
+            : $this->persister->suspendForInput($handle, $state);
+
+        if ($restored) {
             return;
         }
 
         $this->persister->settleFailed(
             $handle,
-            new RuntimeException(sprintf('Run %s could not be released back to its approval pause after a refused decision', $runUuid !== '' ? $runUuid : 'unknown')),
+            new RuntimeException(sprintf('Run %s could not be released back to its pause after a refused decision', $runUuid !== '' ? $runUuid : 'unknown')),
         );
     }
 
@@ -430,29 +447,143 @@ final readonly class ResumeCoordinator
             return null;
         }
 
-        // A service account has no backend user by construction; resolving would
-        // return null anyway, but not asking says why.
-        $approver = $actor->isServiceAccount()
-            ? null
-            : ($this->actingBackendUserResolver ?? new ActingBackendUserResolver())->resolve($actor);
+        $names = $this->callsToCheck($state, writesOnly: true);
+        if ($names === null) {
+            return ApproverNotPermittedException::forUnreadableCall($runUuid, $actor);
+        }
 
+        $refusal = $this->unpermittedCall($actor, $configuration, $names);
+        if (!$refusal instanceof PendingCallRefusal) {
+            return null;
+        }
+
+        return $refusal->reason instanceof ToolDenialReason
+            ? ApproverNotPermittedException::forDeniedTool($runUuid, $actor, $refusal->toolName, $refusal->reason)
+            : ApproverNotPermittedException::forApproverWithoutPermissions($runUuid, $actor, $refusal->toolName);
+    }
+
+    /**
+     * Why this submitter may not supply this turn's input, or null when they may
+     * (ADR-150).
+     *
+     * The same gate as {@see self::approverRefusal()}, evaluated against the
+     * SUBMITTER's live backend user and for the same reason: resume executes
+     * under the run OWNER's identity (ADR-083), and
+     * {@see AiActorContext::mayActOnRun()} admits the submission on the
+     * `agent_approve` grant alone, so without this a non-admin could feed
+     * arguments into an admin-only tool that then runs on the owner's authority.
+     *
+     * ONE rule differs, and it is not a wording detail. The approver gate checks
+     * only the calls that DECLARE a write, because an unattended write is what
+     * #622 was about. An input-requiring tool declares no effect — the input and
+     * approval markers are mutually exclusive at registration (ADR-105) and a
+     * write effect implies approval, not input (ADR-134) — so a write filter
+     * here would select nothing and the gate would be decorative. EVERY pending
+     * call is therefore checked, plus the state's declared input tool: on this
+     * path the danger is not that something changes state unattended but that a
+     * user who may not run a tool supplies the values it runs with.
+     *
+     * The declared tool is checked even when it is already among the pending
+     * calls (the normal case, costing one repeated verdict) so that a degenerate
+     * state whose pending calls do NOT name it cannot become an ungated submit.
+     */
+    private function submitterRefusal(AiActorContext $actor, LlmConfiguration $configuration, SuspendedRunState $state, string $runUuid): ?SubmitterNotPermittedException
+    {
+        if (!$this->toolPolicy instanceof ToolCallPolicyInterface) {
+            return null;
+        }
+
+        $names = $this->callsToCheck($state, writesOnly: false);
+        if ($names === null) {
+            return SubmitterNotPermittedException::forUnreadableCall($runUuid, $actor);
+        }
+
+        if ($state->inputToolName !== null && !in_array($state->inputToolName, $names, true)) {
+            $names[] = $state->inputToolName;
+        }
+
+        $refusal = $this->unpermittedCall($actor, $configuration, $names);
+        if (!$refusal instanceof PendingCallRefusal) {
+            return null;
+        }
+
+        return $refusal->reason instanceof ToolDenialReason
+            ? SubmitterNotPermittedException::forDeniedTool($runUuid, $actor, $refusal->toolName, $refusal->reason)
+            : SubmitterNotPermittedException::forSubmitterWithoutPermissions($runUuid, $actor, $refusal->toolName);
+    }
+
+    /**
+     * The tool names of the pending turn that this gate has to judge, or null
+     * when an entry is too corrupt to yield a call at all.
+     *
+     * Null rather than "skip it": an unclassifiable call is the dangerous case,
+     * not the harmless one, and the caller turns it into its own refusal.
+     * {@see ToolCall::tryFromArray()} rather than
+     * {@see SuspendedRunState::toolCalls()} for the same reason as
+     * {@see self::turnDeclaresWrite()} — this must return a verdict, not
+     * escalate a classification problem into an uncaught error on a claimed run.
+     *
+     * @param bool $writesOnly the approval rule (ADR-133): keep only the calls
+     *                         that DECLARE a write. False keeps all of them
+     *                         (ADR-150)
+     *
+     * @return list<string>|null
+     */
+    private function callsToCheck(SuspendedRunState $state, bool $writesOnly): ?array
+    {
+        $names = [];
         foreach ($state->pendingCalls as $raw) {
             $call = ToolCall::tryFromArray($raw);
             if (!$call instanceof ToolCall) {
-                return ApproverNotPermittedException::forUnreadableCall($runUuid, $actor);
+                return null;
             }
 
-            if (!($this->toolEffectResolver?->effectFor($call->name) ?? ToolEffect::NON_IDEMPOTENT_WRITE)->isWrite()) {
+            if ($writesOnly && !($this->toolEffectResolver?->effectFor($call->name) ?? ToolEffect::NON_IDEMPOTENT_WRITE)->isWrite()) {
                 continue;
             }
 
-            if (!$approver instanceof BackendUserAuthentication) {
-                return ApproverNotPermittedException::forApproverWithoutPermissions($runUuid, $actor, $call->name);
+            $names[] = $call->name;
+        }
+
+        return $names;
+    }
+
+    /**
+     * The first of these tools the actor may not run, or null when they may run
+     * them all.
+     *
+     * The one place either gate asks the composite tool policy (ADR-094), so the
+     * approval path and the input path cannot drift into two different notions
+     * of "may run this tool". Fail-closed on an actor with no live permission
+     * surface: a SERVICE ACCOUNT has none by construction
+     * ({@see AiActorContext::hasGrant()} is false for it and it carries no
+     * backend-user uid, so {@see ToolCallPolicyInterface::decide()} would see
+     * `$user === null` and check only the requiresAdmin axis), and a human whose
+     * uid no longer resolves to an enabled user is in the same position. "No
+     * user" is not "permitted".
+     *
+     * @param list<string> $toolNames
+     */
+    private function unpermittedCall(AiActorContext $actor, LlmConfiguration $configuration, array $toolNames): ?PendingCallRefusal
+    {
+        if (!$this->toolPolicy instanceof ToolCallPolicyInterface) {
+            return null;
+        }
+
+        // A service account has no backend user by construction; resolving would
+        // return null anyway, but not asking says why.
+        $user = $actor->isServiceAccount()
+            ? null
+            : ($this->actingBackendUserResolver ?? new ActingBackendUserResolver())->resolve($actor);
+
+        foreach ($toolNames as $name) {
+            if (!$user instanceof BackendUserAuthentication) {
+                return new PendingCallRefusal($name);
             }
 
-            $verdict = $this->toolPolicy->decide($call->name, $configuration, $approver);
+            $verdict = $this->toolPolicy->decide($name, $configuration, $user);
             if (!$verdict->allowed) {
-                return ApproverNotPermittedException::forDeniedTool($runUuid, $actor, $call->name, $verdict->reason);
+                return new PendingCallRefusal($name, $verdict->reason);
             }
         }
 
@@ -460,12 +591,35 @@ final readonly class ResumeCoordinator
     }
 
     /**
-     * Resume a run waiting on a submitted input (ADR-105).
+     * Resume a run waiting on a submitted input (ADR-105 / ADR-150).
      *
      * Validates the submission against the tool's declared schema BEFORE
      * probing or claiming, so a rejection leaves the run WAITING_FOR_INPUT with
      * nothing claimed and the user can resubmit. From there the flow is
-     * {@see self::approve()}'s.
+     * {@see self::approve()}'s, including its two fail-closed gates, both of
+     * which RELEASE the run (back to WAITING_FOR_INPUT) rather than settling it:
+     *
+     * 1. The submission must name the turn its form was rendered from. A null
+     *    digest and a mismatching digest both mean "the turn is not known", so
+     *    both are refused (ADR-150).
+     * 2. The SUBMITTER must be permitted to run every pending call, and the
+     *    declared input tool (ADR-150). Not only the writing ones as on the
+     *    approval path — an input-requiring tool declares no effect, so that
+     *    filter would select nothing. See {@see self::submitterRefusal()}.
+     *
+     * Both gates judge the state loaded AFTER the claim, which is also the state
+     * that executes. Before ADR-150 the pre-claim copy was executed; a lost race
+     * therefore fed the operator's values into a turn they were never shown.
+     * The schema validation stays pre-claim on purpose (that is ADR-105's
+     * divergence, and it is what makes a bad submission resubmittable) — gate 1
+     * is what carries its verdict forward, because the input digest covers the
+     * declared schema, so a matching digest proves the values were validated
+     * against the schema the run is still suspended on.
+     *
+     * There is no audit gate here (approve()'s gate 3). That one refuses an
+     * unrecorded decision only for a turn that DECLARES a write, and an
+     * input-requiring turn declares none; the INPUT event stays best-effort like
+     * every other event write.
      *
      * @param (Closure(RunStep): void)|null $onStep
      */
@@ -491,13 +645,13 @@ final readonly class ResumeCoordinator
         }
 
         /** @var array<string, mixed> $decoded */
-        $state = SuspendedRunState::fromArray($decoded);
+        $preClaim = SuspendedRunState::fromArray($decoded);
 
         // Well-formedness gate (ADR-105 M2): an input suspension with no target
         // tool or a degenerate schema is corruption, never "accept anything".
         // validate($data, []) returns true, so this path must be unreachable
         // before the validation below — a corrupt row is a 500, not resumable.
-        if ($state->inputToolName === null || $state->inputToolName === '' || !InputSchema::isUsable($state->inputSchema)) {
+        if ($preClaim->inputToolName === null || $preClaim->inputToolName === '' || !InputSchema::isUsable($preClaim->inputSchema)) {
             throw CorruptSuspendedStateException::forRun($runUuid);
         }
 
@@ -505,7 +659,7 @@ final readonly class ResumeCoordinator
         // probing or claiming. A rejection leaves the run WAITING_FOR_INPUT with
         // nothing claimed and no event recorded, so the user can simply resubmit.
         $validator = $this->schemaValidator ?? new JsonSchemaValidator();
-        if (!$validator->validate($submission->data, $state->inputSchema)) {
+        if (!$validator->validate($submission->data, $preClaim->inputSchema)) {
             throw InvalidInputSubmissionException::forRun($runUuid);
         }
 
@@ -522,13 +676,55 @@ final readonly class ResumeCoordinator
 
         $claimed = $this->persister->findRun($runUuid);
         $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
-        if (!$handle instanceof AgentRunHandle) {
+        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             $this->persister->settleFailed(
                 new AgentRunHandle($run->uid, $run->uuid),
                 new RuntimeException('The event-stream position could not be determined after the resume claim'),
             );
 
             throw RunStateUnavailableException::forRun($runUuid);
+        }
+
+        // The state the run is ACTUALLY suspended on, from the same fresh row —
+        // approve()'s rule, and for the same reason (ADR-132/ADR-150). The
+        // pre-claim decode above already refused a row that was unreadable when
+        // we found it, non-destructively; what is left here is the race, and a
+        // state that cannot be decoded now can neither continue nor be released.
+        $claimedState = $claimed->suspendedState !== null ? json_decode($claimed->suspendedState, true) : null;
+        if (!is_array($claimedState)) {
+            $this->persister->settleFailed(
+                $handle,
+                new RuntimeException('The suspended run state could not be decoded after the resume claim'),
+            );
+
+            throw CorruptSuspendedStateException::forRun($runUuid);
+        }
+
+        /** @var array<string, mixed> $claimedState */
+        $state = SuspendedRunState::fromArray($claimedState);
+
+        // Gate 1 — the submission must name THIS turn (ADR-150). hash_equals for
+        // the same reason as approve(): the digest is not a secret, and what it
+        // catches is staleness.
+        $current = $this->turnDigest()->forInputState($state);
+        if ($submission->turnDigest === null || !hash_equals($current, $submission->turnDigest)) {
+            $this->release($handle, $state, $runUuid);
+
+            throw StaleInputTurnException::forRun($runUuid);
+        }
+
+        // Gate 2 — the submitter must be permitted to run what they are feeding
+        // (ADR-150).
+        $refusal = $this->submitterRefusal($actor, $configuration, $state, $runUuid);
+        if ($refusal instanceof SubmitterNotPermittedException) {
+            $this->logger?->warning('Input submission refused: the submitter may not run the pending tool', [
+                'run'    => $runUuid,
+                'actor'  => $actor->describe(),
+                'reason' => $refusal->getMessage(),
+            ]);
+            $this->release($handle, $state, $runUuid);
+
+            throw $refusal;
         }
 
         // The submission is part of the run's audit stream (best-effort): who

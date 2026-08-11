@@ -214,14 +214,28 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     #[Test]
-    public function anInputCardCarriesNoTurnDigest(): void
+    public function anInputCardCarriesTheInputDigestOfItsPause(): void
     {
-        // An input pause has no approval turn to bind, so there is nothing to
-        // digest — the field must stay null rather than carry a value that would
-        // look like a reviewed turn.
-        $run = $this->makeRun('a', $this->inputState('ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]));
+        // REVERSED by ADR-150. Until then an input card carried no digest,
+        // because the input path had nothing to bind a submission to; that was
+        // the open half of #690, and the submission is now bound exactly as a
+        // decision is. The value is the INPUT digest — over the pending calls,
+        // the target tool and the schema these fields were built from — not the
+        // approval one, which would never match on the verify side.
+        $stateJson = $this->inputState('ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]);
+        $run       = $this->makeRun('a', $stateJson);
 
-        self::assertNull($this->factory()->buildWaiting([$run])[0]->turnDigest);
+        $decoded = json_decode($stateJson, true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        $state  = SuspendedRunState::fromArray($decoded);
+        $digest = new PendingTurnDigest();
+
+        $view = $this->factory()->buildWaiting([$run])[0];
+
+        self::assertSame($digest->forInputState($state), $view->turnDigest);
+        self::assertNotSame($digest->forState($state), $view->turnDigest, 'the two pauses are bound by different digests');
     }
 
     #[Test]
