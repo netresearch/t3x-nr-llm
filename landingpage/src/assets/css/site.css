@@ -466,3 +466,167 @@ mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: in
   .site-header, .nav, .ai, .search, .copy-btn, .theme-toggle { display: none !important; }
   body { color: #000; background: #fff; }
 }
+
+/* ── Status facts, business sections and the capability card ─────────────── */
+
+.status-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 2rem 0 .75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.status-facts > div { min-width: 0; }
+.status-facts dt {
+  font-family: var(--font-head);
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+.status-facts dd {
+  margin: .25rem 0 0;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+.status-facts__note {
+  color: var(--muted);
+  font-size: .9rem;
+  max-width: var(--maxw-prose);
+}
+
+.status-pill {
+  display: inline-block;
+  padding: .1rem .6rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+/* Orange is the accent and stays reserved for the stages that carry a warning. */
+.status-pill--concept,
+.status-pill--poc,
+.status-pill--alpha { color: var(--orange); }
+.status-pill--beta,
+.status-pill--stable { color: var(--link); }
+.status-pill--maintenance { color: var(--muted); }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+.card {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+.card h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+.card p { margin: 0; }
+.card__meta {
+  margin-top: .75rem !important;
+  font-size: .85rem;
+  color: var(--muted);
+}
+
+.section__more { margin-top: 1.5rem; }
+
+.flow-list {
+  counter-reset: flow;
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+  display: grid;
+  gap: .75rem;
+}
+.flow-list li {
+  counter-increment: flow;
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: .25rem 1rem;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-alt);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.flow-list li::before {
+  content: counter(flow);
+  grid-row: 1 / span 2;
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--accent);
+}
+.flow-list strong { font-family: var(--font-head); }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .92rem;
+}
+.data-table th,
+.data-table td {
+  padding: .75rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-light);
+}
+.data-table thead th {
+  font-family: var(--font-head);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.data-table tbody th { font-family: var(--font-head); }
+
+.capability-card {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.capability-card > div {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 3fr;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+}
+.capability-card > div:last-child { border-bottom: 0; }
+.capability-card dt {
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+.capability-card dd { margin: 0; }
+.capability-card ul { margin: 0; padding-left: 1.1rem; }
+.capability-card li { margin-bottom: .35rem; }
+/* Limitations are the part a reader must not skim. */
+.capability-card__limits { border-left: 3px solid var(--orange); }
+
+@media (max-width: 640px) {
+  .capability-card > div { grid-template-columns: 1fr; gap: .35rem; }
+}
+
+.cta-band__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-alt);
+}
+.cta-band__actions { display: flex; flex-wrap: wrap; gap: .75rem; }

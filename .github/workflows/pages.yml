@@ -29,9 +29,14 @@ jobs:
     with:
       setup-uv: true
       artifact-path: landingpage/public
+      # verify.py gates the rendered artefact: unresolved content placeholders,
+      # a manifest that disagrees with ext_emconf.php, a version on the page the
+      # manifest does not know, missing metadata or an untagged contact link all
+      # fail here rather than on the live site.
       build-command: >-
         NRLLM_BASE="$PAGES_BASE_PATH" NRLLM_ORIGIN="$PAGES_ORIGIN"
         uv run landingpage/build/build.py
+        && python3 landingpage/build/verify.py
 
   deploy:
     needs: build
