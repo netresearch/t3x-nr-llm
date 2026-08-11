@@ -118,6 +118,14 @@ Optional
    fallback — chunks cannot be replayed against a
    different provider.
 
+   Example payload::
+
+       {"configurationIdentifiers": ["claude-sonnet", "ollama-local"]}
+
+   Identifiers are matched case-insensitively;
+   leave empty to disable fallback. See
+   :ref:`developer-fallback-chain`.
+
 .. confval:: system_prompt_data_class
    :name: confval-config-system-prompt-data-class
    :type: select
@@ -136,11 +144,3 @@ Optional
 
    Enforcement follows the instance-wide ``tools.dataClassEnforcement`` switch —
    see :ref:`administration-governance-keys`.
-
-   Example payload::
-
-       {"configurationIdentifiers": ["claude-sonnet", "ollama-local"]}
-
-   Identifiers are matched case-insensitively;
-   leave empty to disable fallback. See
-   :ref:`developer-fallback-chain`.

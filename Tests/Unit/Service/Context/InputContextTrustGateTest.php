@@ -148,7 +148,7 @@ final class InputContextTrustGateTest extends TestCase
     }
 
     #[Test]
-    public function aDeclaredSystemPromptConstrainsWhichModelCriteriaModeMayResolveTo(): void
+    public function aDeclaredSystemPromptRefusesACriteriaModeSendResolvingToAWeakerZone(): void
     {
         // The consumer ADR-144 said the declaration would not have. A
         // criteria-mode configuration has no provider of its own, so the

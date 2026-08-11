@@ -114,8 +114,8 @@ Consequences
 ============
 
 ✓ An operator can declare that a configuration's system prompt must not leave a
-trust zone, and on a criteria-mode configuration that declaration decides which
-models it may be served by.
+trust zone, and on a criteria-mode configuration a send that resolves to a model
+in a weaker zone is refused.
 
 ✓ Nothing new to learn: same scale, same enforcement switch
 (``tools.dataClassEnforcement``), same observe mode, same audit decision

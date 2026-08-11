@@ -117,8 +117,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   declined the system prompt, because a system prompt sits on a configuration
   that already knows its provider — true of a fixed-mode record, and not of a
   criteria-mode one, which knows no provider until routing runs. Now that the
-  zone comes from the resolved model (ADR-149), a declared class decides which
-  models the configuration may resolve to.
+  zone comes from the resolved model (ADR-149), a declared class refuses a send
+  whose resolved model sits in a weaker zone.
   - `tx_nrllm_configuration` gains `system_prompt_data_class` on the same
     `ToolDataClass` scale, with a TCA field beside `system_prompt`. Empty means
     undeclared and constrains nothing; nothing is guessed for existing rows.

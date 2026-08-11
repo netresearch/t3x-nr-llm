@@ -129,7 +129,7 @@
                 <source>System prompt data class</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.system_prompt_data_class.description">
-                <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode that constrains which model the configuration may resolve to. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
+                <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode the class is checked against the model routing actually selected, and a send that resolves to a weaker zone is refused. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
             </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.temperature">

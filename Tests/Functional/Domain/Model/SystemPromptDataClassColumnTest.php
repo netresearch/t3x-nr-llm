@@ -13,7 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
-use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 
@@ -24,8 +24,14 @@ use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
  * not meet: the property maps to a field name Extbase derives, and nothing in
  * a unit test would notice a schema that never gained the column. This asserts
  * the seam, not the gate — the gate's own behaviour is a unit test.
+ *
+ * `Classes/Domain/Model/` is excluded from the coverage source set (Build/
+ * phpunit.xml and Build/FunctionalTests.xml alike), so `#[CoversClass(
+ * LlmConfiguration::class)]` raises "not a valid target for code coverage",
+ * which failOnWarning=true escalates to a failure on the coverage leg. Same
+ * reason as Tests/Functional/Repository/LlmConfigurationFallbackChainTest.php.
  */
-#[CoversClass(LlmConfiguration::class)]
+#[CoversNothing]
 final class SystemPromptDataClassColumnTest extends AbstractFunctionalTestCase
 {
     private LlmConfigurationRepository $subject;
