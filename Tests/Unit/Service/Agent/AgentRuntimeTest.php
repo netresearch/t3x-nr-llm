@@ -227,6 +227,35 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
     }
 
+    /**
+     * The shape a budget denial actually reaches a caller in on the tool path.
+     *
+     * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService} catches the denial
+     * itself and returns a truncated result carrying the reason — proven in
+     * ToolLoopServiceTest. The executor has no arm for that: it is an ordinary
+     * loop return, so the run settles COMPLETED with no `error` at all. The
+     * termination reason is therefore the ONLY signal a caller has, and one
+     * that watches `error` sees a normal finished run.
+     */
+    #[Test]
+    public function aBudgetExhaustedLoopResultSettlesCompletedAndCarriesTheReason(): void
+    {
+        $runtime = $this->runtime($this->loopReturning(new ToolLoopResult(
+            '',
+            [],
+            1,
+            true,
+            UsageStatistics::fromTokens(3, 0),
+            AgentRunTerminationReason::BUDGET_EXHAUSTED,
+        )));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertNull($result->error);
+        self::assertSame(AgentRunTerminationReason::BUDGET_EXHAUSTED, $result->loopResult?->terminationReason);
+    }
+
     #[Test]
     public function aGuardrailDenialSettlesPolicyStopped(): void
     {

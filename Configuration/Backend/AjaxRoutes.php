@@ -96,6 +96,10 @@ return [
         'path' => '/nrllm/model/detect-limits',
         'target' => ModelDiscoveryController::class . '::detectLimitsAction',
     ],
+    'nrllm_model_verify_capabilities' => [
+        'path' => '/nrllm/model/verify-capabilities',
+        'target' => ModelController::class . '::verifyCapabilitiesAction',
+    ],
 
     // Configuration routes
     'nrllm_config_toggle_active' => [

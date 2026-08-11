@@ -247,13 +247,43 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
                 'auth_placement'  => 'header',
                 'auth_header_name' => 'X-Api-Key',
                 'tool_count'      => 7,
-                'last_contact'    => 1_700_000_500,
+                // Noon UTC. `contactLabel()` formats in the PHP timezone, so a
+                // timestamp near midnight would date to the previous or the
+                // next day for a developer east or west of the CI runner and
+                // fail an assertion that has nothing to do with the code.
+                'last_contact'    => 1_699_963_200,
                 'last_latency_ms' => 142,
                 'import_status'   => 'error',
                 'import_error'    => 'the previous import failed',
             ],
             ['uid' => 1],
         );
+
+        // A placement the module does not offer. The column is a plain varchar
+        // and the TCA select only constrains FormEngine, so such a row exists;
+        // ADR-154 says the readout shows what is stored rather than the
+        // bearer placement the transport would fall back to.
+        $connectionPool->getConnectionForTable('tx_nrllm_mcp_server')->insert('tx_nrllm_mcp_server', [
+            'uid'              => 2,
+            'pid'              => 0,
+            'identifier'       => 'odd',
+            'name'             => 'A server with an odd placement',
+            'description'      => '',
+            'url'              => 'https://odd.example.com/rpc',
+            'auth_credential'  => 'e6f1a2b3-0000-4000-8000-000000000002',
+            'auth_placement'   => 'query',
+            'auth_header_name' => '',
+            'data_class'       => 'publicContent',
+            'enabled'          => 1,
+            'import_status'    => 'never_imported',
+            'import_error'     => '',
+            'last_imported'    => 0,
+            'tool_count'       => 0,
+            'tstamp'           => 0,
+            'crdate'           => 0,
+            'deleted'          => 0,
+            'hidden'           => 0,
+        ]);
 
         $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)
             ->createFromUserPreferences($this->setUpBackendUser(1));
@@ -270,8 +300,12 @@ final class McpServerControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('HTTP (JSON-RPC)', $body);
         // The authentication mode as CONFIGURED — the header name included.
         self::assertStringContainsString('X-Api-Key', $body);
-        // The credential itself is a vault identifier and must never surface.
+        // And a stored placement the module does not offer is printed verbatim,
+        // not collapsed into the bearer label the transport falls back to.
+        self::assertStringContainsString('<code>query</code>', $body);
+        // The credentials themselves are vault identifiers and must never surface.
         self::assertStringNotContainsString('e6f1a2b3-0000-4000-8000-000000000001', $body);
+        self::assertStringNotContainsString('e6f1a2b3-0000-4000-8000-000000000002', $body);
         // Catalogue size, data class and the standing error.
         self::assertStringContainsString('>7<', $body);
         self::assertStringContainsString('publicContent', $body);

@@ -94,6 +94,10 @@
                 <source>Vault secret in header</source>
                 <target>Vault-Secret im Header</target>
             </trans-unit>
+            <trans-unit id="server.authentication.other">
+                <source>Stored placement, not one this module offers</source>
+                <target>Gespeicherte Platzierung, die dieses Modul nicht anbietet</target>
+            </trans-unit>
             <trans-unit id="server.toolsDiscovered">
                 <source>Tools discovered</source>
                 <target>Gefundene Tools</target>

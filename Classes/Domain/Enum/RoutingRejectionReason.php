@@ -54,6 +54,20 @@ enum RoutingRejectionReason: string
     case COST_ABOVE_LIMIT = 'costAboveLimit';
 
     /**
+     * The label an operator reads instead of the wire value (ADR-148).
+     *
+     * Named `get…` because Fluid reaches a method only through the
+     * get/is/has convention: `{reason.labelKey}` resolves `getLabelKey()`,
+     * and a plain `labelKey()` silently yields null — which reaches
+     * `f:translate` as an empty key and throws at render time. Same shape as
+     * {@see \Netresearch\NrLlm\Service\Governance\GovernanceProfile::getLabelKey()}.
+     */
+    public function getLabelKey(): string
+    {
+        return 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.rejection.' . $this->name;
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array

@@ -7,9 +7,49 @@ generator and deployed to GitHub Pages by `.github/workflows/pages.yml`.
 ## Build
 
 ```bash
-uv run landingpage/build/build.py
-# output -> landingpage/public/
+uv run landingpage/build/build.py     # render into landingpage/public/
+python3 landingpage/build/verify.py   # gate the rendered artefact
 ```
+
+## Where the facts come from
+
+The page states no version, maturity or requirement of its own. Everything
+mechanical is derived at build time:
+
+| Fact | Source |
+| --- | --- |
+| `main_version` | `ext_emconf.php` on this branch |
+| `latest_release`, `release_date` | the GitHub releases API |
+| `docs_version` | the branch being built |
+| `typo3_versions`, `php_versions` | `composer.json` |
+| maturity, owner, review date, capability card | `landingpage/build/data/project.json` |
+
+The copy uses `{VERSION}`, `{LATEST_RELEASE}`, `{TYPO3_VERSIONS}` and
+`{PHP_VERSION}` placeholders, filled from those sources. The version used to be
+typed into four separate files; a release bump then left stale numbers behind on
+the page. Do not write a version into the content files.
+
+`latest release`, `main branch`, `documentation version` and `page last reviewed`
+are four different values, shown separately near the top of the page. A
+difference between them is not a contradiction.
+
+### The published manifest
+
+The build writes `project-manifest.json` to the site root. The portfolio site
+aggregates it into <https://netresearch.github.io/projects.json>, and every other
+Netresearch page that shows a status or a version for nr-llm reads it from there.
+Its editorial half — maturity, owner, review date, capabilities, security and
+cost controls, and the AI capability card — lives in
+`landingpage/build/data/project.json`.
+
+## Build gate
+
+`landingpage/build/verify.py` fails on an unresolved content placeholder, a
+manifest that disagrees with `ext_emconf.php`, a version rendered on the page
+that the manifest does not know, a missing canonical / description /
+`x-default` hreflang / `og:image` / `twitter:card` / JSON-LD block, invalid
+JSON-LD, a contact link missing a UTM parameter, a logo appearing other than
+once, a missing status block, or a capability card with no limitations.
 
 Environment variables (both optional; the Pages workflow sets them from the Pages
 configuration so a repo rename or custom domain needs no code change):

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
+use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\EmbedCacheKeyBuilder;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\KeyedProviderRegistry;
@@ -58,6 +59,7 @@ trait LlmServiceManagerTestFactory
         ?InputGuardrailScreener $inputScreener = null,
         ?ConfigurationSnippetResolver $snippetResolver = null,
         ?ContextWindowManagerInterface $contextWindow = null,
+        ?InputContextTrustGate $inputContextGate = null,
     ): LlmServiceManager {
         return new LlmServiceManager(
             $adapterRegistry,
@@ -73,6 +75,7 @@ trait LlmServiceManagerTestFactory
             $snippetResolver,
             $contextWindow,
             $logger,
+            $inputContextGate,
         );
     }
 }

@@ -112,9 +112,13 @@ Decision
    contact line that a reload would have brought. Both strings are composed in
    the controller — the first render and the in-place update read the same one,
    so they cannot drift — and the front end writes them with ``textContent``,
-   because part of what they say was written by the far side. The corollary is
-   that the report is gone on the next page load, which is correct: it describes
-   one moment, and what outlives the moment is the contact date and its latency.
+   because part of what they say was written by the far side. A refusal is
+   written into the same region, and the region is cleared before the request
+   goes out: without that, a probe that stops answering leaves the last
+   success standing for the fifteen seconds of the transport timeout and then
+   beside its own error toast. The corollary is that the report is gone on the
+   next page load, which is correct: it describes one moment, and what outlives
+   the moment is the contact date and its latency.
 
    **Transport is stated, not stored.** HTTP is the only transport this client
    speaks (:ref:`ADR-116 <adr-116>`, "Transports: HTTP only") and a column would
@@ -122,10 +126,12 @@ Decision
    because it is the first question asked of a server that will not answer.
 
    **Authentication is shown as configured, not as resolved.** The transport
-   falls back to a bearer placement for any value it cannot parse. The module
-   shows the stored placement instead: if an operator typoed it, seeing the typo
-   is what lets them fix it, while seeing the fallback would tell them the
-   configuration is fine.
+   falls back to a bearer placement for any value it cannot parse, and the
+   column is a plain varchar the TCA select only constrains in FormEngine. So
+   the module labels the two placements TCA offers — ``bearer`` and ``header``
+   — and prints any other stored value verbatim, marked as one it does not
+   offer: if an operator typoed it, seeing the typo is what lets them fix it,
+   while seeing the fallback would tell them the configuration is fine.
 
 6. **``importing`` is removed rather than written.** The import runs to
    completion inside the request that starts it — there is no queue, no worker,
@@ -150,7 +156,13 @@ Consequences
   does not navigate; ``postAndReload()`` is now written in terms of it. The
   connection test is the first action in these modules whose answer is the
   response rather than the reloaded page, and the reload and the reporting
-  callback could not both stay in one helper.
+  callback could not both stay in one helper. ``post()`` also takes an
+  ``onFailure`` callback, for the same reason ``onSuccess`` exists: a caller
+  that paints the answer into the page has to paint the refusal there too. The
+  re-enabling of the triggering button stays where it was for the six existing
+  consumers — failure only — because a button live again while its reload is
+  pending can fire the same state-changing POST twice; ``post()`` re-enables on
+  success as well, since nothing navigates away from it there.
 - Both AJAX actions of :php:`McpServerController` now resolve the caller and the
   named server through one private helper. The admin gate and the "a uid, not
   something a cast would accept" validation are one implementation, reached by

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -107,7 +109,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * marker. As with the first writer it is NOT covered by the ADR-112 write fence,
  * which arms only on the queued path (ADR-135).
  */
-final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -321,6 +323,24 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         // Setting one named scalar field to a given value converges on repeat,
         // so a reaped-and-requeued run may safely repeat it.
         return ToolEffect::IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The human-facing declaration (ADR-152).
+     *
+     * The declared record type is `sys_file` — the uid the call names and the
+     * record an editor selects. The row this tool writes is that file's
+     * `sys_file_metadata`, which is a consequence of the action rather than
+     * its subject.
+     */
+    public function getEditorAction(): EditorAction
+    {
+        return new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.set_file_alternative_text.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.set_file_alternative_text.description',
+            'nrllm-editor-action-file-alt-text',
+            [self::FILE_TABLE],
+        );
     }
 
     /**

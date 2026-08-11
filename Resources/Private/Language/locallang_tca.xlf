@@ -125,6 +125,13 @@
                 <source>Instructions that define the AI's role, behavior, and constraints. This is sent before every user message and shapes all responses. Be specific about tone, format, and limitations. Example for a translator: "You are a professional translator. Translate the provided text to the target language. Preserve formatting, tone, and cultural context. Do not add explanations unless asked." Example for a summarizer: "Summarize the following content in 3-5 bullet points. Focus on actionable insights. Use clear, non-technical language." Tasks can override or extend this with their own prompt templates.</source>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class">
+                <source>System prompt data class</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.system_prompt_data_class.description">
+                <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode the class is checked against the model routing actually selected, and a send that resolves to a weaker zone is refused. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
             </trans-unit>
@@ -516,6 +523,27 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.description">
                 <source>Select features supported by this model. Used for filtering models in configurations and validating API requests.</source>
+            </trans-unit>
+            <trans-unit id="palette.capability_provenance">
+                <source>Where the capabilities came from</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered">
+                <source>Confirmed by the provider</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered.description">
+                <source>What the last provider discovery reported. Written by the "Confirm capabilities" action in the model module, never by hand. A capability selected above but missing here is your own declaration.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at">
+                <source>Confirmed at (timestamp, 0 = never)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at.description">
+                <source>Unix timestamp of the last confirmation. 0 means no discovery ever answered for this model, so every capability above is an assumption.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source">
+                <source>Kind of answer (discovery / catalog)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source.description">
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
             </trans-unit>
 
             <!-- Capability labels and descriptions -->
