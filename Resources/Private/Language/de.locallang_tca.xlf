@@ -666,6 +666,34 @@
                 <source>Select features supported by this model. Used for filtering models in configurations and validating API requests.</source>
                 <target>Wählen Sie die von diesem Modell unterstützten Funktionen. Wird zur Filterung von Modellen in Konfigurationen und zur Validierung von API-Anfragen verwendet.</target>
             </trans-unit>
+            <trans-unit id="palette.capability_provenance">
+                <source>Where the capabilities came from</source>
+                <target>Herkunft der Fähigkeiten</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered">
+                <source>Confirmed by the provider</source>
+                <target>Vom Anbieter bestätigt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered.description">
+                <source>What the last provider discovery reported. Written by the "Confirm capabilities" action in the model module, never by hand. A capability selected above but missing here is your own declaration.</source>
+                <target>Was die letzte Abfrage beim Anbieter gemeldet hat. Wird von der Aktion „Fähigkeiten bestätigen“ im Modell-Modul geschrieben, nie von Hand. Eine oben ausgewählte, hier fehlende Fähigkeit ist Ihre eigene Angabe.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at">
+                <source>Confirmed at (timestamp, 0 = never)</source>
+                <target>Bestätigt am (Zeitstempel, 0 = nie)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at.description">
+                <source>Unix timestamp of the last confirmation. 0 means no discovery ever answered for this model, so every capability above is an assumption.</source>
+                <target>Unix-Zeitstempel der letzten Bestätigung. 0 heißt, dass nie eine Abfrage für dieses Modell geantwortet hat – jede Fähigkeit oben ist dann eine Annahme.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source">
+                <source>Kind of answer (discovery / catalog)</source>
+                <target>Art der Antwort (Anbieter / Katalog)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source.description">
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
+                <target>„discovery“ = der Modell-Endpunkt des Anbieters hat diese Fähigkeiten gemeldet. „catalog“ = er hat es nicht – entweder war er nicht erreichbar, oder er listet Modell-IDs ohne Fähigkeiten – und der mitgelieferte statische Katalog hat sie geliefert: eine Annahme, keine Bestätigung.</target>
+            </trans-unit>
 
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">

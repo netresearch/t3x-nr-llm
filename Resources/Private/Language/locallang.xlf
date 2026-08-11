@@ -972,6 +972,27 @@
             <trans-unit id="model.reassignProvider">
                 <source>Reassign Provider</source>
             </trans-unit>
+            <trans-unit id="model.verifyCapabilities">
+                <source>Confirm capabilities against the provider</source>
+            </trans-unit>
+            <trans-unit id="model.capability.confirmed">
+                <source>Confirmed by provider discovery on %s</source>
+            </trans-unit>
+            <trans-unit id="model.capability.catalog">
+                <source>From the bundled model catalog — the provider did not report this capability, so this is an assumption</source>
+            </trans-unit>
+            <trans-unit id="model.capability.operator">
+                <source>Declared by an operator — never confirmed against the provider</source>
+            </trans-unit>
+            <trans-unit id="model.capability.lastConfirmed">
+                <source>Last confirmed %s</source>
+            </trans-unit>
+            <trans-unit id="model.capability.neverConfirmed">
+                <source>Never confirmed against the provider</source>
+            </trans-unit>
+            <trans-unit id="error.model.notDiscoverable">
+                <source>The provider does not list this model, so its capabilities could not be confirmed.</source>
+            </trans-unit>
             <trans-unit id="task.noActive.warning">
                 <source>No active tasks. Only active tasks are exposed to consuming extensions and the API. Activate a task to make it available.</source>
             </trans-unit>

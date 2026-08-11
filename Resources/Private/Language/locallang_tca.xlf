@@ -517,6 +517,27 @@
             <trans-unit id="tx_nrllm_model.capabilities.description">
                 <source>Select features supported by this model. Used for filtering models in configurations and validating API requests.</source>
             </trans-unit>
+            <trans-unit id="palette.capability_provenance">
+                <source>Where the capabilities came from</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered">
+                <source>Confirmed by the provider</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_discovered.description">
+                <source>What the last provider discovery reported. Written by the "Confirm capabilities" action in the model module, never by hand. A capability selected above but missing here is your own declaration.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at">
+                <source>Confirmed at (timestamp, 0 = never)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_confirmed_at.description">
+                <source>Unix timestamp of the last confirmation. 0 means no discovery ever answered for this model, so every capability above is an assumption.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source">
+                <source>Kind of answer (discovery / catalog)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_model.capabilities_source.description">
+                <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
+            </trans-unit>
 
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">

@@ -1,15 +1,15 @@
 {
   "hero": {
     "eyebrow": "TYPO3-Extension · nr-llm",
-    "headline": "Ein LLM-Setup. Jede Extension. Volle Admin-Kontrolle.",
-    "subhead": "nr-llm ist gemeinsame KI-Infrastruktur für TYPO3 — wie das Caching-Framework, nur für Sprachmodelle. Administratoren konfigurieren die Provider einmalig im Backend; jede KI-gestützte Extension der Website nutzt sie automatisch. Unterstützt OpenAI, Anthropic Claude, Google Gemini, Ollama und weitere.",
+    "headline": "Die zentrale KI-Control-Plane für TYPO3.",
+    "subhead": "Provider einmal anbinden, Zugriffe zentral steuern, Budgets begrenzen und KI-Funktionen für alle Extensions der Seite kontrolliert bereitstellen.",
     "ctaPrimary": {
-      "label": "Erste Schritte",
-      "href": "#dev-kickstart"
+      "label": "LLM-Governance in TYPO3 evaluieren",
+      "href": "{CONTACT_HERO}"
     },
     "ctaSecondary": {
-      "label": "Auf GitHub ansehen",
-      "href": "https://github.com/netresearch/t3x-nr-llm"
+      "label": "Technischen Einstieg ansehen",
+      "href": "#dev-kickstart"
     }
   },
   "problem": {
@@ -168,14 +168,14 @@
   },
   "architecture": {
     "heading": "Architektur",
-    "intro": "nr-llm nutzt eine dreistufige Konfigurationshierarchie, die Zuständigkeiten sauber trennt. Eine Configuration (Einstellungen für den Anwendungsfall wie System-Prompt, Temperatur und maximale Tokens) verweist auf ein Model (Model-ID, Fähigkeiten, Preise), das auf einen Provider verweist (Endpunkt, verschlüsselter API-Key, Adapter-Typ). So lassen sich mehrere API-Keys pro Provider-Typ vorhalten, eigene Endpunkte wie Azure OpenAI oder eine lokale Ollama- oder vLLM-Instanz ansprechen und Model-Definitionen über Configurations hinweg wiederverwenden. Anfragen durchlaufen eine Middleware-Pipeline, die Fallback-Ketten durchsetzt und die Nutzung nach jedem erfolgreichen Aufruf erfasst. Die Extension setzt PHP 8.2+ und TYPO3 v13.4 LTS oder v14.3 LTS voraus, mit einem PSR-18-HTTP-Client."
+    "intro": "nr-llm nutzt eine dreistufige Konfigurationshierarchie, die Zuständigkeiten sauber trennt. Eine Configuration (Einstellungen für den Anwendungsfall wie System-Prompt, Temperatur und maximale Tokens) verweist auf ein Model (Model-ID, Fähigkeiten, Preise), das auf einen Provider verweist (Endpunkt, verschlüsselter API-Key, Adapter-Typ). So lassen sich mehrere API-Keys pro Provider-Typ vorhalten, eigene Endpunkte wie Azure OpenAI oder eine lokale Ollama- oder vLLM-Instanz ansprechen und Model-Definitionen über Configurations hinweg wiederverwenden. Anfragen durchlaufen eine Middleware-Pipeline, die Fallback-Ketten durchsetzt und die Nutzung nach jedem erfolgreichen Aufruf erfasst. Die Extension setzt PHP {PHP_VERSION}+ und TYPO3 {TYPO3_VERSIONS} voraus, mit einem PSR-18-HTTP-Client."
   },
   "faq": {
     "heading": "Häufig gestellte Fragen",
     "items": [
       {
         "q": "Welche TYPO3- und PHP-Versionen werden unterstützt?",
-        "a": "TYPO3 v13.4 LTS oder v14.3 LTS und PHP 8.2 oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version 0.28.0)."
+        "a": "TYPO3 {TYPO3_VERSIONS} und PHP {PHP_VERSION} oder höher. Zusätzlich ist ein PSR-18-kompatibler HTTP-Client (etwa guzzlehttp/guzzle) erforderlich. Die Extension befindet sich derzeit in der Beta-Phase (Version {VERSION})."
       },
       {
         "q": "Welche KI-Provider kann ich nutzen?",
@@ -280,5 +280,235 @@
       "nr-llm"
     ],
     "ogDescription": "Ein LLM-Setup. Jede Extension. Volle Admin-Kontrolle. Gemeinsame KI-Infrastruktur für TYPO3 mit Unterstützung für OpenAI, Anthropic, Gemini, Ollama und mehr."
+  },
+  "status": {
+    "heading": "Status",
+    "stageLabel": "Reifegrad",
+    "releaseLabel": "Letzter Release",
+    "mainLabel": "Hauptzweig",
+    "docsLabel": "Dokumentation beschreibt",
+    "verifiedLabel": "Seite zuletzt geprüft",
+    "requirementsLabel": "Voraussetzungen",
+    "note": "Vier verschiedene Werte. Ein Unterschied zwischen ihnen ist kein Widerspruch: Der Release ist, was Sie installieren, der Hauptzweig ist, woran gebaut wird, und das Prüfdatum sagt, wann zuletzt jemand den Text dieser Seite geprüft hat.",
+    "stages": {
+      "concept": "Konzept",
+      "poc": "Machbarkeitsnachweis",
+      "alpha": "Alpha",
+      "beta": "Beta",
+      "stable": "Stabil",
+      "maintenance": "Wartung"
+    }
+  },
+  "outcomes": {
+    "heading": "Was sich für die Organisation ändert",
+    "intro": "Die technische Beschreibung steht weiter unten. Hier stehen die Wirkungen, die über eine Einführung entscheiden.",
+    "items": [
+      {
+        "title": "Eine Provider-Anbindung statt einer je Extension",
+        "body": "Jede Extension, die KI nutzen will, ruft denselben Service. Die zweite KI-Funktion bedeutet nicht mehr die zweite Provider-Anbindung, die zweite Schlüsselablage und die zweite Fehlerbehandlung."
+      },
+      {
+        "title": "Anbieterwechsel ist eine Einstellung, kein Projekt",
+        "body": "Konfigurationen benennen Provider und Modell. Der Wechsel von einer kommerziellen API auf einen selbst gehosteten Endpunkt ändert einen Datensatz im Backend, nicht den Code der nutzenden Extensions."
+      },
+      {
+        "title": "Schlüssel vermehren sich nicht mehr",
+        "body": "API-Schlüssel liegen als Kennungen in nr-vault. Nicht im Klartext in der Datenbank, nicht in einer Konfigurationsdatei und nicht dreimal parallel in drei Extensions."
+      },
+      {
+        "title": "Kosten werden vor der Rechnung sichtbar",
+        "body": "Die Nutzung wird je Provider, Modell, Service und Backend-Nutzer mit geschätzten Kosten erfasst. Budgets begrenzen sie je Nutzer und Zeitraum."
+      },
+      {
+        "title": "KI-Funktionen werden wiederverwendbar",
+        "body": "Übersetzung, Alternativtexte, Embeddings und Retrieval sind Services, die andere Extensions injizieren statt nachzubauen."
+      },
+      {
+        "title": "Lokal und selbst gehostet bleiben möglich",
+        "body": "Ollama, vLLM und LocalAI werden genauso konfiguriert wie eine kommerzielle API. Eine Vorgabe zum Verarbeitungsort erzwingt damit keine andere Architektur."
+      }
+    ]
+  },
+  "governance": {
+    "heading": "Governance und Kontrolle",
+    "intro": "Was eine Administratorin tatsächlich entscheiden kann – und wo die Software es durchsetzt.",
+    "items": [
+      {
+        "title": "Wer was nutzen darf",
+        "body": "Berechtigungen werden je Fähigkeit an Backend-Gruppen vergeben. Das Konfigurationsmodul selbst ist auf Administratoren beschränkt."
+      },
+      {
+        "title": "Wie viel jede Person ausgeben darf",
+        "body": "Budgets begrenzen Anfragen, Tokens oder geschätzte Kosten je Backend-Nutzer, täglich oder monatlich. Ein Lauf, der das Budget überschreiten würde, scheitert mit einer typisierten Ausnahme, statt still weiterzulaufen."
+      },
+      {
+        "title": "Welche Werkzeuge ein Modell aufrufen darf",
+        "body": "Die eingebauten Werkzeuge sind in Gruppen zusammengefasst, jede Gruppe lässt sich einzeln aktivieren. Lesende Werkzeuge sind der Normalfall; die schreibenden sind ab Werk deaktiviert."
+      },
+      {
+        "title": "Was einen Menschen braucht",
+        "body": "Ein freigabepflichtiges Werkzeug hält den Lauf an und wartet auf eine Entscheidung. Es gibt keine Zeitschranke, die stattdessen zustimmt."
+      },
+      {
+        "title": "Was protokolliert wird",
+        "body": "Provider, Modell, Service, Nutzer, Token-Zahlen und geschätzte Kosten je Anfrage. Der Prompt-Inhalt gehört nicht zum Nutzungsdatensatz."
+      },
+      {
+        "title": "Was passiert, wenn ein Provider ausfällt",
+        "body": "Eine Konfiguration kann Rückfälle benennen, die bei Verbindungsfehlern, HTTP-5xx und Rate-Limits in der angegebenen Reihenfolge versucht werden. Ist die Kette erschöpft, gibt es eine typisierte Ausnahme statt einer leeren Antwort."
+      }
+    ]
+  },
+  "dataflow": {
+    "heading": "Wohin die Daten gehen",
+    "intro": "Eine Anfrage, von Anfang bis Ende.",
+    "steps": [
+      {
+        "title": "Eine Extension ruft den Service",
+        "body": "Sie übergibt Nachrichten und Optionen. Sie weiß nicht, welcher Provider konfiguriert ist, und sieht nie einen Schlüssel."
+      },
+      {
+        "title": "nr-llm löst die Konfiguration auf",
+        "body": "Konfiguration → Modell → Provider. Der Schlüssel wird über seine Kennung aus nr-vault geholt und nur für diese Anfrage verwendet."
+      },
+      {
+        "title": "Guardrails prüfen die Nutzlast",
+        "body": "Eingabe, Ausgabe, Reasoning und Streaming-Fragmente durchlaufen eine Richtlinienkette, die redigieren kann. Secret-Muster werden auf dem Ausgangsweg abgewiesen."
+      },
+      {
+        "title": "Der Provider erhält die Anfrage",
+        "body": "Genau der, den die Konfiguration benennt: eine kommerzielle API, ein in der EU gehosteter Anbieter, Ihr eigenes Azure-Deployment oder ein Endpunkt in Ihrem Netz."
+      },
+      {
+        "title": "Die Antwort kommt zurück und wird erfasst",
+        "body": "Die Antwort geht an die aufrufende Extension. Der Nutzungsdatensatz behält Provider, Modell, Service, Nutzer, Tokens und geschätzte Kosten – nicht den Prompt."
+      }
+    ],
+    "notes": [
+      "Was übertragen wird: der Prompt, den die Extension gebaut hat, sowie Seiteninhalte, die ein Retrieval-Werkzeug beigelegt hat.",
+      "Wo Schlüssel liegen: in nr-vault, envelope-verschlüsselt, referenziert über eine Kennung. nr-llm speichert und protokolliert nie einen Schlüssel im Klartext.",
+      "Was lokal bleiben kann: alles, wenn die Konfiguration auf einen selbst gehosteten Endpunkt zeigt. Die Provider-Wahl gilt je Konfiguration, nicht je Seite."
+    ]
+  },
+  "operating": {
+    "heading": "Provider- und Betriebsmodelle",
+    "intro": "Alle werden gleich konfiguriert. Die Wahl ist eine administrative Entscheidung, keine architektonische.",
+    "columns": {
+      "model": "Modell",
+      "data": "Wo verarbeitet wird",
+      "fit": "Passt, wenn",
+      "tradeoff": "Preis dafür"
+    },
+    "rows": [
+      {
+        "model": "Kommerzielle API (OpenAI, Anthropic, Google, Mistral, Groq)",
+        "data": "Beim Anbieter",
+        "fit": "Modellqualität und -auswahl den Ausschlag geben",
+        "tradeoff": "Vertragliche und datenschutzrechtliche Prüfung je Anbieter"
+      },
+      {
+        "model": "In der EU gehosteter Anbieter",
+        "data": "Beim Anbieter, in der EU",
+        "fit": "Der Verarbeitungsort vorgegeben ist",
+        "tradeoff": "Kleinere Modellauswahl"
+      },
+      {
+        "model": "Azure OpenAI oder OpenAI-kompatibler Endpunkt",
+        "data": "In Ihrem Cloud-Konto",
+        "fit": "Ein Rahmenvertrag bereits besteht",
+        "tradeoff": "Bindung an die Plattform"
+      },
+      {
+        "model": "Selbst gehostet (Ollama, vLLM, LocalAI)",
+        "data": "In Ihrer Infrastruktur",
+        "fit": "Daten das Netz nicht verlassen dürfen",
+        "tradeoff": "Eigener Betrieb, eigene Hardware, eigene Modellpflege"
+      },
+      {
+        "model": "Gemischt",
+        "data": "Je Konfiguration unterschiedlich",
+        "fit": "Sensible und unkritische Fälle sich unterscheiden",
+        "tradeoff": "Mehr Konfiguration, mehr Erklärungsbedarf"
+      }
+    ]
+  },
+  "cost": {
+    "heading": "Kostenkontrolle",
+    "intro": "Was die Extension tatsächlich gegen Kosten tut. Eine Einsparungszahl steht hier nicht – die hinge von Mengengerüsten ab, die wir nicht kennen.",
+    "items": [
+      {
+        "title": "Budgetarten",
+        "body": "Anfragen, Tokens oder geschätzte Kosten. Jede Größe lässt sich täglich oder monatlich je Backend-Nutzer begrenzen."
+      },
+      {
+        "title": "Kosten je Modell und Service",
+        "body": "Die Nutzungsauswertung schlüsselt die geschätzten Kosten nach Provider, Modell, Service und Nutzer über ein gleitendes Fenster auf."
+      },
+      {
+        "title": "Was am Limit passiert",
+        "body": "Die Anfrage wird mit einer typisierten BudgetExceededException abgelehnt. Wie das dargestellt wird, entscheidet die aufrufende Extension."
+      },
+      {
+        "title": "Rückfall auf etwas Günstigeres",
+        "body": "Eine Konfiguration kann Rückfälle benennen – ein kleineres Modell oder einen selbst gehosteten Endpunkt ohne Kosten je Token."
+      },
+      {
+        "title": "Wie geschätzt wird",
+        "body": "Aus den im Backend hinterlegten Preisen je Modell, angewendet auf die Token-Zahlen, die der Provider zurückmeldet. Eine Schätzung, nicht die Rechnung des Anbieters."
+      }
+    ]
+  },
+  "scenarios": {
+    "heading": "Drei Wege, es zu evaluieren",
+    "intro": "Jeder klein genug, um ihn zu beenden, und konkret genug, um ihn zu bewerten.",
+    "items": [
+      {
+        "title": "Zentral gesteuerte Übersetzung",
+        "body": "Einen Provider konfigurieren, der Redaktionsgruppe die Übersetzungsfähigkeit geben, ein Monatsbudget setzen, einen Seitenbaum übersetzen. Danach ist sichtbar, wer was mit welchem Modell zu welchen geschätzten Kosten übersetzt hat.",
+        "checks": "Prüft: Provider-Konfiguration, Berechtigungen, Budgets, Auswertung."
+      },
+      {
+        "title": "Alternativtexte für Bilder",
+        "body": "Eine Konfiguration auf ein Modell mit Bildverständnis zeigen lassen und Alternativtexte für einen Medienordner erzeugen. Ein kommerzielles Modell und ein selbst gehostetes an denselben Bildern vergleichen.",
+        "checks": "Prüft: Vision-Service, Anbieterwechsel, Ergebnisqualität an eigenen Daten."
+      },
+      {
+        "title": "Redaktionelle Recherche mit Quellenangabe",
+        "body": "Die Retrieval-Werkzeuggruppe aktivieren und Fragen zu eigenen Seiteninhalten stellen. Prüfen, ob jede Antwort die Seiten benennt, aus denen sie stammt.",
+        "checks": "Prüft: Retrieval, Werkzeuggruppen, Quellenangabe – und ob die Antworten für Ihre Redaktion gut genug sind."
+      }
+    ]
+  },
+  "capabilityCard": {
+    "heading": "KI-Faktenkarte",
+    "intro": "Auf jedem KI-Produkt von Netresearch dieselben Felder – damit sie vergleichbar sind und nicht nur beeindruckend.",
+    "labels": {
+      "intended_purpose": "Vorgesehener Zweck",
+      "excluded_uses": "Ausdrücklich nicht dafür",
+      "stage": "Reifegrad",
+      "models": "Modelle und Anbieter",
+      "data": "Verarbeitete Daten",
+      "processing_location": "Verarbeitungsort",
+      "human_oversight": "Menschliche Aufsicht",
+      "permissions": "Berechtigungen",
+      "logging": "Protokollierung",
+      "retention": "Aufbewahrung",
+      "cost_control": "Kostenkontrolle",
+      "security_controls": "Sicherheitskontrollen",
+      "known_limitations": "Bekannte Grenzen",
+      "last_verified": "Zuletzt geprüft"
+    },
+    "locations": {
+      "browser": "Im Browser",
+      "own-server": "Eigener Server",
+      "external-provider": "Externer Anbieter"
+    }
+  },
+  "ctaBand": {
+    "heading": "Sie prüfen KI in TYPO3?",
+    "body": "Wir gehen mit Ihnen durch, welche Fähigkeiten Sie brauchen, welches Betriebsmodell zu Ihren Vorgaben passt und wie ein erster kontrollierter Schritt aussieht.",
+    "business": "LLM-Governance in TYPO3 evaluieren",
+    "technical": "Dokumentation lesen",
+    "technicalHref": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Index.rst"
   }
 }

@@ -8,6 +8,39 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **One contract every provider adapter answers to** (ADR-160).
+  `AbstractAdapterContractTestCase` fixes the identifier, the capability
+  declaration, error normalisation per exception type, refusing to send without
+  a credential, timeout behaviour, usage reporting and — where declared — the
+  tool-call and structured-output request shapes, for all seven adapters. A
+  capability an adapter does not have is skipped **by name**, so a reader of the
+  run can tell "cannot" from "not tested". Three deviation hooks
+  (`expectedServerErrorException()`, `retriesTransportFailures()`,
+  `requiresApiKey()`) carry the differences that are real — the first two
+  because `OpenRouterProvider` sends through its own request path, the third
+  because a local Ollama authenticates nothing; overriding one is where that
+  deviation is now written down. The suite lives in the `unit` testsuite
+  deliberately — no CI job runs the `integration` one.
+
+- **Capability provenance on `tx_nrllm_model`** (ADR-160). Three columns —
+  `capabilities_discovered`, `capabilities_confirmed_at`, `capabilities_source`
+  — record what the last provider discovery reported, when, and whether the
+  capability tokens came from the provider's own response or from the bundled
+  static catalog. Per-capability attribution is
+  derived by comparing the declared set against the discovered one, so a
+  capability only an operator ticked is attributed to the operator and a record
+  written before provenance reads back as unconfirmed. The model backend module
+  renders it: a warning badge and a tooltip naming the source for anything the
+  provider never confirmed, a "last confirmed" line per row, and a "Confirm
+  capabilities" row action that runs discovery and records the answer.
+  `CapabilitySource::Catalog` is kept distinct from `Discovery` — a substituted
+  catalog is an assumption, not a confirmation — and it follows the capability
+  tokens rather than the model list, so OpenAI, Anthropic and Groq confirm as
+  `Catalog` even against a reachable API: their model endpoints list ids and no
+  capabilities, so the tokens are the bundled catalog on a live run too.
+  Routing does not read provenance: gating eligibility on it would silently
+  drop hand-declared models.
+
 - A side-effecting tool that cannot be fenced is refused before it runs
   (`WriteWithoutDurableExecutionException`, ADR-141). The fencing hook is
   installed unconditionally now; a segment holding no persisted run or no lease
@@ -111,6 +144,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `PlansOneEditorialWriteTrait`. `WritesThroughDataHandlerTrait`, which carries
     what all five writers share, does not grow, and the two shipped writers are
     not touched.
+
+- **A deprecation and removal policy, half of it enforced**
+  (`Documentation/Api/Deprecation.rst`). From 1.0 a public removal needs a
+  deprecation that ships in a minor and survives at least one further minor
+  line, and it needs a written migration. The page says which half is a gate
+  and which is a review duty rather than implying both: the snapshot test makes
+  a removal impossible to land unread, and the new
+  `Tests/Unit/Api/DeprecationInventoryTest` binds the inventory to the
+  `@deprecated` docblocks in both directions — no deprecated `@api` member
+  without a row whose "Use instead" cell names a replacement, no row for
+  something the code no longer deprecates. All five declaration shapes count:
+  method, constant, public property, enum case and the type itself.
+  The notice period itself is *not* enforced and the page says so: nothing here
+  knows in which release a docblock tag first appeared.
+
+- **A support matrix that cannot drift** (`Documentation/Api/SupportMatrix.rst`)
+  — TYPO3 13.4 LTS and 14.3 LTS, PHP 8.2–8.5, with the end of each upstream
+  line. `VersionConsistencyTest` gains three assertions that pin its declared
+  literals against `composer.json`, `ext_emconf.php` and the union of every
+  matrix in `.github/workflows/ci.yml`, the same way it already pins the
+  release-version surfaces against each other.
+
+- **ADR-159 answers ADR-090's re-evaluation** at the API freeze, against the
+  code rather than in principle: the core seam is enforced (`ModuleSeamTest`)
+  but no consumer has asked for a subset; the agent runtime adds zero composer
+  packages, so "heavy dependencies" is retired as a split argument; MCP is 10 of
+  658 files and already inert without configured servers; and every recent minor
+  touched a dozen module directories at once, so there is no independent cadence
+  to separate. Outcome: one extension through 1.0, re-evaluated at the first
+  minor after it. ADR-090 carries the matching `:Amended:` backlink.
 
 ### Changed
 
@@ -221,8 +284,62 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `Skill` gains `getDataClass()` / `getDataClassEnum()` on the `@api` surface.
 
+- **The `@api` snapshot records constructors, and classifies its own failure.**
+  `Tests/Unit/Api/api-surface.txt` held no constructor at all, so a new required
+  constructor argument on an `@api` class passed the gate in silence. It now
+  renders a `constructor(...)` line for every `@api` class that has a public
+  constructor — its own, or one inherited from a base inside
+  `Netresearch\NrLlm` (70 lines on 97 classes, nothing removed or changed).
+  Six of those come from a base rather than the class itself: the four
+  `Specialized` image/speech services, which inherit a twelve-argument
+  constructor from `AbstractSpecializedService`, and the two empty
+  `ProviderResponseException` subclasses. A declared-only rule would have left
+  those six blind — `new` binds to the inherited signature, so a required
+  argument added to the base moves nothing in the snapshot. A constructor
+  inherited from **outside** the repository (TYPO3 core's `AbstractEntity`,
+  `\RuntimeException`) stays out: it is not ours and differs between the 13.4
+  and 14.x legs. Service constructors are included even though `Stability.rst`
+  puts them out of the caller contract: no mechanical rule separates a value
+  object built with `new` from a service that is only ever injected, and
+  recording none of them is what let the break through.
+
+  The rendering moved to `Tests/Unit/Api/Support/ApiSurfaceRenderer` so it can be
+  exercised against fixture classes — a snapshot can only ever show that today
+  equals yesterday, never that a given break would be caught, and
+  `ApiSurfaceRendererTest` now checks that claim. The mismatch message is
+  produced by `ApiSurfaceDiff`, which matches members by name and reports
+  *additive* (regenerate and note it) separately from *breaking* (removed or
+  changed — decide first, then follow the deprecation policy). A changed
+  signature is not automatically a break and the message says so: an added
+  optional parameter breaks no caller, an added required one breaks every
+  call, and the rendering marks optional parameters with ` = …`.
 
 ### Fixed
+
+- **`OllamaProvider` denied a capability it has.** It implements
+  `ToolCapableInterface` and `supportsTools()` returns true, but `tools` was
+  missing from its declared feature list — so the service layer's `instanceof`
+  gate let a tool call through while
+  `LlmServiceManager::supportsFeature('tools', 'ollama')` denied the same
+  capability to whoever asked. Found by the adapter-contract suite (ADR-160).
+  `supportsFeature('tools', 'ollama')` now returns true.
+
+- **A transport failure escaped `OpenRouterProvider` untyped.** Its private
+  request path — needed for the attribution headers and the 402 mapping — did
+  not go through `AbstractProvider::sendRequest()`, so a connection refusal or
+  a cURL timeout left the adapter as a raw PSR-18 exception and reached the
+  caller as an unhandled 500. It is now a `ProviderConnectionException`, like
+  the unparseable-body case beside it. Found by the adapter-contract suite
+  (ADR-160).
+
+- **An unconfigured `OpenRouterProvider` sent a keyless request.** The same
+  private request path never called `validateConfiguration()`, so an OpenRouter
+  with no vault key fell through to the api-key-less HTTP client and the
+  operator saw the provider's 401 instead of a `ProviderConfigurationException`
+  naming the misconfiguration. `chatCompletion()`, `chatCompletionWithTools()`,
+  `embeddings()` and `analyzeImage()` now refuse before building a request, as
+  `streamChatCompletion()` already did. Found by the adapter-contract suite
+  (ADR-160).
 
 - **A criteria-mode configuration was sized against the wrong context window**
   (ADR-143). `ContextWindowManager` read the window from
