@@ -496,6 +496,14 @@ Because the tool declares a write, the run suspends before it touches anything
 and the change appears on an approval card with its preview — the editor is
 redirected straight to that inbox. Nothing is written until someone approves.
 
+The record an action is offered on is the record its arguments name, which is
+not always the record it writes: :guilabel:`Create content element draft` is
+offered on a **page**, because the page is what it must be told, and the
+element it creates is the result. Where an action needs something the selected
+record cannot supply — :guilabel:`Move content element` needs a target page —
+the editor names it in the note, and the approval card shows the destination
+that was resolved from it.
+
 Files have no context-menu entry yet: the file list identifies a file by its
 combined identifier rather than by uid, so :guilabel:`Set alternative text` is
 listed in the catalogue but has no per-record entry point.

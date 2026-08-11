@@ -989,7 +989,7 @@
                 <source>Move content element</source>
             </trans-unit>
             <trans-unit id="editorAction.move_content_element.description">
-                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
+                <source>Moves one content element to another page and column. Name the target page in the note — the element itself does not name a destination. Nothing is created and nothing is deleted.</source>
             </trans-unit>
             <trans-unit id="editorAction.create_content_element_draft.label">
                 <source>Create content element draft</source>

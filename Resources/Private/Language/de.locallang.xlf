@@ -1307,8 +1307,8 @@
                 <target>Inhaltselement verschieben</target>
             </trans-unit>
             <trans-unit id="editorAction.move_content_element.description">
-                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
-                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Es wird nichts angelegt und nichts gelöscht.</target>
+                <source>Moves one content element to another page and column. Name the target page in the note — the element itself does not name a destination. Nothing is created and nothing is deleted.</source>
+                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Die Zielseite gehört in die Notiz — das Element selbst nennt kein Ziel. Es wird nichts angelegt und nichts gelöscht.</target>
             </trans-unit>
             <trans-unit id="editorAction.create_content_element_draft.label">
                 <source>Create content element draft</source>
