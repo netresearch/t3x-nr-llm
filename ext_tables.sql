@@ -75,6 +75,15 @@ CREATE TABLE tx_nrllm_model (
     -- Capabilities (comma-separated: chat,completion,embeddings,vision,streaming,tools)
     capabilities varchar(255) DEFAULT '' NOT NULL,
 
+    -- Capability provenance (ADR-160): what the last provider discovery
+    -- reported, when, and whether that answer was live or the bundled static
+    -- catalog. A capability declared above but absent here is the operator's
+    -- own claim; capabilities_confirmed_at = 0 means nothing ever confirmed
+    -- any of them.
+    capabilities_discovered varchar(255) DEFAULT '' NOT NULL,
+    capabilities_confirmed_at int(11) unsigned DEFAULT '0' NOT NULL,
+    capabilities_source varchar(20) DEFAULT '' NOT NULL,
+
     -- Default timeout for LLM inference (seconds, 0 = provider default)
     default_timeout int(11) DEFAULT '120' NOT NULL,
 
@@ -123,6 +132,13 @@ CREATE TABLE tx_nrllm_configuration (
     -- Translation service
     translator varchar(50) DEFAULT '' NOT NULL,
     system_prompt mediumtext,
+
+    -- Operator-declared sensitivity ceiling for system_prompt (ADR-155), a
+    -- ToolDataClass value on the same scale snippets and skills use. Declared
+    -- here rather than refused per record: what a criteria-mode configuration
+    -- may resolve to depends on it. EMPTY means undeclared and constrains
+    -- nothing, so every existing row keeps reaching the providers it reached.
+    system_prompt_data_class varchar(32) DEFAULT '' NOT NULL,
 
     -- Model parameters
     temperature decimal(3,2) DEFAULT '0.70' NOT NULL,

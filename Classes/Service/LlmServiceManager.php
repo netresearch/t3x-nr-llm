@@ -201,9 +201,13 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * carries a declared class — which is every installation that has not
      * classified anything.
      *
+     * `$operation` is the one the call will run under. It is threaded through
+     * so the model this gate judges is the model the terminal will resolve
+     * (ADR-138: two resolutions of one call pass the same operation).
+     *
      * @param array<string, mixed> $metadata
      */
-    private function assertContextPermitted(LlmConfiguration $configuration, array $metadata): void
+    private function assertContextPermitted(LlmConfiguration $configuration, array $metadata, ProviderOperation $operation): void
     {
         if (!$this->inputContextGate instanceof InputContextTrustGate) {
             return;
@@ -211,7 +215,53 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
         $beUser = $metadata['beUser'] ?? 0;
 
-        $this->inputContextGate->assertPermitted($configuration, is_int($beUser) ? $beUser : 0);
+        $this->inputContextGate->assertPermitted(
+            $configuration,
+            is_int($beUser) ? $beUser : 0,
+            $this->servingModelForGate($configuration, $operation),
+        );
+    }
+
+    /**
+     * The model the gate should read the trust zone from (ADR-149).
+     *
+     * Only criteria mode asks anything of routing. In fixed mode the answer is
+     * already the configuration's own relation — `getProvider()` reads through
+     * it — so resolving would cost a call to return what the gate would have
+     * used anyway, and skipping it keeps fixed-mode behaviour structurally
+     * unchanged rather than incidentally so.
+     *
+     * A routing failure is not a context failure. Criteria that match nothing,
+     * or match only models that cannot serve this operation, throw here — and
+     * that exception belongs to the dispatch that follows, which resolves again
+     * and raises it with its own semantics. Swallowing it leaves the gate with
+     * no serving provider, which is the honest, fail-closed `EXTERNAL_GLOBAL`
+     * this path already answered before the model was threaded in.
+     */
+    private function servingModelForGate(LlmConfiguration $configuration, ProviderOperation $operation): ?Model
+    {
+        if (!$configuration->usesCriteriaSelection()) {
+            return null;
+        }
+
+        try {
+            return $this->planner->resolveModel($configuration, $operation);
+        } catch (Throwable $e) {
+            // Swallowed on purpose, logged on purpose: the gate degrades to the
+            // fail-closed zone, and an operator seeing a trust-zone refusal
+            // needs to be able to tell "routing picked an external model" from
+            // "routing threw and we assumed the worst".
+            $this->logger?->warning(
+                'Could not resolve the serving model for the input-context gate; falling back to the least trusted zone',
+                [
+                    'configuration' => $configuration->getIdentifier(),
+                    'operation'     => $operation->value,
+                    'exception'     => $e::class,
+                ],
+            );
+
+            return null;
+        }
     }
 
     /**
@@ -1122,7 +1172,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // rather than in each terminal because it is a property of the
         // configuration, not of the payload, and every configuration-driven
         // operation runs through this pipeline.
-        $this->assertContextPermitted($configuration, $metadata);
+        $this->assertContextPermitted($configuration, $metadata, $operation);
 
         return $this->pipeline->run(
             ProviderCallContext::forConfiguration($operation, $configuration, $metadata),
@@ -1266,7 +1316,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // Streaming does not run through runThroughPipeline(), so the gate is
         // applied here — at call time, before a stream can open, matching how
         // the input guardrails already behave on this path (ADR-087).
-        $this->assertContextPermitted($configuration, $metadata);
+        $this->assertContextPermitted($configuration, $metadata, ProviderOperation::Stream);
 
         $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
 

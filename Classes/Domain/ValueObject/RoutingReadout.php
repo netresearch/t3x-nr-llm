@@ -38,6 +38,8 @@ final readonly class RoutingReadout
      * @param Model|null           $namedModel                   fixed mode only: the model the operator named,
      *                                                           null when the configuration names none
      * @param RoutingDecision|null $decision                     criteria mode only
+     * @param bool|null            $operationSelected            criteria mode only: whether the readout was asked
+     *                                                           about an operation at all
      * @param ModelCapability|null $requiredCapability           criteria mode only: what the operation the readout
      *                                                           was asked about needs a model to declare, null when
      *                                                           it constrains nothing (ADR-138)
@@ -51,6 +53,7 @@ final readonly class RoutingReadout
         public bool $fixed,
         public ?Model $namedModel,
         public ?RoutingDecision $decision,
+        public ?bool $operationSelected,
         public ?ModelCapability $requiredCapability,
         public ?bool $operationCapabilityEnforcing,
         public ?bool $modeOverridden,
@@ -58,16 +61,24 @@ final readonly class RoutingReadout
 
     public static function fixed(?Model $namedModel): self
     {
-        return new self(true, $namedModel, null, null, null, null);
+        return new self(true, $namedModel, null, null, null, null, null);
     }
 
+    /**
+     * `$operationSelected` is carried separately from `$requiredCapability`
+     * because a null capability has two causes and they read differently: no
+     * operation was named, or the named one maps to no capability (ADR-138).
+     * Collapsing them would make the page report on an operation the operator
+     * never chose.
+     */
     public static function decided(
         RoutingDecision $decision,
+        bool $operationSelected,
         ?ModelCapability $requiredCapability,
         bool $operationCapabilityEnforcing,
         bool $modeOverridden,
     ): self {
-        return new self(false, null, $decision, $requiredCapability, $operationCapabilityEnforcing, $modeOverridden);
+        return new self(false, null, $decision, $operationSelected, $requiredCapability, $operationCapabilityEnforcing, $modeOverridden);
     }
 
     /**

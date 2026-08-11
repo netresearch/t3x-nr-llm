@@ -126,6 +126,7 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
                 $this->constrainedCriteria($configuration->getModelSelectionCriteriaArray(), $capability, $enforcing),
                 $policyMode,
             ),
+            $operation instanceof ProviderOperation,
             $capability,
             $enforcing,
             $policyMode instanceof RoutingPolicyMode,
