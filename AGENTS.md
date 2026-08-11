@@ -269,15 +269,24 @@ Prefer looking at real code in this repo over inventing new patterns. Canonical 
   block under the matching heading. `composer ci:test:changelog` (pre-commit,
   and its own CI job) refuses the repeated result.
 
-- **A workflow action must be pinned to a commit SHA.** This repository and the
-  `netresearch` organisation both set `sha_pinning_required`, and a tag ref does
-  not fail like a normal check: the run dies at `Set up job` before any step
-  executes, so the log shows no step output. On 2026-08-11 two tag refs turned
-  six checks red at once — `Set up job`, zizmor, Opengrep, CodeQL, SonarCloud
-  and the aggregate security gate — all naming the same two lines.
-  `composer ci:test:workflows` (pre-commit) catches it before the push; CI's
-  zizmor catches it after. `netresearch/*` reusable workflows stay at `@main` on
-  purpose and are exempt.
+- **This repository defines no workflow jobs of its own.** Every workflow calls
+  a shared `netresearch/*` reusable workflow, so action pinning, runner
+  hardening and security review happen once there — for all thirty callers. The
+  single exception is the aggregate `gate` job in `checks.yml`, which evaluates
+  the other jobs' results and therefore cannot be a reusable-workflow call.
+
+  A **repo-specific check** goes in the shared workflow's `repo-checks` job, not
+  in a job here: set `run-repo-checks: true` in `ci.yml` and add the command to
+  the `ci:test:repo` composer script. That script is also what pre-commit runs,
+  so the local and CI halves are the same command.
+
+  Why this is a rule and not a preference: a local job carries its own action
+  pins, and a wrong pin does not fail like a normal check. Repo and org both set
+  `sha_pinning_required`, so a tag ref kills the run at `Set up job` — before any
+  step executes, so the log has no step output — and zizmor, Opengrep, CodeQL
+  and SonarCloud then each flag the same lines. On 2026-08-11 that was six red
+  checks for one mistake, none of them naming the cause.
+  `composer ci:test:workflows` (pre-commit) refuses a job with local steps.
 
 - **A fresh worktree needs its own dependency resolution.** `.Build/` is not
   tracked, so a new worktree has none; copying it from `main/.Build` is the usual
