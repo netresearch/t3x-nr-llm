@@ -278,9 +278,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The gate does not resolve anything itself. Reaching routing from a
     governance check would let the check decide which model serves a call.
   - A routing failure is not a context failure: with no serving model there is
-    no serving provider, `EXTERNAL_GLOBAL` stands — the same answer as before,
-    so nothing is newly refused — and the routing error is raised by the
-    dispatch that follows.
+    no serving provider, `EXTERNAL_GLOBAL` stands — the same answer this path
+    gave before — and the routing error is raised by the dispatch that follows.
+  - One shape does newly refuse. A criteria-mode record that still carries a
+    `model_uid` from an earlier fixed-mode edit was judged against that stale
+    relation; it is now judged against the model the criteria select. Where the
+    stale relation is local and the criteria select an external model, a send
+    that was permitted throws. The TCA `displayCond` hides that column in
+    criteria mode, it does not clear it, and nothing else clears it either.
   - Fixed mode is unchanged and asks routing nothing: its provider IS the
     model's provider, so a resolution there could only return what the gate
     already had.
