@@ -267,6 +267,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   construction keeps its exact previous behaviour — a null context window means
   "bounded by the provider", which is what these paths did.
 
+- **A criteria-mode configuration is judged against the model that will serve
+  the call, not against a provider relation it does not have** (ADR-149, closes
+  #723). The input-context trust gate read the zone through
+  `LlmConfiguration::getProvider()`, which reads through the model relation a
+  criteria-mode record leaves empty — so every such configuration answered
+  `EXTERNAL_GLOBAL` and could not carry a classified snippet, however local the
+  model routing actually picked. The resolved model is now threaded in from
+  `LlmServiceManager`, which already knows the operation.
+  - The gate does not resolve anything itself. Reaching routing from a
+    governance check would let the check decide which model serves a call.
+  - A routing failure is not a context failure: with no serving model there is
+    no serving provider, `EXTERNAL_GLOBAL` stands — the same answer as before,
+    so nothing is newly refused — and the routing error is raised by the
+    dispatch that follows.
+  - Fixed mode is unchanged and asks routing nothing: its provider IS the
+    model's provider, so a resolution there could only return what the gate
+    already had.
+  - The fallback hops keep reading their own relations. A criteria-mode
+    fallback still contributes `EXTERNAL_GLOBAL`, because resolving per hop
+    would run the routing decision once for every entry of a chain that may
+    never be walked.
+  - The `context_blocked` audit row now names the provider and model the zone
+    was read from, instead of the empty relation.
+
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
 rather than at the code: a backend module that told an administrator nothing
