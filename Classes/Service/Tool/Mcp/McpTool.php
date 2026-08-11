@@ -84,13 +84,22 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         try {
-            return ToolResult::text($this->client->callTool($this->server, $this->record->remoteName, $arguments));
+            $outcome = $this->client->callTool($this->server, $this->record->remoteName, $arguments);
+
+            // The two ways a remote call fails end the same way (ADR-161). The
+            // server being unreachable is the loud one; `isError` on an
+            // otherwise successful response is the ordinary one, and it is the
+            // one a working server uses. Persisting it as a successful step
+            // whose content reads like an error is the same defect either way.
+            return $outcome->isError
+                ? ToolResult::error($outcome->text)
+                : ToolResult::text($outcome->text);
         } catch (McpTransportException $e) {
             // Returned rather than thrown: a server that is down is a fact
             // about this call, not a fault in the run. The loop can carry on
             // and the model is told plainly what failed. The message is already
             // bounded and control-stripped by the exception itself.
-            return ToolResult::text($e->getMessage());
+            return ToolResult::error($e->getMessage());
         }
     }
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\McpImportReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
@@ -20,6 +21,7 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpToolNameMapper;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolProvider;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolRepository;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
@@ -323,6 +325,57 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
 
         self::assertSame([], (new ToolRegistry([], [$provider]))->names());
+    }
+
+    /**
+     * DATA CLASSIFICATION at the seam that resolves it (ADR-161).
+     *
+     * The class the gate compares comes off the server row the operator
+     * declared. A server writing a contrary claim into its own annotations
+     * changes nothing: the annotations are stored verbatim for display and read
+     * by no resolver. Asserted here rather than in the conformance pack because
+     * that pack constructs an {@see McpTool} directly — it can pin what the tool
+     * declares, not what turns a row into that declaration.
+     */
+    #[Test]
+    public function theServerRowDecidesTheDataClassNotTheToolsOwnAnnotations(): void
+    {
+        $server = $this->insertServer(['data_class' => 'internalConfiguration']);
+        $this->importer($this->advertising(
+            $this->tool('read') + ['annotations' => ['readOnlyHint' => true, 'dataClass' => 'publicContent']],
+        ))->import($server);
+
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+        $resolver = new ToolDataClassResolver(new ToolRegistry([], [$provider]));
+
+        self::assertStringContainsString(
+            'publicContent',
+            $this->catalogue->findLiveByServer($server->uid)[0]->remoteAnnotations,
+            "the server's claim is stored, so the assertion below is about it being ignored",
+        );
+        self::assertSame(ToolDataClass::INTERNAL_CONFIGURATION, $resolver->classFor('mcp_srv_read'));
+    }
+
+    /**
+     * INVALID SCHEMA at the other end of the same rule (ADR-161): a stored
+     * schema that no longer decodes to a JSON object yields no callable tool.
+     * The catalogue row survives so an operator can see it; the registry gets
+     * nothing, because inventing an empty schema would advertise a signature
+     * the remote tool does not have.
+     */
+    #[Test]
+    public function aStoredSchemaThatIsNoLongerAnObjectYieldsNoCallableTool(): void
+    {
+        $server = $this->insertServer();
+        $this->importer($this->advertising($this->tool('read')))->import($server);
+
+        $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool')
+            ->update('tx_nrllm_mcp_tool', ['input_schema' => '[]'], ['server' => $server->uid]);
+
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+
+        self::assertSame([], (new ToolRegistry([], [$provider]))->names());
+        self::assertCount(1, $this->catalogue->findLiveByServer($server->uid), 'the row stays visible to the operator');
     }
 
     private function createClient(): McpClient
