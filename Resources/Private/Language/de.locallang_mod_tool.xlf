@@ -102,6 +102,14 @@
                 <source>All tools of this group are refused; per-tool toggles have no effect while the group is disabled.</source>
                 <target>Alle Werkzeuge dieser Gruppe werden abgelehnt; Einzelschalter haben keine Wirkung, solange die Gruppe deaktiviert ist.</target>
             </trans-unit>
+            <trans-unit id="manage.action.appliesTo">
+                <source>Applies to</source>
+                <target>Betrifft</target>
+            </trans-unit>
+            <trans-unit id="manage.action.editorAction">
+                <source>Editor action</source>
+                <target>Redaktionelle Aktion</target>
+            </trans-unit>
             <trans-unit id="playground.help.title">
                 <source>How to add a tool</source>
                 <target>Ein Tool hinzufügen</target>

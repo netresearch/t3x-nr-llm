@@ -63,6 +63,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
@@ -903,6 +904,95 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertFalse($payload['success']);
     }
 
+    /**
+     * ADR-150: the input pause is bound by the INPUT digest, and the value this
+     * surface emits is computed from the IN-MEMORY state while the runtime
+     * recomputes it from the JSON round-tripped row. Posting the emitted digest
+     * straight back is what pins those two against each other — if they ever
+     * diverge, no submission from this surface could succeed again.
+     */
+    #[Test]
+    public function runActionEmitsTheInputTurnDigestAndASubmissionEchoingItResumes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new FakeInputTool('fetch_logs'));
+
+        $response = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame('awaiting_input', $payload['status']);
+        $uuid = $payload['runUuid'];
+        self::assertIsString($uuid);
+        $digest = $payload['turnDigest'];
+        self::assertIsString($digest);
+
+        // The binding covers the target tool and the declared schema on top of
+        // the pending calls, so the APPROVAL digest over the very same stored
+        // state is a different value — the payload must not emit that one.
+        $stored = $this->storedSuspendedState($uuid);
+        self::assertSame((new PendingTurnDigest())->forInputState($stored), $digest);
+        self::assertNotSame((new PendingTurnDigest())->forState($stored), $digest);
+
+        $resumed = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+                ->withParsedBody(['runUuid' => $uuid, 'input' => ['city' => 'Berlin'], 'turnDigest' => $digest]),
+        );
+
+        self::assertSame(200, $resumed->getStatusCode());
+        $continued = json_decode((string)$resumed->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($continued);
+        self::assertTrue($continued['success']);
+        self::assertSame('Here are your recent logs.', $continued['finalContent']);
+    }
+
+    /**
+     * The input twin of
+     * {@see self::resumeActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForApproval()}:
+     * a submission naming a turn that is not the pending one is refused after
+     * the claim, and the run is handed back so the CURRENT form can be
+     * re-opened.
+     */
+    #[Test]
+    public function submitInputActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForInput(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new FakeInputTool('fetch_logs'));
+
+        $run = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        );
+        $payload = json_decode((string)$run->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        $uuid = $payload['runUuid'];
+        self::assertIsString($uuid);
+
+        $response = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+                ->withParsedBody(['runUuid' => $uuid, 'input' => ['city' => 'Berlin'], 'turnDigest' => 'a-digest-of-some-other-turn']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $refusal = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($refusal);
+        self::assertFalse($refusal['success']);
+        // Re-signals the pause so the client re-fetches the current form.
+        self::assertSame('awaiting_input', $refusal['status']);
+
+        $stored = $this->agentRunPersister()->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $stored);
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $stored->statusEnum());
+        self::assertNotNull($stored->suspendedState);
+        self::assertSame(0, $stored->finishedAt, 'a refused submission never settles the run');
+    }
+
     #[Test]
     public function resumeActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForApproval(): void
     {
@@ -1209,6 +1299,36 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $handle->uuid,
             (new PendingTurnDigest())->forState($state),
         ];
+    }
+
+    /**
+     * A persister over the real database, for reading back the row a controller
+     * action wrote through its own (identically wired) one.
+     */
+    private function agentRunPersister(): AgentRunPersister
+    {
+        return new AgentRunPersister(
+            new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)),
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            new NullLogger(),
+        );
+    }
+
+    /**
+     * The suspended state as it came back OUT of the row — the same JSON round
+     * trip the runtime's own digest is computed over.
+     */
+    private function storedSuspendedState(string $uuid): SuspendedRunState
+    {
+        $run = $this->agentRunPersister()->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertNotNull($run->suspendedState);
+
+        $decoded = json_decode($run->suspendedState, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        /** @var array<string, mixed> $decoded */
+
+        return SuspendedRunState::fromArray($decoded);
     }
 
     private function assertRunIsDecidableAgain(AgentRunPersister $persister, string $uuid): void

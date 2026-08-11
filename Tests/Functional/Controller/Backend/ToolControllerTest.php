@@ -16,6 +16,8 @@ use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -150,6 +152,75 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('js-toolgroup-toggle', $body);
         self::assertStringContainsString('data-group="alpha"', $body);
         self::assertStringContainsString('data-group="beta"', $body);
+    }
+
+    /**
+     * The declaration ADR-152 introduces is only worth having if the module
+     * renders it, so this asserts the rendered HTML rather than the state array:
+     * the translated action name and group name instead of a wire identifier,
+     * the human sentence instead of the model-facing description, and the
+     * applicable record type.
+     */
+    #[Test]
+    public function listActionRendersADeclaredEditorActionInsteadOfItsWireName(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $controller = $this->makeController(new ToolRegistry([new FakeEditorActionTool('write_tool')]));
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string)$controller->listAction()->getBody();
+
+        // The group header carries the curated group's translated name.
+        self::assertStringContainsString('Editing', $body);
+        // The action's own name and human sentence, both from the catalogue.
+        self::assertStringContainsString('Update page metadata', $body);
+        self::assertStringContainsString('Sets descriptive text fields on one page', $body);
+        // The record type it applies to, and the icon that illustrates it.
+        // Both markup-anchored: a bare "pages" also occurs in the module chrome,
+        // and would pass with the record-type list removed.
+        self::assertStringContainsString('<code>pages</code>', $body);
+        self::assertStringContainsString('icon-nrllm-editor-action-page-metadata', $body);
+        // The model-facing description is NOT what an administrator reads here.
+        self::assertStringNotContainsString('model-facing description of write_tool', $body);
+        // The wire name stays VISIBLE as the technical detail — asserted as the
+        // rendered text, not as the toggle's data-tool attribute, which is there
+        // for every tool whether or not the wire name is shown.
+        self::assertStringContainsString('<code>write_tool</code>', $body);
+    }
+
+    /**
+     * A third-party declaration that throws is a rendering defect and stays one
+     * (ADR-152): the module renders, the tool is listed under its wire name and
+     * a sound declaration beside it is still decorated.
+     */
+    #[Test]
+    public function listActionRendersAToolWhoseDeclarationThrowsAsAnUndeclaredOne(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $controller = $this->makeController(new ToolRegistry([
+            new FakeMalformedEditorActionTool('broken_tool'),
+            new FakeEditorActionTool('write_tool'),
+        ]));
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $response = $controller->listAction();
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+
+        // The broken row: wire name and model-facing description, as for any
+        // tool that declares nothing.
+        self::assertStringContainsString('<code>broken_tool</code>', $body);
+        self::assertStringContainsString('model-facing description of broken_tool', $body);
+        self::assertStringContainsString('data-tool="broken_tool"', $body);
+        // The sound declaration beside it is unaffected.
+        self::assertStringContainsString('Update page metadata', $body);
     }
 
     #[Test]

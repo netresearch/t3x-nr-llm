@@ -40,6 +40,7 @@ return [
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.parameters,
                     --palette--;;parameters,
                     system_prompt,
+                    system_prompt_data_class,
                     snippet_tags,
                     skills,
                     options,
@@ -210,6 +211,29 @@ return [
                 'trim' => true,
                 'enableRichtext' => false,
                 'searchable' => false,
+            ],
+        ],
+        // The sensitivity ceiling an operator declares for the system prompt
+        // above (ADR-155), on the same ToolDataClass scale snippets and skills
+        // use. It has a consumer here that a fixed-mode-only reading did not
+        // see: a criteria-mode configuration picks its model at call time, so
+        // the declaration constrains which model it may resolve to. Empty means
+        // UNDECLARED and constrains nothing.
+        'system_prompt_data_class' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt_data_class',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.system_prompt_data_class.description',
+            'config' => [
+                'type' => 'select',
+                'renderType' => 'selectSingle',
+                'items' => [
+                    ['label' => '', 'value' => ''],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.publicContent', 'value' => 'publicContent'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.editorContent', 'value' => 'editorContent'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.sourceCode', 'value' => 'sourceCode'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.internalConfiguration', 'value' => 'internalConfiguration'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.systemDiagnostics', 'value' => 'systemDiagnostics'],
+                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm.tool_data_class.secretAdjacent', 'value' => 'secretAdjacent'],
+                ],
             ],
         ],
         'temperature' => [

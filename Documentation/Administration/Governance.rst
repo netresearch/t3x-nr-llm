@@ -298,6 +298,237 @@ Governance events are purged on ``privacy.retention.governance`` — make
 sure that window is longer than your observation period, or the evidence is
 gone before you read it.
 
+.. _administration-governance-simulator:
+
+Would this be allowed?
+======================
+
+Pick a configuration, a tool and — optionally — a backend user, then press
+:guilabel:`Simulate`. The tab runs that call past the four gates listed below
+and reports one verdict plus each gate's own answer
+(:ref:`ADR-157 <adr-157>`).
+
+The verdict is one of three:
+
+``Allowed``
+   All four gates permit the call and it would run unattended.
+
+``Allowed, after a human approves``
+   All four gates permit the call, and the tool is approval-bound
+   (:ref:`ADR-134 <adr-134>`): the run suspends and waits for a decision
+   before it executes. Folding this into ``Allowed`` would hide the axis at
+   exactly the moment it decides, so it is its own outcome.
+
+``Blocked``
+   At least one of the four refuses. The table says which.
+
+Four gates are asked, each through the service the runtime itself calls:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Gate
+     - What it decides
+     - Depends on the actor?
+   * - Tool gate (:ref:`ADR-094 <adr-094>`)
+     - registered, enabled, permitted, within the configuration's tool groups,
+       within the provider trust zone's data-class ceiling
+     - **Yes** — through the tool's ``requiresAdmin()``
+   * - Input-context gate (:ref:`ADR-144 <adr-144>`)
+     - whether the snippets and skills this configuration injects may reach the
+       trust zone it can send to
+     - No
+   * - Routing (:ref:`ADR-142 <adr-142>`)
+     - whether any model resolves for a tool-calling run at all
+     - No
+   * - Human approval (:ref:`ADR-134 <adr-134>`)
+     - whether the tool is bound to an operator decision
+     - No
+
+**Only one axis is actor-scoped, and the table says so.** Routing reads the
+model catalogue with enable-fields ignored and no user context, the
+input-context gate compares a configuration against a trust zone, and the
+approval requirement is a property of the tool's own declaration. A picker
+that implied four per-user answers where there is one would be worse than no
+picker.
+
+**Three things that can stop a real call are not asked here**, so ``Allowed``
+does not promise them.
+
+Configuration access (:ref:`ADR-070 <adr-070>`) is the one the picker makes
+easy to miss. ``ConfigurationResolver`` refuses a configuration whose backend
+groups the acting user is not a member of. The configuration selector lists
+every active configuration and applies no such filter. So a group-restricted
+configuration paired with a non-member reads ``Allowed`` on this tab and is
+refused at runtime. It is the second axis that reads the user's groups, and it
+is the one the tab does not ask.
+
+The other two are the budget check and the guardrail pipeline. Both decide on
+the call itself — the remaining spend, the text of the prompt — and a picker
+supplies neither.
+
+**The actor picker is not impersonation.** The selected backend user is
+resolved read-only through the same seam a queue worker uses to authorise for
+the user who queued its work (:ref:`ADR-083 <adr-083>`): the uid is looked up,
+the fresh database record supplies the permission surface, and the gates are
+asked. No session is switched, nothing executes as that user, and nothing is
+written. Privilege comes from the record, so the picker cannot grant rights
+the account does not have — and a uid that no longer resolves, because the
+account was deleted or disabled, produces a stated refusal rather than a
+silent fall back to your own rights.
+
+**A simulation is not recorded.** The runtime writes a governance event when
+it *blocks* a call; a simulation blocks nothing, so writing one would put rows
+into the audit for calls that never happened. The trade is deliberate and it
+has a cost: "who checked what, and when" cannot be answered from the audit.
+See :ref:`ADR-157 <adr-157>`.
+
+**Observe mode is visible on both gates.** A configuration the input-context
+gate refuses while ``tools.dataClassEnforcement`` is ``observe`` is reported
+as permitted *and* refused: the send proceeds and the refusal is recorded.
+Reading only "no exception" would have called that allowed.
+
+.. _administration-governance-routing:
+
+Why this model?
+===============
+
+The same tab answers the other question an operator asks about a
+configuration: which model would actually serve a call through it, and why
+not one of the others. Pick a configuration, optionally the operation the
+call runs, optionally a policy mode to try, and press
+:guilabel:`Explain` (:ref:`ADR-148 <adr-148>`).
+
+The answer comes from :php:`Service\\Routing\\RoutingDecisionService` — the
+decision point the runtime itself uses, not a second implementation of the
+ranking. It reports:
+
+- the selected model, and the eligible candidates in the order they were
+  ranked, each with its score and the per-signal values behind it;
+- every refused candidate with the reason it was refused — a missing
+  capability, an excluded adapter type, a context window below the minimum,
+  a cost above the ceiling, or a declared capability set without the one the
+  operation needs;
+- the effective policy mode, and whether the operation-capability axis is
+  enforcing or only observing.
+
+Three things are worth knowing before reading it:
+
+**A fixed-mode configuration is not a decision.** If the configuration names
+its model, nothing is chosen at call time. The tab says so instead of
+presenting the named model as the winner of a one-candidate ranking — there
+are no criteria to debug in that case.
+
+**A signal without data is not a zero.** ``no data`` means nothing was
+measured for that model. It neither promotes nor demotes: the score is the
+weighted mean over the signals that *do* have data
+(:ref:`ADR-142 <adr-142>`). In :guilabel:`Provider priority` mode no signal
+is collected at all, and the ordering falls through to provider priority and
+the established tiebreaks.
+
+**Trying a policy mode changes nothing.** The mode selector evaluates a
+hypothetical for that one page view. ``routing.policyMode`` in the Install
+Tool is not written and not affected — the same read-only rule the rest of
+the tab follows.
+
+Only operations that actually constrain the decision are offered. The others
+map to no required capability, so they would add nothing to the answer.
+Leaving the selector on :guilabel:`No operation` is answered as exactly that —
+the axis was not applied — and not as an operation that requires nothing.
+
+An empty result is reported in two distinguishable ways, because they need
+opposite fixes: :guilabel:`No candidates at all` means the catalogue holds no
+active model, while a populated :guilabel:`Refused, and why` table means the
+criteria and the model records disagree.
+
+.. _administration-governance-routed-calls:
+
+Calls that were routed
+======================
+
+The readout above answers a hypothetical. :guilabel:`Calls that were routed`
+answers the same question about calls that already ran: the last seven days
+of runs whose model was chosen automatically, newest first, twenty at a time
+(:ref:`ADR-156 <adr-156>`).
+
+Each row names when the call ran and against which configuration, which model
+answered it, and the decision behind that: the policy mode, how many
+candidates were considered, which measured signals actually moved the ranking,
+and the distinct reasons that refused the rest.
+
+**Fixed-mode calls are absent, and that is the point.** Nothing was chosen for
+them, so there is no decision to show. If the table is empty on a busy
+installation, the likely reasons are that every configuration names a fixed
+model, or that ``telemetry.enabled`` is off in the Install Tool.
+
+**"Signals used" means the signal moved this decision**, not that the mode
+weighs it and not that the ranking collected it. A ``quality`` decision over a
+catalogue nobody has scored shows no signals used and ranks exactly as
+:guilabel:`Provider priority` would — the weights only apply to signals that
+have data. A signal the mode weighs at zero is not listed either: ``quality``
+weighs cost at zero, so :guilabel:`Prefer Lowest Cost` on a ``quality``
+configuration shows no cost signal, even though it still breaks ties between
+models that scored equally.
+
+**The candidate models are not stored per call.** Which models exist and which
+lost is a catalogue question; read it off the live catalogue with the readout
+above. The row keeps the count and the reason set, which is what varies from
+request to request.
+
+Rows are purged with the rest of the telemetry table by
+``nrllm:telemetry:purge``; a window shorter than your observation period
+deletes the evidence before you read it.
+
+.. _administration-governance-complexity:
+
+The complexity columns are observed, not applied
+================================================
+
+The same rows carry a measurement of how involved each request was: a 0-100
+structural score, the request shape (a single question, a conversation, or a
+tool-assisted transcript), the number of tool schemas on the wire, the payload
+size in bytes, the token estimate and how much of the model's context window it
+filled.
+
+**You see them for routed calls only.** The measurement is taken on every
+configuration-driven send, fixed-mode ones included, but it is stored on the
+telemetry row and the table above shows only rows whose model was chosen
+automatically. An installation with no criteria-mode configuration collects
+these columns and displays none of them; the figures are in
+``tx_nrllm_telemetry`` if you query it directly.
+
+**Nothing routes on any of it.** There is no setting that turns it into a
+routing signal, and none is planned until three things have been shown on real
+traffic: that cheaper models hold for simple requests, that quality does not
+degrade, and that real cost drops by enough to be worth a permanent branch in
+the decision path (:ref:`ADR-156 <adr-156>` states the criteria in full). The
+columns exist so that question can be settled with data rather than opinion.
+
+Two readings need care:
+
+**The score is uncalibrated.** It is three capped terms — conversation turns,
+tool count, context utilisation — chosen to be defensible, not fitted to
+anything. Correlate against it; do not treat it as a threshold.
+
+**"window not measured" is not "empty".** The token and utilisation figures
+come from the context fit (:ref:`ADR-143 <adr-143>`). Where no fit ran they are
+stored as NULL, and the page says so rather than showing a zero nobody
+measured. The byte count is unaffected — it needs no fit — so a row that says
+"window not measured" still tells you how large the send was. A utilisation
+above 100 % is real: it is the overflow case, and it is deliberately not
+clamped.
+
+**A measured 0 % is a measurement.** A short chat against a large window rounds
+to zero, and the page shows ``~N tokens, 0% of the window`` for it rather than
+falling back to "not measured".
+
+**"complexity not measured" replaces the whole cell**, and is a different
+statement from "window not measured". Some calls choose a model without ever
+sending a measurable payload through the context fit — an embeddings
+configuration in criteria mode is the usual one. Its row has a decision to show
+and nothing to measure, so the score, the shape, the tool count and the byte
+count are absent rather than shown as zeros.
+
 .. _administration-governance-no-apply:
 
 Why there is no apply button

@@ -43,6 +43,36 @@
         <span>+ Groq, OpenRouter, Azure OpenAI</span>
       </div>
     </div>
+
+    <dl class="status-facts" aria-label="{{ c.status.heading }}">
+      <div>
+        <dt>{{ c.status.stageLabel }}</dt>
+        <dd><span class="status-pill status-pill--{{ project.stage }}">{{ c.status.stages[project.stage] }}</span></dd>
+      </div>
+      {% if project.latest_release %}
+      <div>
+        <dt>{{ c.status.releaseLabel }}</dt>
+        <dd><a href="{{ project.repository }}/releases/tag/{{ project.latest_release }}">{{ project.latest_release }}</a></dd>
+      </div>
+      {% endif %}
+      <div>
+        <dt>{{ c.status.mainLabel }}</dt>
+        <dd>{{ project.main_version }}</dd>
+      </div>
+      <div>
+        <dt>{{ c.status.docsLabel }}</dt>
+        <dd>{{ project.docs_version }}</dd>
+      </div>
+      <div>
+        <dt>{{ c.status.verifiedLabel }}</dt>
+        <dd><time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time></dd>
+      </div>
+      <div>
+        <dt>{{ c.status.requirementsLabel }}</dt>
+        <dd>TYPO3 {{ project.typo3_versions | join(' / ') }} · PHP {{ project.php_versions | join(' / ') }}+</dd>
+      </div>
+    </dl>
+    <p class="status-facts__note">{{ c.status.note }}</p>
   </div>
 </section>
 
@@ -50,6 +80,11 @@
   <div class="container">
     <span class="toc__label">{{ s.onThisPage }}</span>
     <ul class="toc__list">
+      <li><a href="#outcomes">{{ c.outcomes.heading }}</a></li>
+      <li><a href="#governance">{{ c.governance.heading }}</a></li>
+      <li><a href="#dataflow">{{ c.dataflow.heading }}</a></li>
+      <li><a href="#cost">{{ c.cost.heading }}</a></li>
+      <li><a href="#scenarios">{{ c.scenarios.heading }}</a></li>
       <li><a href="#problem">{{ c.problem.heading }}</a></li>
       <li><a href="#solution">{{ c.solution.heading }}</a></li>
       <li><a href="#concepts">{{ c.concepts.heading }}</a></li>
@@ -63,6 +98,158 @@
     </ul>
   </div>
 </nav>
+
+<section class="section" id="outcomes" aria-labelledby="outcomes-h">
+  <div class="container">
+    <h2 id="outcomes-h">{{ c.outcomes.heading }}</h2>
+    <p class="section__intro">{{ c.outcomes.intro }}</p>
+    <div class="card-grid">
+      {% for item in c.outcomes['items'] %}
+      <article class="card">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" id="governance" aria-labelledby="governance-h">
+  <div class="container">
+    <h2 id="governance-h">{{ c.governance.heading }}</h2>
+    <p class="section__intro">{{ c.governance.intro }}</p>
+    <div class="card-grid">
+      {% for item in c.governance['items'] %}
+      <article class="card">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="section__more">
+      <a href="{{ url(lang + '/security/') }}">{{ s.nav.security }} &rarr;</a>
+    </p>
+  </div>
+</section>
+
+<section class="section" id="dataflow" aria-labelledby="dataflow-h">
+  <div class="container">
+    <h2 id="dataflow-h">{{ c.dataflow.heading }}</h2>
+    <p class="section__intro">{{ c.dataflow.intro }}</p>
+    <ol class="flow-list">
+      {% for step in c.dataflow.steps %}
+      <li>
+        <strong>{{ step.title }}</strong>
+        <span>{{ step.body }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+    <ul class="bullets">
+      {% for note in c.dataflow.notes %}<li>{{ note }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="section section--alt" id="operating" aria-labelledby="operating-h">
+  <div class="container">
+    <h2 id="operating-h">{{ c.operating.heading }}</h2>
+    <p class="section__intro">{{ c.operating.intro }}</p>
+    <div class="table-scroll" tabindex="0">
+      <table class="data-table" aria-labelledby="operating-h">
+        <thead>
+          <tr>
+            <th scope="col">{{ c.operating.columns.model }}</th>
+            <th scope="col">{{ c.operating.columns.data }}</th>
+            <th scope="col">{{ c.operating.columns.fit }}</th>
+            <th scope="col">{{ c.operating.columns.tradeoff }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in c.operating.rows %}
+          <tr>
+            <th scope="row">{{ row.model }}</th>
+            <td>{{ row.data }}</td>
+            <td>{{ row.fit }}</td>
+            <td>{{ row.tradeoff }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="cost" aria-labelledby="cost-h">
+  <div class="container">
+    <h2 id="cost-h">{{ c.cost.heading }}</h2>
+    <p class="section__intro">{{ c.cost.intro }}</p>
+    <div class="card-grid">
+      {% for item in c.cost['items'] %}
+      <article class="card">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.body }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section section--alt" id="scenarios" aria-labelledby="scenarios-h">
+  <div class="container">
+    <h2 id="scenarios-h">{{ c.scenarios.heading }}</h2>
+    <p class="section__intro">{{ c.scenarios.intro }}</p>
+    <div class="card-grid">
+      {% for item in c.scenarios['items'] %}
+      <article class="card">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.body }}</p>
+        <p class="card__meta">{{ item.checks }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" id="capability-card" aria-labelledby="capability-h">
+  <div class="container">
+    <h2 id="capability-h">{{ c.capabilityCard.heading }}</h2>
+    <p class="section__intro">{{ c.capabilityCard.intro }}</p>
+    <dl class="capability-card">
+      <div><dt>{{ c.capabilityCard.labels.intended_purpose }}</dt><dd>{{ project.ai.intended_purpose }}</dd></div>
+      <div>
+        <dt>{{ c.capabilityCard.labels.excluded_uses }}</dt>
+        <dd><ul>{% for x in project.ai.excluded_uses %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+      </div>
+      <div><dt>{{ c.capabilityCard.labels.stage }}</dt><dd>{{ c.status.stages[project.stage] }}</dd></div>
+      <div>
+        <dt>{{ c.capabilityCard.labels.models }}</dt>
+        <dd>{{ project.providers | join(', ') }}</dd>
+      </div>
+      <div>
+        <dt>{{ c.capabilityCard.labels.data }}</dt>
+        <dd><ul>{% for x in project.ai.data %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+      </div>
+      <div>
+        <dt>{{ c.capabilityCard.labels.processing_location }}</dt>
+        <dd>{{ project.ai.processing_location | map('replace', 'own-server', c.capabilityCard.locations['own-server']) | map('replace', 'external-provider', c.capabilityCard.locations['external-provider']) | map('replace', 'browser', c.capabilityCard.locations.browser) | join(', ') }}</dd>
+      </div>
+      <div><dt>{{ c.capabilityCard.labels.human_oversight }}</dt><dd>{{ project.ai.human_oversight }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.permissions }}</dt><dd>{{ project.ai.permissions }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.logging }}</dt><dd>{{ project.ai.logging }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.retention }}</dt><dd>{{ project.ai.retention }}</dd></div>
+      <div><dt>{{ c.capabilityCard.labels.cost_control }}</dt><dd>{{ project.ai.cost_control }}</dd></div>
+      <div>
+        <dt>{{ c.capabilityCard.labels.security_controls }}</dt>
+        <dd><ul>{% for x in project.ai.security_controls %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+      </div>
+      <div class="capability-card__limits">
+        <dt>{{ c.capabilityCard.labels.known_limitations }}</dt>
+        <dd><ul>{% for x in project.ai.known_limitations %}<li>{{ x }}</li>{% endfor %}</ul></dd>
+      </div>
+      <div><dt>{{ c.capabilityCard.labels.last_verified }}</dt><dd><time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time> · {{ project.owner }}</dd></div>
+    </dl>
+  </div>
+</section>
 
 <section class="section section--alt" id="problem" aria-labelledby="problem-h">
   <div class="container">
@@ -215,6 +402,19 @@
         <p>{{ q.a }}</p>
       </details>
       {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section cta-band" id="contact" aria-labelledby="cta-h">
+  <div class="container cta-band__inner">
+    <div>
+      <h2 id="cta-h">{{ c.ctaBand.heading }}</h2>
+      <p>{{ c.ctaBand.body }}</p>
+    </div>
+    <div class="cta-band__actions">
+      <a class="btn btn--primary" href="{{ contact_url('cta-band') }}" data-cta="business" data-cta-position="cta-band">{{ c.ctaBand.business }}</a>
+      <a class="btn btn--secondary" href="{{ c.ctaBand.technicalHref }}">{{ c.ctaBand.technical }}</a>
     </div>
   </div>
 </section>

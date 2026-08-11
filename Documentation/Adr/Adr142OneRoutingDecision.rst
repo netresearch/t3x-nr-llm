@@ -4,9 +4,10 @@
 ADR-142: One routing decision, with a reason per candidate
 ==============================================================
 
-:Status: Accepted
+:Status: Accepted (the trace deferral is settled; the complexity-routing deferral is measured but still open — see :ref:`ADR-156 <adr-156>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-060 <adr-060>` (quality is no longer only a separate hook)
+:Amended: 2026-08-11 by :ref:`ADR-156 <adr-156>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -90,9 +91,16 @@ evidence that the score predicts anything, and that evidence does not exist yet.
 Measuring it first, deciding later, is the same shape :ref:`ADR-138 <adr-138>`
 used for the operation-capability axis.
 
+:ref:`ADR-156 <adr-156>` does the measuring, and still does not route: it names
+the three things that must hold before anything may.
+
 **No persisted decision trace, yet.** A trace whose only reader is a future
 analytics view is a declaration nothing reads. The decision object exists and is
 returned; persisting it belongs with the surface that displays it.
+
+That surface exists — :ref:`ADR-148 <adr-148>` explains a hypothetical decision,
+:ref:`ADR-156 <adr-156>` persists the real ones and reads them back on the same
+page — so the trace is now written.
 
 **No change to fixed mode.** Nothing is chosen there.
 

@@ -20,7 +20,9 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -181,6 +183,42 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         // The error summary is present and focusable, and the run's card is still shown.
         self::assertStringContainsString('input-errors-' . $uuid, $body);
         self::assertStringContainsString('tabindex="-1"', $body);
+    }
+
+    #[Test]
+    public function submitInputActionHandsTheRenderedTurnDigestToTheRuntimeAndRefusesAStaleOne(): void
+    {
+        // The twin of the approval test below. The no-JS input path is the one
+        // every backend submission takes after ADR-150, and the form-rendering
+        // assertion cannot tell the two forms apart now that both emit the
+        // field — so the wiring needs its own end-to-end assertion.
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $seen    = null;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, InputSubmission $submission) use (&$seen, $uuid): AgentRunResult {
+                $seen = $submission;
+
+                throw StaleInputTurnException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+
+        $response = $controller->submitInputAction($uuid, ['reason' => 'because'], 'a-digest-of-some-other-turn');
+
+        self::assertSame(303, $response->getStatusCode(), 'the refusal ends in the POST-redirect-GET flush');
+        self::assertInstanceOf(InputSubmission::class, $seen);
+        self::assertSame('a-digest-of-some-other-turn', $seen->turnDigest);
+
+        // An omitted digest must not travel as an empty string: null is what
+        // the runtime refuses on, and '' would look like a value.
+        $controller->submitInputAction($uuid, ['reason' => 'because']);
+        self::assertInstanceOf(InputSubmission::class, $seen);
+        self::assertNull($seen->turnDigest);
     }
 
     #[Test]

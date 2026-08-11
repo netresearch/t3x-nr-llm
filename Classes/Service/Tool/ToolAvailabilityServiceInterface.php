@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\ToolGroup;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+
 /**
  * Resolves the globally-enabled tool set from each tool's default and the
  * admin overrides ({@see ToolStateRepository}).
@@ -28,10 +31,15 @@ interface ToolAvailabilityServiceInterface
     public function enabledNames(): array;
 
     /**
-     * Per-tool state rows for the management UI: name, description, group,
-     * the effective enabled flag (group AND tool cascade), the tool-level
-     * flag, the group-level flag, the tool default and whether an explicit
-     * admin override is in effect.
+     * Per-tool state rows for the management UI: name, the MODEL-facing
+     * description, group, the effective enabled flag (group AND tool cascade),
+     * the tool-level flag, the group-level flag, the tool default and whether
+     * an explicit admin override is in effect.
+     *
+     * Deliberately WITHOUT the human-facing declaration: {@see enabledNames()}
+     * is derived from these rows and runs on every tool call, so this method
+     * must not call into a tool beyond the constant flags above. The
+     * declaration has its own method, {@see editorActions()}.
      *
      * @return list<array{
      *     name: string,
@@ -47,12 +55,27 @@ interface ToolAvailabilityServiceInterface
     public function states(): array;
 
     /**
-     * Per-group state rows for the management UI, one per group of the
-     * currently registered tools: name, the effective enabled flag (an
-     * unknown / never-toggled group is enabled) and whether an explicit
-     * admin override row exists.
+     * The human-facing {@see EditorAction} declarations (ADR-152), keyed by
+     * tool name — one entry per registered tool that implements
+     * {@see EditorActionInterface} and produces a valid declaration.
      *
-     * @return list<array{name: string, enabled: bool, overridden: bool}>
+     * A separate method rather than a column of {@see states()}, because this
+     * is the only place foreign declaration code is executed and no runtime
+     * gate may depend on it. A tool whose declaration throws is simply absent
+     * from the result, so the module renders it like an undeclared tool.
+     *
+     * @return array<string, EditorAction>
+     */
+    public function editorActions(): array;
+
+    /**
+     * Per-group state rows for the management UI, one per group of the
+     * currently registered tools: name, the `LLL:` key of its human label
+     * (null outside the curated {@see ToolGroup} taxonomy), the effective
+     * enabled flag (an unknown / never-toggled group is enabled) and whether
+     * an explicit admin override row exists.
+     *
+     * @return list<array{name: string, labelKey: string|null, enabled: bool, overridden: bool}>
      */
     public function groupStates(): array;
 }

@@ -16,7 +16,9 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
  * `$mode` drives the card:
  * - `approval` — render {@see $pendingCalls} and an Approve/Deny form carrying
  *   {@see $turnDigest} (the reviewed turn, for the stale-review guard).
- * - `input` — render a schema-driven form from {@see $inputFields}.
+ * - `input` — render a schema-driven form from {@see $inputFields}, carrying
+ *   {@see $turnDigest} as well (ADR-150: the submission is bound to the turn its
+ *   form was rendered from, exactly as a decision is).
  * - `unreadable` — fail-closed: a corrupt/undecodable state or a schema that
  *   cannot be rendered as a form; show {@see $unreadableReason}, no action.
  */

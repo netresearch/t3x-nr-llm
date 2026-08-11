@@ -33,7 +33,7 @@
                 "conditions": []
             },
             {
-                "action": "composer ci:test:changelog"
+                "action": "composer ci:test:repo"
             }
         ]
     },

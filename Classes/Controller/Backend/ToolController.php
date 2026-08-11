@@ -55,8 +55,13 @@ final class ToolController extends ActionController
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->makeDocHeaderModuleMenu();
         $moduleTemplate->assignMultiple([
-            'toolStates'  => $this->toolAvailability->states(),
-            'groupStates' => $this->groupStatesByName(),
+            'toolStates' => $this->toolAvailability->states(),
+            // Keyed by tool name; the template looks a row up and falls back to
+            // the wire name when there is none (ADR-152). Fetched here rather
+            // than carried in the state rows so the tool-call gate, which reads
+            // those rows, never executes a declaration.
+            'editorActions' => $this->toolAvailability->editorActions(),
+            'groupStates'   => $this->groupStatesByName(),
         ]);
         return $moduleTemplate->renderResponse('Backend/Tool/List');
     }
@@ -120,7 +125,7 @@ final class ToolController extends ActionController
     /**
      * Group states keyed by group name for direct template lookup.
      *
-     * @return array<string, array{name: string, enabled: bool, overridden: bool}>
+     * @return array<string, array{name: string, labelKey: string|null, enabled: bool, overridden: bool}>
      */
     private function groupStatesByName(): array
     {
