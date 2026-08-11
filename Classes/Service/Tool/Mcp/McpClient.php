@@ -64,18 +64,17 @@ final readonly class McpClient
     private const REMOTE_LABEL_LIMIT = 100;
 
     /**
-     * How long a dropped content block's type may be when it is named back to
-     * the caller. The type is a string the far side chose, so it is clipped and
-     * stripped like every other remote label.
+     * The protocol's own non-text content types.
+     *
+     * A dropped block is named by matching its type against this list, not by
+     * repeating the string the far side chose. The note is a sentence this
+     * extension speaks in its own name and puts at the head of a tool result,
+     * so it carries no remote bytes at all: an unrecognised type is reported
+     * as `other` and the count stays exact.
+     *
+     * @var list<string>
      */
-    private const BLOCK_TYPE_LIMIT = 32;
-
-    /**
-     * How many DISTINCT dropped block types the note lists before it stops.
-     * A hostile server can invent a new type per block; the count stays exact,
-     * the enumeration does not grow with it.
-     */
-    private const MAX_REPORTED_BLOCK_TYPES = 5;
+    private const KNOWN_BLOCK_TYPES = ['audio', 'image', 'resource', 'resource_link'];
 
     public function __construct(
         private McpHttpTransport $transport,
@@ -408,34 +407,29 @@ final readonly class McpClient
         $total = array_sum($omitted);
 
         // Sorted so the same answer always produces the same note, whatever
-        // order the server happened to send its blocks in.
+        // order the server happened to send its blocks in. The list needs no
+        // ceiling: the labels come from a fixed vocabulary of five, so a server
+        // inventing a type per block moves the count and nothing else.
         ksort($omitted);
-        $types    = array_keys($omitted);
-        $listed   = \array_slice($types, 0, self::MAX_REPORTED_BLOCK_TYPES);
-        $ellipsis = \count($types) > self::MAX_REPORTED_BLOCK_TYPES ? ', …' : '';
 
         return sprintf(
-            "[nr_llm reads text only and dropped %d non-text content %s (%s%s).]\n",
+            "[nr_llm reads text only and dropped %d non-text content %s (%s).]\n",
             $total,
             $total === 1 ? 'block' : 'blocks',
-            implode(', ', $listed),
-            $ellipsis,
+            implode(', ', array_keys($omitted)),
         );
     }
 
     /**
-     * A dropped block's type, reduced to something safe to repeat: anything
-     * outside the identifier character set is removed rather than escaped, so
-     * the note cannot be steered by what the server called its block.
+     * A dropped block's type, as one of the protocol's own names — or `other`.
+     *
+     * Nothing the server wrote is repeated back. Sanitising and clipping the
+     * remote string would bound the note's length but not its authorship: the
+     * note leads a tool result the model reads as ours, and up to five
+     * server-chosen words inside that frame are five words too many.
      */
     private function blockTypeLabel(mixed $type): string
     {
-        if (!\is_string($type)) {
-            return 'unknown';
-        }
-
-        $clean = (string)preg_replace('/[^a-zA-Z0-9_-]/', '', $type);
-
-        return $clean === '' ? 'unknown' : mb_substr($clean, 0, self::BLOCK_TYPE_LIMIT);
+        return \is_string($type) && \in_array($type, self::KNOWN_BLOCK_TYPES, true) ? $type : 'other';
     }
 }

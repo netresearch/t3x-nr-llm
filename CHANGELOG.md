@@ -152,7 +152,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   supplies one connection profile and nothing else. Two ship (stateless and
   session-issuing HTTP); a new transport is a profile plus a three-line
   subclass. Everything runs through a faked PSR-18 client, so no check touches
-  the network.
+  the network. The items that are claims about database rows are covered in the
+  functional suite instead, and ADR-161's table says which and where: the audit
+  half in `McpRunAuditTest`, and the two the catalogue resolves — a tool's data
+  class against the annotations the server wrote about itself, and a stored
+  schema that no longer decodes to an object — in `McpImportServiceTest`.
   - **Cancellation is recorded as a gap, not faked green.** The transport has no
     abort path, so a cancellation raised mid-call changes nothing and the run
     waits out the leg. There is no behaviour to assert, so the suite asserts the
@@ -296,9 +300,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   counting the dropped blocks and naming their types — it leads rather than
   trails because a tool result is cut to 50 000 bytes before the model sees it,
   and a trailing note is removed by exactly the cut that makes the answer
-  partial. The note is ours: types are stripped to the identifier character
-  set, clipped, sorted, and only the first five distinct ones are listed, so a
-  server cannot write the tool result through it.
+  partial. The note is ours and carries none of the server's bytes: a dropped
+  block is named by matching its type against the protocol's own non-text types
+  (`image`, `audio`, `resource`, `resource_link`) and anything else is `other`.
+  The count stays exact, so a server that invents a type per block moves the
+  number and nothing else.
 
 
 ### Fixed

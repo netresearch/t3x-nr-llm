@@ -273,13 +273,18 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
 
     /**
      * INVALID SCHEMA, at the other end of the same rule: a stored schema that
-     * no longer decodes to a JSON object yields no tool. The catalogue row
-     * survives so an operator can see it; the registry gets nothing, because a
-     * tool without a parameter schema cannot be offered and inventing an empty
-     * one would advertise a signature the remote tool does not have.
+     * no longer decodes to a JSON object has no schema to offer, and a tool
+     * without a parameter schema cannot be registered — inventing an empty one
+     * would advertise a signature the remote tool does not have.
+     *
+     * This pins the decode. That the registry then yields nothing for such a
+     * row while the row itself survives is a claim about
+     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpToolProvider} over real
+     * rows, and is asserted in
+     * {@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp\McpImportServiceTest}.
      */
     #[Test]
-    public function aStoredSchemaThatIsNotAnObjectYieldsNoCallableTool(): void
+    public function aStoredSchemaThatIsNotAnObjectHasNoSchemaToOffer(): void
     {
         self::assertNull($this->record(inputSchema: '[]')->inputSchemaArray());
         self::assertNull($this->record(inputSchema: 'null')->inputSchemaArray());
@@ -585,9 +590,16 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     // -- data classification -----------------------------------------------
 
     /**
-     * DATA CLASSIFICATION. The class is the operator's declaration on the
-     * server row, and the server cannot move it: what it writes into its own
-     * annotations is kept verbatim for display and read by no resolver.
+     * DATA CLASSIFICATION. The class and the approval requirement travel on the
+     * tool itself, so the gate reads them without a second lookup, and nothing
+     * the server sent is consulted to produce either.
+     *
+     * This pins the tool's declaration. That the declaration is resolved from
+     * the operator's server row rather than from the annotations the server
+     * wrote about itself happens in
+     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpToolProvider} and is
+     * asserted over real rows in
+     * {@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp\McpImportServiceTest}.
      */
     #[Test]
     public function theDataClassIsTheOperatorsAndTheServerCannotMoveIt(): void

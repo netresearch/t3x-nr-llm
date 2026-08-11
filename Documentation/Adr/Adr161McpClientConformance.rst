@@ -105,17 +105,26 @@ Decision
       * - invalid schema
         - Covered at both ends of the same rule: a schema that cannot be
           represented is rejected whole rather than repaired, and a stored
-          schema that no longer decodes to a JSON object yields no callable
-          tool.
+          schema that no longer decodes to a JSON object has no schema to
+          offer. That such a row yields no registered tool while the row itself
+          survives is :php:`McpToolProvider`'s decision, which a pack built
+          around one connection cannot reach; it is covered over real rows in
+          ``McpImportServiceTest``.
       * - oversized response
         - Covered: a 3 MiB body is refused at the 2 MiB read cap, and what the
           far side sent does not become the message we repeat.
       * - audit
         - Covered, and it needed a decision and a fix. See decision 4.
       * - data classification
-        - Covered: the class is the operator's declaration on the server row,
-          and a server writing a contrary claim into its own annotations
-          changes nothing — no resolver reads them.
+        - Covered here as the tool's own declaration: the class and the
+          approval requirement travel on the tool, so the gate reads them
+          without a second lookup, and nothing the server sent produces either.
+          That the declaration is taken from the operator's server row and not
+          from the annotations the server wrote about itself is again
+          :php:`McpToolProvider`'s decision, and is asserted over real rows in
+          ``McpImportServiceTest``: a tool whose annotations claim
+          ``publicContent`` on a server the operator declared
+          ``internalConfiguration`` resolves as internal configuration.
       * - trust-zone enforcement
         - The gate's own branch — a :php:`RemoteToolInterface` tool is refused
           above the ceiling even in ``observe`` mode — is covered by
@@ -210,10 +219,14 @@ Decision
    bound before the model sees it (:php:`ToolResultBounder`, 50 000 bytes), and
    a trailing note is removed by exactly the cut that makes the answer partial —
    losing the sentence on the long answers where being told is worth most. The
-   note is ours, not the server's: types are stripped to the identifier
-   character set, clipped, sorted for a stable rendering, and only the first
-   five distinct ones are enumerated, so a server that invents a type per block
-   cannot write the tool result through it. Rendering the blocks
+   note is ours, not the server's, and contains none of its bytes: a dropped
+   block is named by matching its type against the protocol's own four non-text
+   types (``image``, ``audio``, ``resource``, ``resource_link``) and anything
+   else is ``other``. Sanitising and clipping the remote string was the first
+   attempt; it bounds the note's length but not its authorship, and a server
+   that invents a type per block would have been writing words into a sentence
+   the model reads as ours. The count stays exact, so such a server moves the
+   number and nothing else. Rendering the blocks
    instead is the other decision, and it is not this one: it needs a data
    class for binary content the operator never declared, and a place to put
    bytes that a tool result has no channel for.
@@ -231,8 +244,13 @@ Consequences
   caller.
 - The suite is 34 checks per connection and runs in well under a second: it
   drives a faked PSR-18 client, so a run costs no network and no database. It
-  is unit-level except for the audit half, which is a claim about rows and
-  lives in the functional suite.
+  is unit-level, and the checks that are claims about rows live in the
+  functional suite instead and are named where the table lists them: the audit
+  half in ``McpRunAuditTest``, and the two the catalogue resolves —
+  classification and an undecodable stored schema — in
+  ``McpImportServiceTest``. A per-connection pack cannot assert them: it holds
+  one connection and builds its tool directly, so it can pin what a tool
+  declares but not what turned a row into that declaration.
 - ``AbstractMcpConformanceTestCase`` is named ``…TestCase``, not ``…Test``,
   because ``Build/phpunit.xml`` globs ``*Test.php`` and PHPUnit turns an
   abstract match into a runner warning — which ``failOnWarning`` turns into a
