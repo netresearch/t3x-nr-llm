@@ -10,9 +10,11 @@
  *
  *   node landingpage/axe-audit.mjs [output-dir]
  *
- * Exits non-zero on any WCAG 2.1 AA violation. Uses Playwright's Chromium
- * because the repository already installs it for the end-to-end tests; adding a
- * second browser stack for one gate would not buy anything.
+ * Exits non-zero on any WCAG 2.1 AA violation. Uses the Playwright Chromium and
+ * the AxeBuilder the repository already runs against the backend modules;
+ * a second browser stack or a second axe package for one gate would not buy
+ * anything. The target is different — Tests/E2E covers the TYPO3 backend
+ * against a live instance, this covers the published landing page.
  *
  * Serves the output over loopback rather than opening file:// URLs: the pages
  * reference their stylesheet by path, and an unstyled page has no contrast
@@ -28,11 +30,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { readdirSync, statSync, readFileSync } from 'node:fs';
 import { join, extname, relative, sep } from 'node:path';
-import { createRequire } from 'node:module';
 import { chromium } from '@playwright/test';
-
-const require = createRequire(import.meta.url);
-const axePath = require.resolve('axe-core/axe.min.js');
+import AxeBuilder from '@axe-core/playwright';
 
 const DIST = process.argv[2] ?? 'landingpage/public';
 
@@ -182,12 +181,8 @@ async function auditPage(browser, port, route, scheme) {
   });
 
   await page.goto(`http://127.0.0.1:${port}${BASE}${route.slice(1)}`, { waitUntil: 'networkidle' });
-  await page.addScriptTag({ path: axePath });
 
-  const results = await page.evaluate(
-    async (tags) => await window.axe.run(document, { runOnly: { type: 'tag', values: tags } }),
-    TAGS,
-  );
+  const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   await context.close();
 
   const found = results.violations.map((violation) => ({ route, scheme, violation }));
