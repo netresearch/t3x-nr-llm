@@ -493,3 +493,4 @@ Tools
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
    Adr154McpServerHealth
+   Adr161McpClientConformance

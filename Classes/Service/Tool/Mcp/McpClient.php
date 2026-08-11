@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\ValueObject\McpCallOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\McpConnectionReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolsPage;
@@ -62,6 +63,20 @@ final readonly class McpClient
      */
     private const REMOTE_LABEL_LIMIT = 100;
 
+    /**
+     * How long a dropped content block's type may be when it is named back to
+     * the caller. The type is a string the far side chose, so it is clipped and
+     * stripped like every other remote label.
+     */
+    private const BLOCK_TYPE_LIMIT = 32;
+
+    /**
+     * How many DISTINCT dropped block types the note lists before it stops.
+     * A hostile server can invent a new type per block; the count stays exact,
+     * the enumeration does not grow with it.
+     */
+    private const MAX_REPORTED_BLOCK_TYPES = 5;
+
     public function __construct(
         private McpHttpTransport $transport,
         private McpHealthRecorderInterface $health,
@@ -114,20 +129,34 @@ final readonly class McpClient
     }
 
     /**
-     * Invoke one remote tool and return its result as text.
+     * Invoke one remote tool and return what it answered.
      *
      * MCP lets a server answer with a list of typed content blocks. Only text
      * blocks are read: an image or an embedded resource has no representation
-     * in a tool result here, and silently dropping one is better than inventing
-     * a rendering the caller never asked for. A server that returns nothing
-     * readable yields an explicit note rather than an empty string, so the
-     * model is told the call produced no text instead of inferring failure.
+     * in a tool result here, and inventing a rendering the caller never asked
+     * for would be worse than not carrying it.
+     *
+     * Dropping one is NOT silent, though (ADR-161). The answer LEADS with how
+     * many blocks were dropped and of which types, because the alternative is a
+     * model that reads a partial answer as the whole one — and, when every
+     * block was non-text, is told the tool "returned no textual content" about
+     * a call that in fact returned an image. It leads rather than trails
+     * because the result is byte-bounded before it reaches the model, and a
+     * note at the end is the first thing a cut removes — on the long answers
+     * that get cut, which is where being told the answer is partial matters
+     * most. The note is our sentence, not the server's: the types are stripped,
+     * clipped and enumerated only up to a bound, so a hostile server cannot
+     * write the tool result through it.
+     *
+     * The outcome is typed rather than a string because the protocol's own
+     * `isError` decides what KIND of step the run records; see
+     * {@see McpCallOutcome}.
      *
      * @param array<string, mixed> $arguments
      *
      * @throws McpTransportException
      */
-    public function callTool(McpServerRecord $server, string $remoteName, array $arguments): string
+    public function callTool(McpServerRecord $server, string $remoteName, array $arguments): McpCallOutcome
     {
         $session = $this->openSession($server)['sessionId'];
 
@@ -142,17 +171,27 @@ final readonly class McpClient
 
         $result = $answer['result'];
 
-        $text = $this->textFromContent($result['content'] ?? null);
+        $flattened = $this->flattenContent($result['content'] ?? null);
+        $text      = $flattened['text'];
+        $note      = $this->omissionNote($flattened['omitted']);
 
         // `isError` is the protocol's way of reporting a tool-level failure
         // inside a successful JSON-RPC response. It is a result, not a
         // transport fault: the model should see what went wrong and may
-        // reasonably try something else, so it is returned rather than thrown.
+        // reasonably try something else, so it is returned rather than thrown —
+        // but it is returned AS a failure, because the flag is what the
+        // persisted step carries and what a reader counts (ADR-161).
         if (($result['isError'] ?? false) === true) {
-            return 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text);
+            return new McpCallOutcome(
+                $note . 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text),
+                true,
+            );
         }
 
-        return $text === '' ? 'The remote tool returned no textual content.' : $text;
+        return new McpCallOutcome(
+            $note . ($text === '' ? 'The remote tool returned no textual content.' : $text),
+            false,
+        );
     }
 
     /**
@@ -309,30 +348,94 @@ final readonly class McpClient
     }
 
     /**
-     * Flatten the protocol's content blocks into plain text.
+     * Flatten the protocol's content blocks into plain text, counting what had
+     * to be left behind.
+     *
+     * A text block whose `text` is missing or empty is NOT counted as dropped:
+     * it is a text block that said nothing, and reporting it would tell the
+     * caller content was withheld when none was.
+     *
+     * @return array{text: string, omitted: array<string, int>} the readable
+     *                                                          text, and how many blocks of each non-text type were dropped
      */
-    private function textFromContent(mixed $content): string
+    private function flattenContent(mixed $content): array
     {
         if (!\is_array($content)) {
+            return ['text' => '', 'omitted' => []];
+        }
+
+        $parts   = [];
+        $omitted = [];
+
+        foreach ($content as $block) {
+            $type = \is_array($block) ? ($block['type'] ?? null) : null;
+
+            if ($type === 'text') {
+                /** @var array<string, mixed> $block */
+                $text = $block['text'] ?? null;
+                if (\is_string($text) && $text !== '') {
+                    $parts[] = $text;
+                }
+
+                continue;
+            }
+
+            $label           = $this->blockTypeLabel($type);
+            $omitted[$label] = ($omitted[$label] ?? 0) + 1;
+        }
+
+        return ['text' => implode("\n", $parts), 'omitted' => $omitted];
+    }
+
+    /**
+     * The sentence the answer LEADS with when it carried blocks this client
+     * cannot read, or '' when it carried none.
+     *
+     * It is a prefix, not a suffix, because the tool result is truncated to a
+     * byte bound before the model sees it
+     * ({@see \Netresearch\NrLlm\Service\Tool\ToolResultBounder}), and a
+     * trailing note is dropped by exactly the cut that makes the answer
+     * partial.
+     *
+     * @param array<string, int> $omitted
+     */
+    private function omissionNote(array $omitted): string
+    {
+        if ($omitted === []) {
             return '';
         }
 
-        $parts = [];
-        foreach ($content as $block) {
-            if (!\is_array($block)) {
-                continue;
-            }
+        $total = array_sum($omitted);
 
-            if (($block['type'] ?? null) !== 'text') {
-                continue;
-            }
+        // Sorted so the same answer always produces the same note, whatever
+        // order the server happened to send its blocks in.
+        ksort($omitted);
+        $types    = array_keys($omitted);
+        $listed   = \array_slice($types, 0, self::MAX_REPORTED_BLOCK_TYPES);
+        $ellipsis = \count($types) > self::MAX_REPORTED_BLOCK_TYPES ? ', …' : '';
 
-            $text = $block['text'] ?? null;
-            if (\is_string($text) && $text !== '') {
-                $parts[] = $text;
-            }
+        return sprintf(
+            "[nr_llm reads text only and dropped %d non-text content %s (%s%s).]\n",
+            $total,
+            $total === 1 ? 'block' : 'blocks',
+            implode(', ', $listed),
+            $ellipsis,
+        );
+    }
+
+    /**
+     * A dropped block's type, reduced to something safe to repeat: anything
+     * outside the identifier character set is removed rather than escaped, so
+     * the note cannot be steered by what the server called its block.
+     */
+    private function blockTypeLabel(mixed $type): string
+    {
+        if (!\is_string($type)) {
+            return 'unknown';
         }
 
-        return implode("\n", $parts);
+        $clean = (string)preg_replace('/[^a-zA-Z0-9_-]/', '', $type);
+
+        return $clean === '' ? 'unknown' : mb_substr($clean, 0, self::BLOCK_TYPE_LIMIT);
     }
 }

@@ -73,6 +73,32 @@ Guard rails
   — a remote call crosses the network while a backend user waits, and
   nothing else limits how many a model asks for at once.
 
-See :ref:`ADR-116 <adr-116>` for the design rationale, and
+What a remote answer can contain
+================================
+
+An MCP server may answer a tool call with several typed blocks: text,
+images, embedded resources. This client reads **text only**. When a
+server sends anything else, the blocks are dropped and the answer opens
+with a line saying how many were dropped and of which type — so a model
+reading a partial answer is told it is partial, and a run whose tool
+returned only an image is not told the tool returned nothing. The line
+comes first because a long answer is shortened before the model sees it,
+and a note at the end would be the part that is cut. If you need the
+image itself, the tool is not usable from here yet.
+
+A call that fails does not fail the run. It comes back as a failed tool
+result naming the server, the model is told, and the run carries on.
+This covers both ways a call fails: the server not answering usefully —
+it is down, it refuses the credential, it sends something that is not
+JSON-RPC — and the server answering that the tool itself failed, which
+is the ordinary case of a missing page or a rejected argument. Both are
+recorded as failures in the run's event stream, so a server that is
+flaky is visible without reading transcripts.
+
+See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing.
+connection test writes nothing, and :ref:`ADR-161 <adr-161>` for the
+conformance suite every supported connection is held to — including the
+one thing it does **not** do: cancelling a call that is already in
+flight. Cancelling a run stops it at the next step, but an outstanding
+remote call still runs to its 15-second timeout.

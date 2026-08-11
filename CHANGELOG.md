@@ -142,6 +142,32 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   branch was covered only indirectly, through the governance readout's fake
   tool, so it could have been deleted with the policy's own suite still green.
 
+- **One conformance suite every MCP connection is held to** (ADR-161). The
+  client was well covered by class and covered by nothing that asked whether
+  what this extension supports as an MCP client is policy-, audit- and
+  health-integrated. `AbstractMcpConformanceTestCase` holds the list — connect,
+  capability discovery, tool discovery, schema normalisation, tool execution,
+  timeouts, cancellation, server failure, invalid schema, oversized response,
+  audit, data classification, trust-zone enforcement — and a concrete case
+  supplies one connection profile and nothing else. Two ship (stateless and
+  session-issuing HTTP); a new transport is a profile plus a three-line
+  subclass. Everything runs through a faked PSR-18 client, so no check touches
+  the network.
+  - **Cancellation is recorded as a gap, not faked green.** The transport has no
+    abort path, so a cancellation raised mid-call changes nothing and the run
+    waits out the leg. There is no behaviour to assert, so the suite asserts the
+    absence instead: neither the client nor the transport takes a cancellation
+    collaborator or argument, or offers a method to abort what is open. That
+    check goes red on the first commit that adds one, which makes building an
+    abort path a deliberate change to a recorded decision.
+  - **`McpRunAuditTest`** drives a real run through the real persister: an
+    executed remote call becomes a TOOL event, and a run whose row cannot be
+    written never reaches the server at all — the ADR-141 fence refuses a
+    write-effect tool it cannot fence, and every imported MCP tool declares one.
+    "An MCP tool ran unaudited" is therefore not a reachable state, which is why
+    the client keeps no audit stream of its own and the governance log stays
+    denial-only.
+
 ### Changed
 
 - The `main-branch-rules` ruleset requires `All security checks` instead of the
@@ -261,6 +287,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `McpHttpTransport::call()` returns a `durationMs` alongside the result. Both
   are `@internal` (ADR-127).
 
+- **A remote tool result names the content blocks it could not carry**
+  (ADR-161). MCP servers answer with typed blocks and this client reads text
+  only; an image or an embedded resource was dropped and the caller was told
+  nothing, so a model handed a partial answer could not tell — and a model
+  handed only non-text blocks was told the tool "returned no textual content"
+  about a call that returned an image. The answer now begins with a note
+  counting the dropped blocks and naming their types — it leads rather than
+  trails because a tool result is cut to 50 000 bytes before the model sees it,
+  and a trailing note is removed by exactly the cut that makes the answer
+  partial. The note is ours: types are stripped to the identifier character
+  set, clipped, sorted, and only the first five distinct ones are listed, so a
+  server cannot write the tool result through it.
+
 
 ### Fixed
 
@@ -306,6 +345,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   window manager and a logger). Both default to null and every existing
   construction keeps its exact previous behaviour — a null context window means
   "bounded by the provider", which is what these paths did.
+
+- **A failed remote tool call was audited as a successful step** (ADR-161).
+  `McpTool::execute()` returned a transport failure as ordinary text, so a
+  server that was down became a persisted tool step with `isError = false`
+  whose content merely read like an error — and "how often does this server
+  fail" had no answer that was not a string search. The same held for MCP's own
+  tool-level `isError`, which is how a *working* server reports a tool that
+  failed and is the more common of the two: `McpClient::callTool()` folded it
+  into a prefixed sentence and the flag was lost at the return type. Both are
+  error results now. `callTool()` returns an `McpCallOutcome` instead of a
+  string; the method is not part of the frozen API surface and `McpTool` is its
+  only production caller. The run's control flow is unchanged: the loop still
+  carries on and the model is still told plainly what failed.
 
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance

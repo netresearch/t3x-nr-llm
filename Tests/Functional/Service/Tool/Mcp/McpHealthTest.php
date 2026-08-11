@@ -177,7 +177,7 @@ final class McpHealthTest extends AbstractFunctionalTestCase
             new McpHealthRecorder(new McpServerRepository($throwing), new Context(), new NullLogger()),
         );
 
-        self::assertSame('still answered', $client->callTool($server, 'do_it', []));
+        self::assertSame('still answered', $client->callTool($server, 'do_it', [])->text);
 
         $after = $this->servers->findByUid($server->uid);
         self::assertInstanceOf(McpServerRecord::class, $after);
