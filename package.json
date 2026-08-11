@@ -14,11 +14,13 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
     "test:accessibility": "playwright test --grep @accessibility",
-    "test:a11y": "playwright test --grep @accessibility"
+    "test:a11y": "playwright test --grep @accessibility",
+    "axe": "node landingpage/axe-audit.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.0.0",
+    "axe-core": "^4.13.0"
   }
 }

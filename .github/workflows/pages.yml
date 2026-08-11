@@ -28,6 +28,11 @@ jobs:
       contents: read
     with:
       setup-uv: true
+      # Node is here only for the accessibility gate: axe needs a real browser
+      # and resolved CSS, which is exactly the class of defect verify.py cannot
+      # decide from markup.
+      setup-node: true
+      node-version: '22'
       artifact-path: landingpage/public
       # verify.py gates the rendered artefact: unresolved content placeholders,
       # a manifest that disagrees with ext_emconf.php, a version on the page the
@@ -37,6 +42,9 @@ jobs:
         NRLLM_BASE="$PAGES_BASE_PATH" NRLLM_ORIGIN="$PAGES_ORIGIN"
         uv run landingpage/build/build.py
         && python3 landingpage/build/verify.py
+        && npm ci --ignore-scripts
+        && npx playwright install chromium
+        && node landingpage/axe-audit.mjs landingpage/public "$PAGES_BASE_PATH"
 
   deploy:
     needs: build
