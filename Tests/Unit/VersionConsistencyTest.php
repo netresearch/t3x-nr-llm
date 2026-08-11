@@ -94,10 +94,27 @@ final class VersionConsistencyTest extends AbstractUnitTestCase
         self::assertIsArray($composer);
         self::assertIsArray($composer['require']);
 
-        self::assertSame(
-            [$composer['require']['typo3/cms-core']],
-            $this->supportMatrixField('composer typo3/cms-core'),
-            'Documentation/Api/SupportMatrix.rst promises a TYPO3 range composer.json does not require.',
+        // Equality would be the obvious assertion and it is wrong in CI: the
+        // shared workflow narrows `typo3/cms-core` in composer.json to ONE
+        // matrix cell before it installs, so the file this test reads says
+        // `^13.4` in a job the repository declares `^13.4 || ^14.3` for. That
+        // narrowing is still worth asserting — a cell must not test a version
+        // the matrix does not promise — so the required constraint has to be
+        // the documented range, or one of the alternatives it is built from.
+        $documented = $this->supportMatrixField('composer typo3/cms-core');
+        self::assertCount(1, $documented);
+
+        $required = $composer['require']['typo3/cms-core'];
+        self::assertIsString($required);
+
+        $alternatives = array_map(trim(...), explode('||', $documented[0]));
+
+        self::assertContains(
+            $required,
+            [$documented[0], ...$alternatives],
+            'Documentation/Api/SupportMatrix.rst promises "' . $documented[0]
+            . '" and composer.json requires "' . $required
+            . '", which is neither that range nor one of the versions it is built from.',
         );
 
         self::assertSame(
