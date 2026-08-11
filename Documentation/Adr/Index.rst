@@ -494,6 +494,7 @@ Tools
    Adr147NoSymfonyAiBridgeYet
    Adr148RoutingReadoutOnTheGovernanceTab
    Adr149CriteriaModeZoneFromTheResolvedModel
+   Adr152EditorActionDeclaration
    Adr155SystemPromptCarriesADataClass
    Adr156PersistTheRoutingDecisionObserveComplexity
    Adr157TheSimulationCoversTheRunAndAnswersForAnActor

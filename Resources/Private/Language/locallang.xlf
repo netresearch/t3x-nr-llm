@@ -1236,6 +1236,63 @@
             <trans-unit id="tool.card.button">
                 <source>Manage tools</source>
             </trans-unit>
+            <trans-unit id="tool.group.content">
+                <source>Content</source>
+            </trans-unit>
+            <trans-unit id="tool.group.editing">
+                <source>Editing</source>
+            </trans-unit>
+            <trans-unit id="tool.group.structure">
+                <source>Structure</source>
+            </trans-unit>
+            <trans-unit id="tool.group.configuration">
+                <source>Configuration</source>
+            </trans-unit>
+            <trans-unit id="tool.group.code">
+                <source>Code</source>
+            </trans-unit>
+            <trans-unit id="tool.group.files">
+                <source>Files</source>
+            </trans-unit>
+            <trans-unit id="tool.group.system">
+                <source>System</source>
+            </trans-unit>
+            <trans-unit id="tool.group.accounts">
+                <source>Accounts</source>
+            </trans-unit>
+            <trans-unit id="tool.group.rag">
+                <source>Site search</source>
+            </trans-unit>
+            <trans-unit id="editorAction.update_page_metadata.label">
+                <source>Update page metadata</source>
+            </trans-unit>
+            <trans-unit id="editorAction.update_page_metadata.description">
+                <source>Sets descriptive text fields on one page: title, navigation title, abstract, keywords and the SEO fields.</source>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_alternative_text.label">
+                <source>Set alternative text</source>
+            </trans-unit>
+            <trans-unit id="editorAction.set_file_alternative_text.description">
+                <source>Sets the alternative text of one file that already carries a metadata record.</source>
+            </trans-unit>
+            <trans-unit id="editorAction.move_content_element.label">
+                <source>Move content element</source>
+            </trans-unit>
+            <trans-unit id="editorAction.move_content_element.description">
+                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
+            </trans-unit>
+            <trans-unit id="editorAction.create_content_element_draft.label">
+                <source>Create content element draft</source>
+            </trans-unit>
+            <trans-unit id="editorAction.create_content_element_draft.description">
+                <source>Creates one hidden content element of a curated type. A human makes it visible.</source>
+            </trans-unit>
+            <trans-unit id="editorAction.create_translation_draft.label">
+                <source>Create translation draft</source>
+            </trans-unit>
+            <trans-unit id="editorAction.create_translation_draft.description">
+                <source>Translates one page or content element into another language. The translation is created hidden.</source>
+            </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>
             </trans-unit>

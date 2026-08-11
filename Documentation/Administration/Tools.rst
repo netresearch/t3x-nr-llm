@@ -453,13 +453,27 @@ them only deliberately.
    tools as :guilabel:`Enabled`; the :guilabel:`Default` badge marks a tool
    sitting at its shipped state.
 
+A tool that carries an **editor action** declaration
+(:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
+its translated name, one sentence written for a human, and the record types it
+addresses — instead of the wire name and the description written for the
+language model. All five writing tools declare one, and the wire name stays
+visible as the technical detail the toggle acts on. A read-only tool is
+unchanged.
+
+The declaration is presentation only. It does not decide whether a tool writes
+— that is the tool's declared effect — and it changes nothing about how a call
+is fenced, approved or audited.
+
 .. _administration-tools-groups:
 
 Tool groups
 ===========
 
 Every tool belongs to a **group** (its ``getGroup()`` value). The built-in
-taxonomy:
+groups carry a translated name in the module header beside their identifier; a
+group a third-party extension brings has no translated name and shows its
+identifier alone. The built-in taxonomy:
 
 =================  ============================================================
 Group              Tools

@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -54,7 +56,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * sanitised: an editor may write the same markup by hand, and a tool that
  * filtered it would be enforcing a rule the CMS itself does not have.
  */
-final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface
+final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -305,6 +307,19 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // elements, not one. A reaped run that may already have created the
         // element must fail terminally rather than draft it again.
         return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * The human-facing declaration (ADR-152).
+     */
+    public function getEditorAction(): EditorAction
+    {
+        return new EditorAction(
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.label',
+            'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.description',
+            'nrllm-editor-action-create-content',
+            [self::TABLE],
+        );
     }
 
     /**
