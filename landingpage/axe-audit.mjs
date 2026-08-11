@@ -38,8 +38,9 @@ const DIST = process.argv[2] ?? 'landingpage/public';
 
 /** The path the site is served from, with exactly one slash at each end. */
 const baseSegments = (process.argv[3] ?? process.env.PAGES_BASE_PATH ?? '/')
-  .replace(/^\/+/, '')
-  .replace(/\/+$/, '');
+  .split('/')
+  .filter(Boolean)
+  .join('/');
 const BASE = baseSegments ? `/${baseSegments}/` : '/';
 
 // WCAG 2.1 AA, which is what the pages claim. 'best-practice' is deliberately
