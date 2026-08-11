@@ -1,0 +1,165 @@
+{
+  "_comment": [
+    "Editorial half of the project manifest. The mechanical half — latest release,",
+    "main-branch version, supported TYPO3 and PHP versions — is derived by",
+    "build/build.py from ext_emconf.php and composer.json and must not be written",
+    "here. Anything a script can read from the repository is not a fact this file",
+    "is allowed to state.",
+    "",
+    "The build publishes the merged result at <site>/project-manifest.json, which",
+    "the portfolio site aggregates into https://netresearch.github.io/projects.json.",
+    "Every page that shows a status or a version for nr-llm reads it from there."
+  ],
+  "stage": "beta",
+  "owner": "Netresearch DTT GmbH — nr-llm maintainers",
+  "last_verified": "2026-08-11",
+  "license": "GPL-2.0-or-later",
+  "repository": "https://github.com/netresearch/t3x-nr-llm",
+  "documentation": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Index.rst",
+  "demo": null,
+  "support": "https://www.netresearch.de/kontakt/",
+  "providers": [
+    "OpenAI",
+    "Anthropic Claude",
+    "Google Gemini",
+    "Ollama (local)",
+    "OpenRouter",
+    "Mistral",
+    "Groq",
+    "Azure OpenAI",
+    "any OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM)"
+  ],
+  "capabilities": [
+    {
+      "id": "provider-abstraction",
+      "label": "One provider abstraction for every extension",
+      "detail": "Chat, completion, streaming, tool calling, translation, vision and embeddings behind injectable services.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Developer/Index.rst"
+    },
+    {
+      "id": "provider-fallback",
+      "label": "Fallback chains per configuration",
+      "detail": "Retried on connection errors, HTTP 5xx and rate limits, in the order the configuration declares.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Classes/Provider/Middleware/FallbackMiddleware.php"
+    },
+    {
+      "id": "rag",
+      "label": "Site-content retrieval with citations",
+      "detail": "Answers reference the pages they came from rather than asserting unsourced text.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Tools.rst"
+    },
+    {
+      "id": "tools",
+      "label": "Built-in function-calling tools in toggleable groups",
+      "detail": "Read-only by default; the writing tools ship disabled.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Tools.rst"
+    }
+  ],
+  "security_controls": [
+    {
+      "id": "vault-keys",
+      "label": "API keys stored as vault identifiers",
+      "detail": "Envelope encryption via nr-vault; nr-llm never stores or logs a raw key.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Adr012ApiKeyStorageVault.rst"
+    },
+    {
+      "id": "guardrails",
+      "label": "Guardrail pipeline across input, output, reasoning and streamed chunks",
+      "detail": "Screens and can redact; secret patterns are denied on the egress path.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Index.rst"
+    },
+    {
+      "id": "hitl",
+      "label": "Human-in-the-loop approval for sensitive actions",
+      "detail": "A run that reaches an approval-gated tool suspends until a person decides.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Index.rst"
+    },
+    {
+      "id": "permissions",
+      "label": "Per-capability backend-group permissions",
+      "detail": "Who may use which capability is a backend group setting, not a code constant.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Index.rst"
+    },
+    {
+      "id": "supply-chain",
+      "label": "Signed releases with provenance and SBOMs",
+      "detail": "Cosign signature, SHA-256 checksums, SPDX and CycloneDX SBOMs, SLSA build provenance.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/releases"
+    }
+  ],
+  "cost_controls": [
+    {
+      "id": "user-budgets",
+      "label": "Per-user budgets",
+      "detail": "Requests, tokens or estimated cost, daily or monthly, per backend user.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/UserBudgets.rst"
+    },
+    {
+      "id": "analytics",
+      "label": "Usage and cost analytics",
+      "detail": "Estimated cost and usage per provider, model, service and user.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Administration/Analytics.rst"
+    },
+    {
+      "id": "cheaper-fallback",
+      "label": "Fallback to a cheaper or local model",
+      "detail": "A configuration can name fallbacks that cost less, including a self-hosted endpoint.",
+      "state": "implemented",
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Classes/Domain/DTO/FallbackChain.php"
+    }
+  ],
+  "evidence": [
+    { "type": "code", "label": "Source", "url": "https://github.com/netresearch/t3x-nr-llm" },
+    { "type": "adr", "label": "Architecture Decision Records", "url": "https://netresearch.github.io/t3x-nr-llm/adr/" },
+    { "type": "docs", "label": "Documentation", "url": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Index.rst" },
+    { "type": "release", "label": "Releases with SBOM and provenance", "url": "https://github.com/netresearch/t3x-nr-llm/releases" }
+  ],
+  "ai": {
+    "intended_purpose": "Shared, administrator-controlled access to language models for TYPO3 extensions: one provider configuration, one set of permissions and budgets, reused by every extension on the site.",
+    "excluded_uses": [
+      "Unattended decisions about people — hiring, credit, benefits, access or any other consequential outcome.",
+      "Autonomous content changes without a human approval.",
+      "A source of facts. Model output is untrusted content and is treated as such.",
+      "A compliance control in its own right. It supports controls; it does not make an organisation conformant."
+    ],
+    "models": [
+      "Whatever the administrator configures: a commercial API, an EU-hosted provider, an OpenAI-compatible endpoint, or a self-hosted model."
+    ],
+    "data": [
+      "The prompt an extension sends, plus any site content a retrieval tool includes.",
+      "Usage metadata: provider, model, service, backend user, token counts and estimated cost.",
+      "No API keys — those stay in the vault as identifiers."
+    ],
+    "processing_location": ["own-server", "external-provider"],
+    "human_oversight": "Writing tools ship disabled and, once enabled, suspend the run for an explicit approval. Everything else is read-only by default.",
+    "permissions": "Per-capability backend-group permissions; the backend module is restricted to administrators.",
+    "logging": "Requests are recorded with provider, model, service, user, token counts and estimated cost. Prompt content is not part of the usage record.",
+    "retention": "Usage records live in the site's database and follow the site's own retention rules. nr-llm sets no expiry of its own.",
+    "cost_control": "Per-user budgets on requests, tokens or estimated cost, daily or monthly, with fallback to cheaper or local models.",
+    "security_controls": [
+      "API keys as vault identifiers, never plaintext",
+      "Guardrail pipeline across input, output, reasoning and streamed chunks",
+      "Secret-pattern denial on the egress path",
+      "Approval-gated writing tools",
+      "Signed releases with SBOMs and SLSA provenance"
+    ],
+    "known_limitations": [
+      "Models produce wrong answers with confidence. Nothing here prevents that; the controls bound what a model may do, not what it may say.",
+      "Prompt injection through retrieved site content is possible. Tool permissions and the approval gate are the mitigation, not immunity.",
+      "Cost figures are estimates derived from the model's published pricing, not from the provider's invoice.",
+      "Streaming responses bypass parts of the output pipeline; the trade-off is documented in the ADRs.",
+      "Provider availability, model behaviour and pricing are outside this extension's control."
+    ]
+  }
+}

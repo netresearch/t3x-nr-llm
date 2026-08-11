@@ -493,4 +493,8 @@ Tools
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
    Adr148RoutingReadoutOnTheGovernanceTab
+   Adr149CriteriaModeZoneFromTheResolvedModel
+   Adr155SystemPromptCarriesADataClass
    Adr157TheSimulationCoversTheRunAndAnswersForAnActor
+   Adr159OneExtensionConfirmedAtTheFreeze
+   Adr160AdapterContractAndCapabilityProvenance

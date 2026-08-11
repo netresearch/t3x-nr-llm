@@ -29,10 +29,11 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
      */
     private const MAX_OLLAMA_DETAIL_LOOKUPS = 20;
 
-    /** @var array{description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int} */
+    /** @var array{description: string, capabilities: array<string>, capabilitiesFromApi: bool, contextLength: int, maxOutputTokens: int} */
     private const OLLAMA_DEFAULT_DETAILS = [
         'description' => 'Local Ollama model',
         'capabilities' => ['chat'],
+        'capabilitiesFromApi' => false,
         'contextLength' => 0,
         'maxOutputTokens' => 0,
     ];
@@ -105,6 +106,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
                     costInput: 0,
                     costOutput: 0,
                     recommended: true,
+                    capabilitiesFromApi: $modelDetails['capabilitiesFromApi'],
                 );
             }
 
@@ -126,7 +128,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
     /**
      * Get detailed model info from Ollama's /api/show endpoint.
      *
-     * @return array{description: string, capabilities: array<string>, contextLength: int, maxOutputTokens: int}
+     * @return array{description: string, capabilities: array<string>, capabilitiesFromApi: bool, contextLength: int, maxOutputTokens: int}
      */
     private function getOllamaModelDetails(string $endpoint, string $modelId): array
     {
@@ -161,6 +163,7 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
             return [
                 'description' => 'Local Ollama model',
                 'capabilities' => $capabilities,
+                'capabilitiesFromApi' => $this->reportsCapabilities($data),
                 'contextLength' => $contextLength,
                 'maxOutputTokens' => $maxOutputTokens,
             ];
@@ -198,6 +201,21 @@ final class OllamaModelDiscoverer extends AbstractModelDiscoverer
         }
 
         return 0;
+    }
+
+    /**
+     * Whether `/api/show` reported a capability array at all.
+     *
+     * The `['chat']` that {@see extractOllamaCapabilities()} substitutes for a
+     * response without one — Ollama below 0.6 — is an inference from the model
+     * being in the chat listing, not something the host said. It must not be
+     * recorded as a provider confirmation (ADR-160).
+     *
+     * @param array<int|string, mixed> $data
+     */
+    private function reportsCapabilities(array $data): bool
+    {
+        return isset($data['capabilities']) && is_array($data['capabilities']) && $data['capabilities'] !== [];
     }
 
     /**

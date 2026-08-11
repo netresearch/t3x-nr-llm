@@ -52,6 +52,7 @@ final class MistralModelDiscoverer extends AbstractModelDiscoverer
                     costInput: 0,
                     costOutput: 0,
                     recommended: str_contains($modelId, 'large') || str_contains($modelId, 'medium'),
+                    capabilitiesFromApi: true,
                 );
             }
 

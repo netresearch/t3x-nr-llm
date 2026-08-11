@@ -150,6 +150,14 @@ mode is reportable rather than invisible.
 ✓ No second policy engine, and no widened ``@api`` signature. Every axis is the
 runtime's own service.
 
+◐ The simulation does not resolve a serving model, so it asks
+:php:`InputContextTrustGate::decide()` without one and gets the zone the
+configuration's own relation gives. For a criteria-mode record that is the
+fail-closed ``EXTERNAL_GLOBAL`` (:ref:`ADR-149 <adr-149>`), while the runtime —
+which has resolved a model by then — may read a weaker declaration as permitted.
+The page is therefore stricter than the send it describes, never laxer: it can
+warn about a refusal that will not happen, and cannot miss one that will.
+
 ◐ The verdict is a fold of four axes, evaluated together. The runtime evaluates
 them at different moments in a run, so a real call that fails the tool gate
 never reaches routing. The page reports all four regardless, which is more than

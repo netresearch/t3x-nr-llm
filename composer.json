@@ -116,6 +116,11 @@
         "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan-baseline.neon",
         "ci:test:php:rector": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then rector process --config Build/rector/rector.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s rector -n \"$@\"; fi' --",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
+        "ci:test:repo": [
+            "@ci:test:changelog",
+            "@ci:test:workflows"
+        ],
+        "ci:test:workflows": "php Build/Scripts/check-workflow-ownership.php",
         "cs:fix": "@ci:cgl",
         "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",
         "ddev:test": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer test'",
