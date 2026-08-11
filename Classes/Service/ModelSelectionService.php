@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\RoutingRejectionReason;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingCandidate;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\Routing\CandidateRanker;
 use Netresearch\NrLlm\Service\Routing\EligibilityEvaluator;
 use Netresearch\NrLlm\Service\Routing\RoutingDecisionService;
+use Netresearch\NrLlm\Service\Routing\RoutingSummaryFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
@@ -140,12 +142,32 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
      */
     public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): ?Model
     {
+        return $this->resolveModelForCall($configuration, $operation)->model;
+    }
+
+    /**
+     * The same resolution, handing back the decision that produced it
+     * (ADR-156).
+     *
+     * {@see self::resolveModel()} is this method with the reasoning dropped, so
+     * the two cannot diverge and a caller that wants both pays for one
+     * evaluation. That is the reason this exists rather than a caller pairing
+     * `resolveModel()` with `explainRouting()`: the pair would run the
+     * discovery, eligibility and ranking twice per request, and a model
+     * activated between the two runs would make the recorded reason describe a
+     * decision that never ran.
+     *
+     * @throws UnsupportedFeatureException see {@see self::resolveModel()}
+     */
+    public function resolveModelForCall(LlmConfiguration $configuration, ?ProviderOperation $operation): ModelResolution
+    {
         if (!$configuration->usesCriteriaSelection()) {
             // Fixed mode: return the directly configured model. Nothing is
             // being chosen here — the operator named this model — so there is
-            // nothing for the operation to constrain. A fixed model that cannot
-            // do the operation still fails at the adapter, exactly as before.
-            return $configuration->getLlmModel();
+            // nothing for the operation to constrain, and nothing to record as
+            // a decision. A fixed model that cannot do the operation still
+            // fails at the adapter, exactly as before.
+            return ModelResolution::withoutDecision($configuration->getLlmModel());
         }
 
         // Criteria mode: find best matching model
@@ -154,53 +176,69 @@ final readonly class ModelSelectionService implements ModelSelectionServiceInter
         $capability = $operation instanceof ProviderOperation
             ? OperationCapabilityMap::capabilityFor($operation)
             : null;
-        if (!$operation instanceof ProviderOperation || !$capability instanceof ModelCapability) {
-            return $this->findMatchingModel($criteria);
+        // The extension setting is read only when an operation actually
+        // constrains something, as before: a resolution with no capability
+        // requirement cannot be enforcing or observing anything.
+        $enforcing = $operation instanceof ProviderOperation
+            && $capability instanceof ModelCapability
+            && $this->enforcingOperationCapability();
+
+        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, $enforcing));
+        $summary  = (new RoutingSummaryFactory())->fromDecision($decision);
+
+        if ($operation instanceof ProviderOperation && $capability instanceof ModelCapability) {
+            if (!$enforcing) {
+                $this->reportObservedMismatch($decision->selected, $capability, $operation, $configuration);
+            } elseif (!$decision->hasSelection()) {
+                $this->refuseUnservableOperation($decision, $configuration, $capability, $operation);
+            }
         }
 
-        if (!$this->enforcingOperationCapability()) {
-            $model = $this->findMatchingModel($criteria);
-            $this->reportObservedMismatch($model, $capability, $operation, $configuration);
+        return new ModelResolution($decision->selected, $summary);
+    }
 
-            return $model;
-        }
-
-        $decision = $this->routing()->decide($this->constrainedCriteria($criteria, $capability, true));
-        if ($decision->hasSelection()) {
-            return $decision->selected;
-        }
-
-        // Distinguish the two ways of ending up with nothing. Criteria that
-        // match no model at all are the pre-existing "has no model assigned"
-        // condition and stay a null return. Criteria that DO match, but match
-        // only models declaring they cannot do this operation, are a
-        // misconfiguration worth naming, because the alternative is an opaque
-        // provider error.
-        //
-        // The decision already carries that distinction as a rejection reason
-        // (ADR-142), so it is read off the one evaluation instead of resolving
-        // a second time against the unconstrained criteria.
+    /**
+     * Distinguish the two ways an enforcing resolution ends up with nothing.
+     *
+     * Criteria that match no model at all are the pre-existing "has no model
+     * assigned" condition and stay a null resolution. Criteria that DO match,
+     * but match only models declaring they cannot do this operation, are a
+     * misconfiguration worth naming, because the alternative is an opaque
+     * provider error.
+     *
+     * The decision already carries that distinction as a rejection reason
+     * (ADR-142), so it is read off the one evaluation instead of resolving a
+     * second time against the unconstrained criteria.
+     *
+     * @throws UnsupportedFeatureException
+     */
+    private function refuseUnservableOperation(
+        RoutingDecision $decision,
+        LlmConfiguration $configuration,
+        ModelCapability $capability,
+        ProviderOperation $operation,
+    ): void {
         $refusedForOperation = array_filter(
             $decision->rejectedCandidates(),
             static fn(RoutingCandidate $candidate): bool => $candidate->rejectionReason === RoutingRejectionReason::OPERATION_CAPABILITY_MISSING,
         );
 
-        if ($refusedForOperation !== []) {
-            throw new UnsupportedFeatureException(
-                sprintf(
-                    'Configuration "%s" selects its model by criteria, but every matching model declares '
-                    . 'capabilities without "%s", which the "%s" operation requires. '
-                    . 'Add the capability to the model record, widen the criteria, or set '
-                    . 'routing.operationCapabilityEnforcement = observe.',
-                    $configuration->getIdentifier(),
-                    $capability->value,
-                    $operation->value,
-                ),
-                1786100138,
-            );
+        if ($refusedForOperation === []) {
+            return;
         }
 
-        return null;
+        throw new UnsupportedFeatureException(
+            sprintf(
+                'Configuration "%s" selects its model by criteria, but every matching model declares '
+                . 'capabilities without "%s", which the "%s" operation requires. '
+                . 'Add the capability to the model record, widen the criteria, or set '
+                . 'routing.operationCapabilityEnforcement = observe.',
+                $configuration->getIdentifier(),
+                $capability->value,
+                $operation->value,
+            ),
+            1786100138,
+        );
     }
 
     /**

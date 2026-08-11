@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Fixture;
 
 use Netresearch\NrLlm\Service\Telemetry\FallbackHop;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Throwable;
@@ -88,5 +89,27 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
         $this->hopsLimit = $limit;
 
         return \array_slice($this->fallbackHops, 0, max(1, $limit));
+    }
+
+    /**
+     * Rows recentRoutedCalls() hands back, newest first. Unnarrowed for the
+     * same reason as {@see self::$fallbackHops}: the "carries a decision" rule
+     * lives in the SQL, and a test states the rows it wants the reader handed.
+     *
+     * @var list<RoutedCall>
+     */
+    public array $routedCalls = [];
+
+    /** The ($since, $limit) pair the last recentRoutedCalls() was asked for. */
+    public ?int $routedSince = null;
+
+    public ?int $routedLimit = null;
+
+    public function recentRoutedCalls(int $since, int $limit): array
+    {
+        $this->routedSince = $since;
+        $this->routedLimit = $limit;
+
+        return \array_slice($this->routedCalls, 0, max(1, $limit));
     }
 }

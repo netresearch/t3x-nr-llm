@@ -493,3 +493,4 @@ Tools
    Adr146ThreeMoreEditorialWriters
    Adr147NoSymfonyAiBridgeYet
    Adr148RoutingReadoutOnTheGovernanceTab
+   Adr156PersistTheRoutingDecisionObserveComplexity

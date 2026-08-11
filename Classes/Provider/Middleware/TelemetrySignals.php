@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 
 /**
  * Mutable scratchpad an inner middleware uses to signal an outer one within a
@@ -55,6 +57,28 @@ final class TelemetrySignals
     public ?string $servedModel = null;
 
     /**
+     * Why the model that ran was the one that ran (ADR-156).
+     *
+     * Null until a criteria-mode resolution records one, and null for good on
+     * every other path: fixed mode chooses nothing, and a call with no
+     * configuration resolves nothing. That is the same distinction
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\RoutingReadout} keeps for the
+     * live readout — a decision that was never taken is not a decision with
+     * empty fields.
+     */
+    public ?RoutingSummary $routingSummary = null;
+
+    /**
+     * How involved the request was (ADR-156). Observation only — nothing in the
+     * routing path reads it, and ADR-156 states what must be true before
+     * anything may.
+     *
+     * Null on the paths that carry no measurable payload (embeddings by
+     * identifier, the specialized image/speech services).
+     */
+    public ?RequestComplexity $complexity = null;
+
+    /**
      * CacheMiddleware calls this when it serves a stored response instead of
      * invoking the terminal.
      */
@@ -87,5 +111,38 @@ final class TelemetrySignals
     public function recordFallbackAttempt(): void
     {
         ++$this->fallbackAttempts;
+    }
+
+    /**
+     * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner} calls this with
+     * the summary of the automatic selection it just performed, or with null on
+     * a fixed-mode configuration.
+     *
+     * A null does NOT clear a summary already recorded. A fallback swap
+     * re-resolves against a sibling configuration on the same context, and a
+     * fixed-mode sibling answering for a criteria-mode primary must not erase
+     * the decision that chose the primary — the row would then claim no
+     * decision was taken on a call that was routed.
+     */
+    public function recordRoutingSummary(?RoutingSummary $summary): void
+    {
+        if ($summary === null) {
+            return;
+        }
+
+        $this->routingSummary = $summary;
+    }
+
+    /**
+     * {@see \Netresearch\NrLlm\Service\LlmServiceManager} calls this once per
+     * send, with what the payload measured.
+     *
+     * Last writer wins, unlike the routing summary: a fallback re-send measures
+     * the SAME payload against the sibling's model, so the later figure is the
+     * one that describes what actually went on the wire.
+     */
+    public function recordComplexity(RequestComplexity $complexity): void
+    {
+        $this->complexity = $complexity;
     }
 }

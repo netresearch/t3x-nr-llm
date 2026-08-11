@@ -172,6 +172,14 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 servedConfigurationIdentifier: $signals->servedConfigurationIdentifier ?? $context->telemetryConfigurationIdentifier(),
                 servedProvider: $signals->servedProvider ?? $context->telemetryProvider(),
                 servedModel: $signals->servedModel ?? $context->telemetryModel(),
+                // Both null unless something recorded them on the way in: the
+                // routing summary comes from a criteria-mode resolution
+                // (ADR-156), the complexity from the send's context fit. Null
+                // stays null — this layer has no payload to measure and no
+                // decision to reconstruct, so it can only pass on what the
+                // inner layers found.
+                routingSummary: $signals->routingSummary,
+                complexity: $signals->complexity,
             ));
         } catch (Throwable $e) {
             // Observability must not break the call it observes. safeRecord()

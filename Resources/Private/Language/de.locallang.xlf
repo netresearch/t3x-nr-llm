@@ -710,6 +710,86 @@
                 <source>Its input cost exceeds the ceiling the criteria set.</source>
                 <target>Seine Eingabekosten liegen über der von den Kriterien gesetzten Obergrenze.</target>
             </trans-unit>
+            <trans-unit id="routedCalls.heading">
+                <source>Calls that were routed</source>
+                <target>Aufrufe, die geroutet wurden</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.lead">
+                <source>The last %s days of calls whose model was chosen automatically, newest first. Fixed-mode calls are absent — nothing was chosen for them. The complexity columns are measured and recorded only; no routing decision reads them.</source>
+                <target>Die letzten %s Tage an Aufrufen, deren Modell automatisch gewählt wurde, neueste zuerst. Aufrufe im festen Modus fehlen — dort wurde nichts gewählt. Die Komplexitätsspalten werden nur gemessen und festgehalten; keine Routing-Entscheidung liest sie.</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.when">
+                <source>When</source>
+                <target>Wann</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.configuration">
+                <source>Configuration</source>
+                <target>Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.servedModel">
+                <source>Served by</source>
+                <target>Beantwortet von</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.decision">
+                <source>Decision</source>
+                <target>Entscheidung</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.column.complexity">
+                <source>Complexity (observed)</source>
+                <target>Komplexität (nur beobachtet)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.failed">
+                <source>failed</source>
+                <target>fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.fallbackAttempts">
+                <source>%s fallback attempt(s)</source>
+                <target>%s Fallback-Versuch(e)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.mode">
+                <source>%s, %s candidate(s)</source>
+                <target>%s, %s Kandidat(en)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals">
+                <source>Signals used</source>
+                <target>Genutzte Signale</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.signals.none">
+                <source>none — provider priority and the tiebreaks decided</source>
+                <target>keine — Provider-Priorität und die Tiebreaks haben entschieden</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.refusedBy">
+                <source>Refused by</source>
+                <target>Abgelehnt wegen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.score">
+                <source>score %s/100</source>
+                <target>Wert %s/100</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.tools">
+                <source>%s tool(s)</source>
+                <target>%s Tool(s)</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.bytes">
+                <source>%s bytes on the wire</source>
+                <target>%s Bytes auf der Leitung</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.context">
+                <source>~%s tokens, %s%% of the window</source>
+                <target>~%s Tokens, %s%% des Fensters</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.context.unmeasured">
+                <source>window not measured for this send</source>
+                <target>Fenster für diesen Versand nicht gemessen</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.title">
+                <source>No routed calls recorded</source>
+                <target>Keine gerouteten Aufrufe erfasst</target>
+            </trans-unit>
+            <trans-unit id="routedCalls.empty.text">
+                <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
+                <target>Im Zeitraum hat nichts ein Modell automatisch gewählt. Entweder lief kein Aufruf, jede Konfiguration nennt ein festes Modell, oder die Telemetrie ist abgeschaltet.</target>
+            </trans-unit>
 
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">

@@ -8,6 +8,40 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `tx_nrllm_telemetry` records WHY the model that served a call was chosen, and
+  the Governance tab reads it back (ADR-156). Six new columns per row — policy
+  mode, candidate count, the distinct rejection reasons, and whether the
+  quality, health and cost signals actually moved the ranking — written from the
+  one resolution the runtime already performs, on both the non-streaming and the
+  streamed path. `Calls that were routed` on the Governance tab shows the last
+  seven days of them, so "why model A" is answerable for a call that happened
+  and not only for a hypothetical. The selected model and fallback hops are not
+  duplicated: `served_model` and `fallback_attempts` already carry them, and the
+  candidate model list is deliberately not stored. A run that chose nothing
+  (fixed mode, or a path with no configuration) writes an empty policy mode
+  rather than zeros, and the reader filters those out in SQL so a mostly
+  fixed-mode installation cannot crowd its real decisions out of the window.
+  **Breaking:** `ModelSelectionServiceInterface` gains `resolveModelForCall()`,
+  which returns the model together with the decision that produced it — an
+  implementation of the interface outside this extension has to add it.
+  `resolveModel()` is unchanged and now delegates to it, so callers are
+  unaffected. `ConfigurationCallPlanner::resolveModel()` takes an optional third
+  argument (the telemetry scratchpad); existing calls are unchanged.
+
+- Request complexity is measured on every send and recorded, and nothing routes
+  on it (ADR-156). Six more telemetry columns: a 0-100 structural score, the
+  payload size in bytes, the token estimate, the tool count, the context
+  utilisation and the request shape (single-turn / multi-turn / tool-assisted).
+  ADR-142 declined complexity routing for want of evidence that the score
+  predicts anything; this collects that evidence and changes no behaviour —
+  there is no new signal in `CandidateRanker`, no weight in `RoutingPolicyMode`,
+  no predicate in `EligibilityEvaluator` and no flag that would add one. ADR-156
+  writes down what has to hold before anything may route on it: cheaper models
+  hold for simple requests, quality does not degrade, and real cost drops — all
+  three, over a sample. The token and utilisation figures come from the context
+  fit and stay SQL NULL where no fit ran, because an unmeasured send is not an
+  empty one. Still prompt-free: sizes, counts and enum names only.
+
 - A routing readout on the Governance tab answers "why this model and not that
   one" (ADR-148). Pick a configuration, an operation and optionally a policy
   mode to try, and the page runs the SAME `RoutingDecisionService` the runtime

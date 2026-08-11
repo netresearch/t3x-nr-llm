@@ -754,6 +754,22 @@ Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   property readonly redactedThinking: ?string
   property readonly verdict: Netresearch\NrLlm\Domain\Enum\GuardrailVerdict
 
+Netresearch\NrLlm\Domain\ValueObject\RequestComplexity (class)
+  property readonly contextPercent: ?int
+  property readonly payloadBytes: int
+  property readonly score: int
+  property readonly shape: string
+  property readonly tokenEstimate: ?int
+  property readonly toolCount: int
+
+Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
+  property readonly candidateCount: int
+  property readonly costSignalUsed: bool
+  property readonly healthSignalUsed: bool
+  property readonly policyMode: string
+  property readonly qualitySignalUsed: bool
+  property readonly rejectionReasons: array
+
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   method static fromArray(array $data): self
   method toArray(): array
@@ -949,10 +965,14 @@ Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
 
 Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordCacheHit(): void
+  method recordComplexity(Netresearch\NrLlm\Domain\ValueObject\RequestComplexity $complexity): void
   method recordFallbackAttempt(): void
+  method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   property cacheHit: bool
+  property complexity: ?Netresearch\NrLlm\Domain\ValueObject\RequestComplexity
   property fallbackAttempts: int
+  property routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
   property servedConfigurationIdentifier: ?string
   property servedModel: ?string
   property servedProvider: ?string

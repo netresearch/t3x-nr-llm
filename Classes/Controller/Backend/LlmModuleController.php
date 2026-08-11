@@ -31,6 +31,8 @@ use Netresearch\NrLlm\Service\OperationCapabilityMap;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Overview\OverviewReadinessService;
 use Netresearch\NrLlm\Service\Overview\ProviderReachabilityService;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
@@ -57,6 +59,12 @@ final class LlmModuleController extends ActionController
     use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
 
+    /** How far back the routed-call readout looks (ADR-156). */
+    private const ROUTED_CALL_WINDOW_DAYS = 7;
+
+    /** How many routed calls the readout shows, newest first. */
+    private const ROUTED_CALL_LIMIT = 20;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly LlmServiceManagerInterface $llmServiceManager,
@@ -73,6 +81,11 @@ final class LlmModuleController extends ActionController
         private readonly ToolCallPolicy $toolCallPolicy,
         private readonly ToolRegistry $toolRegistry,
         private readonly ModelSelectionServiceInterface $modelSelectionService,
+        // The routed-call reader (ADR-156). Injected directly rather than behind
+        // a report service: unlike the fallback rescues, which need a domain
+        // rule to classify a hop, "which recent calls recorded a decision" is
+        // the repository query itself.
+        private readonly TelemetryRepositoryInterface $telemetryRepository,
         private readonly PageRenderer $pageRenderer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -317,6 +330,12 @@ final class LlmModuleController extends ActionController
             'routingConfiguration'  => $this->queryParam('routeConfiguration'),
             'routingOperation'      => $this->queryParam('routeOperation'),
             'routingPolicyMode'     => $this->queryParam('routePolicyMode'),
+            // The other half of the same question (ADR-156). The readout above
+            // answers "which model WOULD serve this"; this answers "which model
+            // DID, and why" for calls that already ran. It needs no form: it is
+            // not a query an operator composes, it is what happened.
+            'routedCalls'           => $this->recentRoutedCalls(),
+            'routedCallsDays'       => self::ROUTED_CALL_WINDOW_DAYS,
             // Both forms GET to the same action, so each has to carry the
             // other's state or submitting one wipes the other's answer off the
             // page — the tab holds two questions about the same configuration
@@ -493,6 +512,35 @@ final class LlmModuleController extends ActionController
         }
 
         return $rows;
+    }
+
+    /**
+     * The recent calls whose model was chosen automatically (ADR-156).
+     *
+     * The reader ADR-142 made the condition of persisting the decision at all.
+     * Fixed window and fixed cap rather than a form: the page already carries
+     * two forms, and a third control for "how far back" would ask an operator
+     * to tune a query before they have seen an answer. A week of decisions at
+     * twenty rows is enough to see whether the modes correspond to anything —
+     * which is the question ADR-142's "revisit when" names.
+     *
+     * Fail-soft: the routed-call table is an observation, and a read error must
+     * not take the whole Governance tab down with it.
+     *
+     * @return list<RoutedCall>
+     */
+    private function recentRoutedCalls(): array
+    {
+        try {
+            return $this->telemetryRepository->recentRoutedCalls(
+                time() - (self::ROUTED_CALL_WINDOW_DAYS * 86400),
+                self::ROUTED_CALL_LIMIT,
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning('Failed to read recent routed calls for the Governance tab', ['exception' => $e]);
+
+            return [];
+        }
     }
 
     /**

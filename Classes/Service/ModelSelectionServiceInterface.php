@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service;
 use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
@@ -43,6 +44,28 @@ interface ModelSelectionServiceInterface
      *                                     declare they cannot serve `$operation`
      */
     public function resolveModel(LlmConfiguration $configuration, ?ProviderOperation $operation): ?Model;
+
+    /**
+     * The same resolution, handing back the decision that produced it
+     * (ADR-156).
+     *
+     * `resolveModel()` is this method with the reasoning dropped. A caller that
+     * needs both — {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner},
+     * which resolves the model and records why into the telemetry scratchpad —
+     * takes this one and pays for a single evaluation.
+     *
+     * It is NOT `explainRouting()`. That answers an operator about a
+     * hypothetical, accepts a policy-mode override, and is free to run whenever
+     * the Governance tab is opened. This answers the runtime about the call it
+     * is making, takes no override, and runs on every criteria-mode request —
+     * so it must not cost a second discovery/eligibility/ranking pass.
+     *
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\ModelResolution::$routingSummary}
+     * is null where nothing was chosen: fixed mode names its own model.
+     *
+     * @throws UnsupportedFeatureException as {@see self::resolveModel()}
+     */
+    public function resolveModelForCall(LlmConfiguration $configuration, ?ProviderOperation $operation): ModelResolution;
 
     /**
      * The same resolution, with its reasoning attached (ADR-148).
