@@ -1693,8 +1693,8 @@
                 <target>Inhaltselement verschieben</target>
             </trans-unit>
             <trans-unit id="editorAction.move_content_element.description">
-                <source>Moves one content element to another page and column. Nothing is created and nothing is deleted.</source>
-                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Es wird nichts angelegt und nichts gelöscht.</target>
+                <source>Moves one content element to another page and column. Name the target page in the note — the element itself does not name a destination. Nothing is created and nothing is deleted.</source>
+                <target>Verschiebt ein Inhaltselement auf eine andere Seite und in eine andere Spalte. Die Zielseite gehört in die Notiz — das Element selbst nennt kein Ziel. Es wird nichts angelegt und nichts gelöscht.</target>
             </trans-unit>
             <trans-unit id="editorAction.create_content_element_draft.label">
                 <source>Create content element draft</source>
@@ -1711,6 +1711,70 @@
             <trans-unit id="editorAction.create_translation_draft.description">
                 <source>Translates one page or content element into another language. The translation is created hidden.</source>
                 <target>Übersetzt eine Seite oder ein Inhaltselement in eine andere Sprache. Die Übersetzung wird versteckt angelegt.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.title">
+                <source>AI actions</source>
+                <target>KI-Aktionen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.record">
+                <source>These AI actions apply to the record you selected. Starting one hands the change to an approver before anything is written.</source>
+                <target>Diese KI-Aktionen passen zum ausgewählten Datensatz. Eine gestartete Aktion geht zur Freigabe, bevor etwas geschrieben wird.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.intro.overview">
+                <source>These are the AI actions you may run. Each one needs a record: open the context menu of a page or content element and choose AI actions there.</source>
+                <target>Das sind die KI-Aktionen, die Sie ausführen dürfen. Jede braucht einen Datensatz: Öffnen Sie das Kontextmenü einer Seite oder eines Inhaltselements und wählen Sie dort „KI-Aktionen“.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.appliesTo">
+                <source>Applies to</source>
+                <target>Gilt für</target>
+            </trans-unit>
+            <trans-unit id="editorActions.instruction.label">
+                <source>What should change? (optional)</source>
+                <target>Was soll sich ändern? (optional)</target>
+            </trans-unit>
+            <trans-unit id="editorActions.instruction.hint">
+                <source>Leave empty to let the assistant decide. Your note describes the result; it never changes which record is touched.</source>
+                <target>Leer lassen, um die Entscheidung dem Assistenten zu überlassen. Die Notiz beschreibt das Ergebnis; sie ändert nie, welcher Datensatz bearbeitet wird.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.btn.start">
+                <source>Start and send for approval</source>
+                <target>Starten und zur Freigabe geben</target>
+            </trans-unit>
+            <trans-unit id="editorActions.needsRecord">
+                <source>Select a record to start this action.</source>
+                <target>Wählen Sie einen Datensatz, um diese Aktion zu starten.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.empty">
+                <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>
+                <target>Hier stehen Ihnen keine KI-Aktionen zur Verfügung. Die schreibenden Werkzeuge und die LLM-Konfiguration dahinter gibt Ihre Administration frei.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.contextMenu.label">
+                <source>AI actions</source>
+                <target>KI-Aktionen</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.notAvailable">
+                <source>This action is not available for that record.</source>
+                <target>Diese Aktion steht für diesen Datensatz nicht zur Verfügung.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.awaiting">
+                <source>The action is waiting for approval. Review it in the approvals inbox.</source>
+                <target>Die Aktion wartet auf Freigabe. Prüfen Sie sie im Freigabe-Posteingang.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.completedWithoutWrite">
+                <source>The run finished without proposing a change. Nothing was written.</source>
+                <target>Der Lauf endete ohne Änderungsvorschlag. Es wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.blocked">
+                <source>A safety rule stopped this run. Nothing was written.</source>
+                <target>Eine Sicherheitsregel hat den Lauf gestoppt. Es wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.cancelled">
+                <source>The run was cancelled. Nothing was written.</source>
+                <target>Der Lauf wurde abgebrochen. Es wurde nichts geschrieben.</target>
+            </trans-unit>
+            <trans-unit id="editorActions.flash.failed">
+                <source>The run failed. Nothing was written.</source>
+                <target>Der Lauf ist fehlgeschlagen. Es wurde nichts geschrieben.</target>
             </trans-unit>
             <trans-unit id="help.card.description">
                 <source>Read the in-module help and the online documentation for setup guidance and troubleshooting.</source>

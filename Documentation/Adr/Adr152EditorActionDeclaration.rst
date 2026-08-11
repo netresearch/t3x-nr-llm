@@ -99,6 +99,19 @@ The declaration is collected by its OWN method, not by ``states()``
    because which one it addresses is the caller's choice rather than a property
    of the tool.
 
+   The rule is mechanical, and a test enforces it: every declared table must be
+   one that a **required** argument of the tool's own spec can be filled from.
+   ``create_content_element_draft`` therefore declares ``pages`` — its only
+   required record identifier is ``page`` — even though the row it creates is a
+   ``tt_content`` row. Declaring ``tt_content`` would offer the action on an
+   element whose page a caller has no way to learn.
+
+   The rule bounds the subject, not every argument. ``move_content_element``
+   declares ``tt_content`` for its ``uid`` and still requires a
+   ``target_page`` that no subject supplies; its human description says the
+   target belongs in the editor's note, and the approval card shows the
+   destination the preview resolved.
+
 .. _adr-152-group:
 
 The group becomes an enum, and ``getGroup()`` stays a string

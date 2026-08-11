@@ -265,6 +265,13 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
 
     /**
      * The human-facing declaration (ADR-152).
+     *
+     * `tt_content` is the subject: `uid` is the element an editor selects. The
+     * second required argument, `target_page`, is NOT derivable from that
+     * subject — no read tool is offered beside this one — so the destination
+     * can only come from the editor's free-text note. The human description
+     * says so; the approval card shows the destination the preview resolved,
+     * which is where a guessed page is caught.
      */
     public function getEditorAction(): EditorAction
     {

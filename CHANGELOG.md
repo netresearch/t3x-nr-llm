@@ -297,6 +297,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   through the new `ToolGroup` enum; a third-party group keeps its raw
   identifier. `ToolInterface`'s docblock listed the group taxonomy without
   `editing` — the group every writer uses — which is fixed.
+- **An editor can find and start an editor action** — the Editor Action Center
+  (ADR-158) in the editor module `nrllm_aitasks`. A context-menu item on a page
+  or content element opens a catalogue of the actions that apply to it; starting
+  one creates an ordinary agent run restricted to that single tool, and the
+  declared write suspends for approval on the existing inbox card with its
+  preview. The catalogue is driven by `editorActions()`, the composite tool gate
+  and access to the default LLM configuration itself (a user outside its allowed
+  backend groups is offered nothing and can start nothing) — no permission rule
+  is re-implemented, and no second executor exists.
+  The catalogue never reads the record, so it shows `pages #42` rather than a
+  title; the record is resolved and authorised later, by the preview.
+  Deliberately not built: bulk, a record picker, and a grant of its own.
 
 ### Changed
 

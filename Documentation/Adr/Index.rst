@@ -498,5 +498,6 @@ Tools
    Adr155SystemPromptCarriesADataClass
    Adr156PersistTheRoutingDecisionObserveComplexity
    Adr157TheSimulationCoversTheRunAndAnswersForAnActor
+   Adr158EditorActionCenter
    Adr159OneExtensionConfirmedAtTheFreeze
    Adr160AdapterContractAndCapabilityProvenance

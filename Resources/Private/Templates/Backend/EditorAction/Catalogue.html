@@ -1,0 +1,116 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <core:icon identifier="module-nrllm-task" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.title" default="AI actions" />
+        </h1>
+        <f:link.action action="list" controller="Backend\AgentRun" class="btn btn-secondary">
+            <core:icon identifier="module-nrllm-runs" size="small" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:aitasks.btn.approvals" default="Approvals" />
+        </f:link.action>
+    </div>
+
+    <f:if condition="{hasSubject}">
+        <f:then>
+            <p class="text-muted">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.intro.record"
+                             default="These AI actions apply to the record you selected. Starting one hands the change to an approver before anything is written." />
+            </p>
+            <p>
+                <!-- No <code> inside the badge: TYPO3's global `code{color:…!important}`
+                     beats the badge's own white text and would render the table name at
+                     1.43:1 on the grey badge, while the uid beside it stays white. -->
+                <span class="badge text-bg-secondary">{recordTable} #{recordUid}</span>
+            </p>
+        </f:then>
+        <f:else>
+            <p class="text-muted">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.intro.overview"
+                             default="These are the AI actions you may run. Each one needs a record: open the context menu of a page or content element and choose AI actions there." />
+            </p>
+        </f:else>
+    </f:if>
+
+    <f:if condition="{groups}">
+        <f:then>
+            <f:for each="{groups}" as="group">
+                <h2 class="mt-4">
+                    <f:if condition="{group.labelKey}">
+                        <f:then><f:translate key="{group.labelKey}" /></f:then>
+                        <f:else><code>{group.name}</code></f:else>
+                    </f:if>
+                </h2>
+                <div class="row">
+                    <f:for each="{group.offers}" as="offer">
+                        <div class="col-md-6 col-xl-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="card-title h5">
+                                        <core:icon identifier="{offer.action.iconIdentifier}" size="small" />
+                                        <f:translate key="{offer.action.labelKey}" />
+                                    </h3>
+                                    <p class="card-text text-muted small">
+                                        <f:translate key="{offer.action.descriptionKey}" />
+                                    </p>
+                                    <p class="card-text small text-body-secondary mb-0">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.appliesTo" default="Applies to" />:
+                                        <f:for each="{offer.action.recordTypes}" as="recordType"><code>{recordType}</code> </f:for>
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <f:if condition="{hasSubject}">
+                                        <f:then>
+                                            <f:form action="start" method="post">
+                                                <f:form.hidden name="toolName" value="{offer.toolName}" />
+                                                <f:form.hidden name="recordTable" value="{recordTable}" />
+                                                <f:form.hidden name="recordUid" value="{recordUid}" />
+                                                <div class="mb-2">
+                                                    <label class="form-label small" for="nrllm-instruction-{offer.toolName}">
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.label" default="What should change? (optional)" />
+                                                    </label>
+                                                    <f:form.textfield name="instruction"
+                                                                      id="nrllm-instruction-{offer.toolName}"
+                                                                      class="form-control form-control-sm"
+                                                                      maxlength="1000" />
+                                                    <small class="form-text text-body-secondary">
+                                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.instruction.hint" default="Leave empty to let the assistant decide. Your note describes the result; it never changes which record is touched." />
+                                                    </small>
+                                                </div>
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <core:icon identifier="actions-play" size="small" />
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.btn.start" default="Start and send for approval" />
+                                                </button>
+                                            </f:form>
+                                        </f:then>
+                                        <f:else>
+                                            <small class="text-body-secondary">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.needsRecord" default="Select a record to start this action." />
+                                            </small>
+                                        </f:else>
+                                    </f:if>
+                                </div>
+                            </div>
+                        </div>
+                    </f:for>
+                </div>
+            </f:for>
+        </f:then>
+        <f:else>
+            <div class="callout callout-info">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.empty" default="No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under." /></p>
+            </div>
+        </f:else>
+    </f:if>
+</f:section>
+
+</html>
