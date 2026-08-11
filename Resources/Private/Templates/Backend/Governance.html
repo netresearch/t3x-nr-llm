@@ -435,24 +435,39 @@
                                     </f:if>
                                 </td>
                                 <td class="small">
-                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.score" arguments="{0: call.complexityScore}" />
-                                    <span class="d-block text-body-secondary">
-                                        <code>{call.shape}</code>,
-                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.tools" arguments="{0: call.toolCount}" />,
-                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.bytes" arguments="{0: call.payloadBytes}" />
-                                    </span>
-                                    <span class="d-block text-body-secondary">
-                                        <f:comment>
-                                            contextMeasured resolves isContextMeasured(), NOT the
-                                            percentage. Fluid casts a numeric condition through
-                                            (bool)(float), so a measured 0 % would fall into the
-                                            f:else and report "not measured" — see RoutedCall.
-                                        </f:comment>
-                                        <f:if condition="{call.contextMeasured}">
-                                            <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context" arguments="{0: call.complexityTokens, 1: call.contextPercent}" /></f:then>
-                                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context.unmeasured" default="window not measured for this send" /></f:else>
-                                        </f:if>
-                                    </span>
+                                    <f:comment>
+                                        complexityMeasured resolves isComplexityMeasured(), which
+                                        asks the empty-shape flag. A row can carry a decision and
+                                        no measurement at all — a criteria-mode embeddings
+                                        configuration resolves a model but never runs a fit — and
+                                        its score, tool count and byte count are then column
+                                        defaults, not observations. See RoutedCall.
+                                    </f:comment>
+                                    <f:if condition="{call.complexityMeasured}">
+                                        <f:then>
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.score" arguments="{0: call.complexityScore}" />
+                                            <span class="d-block text-body-secondary">
+                                                <code>{call.shape}</code>,
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.tools" arguments="{0: call.toolCount}" />,
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.bytes" arguments="{0: call.payloadBytes}" />
+                                            </span>
+                                            <span class="d-block text-body-secondary">
+                                                <f:comment>
+                                                    contextMeasured resolves isContextMeasured(), NOT the
+                                                    percentage. Fluid casts a numeric condition through
+                                                    (bool)(float), so a measured 0 % would fall into the
+                                                    f:else and report "not measured" — see RoutedCall.
+                                                </f:comment>
+                                                <f:if condition="{call.contextMeasured}">
+                                                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context" arguments="{0: call.complexityTokens, 1: call.contextPercent}" /></f:then>
+                                                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.context.unmeasured" default="window not measured for this send" /></f:else>
+                                                </f:if>
+                                            </span>
+                                        </f:then>
+                                        <f:else>
+                                            <span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routedCalls.complexity.unmeasured" default="complexity not measured for this send" /></span>
+                                        </f:else>
+                                    </f:if>
                                 </td>
                             </tr>
                         </f:for>

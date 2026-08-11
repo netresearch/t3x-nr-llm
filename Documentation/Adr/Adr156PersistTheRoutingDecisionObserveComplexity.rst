@@ -98,6 +98,27 @@ estimate, the tool count, the context utilisation and the request shape. All six
 are shown in the readout — a column nothing reads is the thing ADR-142 refused,
 and "raw evidence for a later sample" is not a reader.
 
+**The reader is the routed-call table, so it shows them only for routed calls.**
+The complexity group shares the row with the routing group and is filtered with
+it: the reader narrows on ``routing_policy_mode != ''``. Complexity, though, is
+written on every configuration-driven send, fixed-mode ones included. On an
+installation whose configurations all name their model, these six columns are
+therefore written and read by nothing until a criteria-mode call appears. That
+is deliberate rather than overlooked: the activation criteria below ask whether
+complexity predicts anything about the DECISION, so the population that matters
+is the one the decision filter keeps, and a second table narrowed on
+``complexity_shape != ''`` would answer a question nobody has yet. It is also
+the honest limit of ADR-142's condition — met for criteria-mode traffic, not for
+all of it.
+
+**A row can carry a decision and no measurement.** ``complexity_shape`` is ``''``
+wherever nothing measured, and the readout asks that flag
+(:php:`RoutedCall::isComplexityMeasured()`) instead of rendering the column
+defaults as a send that scored zero on everything. A criteria-mode embeddings
+configuration is the combination that reaches the table: it resolves a model, so
+its row passes the filter, but it runs no context fit, so nothing calls the
+estimator.
+
 **Nothing routes on them.** There is no new signal in :php:`CandidateRanker`, no
 weight in :php:`RoutingPolicyMode`, no predicate in
 :php:`EligibilityEvaluator`, and no opt-in flag that would add one. The
@@ -189,6 +210,12 @@ to trust.
 ✕ A fixed-mode installation records no decisions and sees an empty table. That
 is correct — nothing was chosen — but it does mean the readout is silent exactly
 where an operator might most want reassurance that routing is not happening.
+
+✕ On that same installation the complexity group is write-only. It is measured
+on every configuration-driven send and the only reader drops the rows, so the
+columns cost storage and answer nothing until a criteria-mode configuration
+exists. Giving them a reader of their own is the fix if that ever matters; it is
+not worth a second table before it does.
 
 Revisit when
 ============

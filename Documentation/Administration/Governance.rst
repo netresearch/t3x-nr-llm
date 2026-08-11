@@ -398,6 +398,13 @@ tool-assisted transcript), the number of tool schemas on the wire, the payload
 size in bytes, the token estimate and how much of the model's context window it
 filled.
 
+**You see them for routed calls only.** The measurement is taken on every
+configuration-driven send, fixed-mode ones included, but it is stored on the
+telemetry row and the table above shows only rows whose model was chosen
+automatically. An installation with no criteria-mode configuration collects
+these columns and displays none of them; the figures are in
+``tx_nrllm_telemetry`` if you query it directly.
+
 **Nothing routes on any of it.** There is no setting that turns it into a
 routing signal, and none is planned until three things have been shown on real
 traffic: that cheaper models hold for simple requests, that quality does not
@@ -422,6 +429,13 @@ clamped.
 **A measured 0 % is a measurement.** A short chat against a large window rounds
 to zero, and the page shows ``~N tokens, 0% of the window`` for it rather than
 falling back to "not measured".
+
+**"complexity not measured" replaces the whole cell**, and is a different
+statement from "window not measured". Some calls choose a model without ever
+sending a measurable payload through the context fit — an embeddings
+configuration in criteria mode is the usual one. Its row has a decision to show
+and nothing to measure, so the score, the shape, the tool count and the byte
+count are absent rather than shown as zeros.
 
 .. _administration-governance-no-apply:
 

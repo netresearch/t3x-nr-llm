@@ -100,16 +100,13 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
      */
     public array $routedCalls = [];
 
-    /** The ($since, $limit) pair the last recentRoutedCalls() was asked for. */
-    public ?int $routedSince = null;
-
-    public ?int $routedLimit = null;
-
     public function recentRoutedCalls(int $since, int $limit): array
     {
-        $this->routedSince = $since;
-        $this->routedLimit = $limit;
-
+        // No ($since, $limit) recording twin to hopsSince/hopsLimit: those exist
+        // because FallbackRescueReportTest asserts the window a SERVICE asks
+        // for. The only caller here is LlmModuleController, which no unit test
+        // drives through this fixture, so the pair would be a declaration
+        // nothing reads.
         return \array_slice($this->routedCalls, 0, max(1, $limit));
     }
 }

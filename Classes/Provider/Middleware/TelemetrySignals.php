@@ -73,8 +73,14 @@ final class TelemetrySignals
      * routing path reads it, and ADR-156 states what must be true before
      * anything may.
      *
-     * Null on the paths that carry no measurable payload (embeddings by
-     * identifier, the specialized image/speech services).
+     * Null wherever nothing measures: the measurement hangs off the context fit
+     * in {@see \Netresearch\NrLlm\Service\LlmServiceManager}, so only the
+     * configuration-driven chat, completion, tool and stream sends record one.
+     * The provider-pinned entry points do not — `chatWithTools()`, `vision()`,
+     * and `chat()`/`complete()` where no default configuration resolves — nor do
+     * embeddings by identifier or the specialized image/speech services. The
+     * first group carries a measurable payload and is simply not on a path that
+     * fits it to a window.
      */
     public ?RequestComplexity $complexity = null;
 

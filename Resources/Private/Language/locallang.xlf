@@ -591,6 +591,9 @@
             <trans-unit id="routedCalls.context.unmeasured">
                 <source>window not measured for this send</source>
             </trans-unit>
+            <trans-unit id="routedCalls.complexity.unmeasured">
+                <source>complexity not measured for this send</source>
+            </trans-unit>
             <trans-unit id="routedCalls.empty.title">
                 <source>No routed calls recorded</source>
             </trans-unit>

@@ -4,7 +4,7 @@
 ADR-142: One routing decision, with a reason per candidate
 ==============================================================
 
-:Status: Accepted (both deferrals below are settled — see :ref:`ADR-156 <adr-156>`)
+:Status: Accepted (the trace deferral is settled; the complexity-routing deferral is measured but still open — see :ref:`ADR-156 <adr-156>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-060 <adr-060>` (quality is no longer only a separate hook)
 :Amended: 2026-08-11 by :ref:`ADR-156 <adr-156>`

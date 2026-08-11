@@ -73,4 +73,25 @@ final readonly class RoutedCall
     {
         return $this->contextPercent !== null;
     }
+
+    /**
+     * Whether anything measured this send's complexity at all.
+     *
+     * The shape is the flag ``ext_tables.sql`` declares for exactly this case:
+     * it is `''` on every path that writes a row without measuring one, and the
+     * other five figures are then the column defaults, not observations. A
+     * criteria-mode embeddings configuration is the combination that reaches
+     * THIS readout — it resolves a model, so the row carries a decision and
+     * passes the reader's filter, but it never runs a context fit, so nothing
+     * calls the estimator. Without this guard its row would report "score
+     * 0/100", "0 tool(s)" and "0 bytes on the wire" as if they had been counted.
+     *
+     * Separate from {@see self::isContextMeasured()}, which is the narrower
+     * question of whether a fit ran: a measured send with no fit has a shape and
+     * a byte count but no token estimate.
+     */
+    public function isComplexityMeasured(): bool
+    {
+        return $this->shape !== '';
+    }
 }

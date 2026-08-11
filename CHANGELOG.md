@@ -28,10 +28,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unaffected. `ConfigurationCallPlanner::resolveModel()` takes an optional third
   argument (the telemetry scratchpad); existing calls are unchanged.
 
-- Request complexity is measured on every send and recorded, and nothing routes
-  on it (ADR-156). Six more telemetry columns: a 0-100 structural score, the
-  payload size in bytes, the token estimate, the tool count, the context
-  utilisation and the request shape (single-turn / multi-turn / tool-assisted).
+- Request complexity is measured on every configuration-driven send and
+  recorded, and nothing routes on it (ADR-156). Six more telemetry columns: a
+  0-100 structural score, the payload size in bytes, the token estimate, the
+  tool count, the context utilisation and the request shape (single-turn /
+  multi-turn / tool-assisted). The provider-pinned entry points measure nothing
+  — `chatWithTools()`, `vision()`, and `chat()`/`complete()` where no default
+  configuration resolves — as do embeddings and the specialized image and speech
+  services; their rows carry an empty shape and the Governance readout says so
+  instead of showing zeros.
   ADR-142 declined complexity routing for want of evidence that the score
   predicts anything; this collects that evidence and changes no behaviour —
   there is no new signal in `CandidateRanker`, no weight in `RoutingPolicyMode`,

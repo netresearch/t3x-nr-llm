@@ -427,6 +427,52 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aRowThatMeasuredNoComplexitySaysSoInsteadOfShowingTheColumnDefaults(): void
+    {
+        // A criteria-mode embeddings configuration resolves a model — so the row
+        // carries a decision and the reader returns it — but it never runs a
+        // context fit, so nothing measures the payload. The six complexity
+        // columns then hold their defaults, and rendering them unguarded reports
+        // a send nobody counted as one that measured zero of everything.
+        $body = $this->render(null, [], null, null, [], [], [
+            new RoutedCall(
+                correlationId: 'corr-4',
+                operation: 'embedding',
+                configurationIdentifier: 'nr_ai_search.embeddings',
+                servedModel: 'text-embedding-3-small',
+                success: true,
+                fallbackAttempts: 0,
+                latencyMs: 61,
+                policyMode: 'cost',
+                candidateCount: 2,
+                rejectionReasons: [],
+                qualitySignalUsed: false,
+                healthSignalUsed: false,
+                costSignalUsed: true,
+                complexityScore: 0,
+                payloadBytes: 0,
+                complexityTokens: null,
+                toolCount: 0,
+                contextPercent: null,
+                shape: '',
+                crdate: 1_754_000_000,
+            ),
+        ]);
+
+        // The decision half is still shown — that is what the row does carry.
+        self::assertStringContainsString('nr_ai_search.embeddings', $body);
+        self::assertStringContainsString('cost, 2 candidate(s)', $body);
+
+        self::assertStringContainsString('complexity not measured for this send', $body);
+        self::assertStringNotContainsString('score 0/100', $body);
+        self::assertStringNotContainsString('0 bytes on the wire', $body);
+        self::assertStringNotContainsString('0 tool(s)', $body);
+        // Not the narrower "a fit did not run" message either: there is no
+        // measurement to qualify.
+        self::assertStringNotContainsString('window not measured for this send', $body);
+    }
+
+    #[Test]
     public function anEmptyRoutedCallWindowSaysSoInsteadOfShowingAnEmptyTable(): void
     {
         $body = $this->render(null, [], null);

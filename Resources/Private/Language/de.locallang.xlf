@@ -782,6 +782,10 @@
                 <source>window not measured for this send</source>
                 <target>Fenster für diesen Versand nicht gemessen</target>
             </trans-unit>
+            <trans-unit id="routedCalls.complexity.unmeasured">
+                <source>complexity not measured for this send</source>
+                <target>Komplexität für diesen Versand nicht gemessen</target>
+            </trans-unit>
             <trans-unit id="routedCalls.empty.title">
                 <source>No routed calls recorded</source>
                 <target>Keine gerouteten Aufrufe erfasst</target>

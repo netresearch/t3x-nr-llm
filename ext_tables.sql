@@ -626,10 +626,14 @@ CREATE TABLE tx_nrllm_telemetry (
     -- on these columns, and ADR-156 names the three things that must hold
     -- before anything is allowed to. Sizes and counts, never content.
     --
-    -- complexity_shape is '' on the paths that measure nothing (embeddings by
-    -- identifier, the specialized image/speech services); it is the flag for
-    -- "this row carries no complexity", the way routing_policy_mode is for the
-    -- decision.
+    -- complexity_shape is '' on the paths that measure nothing: the provider-
+    -- pinned entry points (chatWithTools(), vision(), and chat()/complete()
+    -- with no default configuration), embeddings by identifier, and the
+    -- specialized image/speech services. Only a configuration-driven chat,
+    -- completion, tool or stream send runs the context fit the measurement
+    -- hangs off. The empty shape is the flag for "this row carries no
+    -- complexity", the way routing_policy_mode is for the decision, and the
+    -- Governance readout reads it before showing the other five figures.
     complexity_score smallint(5) unsigned DEFAULT '0' NOT NULL,
     complexity_payload_bytes int(11) unsigned DEFAULT '0' NOT NULL,
     -- NULL where no context fit ran, which is not the same as an empty send.
