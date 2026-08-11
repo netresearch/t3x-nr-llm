@@ -43,7 +43,7 @@ jobs:
         uv run landingpage/build/build.py
         && python3 landingpage/build/verify.py
         && npm ci --ignore-scripts
-        && npx playwright install chromium
+        && ./node_modules/.bin/playwright install chromium
         && node landingpage/axe-audit.mjs landingpage/public "$PAGES_BASE_PATH"
 
   deploy:
