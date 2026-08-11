@@ -8,6 +8,7 @@ ADR-139: Context assembly is a seam, not a provider registry
 
 :Status: Accepted
 :Date: 2026-08-09
+:Amended: 2026-08-10 by :ref:`ADR-143 <adr-143>` and :ref:`ADR-144 <adr-144>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-139-context:
@@ -127,6 +128,17 @@ What this does not close
 ========================
 
 Named here so the next reader does not mistake the seam for full coverage.
+
+.. note::
+
+   **Both gaps below were closed the following day and this section is kept as
+   written on 2026-08-09.** :ref:`ADR-143 <adr-143>` binds a window on the
+   generic :php:`LlmServiceManager` paths (`#688`), and :ref:`ADR-144
+   <adr-144>` gives snippets and skills a declared data class with a
+   trust-zone ceiling (`#689`). Read those two for the current state; do not
+   use the paragraphs below as a map of what is open. What ADR-144 did *not*
+   classify — the system prompt and the task input — is the live remainder,
+   and its own `Revisit when` explains under which condition that changes.
 
 :php:`LlmServiceManager` binds **no** context window at all. Its chat,
 completion and streaming paths inject skills and send; only

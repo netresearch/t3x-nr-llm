@@ -16,29 +16,60 @@ build something closes the decision, not the gap — these stay open until code
 closes them, and carry the [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
 label.
 
-- **[#688](https://github.com/netresearch/t3x-nr-llm/issues/688) — generic paths bind no context window.**
-  `LlmServiceManager`'s chat, completion and streaming paths inject skills and
-  send; only `ConversationService` and `ToolLoopService` bind a window. A long
-  transcript through the generic API is bounded by the provider, not by us
-  (ADR-139).
-- **[#689](https://github.com/netresearch/t3x-nr-llm/issues/689) — injected context has no trust-zone ceiling.**
-  Tool output is data-classified; skills, snippets, system prompt and task
-  input are not. They pass the mandatory input guardrail, so this is a missing
-  *classification*, not a missing check (ADR-139, ADR-094).
 - **[#690](https://github.com/netresearch/t3x-nr-llm/issues/690) — input-resume authorises the submitter against nothing.**
   Unreachable today because no tool implements `RequiresInputInterface`, and
   pinned by a coverage test that fails when one does. The gate and the turn
   digest are the open half (ADR-105, ADR-132).
+- **[#723](https://github.com/netresearch/t3x-nr-llm/issues/723) — a criteria-mode configuration has no real trust zone.**
+  `TrustZoneResolver` reads the configuration's provider, which a criteria-mode
+  record does not have, so it resolves to `EXTERNAL_GLOBAL` even when routing
+  only ever picks a local model. Fail-closed, and wrong. This is ADR-144's own
+  `Revisit when`, answerable since ADR-142.
+- **[#724](https://github.com/netresearch/t3x-nr-llm/issues/724) — the system prompt carries no data class.**
+  ADR-144 classified snippets and skills and declined the system prompt for
+  want of a consumer. Routing eligibility becomes that consumer once #723
+  lands. Task input stays unclassified: it has no per-record home.
 
 ## Toward 1.0
 
+### Explainability
+
+- **[#718](https://github.com/netresearch/t3x-nr-llm/issues/718) — no surface answers "why this model and not that one".**
+  `RoutingDecisionService` records the whole candidate field and the answer is
+  discarded one line later; the service is `@internal` and unreachable from a
+  controller (ADR-142, ADR-145).
+- **[#719](https://github.com/netresearch/t3x-nr-llm/issues/719) — the decision is not persisted, and must not be without a reader.**
+  A prompt-free summary on the per-request row, shipped together with the
+  readout that reads it. ADR-142 deferred the trace on exactly that condition.
+- **[#720](https://github.com/netresearch/t3x-nr-llm/issues/720) — complexity routing has no evidence.**
+  Measure complexity, cost, latency and quality first; route on it only once a
+  sample proves cheaper models hold. observe → measure → prove → route.
+- **[#725](https://github.com/netresearch/t3x-nr-llm/issues/725) — the context budget is computed and never shown.**
+  `ContextFitResult` returns one aggregate and reaches no controller, so when a
+  run drops turns nobody can say what filled the window (ADR-143).
+
+### Governance
+
+- **[#721](https://github.com/netresearch/t3x-nr-llm/issues/721) — the simulator covers the tool gate, not the run.**
+  The input-context gate and routing eligibility are not wired in, and the
+  approval predicate is a private method with a duplicate. ADR-145 names the
+  first two itself.
+- **[#722](https://github.com/netresearch/t3x-nr-llm/issues/722) — the simulator answers for the ambient admin.**
+  A rollout question is about an editor group. The resolver seam that turns an
+  `AiActorContext` into the gate's backend user already exists and the
+  controller does not use it (ADR-145).
 - **[#691](https://github.com/netresearch/t3x-nr-llm/issues/691) — a management grant, once a management surface exists.**
   `BackendUserGrant` holds two cases, each with an enforcement point. A third
   without a surface would be the checkbox ADR-117 had to remove (ADR-130).
+
+### Editor actions
+
 - **[#692](https://github.com/netresearch/t3x-nr-llm/issues/692) — a purpose-built editor action API.**
   Not generic record CRUD: a `update_record(table, uid, fields)` tool has the
   whole TCA as its blast radius, and its arguments are model-chosen (ADR-135).
-  The open question is what an editor action is as a unit.
+  Five narrow writers ship (ADR-146); what none of them can declare is a human
+  label, an icon, the record types they apply to, or a preview a UI can ask for
+  before a run exists.
 
 ## Decisions that live elsewhere
 
