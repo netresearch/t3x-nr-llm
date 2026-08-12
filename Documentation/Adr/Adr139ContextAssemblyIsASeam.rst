@@ -8,6 +8,7 @@ ADR-139: Context assembly is a seam, not a provider registry
 
 :Status: Accepted
 :Date: 2026-08-09
+:Amended: 2026-08-10 by :ref:`ADR-143 <adr-143>` and :ref:`ADR-144 <adr-144>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-139-context:
@@ -101,6 +102,14 @@ consumer, not a hypothetical one.
 A data classification for injected context
 ------------------------------------------
 
+.. note::
+
+   Closed on 2026-08-10 by :ref:`ADR-144 <adr-144>` for snippets and skills,
+   and on 2026-08-11 by :ref:`ADR-155 <adr-155>` for the configuration's system
+   prompt. Task input stays unclassified, deliberately: it has no per-record
+   home a declaration could live on. The paragraphs below are kept as written
+   on 2026-08-09.
+
 Only tool *output* is classified today
 (:php:`ToolDataClassResolver`), and the trust-zone ceiling is enforced in one
 place: the tool gate. Skills, snippets, the system prompt and task input carry
@@ -127,6 +136,24 @@ What this does not close
 ========================
 
 Named here so the next reader does not mistake the seam for full coverage.
+
+.. note::
+
+   **Both gaps this record leaves open are closed, and the text is kept as
+   written on 2026-08-09.** :ref:`ADR-143 <adr-143>` binds a window on the
+   generic :php:`LlmServiceManager` paths described below (`#688`), and
+   :ref:`ADR-144 <adr-144>` gives snippets and skills a declared data class
+   with a trust-zone ceiling (`#689`). What ADR-144 left unclassified has since
+   been settled in both directions: :ref:`ADR-149 <adr-149>` gives a
+   criteria-mode configuration the zone of the model that serves it (`#723`),
+   which made a declaration on the system prompt enforceable, and
+   :ref:`ADR-155 <adr-155>` adds it (`#724`). Task input stays unclassified by
+   decision, not by omission.
+
+   The live remainder is narrower than what this record names: context a
+   *caller* injects per call is still outside the ceiling (`#731`). Read
+   ADR-143, ADR-144, ADR-149 and ADR-155 for the current state; do not use this
+   record as a map of what is open.
 
 :php:`LlmServiceManager` binds **no** context window at all. Its chat,
 completion and streaming paths inject skills and send; only
@@ -157,6 +184,7 @@ separately.
 ◐ Consumers keep owning their vocabulary. A new fragment kind is an editorial
 act, not a release.
 
-✕ Two gaps stay open and are written down rather than closed: the generic paths
-have no window binding, and injected context has no trust-zone ceiling. Both
-have named triggers above.
+✕ Two gaps stayed open at the time of writing and were written down rather than
+closed: the generic paths had no window binding, and injected context had no
+trust-zone ceiling. Both were closed on 2026-08-10 by :ref:`ADR-143 <adr-143>`
+and :ref:`ADR-144 <adr-144>`.

@@ -5,50 +5,47 @@ released work is in [CHANGELOG.md](CHANGELOG.md) and the decisions behind it in
 `Documentation/Adr/`. No dates — items land when they meet the quality gate.
 
 Every item in the two sections below is an open GitHub issue. If a line there
-has no issue, it is not roadmap, it is a wish. The last two sections are not
-roadmap: one points at a decision recorded elsewhere, the other lists what this
-project does not do.
+has no issue, it is not roadmap, it is a wish. The converse also holds and is
+the easier one to get wrong: not every open issue is roadmap. Defects belong in
+the tracker, not here.
+
+The last two sections are not roadmap: one points at a decision recorded
+elsewhere, the other lists what this project does not do.
 
 ## Known gaps
 
 Decisions that were deliberately not built. An accepted ADR that declines to
 build something closes the decision, not the gap — these stay open until code
-closes them, and carry the [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
-label.
+closes them. The [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q=is%3Aissue+is%3Aopen+label%3Adeferred)
+label marks issues an ADR explicitly deferred; it spans this section and
+Toward 1.0 alike, so it defines neither.
 
-- **[#688](https://github.com/netresearch/t3x-nr-llm/issues/688) — generic paths bind no context window.**
-  `LlmServiceManager`'s chat, completion and streaming paths inject skills and
-  send; only `ConversationService` and `ToolLoopService` bind a window. A long
-  transcript through the generic API is bounded by the provider, not by us
-  (ADR-139).
-- **[#689](https://github.com/netresearch/t3x-nr-llm/issues/689) — injected context has no trust-zone ceiling.**
-  Tool output is data-classified; skills, snippets, system prompt and task
-  input are not. They pass the mandatory input guardrail, so this is a missing
-  *classification*, not a missing check (ADR-139, ADR-094).
-- **[#690](https://github.com/netresearch/t3x-nr-llm/issues/690) — input-resume authorises the submitter against nothing.**
-  Unreachable today because no tool implements `RequiresInputInterface`, and
-  pinned by a coverage test that fails when one does. The gate and the turn
-  digest are the open half (ADR-105, ADR-132).
+- **[#731](https://github.com/netresearch/t3x-nr-llm/issues/731) — a per-call injected snippet has no trust-zone ceiling.**
+  The sources a *record* declares are classified and gated: snippets and skills
+  (ADR-144), and the configuration's system prompt (ADR-155), judged against
+  the zone of the model that actually serves the call (ADR-149). Context a
+  *caller* hands the send is not, because it has no per-record home a
+  declaration could live on — the same argument that keeps task input
+  unclassified. ADR-155's own `Revisit when`.
 
 ## Toward 1.0
 
 - **[#691](https://github.com/netresearch/t3x-nr-llm/issues/691) — a management grant, once a management surface exists.**
   `BackendUserGrant` holds two cases, each with an enforcement point. A third
   without a surface would be the checkbox ADR-117 had to remove (ADR-130).
-- **[#692](https://github.com/netresearch/t3x-nr-llm/issues/692) — a purpose-built editor action API.**
-  Not generic record CRUD: a `update_record(table, uid, fields)` tool has the
-  whole TCA as its blast radius, and its arguments are model-chosen (ADR-135).
-  The open question is what an editor action is as a unit.
 
 ## Decisions that live elsewhere
 
-- **Package split.** [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst)
-  decides it: one extension until 1.0, split re-evaluated **with or before**
-  the 1.0 release, against the criteria listed there. The README repeats the
-  timing where it explains the anticipated seams, and must keep matching
-  ADR-090. Nothing else states it — a roadmap and an ADR that disagreed, with
-  the roadmap citing the ADR for the opposite of its decision, is what this
-  line replaces.
+- **Package split — decided, not pending.**
+  [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst) scheduled the
+  re-evaluation for "with or before the 1.0 release";
+  [ADR-159](Documentation/Adr/Adr159OneExtensionConfirmedAtTheFreeze.rst) is
+  that re-evaluation, and its outcome is that nr_llm stays one extension
+  through 1.0. Of ADR-090's three extraction criteria only the API freeze is
+  met: no consumer has asked for a separate install, and contract stability
+  cannot honestly be claimed for any module while the complete frozen surface
+  is one release old. The README repeats the timing where it explains the
+  anticipated seams, and must keep matching both records.
 
 ## Non-goals
 
