@@ -236,7 +236,9 @@
                                         <f:if condition="{health.circuitBreakerEnabled}">
                                             <f:then>
                                                 <f:switch expression="{p.circuit}">
-                                                    <f:case value="open"><span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
+                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                                    badge size, and an operator resolves this state rather than the system failing it.</f:comment>
+                                                    <f:case value="open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.open" /></span></f:case>
                                                     <f:case value="half_open"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.halfOpen" /></span></f:case>
                                                     <f:defaultCase><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.health.circuit.closed" /></span></f:defaultCase>
                                                 </f:switch>

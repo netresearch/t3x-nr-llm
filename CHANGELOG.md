@@ -821,6 +821,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   string; the method is not part of the frozen API surface and `McpTool` is its
   only production caller. The run's control flow is unchanged: the loop still
   carries on and the model is still told plainly what failed.
+- **Three backend status badges were unreadable** (`#746`). White on the
+  danger red is 4.37:1 at the size a badge computes to, under the 4.5:1 WCAG
+  AA needs for normal text; axe rates it `serious`. The circuit-open badge on
+  Analytics and the sync-failed and orphaned badges on Skills now use the
+  warning pairing, black on amber at 9.6:1 — the same substitution two
+  configuration badges already had. None of these marks a failure of the
+  system; each marks a state an operator resolves.
+
+  They rendered only in states no accessibility fixture produces, so the suite
+  was green because it never reached them. `composer ci:test:badges` now
+  refuses `text-bg-danger` on a badge outright — it enforces the decision, it
+  does not measure contrast, and it covers the states no fixture reaches.
 
 ## [0.28.0] - 2026-08-10
 Four user-facing changes, three of them found by looking at the demo instance
