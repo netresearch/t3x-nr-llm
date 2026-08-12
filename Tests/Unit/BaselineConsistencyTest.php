@@ -98,9 +98,9 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
         // Asserted rather than skipped over: BASELINE.md states this positively
         // ("runs on the weekly schedule only"), so the day it stops being true
         // the attestation is wrong and must fail, not go quiet.
-        self::assertSame(
-            1,
-            preg_match('/run-mutation-tests:\s*\$\{\{[^}]*schedule[^}]*\}\}/', $this->ciWorkflow()),
+        self::assertMatchesRegularExpression(
+            '/run-mutation-tests:\s*\$\{\{[^}]*schedule[^}]*\}\}/',
+            $this->ciWorkflow(),
             'BASELINE.md says mutation runs on the weekly schedule only. ci.yml no longer gates it that way.',
         );
     }
@@ -108,9 +108,9 @@ final class BaselineConsistencyTest extends AbstractUnitTestCase
     #[Test]
     public function baselineDoesNotPresentMutationTestingAsAnEnforcedMinimum(): void
     {
-        self::assertSame(
-            0,
-            preg_match('/\b(minimum|required|enforced)\s+(covered\s+)?MSI\b/i', $this->baseline()),
+        self::assertDoesNotMatchRegularExpression(
+            '/\b(minimum|required|enforced)\s+(covered\s+)?MSI\b/i',
+            $this->baseline(),
             'ci.yml gates the mutation job on the weekly schedule, so MSI is a target, not a minimum. '
             . 'State it as monitored in BASELINE.md.',
         );
