@@ -138,9 +138,9 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
             }
 
             $contents = (string)file_get_contents($file);
-            self::assertSame(
-                1,
-                preg_match('/^:(?:Amended|Superseded):[ \t]*\S/m', $contents),
+            self::assertMatchesRegularExpression(
+                '/^:(?:Amended|Superseded):[ \t]*\S/m',
+                $contents,
                 basename($file) . ' says another record overtook part of it but carries no '
                 . ':Amended: / :Superseded: field. The amending ADR owns that edit.',
             );
@@ -277,9 +277,9 @@ final class AdrLifecycleTest extends AbstractUnitTestCase
                 continue;
             }
 
-            self::assertSame(
-                1,
-                preg_match('/^:Superseded:[ \t]*\S/m', (string)file_get_contents($file)),
+            self::assertMatchesRegularExpression(
+                '/^:Superseded:[ \t]*\S/m',
+                (string)file_get_contents($file),
                 basename($file) . ' is Superseded but does not say by what.',
             );
         }

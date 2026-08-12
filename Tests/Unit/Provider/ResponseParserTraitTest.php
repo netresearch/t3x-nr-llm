@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -473,12 +474,11 @@ class ResponseParserTraitTest extends AbstractUnitTestCase
     // ==================== guardStreamLineBuffer tests ====================
 
     #[Test]
+    #[DoesNotPerformAssertions]
     public function guardStreamLineBufferAllowsBufferAtLimit(): void
     {
         // A single unterminated line up to the limit is tolerated (no throw).
         $this->subject->guardStreamLineBuffer(str_repeat('a', 1_048_576));
-
-        $this->addToAssertionCount(1);
     }
 
     #[Test]

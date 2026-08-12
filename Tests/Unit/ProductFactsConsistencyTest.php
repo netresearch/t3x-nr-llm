@@ -224,12 +224,9 @@ final class ProductFactsConsistencyTest extends AbstractUnitTestCase
         // True until ADR-135. A writing tool shipping does not make the claim
         // stale everywhere by itself — someone has to go and change the prose,
         // and for four months nobody did.
-        self::assertSame(
-            0,
-            preg_match(
-                '/\b(?:all|every\s+one\s+of\s+the|alle|jedes\s+der)\s+\d+\s+(?:built-in|builtin|eingebaute|Built-in-Tools)/iu',
-                $this->surfaceContents($surface),
-            ),
+        self::assertDoesNotMatchRegularExpression(
+            '/\b(?:all|every\s+one\s+of\s+the|alle|jedes\s+der)\s+\d+\s+(?:built-in|builtin|eingebaute|Built-in-Tools)/iu',
+            $this->surfaceContents($surface),
             $surface . ' still claims that every builtin tool is read-only. Two write (ADR-134, ADR-135).',
         );
     }
