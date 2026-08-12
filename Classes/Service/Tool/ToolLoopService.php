@@ -634,6 +634,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // one submission satisfies one tool. Fail-closed refusal.
                 $result = sprintf('Error: tool "%s" requires input that was not provided.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+            } elseif (ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
+                // Nothing on THIS path ever approved anything — an input
+                // submission is not an approval. For a turn that suspended
+                // normally the branch is unreachable, because the approval scan
+                // has strict precedence and would have suspended first.
+                //
+                // It becomes reachable when the tool was not OFFERED at suspend
+                // time: the approval scan skips such a call by design (invoke()
+                // refuses it a moment later, so demanding approval for a tool
+                // the run never allowed would be a spurious prompt). The offered
+                // set is then recomputed from the live configuration at resume,
+                // so a write enabled while the run waited for the human becomes
+                // offered — and without this branch it would execute here having
+                // passed no approval at any point.
+                //
+                // Refusing rather than suspending keeps one approval per
+                // submission: the model re-requests in a fresh turn, which hits
+                // the approval scan and suspends for a real one.
+                $result = sprintf('Error: tool "%s" requires approval that was not given.', $call->name);
+                $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
             } else {
                 $tt0 = hrtime(true);
                 $runTrace?->beforeToolExecution($call->name);

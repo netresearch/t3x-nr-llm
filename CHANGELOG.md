@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An input-resume could execute a write nobody approved** (`#752`). The
+  approval scan suspends only for a tool the gate actually OFFERS — correct
+  while the turn is synchronous, because `invoke()` refuses an unoffered call
+  a moment later for the same reason. The input suspend broke that pairing:
+  the offered set is recomputed from the live configuration at resume, so a
+  write tool enabled while the run waited for the human became offered and ran
+  without ever passing an approval. `resumeWithInput()` now refuses an
+  approval-bound pending call outright; the model re-requests in a fresh turn,
+  which suspends for a real approval.
+
+  Reaching it needed the model to name a tool it was not offered — the
+  prose-steering case the approval scan is written for — and an operator
+  toggling that tool on mid-run. Unreachable on the approval-resume path,
+  which carries an approval by construction.
+
 ## [0.29.0] - 2026-08-12
 
 ### Added
