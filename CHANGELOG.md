@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-08-12
+
 ### Added
 
 - **One contract every provider adapter answers to** (ADR-160).
@@ -3495,7 +3497,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.25.1...v0.26.0
