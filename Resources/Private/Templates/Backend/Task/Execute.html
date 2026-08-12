@@ -141,7 +141,9 @@
                                     <f:if condition="!{effectiveConfig.llmModel}">
                                         <dt class="col-sm-5"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.model" default="Model" /></dt>
                                         <dd class="col-sm-7">
-                                            <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.modelNotAssigned" default="No model assigned" /></span>
+                                            <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                            badge size. Same badge and same state as in Backend/Configuration/List.html.</f:comment>
+                                            <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.config.modelNotAssigned" default="No model assigned" /></span>
                                         </dd>
                                     </f:if>
                                 </dl>

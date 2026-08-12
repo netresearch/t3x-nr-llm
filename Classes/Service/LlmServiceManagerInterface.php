@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -100,8 +101,11 @@ interface LlmServiceManagerInterface
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $metadata
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
+     * @param ?AgentRunReference                     $run             the agent run this call belongs to (ADR-153), so its telemetry
+     *                                                                row carries the run's correlation id and a governance row its
+     *                                                                uid. Null (every caller outside a run) is unchanged behaviour.
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = []): CompletionResponse;
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null): CompletionResponse;
 
     /**
      * Chat against a specific configuration from a ChatOptions object.
@@ -199,8 +203,11 @@ interface LlmServiceManagerInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<ToolSpec|array<string, mixed>>    $tools
+     * @param ?AgentRunReference                     $run      as in {@see self::chatWithConfiguration()} — the agent loop
+     *                                                         passes the run it is executing, so every round of one run
+     *                                                         shares a correlation id instead of minting N unrelated ones
      */
-    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null): CompletionResponse;
+    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null, ?AgentRunReference $run = null): CompletionResponse;
 
     public function supportsFeature(string $feature, ?string $provider = null): bool;
 

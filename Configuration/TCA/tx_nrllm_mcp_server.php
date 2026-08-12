@@ -47,6 +47,8 @@ return [
                     import_error,
                     last_imported,
                     tool_count,
+                    last_contact,
+                    last_latency_ms,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     hidden,
@@ -177,8 +179,11 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
+                    // No `importing`: the import runs to completion inside the
+                    // one request that starts it, so no reader could ever
+                    // observe that state, and a crashed request would leave a
+                    // row stuck in it with nothing to reset it (ADR-154).
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.never_imported', 'value' => 'never_imported'],
-                    ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.importing', 'value' => 'importing'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.ok', 'value' => 'ok'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.partial', 'value' => 'partial'],
                     ['label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.import_status.error', 'value' => 'error'],
@@ -208,6 +213,26 @@ return [
             'config' => [
                 'type' => 'number',
                 'size' => 5,
+                'readOnly' => true,
+            ],
+        ],
+        // Observed, never entered — read-only for the same reason the import
+        // fields above are (ADR-154). The MCP Servers module is where an
+        // operator reads them; they are here so the record form does not
+        // pretend the row holds less than it does.
+        'last_contact' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_contact',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_contact.description',
+            'config' => [
+                'type' => 'datetime',
+                'readOnly' => true,
+            ],
+        ],
+        'last_latency_ms' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_mcp_server.last_latency_ms',
+            'config' => [
+                'type' => 'number',
+                'size' => 8,
                 'readOnly' => true,
             ],
         ],

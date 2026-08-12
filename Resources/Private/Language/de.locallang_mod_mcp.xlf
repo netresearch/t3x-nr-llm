@@ -70,6 +70,66 @@
                 <source>Import catalogue</source>
                 <target>Katalog importieren</target>
             </trans-unit>
+            <trans-unit id="server.testConnection">
+                <source>Test connection</source>
+                <target>Verbindung testen</target>
+            </trans-unit>
+            <trans-unit id="server.transport">
+                <source>Transport</source>
+                <target>Transport</target>
+            </trans-unit>
+            <trans-unit id="server.authentication">
+                <source>Authentication</source>
+                <target>Authentifizierung</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.none">
+                <source>None — requests are sent unauthenticated</source>
+                <target>Keine — Anfragen gehen unauthentifiziert raus</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.bearer">
+                <source>Bearer token from the vault</source>
+                <target>Bearer-Token aus dem Vault</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.header">
+                <source>Vault secret in header</source>
+                <target>Vault-Secret im Header</target>
+            </trans-unit>
+            <trans-unit id="server.authentication.other">
+                <source>Stored placement, not one this module offers</source>
+                <target>Gespeicherte Platzierung, die dieses Modul nicht anbietet</target>
+            </trans-unit>
+            <trans-unit id="server.toolsDiscovered">
+                <source>Tools discovered</source>
+                <target>Gefundene Tools</target>
+            </trans-unit>
+            <trans-unit id="server.lastContact">
+                <source>Last successful contact</source>
+                <target>Letzter erfolgreicher Kontakt</target>
+            </trans-unit>
+            <trans-unit id="server.lastContact.never">
+                <source>Never reached</source>
+                <target>Nie erreicht</target>
+            </trans-unit>
+            <trans-unit id="server.lastContact.hint">
+                <source>Any completed round trip counts: a tool call, an import or a connection test. It is not the same as the last import — a server that has been answering tool calls for weeks can have an old import date.</source>
+                <target>Z&#228;hlt jede abgeschlossene Anfrage: Tool-Aufruf, Import oder Verbindungstest. Das ist nicht der letzte Import — ein Server, der seit Wochen Tool-Aufrufe beantwortet, kann ein altes Import-Datum haben.</target>
+            </trans-unit>
+            <trans-unit id="server.latency">
+                <source>Latency</source>
+                <target>Laufzeit</target>
+            </trans-unit>
+            <trans-unit id="server.lastError">
+                <source>Last import error</source>
+                <target>Letzter Import-Fehler</target>
+            </trans-unit>
+            <trans-unit id="server.report.reachable">
+                <source>Reachable</source>
+                <target>Erreichbar</target>
+            </trans-unit>
+            <trans-unit id="server.report.protocol">
+                <source>Protocol</source>
+                <target>Protokoll</target>
+            </trans-unit>
             <trans-unit id="tools.title">
                 <source>Imported tools</source>
                 <target>Importierte Tools</target>

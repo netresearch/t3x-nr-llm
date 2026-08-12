@@ -83,11 +83,62 @@ final class PendingTurnDigestTest extends TestCase
         self::assertSame($expected, (new PendingTurnDigest())->forState($this->stateWith($calls)));
     }
 
+    #[Test]
+    public function theInputDigestIsNotTheApprovalDigestOfTheSameState(): void
+    {
+        // ADR-150: an input pause is bound over more than its pending calls, so
+        // the approval digest cannot stand in for it — a client that echoed one
+        // back for the other would be refused, which is the intended behaviour
+        // and worth pinning.
+        $digest = new PendingTurnDigest();
+        $state  = $this->inputStateWith(['type' => 'object', 'properties' => ['city' => ['type' => 'string']]]);
+
+        self::assertNotSame($digest->forState($state), $digest->forInputState($state));
+    }
+
+    #[Test]
+    public function aChangedInputSchemaChangesTheInputDigest(): void
+    {
+        // The schema is what the operator's form — and the pre-claim validation
+        // — were built from. Two states with identical pending calls but
+        // different schemas are different turns to submit against.
+        $digest = new PendingTurnDigest();
+
+        self::assertNotSame(
+            $digest->forInputState($this->inputStateWith(['type' => 'object', 'properties' => ['city' => ['type' => 'string']]])),
+            $digest->forInputState($this->inputStateWith(['type' => 'object', 'properties' => ['city' => ['type' => 'string'], 'iban' => ['type' => 'string']]])),
+        );
+    }
+
+    #[Test]
+    public function aChangedInputToolChangesTheInputDigest(): void
+    {
+        // The target tool is what resumeWithInput() dispatches the submitted
+        // values onto; it is part of what the submission was written for.
+        $schema = ['type' => 'object', 'properties' => ['city' => ['type' => 'string']]];
+        $digest = new PendingTurnDigest();
+
+        self::assertNotSame(
+            $digest->forInputState($this->inputStateWith($schema, 'ask_user')),
+            $digest->forInputState($this->inputStateWith($schema, 'ask_admin')),
+        );
+    }
+
     /**
      * @param list<array<string, mixed>> $calls
      */
     private function stateWith(array $calls): SuspendedRunState
     {
         return new SuspendedRunState([['role' => 'user', 'content' => 'do it']], $calls, 1, 5, 2);
+    }
+
+    /**
+     * @param array<string, mixed> $schema
+     */
+    private function inputStateWith(array $schema, string $tool = 'ask_user'): SuspendedRunState
+    {
+        $calls = [['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']]];
+
+        return new SuspendedRunState([['role' => 'user', 'content' => 'do it']], $calls, 1, 5, 2, null, [], $tool, $schema);
     }
 }

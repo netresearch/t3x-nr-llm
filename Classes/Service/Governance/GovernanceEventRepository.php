@@ -139,6 +139,56 @@ final readonly class GovernanceEventRepository implements GovernanceEventReposit
         return $this->tallyBy($rows, 'tool_name', 'event_count');
     }
 
+    public function findForRun(int $agentRunUid, string $correlationId): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $match = [];
+        if ($agentRunUid > 0) {
+            $match[] = $queryBuilder->expr()->eq(
+                'agentrun_uid',
+                $queryBuilder->createNamedParameter($agentRunUid, Connection::PARAM_INT),
+            );
+        }
+
+        // '' is the "no trace" marker, not a bucket: matching on it would pull in
+        // every row whose write point had no correlation id.
+        if ($correlationId !== '') {
+            $match[] = $queryBuilder->expr()->eq(
+                'correlation_id',
+                $queryBuilder->createNamedParameter($correlationId, Connection::PARAM_STR),
+            );
+        }
+
+        if ($match === []) {
+            return [];
+        }
+
+        $rows = $queryBuilder
+            ->select('decision', 'reason', 'tool_name', 'guardrail', 'detail', 'crdate')
+            ->from(self::TABLE)
+            ->where($queryBuilder->expr()->or(...$match))
+            ->orderBy('crdate', 'ASC')
+            ->addOrderBy('uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $events = [];
+        foreach ($rows as $row) {
+            $events[] = new RecordedGovernanceEvent(
+                decision: self::toStr($row['decision'] ?? ''),
+                reason: self::toStr($row['reason'] ?? ''),
+                toolName: self::toStr($row['tool_name'] ?? ''),
+                guardrail: self::toStr($row['guardrail'] ?? ''),
+                detail: self::toStr($row['detail'] ?? ''),
+                crdate: self::toInt($row['crdate'] ?? 0),
+            );
+        }
+
+        return $events;
+    }
+
     /**
      * Fold GROUP BY rows into a value => count map, dropping empty keys.
      *

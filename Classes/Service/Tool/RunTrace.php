@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use Closure;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -93,6 +94,27 @@ final class RunTrace
             durationMs: 0.0,
             messagesSent: $this->snapshotMessages($messagesSent),
             toolSpecs: $toolSpecs,
+        ));
+    }
+
+    /**
+     * Record where the context window went for the round about to be sent
+     * (ADR-151).
+     *
+     * Fired from the fit itself, so the accounting shown is the one the pruning
+     * decision used — the alternative, re-deriving it in the inspector, would
+     * be a second estimator that can disagree with the one that dropped the
+     * turns. Recorded even when nothing was pruned: "how much room is left" is
+     * the question this answers, and a run only reaches the interesting answer
+     * after the boring ones.
+     */
+    public function recordContextBudget(int $round, ContextBudgetBreakdown $breakdown): void
+    {
+        $this->add(new RunStep(
+            kind: RunStep::KIND_CONTEXT,
+            round: $round,
+            durationMs: 0.0,
+            contextBudget: $breakdown,
         ));
     }
 

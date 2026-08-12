@@ -68,7 +68,19 @@
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.matchedModel" default="Would currently use" />: {preset.matchedModelLabel}</span>
                                                 </f:then>
                                                 <f:else>
-                                                    <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
+                                                    <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                                    the 11px a badge renders at, and axe fails this page for it. This is
+                                                    also the truer state — a preset nothing satisfies yet is fixed by
+                                                    adding a model.
+
+                                                    Same swap on the "No model assigned" badge below and on the
+                                                    identical one in Backend/Task/Execute.html: not-yet-configured,
+                                                    not an error. The remaining text-bg-danger badges
+                                                    (Analytics circuit open, Skill sync failed, Skill orphaned) are
+                                                    genuine error states where yellow would misreport the severity;
+                                                    their contrast needs a high-contrast danger token, not a recolour,
+                                                    and neither page is in this change.</f:comment>
+                                                    <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.notSatisfiable" default="Not satisfiable" /></span>
                                                     <br /><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.missing" default="Missing" />: <code>{preset.missingRequirement}</code></span>
                                                 </f:else>
                                             </f:if>
@@ -132,7 +144,7 @@
         <f:if condition="{configurations -> f:count()}">
             <f:then>
                 <div class="table-fit">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="nrllm-configuration-list">
                         <thead>
                             <tr>
                                 <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.field.name" default="Name" /></th>
@@ -184,7 +196,7 @@
                                                 <br /><span class="text-body-secondary">{config.llmModel.modelId}</span>
                                             </f:then>
                                             <f:else>
-                                                <span class="badge text-bg-danger" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
+                                                <span class="badge text-bg-warning" title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.title')}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.noModel.badge" default="No model assigned" /></span>
                                             </f:else>
                                         </f:if>
                                     </td>

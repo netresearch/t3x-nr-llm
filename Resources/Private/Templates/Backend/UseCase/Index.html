@@ -1,0 +1,79 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div id="nrllm-use-case-entry">
+        <h1>
+            <core:icon identifier="module-nrllm-wizard" size="medium" />
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" />
+        </h1>
+
+        <f:be.infobox state="-2">
+            <p class="mb-0">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.intro" default="Pick the job you have. A pack sets up a configuration, tasks and prompt snippets for it in one confirmed step, and tells you which governance posture and which tool groups it was written for. Nothing is created until you confirm." />
+            </p>
+        </f:be.infobox>
+
+        <div class="row">
+            <f:for each="{groups}" as="group">
+                <div class="col-md-6 col-xl-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="card-title h5">
+                                <f:translate key="{group.useCase.labelKey}" default="{group.useCase.value}" />
+                            </h2>
+                            <p class="card-text text-body-secondary">
+                                <f:translate key="{group.useCase.descriptionKey}" default="" />
+                            </p>
+
+                            <f:if condition="{group.hasPacks}">
+                                <f:then>
+                                    <ul class="list-unstyled mb-0">
+                                        <f:for each="{group.packs}" as="pack">
+                                            <li class="mb-2">
+                                                <f:link.action action="show" arguments="{pack: pack.identifier}" class="btn btn-primary btn-sm">
+                                                    <core:icon identifier="actions-arrow-right" size="small" />
+                                                    {pack.name}
+                                                </f:link.action>
+                                                <div class="small text-body-secondary mt-1">{pack.description}</div>
+                                            </li>
+                                        </f:for>
+                                    </ul>
+                                </f:then>
+                                <f:else>
+                                    <p class="mb-0 small">
+                                        <span class="badge text-bg-secondary">
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.noPack" default="No pack yet" />
+                                        </span>
+                                        <a href="{wizardUrl}" class="ms-1">
+                                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.useWizard" default="Set this up with the setup wizard" />
+                                        </a>
+                                    </p>
+                                </f:else>
+                            </f:if>
+                        </div>
+                    </div>
+                </div>
+            </f:for>
+        </div>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <a href="{wizardUrl}" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" />
+            </a>
+            <a href="https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/" target="_blank" rel="noopener" class="badge text-bg-info text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.docs" default="Read the documentation" />
+            </a>
+        </div>
+    </div>
+</f:section>
+
+</html>

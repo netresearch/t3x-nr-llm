@@ -59,6 +59,17 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
 {
     /**
+     * Metadata key carrying the uid of the agent run this call belongs to
+     * (ADR-153), written onto the governance row so a decision can be listed
+     * under its run. Absent for a plain provider call outside a run — the one
+     * case where `agentrun_uid = 0` is the correct value rather than a gap.
+     *
+     * Produced by {@see \Netresearch\NrLlm\Service\CallMetadataFactory::agentRun()},
+     * like every other metadata key this pipeline reads.
+     */
+    public const METADATA_AGENT_RUN_UID = 'agentRunUid';
+
+    /**
      * Pipeline priority, read by the tagged iterator via
      * `defaultPriorityMethod` (ADR-085 ordering).
      *
@@ -283,9 +294,10 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             configurationIdentifier: $context->telemetryConfigurationIdentifier(),
             beUser: $this->resolveBeUser($context),
             toolName: '',
-            // The middleware runs below the run identity, so the run uid is not
-            // known here; correlation_id is the join key to the run instead.
-            agentrunUid: 0,
+            // The run driving this call, when one does (ADR-153): the runtime
+            // threads its uid through the pipeline metadata. 0 means there is no
+            // run — a plain provider call — not that the identity was lost.
+            agentrunUid: $this->resolveAgentRunUid($context),
             guardrail: $guardrail::class,
             // The guardrail's policy reason — a policy fact, never response content.
             detail: $result->reason,
@@ -302,6 +314,17 @@ final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface
             $guardrail::class,
             $result->reason !== '' ? $result->reason : 'A guardrail denied the response.',
         );
+    }
+
+    /**
+     * The uid of the agent run this call belongs to, from the metadata the
+     * runtime threads through (ADR-153); 0 when the call is not part of a run.
+     */
+    private function resolveAgentRunUid(ProviderCallContext $context): int
+    {
+        $fromMetadata = $context->metadata[self::METADATA_AGENT_RUN_UID] ?? null;
+
+        return \is_int($fromMetadata) ? $fromMetadata : 0;
     }
 
     /**

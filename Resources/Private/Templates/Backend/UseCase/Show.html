@@ -1,0 +1,312 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <div id="nrllm-use-case-pack">
+        <h1>
+            <core:icon identifier="module-nrllm-wizard" size="medium" />
+            {pack.name}
+        </h1>
+
+        <p class="lead">{pack.description}</p>
+
+        <f:comment>Preflight — can the configuration's model requirements be met right now?</f:comment>
+        <f:if condition="{plan.preflight.satisfiable}">
+            <f:then>
+                <f:be.infobox state="0">
+                    <p class="mb-0">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.preflight.ok" default="Requirements met. The configuration would resolve to:" />
+                        <strong>{plan.preflight.matchedModelLabel}</strong>
+                    </p>
+                </f:be.infobox>
+            </f:then>
+            <f:else>
+                <f:be.infobox state="2">
+                    <p class="mb-1">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.preflight.missing" default="No active model satisfies this pack's requirement:" />
+                        <code>{plan.preflight.missingRequirement}</code>
+                    </p>
+                    <f:if condition="{plan.preflight.remedy}">
+                        <p class="mb-0">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.presets.remedy.{plan.preflight.remedy.value}" default="" />
+                            <f:if condition="{plan.preflight.remedySubject}">
+                                <em>{plan.preflight.remedySubject}</em>
+                            </f:if>
+                            <a href="{wizardUrl}" class="ms-1">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" />
+                            </a>
+                        </p>
+                    </f:if>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+
+        <div class="row">
+            <div class="col-lg-7">
+                <f:comment>The plan: what would be created, what is already there.</f:comment>
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h2 class="card-title h5 mb-0">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.title" default="What this pack installs" />
+                        </h2>
+                    </div>
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.kind" default="Record" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.identifier" default="Identifier" /></th>
+                                <th><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.state" default="State" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <core:icon identifier="actions-system-extension-configure" size="small" />
+                                    {plan.configuration.label}
+                                </td>
+                                <td><code>{plan.configuration.identifier}</code></td>
+                                <td>
+                                    <f:render section="State" arguments="{installed: plan.configuration.installed}" />
+                                </td>
+                            </tr>
+                            <f:for each="{plan.tasks}" as="item">
+                                <tr>
+                                    <td>
+                                        <core:icon identifier="module-nrllm-task" size="small" />
+                                        {item.label}
+                                    </td>
+                                    <td><code>{item.identifier}</code></td>
+                                    <td><f:render section="State" arguments="{installed: item.installed}" /></td>
+                                </tr>
+                            </f:for>
+                            <f:for each="{plan.snippets}" as="item">
+                                <tr>
+                                    <td>
+                                        <core:icon identifier="module-nrllm-snippet" size="small" />
+                                        {item.label}
+                                    </td>
+                                    <td><code>{item.identifier}</code></td>
+                                    <td><f:render section="State" arguments="{installed: item.installed}" /></td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                    <f:comment>
+                        Not a record, and installing writes it anyway: without the
+                        tag link the pack's snippets are composed into nothing.
+                    </f:comment>
+                    <f:if condition="{plan.missingSnippetTags}">
+                        <div class="card-body border-top">
+                            <p class="mb-0 small">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.plan.snippetTags" default="Installing also adds these snippet tags to the configuration's selection, so the pack's snippets reach its prompts:" />
+                                <f:for each="{plan.missingSnippetTags}" as="tag">
+                                    <code>{tag}</code>
+                                </f:for>
+                            </p>
+                        </div>
+                    </f:if>
+                </div>
+
+                <f:comment>
+                    The other direction of the same rule: the tags above also
+                    pull EXISTING snippets into the pack's own configuration.
+                    The data class is the part that can break a send rather than
+                    only change its wording — the strictest one among the
+                    composed snippets is what the input-context gate judges the
+                    configuration by (ADR-115).
+                </f:comment>
+                <f:if condition="{plan.incomingSnippets}">
+                    <f:be.infobox state="1">
+                        <p class="mb-1">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.incoming" default="These existing snippets already carry one of the tags above. Adding the tags composes them into the pack's configuration as well:" />
+                        </p>
+                        <ul class="mb-1">
+                            <f:for each="{plan.incomingSnippets}" as="incoming">
+                                <li>
+                                    {incoming.name} <code>{incoming.identifier}</code>
+                                    <f:if condition="{incoming.dataClass}">
+                                        — <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.dataClass" default="data class" />: <code>{incoming.dataClass}</code>
+                                    </f:if>
+                                </li>
+                            </f:for>
+                        </ul>
+                        <p class="mb-0 small">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.incoming.hint" default="The strictest data class among the composed snippets is the one the input-context gate applies to every send through this configuration. To keep it out, deactivate the snippet or remove the tag from it before installing." />
+                        </p>
+                    </f:be.infobox>
+                </f:if>
+
+                <f:comment>
+                    A snippet is selected by tag, not by owner (ADR-031), so the
+                    snippets this install creates also reach configurations that
+                    already carry one of those tags. The operator confirms this
+                    screen and must be able to see that.
+                </f:comment>
+                <f:if condition="{plan.affectedConfigurations}">
+                    <f:be.infobox state="1">
+                        <p class="mb-1">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.affected" default="These existing configurations already select one of the pack's snippet tags. Installing adds the pack's snippets to their prompts as well:" />
+                        </p>
+                        <ul class="mb-1">
+                            <f:for each="{plan.affectedConfigurations}" as="affected">
+                                <li>{affected.name} <code>{affected.identifier}</code></li>
+                            </f:for>
+                        </ul>
+                        <p class="mb-0 small">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.affected.hint" default="To keep them unchanged, edit their snippet-tag selection before installing, or rename the pack's tags after the install." />
+                        </p>
+                    </f:be.infobox>
+                </f:if>
+
+                <f:comment>Confirm. Nothing above this point wrote anything.</f:comment>
+                <f:if condition="{plan.installable}">
+                    <f:then>
+                        <f:form action="install" method="post" arguments="{pack: pack.identifier}">
+                            <button type="submit" class="btn btn-success">
+                                <core:icon identifier="actions-check" size="small" />
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install" default="Create the missing records" />
+                            </button>
+                            <span class="ms-2 text-body-secondary">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.install.hint" default="Existing records with the same identifier are left untouched. The only field an install adds to is the configuration's snippet-tag selection." />
+                            </span>
+                        </f:form>
+                    </f:then>
+                    <f:else>
+                        <f:if condition="{plan.fullyInstalled}">
+                            <f:then>
+                                <f:be.infobox state="0">
+                                    <p class="mb-0">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.alreadyInstalled" default="Every record this pack declares already exists. There is nothing left to create." />
+                                    </p>
+                                </f:be.infobox>
+                            </f:then>
+                            <f:else>
+                                <f:be.infobox state="2">
+                                    <p class="mb-0">
+                                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.blocked" default="The pack's configuration cannot be created until a model satisfies its requirements. Add or activate one, then come back." />
+                                    </p>
+                                </f:be.infobox>
+                            </f:else>
+                        </f:if>
+                    </f:else>
+                </f:if>
+            </div>
+
+            <div class="col-lg-5">
+                <f:comment>Required capabilities — the same list the preflight checks.</f:comment>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title h6">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.capabilities" default="Required model capabilities" />
+                        </h2>
+                        <f:for each="{pack.requiredCapabilities}" as="capability">
+                            <span class="badge text-bg-secondary">{capability}</span>
+                        </f:for>
+                    </div>
+                </div>
+
+                <f:comment>
+                    Recommended, never applied (ADR-145). The profile describes a
+                    posture; the governance readout is where it is compared with
+                    what is actually in force.
+                </f:comment>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title h6">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.governance" default="Recommended governance posture" />
+                        </h2>
+                        <p class="mb-1">
+                            <strong><f:translate key="{pack.recommendedGovernanceProfile.labelKey}" default="{pack.recommendedGovernanceProfile.value}" /></strong>
+                        </p>
+                        <p class="small text-body-secondary mb-2">
+                            <f:translate key="{pack.recommendedGovernanceProfile.descriptionKey}" default="" />
+                        </p>
+                        <p class="small mb-0">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.governance.hint" default="Installing the pack does not change any governance setting. Compare this posture with what is in force:" />
+                            <a href="{governanceUrl}" class="text-decoration-underline">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.page.title" default="Governance" />
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <f:comment>Recommended tool groups — enabling stays in the Tools module.</f:comment>
+                <f:if condition="{pack.recommendedToolGroups}">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h2 class="card-title h6">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolGroups" default="Optional tool groups" />
+                            </h2>
+                            <p class="mb-2">
+                                <f:for each="{pack.recommendedToolGroups}" as="group">
+                                    <code>{group}</code>
+                                </f:for>
+                            </p>
+                            <p class="small mb-0">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolGroups.hint" default="The pack does not enable these. Enabling a tool group stays an administrator decision:" />
+                                <a href="{toolsUrl}" class="text-decoration-underline">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.title" default="Tools" />
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </f:if>
+
+                <f:comment>Skills are deliberately not part of a pack — see ADR-163.</f:comment>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title h6">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.skills" default="Skills" />
+                        </h2>
+                        <p class="small mb-0">
+                            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.skills.hint" default="A pack installs no skills. A skill carries provenance and a trust level from the source it was synced from, and a pack cannot produce either. Add a skill source instead." />
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <strong><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:seeAlso.heading" default="See also" />:</strong>
+            <f:link.action action="index" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" />
+            </f:link.action>
+            <a href="{wizardUrl}" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" />
+            </a>
+            <a href="{configurationsUrl}" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:configuration.list.title" default="Configurations" />
+            </a>
+            <a href="{tasksUrl}" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_task.xlf:mlang_labels_tablabel" default="Tasks" />
+            </a>
+            <a href="{snippetsUrl}" class="badge text-bg-secondary text-decoration-none">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_snippet.xlf:mlang_labels_tablabel" default="Prompt Snippets" />
+            </a>
+        </div>
+    </div>
+</f:section>
+
+<f:section name="State">
+    <f:if condition="{installed}">
+        <f:then>
+            <span class="badge text-bg-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.state.installed" default="Already there" />
+            </span>
+        </f:then>
+        <f:else>
+            <span class="badge text-bg-success">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.state.pending" default="Would be created" />
+            </span>
+        </f:else>
+    </f:if>
+</f:section>
+
+</html>

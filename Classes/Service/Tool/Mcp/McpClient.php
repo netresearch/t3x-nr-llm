@@ -9,10 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\ValueObject\McpCallOutcome;
+use Netresearch\NrLlm\Domain\ValueObject\McpConnectionReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolsPage;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use stdClass;
+use Throwable;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 /**
  * The MCP conversation: handshake, catalogue listing, tool invocation (ADR-116).
@@ -29,6 +33,10 @@ use stdClass;
  * session belonging to server A is meaningless, at best, when presented to
  * server B. The price is paid per call and is bounded by the transport
  * timeout; the alternative is a cache whose invalidation nobody owns.
+ *
+ * It is also where liveness is recorded (ADR-154). An operation is the unit an
+ * operator reasons about — "the server answered" — and it is the only level at
+ * which one write covers several round trips.
  */
 final readonly class McpClient
 {
@@ -48,8 +56,29 @@ final readonly class McpClient
      */
     private const MAX_PAGES = 50;
 
+    /**
+     * How much of a server's self-description the connection test keeps. It is
+     * remote text shown in a backend view; enough to recognise the product,
+     * short enough that a hostile server cannot fill the page.
+     */
+    private const REMOTE_LABEL_LIMIT = 100;
+
+    /**
+     * The protocol's own non-text content types.
+     *
+     * A dropped block is named by matching its type against this list, not by
+     * repeating the string the far side chose. The note is a sentence this
+     * extension speaks in its own name and puts at the head of a tool result,
+     * so it carries no remote bytes at all: an unrecognised type is reported
+     * as `other` and the count stays exact.
+     *
+     * @var list<string>
+     */
+    private const KNOWN_BLOCK_TYPES = ['audio', 'image', 'resource', 'resource_link'];
+
     public function __construct(
         private McpHttpTransport $transport,
+        private McpHealthRecorderInterface $health,
     ) {}
 
     /**
@@ -62,7 +91,7 @@ final readonly class McpClient
      */
     public function listTools(McpServerRecord $server): array
     {
-        $session = $this->openSession($server);
+        $session = $this->openSession($server)['sessionId'];
 
         $tools  = [];
         $cursor = null;
@@ -82,6 +111,12 @@ final readonly class McpClient
 
             $cursor = $parsed->nextCursor;
             if ($cursor === null) {
+                // Recorded once the walk completed, with the latency of the
+                // page that ended it. A partial walk that then throws records
+                // nothing: the operation did not succeed, and half a catalogue
+                // is not a contact worth reporting as one.
+                $this->health->recordContact($server, $result['durationMs']);
+
                 return $tools;
             }
         }
@@ -93,53 +128,132 @@ final readonly class McpClient
     }
 
     /**
-     * Invoke one remote tool and return its result as text.
+     * Invoke one remote tool and return what it answered.
      *
      * MCP lets a server answer with a list of typed content blocks. Only text
      * blocks are read: an image or an embedded resource has no representation
-     * in a tool result here, and silently dropping one is better than inventing
-     * a rendering the caller never asked for. A server that returns nothing
-     * readable yields an explicit note rather than an empty string, so the
-     * model is told the call produced no text instead of inferring failure.
+     * in a tool result here, and inventing a rendering the caller never asked
+     * for would be worse than not carrying it.
+     *
+     * Dropping one is NOT silent, though (ADR-161). The answer LEADS with how
+     * many blocks were dropped and of which types, because the alternative is a
+     * model that reads a partial answer as the whole one — and, when every
+     * block was non-text, is told the tool "returned no textual content" about
+     * a call that in fact returned an image. It leads rather than trails
+     * because the result is byte-bounded before it reaches the model, and a
+     * note at the end is the first thing a cut removes — on the long answers
+     * that get cut, which is where being told the answer is partial matters
+     * most. The note is our sentence, not the server's: the types are stripped,
+     * clipped and enumerated only up to a bound, so a hostile server cannot
+     * write the tool result through it.
+     *
+     * The outcome is typed rather than a string because the protocol's own
+     * `isError` decides what KIND of step the run records; see
+     * {@see McpCallOutcome}.
      *
      * @param array<string, mixed> $arguments
      *
      * @throws McpTransportException
      */
-    public function callTool(McpServerRecord $server, string $remoteName, array $arguments): string
+    public function callTool(McpServerRecord $server, string $remoteName, array $arguments): McpCallOutcome
     {
-        $session = $this->openSession($server);
+        $session = $this->openSession($server)['sessionId'];
 
-        $result = $this->transport->call($server, 'tools/call', [
+        $answer = $this->transport->call($server, 'tools/call', [
             'name'      => $remoteName,
             'arguments' => $arguments === [] ? new stdClass() : $arguments,
-        ], $session)['result'];
+        ], $session);
 
-        $text = $this->textFromContent($result['content'] ?? null);
+        // The server answered, so it is alive — including when the answer is a
+        // tool-level `isError` below. That is the tool failing, not the server.
+        $this->health->recordContact($server, $answer['durationMs']);
+
+        $result = $answer['result'];
+
+        $flattened = $this->flattenContent($result['content'] ?? null);
+        $text      = $flattened['text'];
+        $note      = $this->omissionNote($flattened['omitted']);
 
         // `isError` is the protocol's way of reporting a tool-level failure
         // inside a successful JSON-RPC response. It is a result, not a
         // transport fault: the model should see what went wrong and may
-        // reasonably try something else, so it is returned rather than thrown.
+        // reasonably try something else, so it is returned rather than thrown —
+        // but it is returned AS a failure, because the flag is what the
+        // persisted step carries and what a reader counts (ADR-161).
         if (($result['isError'] ?? false) === true) {
-            return 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text);
+            return new McpCallOutcome(
+                $note . 'The remote tool reported an error: ' . ($text === '' ? 'no detail given.' : $text),
+                true,
+            );
         }
 
-        return $text === '' ? 'The remote tool returned no textual content.' : $text;
+        return new McpCallOutcome(
+            $note . ($text === '' ? 'The remote tool returned no textual content.' : $text),
+            false,
+        );
     }
 
     /**
-     * Perform the initialize handshake and return the session id, if the server
-     * issued one.
+     * Ask whether the server is there, and report what it said (ADR-154).
      *
-     * A server that runs statelessly issues none; null then simply means no
-     * session header on the following request, which is valid.
+     * The handshake and nothing else: no catalogue is fetched, no row of
+     * `tx_nrllm_mcp_tool` is written, no import status is touched. An operator
+     * checking a server must be able to do it without also rewriting what its
+     * tools are — and without the check being the thing that orphans a tool.
+     *
+     * A success is a contact like any other and is recorded. A failure is
+     * returned, not stored: `import_error` describes the last import, and a
+     * connection test that overwrote it would erase the reason an import
+     * failed with the reason a probe failed.
+     */
+    public function ping(McpServerRecord $server): McpConnectionReport
+    {
+        if ($server->url === '') {
+            return McpConnectionReport::unreachable($this->noUrlMessage());
+        }
+
+        try {
+            $handshake = $this->openSession($server);
+        } catch (McpTransportException $e) {
+            return McpConnectionReport::unreachable($e->getMessage());
+        }
+
+        $this->health->recordContact($server, $handshake['durationMs']);
+
+        $result = $handshake['result'];
+        $info   = $result['serverInfo'] ?? null;
+        $info   = \is_array($info) ? $info : [];
+
+        return McpConnectionReport::reached(
+            $handshake['durationMs'],
+            // The version the server chose, which may differ from the one this
+            // client asked for; that difference is exactly what an operator
+            // running a connection test wants to see.
+            $this->remoteLabel($result['protocolVersion'] ?? null),
+            $this->remoteLabel($info['name'] ?? null),
+            $this->remoteLabel($info['version'] ?? null),
+        );
+    }
+
+    /**
+     * Perform the initialize handshake.
+     *
+     * Returns the whole exchange rather than only the session id, because
+     * {@see self::ping()} reports what the server said about itself and
+     * duplicating the handshake for that would be a second implementation of
+     * the one sequence the protocol prescribes.
+     *
+     * A server that runs statelessly issues no session; a null `sessionId`
+     * then simply means no session header on the following request, which is
+     * valid.
      *
      * @throws McpTransportException
+     *
+     * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
      */
-    private function openSession(McpServerRecord $server): ?string
+    private function openSession(McpServerRecord $server): array
     {
-        $session = $this->transport->call($server, 'initialize', [
+        $handshake = $this->transport->call($server, 'initialize', [
             'protocolVersion' => self::PROTOCOL_VERSION,
             // No capabilities are declared because none are offered: this
             // client does not accept sampling requests, does not expose roots
@@ -150,13 +264,54 @@ final readonly class McpClient
                 'name'    => 'nr_llm',
                 'version' => '1',
             ],
-        ])['sessionId'];
+        ]);
 
         // The protocol requires the client to confirm it is ready before it
         // issues requests. A server may reject everything until it arrives.
-        $this->transport->notify($server, 'notifications/initialized', [], $session);
+        $this->transport->notify($server, 'notifications/initialized', [], $handshake['sessionId']);
 
-        return $session;
+        return $handshake;
+    }
+
+    /**
+     * The one operator-facing sentence this class writes itself.
+     *
+     * Every other reason a probe fails comes out of
+     * {@see McpTransportException} and quotes the far side, so it stays in the
+     * language the far side spoke. This one is our own statement about a local
+     * misconfiguration and is translated like the module's other labels.
+     * Defensively, because outside a full TYPO3 request there is no language
+     * service and the operator still needs a sentence.
+     */
+    private function noUrlMessage(): string
+    {
+        $fallback = 'The server has no URL.';
+
+        try {
+            return LocalizationUtility::translate(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.mcp.noUrl',
+                'NrLlm',
+            ) ?? $fallback;
+        } catch (Throwable) {
+            return $fallback;
+        }
+    }
+
+    /**
+     * A short, control-character-free rendering of something a remote party
+     * wrote about itself, or '' for anything that is not a string.
+     */
+    private function remoteLabel(mixed $value): string
+    {
+        if (!\is_string($value)) {
+            return '';
+        }
+
+        $clean = trim(preg_replace('/[[:cntrl:]]+/u', ' ', $value) ?? '');
+
+        return mb_strlen($clean) <= self::REMOTE_LABEL_LIMIT
+            ? $clean
+            : mb_substr($clean, 0, self::REMOTE_LABEL_LIMIT) . '…';
     }
 
     /**
@@ -192,30 +347,89 @@ final readonly class McpClient
     }
 
     /**
-     * Flatten the protocol's content blocks into plain text.
+     * Flatten the protocol's content blocks into plain text, counting what had
+     * to be left behind.
+     *
+     * A text block whose `text` is missing or empty is NOT counted as dropped:
+     * it is a text block that said nothing, and reporting it would tell the
+     * caller content was withheld when none was.
+     *
+     * @return array{text: string, omitted: array<string, int>} the readable
+     *                                                          text, and how many blocks of each non-text type were dropped
      */
-    private function textFromContent(mixed $content): string
+    private function flattenContent(mixed $content): array
     {
         if (!\is_array($content)) {
+            return ['text' => '', 'omitted' => []];
+        }
+
+        $parts   = [];
+        $omitted = [];
+
+        foreach ($content as $block) {
+            $type = \is_array($block) ? ($block['type'] ?? null) : null;
+
+            if ($type === 'text') {
+                /** @var array<string, mixed> $block */
+                $text = $block['text'] ?? null;
+                if (\is_string($text) && $text !== '') {
+                    $parts[] = $text;
+                }
+
+                continue;
+            }
+
+            $label           = $this->blockTypeLabel($type);
+            $omitted[$label] = ($omitted[$label] ?? 0) + 1;
+        }
+
+        return ['text' => implode("\n", $parts), 'omitted' => $omitted];
+    }
+
+    /**
+     * The sentence the answer LEADS with when it carried blocks this client
+     * cannot read, or '' when it carried none.
+     *
+     * It is a prefix, not a suffix, because the tool result is truncated to a
+     * byte bound before the model sees it
+     * ({@see \Netresearch\NrLlm\Service\Tool\ToolResultBounder}), and a
+     * trailing note is dropped by exactly the cut that makes the answer
+     * partial.
+     *
+     * @param array<string, int> $omitted
+     */
+    private function omissionNote(array $omitted): string
+    {
+        if ($omitted === []) {
             return '';
         }
 
-        $parts = [];
-        foreach ($content as $block) {
-            if (!\is_array($block)) {
-                continue;
-            }
+        $total = array_sum($omitted);
 
-            if (($block['type'] ?? null) !== 'text') {
-                continue;
-            }
+        // Sorted so the same answer always produces the same note, whatever
+        // order the server happened to send its blocks in. The list needs no
+        // ceiling: the labels come from a fixed vocabulary of five, so a server
+        // inventing a type per block moves the count and nothing else.
+        ksort($omitted);
 
-            $text = $block['text'] ?? null;
-            if (\is_string($text) && $text !== '') {
-                $parts[] = $text;
-            }
-        }
+        return sprintf(
+            "[nr_llm reads text only and dropped %d non-text content %s (%s).]\n",
+            $total,
+            $total === 1 ? 'block' : 'blocks',
+            implode(', ', array_keys($omitted)),
+        );
+    }
 
-        return implode("\n", $parts);
+    /**
+     * A dropped block's type, as one of the protocol's own names — or `other`.
+     *
+     * Nothing the server wrote is repeated back. Sanitising and clipping the
+     * remote string would bound the note's length but not its authorship: the
+     * note leads a tool result the model reads as ours, and up to five
+     * server-chosen words inside that frame are five words too many.
+     */
+    private function blockTypeLabel(mixed $type): string
+    {
+        return \is_string($type) && \in_array($type, self::KNOWN_BLOCK_TYPES, true) ? $type : 'other';
     }
 }

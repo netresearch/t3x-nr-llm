@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
@@ -50,6 +51,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -227,6 +229,35 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
     }
 
+    /**
+     * The shape a budget denial actually reaches a caller in on the tool path.
+     *
+     * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService} catches the denial
+     * itself and returns a truncated result carrying the reason — proven in
+     * ToolLoopServiceTest. The executor has no arm for that: it is an ordinary
+     * loop return, so the run settles COMPLETED with no `error` at all. The
+     * termination reason is therefore the ONLY signal a caller has, and one
+     * that watches `error` sees a normal finished run.
+     */
+    #[Test]
+    public function aBudgetExhaustedLoopResultSettlesCompletedAndCarriesTheReason(): void
+    {
+        $runtime = $this->runtime($this->loopReturning(new ToolLoopResult(
+            '',
+            [],
+            1,
+            true,
+            UsageStatistics::fromTokens(3, 0),
+            AgentRunTerminationReason::BUDGET_EXHAUSTED,
+        )));
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
+        self::assertNull($result->error);
+        self::assertSame(AgentRunTerminationReason::BUDGET_EXHAUSTED, $result->loopResult?->terminationReason);
+    }
+
     #[Test]
     public function aGuardrailDenialSettlesPolicyStopped(): void
     {
@@ -315,6 +346,31 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
         self::assertNotNull($this->repository->finished);
         self::assertSame(AgentRunStatus::FAILED->value, $this->repository->finished['status']);
+    }
+
+    #[Test]
+    public function theLoopReceivesTheRunItIsExecuting(): void
+    {
+        // ADR-153: the persisted run's identity travels on the execution context
+        // the executor builds, which is what lets the loop correlate its provider
+        // calls and attribute the governance rows it writes.
+        $seen = null;
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context) use (&$seen): ToolLoopResult {
+                $seen = $context->run;
+
+                return $this->loopResult('ok');
+            },
+        );
+
+        $result = $this->runtime($loop)->run($this->request());
+
+        self::assertInstanceOf(AgentRunReference::class, $seen);
+        self::assertSame($result->runUuid, $seen->uuid);
+        self::assertSame($seen->uuid, $seen->correlationId(), 'The run uuid IS the correlation id.');
+        self::assertGreaterThan(0, $seen->uid);
+        self::assertSame($this->repository->startedRuns[0]['uuid'], $seen->uuid);
     }
 
     #[Test]
@@ -1480,7 +1536,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $this->repository->findResult = $this->inputRun();
 
         $result = $this->runtime($this->loopReturning($this->loopResult('answered')))
-            ->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+            ->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
 
         self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome);
         // The claim was consumed exactly once and an INPUT audit event recorded.
@@ -1499,7 +1555,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
 
         try {
-            $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission([], 7));
+            $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission([], 7, $this->inputDigest()));
             self::fail('Expected InvalidInputSubmissionException');
         } catch (InvalidInputSubmissionException) {
             // expected
@@ -1517,7 +1573,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
         // Unknown run.
         $this->expectException(RunNotAwaitingInputException::class);
-        $runtime->submitInput($this->actor(), 'unknown', new InputSubmission(['city' => 'Berlin'], 7));
+        $runtime->submitInput($this->actor(), 'unknown', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
     }
 
     #[Test]
@@ -1533,7 +1589,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('x')));
 
         $this->expectException(CorruptSuspendedStateException::class);
-        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
     }
 
     #[Test]
@@ -1543,12 +1599,36 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
 
         // First submission wins the atomic claim and resumes.
-        $first = $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+        $first = $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7, $this->inputDigest()));
         self::assertSame(AgentRunOutcome::COMPLETED, $first->outcome);
 
         // A second submission (the fixture grants only the first claim) is refused.
         $this->expectException(RunAlreadyResumingException::class);
-        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Hamburg'], 7));
+        $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Hamburg'], 7, $this->inputDigest()));
+    }
+
+    #[Test]
+    public function submitInputRefusesASubmissionThatNamesNoTurnAndHandsTheRunBack(): void
+    {
+        // ADR-150: the input path now carries the same turn binding the approval
+        // path has. A submission with no digest is refused exactly like one with
+        // a wrong digest — AFTER the claim, because only the claimed state is
+        // the state that would execute — and the run is released back to its
+        // input pause rather than settled.
+        $this->repository->findResult = $this->inputRun();
+        $runtime = $this->runtime($this->loopReturning($this->loopResult('answered')));
+
+        try {
+            $runtime->submitInput($this->actor(), 'run-uuid-i', new InputSubmission(['city' => 'Berlin'], 7));
+            self::fail('Expected StaleInputTurnException');
+        } catch (StaleInputTurnException) {
+            // expected
+        }
+
+        self::assertSame(1, $this->repository->inputClaimsGranted, 'the claim was won');
+        self::assertNotNull($this->repository->suspendedForInput, 'and handed straight back');
+        self::assertNull($this->repository->finished, 'a refused submission never settles the run');
+        self::assertSame([], $this->repository->events, 'and is never recorded as an INPUT event');
     }
 
     #[Test]
@@ -1897,6 +1977,14 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             'ask_user',
             $this->inputSchema(),
         );
+    }
+
+    /**
+     * The digest that binds a submission to {@see self::inputState()} (ADR-150).
+     */
+    private function inputDigest(): string
+    {
+        return (new PendingTurnDigest())->forInputState($this->inputState());
     }
 
     private function inputRun(?string $stateJson = null): AgentRun

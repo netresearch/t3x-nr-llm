@@ -249,6 +249,7 @@
 .nrllm-pg-si.is-tool { background: var(--pg-brand); }
 .nrllm-pg-si.is-toolerr { background: var(--pg-danger); }
 .nrllm-pg-si.is-assembled { background: var(--pg-primary); }
+.nrllm-pg-si.is-context { background: var(--pg-muted); }
 
 .nrllm-pg-sbody {
     min-width: 0;
@@ -433,6 +434,38 @@
     color: var(--pg-muted);
     font-style: italic;
     margin: 4px 0;
+}
+
+/* Context-budget accounting (ADR-151): a two-column key/value list. */
+.nrllm-pg-kv {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 16px;
+    margin: 4px 0;
+    font-size: 12px;
+}
+
+.nrllm-pg-kv dt {
+    color: var(--pg-muted);
+    font-weight: 400;
+    overflow-wrap: anywhere;
+}
+
+.nrllm-pg-kv dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.nrllm-pg-kv dd.is-over,
+.nrllm-pg-sr.is-over {
+    color: var(--pg-danger);
+    font-weight: 600;
+}
+
+.nrllm-pg-kv dd.is-muted {
+    color: var(--pg-muted);
+    font-style: italic;
 }
 
 .nrllm-pg-error {

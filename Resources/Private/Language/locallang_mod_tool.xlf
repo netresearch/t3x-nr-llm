@@ -77,6 +77,12 @@
             <trans-unit id="group.disabledHint">
                 <source>All tools of this group are refused; per-tool toggles have no effect while the group is disabled.</source>
             </trans-unit>
+            <trans-unit id="manage.action.appliesTo">
+                <source>Applies to</source>
+            </trans-unit>
+            <trans-unit id="manage.action.editorAction">
+                <source>Editor action</source>
+            </trans-unit>
             <trans-unit id="playground.help.title">
                 <source>How to add a tool</source>
             </trans-unit>
@@ -175,6 +181,33 @@
             </trans-unit>
             <trans-unit id="playground.assembling">
                 <source>Assembling…</source>
+            </trans-unit>
+            <trans-unit id="playground.context.budget">
+                <source>Context budget</source>
+            </trans-unit>
+            <trans-unit id="playground.context.components">
+                <source>Where the window went</source>
+            </trans-unit>
+            <trans-unit id="playground.context.sources">
+                <source>Injected context</source>
+            </trans-unit>
+            <trans-unit id="playground.context.notMeasured">
+                <source>No accounting: the send was handed to the provider without an estimate.</source>
+            </trans-unit>
+            <trans-unit id="playground.context.noSources">
+                <source>This run injects no snippets and no skills.</source>
+            </trans-unit>
+            <trans-unit id="playground.context.unclassified">
+                <source>not classified</source>
+            </trans-unit>
+            <trans-unit id="playground.context.inTranscript">
+                <source>counted in the transcript</source>
+            </trans-unit>
+            <trans-unit id="playground.context.noClassification">
+                <source>Not reported for this run.</source>
+            </trans-unit>
+            <trans-unit id="playground.context.assembled">
+                <source>On this surface the system-prompt and skills lines are always empty: the agent loop builds both into the transcript before the fit measures it, so their content sits in the transcript line. They carry separate figures only for a send that injects them after the fit.</source>
             </trans-unit>
             <trans-unit id="playground.runConfig">
                 <source>Run configuration</source>

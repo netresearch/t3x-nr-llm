@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -392,7 +393,7 @@ final class ConversationServiceTest extends TestCase
 
         $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
         $contextWindow->method('fit')->willReturn(
-            new ContextFitResult($trimmed, true, 4, 1, 900, 1000, false, 1.15),
+            new ContextFitResult($trimmed, true, 4, 1, 900, 1000, false, 1.15, ContextBudgetBreakdown::none()),
         );
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -427,7 +428,7 @@ final class ConversationServiceTest extends TestCase
         $kept          = [ChatMessage::user('hi')];
         $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
         $contextWindow->method('fit')->willReturn(
-            new ContextFitResult($kept, false, 0, 1, 10, 1000, false, 1.15),
+            new ContextFitResult($kept, false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none()),
         );
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -470,7 +471,7 @@ final class ConversationServiceTest extends TestCase
         $floor         = [ChatMessage::user('a very long turn')];
         $contextWindow = $this->createMock(ContextWindowManagerInterface::class);
         $contextWindow->method('fit')->willReturn(
-            new ContextFitResult($floor, false, 0, 1, 99999, 1000, true, 1.15),
+            new ContextFitResult($floor, false, 0, 1, 99999, 1000, true, 1.15, ContextBudgetBreakdown::none()),
         );
 
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
@@ -506,7 +507,7 @@ final class ConversationServiceTest extends TestCase
             ) use (&$injected): ContextFitResult {
                 $injected = $injectedText;
 
-                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15);
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none());
             },
         );
 
@@ -550,7 +551,7 @@ final class ConversationServiceTest extends TestCase
             ) use (&$injected): ContextFitResult {
                 $injected = $injectedText;
 
-                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15);
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none());
             },
         );
 
@@ -608,7 +609,7 @@ final class ConversationServiceTest extends TestCase
             ) use (&$seen): ContextFitResult {
                 $seen = $effectiveSystemPrompt;
 
-                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15);
+                return new ContextFitResult([ChatMessage::user('fitted')], false, 0, 1, 10, 1000, false, 1.15, ContextBudgetBreakdown::none());
             },
         );
 

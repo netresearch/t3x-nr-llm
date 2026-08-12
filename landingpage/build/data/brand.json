@@ -62,7 +62,7 @@
     }
   ],
   "fontStack": "'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  "logoPath": "/home/cybot/projects/t3x-nr-llm/feat-landingpage/Resources/Public/Images/netresearch-logo.svg",
+  "logoPath": "landingpage/src/assets/img/netresearch-logo.svg",
   "footer": {
     "copyright": "© 2026 Netresearch DTT GmbH",
     "tagline": "Netresearch DTT GmbH — leidenschaftlich, lösungsorientiert, zuverlässig",
@@ -95,5 +95,41 @@
     "Meet WCAG AA: visible focus states, semantic structure, 4.5:1 for normal text / 3:1 for large text and UI.",
     "No dark-mode palette is defined by the brand — it is a light-first system on white/#F5F5F5 backgrounds; do not invent dark-theme brand hexes.",
     "No editorializing in on-page copy, commits, or docs — state what something is/does, avoid self-praise and narrating expected results."
-  ]
+  ],
+  "darkMode": {
+    "status": "defined and verified",
+    "note": "A checked brand variant, not an unreviewed inversion. Every surface, text, border, link, code and shadow token has an explicit dark value; fonts, spacing and radii are theme-independent by design. Brand teal stays the accent, but body-size teal switches to a lighter variant because #15585E is unreadable on a dark surface.",
+    "selectors": [
+      ":root[data-theme='dark']",
+      "@media (prefers-color-scheme: dark) :root:not([data-theme='light'])"
+    ],
+    "tokens": {
+      "--bg": "#15171C",
+      "--bg-alt": "#1B1E24",
+      "--surface": "#1F232A",
+      "--ink": "#E6E7EA",
+      "--ink-strong": "#F3F4F6",
+      "--muted": "#A9ABB3",
+      "--border": "#363A43",
+      "--border-light": "#2A2E36",
+      "--link": "#5CC6D1",
+      "--link-hover": "#83D5DE",
+      "--btn-outline-ink": "#5CC6D1",
+      "--accent": "#3FB0BC",
+      "--code-bg": "#12151A",
+      "--code-ink": "#DCE4EA",
+      "--focus": "#5CC6D1"
+    },
+    "contrast": [
+      "--ink #E6E7EA on --bg #15171C: 13.5:1 — passes AA and AAA for body text.",
+      "--muted #A9ABB3 on --bg #15171C: 7.4:1 — passes AA for body text.",
+      "--link #5CC6D1 on --bg #15171C: 8.7:1 — passes AA and AAA, unlike #2F99A4 (3.0:1) which is therefore not used for dark-mode text.",
+      "--link #5CC6D1 on --surface #1F232A: 7.2:1 — passes AA."
+    ],
+    "rules": [
+      "Never use #2F99A4 or #15585E for text in dark mode. Use --link / --accent.",
+      "Accent orange #FF4D00 stays highlight-only in both themes and is never a surface.",
+      "Adding a light-mode token means adding its dark counterpart in the same change."
+    ]
+  }
 }

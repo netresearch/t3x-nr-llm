@@ -70,7 +70,7 @@ Two rows say more than their value alone:
    :guilabel:`Set up & manage` grid, and the :guilabel:`For developers`
    section.
 
-The admin module tree has thirteen sections accessible from the
+The admin module tree has fourteen sections accessible from the
 left-hand navigation:
 
 - **Overview** — guided dashboard: usage & cost, per-module setup state, and
@@ -80,6 +80,8 @@ left-hand navigation:
 - **Configurations** — use-case presets
 - **Tasks** — one-shot prompt templates
 - **Snippets** — tagged reusable prompt fragments
+- **Get Started** — pick a use case and install a matching pack of
+  configuration, tasks and snippets (admin-only)
 - **Setup wizard** — guided provider, model and configuration setup (admin-only)
 - **Skills** — GitHub-hosted ``SKILL.md`` sources (admin-only)
 - **Tools** — enable or disable the agent tools (admin-only)
@@ -101,6 +103,7 @@ Editors do not use this tree: their surface is the separate
    Configurations
    Tasks
    PromptSnippets
+   UseCasePacks
    Skills
    Tools
    McpServers

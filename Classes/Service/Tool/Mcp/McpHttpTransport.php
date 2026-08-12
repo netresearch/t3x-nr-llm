@@ -85,14 +85,23 @@ final class McpHttpTransport
     /**
      * Send one JSON-RPC request and return its `result` object.
      *
+     * `durationMs` is the wall time of the exchange itself — the request going
+     * out until the body has been read — and excludes encoding and decoding.
+     * It is returned rather than recorded here (ADR-154): this class is a DI
+     * singleton and one operation is several round trips, so a transport that
+     * stored the number would either write once per round trip or keep mutable
+     * per-server state. {@see McpClient} owns the operation and records once.
+     *
      * @param array<string, mixed> $params
      *
      * @throws McpTransportException on any outcome that is not a JSON-RPC result
      *
-     * @return array{result: array<string, mixed>, sessionId: string|null}
+     * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
      */
     public function call(McpServerRecord $server, string $method, array $params, ?string $sessionId = null): array
     {
+        $startedAt = hrtime(true);
+
         $response = $this->send($server, $this->encode($server, [
             'jsonrpc' => '2.0',
             // A single request per connection, so the id only has to be
@@ -102,9 +111,12 @@ final class McpHttpTransport
             'params'  => $params === [] ? new stdClass() : $params,
         ]), $sessionId);
 
+        $durationMs = (int)round((hrtime(true) - $startedAt) / 1_000_000);
+
         return [
-            'result'    => $this->decodeResult($server, $response['body'], $response['status'], $response['contentType']),
-            'sessionId' => $response['sessionId'],
+            'result'     => $this->decodeResult($server, $response['body'], $response['status'], $response['contentType']),
+            'sessionId'  => $response['sessionId'],
+            'durationMs' => $durationMs,
         ];
     }
 

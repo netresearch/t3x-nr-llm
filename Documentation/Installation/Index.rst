@@ -77,6 +77,24 @@ Installation steps
       The setup wizard guides you through provider
       connection, model discovery, and configuration.
 
+   .. tip::
+
+      Not sure which provider you need? :guilabel:`Admin Tools > LLM > Get
+      Started` asks what you want to do first — editorial assistance,
+      translation, metadata, media accessibility, agent workflows, developer
+      integration — and can install a use-case pack for it: a configuration,
+      tasks and prompt snippets, created only after you confirm the list. The
+      *Editorial Starter* pack is the one currently shipped. The setup wizard
+      stays the technical route and is linked from every screen there.
+
+      The plan you confirm also states the three things an install changes that
+      are not new records: the snippet tags it adds to the pack's own
+      configuration, any existing configuration that already selects one of
+      those tags and would therefore compose the pack's snippets into its
+      prompts too, and any existing snippet carrying one of those tags, which
+      the added tags compose into the pack's configuration. See
+      :ref:`administration-usecase-packs`.
+
    See :ref:`configuration` for detailed setup
    instructions.
 

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -117,6 +118,30 @@ final class RunTraceTest extends TestCase
 
         // No artifacts passed → the step carries null, so toArray() drops the key.
         self::assertNull($tool->toolArtifacts);
+    }
+
+    #[Test]
+    public function recordsTheRoundsContextBudgetAsItsOwnStep(): void
+    {
+        $breakdown = new ContextBudgetBreakdown(8192, 1000, 246, 6946, 500, 40, 30, false, 20, 590, 6356);
+        $trace     = new RunTrace();
+        $trace->recordContextBudget(2, $breakdown);
+
+        $step = $trace->getSteps()[0];
+        self::assertSame(RunStep::KIND_CONTEXT, $step->kind);
+        self::assertSame(2, $step->round);
+        self::assertSame($breakdown, $step->contextBudget);
+        // Serialised for the inspector as a flat map, not as an object.
+        self::assertSame($breakdown->toArray(), $step->toArray()['contextBudget']);
+    }
+
+    #[Test]
+    public function aStepWithoutAContextBudgetDropsTheKeyEntirely(): void
+    {
+        $trace = new RunTrace();
+        $trace->recordRequest(1, [ChatMessage::user('go')], []);
+
+        self::assertArrayNotHasKey('contextBudget', $trace->getSteps()[0]->toArray());
     }
 
     #[Test]

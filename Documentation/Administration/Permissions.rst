@@ -44,6 +44,14 @@ Execute AI tasks (``tasks_use``)
     own :ref:`usage budget <administration-user-budgets>` and attributed
     to them.
 
+    Since :ref:`ADR-158 <adr-158>` the same grant opens the **Editor Action
+    Center** in that module. It does not decide which actions appear there:
+    that is the tool gate's answer plus access to the default LLM
+    configuration — a user outside its :guilabel:`Allowed backend groups` is
+    offered nothing and can start nothing — and every writing tool is disabled
+    until an administrator enables it. Starting an action always suspends for
+    approval before anything is written.
+
 Approve suspended AI runs (``agent_approve``)
     Approve, deny or answer agent runs suspended for a human decision —
     including runs started by **other** users. Without this grant a user

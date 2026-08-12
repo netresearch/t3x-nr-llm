@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Inbox;
 
+use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunView;
@@ -214,14 +216,28 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     #[Test]
-    public function anInputCardCarriesNoTurnDigest(): void
+    public function anInputCardCarriesTheInputDigestOfItsPause(): void
     {
-        // An input pause has no approval turn to bind, so there is nothing to
-        // digest — the field must stay null rather than carry a value that would
-        // look like a reviewed turn.
-        $run = $this->makeRun('a', $this->inputState('ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]));
+        // REVERSED by ADR-150. Until then an input card carried no digest,
+        // because the input path had nothing to bind a submission to; that was
+        // the open half of #690, and the submission is now bound exactly as a
+        // decision is. The value is the INPUT digest — over the pending calls,
+        // the target tool and the schema these fields were built from — not the
+        // approval one, which would never match on the verify side.
+        $stateJson = $this->inputState('ask', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]);
+        $run       = $this->makeRun('a', $stateJson);
 
-        self::assertNull($this->factory()->buildWaiting([$run])[0]->turnDigest);
+        $decoded = json_decode($stateJson, true);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        $state  = SuspendedRunState::fromArray($decoded);
+        $digest = new PendingTurnDigest();
+
+        $view = $this->factory()->buildWaiting([$run])[0];
+
+        self::assertSame($digest->forInputState($state), $view->turnDigest);
+        self::assertNotSame($digest->forState($state), $view->turnDigest, 'the two pauses are bound by different digests');
     }
 
     #[Test]
@@ -253,6 +269,35 @@ final class WaitingRunViewFactoryTest extends TestCase
         $run = $this->makeRun('a', null, status: 'failed', cost: 0.0);
 
         self::assertNull($this->factory()->buildTerminal([$run])[0]->formattedCost);
+    }
+
+    #[Test]
+    public function theDetailLinkIsOfferedOnlyOnRunsTheViewerMayRead(): void
+    {
+        // ADR-153: the list is deliberately wider than the read. An approval
+        // grant holder sees every user's terminal run, but AGENT_READ has no
+        // grant equivalent — so the foreign row must carry no Timeline link,
+        // which would only redirect back with "not found".
+        $views = $this->factory()->buildTerminal(
+            [
+                $this->makeRun('a', null, status: 'completed', beUser: 7),
+                $this->makeRun('b', null, status: 'completed', beUser: 8),
+            ],
+            AiActorContext::backendUser(7, grants: [BackendUserGrant::AGENT_APPROVE]),
+        );
+
+        self::assertTrue($views[0]->openableByViewer);
+        self::assertFalse($views[1]->openableByViewer);
+    }
+
+    #[Test]
+    public function anAdminMayOpenEveryTerminalRunAndAnAbsentActorNone(): void
+    {
+        $foreign = $this->makeRun('b', null, status: 'completed', beUser: 8);
+
+        self::assertTrue($this->factory()->buildTerminal([$foreign], AiActorContext::backendUser(9, isAdmin: true))[0]->openableByViewer);
+        // Fail-closed: no actor established means no link at all.
+        self::assertFalse($this->factory()->buildTerminal([$foreign])[0]->openableByViewer);
     }
 
     /**
@@ -457,6 +502,7 @@ final class WaitingRunViewFactoryTest extends TestCase
         int $crdate = 100,
         float $cost = 0.0,
         int $finishedAt = 0,
+        int $beUser = 1,
     ): AgentRun {
         return new AgentRun(
             uid: 1,
@@ -464,7 +510,7 @@ final class WaitingRunViewFactoryTest extends TestCase
             status: $status,
             configurationUid: 0,
             configurationIdentifier: $config,
-            beUser: 1,
+            beUser: $beUser,
             iterations: 1,
             truncated: false,
             totalPromptTokens: 0,

@@ -14,8 +14,8 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 /**
  * Kind of a persisted agent-run event (ADR-081).
  *
- * REQUEST / LLM / TOOL / ASSEMBLED map one-to-one onto the four {@see RunStep}
- * kinds the tool loop emits through
+ * REQUEST / LLM / TOOL / ASSEMBLED / CONTEXT map one-to-one onto the five
+ * {@see RunStep} kinds the tool loop emits through
  * {@see \Netresearch\NrLlm\Service\Tool\RunTrace}; their payload is the decoded
  * {@see RunStep::toArray()} snapshot. APPROVAL (ADR-101) is emitted by the
  * AgentRuntime when an operator decides a suspended run, with the payload
@@ -29,6 +29,11 @@ enum AgentEventKind: string
     case LLM = 'llm';
     case TOOL = 'tool';
     case ASSEMBLED = 'assembled';
+    // The round's context-window accounting (ADR-151), recorded by the tool
+    // loop's fit ahead of the request step it explains. It IS a RunStep kind:
+    // every traced run — playground, interactive, queued, resumed — persists
+    // one of these per round.
+    case CONTEXT = 'context';
     case APPROVAL = 'approval';
     // Emitted by the AgentRuntime when an operator submits typed input for a run
     // suspended WAITING_FOR_INPUT (ADR-105), payload ``{submittedBy: int}`` — the
@@ -52,7 +57,7 @@ enum AgentEventKind: string
     /**
      * Map a {@see RunStep} kind constant onto its event kind. Returns null for an
      * unknown value so a future RunStep kind cannot silently masquerade as a
-     * known one. Deliberately restricted to the four RunStep kinds: APPROVAL is
+     * known one. Deliberately restricted to the five RunStep kinds: APPROVAL is
      * an AgentRuntime event, not a RunStep, so it must not resolve here even
      * though it is a valid stored event kind (use {@see self::tryFrom()} to
      * hydrate a stored kind). INPUT (ADR-105) is excluded for the same reason.

@@ -54,6 +54,11 @@ final readonly class ProviderCallContext
      * A context for a generic call with an auto-generated correlation id and no
      * configuration entity yet (the pipeline resolves or the caller sets one).
      *
+     * This one does NOT take an inherited correlation, unlike
+     * {@see self::forConfiguration()}: no agent-run path reaches it. Widening it
+     * on symmetry alone would be an argument nothing passes. Widen it when a run
+     * driving a configuration-less call exists.
+     *
      * @param array<string, mixed> $metadata
      */
     public static function for(ProviderOperation $operation, array $metadata = []): self
@@ -71,12 +76,13 @@ final readonly class ProviderCallContext
      * is the source of truth while it is present.
      *
      * @param array<string, mixed> $metadata
+     * @param ?string              $correlationId as in {@see self::for()}
      */
-    public static function forConfiguration(ProviderOperation $operation, LlmConfiguration $configuration, array $metadata = []): self
+    public static function forConfiguration(ProviderOperation $operation, LlmConfiguration $configuration, array $metadata = [], ?string $correlationId = null): self
     {
         return new self(
             operation: $operation,
-            correlationId: Uuid::v4()->toRfc4122(),
+            correlationId: self::resolveCorrelationId($correlationId),
             configuration: $configuration,
             metadata: $metadata,
         );
@@ -86,6 +92,9 @@ final readonly class ProviderCallContext
      * A context for a service call identified only by provider/model strings —
      * an image, speech or translation service with no {@see LlmConfiguration}
      * entity. Telemetry reads these strings.
+     *
+     * Like {@see self::for()}, this takes no inherited correlation: the
+     * specialized services it serves are not driven by an agent run.
      *
      * @param array<string, mixed> $metadata
      */
@@ -104,6 +113,20 @@ final readonly class ProviderCallContext
             configurationIdentifier: $configurationIdentifier,
             metadata: $metadata,
         );
+    }
+
+    /**
+     * The caller's trace when it has one, else a fresh per-call id.
+     *
+     * An empty string counts as "no trace": an unpersisted run has no uuid, and
+     * writing '' into `tx_nrllm_telemetry.correlation_id` would collide every
+     * such call into one bucket instead of leaving them individually traceable.
+     */
+    private static function resolveCorrelationId(?string $correlationId): string
+    {
+        return ($correlationId === null || $correlationId === '')
+            ? Uuid::v4()->toRfc4122()
+            : $correlationId;
     }
 
     /**

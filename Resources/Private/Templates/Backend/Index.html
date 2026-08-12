@@ -133,6 +133,29 @@ when the module has entries but none is the default; nothing when empty.</f:comm
 
         <div class="nrllm-ov-grid">
 
+            <f:comment>
+                Get started — the use-case entry step (ADR-163). No readiness
+                state: a pack is something you may install, never something the
+                installation is missing.
+            </f:comment>
+            <div class="nrllm-ov-card">
+                <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_usecase')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:mlang_labels_tablabel', default: 'Get Started')}"></a>
+                <div class="nrllm-ov-card-h">
+                    <span class="nrllm-ov-icon"><core:icon identifier="module-nrllm-wizard" size="medium" /></span>
+                    <div>
+                        <div class="nrllm-ov-tt"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:mlang_labels_tablabel" default="Get Started" /></div>
+                        <div class="nrllm-ov-st"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:index.title" default="What do you want to do?" /></div>
+                    </div>
+                </div>
+                <div class="nrllm-ov-card-b">
+                    <p class="mb-1"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:overview.card.description" default="Start from the job instead of the provider. A use-case pack installs a configuration, tasks and prompt snippets in one confirmed step." /></p>
+                </div>
+                <div class="nrllm-ov-card-f">
+                    <a href="{be:moduleLink(route: 'nrllm_usecase')}"><core:icon identifier="actions-arrow-right" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:overview.card.button" default="Pick a use case" /></a>
+                    <a href="{be:moduleLink(route: 'nrllm_wizard')}"><core:icon identifier="actions-bolt" size="small" /> <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_wizard.xlf:mlang_labels_tablabel" default="Setup Wizard" /></a>
+                </div>
+            </div>
+
             <f:comment>Providers</f:comment>
             <div class="nrllm-ov-card {statuses.providers.cssClass}">
                 <a class="stretched-link" href="{be:moduleLink(route: 'nrllm_providers')}" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:provider.card.title', default: 'API Providers')}"></a>
