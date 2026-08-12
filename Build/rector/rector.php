@@ -45,8 +45,15 @@ return static function (RectorConfig $rectorConfig) use ($configure): void {
     ));
 
     $rectorConfig->sets([
-        // PHPUnit sets - modernize tests
-        PHPUnitSetList::PHPUNIT_110,
+        // PHPUnit sets - modernize tests.
+        //
+        // COMPOSER_BASED, not a numbered set: rector 2.6.2 removed PHPUNIT_40
+        // through PHPUNIT_130 and left this one, which reads the PHPUnit
+        // version composer actually installed. That suits this repository
+        // better than the constant did — the rector job is pinned to PHP 8.2
+        // precisely so the rules match the phpunit ^11 that resolves there,
+        // and this set derives the same thing instead of restating it.
+        PHPUnitSetList::COMPOSER_BASED,
 
         // TYPO3 Sets - CRITICAL for TYPO3 migrations
         Typo3SetList::CODE_QUALITY,

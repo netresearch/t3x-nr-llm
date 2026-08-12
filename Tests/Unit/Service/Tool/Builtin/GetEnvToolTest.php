@@ -188,12 +188,9 @@ final class GetEnvToolTest extends TestCase
         // "STRIPE" to the name pattern, these cases would start passing for the
         // wrong reason and stop covering the value-shape path.
         foreach ([self::SHAPED_PAT_KEY, self::SHAPED_STRIPE_KEY, self::SHAPED_JWT_KEY] as $name) {
-            self::assertSame(
-                0,
-                preg_match(
-                    '/PASS|PASSWORD|PWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|AUTH|PRIVATE|MASTER|ENCRYPT|DSN|DATABASE_URL|APIKEY|API_KEY/i',
-                    $name,
-                ),
+            self::assertDoesNotMatchRegularExpression(
+                '/PASS|PASSWORD|PWD|SECRET|TOKEN|KEY|SALT|CREDENTIAL|AUTH|PRIVATE|MASTER|ENCRYPT|DSN|DATABASE_URL|APIKEY|API_KEY/i',
+                $name,
                 sprintf('"%s" is now matched by the NAME rule, so it no longer tests the value rule.', $name),
             );
         }
