@@ -40,6 +40,25 @@ class PromptSnippetRepository extends Repository
     }
 
     /**
+     * Find a snippet by its identifier, hidden ones included.
+     *
+     * Read by {@see \Netresearch\NrLlm\Service\UseCase\UseCasePackInstaller} to
+     * decide whether a declared snippet is already installed. Including hidden
+     * records is the point: a snippet the operator switched off must not be
+     * recreated by a second install.
+     */
+    public function findOneByIdentifier(string $identifier): ?PromptSnippet
+    {
+        $query = $this->createQuery();
+        $query->matching($query->equals('identifier', $identifier));
+
+        /** @var PromptSnippet|null $result */
+        $result = $query->execute()->getFirst();
+
+        return $result;
+    }
+
+    /**
      * Count all non-deleted snippets — including hidden ones, matching what
      * the Snippets backend module lists (the repository default query
      * settings from initializeObject() ignore enable-fields).

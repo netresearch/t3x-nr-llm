@@ -507,3 +507,4 @@ Tools
    Adr160AdapterContractAndCapabilityProvenance
    Adr161McpClientConformance
    Adr162BulkEditorActionsAsOrdinaryRuns
+   Adr163UseCasePacks

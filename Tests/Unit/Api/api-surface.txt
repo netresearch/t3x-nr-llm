@@ -1632,6 +1632,10 @@ Netresearch\NrLlm\Service\UsageTrackerServiceInterface (interface)
   method getUserUsage(int $beUserUid, DateTimeInterface $from, DateTimeInterface $to): array
   method trackUsage(string $serviceType, string $provider, array $metrics = …, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …): void
 
+Netresearch\NrLlm\Service\UseCase\UseCasePackProviderInterface (interface)
+  const TAG_NAME = "nr_llm.use_case_pack"
+  method getPacks(): array
+
 Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult (class)
   constructor(string $text, string $model, string $provider, bool $usedNativeDocumentPath, int $rasterizedPageCount = …)
   property readonly model: string

@@ -464,6 +464,48 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `ext_tables.sql`: the comment claiming a governance row linked "via the run's
     correlation, to its agent run" was false and is corrected; a
     (`agentrun_uid`, `crdate`) index is added for the new query.
+- **Setup can start from what you want to do.** A new admin module, "Get
+  Started", asks the question before the technical one — editorial assistance,
+  translation, metadata, media accessibility, agent workflows, developer
+  integration — and answers it with a use-case pack: a named bundle of a
+  configuration preset, tasks and prompt snippets, plus the governance posture
+  and tool groups it was written for (ADR-163). The setup wizard is unchanged
+  and every screen links to it; a use case with no pack says so rather than
+  hiding itself.
+  - *Editorial Starter* is the one pack that exists: four tasks (summarise,
+    rewrite, proofread, headlines), a house-style and an audience snippet, and
+    one configuration requiring nothing but `chat`, so it installs against a
+    local Ollama as readily as a hosted provider. The other five use cases are
+    not built.
+  - A pack is data plus a small installer. Its configuration IS a
+    ConfigurationPreset (ADR-056) rather than a second configuration shape, so
+    the existing preflight, drift detection and update flow apply to it
+    unchanged.
+  - It recommends and never applies: the governance profile is rendered beside a
+    link to the readout (ADR-145 is untouched), and the tool groups it names go
+    through the Tools module's admin enable like any other. Nothing is written
+    before the operator confirms, and the install action refuses a GET.
+  - Installing twice is a no-op for everything already present. "Already
+    installed" means a record with that identifier exists, including a disabled
+    one — so a second install cannot resurrect what an operator switched off, or
+    overwrite a task they rewrote.
+  - The one field an install adds to on an existing record is the
+    configuration's snippet-tag selection — the link that makes the pack's
+    snippets reach its prompts. It is added whether the configuration was
+    created by the pack or by importing its preset in the Configuration module,
+    it never removes a tag the operator selected, and the plan screen lists what
+    it would add. The success message names the tags it wrote, so a run that
+    only added them is not reported as one that changed nothing.
+  - Because snippets are selected by tag and not by owner (ADR-031), the link
+    reaches both ways and the plan screen names both. Outwards: a pack's
+    snippets also reach existing configurations that already select one of those
+    tags. Inwards: existing snippets carrying one of the added tags are composed
+    into the pack's own configuration — listed with their data class, because
+    the strictest one among the composed snippets is what the input-context gate
+    applies to every send through that configuration.
+  - Packs install no skills. A skill carries provenance and a trust level from
+    the source it was synced from, and a pack can produce neither; ADR-163 says
+    why the pack points at the Skills module instead.
 
 ### Changed
 

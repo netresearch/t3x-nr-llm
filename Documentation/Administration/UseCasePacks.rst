@@ -1,0 +1,132 @@
+.. include:: /Includes.rst.txt
+
+.. _administration-usecase-packs:
+
+===========================
+Get Started: use-case packs
+===========================
+
+:guilabel:`Admin Tools > LLM > Get Started` asks what you want to do before it
+asks anything technical — editorial assistance, translation, metadata, media
+accessibility, agent workflows, developer integration — and answers with a
+**use-case pack**: a named bundle of one configuration, several tasks and
+several prompt snippets, plus the governance posture and the tool groups the
+pack was written for.
+
+The module is admin-only. The records it creates are ordinary records an
+administrator could create by hand; nothing marks them as pack-owned.
+
+*Editorial Starter* is the only pack currently shipped. The other five use cases
+are listed with a "no pack yet" note and a link to the
+:ref:`setup wizard <administration-wizards-setup>`, which stays the technical
+route and is linked from every screen here.
+
+.. _administration-usecase-packs-install:
+
+What an install creates
+=======================
+
+Pick a use case, then a pack, and the plan screen lists every record the pack
+declares with its identifier and its current state — *Would be created* or
+*Already there*. Nothing is written until you press
+:guilabel:`Create the missing records`.
+
+*Editorial Starter* declares:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Record
+     - What it is
+   * - Configuration ``nr_llm.editorial_starter``
+     - Low temperature, room for a medium-length article, requires nothing but
+       the ``chat`` capability — so it installs against a local Ollama as
+       readily as against a hosted provider. It sets no tool group restriction
+       of its own.
+   * - Four tasks
+     - Summarise for a teaser, rewrite for clarity, proofread, suggest
+       headlines. Each takes the text through ``{{input}}``.
+   * - Two snippets
+     - *House style* (tag ``tone_of_voice``) and *Target audience* (tag
+       ``audience``). Both are meant to be edited — they are the pack's
+       placeholders for your own voice.
+
+The pack's configuration is a :ref:`configuration preset <adr-056>`, not a
+second kind of record, so it also appears in the Configuration module's
+:guilabel:`Pending presets` card and can be imported there instead.
+
+.. _administration-usecase-packs-tags:
+
+The snippet-tag link, and what it pulls in
+==========================================
+
+A configuration composes the active snippets carrying any of its tags
+(:ref:`ADR-031 <adr-031>`). Installing therefore **adds** the pack's snippet
+tags to its configuration's selection — without them the pack's snippets would
+exist and be read by nothing. Tags you selected yourself are kept; nothing is
+removed, and a tag already selected is written again by no install.
+
+Because selection is by tag and not by owner, that link reaches in two
+directions, and the plan screen names both before you confirm:
+
+Outwards
+   Existing configurations that already select one of the pack's tags compose
+   the pack's new snippets into their prompts as well. They are listed by name
+   and identifier.
+
+Inwards
+   Existing snippets that already carry one of the added tags are composed into
+   the *pack's* configuration. They are listed with their **data class**,
+   because that is the part that can stop the configuration from working: input
+   context is classified by the strictest data class among the composed
+   snippets, so one confidential snippet raises the whole configuration, and an
+   enforcing input-context gate then refuses every send through it.
+
+To keep a snippet out, deactivate it or remove the tag from it before
+installing. To keep another configuration unchanged, edit its snippet-tag
+selection first, or rename the pack's tags afterwards.
+
+.. _administration-usecase-packs-recommend:
+
+What a pack recommends but never applies
+========================================
+
+- **Governance posture.** The pack names the posture its content was written
+  for (*Editorial Starter*: controlled cloud). Installing changes no governance
+  value; the screen links to the :ref:`governance readout
+  <administration-governance>` where the posture in force is shown.
+- **Tool groups.** The pack names the groups its tasks benefit from
+  (*Editorial Starter*: ``content``). Enabling a tool group stays an
+  administrator decision in the :ref:`Tools module <administration-tools>`.
+- **Nothing about providers or API keys.** The pack states model
+  *requirements*. When no active model satisfies them, the plan says which
+  requirement is missing and links to the setup wizard.
+
+A pack installs **no skills**. A skill carries provenance and a trust level
+from the source it was synced from, and a pack can produce neither; add a
+:ref:`skill source <administration-skills>` instead.
+
+.. _administration-usecase-packs-reinstall:
+
+Installing again
+================
+
+"Already installed" means *a record with that identifier exists* — nothing more.
+The installer never overwrites and never compares contents, so:
+
+- A task you renamed or whose prompt you rewrote is left exactly as it is.
+- A record you **disabled** still counts as installed, so a second install
+  cannot quietly resurrect what you switched off.
+- A tag the configuration already selects is not written again.
+
+A second install therefore reports records created: 0. The one case where it
+still has work is a configuration created by importing the preset in the
+Configuration module: its records exist but its snippet-tag selection does not
+yet include the pack's tags, so the confirm button stays offered and the
+success message names the tags it added.
+
+A pack cannot be uninstalled. Nothing marks a record as pack-owned — that is
+what makes the installed records ordinary — so removing them is deleting
+records, one by one, like any other.
+
+The full rationale is in :ref:`ADR-163 <adr-163>`.

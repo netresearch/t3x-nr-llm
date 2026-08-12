@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Controller\Backend\TaskListController;
 use Netresearch\NrLlm\Controller\Backend\TaskWizardController;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
 use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
+use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
 
 /**
  * Backend module registration for nr_llm.
@@ -178,6 +179,28 @@ return [
         'controllerActions' => [
             PromptSnippetController::class => [
                 'list',
+            ],
+        ],
+    ],
+    // Use-case onboarding - child of main module, listed BEFORE the setup
+    // wizard because it asks the earlier question: what do you want to do?
+    // (ADR-163). It recommends a pack; the wizard below it stays the technical
+    // route and every screen here links to it.
+    //
+    // Shares the wizard's icon deliberately: the two are one entry path, and a
+    // second wizard-family glyph would suggest a second kind of thing.
+    'nrllm_usecase' => [
+        'parent' => 'nrllm',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-wizard',
+        'path' => '/module/nrllm/use-case',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf',
+        'extensionName' => 'NrLlm',
+        'controllerActions' => [
+            UseCasePackController::class => [
+                'index',
+                'show',
+                'install',
             ],
         ],
     ],
