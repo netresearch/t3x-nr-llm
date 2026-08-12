@@ -17,6 +17,12 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
  */
 final readonly class TerminalRunView
 {
+    /**
+     * @param bool $openableByViewer whether {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()}
+     *                               would let this viewer READ this run (ADR-153). The list is wider than the
+     *                               read: an approval-grant holder sees every user's run but may only open their
+     *                               own, so the detail link is offered only where it would resolve
+     */
     public function __construct(
         public string $runUuid,
         public string $status,
@@ -24,5 +30,6 @@ final readonly class TerminalRunView
         public int $finishedAt,
         public string $configLabel,
         public ?string $formattedCost = null,
+        public bool $openableByViewer = false,
     ) {}
 }

@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Controller\Backend;
 use Closure;
 use Netresearch\NrLlm\Controller\Backend\Response\PlaygroundRunResponse;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -37,8 +38,12 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Context\InputContextClassification;
+use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -107,6 +112,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // The ONE digest definition (ADR-132): the pause payload shows a turn,
         // so it must also hand out the value that proves which turn was shown.
         private readonly PendingTurnDigest $turnDigest,
+        // The same classifier the input-context gate consults (ADR-144). The
+        // inspector reads it rather than re-deriving "what does this
+        // configuration inject", so the readout and the gate cannot disagree.
+        private readonly InputContextClassifier $inputContextClassifier,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -192,6 +201,9 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         // regardless (a disabled tool stays off, ADR-093).
         $selected = $this->toolNamesFromBody($body) ?? $this->toolAvailability->enabledNames();
 
+        $forcedSkills   = $this->resolveForcedSkills($this->uidListFromBody($body, 'forcedSkills'));
+        $forcedSnippets = $this->promptSnippetRepository->findByUids($this->uidListFromBody($body, 'forcedSnippets'));
+
         $agentRequest = new AgentRunRequest(
             configuration: $config,
             messages: [ChatMessage::user($prompt)],
@@ -200,21 +212,72 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             options: $options,
             maxIterations: $maxRounds > 0 ? $maxRounds : null,
             augmentation: new RunAugmentation(
-                forcedSkills: $this->resolveForcedSkills($this->uidListFromBody($body, 'forcedSkills')),
-                forcedSnippets: $this->promptSnippetRepository->findByUids($this->uidListFromBody($body, 'forcedSnippets')),
+                forcedSkills: $forcedSkills,
+                forcedSnippets: $forcedSnippets,
                 dryRun: $dryRun,
             ),
             captureRaw: $captureRaw,
         );
 
+        // How sensitive what this run injects is (ADR-151). Fixed for the whole
+        // run — the configuration's sources plus this run's forced ones — so it
+        // is computed once here rather than per round.
+        $classification = $this->contextClassification($config, $forcedSnippets, $forcedSkills);
+
         // Live path: stream each recorded step to the browser as it happens.
         if ($this->boolFromBody($body, 'stream')) {
-            return $this->runStreamed($agentRequest, $dryRun);
+            return $this->runStreamed($agentRequest, $dryRun, $classification);
         }
 
         // Batch path: run the whole loop, then return the full trace as one JSON
         // document (the no-JS fallback and the shape the functional tests assert).
-        return $this->respondToResult($this->agentRuntime->run($agentRequest), $dryRun);
+        return $this->respondToResult($this->agentRuntime->run($agentRequest), $dryRun, $classification);
+    }
+
+    /**
+     * What this RUN injects, source by source, with the class each source
+     * declared and the strictest one across them (ADR-151).
+     *
+     * The run, not the configuration: a playground run also injects the forced
+     * snippets and skills the operator ticked, and those reach the wire exactly
+     * like the configuration's own. A readout derived from the configuration
+     * alone reported "injects nothing" for a run carrying a SECRET_ADJACENT
+     * snippet — under-reporting, in a panel whose whole job is data
+     * classification.
+     *
+     * Everything comes from {@see InputContextClassifier} — the service the
+     * ADR-144 gate itself consults — so the panel cannot show a configuration
+     * as unclassified that the gate would refuse. The reverse is possible and
+     * intended: the gate asks {@see InputContextClassifier::classify()}, which
+     * answers for the configuration alone, so a forced source shows up here and
+     * is NOT gated. Source NAMES only: the classification exists because the
+     * text is sensitive, and echoing it into an admin panel to explain why it
+     * must not leave the installation would be the same leak by another route.
+     *
+     * One pass over the sources, folded here — {@see InputContextClassifier::classify()}
+     * would fetch the same list a second time to answer the same question.
+     *
+     * @param list<PromptSnippet> $forcedSnippets
+     * @param list<Skill>         $forcedSkills
+     *
+     * @return array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}
+     */
+    private function contextClassification(LlmConfiguration $configuration, array $forcedSnippets = [], array $forcedSkills = []): array
+    {
+        $sources   = $this->inputContextClassifier->sources($configuration, $forcedSnippets, $forcedSkills);
+        $effective = InputContextClassifier::strictest($sources);
+
+        return [
+            'sources' => array_map(
+                static fn(InputContextClassification $source): array => [
+                    'source'    => $source->source,
+                    'dataClass' => $source->effective?->value,
+                ],
+                $sources,
+            ),
+            'effective'       => $effective->effective?->value,
+            'effectiveSource' => $effective->source,
+        ];
     }
 
     /**
@@ -307,12 +370,18 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
 
         $body    = $request->getParsedBody();
         $runUuid = trim($this->stringFromBody($body, 'runUuid'));
+        // The digest of the turn the caller was shown (ADR-150), the input
+        // sibling of resumeAction()'s. Passed through verbatim; the runtime
+        // compares it against the claimed state. An empty body value becomes
+        // null, which the runtime refuses like a mismatch — a client that does
+        // not send it cannot submit.
+        $digest = trim($this->stringFromBody($body, 'turnDigest'));
 
         try {
             $result = $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
-                new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid()),
+                new InputSubmission($this->inputDataFromBody($body), $this->currentBackendUserUid(), $digest !== '' ? $digest : null),
             );
         } catch (RunNotAwaitingInputException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.notAwaitingInput', 'No run is awaiting input for that id.')], 400);
@@ -327,6 +396,27 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.inputSchemaMismatch', 'The submitted input did not match the required schema.'),
             ], 422);
+        } catch (StaleInputTurnException) {
+            // Retryable like an invalid submission: the run was released back to
+            // its input pause, so re-signal awaiting_input and let the client
+            // re-fetch the CURRENT turn and its digest.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_input',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.staleInput', 'The pending action changed since you viewed it — please re-open the form.'),
+            ], 409);
+        } catch (SubmitterNotPermittedException) {
+            // ADR-150: the submitter may not run the tool they are feeding.
+            // Nothing was executed and the run is submittable again, so
+            // awaiting_input is re-signalled — but 403, because the obstacle is
+            // who is asking.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_input',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.submitterNotPermitted', 'You may not supply input for a tool you are not permitted to use yourself.'),
+            ], 403);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->respondJson(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.corruptState', 'The suspended run state could not be read.')], 500);
         } catch (RunAlreadyResumingException) {
@@ -339,8 +429,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     /**
      * Map a settled {@see AgentRunResult} onto the module's batch JSON shapes
      * — the ADR-041 contract the functional tests assert.
+     *
+     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}|null $contextClassification null on the resume paths, which continue a run whose classification the initiating response already carried
      */
-    private function respondToResult(AgentRunResult $result, bool $dryRun): ResponseInterface
+    private function respondToResult(AgentRunResult $result, bool $dryRun, ?array $contextClassification = null): ResponseInterface
     {
         switch ($result->outcome) {
             case AgentRunOutcome::AWAITING_APPROVAL:
@@ -405,6 +497,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             completionTokens: $loop->usage->completionTokens,
             totalTokens: $loop->usage->totalTokens,
             estimatedCost: $loop->usage->estimatedCost,
+            contextClassification: $contextClassification,
         );
 
         return $this->respondJson($response->toArray());
@@ -438,8 +531,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     private function turnDigestFor(AgentRunResult $result): string
     {
         $state = $result->suspendedState;
+        if (!$state instanceof SuspendedRunState) {
+            return '';
+        }
 
-        return $state instanceof SuspendedRunState ? $this->turnDigest->forState($state) : '';
+        // The two pauses are bound by different digests (ADR-150), and the state
+        // says which pause this is. Emitting the approval digest for an input
+        // pause would hand the client a value the runtime never accepts.
+        return $state->isInputPause()
+            ? $this->turnDigest->forInputState($state)
+            : $this->turnDigest->forState($state);
     }
 
     /**
@@ -482,7 +583,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     /**
      * The JSON body for a run that suspended for typed input (ADR-105): the
      * target tool and its declared input schema the client renders a form from,
-     * plus the steps recorded up to the pause.
+     * the digest binding a later submission to exactly that form (ADR-150), plus
+     * the steps recorded up to the pause.
      *
      * @return array<string, mixed>
      */
@@ -498,6 +600,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'tool'   => $state instanceof SuspendedRunState ? ($state->inputToolName ?? '') : '',
                 'schema' => $state instanceof SuspendedRunState ? $state->inputSchema : [],
             ],
+            'turnDigest'   => $this->turnDigestFor($result),
             'steps'        => array_map(static fn(RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
@@ -550,8 +653,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * immediately; a {@see NullResponse} is returned so TYPO3 emits nothing
      * further (it has already been sent). The step callback runs inside the
      * runtime's trace, fired the moment each step is recorded.
+     *
+     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string} $contextClassification
      */
-    private function runStreamed(AgentRunRequest $request, bool $dryRun): ResponseInterface
+    private function runStreamed(AgentRunRequest $request, bool $dryRun, array $contextClassification): ResponseInterface
     {
         ini_set('zlib.output_compression', '0');
         ini_set('output_buffering', '0');
@@ -572,6 +677,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             },
             $request,
             $dryRun,
+            $contextClassification,
         );
 
         return new NullResponse();
@@ -586,10 +692,16 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * event sequence can be asserted in isolation from the echo/flush plumbing
      * in {@see runStreamed()}.
      *
-     * @param Closure(array<string, mixed>): void $emit
+     * @param Closure(array<string, mixed>): void                                                                                  $emit
+     * @param array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string} $contextClassification
      */
-    private function streamRun(Closure $emit, AgentRunRequest $request, bool $dryRun): void
+    private function streamRun(Closure $emit, AgentRunRequest $request, bool $dryRun, array $contextClassification): void
     {
+        // Emitted BEFORE the run: the classification is a property of the
+        // configuration, not of the outcome, so a run that fails or suspends
+        // must still have told the operator what it was about to send.
+        $emit(['event' => 'context', 'contextClassification' => $contextClassification]);
+
         $result = $this->agentRuntime->run(
             $request,
             static function (RunStep $step) use ($emit): void {
@@ -626,6 +738,10 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                         'tool'   => $inputState instanceof SuspendedRunState ? ($inputState->inputToolName ?? '') : '',
                         'schema' => $inputState instanceof SuspendedRunState ? $inputState->inputSchema : [],
                     ],
+                    // The streamed pause carries the same binding as the batch
+                    // payload (ADR-150) — both surfaces show a form, so both
+                    // must let the client prove which form was shown.
+                    'turnDigest'   => $this->turnDigestFor($result),
                 ]);
 
                 return;

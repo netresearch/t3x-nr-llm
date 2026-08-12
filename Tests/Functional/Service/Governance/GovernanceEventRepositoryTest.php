@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Governance;
 
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepository;
+use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[CoversClass(GovernanceEventRepository::class)]
 #[CoversClass(GovernanceEvent::class)]
+#[CoversClass(RecordedGovernanceEvent::class)]
 final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
 {
     private const TABLE = 'tx_nrllm_governance_event';
@@ -119,6 +121,43 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function findForRunMatchesEitherKeyAndReturnsARowOnlyOnce(): void
+    {
+        $now  = time();
+        $uuid = 'c0ffee00-0000-4000-8000-000000000042';
+
+        // The three write points know different halves of the run's identity
+        // (ADR-153): the gates write the uid, the guardrail middleware the
+        // correlation id — and a row can carry both.
+        $this->insert('tool_denied', 'trustZone', 'fetch_logs', $now, agentRunUid: 7, correlationId: '');
+        $this->insert('response_blocked', 'deny', '', $now + 1, agentRunUid: 0, correlationId: $uuid);
+        $this->insert('context_blocked', 'secret_adjacent', '', $now + 2, agentRunUid: 7, correlationId: $uuid);
+        // Another run, and a row belonging to no run at all.
+        $this->insert('tool_denied', 'trustZone', 'get_env', $now, agentRunUid: 9, correlationId: 'other-uuid');
+        $this->insert('response_blocked', 'deny', '', $now, agentRunUid: 0, correlationId: '');
+
+        $events = $this->repository->findForRun(7, $uuid);
+
+        self::assertCount(3, $events);
+        self::assertSame(
+            ['tool_denied', 'response_blocked', 'context_blocked'],
+            array_map(static fn(RecordedGovernanceEvent $e): string => $e->decision, $events),
+            'Oldest first.',
+        );
+        self::assertSame('fetch_logs', $events[0]->toolName);
+    }
+
+    #[Test]
+    public function findForRunReturnsNothingWhenNeitherKeyIsKnown(): void
+    {
+        $this->insert('response_blocked', 'deny', '', time(), agentRunUid: 0, correlationId: '');
+
+        // Both arguments at their "unknown" marker must not match the rows that
+        // carry the same markers — that would list every unattributed decision.
+        self::assertSame([], $this->repository->findForRun(0, ''));
+    }
+
+    #[Test]
     public function purgeOlderThanDeletesOnlyOlderRows(): void
     {
         $now = time();
@@ -131,12 +170,18 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->connectionPool->getConnectionForTable(self::TABLE)->count('*', self::TABLE, []));
     }
 
-    private function insert(string $decision, string $reason, string $toolName, int $crdate): void
-    {
+    private function insert(
+        string $decision,
+        string $reason,
+        string $toolName,
+        int $crdate,
+        int $agentRunUid = 0,
+        string $correlationId = '',
+    ): void {
         $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
             'pid'                      => 0,
             'crdate'                   => $crdate,
-            'correlation_id'           => '',
+            'correlation_id'           => $correlationId,
             'decision'                 => $decision,
             'reason'                   => $reason,
             'provider'                 => 'openai',
@@ -144,7 +189,7 @@ final class GovernanceEventRepositoryTest extends AbstractFunctionalTestCase
             'configuration_identifier' => 'primary',
             'be_user'                  => 0,
             'tool_name'                => $toolName,
-            'agentrun_uid'             => 0,
+            'agentrun_uid'             => $agentRunUid,
             'guardrail'                => '',
             'detail'                   => '',
         ]);

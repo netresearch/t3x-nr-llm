@@ -11,17 +11,27 @@ namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
+use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -60,6 +70,7 @@ use TYPO3\CMS\Extbase\Service\ExtensionService;
  */
 #[CoversClass(AgentRunController::class)]
 #[CoversClass(WaitingRunViewFactory::class)]
+#[CoversClass(RunTimelineFactory::class)]
 final class AgentRunControllerTest extends AbstractFunctionalTestCase
 {
     private AgentRunPersister $persister;
@@ -184,6 +195,42 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function submitInputActionHandsTheRenderedTurnDigestToTheRuntimeAndRefusesAStaleOne(): void
+    {
+        // The twin of the approval test below. The no-JS input path is the one
+        // every backend submission takes after ADR-150, and the form-rendering
+        // assertion cannot tell the two forms apart now that both emit the
+        // field — so the wiring needs its own end-to-end assertion.
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $seen    = null;
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willReturnCallback(
+            static function (AiActorContext $actor, string $runUuid, InputSubmission $submission) use (&$seen, $uuid): AgentRunResult {
+                $seen = $submission;
+
+                throw StaleInputTurnException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+
+        $response = $controller->submitInputAction($uuid, ['reason' => 'because'], 'a-digest-of-some-other-turn');
+
+        self::assertSame(303, $response->getStatusCode(), 'the refusal ends in the POST-redirect-GET flush');
+        self::assertInstanceOf(InputSubmission::class, $seen);
+        self::assertSame('a-digest-of-some-other-turn', $seen->turnDigest);
+
+        // An omitted digest must not travel as an empty string: null is what
+        // the runtime refuses on, and '' would look like a value.
+        $controller->submitInputAction($uuid, ['reason' => 'because']);
+        self::assertInstanceOf(InputSubmission::class, $seen);
+        self::assertNull($seen->turnDigest);
+    }
+
+    #[Test]
     public function approveActionHandsTheReviewedTurnDigestToTheRuntimeAndRefusesAStaleOne(): void
     {
         // ADR-132: the module no longer decides staleness itself — it carries
@@ -271,6 +318,163 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     private ?string $lastUuid = null;
 
     /**
+     * The detail view is only reachable if the list points at it (ADR-153), so
+     * a row the viewer may open must carry the affordance and the run it is for.
+     * The viewer here is an admin, who may read every run; which rows get the
+     * link at all is decided by WaitingRunViewFactory::buildTerminal() and
+     * asserted in its unit test.
+     *
+     * The generated href is NOT asserted: this harness calls the controller
+     * directly, so the backend router holds no module routes and every
+     * `<f:link.action>` on the page — the pre-existing ones included — degrades
+     * to its label text. Asserting an empty href here would freeze the harness's
+     * limitation as an expectation.
+     */
+    #[Test]
+    public function theRecentRunsTableOffersATimelineForARunTheViewerMayOpen(): void
+    {
+        $handle = $this->persister->begin(null, 1);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->settleCompleted(
+            $handle,
+            new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(3, 4)),
+        ));
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('Timeline', $body);
+        self::assertStringContainsString($handle->uuid, $body, 'The row names the run its link leads to.');
+    }
+
+    /**
+     * ADR-153: the run detail joins the three streams the run produced and shows
+     * their METADATA — the payload the privacy filter left, never the content it
+     * dropped, and never the verbatim suspended transcript.
+     */
+    #[Test]
+    public function showActionRendersTheRunsStepsCallsAndGovernanceDecisions(): void
+    {
+        $runUuid = 'c0ffee00-0000-4000-8000-000000000042';
+        $run     = $this->terminalRun($runUuid);
+
+        $this->insertTelemetry($runUuid);
+        $this->insertGovernance($run->uid, $runUuid);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($run);
+        $runtime->method('events')->willReturn([
+            new AgentRunEvent(
+                uid: 1,
+                run: $run->uid,
+                sequence: 0,
+                kind: 'llm',
+                round: 1,
+                durationMs: 12.5,
+                // As the privacy filter stores it at the default level.
+                payload: ['kind' => 'llm', 'finishReason' => 'stop', 'promptTokens' => 120, 'contentRedacted' => true],
+                crdate: 1_700_000_010,
+            ),
+        ]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        $response = $controller->showAction($runUuid);
+        self::assertSame(200, $response->getStatusCode());
+        $body = (string)$response->getBody();
+
+        self::assertStringContainsString($runUuid, $body, 'The run is identified by the correlation its calls carry.');
+        self::assertStringContainsString('finishReason=stop', $body);
+        // The provider call read back by correlation, and the governance row.
+        self::assertStringContainsString('latencyMs=900', $body);
+        self::assertStringContainsString('fetch_logs', $body);
+        self::assertStringContainsString('id="run-timeline-heading"', $body);
+    }
+
+    #[Test]
+    public function showActionRedirectsWhenTheRuntimeReleasesNothing(): void
+    {
+        // status() returns null for BOTH an unknown run and one this actor may
+        // not read (mayActOnRun) — the page must not tell the two apart.
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn(null);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        self::assertSame(303, $controller->showAction('does-not-exist')->getStatusCode());
+    }
+
+    private function terminalRun(string $uuid): AgentRun
+    {
+        return new AgentRun(
+            uid: 4711,
+            uuid: $uuid,
+            status: 'completed',
+            configurationUid: 0,
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            iterations: 1,
+            truncated: false,
+            totalPromptTokens: 120,
+            totalCompletionTokens: 30,
+            totalTokens: 150,
+            estimatedCost: 0.0012,
+            errorClass: '',
+            terminationReason: 'completed',
+            startedAt: 1_700_000_000,
+            finishedAt: 1_700_000_040,
+            crdate: 1_700_000_000,
+        );
+    }
+
+    private function insertTelemetry(string $correlationId): void
+    {
+        $repository = $this->get(TelemetryRepositoryInterface::class);
+        self::assertInstanceOf(TelemetryRepositoryInterface::class, $repository);
+
+        $repository->record(new TelemetryRecord(
+            correlationId: $correlationId,
+            operation: 'tools',
+            provider: 'ollama',
+            model: 'qwen3:4b',
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            success: true,
+            errorClass: '',
+            latencyMs: 900,
+            cacheHit: false,
+            fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'agent',
+            servedProvider: 'ollama',
+            servedModel: 'qwen3:4b',
+        ));
+    }
+
+    private function insertGovernance(int $agentRunUid, string $correlationId): void
+    {
+        $repository = $this->get(GovernanceEventRepositoryInterface::class);
+        self::assertInstanceOf(GovernanceEventRepositoryInterface::class, $repository);
+
+        $repository->record(new GovernanceEvent(
+            correlationId: $correlationId,
+            decision: 'tool_denied',
+            reason: 'trustZone',
+            provider: 'ollama',
+            model: 'qwen3:4b',
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            toolName: 'fetch_logs',
+            agentrunUid: $agentRunUid,
+            guardrail: '',
+            detail: 'zone=local;ceiling=editor_content;observedOnly=0',
+        ));
+    }
+
+    /**
      * @param array<string, mixed>                                                     $arguments
      * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews
      */
@@ -328,6 +532,10 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
             new SchemaInputCoercer(new SchemaPropertyClassifier()),
             $runtime,
             $pageRenderer,
+            new RunTimelineFactory(
+                $this->get(TelemetryRepositoryInterface::class),
+                $this->get(GovernanceEventRepositoryInterface::class),
+            ),
         );
     }
 

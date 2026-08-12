@@ -39,7 +39,13 @@
                         <div class="card mb-4">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
-                                    <strong><core:icon identifier="actions-folder" size="small" /> <code>{groupName}</code></strong>
+                                    <strong>
+                                        <core:icon identifier="actions-folder" size="small" />
+                                        <f:if condition="{groupStates.{groupName}.labelKey}">
+                                            <f:then><f:translate key="{groupStates.{groupName}.labelKey}" /> <code class="text-body-secondary">{groupName}</code></f:then>
+                                            <f:else><code>{groupName}</code></f:else>
+                                        </f:if>
+                                    </strong>
                                     <f:if condition="{groupStates.{groupName}.enabled}">
                                         <f:then>
                                             <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
@@ -62,9 +68,18 @@
                             </div>
                             <ul class="list-group list-group-flush">
                                 <f:for each="{groupTools}" as="tool">
+                                    <f:variable name="action" value="{editorActions.{tool.name}}" />
                                     <li class="list-group-item d-flex justify-content-between align-items-start">
                                         <div class="me-3">
-                                            <strong><code>{tool.name}</code></strong>
+                                            <f:if condition="{action}">
+                                                <f:then>
+                                                    <strong><core:icon identifier="{action.iconIdentifier}" size="small" /> <f:translate key="{action.labelKey}" /></strong>
+                                                    <span class="badge bg-warning text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.editorAction" default="Editor action" /></span>
+                                                </f:then>
+                                                <f:else>
+                                                    <strong><code>{tool.name}</code></strong>
+                                                </f:else>
+                                            </f:if>
                                             <f:if condition="{tool.enabled}">
                                                 <f:then>
                                                     <span class="badge bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.enabled" default="Enabled" /></span>
@@ -81,8 +96,20 @@
                                                     <span class="badge bg-light text-dark"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:playground.tool.default" default="Default" /></span>
                                                 </f:else>
                                             </f:if>
-                                            <f:if condition="{tool.description}">
-                                                <br><small class="text-body-secondary">{tool.description}</small>
+                                            <f:if condition="{action}">
+                                                <f:then>
+                                                    <br><small class="text-body-secondary"><f:translate key="{action.descriptionKey}" /></small>
+                                                    <br><small class="text-body-secondary">
+                                                        <code>{tool.name}</code>
+                                                        · <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.action.appliesTo" default="Applies to" />:
+                                                        <f:for each="{action.recordTypes}" as="recordType"><code>{recordType}</code> </f:for>
+                                                    </small>
+                                                </f:then>
+                                                <f:else>
+                                                    <f:if condition="{tool.description}">
+                                                        <br><small class="text-body-secondary">{tool.description}</small>
+                                                    </f:if>
+                                                </f:else>
                                             </f:if>
                                         </div>
                                         <button type="button"

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -95,7 +96,7 @@ final readonly class AgentRunExecutor
         $trace = $this->trace($handle, $onStep, $request->captureRaw, $leaseOwner);
         // Resolve the run's explicit actor to a live acting backend user ONCE,
         // identically whether this runs synchronously or in a worker (ADR-083).
-        $context = $this->toolContext($request->actor);
+        $context = $this->toolContext($request->actor, $handle);
 
         return $this->execute(
             $handle,
@@ -145,7 +146,7 @@ final readonly class AgentRunExecutor
         ?string $leaseOwner = null,
     ): AgentRunResult {
         $trace   = $this->trace($handle, $onStep, false, $leaseOwner);
-        $context = $this->toolContext($owner);
+        $context = $this->toolContext($owner, $handle);
 
         return $this->execute($handle, $trace, fn(): ToolLoopResult => $loopCall($context, $trace), null, $leaseOwner);
     }
@@ -265,12 +266,21 @@ final readonly class AgentRunExecutor
      * one place the actor becomes a live acting backend user, identically on the
      * synchronous and worker paths (ADR-083), so no tool reads the ambient
      * `$GLOBALS['BE_USER']`.
+     *
+     * It is also where the run's own identity joins the context (ADR-153): the
+     * loop reads it from here to correlate the provider calls it makes and to
+     * attribute the governance rows it writes. A run that could not be persisted
+     * (null handle) contributes none — those calls keep their per-call trace.
      */
-    private function toolContext(AiActorContext $actor): ToolExecutionContext
+    private function toolContext(AiActorContext $actor, ?AgentRunHandle $handle): ToolExecutionContext
     {
         $resolver = $this->actingBackendUserResolver ?? new ActingBackendUserResolver();
 
-        return new ToolExecutionContext($actor, $resolver->resolve($actor));
+        return new ToolExecutionContext(
+            $actor,
+            $resolver->resolve($actor),
+            $handle instanceof AgentRunHandle ? new AgentRunReference($handle->runUid, $handle->uuid) : null,
+        );
     }
 
     /**

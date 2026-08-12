@@ -186,7 +186,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // continuation with no offered tools can still be over-long. No tools
             // go on this wire, so pass toolSpecs = [].
             try {
-                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, []);
+                $messages = $this->enforceContextWindow($messages, $configuration, $options, null, 1, [], $runTrace);
             } catch (ContextTruncatedException $e) {
                 $this->logger?->warning('Agent loop stopped: transcript exceeds the context window even at its floor.', ['exception' => $e]);
 
@@ -195,7 +195,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
-            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
+            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options), run: $context->run);
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
 
             // Fold in any carried-over counters (a resume whose continuation has
@@ -238,12 +238,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     $lastUsage,
                     $iterations,
                     array_map(static fn(ToolSpec $s): array => $s->toArray(), $specs),
+                    $runTrace,
                 );
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0   = hrtime(true);
-                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
+                // The run travels with the call (ADR-153): every round of one run
+                // lands on the run's correlation id instead of minting its own,
+                // so its telemetry rows are attributable to the run afterwards.
+                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options, $context->run);
                 $runTrace?->recordLlmCall($iterations, $this->elapsedMs($t0), $resp);
                 $lastUsage         = $resp->usage;
                 $promptTokens     += $resp->usage->promptTokens;
@@ -272,8 +276,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // approval tool (a model steered by injected prose naming it)
                     // falls through to invoke(), which refuses it — no spurious
                     // pending-approval prompt for a tool the run never allowed.
+                    // The predicate is ToolApprovalRule (ADR-084/134/157) —
+                    // shared with ToolRegistry's boot validation, which rejects
+                    // a tool that is approval-bound AND RequiresInputInterface
+                    // because this scan runs before the input scan, and with
+                    // the Governance simulation, which reports the requirement
+                    // as its own axis. Narrowing the remote exemption is one
+                    // edit rather than three kept in step by a comment.
                     if (in_array($call->name, $allowedNames, true)
-                        && $this->requiresHumanApproval($this->registry->get($call->name))) {
+                        && ToolApprovalRule::requiresApproval($this->registry->get($call->name))) {
                         throw ToolApprovalRequiredException::fromState(new SuspendedRunState(
                             array_map(static fn(ChatMessage|array $m): array => $m instanceof ChatMessage ? $m->toArray() : $m, $messages),
                             array_map(static fn(ToolCall $c): array => $c->toArray(), $resp->toolCalls ?? []),
@@ -352,13 +363,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             // bound it with toolSpecs = [] (ADR-107) — counting phantom schema
             // bytes here, on the run's largest transcript, could otherwise
             // discard a real final answer as a spurious overflow.
-            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, []);
+            $messages = $this->enforceContextWindow($messages, $configuration, $options, $lastUsage, $iterations + 1, [], $runTrace);
             $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0    = hrtime(true);
             $final = $this->mgr->chatWithConfiguration(
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
+                run: $context->run,
             );
             $runTrace?->recordLlmCall($iterations + 1, $this->elapsedMs($t0), $final);
             $promptTokens     += $final->usage->promptTokens;
@@ -410,6 +422,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<array<string, mixed>>             $toolSpecs the tool schemas on THIS wire; [] for a plain completion
+     * @param RunTrace|null                          $runTrace  records the round's context accounting (ADR-151). Non-null for every run the AgentRuntime drives, so the step is persisted as a ``context`` event too, not only streamed to the playground inspector; null only where the caller passes no trace at all
      *
      * @throws ContextTruncatedException when the pruned floor still exceeds the window
      *
@@ -422,6 +435,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         ?UsageStatistics $lastUsage,
         int $iteration,
         array $toolSpecs,
+        ?RunTrace $runTrace = null,
     ): array {
         if (!$this->contextWindow instanceof ContextWindowManagerInterface) {
             return $messages;
@@ -439,13 +453,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             effectiveSystemPrompt: $this->effectiveSystemPrompt($configuration, $options),
         );
 
+        // Before the overflow throw: a run that stops here is exactly the run
+        // whose operator most needs to see which component filled the window.
+        $runTrace?->recordContextBudget($iteration, $fit->breakdown);
+
         if ($fit->overflowAtFloor) {
             throw ContextTruncatedException::fromFit($fit);
         }
 
         if ($fit->pruned) {
             // Observability: distinguishes "trimmed history, run fine" from a
-            // failure. A dedicated inspector RunStep is a follow-up (ADR-107).
+            // failure. The dedicated inspector RunStep ADR-107 wanted is the
+            // context step recorded above (ADR-151); this line stays for the
+            // runs that carry no trace.
             $this->logger?->info('Agent loop transcript pruned to fit the context window', [
                 'iteration'       => $iteration,
                 'droppedTurns'    => $fit->droppedTurns,
@@ -756,69 +776,6 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * Whether a human must approve this tool before the loop executes it
-     * (ADR-084/134).
-     *
-     * Two ways in, and the second is what ADR-134 adds: the explicit
-     * {@see RequiresApprovalInterface} marker, or a declared write effect. A
-     * builtin whose {@see \Netresearch\NrLlm\Domain\Enum\ToolEffect} is a write
-     * is describing a change to the installation that the operator cannot undo
-     * by reading the transcript, so it must not run unattended merely because
-     * nobody remembered the marker. The declaration is a property of the code
-     * (ADR-111) and cannot be relabelled by configuration, which is what makes
-     * it usable as an authorisation input.
-     *
-     * A remote tool is NOT judged on its effect, and that exemption is
-     * load-bearing rather than convenient.
-     * {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool} returns
-     * NON_IDEMPOTENT_WRITE for EVERY imported tool, a pure search included: a
-     * remote body is not ours to inspect, so the value is a fail-closed
-     * assumption about an unknown, not the tool's statement about itself.
-     * Treating it as one would suspend every MCP tool on every call and leave
-     * the shipped client unusable.
-     *
-     * What a remote tool IS judged on is {@see RemoteApprovalInterface}: the
-     * operator's declaration on the server row, carried in by the provider that
-     * built the tool. It is asked before the exemption, so the exemption now
-     * covers only a remote tool that carries NO declaration — a third-party
-     * {@see RemoteToolInterface} outside the MCP client, which is exactly where
-     * this codebase still knows nothing. The declaration will never come from
-     * the server: the `readOnlyHint` annotation is recorded verbatim and read by
-     * no resolver, because a remote server must not influence its own
-     * authorisation
-     * (see {@see \Netresearch\NrLlm\Domain\ValueObject\McpToolRecord}).
-     *
-     * Every check is an `instanceof` or a getter on the tool the caller already
-     * fetched — no resolver, no repository, no new dependency: nothing here
-     * needs the registry-wide view a {@see ToolEffectResolver} exists to
-     * provide, and its unknown-tool fallback (NON_IDEMPOTENT_WRITE) would turn
-     * every unregistered name into a suspend instead of the refusal
-     * {@see self::invoke()} already gives it.
-     *
-     * {@see ToolRegistry} mirrors this predicate to reject a tool that is
-     * approval-bound AND {@see RequiresInputInterface}: this scan runs before
-     * the input scan, so that tool would suspend for approval and never reach
-     * the input flow (ADR-134). Narrowing the remote exemption here means
-     * narrowing it there too.
-     */
-    private function requiresHumanApproval(?ToolInterface $tool): bool
-    {
-        if ($tool instanceof RequiresApprovalInterface) {
-            return true;
-        }
-
-        if ($tool instanceof RemoteApprovalInterface) {
-            return $tool->requiresApproval();
-        }
-
-        if ($tool instanceof RemoteToolInterface) {
-            return false;
-        }
-
-        return $tool instanceof ToolEffectInterface && $tool->getEffect()->isWrite();
-    }
-
-    /**
      * What the pending turn WOULD do, one entry per offered call whose tool
      * implements {@see ToolPreviewInterface} (ADR-136).
      *
@@ -943,14 +900,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 ]);
                 // Persist the denial (or observe-mode flag) so it is queryable
                 // by tool name and reason (the log line is not). This gate is
-                // the one place tool_name is structurally available. The run's
-                // correlation id / uid are not in scope at this seam, so a
-                // tool-denied row carries neither — its value is the by-tool /
-                // by-reason breakdown, not a per-run join. observed-mode rows
-                // are recorded too (flagged in detail) so the trust-zone
-                // rollout is measurable before it is enforced.
+                // the one place tool_name is structurally available. Since
+                // ADR-153 the run's identity travels on the execution context,
+                // so the row also joins to the run that was denied the tool —
+                // both stay empty/0 for a bare loop consumer that has no
+                // persisted run. observed-mode rows are recorded too (flagged
+                // in detail) so the trust-zone rollout is measurable before it
+                // is enforced.
                 $this->governanceEvents?->record(new GovernanceEvent(
-                    correlationId: '',
+                    correlationId: $context->run?->correlationId() ?? '',
                     decision: GovernanceDecision::TOOL_DENIED->value,
                     reason: $decision->reason->value,
                     provider: $configuration->getProviderType(),
@@ -958,7 +916,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     configurationIdentifier: $configuration->getIdentifier(),
                     beUser: $context->actor->backendUserUid,
                     toolName: $decision->toolName,
-                    agentrunUid: 0,
+                    agentrunUid: $context->run->uid ?? 0,
                     guardrail: '',
                     detail: sprintf(
                         'zone=%s;ceiling=%s;observedOnly=%d',

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Inbox;
 
+use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
@@ -64,11 +66,16 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
-     * @param list<AgentRun> $runs
+     * @param list<AgentRun>      $runs
+     * @param AiActorContext|null $actor the actor the table is rendered for, asked whether it may READ each run
+     *                                   (ADR-153). The list is deliberately wider than the read — an approval-grant
+     *                                   holder sees every user's run — so the detail link is offered only where
+     *                                   {@see AiActorContext::mayActOnRun()} would let it resolve. Null withholds
+     *                                   every link (fail-closed)
      *
      * @return list<TerminalRunView>
      */
-    public function buildTerminal(array $runs): array
+    public function buildTerminal(array $runs, ?AiActorContext $actor = null): array
     {
         return array_map(
             fn(AgentRun $run): TerminalRunView => new TerminalRunView(
@@ -78,6 +85,7 @@ final readonly class WaitingRunViewFactory
                 finishedAt: $run->finishedAt,
                 configLabel: $this->configLabel($run),
                 formattedCost: $run->estimatedCost > 0.0 ? number_format($run->estimatedCost, 4) : null,
+                openableByViewer: $actor?->mayActOnRun($run, ServiceAccountScope::AGENT_READ) ?? false,
             ),
             $runs,
         );
@@ -94,7 +102,7 @@ final readonly class WaitingRunViewFactory
     public function inputSchemaForRun(AgentRun $run): ?array
     {
         $state = $this->decodeState($run);
-        if (!$state instanceof SuspendedRunState || $state->inputToolName === null || !$this->isRenderableObjectSchema($state->inputSchema)) {
+        if (!$state instanceof SuspendedRunState || !$state->isInputPause() || !$this->isRenderableObjectSchema($state->inputSchema)) {
             return null;
         }
 
@@ -108,9 +116,9 @@ final readonly class WaitingRunViewFactory
             return $this->unreadable($run, 'state-unreadable');
         }
 
-        return $state->inputToolName === null
-            ? $this->buildApproval($run, $state, $viewer)
-            : $this->buildInput($run, $state);
+        return $state->isInputPause()
+            ? $this->buildInput($run, $state)
+            : $this->buildApproval($run, $state, $viewer);
     }
 
     private function buildApproval(AgentRun $run, SuspendedRunState $state, ?BackendUserAuthentication $viewer): WaitingRunView
@@ -224,6 +232,11 @@ final readonly class WaitingRunViewFactory
             mode: WaitingRunView::MODE_INPUT,
             createdAt: $run->crdate,
             configLabel: $this->configLabel($run),
+            // ADR-150: the input form carries the same kind of binding the
+            // approval form does, computed over the fields an input pause is
+            // decided on — the pending calls, the target tool and the schema
+            // these very fields were built from.
+            turnDigest: $this->digest->forInputState($state),
             inputFields: $fields,
         );
     }

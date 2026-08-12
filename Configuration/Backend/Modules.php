@@ -11,6 +11,7 @@ use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
+use Netresearch\NrLlm\Controller\Backend\EditorActionController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
 use Netresearch\NrLlm\Controller\Backend\McpServerController;
 use Netresearch\NrLlm\Controller\Backend\ModelController;
@@ -292,8 +293,9 @@ return [
     // Agent Runs approvals inbox - child of main module (ADR-109)
     // Admin-only: surfaces runs suspended WAITING_FOR_APPROVAL (ADR-084) or
     // WAITING_FOR_INPUT (ADR-105) and lets an admin approve/deny or submit the
-    // required typed input. Native <form> PRG, no AjaxRoutes; access => admin is
-    // the sole authorization gate for all three actions.
+    // required typed input. Native <form> PRG, no AjaxRoutes; access => admin
+    // gates the three list/write actions, and `show` is additionally authorised
+    // per run by the runtime (AGENT_READ).
     'nrllm_runs' => [
         'parent' => 'nrllm',
         'access' => 'admin',
@@ -306,6 +308,10 @@ return [
                 'list',
                 'approve',
                 'submitInput',
+                // Read-only run detail (ADR-153); authorised per run by the
+                // runtime with AGENT_READ, which — unlike the approval the two
+                // write actions above ask for — has no grant equivalent.
+                'show',
             ],
         ],
     ],
@@ -345,6 +351,23 @@ return [
                 'list',
                 'executeForm',
             ],
+            // The Editor Action Center (ADR-158). Here rather than in a module
+            // of its own: it is the same audience, the same grant and the same
+            // inbox as the two entries below, and ADR-119 already calls the
+            // admin tree's twelve entries a dumping ground. Both actions
+            // re-check the `tasks_use` grant — the module switch alone never
+            // grants execution — and which actions exist is the tool gate's
+            // answer, not this registration's.
+            EditorActionController::class => [
+                'catalogue',
+                'start',
+                // The same action over several records (ADR-162). No new grant
+                // and no new runtime: 'batch' plans and 'startBatch' loops the
+                // 'start' path, so both re-check `tasks_use` and both get their
+                // authorisation from the catalogue, per record.
+                'batch',
+                'startBatch',
+            ],
             // The approvals inbox actions, shared with 'nrllm_runs': the
             // controller scopes visibility by actor (admin/approval grant =>
             // all runs, else own) and the write side is authorised per run by
@@ -353,6 +376,8 @@ return [
                 'list',
                 'approve',
                 'submitInput',
+                // Same per-run AGENT_READ gate as in 'nrllm_runs' (ADR-153).
+                'show',
             ],
         ],
     ],

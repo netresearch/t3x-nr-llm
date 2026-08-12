@@ -25,8 +25,11 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\SchemaInputCoercer;
 use Psr\Http\Message\ResponseInterface;
@@ -42,7 +45,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * The "Agent Runs" approvals inbox (ADR-109): the human-facing surface for runs
  * suspended WAITING_FOR_APPROVAL (ADR-084) or WAITING_FOR_INPUT (ADR-105).
  *
- * The three actions are module-route controllerActions, reachable through TWO
+ * The four actions are module-route controllerActions, reachable through TWO
  * modules since ADR-131: the admin inbox (`nrllm_runs`, `access => admin`) and
  * the editor module (`nrllm_aitasks`, `access => user`). Unlike the AJAX
  * endpoints on {@see ToolPlaygroundController}, a module-route action cannot
@@ -54,6 +57,11 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()},
  * so the list filter is a viewport, never the security boundary. The recorded
  * decidedBy/submittedBy uid is audit-only.
+ *
+ * showAction is read-only and authorised per run by the runtime with
+ * `ServiceAccountScope::AGENT_READ`, not by the module access string — and READ
+ * has no grant equivalent, so the approval grant widens the list but not the
+ * detail page (ADR-153).
  *
  * The page works fully with JavaScript OFF: native `<f:form>` POST, a
  * POST-redirect-GET flush with session flash messages, and a 422 in-place
@@ -80,6 +88,7 @@ final class AgentRunController extends ActionController
         private readonly SchemaInputCoercer $coercer,
         private readonly AgentRuntimeInterface $agentRuntime,
         private readonly PageRenderer $pageRenderer,
+        private readonly RunTimelineFactory $timelineFactory,
     ) {}
 
     protected function initializeAction(): void
@@ -101,6 +110,36 @@ final class AgentRunController extends ActionController
     public function listAction(string $errorRunUuid = '', array $rawInput = [], string $errorSummary = ''): ResponseInterface
     {
         return $this->renderList($errorRunUuid, $rawInput, $errorSummary);
+    }
+
+    /**
+     * One run, end to end and READ-ONLY (ADR-153): its persisted step stream,
+     * the provider calls it caused and the governance decisions taken during it,
+     * in one ordered timeline.
+     *
+     * Authorisation is the runtime's: {@see AgentRuntimeInterface::status()} and
+     * {@see AgentRuntimeInterface::events()} both go through
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::mayActOnRun()},
+     * so a run this user may not read is indistinguishable from an unknown one —
+     * both redirect to the list. No repository is read from here (the tail of
+     * the timeline is assembled by {@see RunTimelineFactory} from the run the
+     * runtime already released).
+     */
+    public function showAction(string $runUuid = ''): ResponseInterface
+    {
+        $actor = $this->currentActor();
+        $run   = $runUuid === '' ? null : $this->agentRuntime->status($actor, $runUuid);
+
+        if (!$run instanceof AgentRun) {
+            return $this->flashRedirect('runs.detail.notFound', ContextualFeedbackSeverity::WARNING);
+        }
+
+        $this->moduleTemplate->assignMultiple([
+            'run'      => $run,
+            'timeline' => $this->timelineFactory->build($run, $this->agentRuntime->events($actor, $runUuid)),
+        ]);
+
+        return $this->moduleTemplate->renderResponse('Backend/AgentRun/Show');
     }
 
     /**
@@ -152,9 +191,13 @@ final class AgentRunController extends ActionController
     /**
      * Submit typed input for a run suspended WAITING_FOR_INPUT and continue it.
      *
-     * @param array<string, mixed> $input the form's raw `input[...]` values (all strings)
+     * @param array<string, mixed> $input      the form's raw `input[...]` values (all strings)
+     * @param string               $turnDigest the digest of the turn the form was rendered from
+     *                                         (ADR-150). Passed through verbatim, like the approval
+     *                                         form's; the runtime compares it against the CLAIMED
+     *                                         state, which a check here could not do
      */
-    public function submitInputAction(string $runUuid = '', array $input = []): ResponseInterface
+    public function submitInputAction(string $runUuid = '', array $input = [], string $turnDigest = ''): ResponseInterface
     {
         if ($runUuid === '') {
             $this->flash('runs.flash.error', ContextualFeedbackSeverity::WARNING);
@@ -178,7 +221,7 @@ final class AgentRunController extends ActionController
             $result = $this->agentRuntime->submitInput(
                 $this->currentActor(),
                 $runUuid,
-                new InputSubmission($data, $this->currentBackendUserUid()),
+                new InputSubmission($data, $this->currentBackendUserUid(), $turnDigest !== '' ? $turnDigest : null),
             );
         } catch (InvalidInputSubmissionException) {
             // The ONE render-not-redirect branch: the run is untouched and still
@@ -192,6 +235,15 @@ final class AgentRunController extends ActionController
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunAlreadyResumingException) {
             return $this->flashRedirect('runs.flash.alreadyResuming', ContextualFeedbackSeverity::WARNING);
+        } catch (StaleInputTurnException) {
+            // ADR-150: the run was released, not consumed — re-open the CURRENT
+            // form and submit again. Same wording as the approval path's stale
+            // turn, because it is the same fact.
+            return $this->flashRedirect('runs.error.staleReview', ContextualFeedbackSeverity::WARNING);
+        } catch (SubmitterNotPermittedException) {
+            // ADR-150: the run was released, not consumed — someone who may run
+            // the pending tool can still supply its input.
+            return $this->flashRedirect('runs.error.submitterNotPermitted', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {
             return $this->flashRedirect('runs.unreadable', ContextualFeedbackSeverity::ERROR);
         }
@@ -229,7 +281,7 @@ final class AgentRunController extends ActionController
 
         $this->moduleTemplate->assignMultiple([
             'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
-            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? []),
+            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,

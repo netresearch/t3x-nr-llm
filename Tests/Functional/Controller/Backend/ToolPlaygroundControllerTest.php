@@ -36,11 +36,14 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
+use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
+use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
@@ -60,6 +63,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ScriptedToolAdapter;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingAgentRunRepository;
@@ -565,6 +569,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
@@ -591,6 +596,61 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertTrue($last['success']);
         self::assertSame('Here are your recent logs.', $last['finalContent']);
         self::assertIsArray($last['usage']);
+    }
+
+    #[Test]
+    public function runActionReportsWhatTheRunInjectsAndHowItIsClassified(): void
+    {
+        // ADR-151: the readout comes from InputContextClassifier, the same
+        // service the ADR-144 input-context gate consults. A configuration that
+        // declares nothing reports an empty list rather than omitting the key —
+        // absent means "not computed", which is a different statement.
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController();
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs', 'tools' => ['fetch_logs']]);
+        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        self::assertTrue($payload['success']);
+        self::assertSame(
+            ['sources' => [], 'effective' => null, 'effectiveSource' => ''],
+            $payload['contextClassification'],
+        );
+    }
+
+    #[Test]
+    public function runActionReportsTheForcedSnippetsAndSkillsTheRunInjects(): void
+    {
+        // ADR-151: the panel is a data-classification readout, so it must cover
+        // what the RUN injects, not only what the configuration carries. A
+        // forced snippet really does become a leading system message; a readout
+        // derived from the configuration alone reported "injects nothing".
+        $this->importFixture('BeUsers.csv');
+        $this->importFixture('PromptSnippets.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController();
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody([
+                'configuration'  => 1,
+                'prompt'         => 'analyse the logs',
+                'tools'          => ['fetch_logs'],
+                'forcedSnippets' => ['1'],
+            ]);
+        $payload = json_decode((string)$controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        $classification = $payload['contextClassification'];
+        self::assertIsArray($classification);
+        self::assertSame(
+            [['source' => 'snippet "tone-casual"', 'dataClass' => null]],
+            $classification['sources'],
+        );
     }
 
     #[Test]
@@ -684,6 +744,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $kinds = array_map(static fn(array $e): mixed => $e['event'] ?? null, $events);
@@ -841,6 +902,95 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         $payload = json_decode((string)$response->getBody(), true);
         self::assertIsArray($payload);
         self::assertFalse($payload['success']);
+    }
+
+    /**
+     * ADR-150: the input pause is bound by the INPUT digest, and the value this
+     * surface emits is computed from the IN-MEMORY state while the runtime
+     * recomputes it from the JSON round-tripped row. Posting the emitted digest
+     * straight back is what pins those two against each other — if they ever
+     * diverge, no submission from this surface could succeed again.
+     */
+    #[Test]
+    public function runActionEmitsTheInputTurnDigestAndASubmissionEchoingItResumes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new FakeInputTool('fetch_logs'));
+
+        $response = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        $payload = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame('awaiting_input', $payload['status']);
+        $uuid = $payload['runUuid'];
+        self::assertIsString($uuid);
+        $digest = $payload['turnDigest'];
+        self::assertIsString($digest);
+
+        // The binding covers the target tool and the declared schema on top of
+        // the pending calls, so the APPROVAL digest over the very same stored
+        // state is a different value — the payload must not emit that one.
+        $stored = $this->storedSuspendedState($uuid);
+        self::assertSame((new PendingTurnDigest())->forInputState($stored), $digest);
+        self::assertNotSame((new PendingTurnDigest())->forState($stored), $digest);
+
+        $resumed = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+                ->withParsedBody(['runUuid' => $uuid, 'input' => ['city' => 'Berlin'], 'turnDigest' => $digest]),
+        );
+
+        self::assertSame(200, $resumed->getStatusCode());
+        $continued = json_decode((string)$resumed->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($continued);
+        self::assertTrue($continued['success']);
+        self::assertSame('Here are your recent logs.', $continued['finalContent']);
+    }
+
+    /**
+     * The input twin of
+     * {@see self::resumeActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForApproval()}:
+     * a submission naming a turn that is not the pending one is refused after
+     * the claim, and the run is handed back so the CURRENT form can be
+     * re-opened.
+     */
+    #[Test]
+    public function submitInputActionRefusesAStaleTurnDigestAndLeavesTheRunWaitingForInput(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        [$controller] = $this->scriptedController(tool: new FakeInputTool('fetch_logs'));
+
+        $run = $controller->runAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))->withParsedBody(['configuration' => 1, 'prompt' => 'analyse the logs']),
+        );
+        $payload = json_decode((string)$run->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        $uuid = $payload['runUuid'];
+        self::assertIsString($uuid);
+
+        $response = $controller->submitInputAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/submit-input'))
+                ->withParsedBody(['runUuid' => $uuid, 'input' => ['city' => 'Berlin'], 'turnDigest' => 'a-digest-of-some-other-turn']),
+        );
+
+        self::assertSame(409, $response->getStatusCode());
+        $refusal = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($refusal);
+        self::assertFalse($refusal['success']);
+        // Re-signals the pause so the client re-fetches the current form.
+        self::assertSame('awaiting_input', $refusal['status']);
+
+        $stored = $this->agentRunPersister()->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $stored);
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $stored->statusEnum());
+        self::assertNotNull($stored->suspendedState);
+        self::assertSame(0, $stored->finishedAt, 'a refused submission never settles the run');
     }
 
     #[Test]
@@ -1011,6 +1161,7 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
                 options: new ToolOptions(),
             ),
             false,
+            $this->noContextClassification(),
         );
 
         $last = end($events);
@@ -1148,6 +1299,36 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $handle->uuid,
             (new PendingTurnDigest())->forState($state),
         ];
+    }
+
+    /**
+     * A persister over the real database, for reading back the row a controller
+     * action wrote through its own (identically wired) one.
+     */
+    private function agentRunPersister(): AgentRunPersister
+    {
+        return new AgentRunPersister(
+            new AgentRunRepository($this->toolConnectionPool(), $this->get(AgentStateCodec::class)),
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            new NullLogger(),
+        );
+    }
+
+    /**
+     * The suspended state as it came back OUT of the row — the same JSON round
+     * trip the runtime's own digest is computed over.
+     */
+    private function storedSuspendedState(string $uuid): SuspendedRunState
+    {
+        $run = $this->agentRunPersister()->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertNotNull($run->suspendedState);
+
+        $decoded = json_decode($run->suspendedState, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        /** @var array<string, mixed> $decoded */
+
+        return SuspendedRunState::fromArray($decoded);
     }
 
     private function assertRunIsDecidableAgain(AgentRunPersister $persister, string $uuid): void
@@ -1295,7 +1476,25 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
             $skillRepository,
             $promptSnippetRepository,
             new PendingTurnDigest(),
+            // The real classifier over the real snippet resolver (ADR-151): the
+            // readout's whole point is that it answers from the same service
+            // the input-context gate consults.
+            new InputContextClassifier(
+                new ConfigurationSnippetResolver($promptSnippetRepository, new PromptSnippetComposer()),
+            ),
         );
+    }
+
+    /**
+     * The ADR-151 readout for a configuration that declares nothing — the shape
+     * runAction() hands the streamed protocol, spelled out here because these
+     * tests invoke the transport-free `streamRun()` directly.
+     *
+     * @return array{sources: list<array{source: string, dataClass: string|null}>, effective: string|null, effectiveSource: string}
+     */
+    private function noContextClassification(): array
+    {
+        return ['sources' => [], 'effective' => null, 'effectiveSource' => ''];
     }
 
     /**

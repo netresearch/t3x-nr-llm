@@ -40,8 +40,28 @@ final class McpTestServer implements ClientInterface
      */
     public array $received = [];
 
+    private int $delayMicroseconds = 0;
+
+    /**
+     * Make every exchange take at least this long.
+     *
+     * For the tests that assert a measured duration is measured. Against an
+     * instant fake, a transport returning a constant is indistinguishable from
+     * one that timed the round trip.
+     */
+    public function willTakeAtLeast(int $milliseconds): self
+    {
+        $this->delayMicroseconds = $milliseconds * 1000;
+
+        return $this;
+    }
+
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
+        if ($this->delayMicroseconds > 0) {
+            usleep($this->delayMicroseconds);
+        }
+
         $raw     = (string)$request->getBody();
         $decoded = json_decode($raw, true);
         $body    = is_array($decoded) ? $decoded : [];
@@ -149,6 +169,8 @@ final class McpTestServer implements ClientInterface
             importError: '',
             lastImported: 0,
             toolCount: 0,
+            lastContact: 0,
+            lastLatencyMs: 0,
             tstamp: 0,
             crdate: 0,
         );

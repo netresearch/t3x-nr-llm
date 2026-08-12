@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Fixture;
 
 use Netresearch\NrLlm\Service\Telemetry\FallbackHop;
+use Netresearch\NrLlm\Service\Telemetry\RoutedCall;
+use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Throwable;
@@ -88,5 +90,42 @@ final class InMemoryTelemetryRepository implements TelemetryRepositoryInterface
         $this->hopsLimit = $limit;
 
         return \array_slice($this->fallbackHops, 0, max(1, $limit));
+    }
+
+    /**
+     * Rows recentRoutedCalls() hands back, newest first. Unnarrowed for the
+     * same reason as {@see self::$fallbackHops}: the "carries a decision" rule
+     * lives in the SQL, and a test states the rows it wants the reader handed.
+     *
+     * @var list<RoutedCall>
+     */
+    public array $routedCalls = [];
+
+    public function recentRoutedCalls(int $since, int $limit): array
+    {
+        // No ($since, $limit) recording twin to hopsSince/hopsLimit: those exist
+        // because FallbackRescueReportTest asserts the window a SERVICE asks
+        // for. The only caller here is LlmModuleController, which no unit test
+        // drives through this fixture, so the pair would be a declaration
+        // nothing reads.
+        return \array_slice($this->routedCalls, 0, max(1, $limit));
+    }
+
+    /**
+     * Rows findByCorrelation() hands back, keyed by correlation id — so a test
+     * states which trace holds which calls rather than one global list.
+     *
+     * @var array<string, list<TelemetryCall>>
+     */
+    public array $callsByCorrelation = [];
+
+    /** The correlation id the last findByCorrelation() was asked for. */
+    public ?string $correlationAsked = null;
+
+    public function findByCorrelation(string $correlationId): array
+    {
+        $this->correlationAsked = $correlationId;
+
+        return $this->callsByCorrelation[$correlationId] ?? [];
     }
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Telemetry;
 
+use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -18,6 +19,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[CoversClass(TelemetryRepository::class)]
 #[CoversClass(TelemetryRecord::class)]
+#[CoversClass(TelemetryCall::class)]
 final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
 {
     private const TABLE = 'tx_nrllm_telemetry';
@@ -77,6 +79,56 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame('ollama', $row['served_provider']);
         self::assertSame('llama3.3:70b', $row['served_model']);
         self::assertGreaterThan(0, (int)$row['crdate']);
+    }
+
+    #[Test]
+    public function findByCorrelationReturnsOneRunsCallsOldestFirst(): void
+    {
+        // Since ADR-153 every provider call of a run carries the run's uuid, so
+        // this is the query that turns the trace back into "what the run did".
+        $runUuid = 'c0ffee00-0000-4000-8000-000000000042';
+        $this->repository->record($this->record($runUuid, 'tools', latencyMs: 900));
+        $this->repository->record($this->record($runUuid, 'chat', latencyMs: 300));
+        $this->repository->record($this->record('another-run', 'tools', latencyMs: 100));
+
+        $calls = $this->repository->findByCorrelation($runUuid);
+
+        self::assertCount(2, $calls);
+        self::assertSame('tools', $calls[0]->operation);
+        self::assertSame('chat', $calls[1]->operation);
+        self::assertSame(900, $calls[0]->latencyMs);
+        self::assertTrue($calls[0]->success);
+        self::assertNull($calls[0]->timeToFirstTokenMs, 'A non-streamed call has no first-token milestone.');
+    }
+
+    #[Test]
+    public function findByCorrelationRefusesTheEmptyTraceMarker(): void
+    {
+        $this->repository->record($this->record('', 'chat', latencyMs: 10));
+
+        // '' is what a caller with no trace writes; reading it back as a bucket
+        // would present unrelated calls as one run.
+        self::assertSame([], $this->repository->findByCorrelation(''));
+    }
+
+    private function record(string $correlationId, string $operation, int $latencyMs): TelemetryRecord
+    {
+        return new TelemetryRecord(
+            correlationId: $correlationId,
+            operation: $operation,
+            provider: 'ollama',
+            model: 'qwen3:4b',
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            success: true,
+            errorClass: '',
+            latencyMs: $latencyMs,
+            cacheHit: false,
+            fallbackAttempts: 0,
+            servedConfigurationIdentifier: 'agent',
+            servedProvider: 'ollama',
+            servedModel: 'qwen3:4b',
+        );
     }
 
     #[Test]

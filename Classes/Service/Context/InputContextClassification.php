@@ -52,6 +52,20 @@ final readonly class InputContextClassification
     }
 
     /**
+     * A named source that declared nothing.
+     *
+     * Only {@see InputContextClassifier::sources()} builds these: a readout has
+     * to list the snippet or skill that carries no declaration, or an operator
+     * reads "nothing is classified" as "there is nothing here". It still never
+     * wins {@see self::withStricter()} — an absent statement places no
+     * constraint, exactly as {@see self::undeclared()} does.
+     */
+    public static function undeclaredFrom(string $source): self
+    {
+        return new self(null, $source);
+    }
+
+    /**
      * The stricter of two classifications, keeping the source that set it.
      *
      * An undeclared side never wins: it has nothing to say, so it cannot raise

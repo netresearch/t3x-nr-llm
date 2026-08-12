@@ -15,10 +15,12 @@ use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
  * Persistence boundary for the append-only governance-decision audit trail
  * (tx_nrllm_governance_event).
  *
- * Append one immutable row, purge old rows, or read a small set of dashboard
- * aggregates. Mirrors {@see \Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface}:
- * there is no update path — governance events are immutable — and the read
- * methods only ever aggregate, never expose a single row's detail.
+ * Append one immutable row, purge old rows, read a small set of dashboard
+ * aggregates, or list the decisions of ONE agent run. Mirrors
+ * {@see \Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface}:
+ * there is no update path — governance events are immutable. The rows a read
+ * hands out are metadata by construction (ADR-064): the table has no column for
+ * a prompt, a response, a tool argument or a tool result.
  */
 interface GovernanceEventRepositoryInterface
 {
@@ -60,4 +62,20 @@ interface GovernanceEventRepositoryInterface
      * @return array<string, int>
      */
     public function countToolDecisionsByName(int $since = 0): array;
+
+    /**
+     * The governance decisions of one agent run, oldest first (ADR-153).
+     *
+     * Matched on EITHER key, because the three write points know different
+     * halves of the run's identity: the tool gate and the input-context gate
+     * write the run uid, the guardrail middleware writes the correlation id
+     * (which for a run IS its uuid). A row is returned once regardless of how
+     * many of the two it carries.
+     *
+     * Both arguments are ignored when they are the "unknown" marker (uid <= 0,
+     * correlation ''), and an empty list comes back when both are.
+     *
+     * @return list<RecordedGovernanceEvent>
+     */
+    public function findForRun(int $agentRunUid, string $correlationId): array;
 }

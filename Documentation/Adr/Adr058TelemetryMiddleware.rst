@@ -8,6 +8,7 @@ ADR-058: Telemetry Middleware
 
 :Status: Accepted
 :Date: 2026-07
+:Amended: 2026-08-11 by :ref:`ADR-153 <adr-153>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-058-context:

@@ -21,8 +21,10 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -37,6 +39,7 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
@@ -623,10 +626,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $selection = $this->createMock(ModelSelectionServiceInterface::class);
         $selection->expects(self::once())
-            ->method('resolveModel')
+            // The planner takes the resolution that carries its own reasoning,
+            // so one evaluation answers both the model and the telemetry
+            // question (ADR-156).
+            ->method('resolveModelForCall')
             // The generic adapter lookup has no operation and must say so.
             ->with($config, null)
-            ->willReturn($resolvedModel);
+            ->willReturn(ModelResolution::withoutDecision($resolvedModel));
 
         $mockAdapter = self::createStub(ProviderInterface::class);
         $registryMock = $this->createMock(ProviderAdapterRegistryInterface::class);
@@ -648,7 +654,7 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $config->method('getIdentifier')->willReturn('nr_ai_search.embeddings');
 
         $selection = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturn(null);
+        $selection->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision(null));
 
         $manager = $this->createLlmServiceManager($this->extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class), null, null, $selection);
 
@@ -695,6 +701,46 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertSame($expectedResponse, $result);
+    }
+
+    #[Test]
+    public function theRunsOwnUidOutranksCallerSuppliedAgentRunMetadata(): void
+    {
+        // ADR-153: `$metadata` on this @api entry point is arbitrary caller
+        // input, and `+` keeps the LEFT operand. The runtime's own identity has
+        // to be that left operand — otherwise a caller passing both a run and
+        // its own `agentRunUid` makes the governance row name a run that did
+        // not make the call.
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+        $config->method('getFallbackChainDTO')->willReturn(FallbackChain::fromArray([]));
+
+        $adapter = self::createStub(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturn(new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2)));
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $spy     = new RecordingMiddleware();
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registry,
+            new MiddlewarePipeline([$spy]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $manager->chatWithConfiguration(
+            [['role' => 'user', 'content' => 'Hi']],
+            $config,
+            [GuardrailMiddleware::METADATA_AGENT_RUN_UID => 999],
+            [],
+            new AgentRunReference(91, 'c0ffee00-0000-4000-8000-000000000042'),
+        );
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(91, $spy->calls[0]['metadata'][GuardrailMiddleware::METADATA_AGENT_RUN_UID]);
     }
 
     #[Test]
@@ -1548,18 +1594,18 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
 
         $resolutions = [];
         $selection   = self::createStub(ModelSelectionServiceInterface::class);
-        $selection->method('resolveModel')->willReturnCallback(
+        $selection->method('resolveModelForCall')->willReturnCallback(
             static function (LlmConfiguration $configuration, ?ProviderOperation $operation) use (
                 &$resolutions,
                 $embeddingModel,
                 $otherModel,
-            ): Model {
+            ): ModelResolution {
                 // Distinct models per operation, so a site that forgets to pass
                 // the operation resolves visibly differently.
                 $model         = $operation === ProviderOperation::Embedding ? $embeddingModel : $otherModel;
                 $resolutions[] = ['operation' => $operation, 'model' => $model];
 
-                return $model;
+                return ModelResolution::withoutDecision($model);
             },
         );
 
