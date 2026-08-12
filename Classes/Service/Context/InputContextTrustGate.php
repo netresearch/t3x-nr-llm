@@ -111,9 +111,16 @@ final readonly class InputContextTrustGate
      *
      * `$servingModel` is the model the caller resolved for this call, where one
      * exists; null keeps the pre-ADR-149 zone.
+     *
+     * `$agentRunUid` attributes the refusal to the agent run that triggered it
+     * (ADR-153); 0 for a plain provider call, which has no run.
      */
-    public function assertPermitted(LlmConfiguration $configuration, int $beUser = 0, ?Model $servingModel = null): void
-    {
+    public function assertPermitted(
+        LlmConfiguration $configuration,
+        int $beUser = 0,
+        ?Model $servingModel = null,
+        int $agentRunUid = 0,
+    ): void {
         $decision = $this->decide($configuration, $servingModel);
         if (!$decision->zoneRefused) {
             return;
@@ -124,7 +131,7 @@ final readonly class InputContextTrustGate
         /** @var TrustZone $zone a refusal always carries the zone that refused */
         $zone = $decision->zone;
 
-        $this->record($configuration, $beUser, $declared, $decision->source, !$decision->isObservedOnly(), $servingModel);
+        $this->record($configuration, $beUser, $declared, $decision->source, !$decision->isObservedOnly(), $servingModel, $agentRunUid);
 
         if ($decision->isObservedOnly()) {
             $this->logger?->warning(
@@ -169,10 +176,13 @@ final readonly class InputContextTrustGate
         string $source,
         bool $enforcing,
         ?Model $servingModel,
+        int $agentRunUid,
     ): void {
         $zoneModel = $servingModel ?? $configuration->getLlmModel();
 
         $this->governanceEvents?->record(new GovernanceEvent(
+            // This gate runs BEFORE the ProviderCallContext exists, so there is
+            // no trace id to write; the run uid below is the join key instead.
             correlationId: '',
             decision: GovernanceDecision::CONTEXT_BLOCKED->value,
             reason: $declared->value,
@@ -181,7 +191,7 @@ final readonly class InputContextTrustGate
             configurationIdentifier: $configuration->getIdentifier(),
             beUser: $beUser,
             toolName: '',
-            agentrunUid: 0,
+            agentrunUid: $agentRunUid,
             guardrail: '',
             detail: $enforcing ? $source : $source . ' (observe)',
         ));

@@ -497,6 +497,7 @@ Tools
    Adr150SubmitterGateAndInputTurnBinding
    Adr151ContextBudgetReadout
    Adr152EditorActionDeclaration
+   Adr153OneCorrelationPerRun
    Adr154McpServerHealth
    Adr155SystemPromptCarriesADataClass
    Adr156PersistTheRoutingDecisionObserveComplexity

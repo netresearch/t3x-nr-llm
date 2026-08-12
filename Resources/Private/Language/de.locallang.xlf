@@ -3898,6 +3898,110 @@
                 <source>No recent runs.</source>
                 <target>Keine aktuellen Läufe.</target>
             </trans-unit>
+            <trans-unit id="runs.terminal.detail">
+                <source>Detail</source>
+                <target>Detail</target>
+            </trans-unit>
+            <trans-unit id="runs.terminal.detailLink">
+                <source>Timeline</source>
+                <target>Verlauf</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.title">
+                <source>Run timeline</source>
+                <target>Verlauf des Laufs</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.back">
+                <source>Back to the run list</source>
+                <target>Zurück zur Liste der Läufe</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.notFound">
+                <source>That run does not exist, or you may not view it.</source>
+                <target>Diesen Lauf gibt es nicht, oder Sie dürfen ihn nicht sehen.</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.summary">
+                <source>Run</source>
+                <target>Lauf</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.uuid">
+                <source>Correlation</source>
+                <target>Korrelation</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.iterations">
+                <source>Rounds</source>
+                <target>Runden</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.truncated">
+                <source>truncated</source>
+                <target>abgeschnitten</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.tokens">
+                <source>Tokens (prompt / completion / total)</source>
+                <target>Tokens (Prompt / Antwort / gesamt)</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.errorClass">
+                <source>Error class</source>
+                <target>Fehlerklasse</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.timeline">
+                <source>Timeline</source>
+                <target>Verlauf</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.privacy">
+                <source>Metadata only: prompts, answers, tool arguments and tool results are never shown here, whatever the configured privacy level.</source>
+                <target>Nur Metadaten: Prompts, Antworten, Tool-Argumente und Tool-Ergebnisse erscheinen hier nie, unabhängig von der eingestellten Datenschutzstufe.</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.empty">
+                <source>This run recorded no steps, provider calls or governance decisions.</source>
+                <target>Dieser Lauf hat weder Schritte noch Provider-Aufrufe oder Governance-Entscheidungen aufgezeichnet.</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.time">
+                <source>Time</source>
+                <target>Zeit</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.source">
+                <source>Source</source>
+                <target>Quelle</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.step">
+                <source>Step</source>
+                <target>Schritt</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.call">
+                <source>Provider call</source>
+                <target>Provider-Aufruf</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.source.governance">
+                <source>Governance</source>
+                <target>Governance</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.kind">
+                <source>Kind</source>
+                <target>Art</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.round">
+                <source>Round</source>
+                <target>Runde</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.duration">
+                <source>ms</source>
+                <target>ms</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome">
+                <source>Outcome</source>
+                <target>Ergebnis</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome.ok">
+                <source>ok</source>
+                <target>ok</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.outcome.failed">
+                <source>failed</source>
+                <target>fehlgeschlagen</target>
+            </trans-unit>
+            <trans-unit id="runs.detail.facts">
+                <source>Details</source>
+                <target>Details</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

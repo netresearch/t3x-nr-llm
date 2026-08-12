@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Command\Fixture;
 
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 
 /**
  * In-memory governance-event repository for command and widget unit tests:
@@ -62,5 +63,27 @@ final class InMemoryGovernanceEventRepository implements GovernanceEventReposito
     public function countToolDecisionsByName(int $since = 0): array
     {
         return $this->countToolDecisionsByNameReturns;
+    }
+
+    /**
+     * Rows findForRun() hands back, regardless of which of the two keys was
+     * asked for — the OR-matching itself is the SQL implementation's job and is
+     * covered functionally.
+     *
+     * @var list<RecordedGovernanceEvent>
+     */
+    public array $runEvents = [];
+
+    /** The ($agentRunUid, $correlationId) pair the last findForRun() was asked for. */
+    public ?int $runUidAsked = null;
+
+    public ?string $runCorrelationAsked = null;
+
+    public function findForRun(int $agentRunUid, string $correlationId): array
+    {
+        $this->runUidAsked         = $agentRunUid;
+        $this->runCorrelationAsked = $correlationId;
+
+        return $this->runEvents;
     }
 }

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -18,10 +20,10 @@ use Netresearch\NrLlm\Service\Option\ChatOptions;
  * Builds the pipeline metadata the middlewares read, extracted verbatim from
  * LlmServiceManager (ADR-059 stage 2).
  *
- * Three producers, three disjoint key sets — budget, idempotency, request
- * counting — which is why every call site merges them with `+` and must keep
- * doing so: the disjointness is load-bearing, and array_merge would let a
- * later set silently win over an earlier one if a key ever collided.
+ * Four producers, four disjoint key sets — budget, idempotency, request
+ * counting, agent run — which is why every call site merges them with `+` and
+ * must keep doing so: the disjointness is load-bearing, and array_merge would
+ * let a later set silently win over an earlier one if a key ever collided.
  *
  * Stateless and pure; the manager holds one instance.
  */
@@ -95,4 +97,23 @@ final readonly class CallMetadataFactory
             : [];
     }
 
+    /**
+     * Translate the agent run driving this call (ADR-153) into the metadata key
+     * {@see GuardrailMiddleware} stamps onto its governance rows. No run — a
+     * plain provider call — produces no entry, so the middleware's 0 default
+     * stands and means "outside a run" rather than "identity lost".
+     *
+     * An unpersisted run (uid 0) produces no entry either: there is no row for a
+     * governance event to point at.
+     *
+     * @return array<string, mixed>
+     */
+    public function agentRun(?AgentRunReference $run): array
+    {
+        if (!$run instanceof AgentRunReference || $run->uid <= 0) {
+            return [];
+        }
+
+        return [GuardrailMiddleware::METADATA_AGENT_RUN_UID => $run->uid];
+    }
 }

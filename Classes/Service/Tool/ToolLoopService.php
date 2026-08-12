@@ -195,7 +195,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
-            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options));
+            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options), run: $context->run);
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
 
             // Fold in any carried-over counters (a resume whose continuation has
@@ -244,7 +244,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // outgoing request (and a waiting state) from second zero.
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0   = hrtime(true);
-                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options);
+                // The run travels with the call (ADR-153): every round of one run
+                // lands on the run's correlation id instead of minting its own,
+                // so its telemetry rows are attributable to the run afterwards.
+                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options, $context->run);
                 $runTrace?->recordLlmCall($iterations, $this->elapsedMs($t0), $resp);
                 $lastUsage         = $resp->usage;
                 $promptTokens     += $resp->usage->promptTokens;
@@ -367,6 +370,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $messages,
                 $configuration,
                 $this->budgetMetadata($options),
+                run: $context->run,
             );
             $runTrace?->recordLlmCall($iterations + 1, $this->elapsedMs($t0), $final);
             $promptTokens     += $final->usage->promptTokens;
@@ -896,14 +900,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 ]);
                 // Persist the denial (or observe-mode flag) so it is queryable
                 // by tool name and reason (the log line is not). This gate is
-                // the one place tool_name is structurally available. The run's
-                // correlation id / uid are not in scope at this seam, so a
-                // tool-denied row carries neither — its value is the by-tool /
-                // by-reason breakdown, not a per-run join. observed-mode rows
-                // are recorded too (flagged in detail) so the trust-zone
-                // rollout is measurable before it is enforced.
+                // the one place tool_name is structurally available. Since
+                // ADR-153 the run's identity travels on the execution context,
+                // so the row also joins to the run that was denied the tool —
+                // both stay empty/0 for a bare loop consumer that has no
+                // persisted run. observed-mode rows are recorded too (flagged
+                // in detail) so the trust-zone rollout is measurable before it
+                // is enforced.
                 $this->governanceEvents?->record(new GovernanceEvent(
-                    correlationId: '',
+                    correlationId: $context->run?->correlationId() ?? '',
                     decision: GovernanceDecision::TOOL_DENIED->value,
                     reason: $decision->reason->value,
                     provider: $configuration->getProviderType(),
@@ -911,7 +916,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     configurationIdentifier: $configuration->getIdentifier(),
                     beUser: $context->actor->backendUserUid,
                     toolName: $decision->toolName,
-                    agentrunUid: 0,
+                    agentrunUid: $context->run->uid ?? 0,
                     guardrail: '',
                     detail: sprintf(
                         'zone=%s;ceiling=%s;observedOnly=%d',

@@ -714,6 +714,12 @@ Netresearch\NrLlm\Domain\ValueObject\AgentRun (class)
   property readonly uid: int
   property readonly uuid: string
 
+Netresearch\NrLlm\Domain\ValueObject\AgentRunReference (class)
+  constructor(int $uid, string $uuid)
+  method correlationId(): string
+  property readonly uid: int
+  property readonly uuid: string
+
 Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method describe(): string
   method hasGrant(Netresearch\NrLlm\Domain\Enum\BackendUserGrant $grant): bool
@@ -1004,7 +1010,7 @@ Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException (class)
 Netresearch\NrLlm\Provider\Middleware\ProviderCallContext (class)
   constructor(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $correlationId, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …, string $provider = …, string $model = …, string $configurationIdentifier = …, array $metadata = …, Netresearch\NrLlm\Provider\Middleware\TelemetrySignals $telemetrySignals = …)
   method static for(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, array $metadata = …): self
-  method static forConfiguration(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …): self
+  method static forConfiguration(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, ?string $correlationId = …): self
   method static forService(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $provider, string $model, string $configurationIdentifier = …, array $metadata = …): self
   method telemetryConfigurationIdentifier(): string
   method telemetryModel(): string
@@ -1316,9 +1322,9 @@ Netresearch\NrLlm\Service\LlmServiceManager (class)
   constructor(Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface $adapterRegistry, Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline $pipeline, Netresearch\NrLlm\Service\KeyedProviderRegistry $providerRegistry, Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver, Netresearch\NrLlm\Service\MessageShaper $messageShaper, Netresearch\NrLlm\Service\EmbedCacheKeyBuilder $embedCacheKeyBuilder, ?Netresearch\NrLlm\Service\Skill\SkillInjectionService $skillInjection = …, ?Netresearch\NrLlm\Service\ModelSelectionServiceInterface $modelSelectionService = …, ?Netresearch\NrLlm\Service\Streaming\StreamingDispatcher $streaming = …, Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener $inputScreener = …, ?Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver $snippetResolver = …, ?Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface $contextWindow = …, ?Psr\Log\LoggerInterface $logger = …, ?Netresearch\NrLlm\Service\Context\InputContextTrustGate $inputContextGate = …)
   method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -1343,9 +1349,9 @@ Netresearch\NrLlm\Service\LlmServiceManager (class)
 Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
   method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -1592,7 +1598,7 @@ Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method filterOfferable(?array $requested, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): array
 
 Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
-  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …)
   method actingBackendUser(): ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   method isAdmin(): bool
   method static forBackendUser(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
@@ -1600,6 +1606,7 @@ Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
   method static none(): self
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
+  property readonly run: ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference
 
 Netresearch\NrLlm\Service\Tool\ToolInterface (interface)
   const TAG_NAME = "nr_llm.tool"

@@ -930,7 +930,11 @@ CREATE TABLE tx_nrllm_governance_event (
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
     -- Trace correlation (UUID v4, 36 chars) -- links a middleware-origin row to
-    -- the telemetry row and, via the run's correlation, to its agent run.
+    -- the telemetry rows of the same call. Inside an agent run that id IS the
+    -- run's uuid (ADR-153), so the row joins to tx_nrllm_agentrun.uuid as well;
+    -- outside a run it is a per-call id that joins to telemetry only. '' when
+    -- the write point runs before the call context exists (the input-context
+    -- gate) -- agentrun_uid below is that row's join key.
     correlation_id varchar(36) DEFAULT '' NOT NULL,
 
     -- What kind of decision: tool_denied | response_blocked | approval_required | content_filter
@@ -954,9 +958,12 @@ CREATE TABLE tx_nrllm_governance_event (
     -- The tool this decision was about; '' for guardrail/content_filter rows.
     tool_name varchar(190) DEFAULT '' NOT NULL,
 
-    -- The agent run this decision belongs to; 0 when not available at the write
-    -- point (the guardrail middleware and the tool gate both run below the run
-    -- identity -- correlation_id links a guardrail row instead).
+    -- The agent run this decision belongs to (tx_nrllm_agentrun.uid); 0 when the
+    -- decision did not happen inside a run -- a plain provider call, or a bare
+    -- tool-loop consumer driving the loop without a persisted run. All three
+    -- write points stamp it since ADR-153: the tool gate from the run's
+    -- execution context, the guardrail middleware and the input-context gate
+    -- from the run identity the runtime threads down the pipeline.
     agentrun_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
     -- The deciding guardrail FQCN for guardrail/content_filter rows ('' for
@@ -979,7 +986,9 @@ CREATE TABLE tx_nrllm_governance_event (
     -- "tool usage/denials by tool_name".
     KEY tool_lookup (tool_name, crdate),
     -- Join a middleware-origin row to its trace.
-    KEY correlation (correlation_id)
+    KEY correlation (correlation_id),
+    -- The run-detail timeline (ADR-153) lists one run's decisions in time order.
+    KEY agentrun (agentrun_uid, crdate)
 );
 
 #

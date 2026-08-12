@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
@@ -38,6 +39,7 @@ use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
@@ -699,6 +701,46 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         );
 
         self::assertSame($expectedResponse, $result);
+    }
+
+    #[Test]
+    public function theRunsOwnUidOutranksCallerSuppliedAgentRunMetadata(): void
+    {
+        // ADR-153: `$metadata` on this @api entry point is arbitrary caller
+        // input, and `+` keeps the LEFT operand. The runtime's own identity has
+        // to be that left operand — otherwise a caller passing both a run and
+        // its own `agentRunUid` makes the governance row name a run that did
+        // not make the call.
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $config->method('getIdentifier')->willReturn('test-config');
+        $config->method('toOptionsArray')->willReturn([]);
+        $config->method('getFallbackChainDTO')->willReturn(FallbackChain::fromArray([]));
+
+        $adapter = self::createStub(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturn(new CompletionResponse('ok', 'gpt-4o', new UsageStatistics(1, 1, 2)));
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturn($adapter);
+
+        $spy     = new RecordingMiddleware();
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registry,
+            new MiddlewarePipeline([$spy]),
+            self::createStub(CacheManagerInterface::class),
+        );
+
+        $manager->chatWithConfiguration(
+            [['role' => 'user', 'content' => 'Hi']],
+            $config,
+            [GuardrailMiddleware::METADATA_AGENT_RUN_UID => 999],
+            [],
+            new AgentRunReference(91, 'c0ffee00-0000-4000-8000-000000000042'),
+        );
+
+        self::assertCount(1, $spy->calls);
+        self::assertSame(91, $spy->calls[0]['metadata'][GuardrailMiddleware::METADATA_AGENT_RUN_UID]);
     }
 
     #[Test]
