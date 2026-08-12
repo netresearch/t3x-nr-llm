@@ -1430,6 +1430,78 @@ final class ToolLoopServiceTest extends TestCase
         self::assertNotSame([], $refused);
     }
 
+    /**
+     * The input-resume path must not execute a write that no human approved.
+     *
+     * The approval scan deliberately only suspends for an OFFERED tool, so a
+     * write the gate did not offer is skipped there — correct while the turn is
+     * synchronous, because invoke() then refuses it for the same reason. The
+     * input suspend breaks that pairing: the offered set is recomputed from the
+     * LIVE configuration at resume, so a write enabled while the run sat waiting
+     * for the human becomes offered, and the else branch executes it having
+     * passed no approval at any point.
+     *
+     * Reaching it needs the model to name a tool it was not offered — the
+     * prose-steering case the approval scan's own comment is written for — and
+     * an operator toggling that tool on mid-run, which is exactly what setting
+     * up an installation looks like.
+     */
+    #[Test]
+    public function inputResumeRefusesAWriteEnabledWhileTheRunWasSuspended(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeInputTool('ask_user'),
+            new FakeTool('write_page', 'WRITTEN', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]);
+
+        // Suspend: write_page is in the run's allow-list but the gate does not
+        // offer it, so the approval scan passes over it and the turn suspends
+        // for input — carrying the write call into the persisted state.
+        $suspending = self::createStub(LlmServiceManagerInterface::class);
+        $suspending->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', 'ask_user', []),
+            new ToolCall('call_2', 'write_page', ['uid' => 4]),
+        ]));
+        $before = new ToolLoopService(
+            $suspending,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability(['ask_user'])),
+        );
+
+        $state = null;
+        try {
+            $before->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), ['ask_user', 'write_page']);
+            self::fail('Expected the run to suspend for input.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertSame('ask_user', $state->inputToolName, 'the input scan suspended, not the approval scan');
+        self::assertCount(2, $state->toolCalls(), 'the unoffered write rides along in the suspended turn');
+
+        // Resume: the operator enabled write_page in the meantime.
+        $continuing = self::createStub(LlmServiceManagerInterface::class);
+        $continuing->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $after = new ToolLoopService(
+            $continuing,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability(['ask_user', 'write_page'])),
+        );
+
+        $trace = new RunTrace();
+        $after->resumeWithInput($state, ['city' => 'Berlin'], $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
+
+        $writes = array_values(array_filter(
+            $trace->getSteps(),
+            static fn(RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolName === 'write_page',
+        ));
+        self::assertCount(1, $writes);
+        self::assertTrue(
+            $writes[0]->toolIsError,
+            'a write nobody approved must not execute just because it became offered while the run was suspended',
+        );
+    }
+
     #[Test]
     public function approvalResumeRefusesAnInputRequiringPendingCall(): void
     {
