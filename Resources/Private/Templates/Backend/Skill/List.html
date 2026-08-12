@@ -61,7 +61,9 @@
                                                 <f:case value="never_synced"><span class="badge text-bg-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.never" default="Never synced" /></span></f:case>
                                                 <f:case value="syncing"><span class="badge text-bg-info"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.syncing" default="Syncing" /></span></f:case>
                                                 <f:case value="partial"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.partial" default="Partial" /></span></f:case>
-                                                <f:case value="error"><span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
+                                                <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                                badge size, and an operator resolves this state rather than the system failing it.</f:comment>
+                                                <f:case value="error"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.syncStatus.error" default="Failed" /></span></f:case>
                                                 <f:defaultCase><code>{source.syncStatus}</code></f:defaultCase>
                                             </f:switch>
                                         </td>
@@ -133,7 +135,9 @@
                                         </td>
                                         <td>
                                             <f:if condition="{skill.isOrphaned}">
-                                                <span class="badge text-bg-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.orphaned" default="Orphaned" /></span>
+                                                <f:comment>text-bg-warning, not -danger: white on the danger red is 4.37:1 at
+                                                badge size, and an operator resolves this state rather than the system failing it.</f:comment>
+                                                <span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.orphaned" default="Orphaned" /></span>
                                             </f:if>
                                             <f:if condition="{skill.isEnabled}">
                                                 <f:then><span class="badge text-bg-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:skill.state.enabled" default="Enabled" /></span></f:then>
