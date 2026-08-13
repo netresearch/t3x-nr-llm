@@ -430,7 +430,19 @@ abstract class AbstractAdapterContractTestCase extends AbstractUnitTestCase
         $adapter  = $this->adapterWithClient(
             $this->callbackClient(static function () use (&$attempts): ResponseInterface {
                 ++$attempts;
-                usleep(700_000);
+
+                // The guard in AbstractProvider::sendRequest() tells a timeout
+                // from a retryable connection failure by elapsed wall time, so
+                // this callback has to spend it. A bare usleep() is not enough:
+                // it returns early when a signal interrupts it, elapsed time
+                // then lands under the threshold and the adapter retries —
+                // observed once as a flake (#747, attempts was 2). Sleeping
+                // towards a deadline read from the same clock the guard reads
+                // cannot end short.
+                $deadline = microtime(true) + 0.7;
+                while (($remaining = $deadline - microtime(true)) > 0.0) {
+                    usleep((int)($remaining * 1_000_000));
+                }
 
                 throw new RuntimeException('cURL error 28: Operation timed out', 8599352423);
             }),
