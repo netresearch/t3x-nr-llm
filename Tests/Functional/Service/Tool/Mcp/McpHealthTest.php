@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHealthRecorder;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
@@ -175,6 +176,7 @@ final class McpHealthTest extends AbstractFunctionalTestCase
         $client = new McpClient(
             $this->transportFor($fake),
             new McpHealthRecorder(new McpServerRepository($throwing), new Context(), new NullLogger()),
+            $this->get(McpDeadlineFactory::class),
         );
 
         self::assertSame('still answered', $client->callTool($server, 'do_it', [])->text);
@@ -189,6 +191,7 @@ final class McpHealthTest extends AbstractFunctionalTestCase
         return new McpClient(
             $this->transportFor($fake),
             new McpHealthRecorder($this->servers, new Context(), new NullLogger()),
+            $this->get(McpDeadlineFactory::class),
         );
     }
 

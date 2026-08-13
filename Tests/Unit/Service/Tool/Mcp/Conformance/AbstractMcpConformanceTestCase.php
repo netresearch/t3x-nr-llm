@@ -13,7 +13,9 @@ use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpSchemaNormalizer;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpToolNameMapper;
@@ -25,9 +27,13 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\Conformance\McpConnectionProfile;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\Conformance\RecordingVaultHttpClient;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\SlowVaultHttpClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\DnsResolverInterface;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,6 +43,7 @@ use Psr\Http\Message\ResponseInterface;
 use ReflectionClass;
 use ReflectionMethod;
 use RuntimeException;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
@@ -387,11 +394,11 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
      * user watches, so an unreachable server has to give up while the answer is
      * still worth having.
      *
-     * Asserted against the client the transport actually builds, not against
-     * the constant: the PSR-18 test seam every other check here uses bypasses
-     * that construction by design, so this one reaches the private builder
-     * directly. Reading the constant would prove it exists, not that it is put
-     * on the client.
+     * Asserted against the client the transport actually builds, not against a
+     * constant: the PSR-18 test seam every other check here uses bypasses that
+     * construction by design, so this one reaches the private builder directly.
+     * Reading a constant would prove it exists, not that it is put on the
+     * client.
      */
     #[Test]
     public function putsAFiniteTimeoutOnTheClientItBuilds(): void
@@ -408,13 +415,105 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         );
 
         (new ReflectionMethod(McpHttpTransport::class, 'clientFor'))
-            ->invoke($transport, $this->connection()->server());
+            ->invoke(
+                $transport,
+                $this->connection()->server(),
+                McpOperationDeadline::start(new FakeMcpClock(), 20)->legTimeoutSeconds(),
+            );
 
         self::assertIsInt($recording->timeoutSeconds);
         self::assertGreaterThan(0, $recording->timeoutSeconds, 'an unbounded call would hang the run');
         self::assertLessThanOrEqual(30, $recording->timeoutSeconds, 'and one nobody waits out is no bound');
         self::assertIsString($recording->reason);
         self::assertStringContainsString($this->connection()->identifier, $recording->reason);
+    }
+
+    /**
+     * TIMEOUTS, per OPERATION rather than per request (ADR-170).
+     *
+     * An operation over this connection is several round trips — the handshake,
+     * its confirmation, then the request that carries the work — and a bound
+     * that applied to each of them separately multiplied by however many legs
+     * the protocol happened to need. One budget is opened per operation, and
+     * each leg is granted what the earlier ones left.
+     *
+     * Driven through the vault path on purpose: the PSR-18 seam bypasses the
+     * one place a timeout is applied, so a check on the seam could not see what
+     * a leg was granted.
+     */
+    #[Test]
+    public function spendsOneBudgetAcrossTheLegsOfAnOperation(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            $this->connection()->scriptedServer()->willReturn(['content' => [['type' => 'text', 'text' => 'ok']]]),
+            $clock,
+            [5.0, 1.0, 2.0],
+        );
+
+        $this->vaultBackedClientFor($vault, $clock)->callTool($this->connection()->server(), 'read_page', []);
+
+        self::assertSame(
+            [20, 15, 14],
+            $vault->grantedTimeouts,
+            'the handshake spent six seconds, so the tool call gets fourteen — not a fresh budget',
+        );
+    }
+
+    /**
+     * TIMEOUTS, exhausted. A budget that runs out is its own outcome and says
+     * so: nothing was sent, so this is not a far side that failed to answer,
+     * and nothing was aborted, so it is not a cancellation either (`#774`).
+     */
+    #[Test]
+    public function anExhaustedBudgetIsItsOwnOutcomeAndNotAServerFailure(): void
+    {
+        $clock  = new FakeMcpClock();
+        $server = $this->connection()->scriptedServer()->willReturn(['content' => []]);
+        $vault  = new SlowVaultHttpClient($server, $clock, [11.0, 10.0]);
+
+        try {
+            $this->vaultBackedClientFor($vault, $clock)->callTool($this->connection()->server(), 'read_page', []);
+            self::fail('a spent budget should have refused the tool call');
+        } catch (McpTransportException $e) {
+            self::assertSame(1799990217, $e->getCode(), 'not the generic transport-failure code');
+            self::assertStringContainsString('operation budget', $e->getMessage());
+            self::assertStringContainsString('"' . $this->connection()->identifier . '"', $e->getMessage());
+            self::assertStringContainsString('not a server that did not answer', $e->getMessage());
+            self::assertStringNotContainsString('cancel', strtolower($e->getMessage()));
+        }
+
+        self::assertSame(
+            ['initialize', 'notifications/initialized'],
+            $server->methods(),
+            'the refused leg never went on the wire',
+        );
+        self::assertSame([], $this->health->contacts);
+    }
+
+    /**
+     * TIMEOUTS, floored. `withTimeout()` treats a non-positive value as "no
+     * override" and falls back to TYPO3's `HTTP.timeout`, whose default is `0`
+     * — which Guzzle reads as *wait forever*. So the leg with the least budget
+     * left is exactly the leg that must never be handed zero.
+     */
+    #[Test]
+    public function neverGrantsALegATimeoutThatWouldMeanNoTimeout(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            $this->connection()->scriptedServer()->willReturn(['content' => []]),
+            $clock,
+            [18.5, 1.2],
+        );
+
+        $this->vaultBackedClientFor($vault, $clock)->callTool($this->connection()->server(), 'read_page', []);
+
+        self::assertSame([20, 2, 1], $vault->grantedTimeouts);
+
+        foreach ($vault->grantedTimeouts as $granted) {
+            self::assertGreaterThan(0, $granted, 'a zero here is an unbounded request, not a tight one');
+        }
     }
 
     /**
@@ -678,7 +777,41 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         );
         $transport->setHttpClient($http);
 
-        return new McpClient($transport, $this->health);
+        return new McpClient($transport, $this->health, $this->deadlineFactory(new FakeMcpClock()));
+    }
+
+    /**
+     * A client that reaches its server through the VAULT path, which is the
+     * only path on which the per-leg timeout is applied (ADR-170).
+     */
+    protected function vaultBackedClientFor(SlowVaultHttpClient $vault, FakeMcpClock $clock): McpClient
+    {
+        $vaultService = self::createStub(VaultServiceInterface::class);
+        $vaultService->method('http')->willReturn($vault);
+
+        $transport = new McpHttpTransport(
+            $vaultService,
+            // No DNS, so the SSRF host gate answers without a network call.
+            new SecureHttpClientFactory(new class implements DnsResolverInterface {
+                public function resolve(string $host): array
+                {
+                    return [];
+                }
+            }),
+            new RequestFactory(new GuzzleClientFactory()),
+            new StreamFactory(),
+        );
+
+        return new McpClient($transport, $this->health, $this->deadlineFactory($clock));
+    }
+
+    /**
+     * Nothing configured, so every check runs against the budget a fresh
+     * installation actually gets.
+     */
+    private function deadlineFactory(FakeMcpClock $clock): McpDeadlineFactory
+    {
+        return new McpDeadlineFactory($clock, self::createStub(ExtensionConfiguration::class));
     }
 
     protected function toolFor(ClientInterface $http, string $remoteAnnotations = ''): McpTool

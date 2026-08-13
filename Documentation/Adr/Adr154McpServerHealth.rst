@@ -4,8 +4,10 @@
 ADR-154: An MCP server's liveness is observed, not inferred
 ============================================================
 
-:Status: Accepted
+:Status: Accepted (the bound an operation runs to is now the operation's own —
+    see :ref:`ADR-170 <adr-170>`)
 :Date: 2026-08-11
+:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`
 
 Context
 =======
@@ -115,10 +117,12 @@ Decision
    because part of what they say was written by the far side. A refusal is
    written into the same region, and the region is cleared before the request
    goes out: without that, a probe that stops answering leaves the last
-   success standing for the fifteen seconds of the transport timeout and then
-   beside its own error toast. The corollary is that the report is gone on the
-   next page load, which is correct: it describes one moment, and what outlives
-   the moment is the contact date and its latency.
+   success standing for as long as the probe is bounded by — fifteen seconds of
+   transport timeout when this was written, the operation deadline of
+   :ref:`ADR-170 <adr-170>` since — and then beside its own error toast. The
+   corollary is that the report is gone on the next page load, which is
+   correct: it describes one moment, and what outlives the moment is the
+   contact date and its latency.
 
    **Transport is stated, not stored.** HTTP is the only transport this client
    speaks (:ref:`ADR-116 <adr-116>`, "Transports: HTTP only") and a column would
@@ -186,8 +190,9 @@ Each of these is a separate decision, and none is blocked by this one:
 - **Retry, backoff and circuit breaking.** A latency number is a measurement; a
   breaker is a policy about when to stop calling, and it needs an owner for the
   half-open state and an answer for what an agent run mid-loop should do.
-- **Cancelling an in-flight call.** The 15-second transport timeout is still the
-  only bound.
+- **Cancelling an in-flight call.** A timeout is still the only bound — the
+  15-second per-request one when this was written, the whole-operation deadline
+  of :ref:`ADR-170 <adr-170>` since. Neither aborts anything.
 - **Per-tool data class overrides.** The class stays a property of the server
   (:ref:`ADR-094 <adr-094>`).
 - **Non-HTTP transports.** :ref:`ADR-116 <adr-116>` rules stdio out on purpose

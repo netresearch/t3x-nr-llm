@@ -46,6 +46,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **One MCP operation now has one timeout, not one per HTTP request** (`#773`,
+  ADR-170). A tool call against an MCP server is three requests — the protocol
+  handshake, its confirmation, then `tools/call` — and each carried a full
+  15-second timeout of its own, so a server answering just inside its limit
+  three times over stalled the call for about 45 seconds. A catalogue import
+  was worse: up to 50 pages, 15 seconds each.
+
+  An operation now opens one budget and every request spends from it, which
+  bounds the operation at that budget plus under a second — no leg is ever
+  granted less than one whole second, so the last one can overrun by a
+  fraction. The default is 20 seconds, configurable as `mcpOperationTimeout`:
+  the old per-request 15 with 5 on top for the handshake in front of the work.
+  That is a composition, not a guarantee for the work request — it is granted
+  what the handshake left. A healthy server answers `initialize` out of memory
+  and the readiness notification with a 202, so the work request gets close to
+  the full 20, more than the 15 it had; a handshake that costs more than 5
+  seconds leaves it less than 15. When the budget runs out, the operation stops
+  with a message naming the budget and the server and saying the server was not
+  asked — distinct from every message about a server that answered badly.
+
+  This is stricter for a slow server than before, in two ways. A catalogue that
+  walks several pages can now be refused where it previously succeeded slowly.
+  And a server that is slow to handshake *and* slow to work can be cut off on
+  the leg where it is legitimately slow, which a fresh 15-second per-request
+  timeout would have let through. Both refusals name the number, and raising
+  `mcpOperationTimeout` is the answer. Nothing here cancels a request already in
+  flight — the stall is reduced, not removed (`#774`). `McpClient` takes a third
+  constructor argument and `McpHttpTransport::call()` / `::notify()` a fourth;
+  neither class is on the `@api` surface.
+
 - **A run's forced snippets and skills now bind against the ADR-144 trust
   ceiling** (`#731`, ADR-164). The Tool Playground injects a per-run forced set
   that reaches the wire like a configuration's own snippet; the ceiling asked

@@ -13,11 +13,13 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -25,6 +27,7 @@ use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
@@ -65,7 +68,11 @@ final class McpToolTest extends AbstractUnitTestCase
             ['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]],
             $dataClass,
             $requiresApproval,
-            new McpClient($transport, new RecordedContacts()),
+            new McpClient(
+                $transport,
+                new RecordedContacts(),
+                new McpDeadlineFactory(new FakeMcpClock(), self::createStub(ExtensionConfiguration::class)),
+            ),
         );
     }
 

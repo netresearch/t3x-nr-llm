@@ -44,16 +44,14 @@ use Throwable;
  *   {@see \Netresearch\NrLlm\Service\SetupWizard\SecureHttpDispatchTrait},
  *   which cannot be reused here because it can neither authenticate per server
  *   nor set a timeout.
+ *
+ * The timeout it sets is not its own (ADR-170). Every call is given the
+ * operation's {@see McpOperationDeadline} and takes what is left of it, because
+ * a per-request budget multiplies by the number of legs the operation happens
+ * to need.
  */
 final class McpHttpTransport
 {
-    /**
-     * Total request duration. An agent run waits on this synchronously while a
-     * backend user watches, so an unreachable server has to fail while the
-     * answer is still worth having.
-     */
-    private const TIMEOUT_SECONDS = 15;
-
     /**
      * Bounds what a hostile or broken server can push into memory before we
      * decide the body is not a JSON-RPC response.
@@ -93,13 +91,20 @@ final class McpHttpTransport
      * per-server state. {@see McpClient} owns the operation and records once.
      *
      * @param array<string, mixed> $params
+     * @param McpOperationDeadline $deadline the operation's remaining budget,
+     *                                       which this leg spends from
      *
      * @throws McpTransportException on any outcome that is not a JSON-RPC result
      *
      * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
      */
-    public function call(McpServerRecord $server, string $method, array $params, ?string $sessionId = null): array
-    {
+    public function call(
+        McpServerRecord $server,
+        string $method,
+        array $params,
+        McpOperationDeadline $deadline,
+        ?string $sessionId = null,
+    ): array {
         $startedAt = hrtime(true);
 
         $response = $this->send($server, $this->encode($server, [
@@ -109,7 +114,7 @@ final class McpHttpTransport
             'id'      => 1,
             'method'  => $method,
             'params'  => $params === [] ? new stdClass() : $params,
-        ]), $sessionId);
+        ]), $deadline, $sessionId);
 
         $durationMs = (int)round((hrtime(true) - $startedAt) / 1_000_000);
 
@@ -128,16 +133,23 @@ final class McpHttpTransport
      * is no result to take from it.
      *
      * @param array<string, mixed> $params
+     * @param McpOperationDeadline $deadline the operation's remaining budget,
+     *                                       which this leg spends from
      *
      * @throws McpTransportException when the server could not be reached
      */
-    public function notify(McpServerRecord $server, string $method, array $params, ?string $sessionId = null): void
-    {
+    public function notify(
+        McpServerRecord $server,
+        string $method,
+        array $params,
+        McpOperationDeadline $deadline,
+        ?string $sessionId = null,
+    ): void {
         $this->send($server, $this->encode($server, [
             'jsonrpc' => '2.0',
             'method'  => $method,
             'params'  => $params === [] ? new stdClass() : $params,
-        ]), $sessionId);
+        ]), $deadline, $sessionId);
     }
 
     /**
@@ -159,8 +171,17 @@ final class McpHttpTransport
      *
      * @return array{status: int, body: string, contentType: string, sessionId: string|null}
      */
-    private function send(McpServerRecord $server, string $body, ?string $sessionId): array
+    private function send(McpServerRecord $server, string $body, McpOperationDeadline $deadline, ?string $sessionId): array
     {
+        // Checked before anything is built, and outside the catch below, so an
+        // exhausted budget cannot be reported as a far side that failed. It is
+        // also checked here rather than in `clientFor()` because the test seam
+        // above bypasses that builder, and a bound only the production path
+        // applies is a bound nothing asserts.
+        if ($deadline->isExhausted()) {
+            throw McpTransportException::forExhaustedDeadline($server->identifier, $deadline->totalSeconds());
+        }
+
         $request = $this->requestFactory
             ->createRequest('POST', $server->url)
             ->withHeader('Content-Type', 'application/json')
@@ -186,7 +207,7 @@ final class McpHttpTransport
                     throw McpTransportException::forRefusedHost($server->identifier, $host);
                 }
 
-                $response = $this->clientFor($server)->sendRequest($request);
+                $response = $this->clientFor($server, $deadline->legTimeoutSeconds())->sendRequest($request);
             }
         } catch (McpTransportException $e) {
             throw $e;
@@ -237,13 +258,18 @@ final class McpHttpTransport
     /**
      * A client bound to this one server's credential, built fresh every call.
      *
+     * `$timeoutSeconds` is what the operation has left, not a constant
+     * (ADR-170). It is never zero or less:
+     * {@see McpOperationDeadline::MINIMUM_LEG_SECONDS} explains why that would
+     * remove the bound rather than tighten it.
+     *
      * @throws McpTransportException when a declared credential does not resolve
      */
-    private function clientFor(McpServerRecord $server): ClientInterface
+    private function clientFor(McpServerRecord $server, int $timeoutSeconds): ClientInterface
     {
         $client = $this->vault->http()
             ->withReason(sprintf('nr-llm MCP call to "%s"', $server->identifier))
-            ->withTimeout(self::TIMEOUT_SECONDS);
+            ->withTimeout($timeoutSeconds);
 
         if ($server->authCredential === '') {
             return $client;

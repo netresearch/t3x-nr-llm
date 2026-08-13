@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\McpImportReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpImportService;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpSchemaNormalizer;
@@ -112,7 +113,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $transport->setHttpClient($fake);
 
         return new McpImportService(
-            new McpClient($transport, new RecordedContacts()),
+            new McpClient($transport, new RecordedContacts(), $this->get(McpDeadlineFactory::class)),
             $this->servers,
             $this->catalogue,
             new McpToolNameMapper(),
@@ -387,7 +388,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
             new StreamFactory(),
         );
 
-        return new McpClient($transport, new RecordedContacts());
+        return new McpClient($transport, new RecordedContacts(), $this->get(McpDeadlineFactory::class));
     }
 
     /**

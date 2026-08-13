@@ -12,13 +12,19 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\SlowVaultHttpClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\DnsResolverInterface;
+use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
 use TYPO3\CMS\Core\Http\RequestFactory;
 use TYPO3\CMS\Core\Http\StreamFactory;
@@ -45,7 +51,43 @@ final class McpClientTest extends AbstractUnitTestCase
         );
         $transport->setHttpClient($fake);
 
-        return new McpClient($transport, $this->health);
+        return new McpClient($transport, $this->health, $this->deadlineFactory(new FakeMcpClock()));
+    }
+
+    /**
+     * A client that reaches its server through the VAULT path, so what each leg
+     * of an operation was granted is observable.
+     *
+     * The PSR-18 seam `clientFor()` above uses bypasses
+     * {@see McpHttpTransport::clientFor()} — the one place a timeout is applied
+     * — by design, so no test driven through it can see the budget being spent.
+     */
+    private function budgetedClientFor(SlowVaultHttpClient $vault, FakeMcpClock $clock): McpClient
+    {
+        $vaultService = self::createStub(VaultServiceInterface::class);
+        $vaultService->method('http')->willReturn($vault);
+
+        $transport = new McpHttpTransport(
+            $vaultService,
+            // No DNS, so the SSRF host gate answers without a network call.
+            new SecureHttpClientFactory(new class implements DnsResolverInterface {
+                public function resolve(string $host): array
+                {
+                    return [];
+                }
+            }),
+            new RequestFactory(new GuzzleClientFactory()),
+            new StreamFactory(),
+        );
+
+        return new McpClient($transport, $this->health, $this->deadlineFactory($clock));
+    }
+
+    private function deadlineFactory(FakeMcpClock $clock): McpDeadlineFactory
+    {
+        // Nothing configured, so the shipped default applies — which is the
+        // number an installation that changes nothing actually runs with.
+        return new McpDeadlineFactory($clock, self::createStub(ExtensionConfiguration::class));
     }
 
     #[Test]
@@ -443,5 +485,172 @@ final class McpClientTest extends AbstractUnitTestCase
         }
 
         self::assertSame([], $this->health->contacts);
+    }
+
+    // -- the operation deadline (ADR-170) ----------------------------------
+
+    /**
+     * The regression this exists for.
+     *
+     * A tool call is three HTTP legs, and each of them used to carry a full
+     * timeout of its own — so a server answering just inside its limit three
+     * times over stalled the call for three times the number an operator was
+     * told about. One budget is opened per operation and every leg is granted
+     * what the earlier ones left.
+     *
+     * Against the per-leg behaviour this asserted `[15, 15, 15]`: the handshake
+     * spending six seconds cost the request that carries the work nothing.
+     */
+    #[Test]
+    public function theLastLegOfAToolCallGetsOnlyWhatTheHandshakeLeft(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            (new McpTestServer())
+                ->willHandshake()
+                ->willReturn(['content' => [['type' => 'text', 'text' => 'done']]]),
+            $clock,
+            [4.0, 2.0, 1.0],
+        );
+
+        $answer = $this->budgetedClientFor($vault, $clock)->callTool(McpTestServer::server(), 'do_it', []);
+
+        self::assertSame('done', $answer->text);
+        self::assertSame(
+            [20, 16, 14],
+            $vault->grantedTimeouts,
+            'initialize took 4 s and the readiness notification 2 s, so tools/call may run for 14 — not for a fresh 20',
+        );
+    }
+
+    /**
+     * A catalogue walk is one operation however many pages it takes, so the
+     * pages share the budget too. Fifty pages with a timeout each was 50 × the
+     * bound, which is the same defect one loop further out.
+     */
+    #[Test]
+    public function thePagesOfACatalogueWalkShareTheOperationsBudget(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            (new McpTestServer())
+                ->willHandshake()
+                ->willReturn(['tools' => [['name' => 'a']], 'nextCursor' => 'p2'])
+                ->willReturn(['tools' => [['name' => 'b']]]),
+            $clock,
+            [1.0, 0.0, 5.0, 3.0],
+        );
+
+        $tools = $this->budgetedClientFor($vault, $clock)->listTools(McpTestServer::server());
+
+        self::assertSame(['a', 'b'], array_column($tools, 'name'));
+        self::assertSame([20, 19, 19, 14], $vault->grantedTimeouts);
+    }
+
+    /**
+     * Exhaustion is its own outcome, and the message says whose fault it is: no
+     * request was sent, so this is not a server that failed to answer. It is
+     * not a cancellation either — nothing was aborted, a leg simply never
+     * started (`#774`).
+     */
+    #[Test]
+    public function aSpentBudgetRefusesTheNextLegAndSaysTheBudgetWasOurs(): void
+    {
+        $clock  = new FakeMcpClock();
+        $server = (new McpTestServer())->willHandshake()->willReturn(['content' => []]);
+        $vault  = new SlowVaultHttpClient($server, $clock, [12.0, 9.0]);
+
+        try {
+            $this->budgetedClientFor($vault, $clock)->callTool(McpTestServer::server(), 'do_it', []);
+            self::fail('a spent budget should have refused the tool call');
+        } catch (McpTransportException $e) {
+            self::assertStringContainsString('20-second operation budget', $e->getMessage());
+            self::assertStringContainsString('"srv"', $e->getMessage());
+            self::assertStringContainsString('the server was not asked', $e->getMessage());
+            self::assertStringContainsString('not a server that did not answer', $e->getMessage());
+            self::assertStringNotContainsString('cancel', strtolower($e->getMessage()));
+        }
+
+        self::assertSame(
+            ['initialize', 'notifications/initialized'],
+            $server->methods(),
+            'the refused leg never went on the wire',
+        );
+        self::assertSame([], $this->health->contacts, 'and an operation that did not complete is not a contact');
+    }
+
+    /**
+     * The floor. `withTimeout()` treats a non-positive value as "no override"
+     * and falls back to TYPO3's `HTTP.timeout`, whose default is `0` — which
+     * Guzzle reads as *wait forever*. So the leg with the least budget left
+     * would have been the one leg with no bound at all.
+     */
+    #[Test]
+    public function aLegIsNeverSentWithATimeoutThatWouldMeanNoTimeout(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            (new McpTestServer())->willHandshake()->willReturn(['content' => []]),
+            $clock,
+            [19.0, 0.7],
+        );
+
+        $this->budgetedClientFor($vault, $clock)->callTool(McpTestServer::server(), 'do_it', []);
+
+        self::assertSame([20, 1, 1], $vault->grantedTimeouts);
+
+        foreach ($vault->grantedTimeouts as $granted) {
+            self::assertGreaterThan(0, $granted, 'a zero here is an unbounded request, not a tight one');
+        }
+    }
+
+    /**
+     * The ordinary case is untouched: an operation against a server that
+     * answers promptly spends nothing worth subtracting and every leg is
+     * granted the full budget.
+     */
+    #[Test]
+    public function aFastOperationIsUnaffected(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            (new McpTestServer())
+                ->willHandshake()
+                ->willReturn(['content' => [['type' => 'text', 'text' => 'quick']]]),
+            $clock,
+            [],
+        );
+
+        $answer = $this->budgetedClientFor($vault, $clock)->callTool(McpTestServer::server(), 'do_it', []);
+
+        self::assertSame('quick', $answer->text);
+        self::assertFalse($answer->isError);
+        self::assertSame([20, 20, 20], $vault->grantedTimeouts);
+        self::assertCount(1, $this->health->contacts);
+    }
+
+    /**
+     * Each operation opens its own budget. A deadline that outlived one
+     * operation would make a slow tool call refuse the next one.
+     */
+    #[Test]
+    public function aSecondOperationStartsFromAFullBudget(): void
+    {
+        $clock = new FakeMcpClock();
+        $vault = new SlowVaultHttpClient(
+            (new McpTestServer())
+                ->willHandshake()
+                ->willReturn(['content' => []])
+                ->willHandshake()
+                ->willReturn(['content' => []]),
+            $clock,
+            [8.0, 0.0, 9.0],
+        );
+
+        $client = $this->budgetedClientFor($vault, $clock);
+        $client->callTool(McpTestServer::server(), 'do_it', []);
+        $client->callTool(McpTestServer::server(), 'do_it', []);
+
+        self::assertSame([20, 12, 12, 20, 20, 20], $vault->grantedTimeouts);
     }
 }

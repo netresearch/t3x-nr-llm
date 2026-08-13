@@ -125,6 +125,13 @@ telemetry.enabled = 1
 tools.dataClassEnforcement = enforce
 
 # =============================================================================
+# MCP servers (ADR-170)
+# =============================================================================
+
+# cat=tools; type=int+; label=MCP operation budget (seconds): How long ONE operation against an MCP server may take in total — a tool call, a catalogue import, a connection test. It is a budget for the whole operation, not for each HTTP request in it: an operation opens with the protocol handshake and its confirmation, and whatever those two spend is no longer available to the request that carries the work. The default of 20 is the 15 seconds a single request had before this was introduced, with 5 on top for the handshake in front of it — but the work request is granted what the handshake actually left, not a guaranteed 15. A healthy server handshakes in well under a second, so the work request gets close to the full 20, more than it had. A handshake costing more than 5 seconds can leave it under 15 — a leg is granted the whole seconds remaining, rounded up, so a 6-second handshake grants 14 — and a server that is slow to handshake AND slow to work can be cut off here where it was not before. That is what raising this value is for. The worst case an agent run can wait falls from about 45 seconds to the budget plus under a second, because no leg is granted less than one whole second and the last one may overrun by a fraction. Raise it for a server that is legitimately slow — a large catalogue walks several pages under this one budget, and a remote tool that thinks for half a minute needs to be allowed to. An empty, non-numeric or zero value falls back to 20. There is no upper limit, because the wait is the operator's to choose. Note that this does not abort a request already in flight: it decides what the NEXT leg of the operation is granted, and refuses to start one once the budget is gone.
+mcpOperationTimeout = 20
+
+# =============================================================================
 # Model routing (ADR-138, ADR-142)
 # =============================================================================
 
