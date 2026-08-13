@@ -19,6 +19,13 @@ An ADR is a record of a decision at a point in time. It is expected to become
 historically wrong; what it must never do is *look* current when it is not. The
 ``:Status:`` field is how a reader tells the difference.
 
+``Proposed``
+   Not yet a decision. The record states the evidence and recommends, and every
+   recommendation in it is open. Nothing may cite it as settled, and it writes
+   no ``:Amends:`` field — a proposal that amended something would have decided
+   it. It becomes ``Accepted`` in the change that accepts it, which also writes
+   the amendments it recommended.
+
 ``Accepted``
    Current. The decision and the facts it reasons from still hold.
 
@@ -513,3 +520,4 @@ Tools
    Adr166DeactivationDoesNotLowerACeiling
    Adr167ConfigurationAccessIsASimulatedAxis
    Adr168PacksDeclareEditorActions
+   Adr169RecordManagementUsesTypo3Permissions
