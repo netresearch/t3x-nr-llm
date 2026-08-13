@@ -155,8 +155,8 @@
                 <target>Governance-Blockierungen</target>
             </trans-unit>
             <trans-unit id="widget.governance_blocks.description">
-                <source>Bar chart of governance decisions (tool denials, guardrail blocks, approvals required, content-filter blocks) over the last 30 days.</source>
-                <target>Balkendiagramm der Governance-Entscheidungen (Tool-Ablehnungen, Guardrail-Blockierungen, erforderliche Freigaben, Content-Filter-Blockierungen) der letzten 30 Tage.</target>
+                <source>Bar chart of governance decisions over the last 30 days, one bar per decision kind.</source>
+                <target>Balkendiagramm der Governance-Entscheidungen der letzten 30 Tage, ein Balken je Entscheidungsart.</target>
             </trans-unit>
             <trans-unit id="widget.governance_blocks.dataset">
                 <source>Events</source>
@@ -181,6 +181,10 @@
             <trans-unit id="widget.governance_blocks.decision.write_unapproved">
                 <source>Unapproved write refused</source>
                 <target>Schreibzugriff ohne Freigabe abgelehnt</target>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.context_blocked">
+                <source>Injected context above the ceiling</source>
+                <target>Injizierter Kontext über der Vertrauensgrenze</target>
             </trans-unit>
             <trans-unit id="widget.tool_denials.title">
                 <source>Tool denials by reason</source>
