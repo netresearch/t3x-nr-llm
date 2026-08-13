@@ -20,12 +20,15 @@ use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
@@ -94,6 +97,78 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(1, $result->iterations);
         self::assertFalse($result->truncated);
         self::assertSame(AgentRunTerminationReason::COMPLETED, $result->terminationReason);
+    }
+
+    #[Test]
+    public function theForcedSetReachesTheManagerSoTheCeilingCanSeeIt(): void
+    {
+        // ADR-164's wiring half. The rule itself lives in InputContextTrustGate
+        // and is tested there; what this pins is that the loop actually HANDS
+        // the forced set over. A dropped `?->injectedContext()` would reopen
+        // #731 with every gate test still green.
+        $snippet = new PromptSnippet();
+        $snippet->setIdentifier('incident-report');
+        $snippet->setName('incident-report');
+
+        $seen = null;
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+            augmentation: new RunAugmentation(forcedSnippets: [$snippet]),
+        );
+
+        self::assertInstanceOf(InjectedContext::class, $seen);
+        self::assertSame([$snippet], $seen->snippets);
+    }
+
+    #[Test]
+    public function aRunWithoutAForcedSetHandsOverNothing(): void
+    {
+        // The other half: the parameter stays null rather than becoming an empty
+        // object, so the gate keeps its pre-ADR-164 path for every ordinary run.
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeTool('noop')]))->runLoop(
+            [$this->userTurn('hi')],
+            $this->localConfiguration(),
+            ToolExecutionContext::none(),
+            null,
+        );
+
+        self::assertNull($seen);
     }
 
     #[Test]

@@ -19,6 +19,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the call reached the branch. The approval *trail* stays off this table and on
   the run, where its longer retention window is (`#754`).
 
+### Changed
+
+- **A run's forced snippets and skills now bind against the ADR-144 trust
+  ceiling** (`#731`, ADR-164). The Tool Playground injects a per-run forced set
+  that reaches the wire like a configuration's own snippet; the ceiling asked
+  `classify()`, which answers for the configuration alone, so it never saw
+  them. The gate now folds the same source list the context readout shows.
+
+  The playground is admin-only, so this was never a privilege escalation — it
+  was an administrator able to send, on one run, context the configuration's
+  trust zone would refuse. An installation that has classified nothing is
+  unaffected; one that has may see a playground run refused, naming the forced
+  snippet. Observe mode shows the decision without throwing.
+
+  Not covered: a resumed run, whose suspended state does not persist the forced
+  set (`#761`). New value object `InjectedContext`; `chatWithConfiguration()`
+  and `chatWithToolsForConfiguration()` take it as a trailing optional
+  parameter, additive on both.
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed

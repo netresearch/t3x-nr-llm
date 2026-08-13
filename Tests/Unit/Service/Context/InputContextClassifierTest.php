@@ -146,9 +146,11 @@ final class InputContextClassifierTest extends TestCase
     #[Test]
     public function theGateStillAnswersForTheConfigurationAlone(): void
     {
-        // classify() is what InputContextTrustGate asks. It must NOT pick up a
-        // run's forced set: the panel is deliberately a superset of what the
-        // gate enforces, and widening the gate is an ADR-144 decision.
+        // classify() keeps its configuration-only meaning. Since ADR-164 the
+        // gate no longer asks it — it folds sources() with the run's forced set
+        // — but classify() is still the answer to "what does this configuration
+        // carry", independent of any one run, and must not start folding a
+        // forced set into that.
         $classifier    = $this->classifier([]);
         $configuration = new LlmConfiguration();
 
