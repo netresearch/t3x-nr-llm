@@ -846,7 +846,7 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   property readonly rejectionReasons: array
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -854,6 +854,8 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly allowedToolNames: ?array
   property readonly callPreviews: array
   property readonly completionTokens: int
+  property readonly forcedSkillUids: array
+  property readonly forcedSnippetUids: array
   property readonly inputSchema: array
   property readonly inputToolName: ?string
   property readonly iterations: int

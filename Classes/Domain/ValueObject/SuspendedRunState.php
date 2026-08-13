@@ -38,13 +38,15 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class SuspendedRunState
 {
     /**
-     * @param list<array<string, mixed>>                                               $messages         serialised ChatMessage transcript (ends with the assistant tool-call turn)
-     * @param list<array<string, mixed>>                                               $pendingCalls     serialised ToolCall list of the suspended turn
-     * @param list<string>|null                                                        $allowedToolNames the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
-     * @param array<string, mixed>                                                     $options          the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc.
-     * @param string|null                                                              $inputToolName    on an input pause (ADR-105) the tool whose typed input the user must supply; null on an approval pause
-     * @param array<string, mixed>                                                     $inputSchema      on an input pause the tool's declared input schema (a JSON-Schema subset); `[]` on an approval pause
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews     what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
+     * @param list<array<string, mixed>>                                               $messages          serialised ChatMessage transcript (ends with the assistant tool-call turn)
+     * @param list<array<string, mixed>>                                               $pendingCalls      serialised ToolCall list of the suspended turn
+     * @param list<string>|null                                                        $allowedToolNames  the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
+     * @param array<string, mixed>                                                     $options           the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc.
+     * @param string|null                                                              $inputToolName     on an input pause (ADR-105) the tool whose typed input the user must supply; null on an approval pause
+     * @param array<string, mixed>                                                     $inputSchema       on an input pause the tool's declared input schema (a JSON-Schema subset); `[]` on an approval pause
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews      what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
+     * @param list<int>                                                                $forcedSnippetUids the run's per-run forced snippets, so resume re-applies the ADR-164 ceiling to them (ADR-165); `[]` for a run that forced none
+     * @param list<int>                                                                $forcedSkillUids   the run's per-run forced skills, same reason
      */
     public function __construct(
         public array $messages,
@@ -57,10 +59,12 @@ final readonly class SuspendedRunState
         public ?string $inputToolName = null,
         public array $inputSchema = [],
         public array $callPreviews = [],
+        public array $forcedSnippetUids = [],
+        public array $forcedSkillUids = [],
     ) {}
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>}
      */
     public function toArray(): array
     {
@@ -75,6 +79,8 @@ final readonly class SuspendedRunState
             'inputToolName'    => $this->inputToolName,
             'inputSchema'      => $this->inputSchema,
             'callPreviews'     => $this->callPreviews,
+            'forcedSnippetUids' => $this->forcedSnippetUids,
+            'forcedSkillUids'   => $this->forcedSkillUids,
         ];
     }
 
@@ -118,7 +124,40 @@ final readonly class SuspendedRunState
             // preview" — the card then shows the arguments alone, exactly as it
             // did before — and NEVER stops the run from resuming.
             self::previewsFrom($data['callPreviews'] ?? null, self::survivingIndexMap($rawPendingCalls)),
+            // Back-compat (ADR-165), the same shape as the preview field above:
+            // a row suspended before the forced set was persisted has neither
+            // key and rehydrates with none. That is the pre-ADR-165 behaviour —
+            // the resumed send is not re-gated against the forced sources — and
+            // never a reason to refuse the resume.
+            self::uidsFrom($data['forcedSnippetUids'] ?? null),
+            self::uidsFrom($data['forcedSkillUids'] ?? null),
         );
+    }
+
+    /**
+     * A persisted uid list, keeping only positive integers.
+     *
+     * A uid of 0 or below never identifies a record, so it is dropped rather
+     * than handed to a repository that would answer null for it.
+     *
+     * @return list<int>
+     */
+    private static function uidsFrom(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $uids = [];
+        foreach ($raw as $value) {
+            if (is_int($value) && $value > 0) {
+                $uids[] = $value;
+            } elseif (is_string($value) && ctype_digit($value) && (int)$value > 0) {
+                $uids[] = (int)$value;
+            }
+        }
+
+        return $uids;
     }
 
     /**

@@ -4,11 +4,12 @@
 ADR-164: A run's forced sources bind against the trust ceiling
 ===============================================================
 
-:Status: Accepted
+:Status: Accepted (the resumed-run gap is closed — see :ref:`ADR-165 <adr-165>`)
 :Date: 2026-08-13
 :Amends: :ref:`ADR-144 <adr-144>` (the ceiling now reads a run's forced set, not
     the configuration alone) and :ref:`ADR-151 <adr-151>` (its "shown and not
     gated" asymmetry is resolved in favour of gating)
+:Amended: 2026-08-13 by :ref:`ADR-165 <adr-165>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -103,7 +104,8 @@ time, where this ADR *does* gate it, so nothing new is injected on resume. What
 a resume can miss is a ceiling that changed *while* the run was suspended — the
 configuration re-pointed at a less trusted provider, or enforcement switched
 from observe to enforce. Closing that needs the forced set persisted into the
-suspended state, which is issue `#761`.
+suspended state, which is issue `#761` — done in :ref:`ADR-165 <adr-165>`, so
+this paragraph is the reasoning, not the current behaviour.
 
 Consequences
 ============

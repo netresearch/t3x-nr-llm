@@ -22,7 +22,9 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
@@ -895,6 +897,128 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function theSuspendCarriesTheForcedSetSoResumeCanReGateIt(): void
+    {
+        // ADR-165. Without this the uids are gone the moment the process ends,
+        // and ResumeCoordinator works from the suspended state rather than the
+        // original request — so there is nothing left to rebuild from.
+        $snippet = $this->snippetWithUid(41, 'incident-report');
+        $skill   = $this->skillWithUid(77);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', [])]));
+
+        $state = $this->suspend(
+            $this->service($mgr, new ToolRegistry([$this->approvalTool()])),
+            new RunAugmentation(forcedSkills: [$skill], forcedSnippets: [$snippet]),
+        );
+
+        self::assertSame([41], $state->forcedSnippetUids);
+        self::assertSame([77], $state->forcedSkillUids);
+    }
+
+    #[Test]
+    public function resumeRebuildsTheForcedSetAndHandsItToTheCeiling(): void
+    {
+        // The half that actually closes #761: the persisted uids are re-loaded
+        // and reach the manager, so the ADR-164 gate folds them against the
+        // LIVE trust zone — which is what can have changed while the run was
+        // suspended.
+        $snippet = $this->snippetWithUid(41, 'incident-report');
+
+        $repository = self::createStub(PromptSnippetRepository::class);
+        $repository->method('findByUids')->willReturn([$snippet]);
+
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('delete it')],
+            [],
+            1,
+            0,
+            0,
+            forcedSnippetUids: [41],
+        );
+
+        $this->service($mgr, new ToolRegistry([$this->approvalTool()]), null, $repository)
+            ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
+
+        self::assertInstanceOf(InjectedContext::class, $seen);
+        self::assertSame([$snippet], $seen->snippets);
+    }
+
+    #[Test]
+    public function aStateSuspendedBeforeTheForcedSetWasPersistedStillResumes(): void
+    {
+        // Back-compat: a row written before ADR-165 has neither key. It must
+        // resume exactly as it did — hand over nothing — rather than refuse
+        // over a forced set nobody recorded.
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $state = SuspendedRunState::fromArray([
+            'messages'     => [$this->userTurn('delete it')],
+            'pendingCalls' => [],
+            'iterations'   => 1,
+        ]);
+
+        self::assertSame([], $state->forcedSnippetUids);
+
+        $this->service($mgr, new ToolRegistry([$this->approvalTool()]))
+            ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
+
+        self::assertNull($seen);
+    }
+
+    private function snippetWithUid(int $uid, string $identifier): PromptSnippet
+    {
+        $snippet = new PromptSnippet();
+        $snippet->setIdentifier($identifier);
+        $snippet->setName($identifier);
+        $snippet->_setProperty('uid', $uid);
+
+        return $snippet;
+    }
+
+    private function skillWithUid(int $uid): Skill
+    {
+        $skill = new Skill();
+        $skill->_setProperty('uid', $uid);
+
+        return $skill;
+    }
+
+    #[Test]
     public function resumeDeniedInjectsARefusalThenContinues(): void
     {
         $mgr   = self::createStub(LlmServiceManagerInterface::class);
@@ -1064,10 +1188,16 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(42, $capturedOptions->getBeUserUid());
     }
 
-    private function suspend(ToolLoopService $service): SuspendedRunState
+    private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null): SuspendedRunState
     {
         try {
-            $service->runLoop([$this->userTurn('delete it')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+            $service->runLoop(
+                [$this->userTurn('delete it')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                null,
+                augmentation: $augmentation,
+            );
         } catch (ToolApprovalRequiredException $e) {
             return $e->state;
         }
@@ -1997,6 +2127,7 @@ final class ToolLoopServiceTest extends TestCase
         LlmServiceManagerInterface $mgr,
         ToolRegistry $registry,
         ?LoggerInterface $logger = null,
+        ?PromptSnippetRepository $promptSnippetRepository = null,
     ): ToolLoopService {
         $availability = new FakeToolAvailability($registry->names());
 
@@ -2005,6 +2136,7 @@ final class ToolLoopServiceTest extends TestCase
             $registry,
             $this->realPolicy($registry, $availability),
             $logger,
+            promptSnippetRepository: $promptSnippetRepository,
         );
     }
 
