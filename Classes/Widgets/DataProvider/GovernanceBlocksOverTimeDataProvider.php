@@ -40,6 +40,7 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
         'response_blocked'  => '#D9534F',
         'approval_required' => '#E8A33D',
         'content_filter'    => '#8E2A27',
+        'write_unapproved'  => '#7B4FA8',
     ];
 
     public function __construct(

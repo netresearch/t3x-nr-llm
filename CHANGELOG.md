@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A refused unapproved write is now countable** (`#757`). The refusal added
+  in 0.29.1 was visible only as an errored step in one run's timeline, so
+  "did this ever fire" had no answer. It writes a `write_unapproved`
+  governance event, which the Governance blocks widget and the run timeline
+  pick up without further change.
+
+  Its own decision case rather than a `tool_denied` with a reason: that value
+  means "the gate did not offer this tool", and here the gate did — that is how
+  the call reached the branch. The approval *trail* stays off this table and on
+  the run, where its longer retention window is (`#754`).
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed

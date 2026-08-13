@@ -134,6 +134,9 @@
             <trans-unit id="widget.governance_blocks.decision.content_filter">
                 <source>Content filter</source>
             </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.write_unapproved">
+                <source>Unapproved write refused</source>
+            </trans-unit>
             <trans-unit id="widget.tool_denials.title">
                 <source>Tool denials by reason</source>
             </trans-unit>

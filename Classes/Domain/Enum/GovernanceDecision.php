@@ -59,6 +59,29 @@ enum GovernanceDecision: string
     case CONTEXT_BLOCKED = 'context_blocked';
 
     /**
+     * A pending write was refused on resume because no human had approved it.
+     *
+     * A separate case from {@see self::TOOL_DENIED}, which means "the gate did
+     * not offer this tool". Here the gate DID offer it — that is how the call
+     * reached the branch at all. It is refused because the turn it belongs to
+     * suspended for typed input rather than for approval, and an input
+     * submission is not an approval (see
+     * {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService::resumeWithInput()}).
+     * Folding the two together would make the same value mean two things,
+     * separable only by a `reason` string.
+     *
+     * Also distinct from {@see self::APPROVAL_REQUIRED}, which is the
+     * guardrail's verdict on a provider RESPONSE. This is a tool call that was
+     * stopped, not a response routed for review.
+     *
+     * The approval TRAIL is deliberately not in this table — it lives on the
+     * run, under the longer `approval` retention window, because a run awaiting
+     * an approver carries resumable work. A refusal carries none, so it belongs
+     * with the other governance telemetry.
+     */
+    case WRITE_UNAPPROVED = 'write_unapproved';
+
+    /**
      * @return list<string>
      */
     public static function values(): array
