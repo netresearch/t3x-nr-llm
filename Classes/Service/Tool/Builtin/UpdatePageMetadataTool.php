@@ -69,8 +69,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — setting a scalar field to a
  * given value converges on repeat. Because the effect is a write, every call is
  * suspended for human approval (ADR-134); the tool carries no separate approval
- * marker. It is NOT covered by the ADR-112 write fence — that arms only on the
- * queued path, and no shipped entry point reaches it (ADR-135).
+ * marker. The ADR-112 write fence DOES cover it: every executing segment claims
+ * a lease (ADR-141), so the guard arms on the interactive path too, and it
+ * refuses a side-effecting tool it cannot fence rather than running it unfenced.
+ * ADR-135 recorded the opposite while that was still true; read ADR-141 for the
+ * current guarantee.
  *
  * The pause carries a field-by-field before/after ({@see self::previewCall()},
  * ADR-136): the arguments alone are the NEW values, and an approver deciding
