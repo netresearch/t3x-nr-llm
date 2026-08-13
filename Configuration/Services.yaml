@@ -29,6 +29,10 @@ services:
       - '../Classes/Service/SetupWizard/Exception/*'
       - '../Classes/Service/Skill/Exception/*'
       - '../Classes/Service/Tool/Mcp/Exception/*'
+      # Opened inside a client method and passed down, never injected — the
+      # budget is per operation, and a container-held instance would bound the
+      # process. Private constructor and a scalar argument besides (ADR-170).
+      - '../Classes/Service/Tool/Mcp/McpOperationDeadline.php'
       # Built per catalogue row by McpToolProvider from a database row. Without
       # this the `nr_llm.tool` autoconfigure tag on ToolInterface would have the
       # container try to build it, and compilation fails on the scalar arguments.

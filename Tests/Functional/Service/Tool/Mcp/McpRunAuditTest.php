@@ -38,6 +38,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
@@ -322,7 +323,7 @@ final class McpRunAuditTest extends AbstractFunctionalTestCase
             // so the first pass executes the call instead of suspending — which
             // is the path whose audit this class is about.
             false,
-            new McpClient($transport, new RecordedContacts()),
+            new McpClient($transport, new RecordedContacts(), $this->get(McpDeadlineFactory::class)),
         );
     }
 

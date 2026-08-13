@@ -521,3 +521,4 @@ Tools
    Adr167ConfigurationAccessIsASimulatedAxis
    Adr168PacksDeclareEditorActions
    Adr169RecordManagementUsesTypo3Permissions
+   Adr170OneDeadlinePerMcpOperation

@@ -11,6 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -41,12 +43,21 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         return $transport;
     }
 
+    /**
+     * A budget with room in it, so the checks below are about the wire rather
+     * than about the deadline (ADR-170).
+     */
+    private function deadline(int $totalSeconds = 20): McpOperationDeadline
+    {
+        return McpOperationDeadline::start(new FakeMcpClock(), $totalSeconds);
+    }
+
     #[Test]
     public function sendsJsonRpcAndReturnsTheResultObject(): void
     {
         $fake = (new McpTestServer())->willReturn(['tools' => []]);
 
-        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'tools/list', ['cursor' => 'abc']);
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'tools/list', ['cursor' => 'abc'], $this->deadline());
 
         self::assertSame(['tools' => []], $answer['result']);
         self::assertSame('tools/list', $fake->received[0]['method']);
@@ -64,7 +75,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $fake = (new McpTestServer())->willReturn([]);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
 
         self::assertStringContainsString('"params":{}', $fake->received[0]['raw']);
     }
@@ -74,7 +85,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $fake = (new McpTestServer())->willReturn([]);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], 'sess-1');
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline(), 'sess-1');
 
         self::assertSame('sess-1', $fake->received[0]['session']);
     }
@@ -84,7 +95,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $fake = (new McpTestServer())->willReturn([], 'sess-9');
 
-        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'initialize', []);
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'initialize', [], $this->deadline());
 
         self::assertSame('sess-9', $answer['sessionId']);
     }
@@ -115,7 +126,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990212);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
 
     #[Test]
@@ -127,7 +138,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1799990214);
         $this->expectExceptionMessage('Method not found');
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'nope', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'nope', [], $this->deadline());
     }
 
     #[Test]
@@ -138,7 +149,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990215);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
 
     #[Test]
@@ -149,7 +160,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990213);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
 
     #[Test]
@@ -160,7 +171,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990213);
 
-        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
 
     /**
@@ -173,7 +184,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $fake = (new McpTestServer())->willReturnRpcError(-1, "first line\nsecond line");
 
         try {
-            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
             self::fail('expected the call to be refused');
         } catch (McpTransportException $e) {
             self::assertStringNotContainsString("\n", $e->getMessage());
@@ -187,7 +198,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $fake = (new McpTestServer())->willReturnRpcError(-1, str_repeat('x', 5000));
 
         try {
-            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', []);
+            $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
             self::fail('expected the call to be refused');
         } catch (McpTransportException $e) {
             self::assertLessThan(500, mb_strlen($e->getMessage()));
@@ -216,7 +227,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1799990211);
         $this->expectExceptionMessage('"srv"');
 
-        $transport->call(McpTestServer::server(), 'ping', []);
+        $transport->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
 
     /**
@@ -228,9 +239,44 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     {
         $fake = new McpTestServer();
 
-        $this->transportFor($fake)->notify(McpTestServer::server(), 'notifications/initialized', []);
+        $this->transportFor($fake)->notify(McpTestServer::server(), 'notifications/initialized', [], $this->deadline());
 
         self::assertSame('notifications/initialized', $fake->received[0]['method']);
         self::assertArrayNotHasKey('id', $fake->received[0]['body']);
+    }
+
+    /**
+     * A spent budget stops the request before it is built, on BOTH transport
+     * entry points (ADR-170). Checking it inside the client builder instead
+     * would leave the seam these tests run through unguarded — and would put
+     * the throw inside the catch that reports a failing far side, so an
+     * exhausted budget would come out as "the server could not be reached".
+     */
+    #[Test]
+    public function refusesToSendAnythingOnceTheBudgetIsSpent(): void
+    {
+        $clock    = new FakeMcpClock();
+        $deadline = McpOperationDeadline::start($clock, 20);
+        $clock->advanceSeconds(20.0);
+
+        $fake      = (new McpTestServer())->willReturn(['tools' => []]);
+        $transport = $this->transportFor($fake);
+
+        try {
+            $transport->call(McpTestServer::server(), 'tools/list', [], $deadline);
+            self::fail('call() should have refused a spent budget');
+        } catch (McpTransportException $e) {
+            self::assertStringContainsString('20-second operation budget', $e->getMessage());
+            self::assertSame(1799990217, $e->getCode(), 'a kind of its own, not a generic transport failure');
+        }
+
+        try {
+            $transport->notify(McpTestServer::server(), 'notifications/initialized', [], $deadline);
+            self::fail('notify() should have refused a spent budget');
+        } catch (McpTransportException $e) {
+            self::assertSame(1799990217, $e->getCode(), 'the notification leg is bounded by the same budget');
+        }
+
+        self::assertSame([], $fake->received, 'nothing went on the wire');
     }
 }

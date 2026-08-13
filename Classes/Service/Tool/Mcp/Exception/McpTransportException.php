@@ -15,10 +15,12 @@ use RuntimeException;
  * A call to an MCP server did not produce a usable result (ADR-116).
  *
  * One type for every way the conversation can fail — refused host, transport
- * error, non-2xx status, unparseable body, JSON-RPC error object — because
- * every caller does the same thing with it: record it against the server and
- * stop. The distinction that matters to an operator is the message, which names
- * the server, and that survives into `import_error`.
+ * error, non-2xx status, unparseable body, JSON-RPC error object, an operation
+ * budget that ran out (ADR-170) — because every caller does the same thing with
+ * it: record it against the server and stop. The distinction that matters to an
+ * operator is the message, which names the server, and that survives into
+ * `import_error`. Each factory below carries its own code, so a reader who
+ * needs the kind rather than the sentence has it without parsing prose.
  *
  * The message is built here rather than at the call site so a server's own
  * response text can never be pasted into it unbounded: a remote party writes
@@ -81,6 +83,32 @@ final class McpTransportException extends RuntimeException
                 self::clip($contentType),
             ),
             1799990215,
+        );
+    }
+
+    /**
+     * The operation spent its whole budget before this leg could be sent
+     * (ADR-170).
+     *
+     * Worded so the log tells the two apart at a glance: nothing was asked of
+     * the server here, and the number that ran out is one this installation
+     * chose and can raise. Every other factory above describes a far side that
+     * answered badly or not at all.
+     *
+     * It is NOT a cancellation, and says so. Cancelling an in-flight call
+     * remains unimplemented (issue #774, ADR-161) — this refuses a request that
+     * has not started.
+     */
+    public static function forExhaustedDeadline(string $identifier, int $totalSeconds): self
+    {
+        return new self(
+            sprintf(
+                'The %d-second operation budget for MCP server "%s" ran out before this request was sent, '
+                . 'so the server was not asked. This is the budget this installation sets, not a server that did not answer.',
+                $totalSeconds,
+                $identifier,
+            ),
+            1799990217,
         );
     }
 

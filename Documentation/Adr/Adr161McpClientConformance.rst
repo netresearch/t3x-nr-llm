@@ -4,8 +4,10 @@
 ADR-161: One conformance suite for every MCP connection we support
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (the timeouts row now covers the whole operation — see
+    :ref:`ADR-170 <adr-170>`)
 :Date: 2026-08-11
+:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`
 
 Context
 =======
@@ -91,9 +93,12 @@ Decision
           failed.
       * - timeouts
         - Covered on both halves: the transport puts a finite timeout on the
-          client it builds (asserted against that client, not against the
+          client it builds (asserted against that client, not against a
           constant), and a connection that never answers becomes a failed tool
-          result rather than an escaping exception.
+          result rather than an escaping exception. Since
+          :ref:`ADR-170 <adr-170>` the row covers the OPERATION as well: one
+          budget is spent across the legs, an exhausted budget is its own
+          outcome, and no leg is ever granted a timeout that would mean none.
       * - cancellation
         - **A gap. Pinned by its absence, not by a behavioural check.** See
           decision 3.
@@ -138,8 +143,10 @@ Decision
    :php:`AgentRuntime::cancel()` flips persisted state and the loop stops at the
    next step boundary. The transport has no abort path, so a cancellation
    raised while a request is in flight changes nothing about that request: the
-   run waits the leg out, bounded only by the 15-second timeout
-   (:ref:`ADR-154 <adr-154>` already listed this under what it did not decide).
+   run waits the leg out, bounded only by a timeout — the 15-second per-request
+   one when this was written, the whole-operation deadline of
+   :ref:`ADR-170 <adr-170>` since (:ref:`ADR-154 <adr-154>` already listed this
+   under what it did not decide).
 
    The suite does not fake a passing cancellation test, and it does not pretend
    to a behavioural one either. There is no behaviour to assert: a cancellation

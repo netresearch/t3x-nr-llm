@@ -36,6 +36,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
+use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpServerRepository;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
@@ -499,7 +500,7 @@ final class ToolLoopServiceBuiltinTest extends AbstractFunctionalTestCase
             ['type' => 'object', 'properties' => []],
             ToolDataClass::PUBLIC_CONTENT,
             $server->approvalRequired(),
-            new McpClient($transport, new RecordedContacts()),
+            new McpClient($transport, new RecordedContacts(), $this->get(McpDeadlineFactory::class)),
         );
     }
 

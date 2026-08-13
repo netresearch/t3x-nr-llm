@@ -95,10 +95,32 @@ is the ordinary case of a missing page or a rejected argument. Both are
 recorded as failures in the run's event stream, so a server that is
 flaky is visible without reading transcripts.
 
+How long one operation may take
+===============================
+
+An operation against an MCP server — a tool call, a catalogue import, a
+connection test — is several HTTP requests: the protocol handshake, its
+confirmation, then the request that carries the work. All of them share
+**one** budget, set by the extension configuration field *MCP operation
+budget (seconds)* (``mcpOperationTimeout``, 20 seconds by default). What
+the handshake spends is no longer available to the request behind it, and
+a large catalogue walks its pages under the same budget.
+
+Raise it for a server that is legitimately slow — including one that is
+slow to *open*: a handshake costing more than five seconds leaves the work
+request less than the fifteen a single request used to have, so a server
+that is slow at both ends can be refused where it previously succeeded.
+
+When the budget runs out
+the operation stops with a message naming the number and the server, and
+saying plainly that nothing was asked of the server — that is this
+installation's budget, not a server that failed to answer.
+
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
-connection test writes nothing, and :ref:`ADR-161 <adr-161>` for the
-conformance suite every supported connection is held to — including the
-one thing it does **not** do: cancelling a call that is already in
-flight. Cancelling a run stops it at the next step, but an outstanding
-remote call still runs to its 15-second timeout.
+connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
+budget, and :ref:`ADR-161 <adr-161>` for the conformance suite every
+supported connection is held to — including the one thing it does **not**
+do: cancelling a call that is already in flight. Cancelling a run stops it
+at the next step, but an outstanding remote call still runs until the
+server answers or the operation's remaining budget is gone.

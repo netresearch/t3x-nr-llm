@@ -31,8 +31,14 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
  * matters: this class is a DI singleton on a long-lived queue worker, so a
  * retained session id would be handed to whatever server came next, and a
  * session belonging to server A is meaningless, at best, when presented to
- * server B. The price is paid per call and is bounded by the transport
- * timeout; the alternative is a cache whose invalidation nobody owns.
+ * server B. The price is paid per call and is bounded by the operation
+ * deadline; the alternative is a cache whose invalidation nobody owns.
+ *
+ * That deadline is opened here, once per public method, and every leg spends
+ * from it (ADR-170). This class is where it belongs because this class is what
+ * knows an operation: the transport sees one request at a time and would give
+ * each of them a full budget, which is how a three-leg tool call used to reach
+ * three times the timeout an operator was told about.
  *
  * It is also where liveness is recorded (ADR-154). An operation is the unit an
  * operator reasons about — "the server answered" — and it is the only level at
@@ -79,11 +85,16 @@ final readonly class McpClient
     public function __construct(
         private McpHttpTransport $transport,
         private McpHealthRecorderInterface $health,
+        private McpDeadlineFactory $deadlines,
     ) {}
 
     /**
      * Every tool the server advertises, across all pages.
      *
+     * The whole walk shares one budget, page ceiling included (ADR-170): a
+     * catalogue that takes fifty pages is still one operation somebody is
+     * waiting for, and fifty pages with a timeout each is the stall this
+     * deadline exists to end.
      *
      * @throws McpTransportException
      *
@@ -91,7 +102,8 @@ final readonly class McpClient
      */
     public function listTools(McpServerRecord $server): array
     {
-        $session = $this->openSession($server)['sessionId'];
+        $deadline = $this->deadlines->forOperation();
+        $session  = $this->openSession($server, $deadline)['sessionId'];
 
         $tools  = [];
         $cursor = null;
@@ -101,6 +113,7 @@ final readonly class McpClient
                 $server,
                 'tools/list',
                 $cursor === null ? [] : ['cursor' => $cursor],
+                $deadline,
                 $session,
             );
 
@@ -157,12 +170,13 @@ final readonly class McpClient
      */
     public function callTool(McpServerRecord $server, string $remoteName, array $arguments): McpCallOutcome
     {
-        $session = $this->openSession($server)['sessionId'];
+        $deadline = $this->deadlines->forOperation();
+        $session  = $this->openSession($server, $deadline)['sessionId'];
 
         $answer = $this->transport->call($server, 'tools/call', [
             'name'      => $remoteName,
             'arguments' => $arguments === [] ? new stdClass() : $arguments,
-        ], $session);
+        ], $deadline, $session);
 
         // The server answered, so it is alive — including when the answer is a
         // tool-level `isError` below. That is the tool failing, not the server.
@@ -213,7 +227,7 @@ final readonly class McpClient
         }
 
         try {
-            $handshake = $this->openSession($server);
+            $handshake = $this->openSession($server, $this->deadlines->forOperation());
         } catch (McpTransportException $e) {
             return McpConnectionReport::unreachable($e->getMessage());
         }
@@ -247,11 +261,14 @@ final readonly class McpClient
      * then simply means no session header on the following request, which is
      * valid.
      *
+     * Both legs spend from the operation's budget, so what the handshake costs
+     * is not available to the request it opens the way for (ADR-170).
+     *
      * @throws McpTransportException
      *
      * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
      */
-    private function openSession(McpServerRecord $server): array
+    private function openSession(McpServerRecord $server, McpOperationDeadline $deadline): array
     {
         $handshake = $this->transport->call($server, 'initialize', [
             'protocolVersion' => self::PROTOCOL_VERSION,
@@ -264,11 +281,11 @@ final readonly class McpClient
                 'name'    => 'nr_llm',
                 'version' => '1',
             ],
-        ]);
+        ], $deadline);
 
         // The protocol requires the client to confirm it is ready before it
         // issues requests. A server may reject everything until it arrives.
-        $this->transport->notify($server, 'notifications/initialized', [], $handshake['sessionId']);
+        $this->transport->notify($server, 'notifications/initialized', [], $deadline, $handshake['sessionId']);
 
         return $handshake;
     }
