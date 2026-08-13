@@ -106,8 +106,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — setting one scalar field to a
  * given value converges on repeat. Because the effect is a write, every call is
  * suspended for human approval (ADR-134); the tool carries no separate approval
- * marker. As with the first writer it is NOT covered by the ADR-112 write fence,
- * which arms only on the queued path (ADR-135).
+ * marker. As with the first writer, the ADR-112 write fence covers it: every
+ * executing segment claims a lease (ADR-141), so the guard arms on the
+ * interactive path too. ADR-135 recorded the opposite while that was still
+ * true; read ADR-141 for the current guarantee.
  */
 final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, EditorActionInterface
 {
