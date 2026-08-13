@@ -522,3 +522,4 @@ Tools
    Adr168PacksDeclareEditorActions
    Adr169RecordManagementUsesTypo3Permissions
    Adr170OneDeadlinePerMcpOperation
+   Adr171PersonasTheCodeAlreadyAssumes
