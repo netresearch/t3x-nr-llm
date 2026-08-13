@@ -253,8 +253,16 @@ ceiling. Two places show them:
   removal are the same row, with the same reason. Only the event's
   ``detail`` column separates them (``observedOnly=1`` marks a flag), and
   no view reads that column.
-- The :guilabel:`Governance blocks` widget for the wider picture, including
-  guardrail blocks and approvals.
+- The :guilabel:`Governance blocks` widget for the wider picture: tool-gate
+  denials, guardrail response blocks, and the guardrail's own
+  ``approval_required`` verdict on a response.
+
+  The ``approval_required`` bar is **not** a count of tools held for human
+  approval. A tool-approval suspend writes no row in this table,
+  deliberately: the approval trail lives on the run itself, under the
+  ``approval`` retention window described above, because a run waiting for
+  an approver carries resumable work and must outlive the telemetry-length
+  window this table uses. Read it per run in the run timeline, not here.
 
 The bar therefore answers "how often did the data-class axis fire in the
 last 30 days", not "how many tools would enforcement remove". Use it to see
