@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
  * builtin tools read" stopped being true. What it can tell is that a status
  * naming another record carries the matching :Amended: / :Superseded: field,
  * that every cross-reference resolves, and that nobody invents a status word
- * outside the documented three.
+ * outside the documented four.
  *
  * The pairing check covers ADR-to-ADR links only. A record superseded by
  * something that is not an ADR — ADR-012, replaced by the nr-vault integration
@@ -28,7 +28,7 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversNothing]
 final class AdrLifecycleTest extends AbstractUnitTestCase
 {
-    private const ALLOWED_STATUSES = ['Accepted', 'Superseded', 'Deprecated'];
+    private const ALLOWED_STATUSES = ['Proposed', 'Accepted', 'Superseded', 'Deprecated'];
 
     private function adrDir(): string
     {
