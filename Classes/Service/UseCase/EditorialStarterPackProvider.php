@@ -143,6 +143,15 @@ final readonly class EditorialStarterPackProvider implements UseCasePackProvider
                 // Named so an admin knows which switch would extend the pack;
                 // enabling stays a decision in the Tools module.
                 recommendedToolGroups: ['content'],
+                // No editor action, deliberately (ADR-168). The four tasks are
+                // text transforms an editor runs in the Tasks module; none of
+                // them writes a record. And an editor action runs on the
+                // DEFAULT configuration, not on the pack's, so this pack's
+                // house-style snippet would not reach one — naming an action
+                // here would claim a link its records do not have. A Media
+                // Accessibility or Translation pack is where the field earns
+                // its keep.
+                recommendedEditorActions: [],
             ),
         ];
     }

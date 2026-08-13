@@ -61,9 +61,16 @@ final class UseCasePackTest extends TestCase
     /**
      * @param list<PackTask>    $tasks
      * @param list<PackSnippet> $snippets
+     * @param list<string>      $toolGroups
+     * @param list<string>      $editorActions
      */
-    private function pack(string $identifier = 'fixture-pack', array $tasks = [], array $snippets = []): UseCasePack
-    {
+    private function pack(
+        string $identifier = 'fixture-pack',
+        array $tasks = [],
+        array $snippets = [],
+        array $toolGroups = [],
+        array $editorActions = [],
+    ): UseCasePack {
         return new UseCasePack(
             identifier: $identifier,
             useCase: UseCase::EDITORIAL,
@@ -73,6 +80,8 @@ final class UseCasePackTest extends TestCase
             recommendedGovernanceProfile: GovernanceProfile::CONTROLLED_CLOUD,
             tasks: $tasks,
             snippets: $snippets,
+            recommendedToolGroups: $toolGroups,
+            recommendedEditorActions: $editorActions,
         );
     }
 
@@ -126,6 +135,61 @@ final class UseCasePackTest extends TestCase
         $this->expectExceptionCode(1791460024);
 
         $this->pack(snippets: [$this->snippet('same'), $this->snippet('same')]);
+    }
+
+    #[Test]
+    public function aBlankRecommendedEditorActionIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791460026);
+
+        $pack = $this->pack(editorActions: ['']);
+        self::fail('Expected the blank editor action to be refused, got ' . implode(',', $pack->recommendedEditorActions));
+    }
+
+    #[Test]
+    public function aDuplicateRecommendedEditorActionIsRefused(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791460027);
+
+        $pack = $this->pack(editorActions: ['set_file_alternative_text', 'set_file_alternative_text']);
+        self::fail('Expected the duplicate editor action to be refused, got ' . implode(',', $pack->recommendedEditorActions));
+    }
+
+    #[Test]
+    public function theBlankAndDuplicateCheckStopsAtTheNewFieldAndLeavesToolGroupsAlone(): void
+    {
+        // Deliberate asymmetry, not an oversight (ADR-168).
+        // `recommendedEditorActions` is new, so it ships with its contract.
+        // `recommendedToolGroups` is pre-existing and reached through the `@api`
+        // provider interface: a third-party pack may already declare a blank or
+        // repeated group, and every pack is built inside UseCasePackRegistry's
+        // constructor, which catches nothing. Refusing it here would turn a
+        // cosmetic defect in one foreign pack into a fatal in every backend
+        // module that injects the registry. What it costs: an empty badge and a
+        // row printed twice on the plan screen.
+        $pack = $this->pack(toolGroups: ['content', '  ', 'content']);
+
+        self::assertSame(['content', '  ', 'content'], $pack->recommendedToolGroups);
+    }
+
+    #[Test]
+    public function anUnknownIdentifierIsDeliberatelyNotRefusedAtDeclarationTime(): void
+    {
+        // Both sets are OPEN: a third-party extension ships its own tools, its
+        // own tool group and — through the same `@api` provider interface — its
+        // own pack. Throwing here would fire inside UseCasePackRegistry's
+        // constructor and take down every module that injects it, so "unknown
+        // to this installation" is the install plan's answer instead, against
+        // the live registry (ADR-168).
+        //
+        // What this therefore does NOT catch: a typo in a shipped pack. That is
+        // covered by UseCasePackRenderTest, which asks the real registry.
+        $pack = $this->pack(toolGroups: ['contnet'], editorActions: ['set_file_alternativ_text']);
+
+        self::assertSame(['contnet'], $pack->recommendedToolGroups);
+        self::assertSame(['set_file_alternativ_text'], $pack->recommendedEditorActions);
     }
 
     #[Test]

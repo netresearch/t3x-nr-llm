@@ -10,9 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\UseCase;
 
 use Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria;
+use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Governance\GovernanceProfile;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
 use Netresearch\NrLlm\Service\Preset\PresetPreflightResult;
+use Netresearch\NrLlm\Service\UseCase\PackEditorActionState;
+use Netresearch\NrLlm\Service\UseCase\PackToolGroupState;
 use Netresearch\NrLlm\Service\UseCase\UseCase;
 use Netresearch\NrLlm\Service\UseCase\UseCasePack;
 use Netresearch\NrLlm\Service\UseCase\UseCasePackInstallResult;
@@ -25,6 +28,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(UseCasePackPlan::class)]
 #[CoversClass(UseCasePackPlanItem::class)]
 #[CoversClass(UseCasePackInstallResult::class)]
+#[CoversClass(PackEditorActionState::class)]
+#[CoversClass(PackToolGroupState::class)]
 final class UseCasePackPlanTest extends TestCase
 {
     private function pack(): UseCasePack
@@ -129,6 +134,55 @@ final class UseCasePackPlanTest extends TestCase
         self::assertSame(['tone_of_voice'], $plan->missingSnippetTags);
         self::assertFalse($plan->isFullyInstalled());
         self::assertTrue($plan->isInstallable());
+    }
+
+    #[Test]
+    public function theDeclaredEditorActionsAreCarriedWithTheirStateAndChangeNoCount(): void
+    {
+        $plan = new UseCasePackPlan(
+            pack: $this->pack(),
+            configuration: new UseCasePackPlanItem('ext.fixture', 'Fixture', true),
+            tasks: [new UseCasePackPlanItem('a', 'A', true)],
+            snippets: [],
+            preflight: PresetPreflightResult::satisfiable('GPT-5'),
+            editorActions: [
+                new PackEditorActionState(
+                    'set_file_alternative_text',
+                    true,
+                    false,
+                    'editing',
+                    new EditorAction('LLL:label', 'LLL:description', 'icon', ['sys_file']),
+                ),
+                new PackEditorActionState('set_file_alternativ_text', false, false),
+            ],
+            toolGroups: [
+                new PackToolGroupState('editing', true, true, 'LLL:tool.group.editing'),
+                new PackToolGroupState('contnet', false, false),
+            ],
+        );
+
+        self::assertSame(['sys_file'], $plan->editorActions[0]->getRecordTypes());
+        self::assertSame(
+            ['set_file_alternativ_text'],
+            array_map(
+                static fn(PackEditorActionState $state): string => $state->toolName,
+                $plan->getUndeclaredEditorActions(),
+            ),
+        );
+        self::assertSame(
+            ['contnet'],
+            array_map(
+                static fn(PackToolGroupState $state): string => $state->group,
+                $plan->getUnregisteredToolGroups(),
+            ),
+        );
+
+        // A declaration is advisory (ADR-168): a disabled — or entirely
+        // unknown — editor action must not make the pack look unfinished or
+        // block the confirm button.
+        self::assertSame(0, $plan->getPendingCount());
+        self::assertTrue($plan->isFullyInstalled());
+        self::assertFalse($plan->isInstallable());
     }
 
     #[Test]

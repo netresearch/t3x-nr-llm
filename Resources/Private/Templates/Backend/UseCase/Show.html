@@ -237,22 +237,115 @@
                     </div>
                 </div>
 
-                <f:comment>Recommended tool groups — enabling stays in the Tools module.</f:comment>
-                <f:if condition="{pack.recommendedToolGroups}">
+                <f:comment>
+                    Recommended tool groups — enabling stays in the Tools module.
+                    Printed with their live state rather than raw: a group no
+                    registered tool carries is a typo or an extension that is not
+                    installed, and both used to look exactly like a real one.
+                </f:comment>
+                <f:if condition="{plan.toolGroups}">
                     <div class="card mb-4">
                         <div class="card-body">
                             <h2 class="card-title h6">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolGroups" default="Optional tool groups" />
                             </h2>
-                            <p class="mb-2">
-                                <f:for each="{pack.recommendedToolGroups}" as="group">
-                                    <code>{group}</code>
+                            <ul class="list-unstyled mb-2">
+                                <f:for each="{plan.toolGroups}" as="group">
+                                    <li class="mb-1">
+                                        <code>{group.group}</code>
+                                        <f:if condition="{group.labelKey}">
+                                            <span class="text-body-secondary"><f:translate key="{group.labelKey}" default="" /></span>
+                                        </f:if>
+                                        <f:render section="ToolState" arguments="{known: group.registered, enabled: group.enabled}" />
+                                    </li>
                                 </f:for>
-                            </p>
+                            </ul>
+                            <f:comment>
+                                Same explanation the editor-action card carries,
+                                for the same reason: the red badge says a group
+                                is missing, not that installing the pack will
+                                not produce it.
+                            </f:comment>
+                            <f:if condition="{plan.unregisteredToolGroups}">
+                                <p class="small mb-2">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolGroups.unknown" default="A group marked as not available is carried by no registered tool on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds it nor repairs it." />
+                                </p>
+                            </f:if>
                             <p class="small mb-0">
                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolGroups.hint" default="The pack does not enable these. Enabling a tool group stays an administrator decision:" />
                                 <a href="{toolsUrl}" class="text-decoration-underline">
                                     <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.title" default="Tools" />
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </f:if>
+
+                <f:comment>
+                    Editor actions the pack was DESIGNED for (ADR-168). A pack
+                    installs tasks, and a task runs as a plain completion — the
+                    named editorial writes are tools reached through the Editor
+                    Action Center. Installing enables none of them and runs none
+                    of them; the state is here so the operator can see which
+                    switch the pack's value still depends on.
+                </f:comment>
+                <f:if condition="{plan.editorActions}">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h2 class="card-title h6">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions" default="Editor actions this pack is designed for" />
+                            </h2>
+                            <ul class="list-unstyled mb-2">
+                                <f:for each="{plan.editorActions}" as="action">
+                                    <li class="mb-2">
+                                        <div>
+                                            <f:if condition="{action.declaration}">
+                                                <strong><f:translate key="{action.declaration.labelKey}" default="{action.toolName}" /></strong>
+                                            </f:if>
+                                            <code>{action.toolName}</code>
+                                            <f:render section="ToolState" arguments="{known: action.declared, enabled: action.enabled}" />
+                                        </div>
+                                        <f:if condition="{action.declaration}">
+                                            <div class="small text-body-secondary">
+                                                <f:translate key="{action.declaration.descriptionKey}" default="" />
+                                            </div>
+                                        </f:if>
+                                        <f:if condition="{action.recordTypes}">
+                                            <div class="small">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.recordTypes" default="Applies to:" />
+                                                <f:for each="{action.recordTypes}" as="recordType">
+                                                    <code>{recordType}</code>
+                                                </f:for>
+                                            </div>
+                                        </f:if>
+                                        <f:comment>
+                                            The group is WHERE the switch is: the
+                                            Tools module lists actions under it,
+                                            so an operator sent there needs the
+                                            name. Empty for an action this
+                                            installation does not have.
+                                        </f:comment>
+                                        <f:if condition="{action.group}">
+                                            <div class="small">
+                                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.group" default="Tool group:" />
+                                                <code>{action.group}</code>
+                                            </div>
+                                        </f:if>
+                                    </li>
+                                </f:for>
+                            </ul>
+                            <f:if condition="{plan.undeclaredEditorActions}">
+                                <p class="small mb-2">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.unknown" default="An action marked as not available is not registered on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds nor repairs it." />
+                                </p>
+                            </f:if>
+                            <p class="small mb-0">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.editorActions.hint" default="The pack declares these; it does not enable them and does not run them. Enabling an action is an administrator decision in the Tools module, and every run still pauses for approval:" />
+                                <a href="{toolsUrl}" class="text-decoration-underline">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:manage.title" default="Tools" />
+                                </a>
+                                <a href="{editorActionsUrl}" class="ms-2 text-decoration-underline">
+                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorActions.title" default="AI actions" />
                                 </a>
                             </p>
                         </div>
@@ -292,6 +385,45 @@
             </a>
         </div>
     </div>
+</f:section>
+
+<f:comment>
+    Three states, not two: "not available" is what makes a typo or a missing
+    provider extension visible instead of rendering as a switch the operator
+    could go and flip (ADR-168).
+</f:comment>
+<f:section name="ToolState">
+    <f:if condition="{known}">
+        <f:then>
+            <f:if condition="{enabled}">
+                <f:then>
+                    <span class="badge text-bg-success">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.enabled" default="Enabled" />
+                    </span>
+                </f:then>
+                <f:else>
+                    <span class="badge text-bg-warning">
+                        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.disabled" default="Disabled" />
+                    </span>
+                </f:else>
+            </f:if>
+        </f:then>
+        <f:else>
+            <f:comment>
+                Not `text-bg-danger`: white on the backend's danger red is 4.37:1 at
+                badge size and fails WCAG AA (check-badge-contrast.php refuses it).
+                Not `text-bg-warning` either — that is already "Disabled", and the two
+                states are not the same one: an operator resolves Disabled by flipping
+                a switch, while this identifier does not exist here at all and
+                installing the pack will not produce it. Secondary reads as absent,
+                which is what it is; the label and the paragraph below carry the
+                meaning, so colour is not the only channel.
+            </f:comment>
+            <span class="badge text-bg-secondary">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_usecase.xlf:show.toolState.unknown" default="Not available here" />
+            </span>
+        </f:else>
+    </f:if>
 </f:section>
 
 <f:section name="State">

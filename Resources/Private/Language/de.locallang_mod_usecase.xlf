@@ -131,6 +131,42 @@
                 <source>The pack does not enable these. Enabling a tool group stays an administrator decision:</source>
                 <target>Das Paket aktiviert diese nicht. Eine Tool-Gruppe zu aktivieren bleibt eine Entscheidung der Administration:</target>
             </trans-unit>
+            <trans-unit id="show.toolGroups.unknown">
+                <source>A group marked as not available is carried by no registered tool on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds it nor repairs it.</source>
+                <target>Eine als nicht vorhanden markierte Gruppe wird in dieser Installation von keinem registrierten Tool geführt – entweder fehlt die Extension, die sie mitbringt, oder das Paket benennt sie falsch. Die Installation des Pakets ergänzt sie nicht und repariert sie nicht.</target>
+            </trans-unit>
+            <trans-unit id="show.toolState.enabled">
+                <source>Enabled</source>
+                <target>Aktiviert</target>
+            </trans-unit>
+            <trans-unit id="show.toolState.disabled">
+                <source>Disabled</source>
+                <target>Deaktiviert</target>
+            </trans-unit>
+            <trans-unit id="show.toolState.unknown">
+                <source>Not available here</source>
+                <target>Hier nicht vorhanden</target>
+            </trans-unit>
+            <trans-unit id="show.editorActions">
+                <source>Editor actions this pack is designed for</source>
+                <target>Redaktionsaktionen, für die dieses Paket gedacht ist</target>
+            </trans-unit>
+            <trans-unit id="show.editorActions.recordTypes">
+                <source>Applies to:</source>
+                <target>Gilt für:</target>
+            </trans-unit>
+            <trans-unit id="show.editorActions.group">
+                <source>Tool group:</source>
+                <target>Tool-Gruppe:</target>
+            </trans-unit>
+            <trans-unit id="show.editorActions.unknown">
+                <source>An action marked as not available is not registered on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds nor repairs it.</source>
+                <target>Eine als nicht vorhanden markierte Aktion ist in dieser Installation nicht registriert – entweder fehlt die Extension, die sie mitbringt, oder das Paket benennt sie falsch. Die Installation des Pakets ergänzt sie nicht und repariert sie nicht.</target>
+            </trans-unit>
+            <trans-unit id="show.editorActions.hint">
+                <source>The pack declares these; it does not enable them and does not run them. Enabling an action is an administrator decision in the Tools module, and every run still pauses for approval:</source>
+                <target>Das Paket nennt diese Aktionen; es aktiviert sie nicht und führt sie nicht aus. Eine Aktion zu aktivieren bleibt eine Entscheidung der Administration im Tools-Modul, und jeder Lauf hält weiterhin zur Freigabe an:</target>
+            </trans-unit>
             <trans-unit id="show.skills">
                 <source>Skills</source>
                 <target>Skills</target>

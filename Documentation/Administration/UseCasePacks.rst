@@ -98,13 +98,68 @@ What a pack recommends but never applies
 - **Tool groups.** The pack names the groups its tasks benefit from
   (*Editorial Starter*: ``content``). Enabling a tool group stays an
   administrator decision in the :ref:`Tools module <administration-tools>`.
+- **Editor actions.** The pack names the editorial writes it was designed for —
+  see below. Installing enables none of them and runs none of them.
 - **Nothing about providers or API keys.** The pack states model
   *requirements*. When no active model satisfies them, the plan says which
   requirement is missing and links to the setup wizard.
 
+Both the tool groups and the editor actions are shown with their **current
+state** rather than as a bare list, because both are switches you may still have
+to throw:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Badge
+     - Meaning
+   * - *Enabled*
+     - Registered here and switched on. For a tool group that is all it takes.
+       An editor action additionally needs a **default configuration** the
+       acting editor has access to — a pack installs none, and without one the
+       action stays absent from the Editor Action Center even while this badge
+       reads *Enabled*.
+   * - *Disabled*
+     - Registered here and switched off. Enable it in the
+       :ref:`Tools module <administration-tools>` if you want it.
+   * - *Not available here*
+     - Not registered at all: the extension providing it is not installed, or
+       the pack names it wrongly. Installing the pack neither adds it nor
+       repairs it.
+
 A pack installs **no skills**. A skill carries provenance and a trust level
 from the source it was synced from, and a pack can produce neither; add a
 :ref:`skill source <administration-skills>` instead.
+
+.. _administration-usecase-packs-editor-actions:
+
+Editor actions a pack is designed for
+=====================================
+
+A pack installs **tasks**, and a task runs as a plain completion — it produces
+text you copy or apply yourself. The named editorial writes an editor triggers
+from a record (set a file's alternative text, create a translation draft, update
+page metadata) are **tools**, offered through the
+:ref:`Editor Action Center <administration-tools-editor-actions>`, disabled by
+default, enabled by an administrator, and paused for approval on every run.
+
+``recommendedEditorActions`` lets a pack say which of those it was built for, so
+a pack whose value depends on one — translation, alt text — can state it instead
+of implying a workflow its records cannot perform. For each declared action the
+plan screen shows the action's name and description, whether this installation
+has it, whether it is enabled, which record types it applies to and the tool
+group it sits under — that group is where its switch is in the Tools module —
+with links to the Tools module and the Editor Action Center.
+
+That is the whole feature. The plan does not enable an action, does not run one,
+and does not connect a pack task to one — a task-to-action execution contract
+would need a new execution path and is a separate decision
+(:ref:`ADR-168 <adr-168>`).
+
+*Editorial Starter* declares no editor action, deliberately: its four tasks are
+text transforms, and an editor action runs on the **default** configuration
+rather than on the pack's, so the pack's house-style snippet would not reach
+one.
 
 .. _administration-usecase-packs-reinstall:
 

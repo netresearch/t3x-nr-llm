@@ -99,6 +99,33 @@
             <trans-unit id="show.toolGroups.hint">
                 <source>The pack does not enable these. Enabling a tool group stays an administrator decision:</source>
             </trans-unit>
+            <trans-unit id="show.toolGroups.unknown">
+                <source>A group marked as not available is carried by no registered tool on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds it nor repairs it.</source>
+            </trans-unit>
+            <trans-unit id="show.toolState.enabled">
+                <source>Enabled</source>
+            </trans-unit>
+            <trans-unit id="show.toolState.disabled">
+                <source>Disabled</source>
+            </trans-unit>
+            <trans-unit id="show.toolState.unknown">
+                <source>Not available here</source>
+            </trans-unit>
+            <trans-unit id="show.editorActions">
+                <source>Editor actions this pack is designed for</source>
+            </trans-unit>
+            <trans-unit id="show.editorActions.recordTypes">
+                <source>Applies to:</source>
+            </trans-unit>
+            <trans-unit id="show.editorActions.group">
+                <source>Tool group:</source>
+            </trans-unit>
+            <trans-unit id="show.editorActions.unknown">
+                <source>An action marked as not available is not registered on this installation — either the extension providing it is missing, or the pack names it wrongly. Installing the pack neither adds nor repairs it.</source>
+            </trans-unit>
+            <trans-unit id="show.editorActions.hint">
+                <source>The pack declares these; it does not enable them and does not run them. Enabling an action is an administrator decision in the Tools module, and every run still pauses for approval:</source>
+            </trans-unit>
             <trans-unit id="show.skills">
                 <source>Skills</source>
             </trans-unit>

@@ -46,6 +46,15 @@ use Netresearch\NrLlm\Service\Preset\PresetPreflightResult;
  * Fluid's property access prefers `get`/`is`/`has` over the property itself, so
  * a `hasMissingSnippetTags()` would make `{plan.missingSnippetTags}` resolve to
  * a boolean and `<f:for>` over it fail at render time.
+ *
+ * `editorActions` and `toolGroups` are a fourth kind of thing again: they are
+ * what installing does NOT change (ADR-168). The pack names editor actions it
+ * was designed for and tool groups its tasks benefit from; both live behind an
+ * administrator's switch in the Tools module, and the plan states their current
+ * state so the operator can see that the pack's value depends on a switch they
+ * still have to throw. Neither is counted by {@see getPendingCount()} and
+ * neither can block {@see isInstallable()} — an advisory declaration that could
+ * stop an install would be an execution contract wearing a different name.
  */
 final readonly class UseCasePackPlan
 {
@@ -55,6 +64,8 @@ final readonly class UseCasePackPlan
      * @param list<string>                                                     $missingSnippetTags
      * @param list<array{identifier: string, name: string}>                    $affectedConfigurations
      * @param list<array{identifier: string, name: string, dataClass: string}> $incomingSnippets
+     * @param list<PackEditorActionState>                                      $editorActions
+     * @param list<PackToolGroupState>                                         $toolGroups
      */
     public function __construct(
         public UseCasePack $pack,
@@ -65,7 +76,45 @@ final readonly class UseCasePackPlan
         public array $missingSnippetTags = [],
         public array $affectedConfigurations = [],
         public array $incomingSnippets = [],
+        public array $editorActions = [],
+        public array $toolGroups = [],
     ) {}
+
+    /**
+     * The declared editor actions this installation does not know.
+     *
+     * A typo and an uninstalled provider extension look identical from here,
+     * and both need the same thing: to be named on the screen instead of
+     * rendering as a disabled row that sends the operator to a Tools module with
+     * no such entry.
+     *
+     * @return list<PackEditorActionState>
+     */
+    public function getUndeclaredEditorActions(): array
+    {
+        return array_values(array_filter(
+            $this->editorActions,
+            static fn(PackEditorActionState $state): bool => !$state->declared,
+        ));
+    }
+
+    /**
+     * The recommended tool groups no registered tool carries — same question,
+     * one level up, and read by the same kind of paragraph on the plan screen.
+     *
+     * The red badge alone says the group is missing; it does not say that
+     * installing the pack will not produce it, which is the half an operator
+     * acts on.
+     *
+     * @return list<PackToolGroupState>
+     */
+    public function getUnregisteredToolGroups(): array
+    {
+        return array_values(array_filter(
+            $this->toolGroups,
+            static fn(PackToolGroupState $state): bool => !$state->registered,
+        ));
+    }
 
     /**
      * @return list<UseCasePackPlanItem>

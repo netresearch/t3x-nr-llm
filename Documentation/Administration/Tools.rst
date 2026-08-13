@@ -465,6 +465,8 @@ The declaration is presentation only. It does not decide whether a tool writes
 — that is the tool's declared effect — and it changes nothing about how a call
 is fenced, approved or audited.
 
+.. _administration-tools-editor-actions:
+
 What editors see
 ----------------
 
