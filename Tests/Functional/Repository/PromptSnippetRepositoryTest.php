@@ -185,6 +185,67 @@ final class PromptSnippetRepositoryTest extends AbstractFunctionalTestCase
     }
 
     // =========================================================================
+    // findExistingByUids()
+    // =========================================================================
+
+    #[Test]
+    public function findExistingByUidsPreservesInputOrder(): void
+    {
+        $snippets = $this->repository->findExistingByUids([5, 2, 3]);
+
+        self::assertSame(
+            ['style-minimalist', 'tone-formal', 'audience-developers'],
+            $this->identifiersOf($snippets),
+        );
+    }
+
+    #[Test]
+    public function findExistingByUidsSilentlySkipsUnknownUids(): void
+    {
+        $snippets = $this->repository->findExistingByUids([999, 2, 12345]);
+
+        self::assertSame(['tone-formal'], $this->identifiersOf($snippets));
+    }
+
+    #[Test]
+    public function findExistingByUidsResolvesInactiveSnippets(): void
+    {
+        // The ADR-166 difference to findByUids(): uid 7 is inactive and still
+        // resolves. Its text can already be in a suspended run's transcript, and
+        // deactivating it must not drop the classification of text still on the
+        // wire.
+        $snippets = $this->repository->findExistingByUids([7, 1]);
+
+        self::assertSame(['tone-inactive', 'tone-casual'], $this->identifiersOf($snippets));
+    }
+
+    #[Test]
+    public function findExistingByUidsResolvesHiddenSnippets(): void
+    {
+        // uid 10 is active but hidden. The repository's default query settings
+        // ignore enable fields, so `hidden` never filtered here — asserted so a
+        // later change to initializeObject() cannot silently reintroduce it.
+        self::assertSame(['persona-hidden'], $this->identifiersOf($this->repository->findExistingByUids([10])));
+    }
+
+    #[Test]
+    public function findExistingByUidsStillSkipsDeletedSnippets(): void
+    {
+        // The one restriction ADR-166 does NOT drop: uid 8 is deleted and stays
+        // unresolvable, so ADR-165's "a deleted source contributes nothing" is
+        // untouched.
+        $snippets = $this->repository->findExistingByUids([8, 1]);
+
+        self::assertSame(['tone-casual'], $this->identifiersOf($snippets));
+    }
+
+    #[Test]
+    public function findExistingByUidsReturnsEmptyListForEmptyInput(): void
+    {
+        self::assertSame([], $this->repository->findExistingByUids([]));
+    }
+
+    // =========================================================================
     // Persisted properties
     // =========================================================================
 

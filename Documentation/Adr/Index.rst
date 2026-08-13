@@ -510,3 +510,4 @@ Tools
    Adr163UseCasePacks
    Adr164ForcedSourcesBindAgainstTheCeiling
    Adr165ResumeReGatesTheForcedSet
+   Adr166DeactivationDoesNotLowerACeiling

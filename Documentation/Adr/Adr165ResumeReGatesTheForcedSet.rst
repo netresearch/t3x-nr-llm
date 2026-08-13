@@ -4,10 +4,12 @@
 ADR-165: A resumed run re-gates its forced sources
 ============================================================
 
-:Status: Accepted
+:Status: Accepted (the re-load no longer skips a deactivated source — see
+    :ref:`ADR-166 <adr-166>`)
 :Date: 2026-08-13
 :Amends: :ref:`ADR-164 <adr-164>` (its "does not cover a resumed run" gap) and
     :ref:`ADR-084 <adr-084>` (a further field on the suspended state)
+:Amended: 2026-08-13 by :ref:`ADR-166 <adr-166>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -73,6 +75,10 @@ classification. The transcript still carries its text, so for that one source
 the answer degrades to the pre-ADR-165 one. Refusing the resume instead would
 strand a run over a record an operator deliberately removed, and would make
 deleting a snippet a way to break running work.
+
+A source merely **deactivated** does not fall under that paragraph. The re-load
+originally used an active-only lookup and dropped one, which was a defect, not a
+decision; :ref:`ADR-166 <adr-166>` states the distinction and fixes it.
 
 **It does not re-gate anything else about a resume.** The transcript, the
 allow-list and the options are restored exactly as :ref:`ADR-084 <adr-084>`

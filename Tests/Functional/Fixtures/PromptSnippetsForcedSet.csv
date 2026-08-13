@@ -1,0 +1,6 @@
+"tx_nrllm_promptsnippet"
+,"uid","pid","identifier","name","description","tags","snippet","metadata","data_class","is_active","sorting","tstamp","crdate","deleted","hidden"
+,101,0,"forced-deactivated","Deactivated while suspended","Classified secretAdjacent, switched off mid-run","incident","Incident 4711 details.","","secretAdjacent",0,10,1703347200,1703347200,0,0
+,102,0,"forced-lowered","Lowered while suspended","Was secretAdjacent at suspend time, now publicContent","incident","Press statement wording.","","publicContent",1,20,1703347200,1703347200,0,0
+,103,0,"forced-raised","Raised while suspended","Was publicContent at suspend time, now secretAdjacent","incident","Internal escalation path.","","secretAdjacent",1,30,1703347200,1703347200,0,0
+,104,0,"forced-removed","Removed while suspended","Deleted by the operator mid-run","incident","This snippet is gone.","","secretAdjacent",1,40,1703347200,1703347200,1,0
