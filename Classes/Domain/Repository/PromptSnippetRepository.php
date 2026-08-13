@@ -111,22 +111,68 @@ class PromptSnippetRepository extends Repository
      *
      * Unknown and inactive uids are silently skipped.
      *
+     * This is the lookup for NEW composition — a snippet an operator switched
+     * off must not enter a prompt that is being assembled now. Do not merge it
+     * with {@see self::findExistingByUids()}: the two answer different
+     * questions and the difference is deliberate (ADR-166).
+     *
      * @param list<int> $uids
      *
      * @return list<PromptSnippet>
      */
     public function findByUids(array $uids): array
     {
+        return $this->orderedByUid($uids, true);
+    }
+
+    /**
+     * Find snippets by uid regardless of their active flag, preserving the
+     * input order.
+     *
+     * Same contract as {@see self::findByUids()} — unknown uids are silently
+     * skipped, a deleted record still resolves to nothing — except that an
+     * inactive (or hidden) snippet still resolves.
+     *
+     * This is the lookup for text that is ALREADY in a transcript: a resumed
+     * agent run re-loads its forced sources to re-gate them (ADR-165), and
+     * deactivating a snippet mid-run must not silently drop the classification
+     * of text that is still on the wire (ADR-166). "Inactive" means "not for
+     * new composition", not "already-injected text loses its class".
+     *
+     * @param list<int> $uids
+     *
+     * @return list<PromptSnippet>
+     */
+    public function findExistingByUids(array $uids): array
+    {
+        return $this->orderedByUid($uids, false);
+    }
+
+    /**
+     * Resolve uids to snippets in the caller's order, optionally restricted to
+     * active ones.
+     *
+     * The repository's default query settings ignore enable fields, so `hidden`
+     * plays no part here either way; `is_active` is the only filter, and
+     * $activeOnly is what decides whether it applies. The deleted restriction
+     * is untouched in both modes — a deleted record never resolves.
+     *
+     * @param list<int> $uids
+     *
+     * @return list<PromptSnippet>
+     */
+    private function orderedByUid(array $uids, bool $activeOnly): array
+    {
         if ($uids === []) {
             return [];
         }
 
-        $query = $this->createQuery();
+        $query      = $this->createQuery();
+        $uidMatches = $query->in('uid', $uids);
         $query->matching(
-            $query->logicalAnd(
-                $query->equals('isActive', true),
-                $query->in('uid', $uids),
-            ),
+            $activeOnly
+                ? $query->logicalAnd($query->equals('isActive', true), $uidMatches)
+                : $uidMatches,
         );
 
         /** @var array<int, PromptSnippet> $snippetsByUid */

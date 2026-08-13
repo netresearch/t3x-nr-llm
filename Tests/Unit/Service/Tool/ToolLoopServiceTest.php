@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
@@ -67,6 +68,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
+use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -928,7 +930,7 @@ final class ToolLoopServiceTest extends TestCase
         $snippet = $this->snippetWithUid(41, 'incident-report');
 
         $repository = self::createStub(PromptSnippetRepository::class);
-        $repository->method('findByUids')->willReturn([$snippet]);
+        $repository->method('findExistingByUids')->willReturn([$snippet]);
 
         $seen = 'unset';
         $mgr  = self::createStub(LlmServiceManagerInterface::class);
@@ -998,6 +1000,134 @@ final class ToolLoopServiceTest extends TestCase
             ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
 
         self::assertNull($seen);
+    }
+
+    #[Test]
+    public function resumeAsksTheExistenceLookupAndNeverTheActiveOnlyOne(): void
+    {
+        // ADR-166. The two lookups differ only in the `is_active` clause, so a
+        // revert to findByUids() is a one-word edit whose damage is invisible to
+        // every double that answers unconditionally. The functional sibling
+        // (ResumeForcedSnippetReGateTest) observes the filter against real rows;
+        // this pins WHICH method the loop asks, so the swap fails here too.
+        $repository = $this->createMock(PromptSnippetRepository::class);
+        $repository->expects(self::never())->method('findByUids');
+        $repository->expects(self::once())
+            ->method('findExistingByUids')
+            ->with([41])
+            ->willReturn([$this->snippetWithUid(41, 'incident-report')]);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('delete it')],
+            [],
+            1,
+            0,
+            0,
+            forcedSnippetUids: [41],
+        );
+
+        $this->service($mgr, new ToolRegistry([$this->approvalTool()]), null, $repository)
+            ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
+    }
+
+    #[Test]
+    public function resumeRebuildsTheForcedSkillsToo(): void
+    {
+        // The skill half of augmentationFrom(), which nothing covered. It needs
+        // no ADR-166 counterpart — SkillRepository::findAll() ignores enable
+        // fields and the loop filters by uid alone, so a skill disabled while the
+        // run was suspended still resolves. Asserted here rather than assumed:
+        // adding an `enabled` filter to that branch would reopen #761 for skills.
+        $wanted   = $this->skillWithUid(77);
+        $unwanted = $this->skillWithUid(78);
+
+        $skills = self::createStub(SkillRepository::class);
+        $skills->method('findAll')->willReturn(new InMemoryQueryResult([$wanted, $unwanted]));
+
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('delete it')],
+            [],
+            1,
+            0,
+            0,
+            forcedSkillUids: [77],
+        );
+
+        $this->service($mgr, new ToolRegistry([$this->approvalTool()]), null, null, $skills)
+            ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
+
+        self::assertInstanceOf(InjectedContext::class, $seen);
+        self::assertSame([$wanted], $seen->skills);
+        self::assertSame([], $seen->snippets);
+    }
+
+    #[Test]
+    public function resumeWithInputRebuildsTheForcedSetToo(): void
+    {
+        // The input-pause entry point (ADR-105) rebuilds the augmentation from
+        // the same helper, and nothing covered it — a dropped call there would
+        // leave approval resumes gated and input resumes not.
+        $snippet = $this->snippetWithUid(41, 'incident-report');
+
+        $repository = self::createStub(PromptSnippetRepository::class);
+        $repository->method('findExistingByUids')->willReturn([$snippet]);
+
+        $seen = 'unset';
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+                ?AgentRunReference $run = null,
+                ?InjectedContext $injectedContext = null,
+            ) use (&$seen): CompletionResponse {
+                $seen = $injectedContext;
+
+                return $this->response('done');
+            },
+        );
+
+        $call  = ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']];
+        $state = new SuspendedRunState(
+            [$this->userTurn('weather?'), ['role' => 'assistant', 'content' => '', 'tool_calls' => [$call]]],
+            [$call],
+            1,
+            0,
+            0,
+            ['ask_user'],
+            [],
+            'ask_user',
+            ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']],
+            forcedSnippetUids: [41],
+        );
+
+        $this->service($mgr, new ToolRegistry([new FakeInputTool('ask_user')]), null, $repository)
+            ->resumeWithInput($state, ['city' => 'Berlin'], $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertInstanceOf(InjectedContext::class, $seen);
+        self::assertSame([$snippet], $seen->snippets);
     }
 
     private function snippetWithUid(int $uid, string $identifier): PromptSnippet
@@ -2128,6 +2258,7 @@ final class ToolLoopServiceTest extends TestCase
         ToolRegistry $registry,
         ?LoggerInterface $logger = null,
         ?PromptSnippetRepository $promptSnippetRepository = null,
+        ?SkillRepository $skillRepository = null,
     ): ToolLoopService {
         $availability = new FakeToolAvailability($registry->names());
 
@@ -2137,6 +2268,7 @@ final class ToolLoopServiceTest extends TestCase
             $this->realPolicy($registry, $availability),
             $logger,
             promptSnippetRepository: $promptSnippetRepository,
+            skillRepository: $skillRepository,
         );
     }
 

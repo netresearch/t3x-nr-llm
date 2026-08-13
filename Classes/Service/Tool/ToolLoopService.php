@@ -163,6 +163,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * suspended — contributes nothing. The transcript still carries its text,
      * so this degrades to the pre-ADR-165 answer for that one source rather
      * than refusing a resume over a record that is gone.
+     *
+     * A source merely DEACTIVATED while the run was suspended does not degrade
+     * that way (ADR-166), which is why the snippet lookup is
+     * {@see PromptSnippetRepository::findExistingByUids()} and not the
+     * active-only {@see PromptSnippetRepository::findByUids()}. Its text is
+     * already in the transcript and
+     * still goes on the wire, so dropping it here would lower the ADR-164
+     * ceiling for content that is still being sent. "Inactive" bars a snippet
+     * from new composition; it does not un-classify text already injected. The
+     * skill half needs no counterpart: {@see SkillRepository::findAll()} ignores
+     * enable fields and the filter below is by uid only.
      */
     private function augmentationFrom(SuspendedRunState $state): ?RunAugmentation
     {
@@ -171,7 +182,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         $snippets = $state->forcedSnippetUids !== [] && $this->promptSnippetRepository instanceof PromptSnippetRepository
-            ? $this->promptSnippetRepository->findByUids($state->forcedSnippetUids)
+            ? $this->promptSnippetRepository->findExistingByUids($state->forcedSnippetUids)
             : [];
 
         $skills = [];

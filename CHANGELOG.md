@@ -67,6 +67,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the other that each has an English and a German label. The widget
   description no longer enumerates the kinds — that prose had drifted twice.
 
+- **Deactivating a forced snippet no longer lowers a suspended run's trust
+  ceiling** (#766, ADR-166). The ADR-165 resume re-gate rebuilt a run's forced set
+  through the active-only snippet lookup, so a snippet switched off while the
+  run waited for its approver vanished from the ADR-164 ceiling — while its text
+  stayed in the persisted transcript and went out on the very next send. The
+  re-gate now uses a new `PromptSnippetRepository::findExistingByUids()`, which
+  resolves an inactive or hidden record but still not a deleted one: "inactive"
+  bars a snippet from new composition, it does not un-classify text already
+  injected. ADR-165's three decisions are unchanged — the live record still
+  wins over a frozen classification in both directions, a deleted source still
+  contributes nothing, and a legacy suspended row with no uids still resumes.
+  The skill half never had the filter and needed no change.
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed
