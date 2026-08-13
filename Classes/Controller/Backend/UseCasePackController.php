@@ -39,10 +39,11 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  *
  * - **Nothing is written before an operator confirms.** `show` computes a plan
  *   read-only; only the POSTed `install` writes, and it refuses a GET.
- * - **It recommends, it does not apply.** The governance profile and the tool
- *   groups are rendered with a link to the surface that owns them. Neither is
- *   set from here (ADR-145 for the profile, the Tools module's admin enable for
- *   the groups).
+ * - **It recommends, it does not apply.** The governance profile, the tool
+ *   groups and the editor actions are rendered with a link to the surface that
+ *   owns them. None of them is set from here (ADR-145 for the profile, the
+ *   Tools module's admin enable for the groups and the actions, ADR-168 for why
+ *   the editor-action list stays a declaration).
  * - **The technical wizard stays.** Every screen links to it, and a use case
  *   with no pack says so and links there instead of hiding itself.
  *
@@ -115,6 +116,11 @@ final class UseCasePackController extends ActionController
             'wizardUrl' => $this->wizardUrl(),
             'governanceUrl' => $this->routeUrl('nrllm_overview', 'Backend\\LlmModule', 'governance'),
             'toolsUrl' => $this->routeUrl('nrllm_tools', 'Backend\\Tool', 'list'),
+            // The Editor Action Center lives in the editor-facing module
+            // (ADR-158), not in the admin tree. Linked because the plan names
+            // editor actions and an operator wants to see them where an editor
+            // does; enabling one stays in the Tools module above.
+            'editorActionsUrl' => $this->routeUrl('nrllm_aitasks', 'Backend\\EditorAction', 'catalogue'),
             'tasksUrl' => $this->routeUrl('nrllm_tasks', 'Backend\\TaskList', 'list'),
             'snippetsUrl' => $this->routeUrl('nrllm_snippets', 'Backend\\PromptSnippet', 'list'),
             'configurationsUrl' => $this->routeUrl('nrllm_configurations', 'Backend\\Configuration', 'list'),

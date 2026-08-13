@@ -512,3 +512,4 @@ Tools
    Adr165ResumeReGatesTheForcedSet
    Adr166DeactivationDoesNotLowerACeiling
    Adr167ConfigurationAccessIsASimulatedAxis
+   Adr168PacksDeclareEditorActions

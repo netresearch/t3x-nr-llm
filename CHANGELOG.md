@@ -8,6 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A use-case pack can declare the editor actions it is built for** (`#769`).
+  `UseCasePack::$recommendedEditorActions` names the editorial writes a pack was
+  designed for. The install plan reports, per declared action, whether this
+  installation has it, whether it is enabled, which record types it addresses,
+  and links to the Tools module and the Editor Action Center.
+
+  It is a declaration, not an execution contract: installing enables no action
+  and runs none, and no field connects a pack task to a tool. A pack task still
+  executes as a plain completion. See ADR-168 for why an apply path is
+  deliberately absent, and `Documentation/Administration/UseCasePacks.rst`.
+
+  The same screen now prints `recommendedToolGroups` with their live state
+  instead of raw, so a group no registered tool carries is marked *Not available
+  here* rather than looking like a real one. The constructor refuses blank and
+  duplicate entries in the NEW list only — `recommendedToolGroups` reaches the
+  frozen `@api` provider interface and keeps its contract, because every pack is
+  built inside `UseCasePackRegistry`'s constructor and a new throw there would
+  take down the backend of anyone shipping a pack with a repeated group. Unknown
+  identifiers are surfaced on the plan rather than refused, for the same reason:
+  both sets stay open for third-party packs.
+
+  The one shipped pack, Editorial Starter, declares no editor action — its tasks
+  are text transforms, and an editor action runs on the default configuration
+  rather than on the pack's.
+
 - **A refused unapproved write is now countable** (`#757`). The refusal added
   in 0.29.1 was visible only as an errored step in one run's timeline, so
   "did this ever fire" had no answer. It writes a `write_unapproved`

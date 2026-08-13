@@ -39,6 +39,12 @@ use Netresearch\NrLlm\Service\Preset\ConfigurationPreset;
  *   enabled its own tools would hand an install button the authority of the
  *   tool gate.
  *
+ * The same holds one step further down for `$recommendedEditorActions`
+ * (ADR-168): a pack installs TASKS, and a task runs as a plain completion. The
+ * named editorial writes are TOOLS reached through the Editor Action Center.
+ * Naming them here states what the pack was designed for; it enables nothing,
+ * runs nothing, and creates no link between a task record and a tool.
+ *
  * Skills are absent by design — see ADR-163.
  */
 final readonly class UseCasePack
@@ -50,13 +56,15 @@ final readonly class UseCasePack
     private const SNIPPET_TAGS_MAX_LENGTH = 255;
 
     /**
-     * @param string            $identifier            Pack identifier, unique across all providers
-     * @param UseCase           $useCase               The question this pack answers
-     * @param string            $name                  Human-readable pack name
-     * @param string            $description           What an operator gets from installing it
-     * @param list<PackTask>    $tasks                 Task records to create
-     * @param list<PackSnippet> $snippets              Snippet records to create
-     * @param list<string>      $recommendedToolGroups Tool groups the tasks benefit from; shown, never enabled
+     * @param string            $identifier               Pack identifier, unique across all providers
+     * @param UseCase           $useCase                  The question this pack answers
+     * @param string            $name                     Human-readable pack name
+     * @param string            $description              What an operator gets from installing it
+     * @param list<PackTask>    $tasks                    Task records to create
+     * @param list<PackSnippet> $snippets                 Snippet records to create
+     * @param list<string>      $recommendedToolGroups    Tool groups the tasks benefit from; shown, never enabled
+     * @param list<string>      $recommendedEditorActions Tool names of the editor actions this pack was designed
+     *                                                    for; shown with their live state, never enabled or run
      */
     public function __construct(
         public string $identifier,
@@ -68,6 +76,7 @@ final readonly class UseCasePack
         public array $tasks = [],
         public array $snippets = [],
         public array $recommendedToolGroups = [],
+        public array $recommendedEditorActions = [],
     ) {
         if (preg_match(self::IDENTIFIER_PATTERN, $identifier) !== 1) {
             throw new InvalidArgumentException(
@@ -99,6 +108,28 @@ final readonly class UseCasePack
             'snippet',
             1791460024,
         );
+
+        // A blank entry renders as an empty badge and a repeated one renders
+        // twice, so both are refused at declaration time, where the author is.
+        //
+        // This checks `$recommendedEditorActions` ONLY, and deliberately leaves
+        // `$recommendedToolGroups` alone. The field is pre-existing and reached
+        // through the `@api` {@see UseCasePackProviderInterface}, so packs that
+        // are not in this repository may already declare a blank or repeated
+        // group; every pack is built inside {@see UseCasePackRegistry}'s
+        // constructor, which catches nothing, so a new throw on an old field
+        // would turn a cosmetic defect in one third-party pack into a fatal in
+        // every backend module that injects the registry. A new field ships
+        // with its contract; an old field does not get one retro-fitted under
+        // its callers (ADR-168).
+        //
+        // What is NOT refused for either list is an identifier this
+        // installation does not know. Both sets are OPEN — a third-party
+        // extension ships its own tools, its own group and its own pack — so
+        // "unknown here" is answered by the install plan against the live
+        // registry, where it is shown rather than fatal.
+        $this->assertNoBlankEntries($this->recommendedEditorActions, 'recommended editor action', 1791460026);
+        $this->assertUniqueIdentifiers($this->recommendedEditorActions, 'recommended editor action', 1791460027);
 
         // The derived tag list is written to `tx_nrllm_configuration.snippet_tags`,
         // a varchar(255). Extbase writes it without FormEngine's max check.
@@ -145,6 +176,27 @@ final readonly class UseCasePack
         }
 
         return array_keys($tags);
+    }
+
+    /**
+     * @param list<string> $identifiers
+     */
+    private function assertNoBlankEntries(array $identifiers, string $kind, int $code): void
+    {
+        foreach ($identifiers as $identifier) {
+            if (trim($identifier) !== '') {
+                continue;
+            }
+
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Use-case pack "%s" declares an empty %s.',
+                    $this->identifier,
+                    $kind,
+                ),
+                $code,
+            );
+        }
     }
 
     /**

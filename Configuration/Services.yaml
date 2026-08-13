@@ -359,6 +359,13 @@ services:
   Netresearch\NrLlm\Service\Tool\EditorActionCatalogueInterface:
     alias: Netresearch\NrLlm\Service\Tool\EditorActionCatalogue
 
+  # The use-case pack plan's read-only view of the tool module (ADR-168). The
+  # interface lives in Service\UseCase (core) and the implementation in
+  # Service\Tool, because ADR-090 forbids core importing the tool namespace —
+  # so the container, not an import, is what joins the two.
+  Netresearch\NrLlm\Service\UseCase\PackToolReadinessInterface:
+    alias: Netresearch\NrLlm\Service\Tool\PackToolReadiness
+
   # Concrete BudgetService is private (autoregistered); consumers wire
   # against the public BudgetServiceInterface alias.
   Netresearch\NrLlm\Service\BudgetServiceInterface:

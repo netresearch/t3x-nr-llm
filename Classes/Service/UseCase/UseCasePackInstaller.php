@@ -52,6 +52,12 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
  * snippets. Without the link the pack would install its snippets and leave them
  * composed into nothing. The addition is shown on the plan screen before it
  * happens, and tags the operator selected themselves are kept.
+ *
+ * {@see plan()} additionally reports the state of the tool groups and editor
+ * actions the pack RECOMMENDS (ADR-168). {@see install()} does not read those
+ * lists at all: there is no branch here that enables a tool group, enables an
+ * editor action or runs one, and {@see PackToolReadinessInterface} has no
+ * writing method to call.
  */
 final readonly class UseCasePackInstaller
 {
@@ -70,6 +76,7 @@ final readonly class UseCasePackInstaller
         private TaskRepository $taskRepository,
         private PromptSnippetRepository $snippetRepository,
         private PersistenceManagerInterface $persistenceManager,
+        private PackToolReadinessInterface $toolReadiness,
     ) {}
 
     /**
@@ -122,6 +129,11 @@ final readonly class UseCasePackInstaller
             missingSnippetTags: $missingSnippetTags,
             affectedConfigurations: $this->configurationsReachedBy($preset->identifier, $pendingSnippetTags),
             incomingSnippets: $this->snippetsPulledInBy($pack, $missingSnippetTags),
+            // What installing does NOT do (ADR-168). Both lists are read
+            // through the tool module's own availability service; the plan
+            // states their current state and neither can block the install.
+            editorActions: $this->toolReadiness->editorActionStates($pack->recommendedEditorActions),
+            toolGroups: $this->toolReadiness->toolGroupStates($pack->recommendedToolGroups),
         );
     }
 
