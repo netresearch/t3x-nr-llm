@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -26,6 +27,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -58,6 +60,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolResultBounder;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
@@ -1575,6 +1578,60 @@ final class ToolLoopServiceTest extends TestCase
             $writes[0]->toolIsError,
             'a write nobody approved must not execute just because it became offered while the run was suspended',
         );
+    }
+
+    /**
+     * The refusal above is recorded, not only traced (#757).
+     *
+     * The run trace answers "what happened in this run"; the governance table
+     * answers "did this ever fire, and how often" — which is the question that
+     * says whether the gap the branch closes is theoretical or real on a given
+     * installation.
+     */
+    #[Test]
+    public function theUnapprovedWriteRefusalIsRecordedAsItsOwnGovernanceDecision(): void
+    {
+        $registry = new ToolRegistry([
+            new FakeInputTool('ask_user'),
+            new FakeTool('write_page', 'WRITTEN', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]);
+
+        $state = new SuspendedRunState(
+            [$this->userTurn('go')],
+            [
+                ['id' => 'call_1', 'type' => 'function', 'function' => ['name' => 'ask_user', 'arguments' => '{}']],
+                ['id' => 'call_2', 'type' => 'function', 'function' => ['name' => 'write_page', 'arguments' => '{}']],
+            ],
+            1,
+            0,
+            0,
+            ['ask_user', 'write_page'],
+            [],
+            'ask_user',
+            ['type' => 'object', 'properties' => ['city' => ['type' => 'string']], 'required' => ['city']],
+        );
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $events = new InMemoryGovernanceEventRepository();
+
+        (new ToolLoopService(
+            $mgr,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability(['ask_user', 'write_page'])),
+            governanceEvents: $events,
+        ))->resumeWithInput($state, ['city' => 'Berlin'], $this->localConfiguration(), ToolExecutionContext::none());
+
+        $rows = array_values(array_filter(
+            $events->recorded,
+            static fn(GovernanceEvent $e): bool => $e->decision === GovernanceDecision::WRITE_UNAPPROVED->value,
+        ));
+
+        self::assertCount(1, $rows, 'exactly one row, for the refused write');
+        self::assertSame('write_page', $rows[0]->toolName);
+        self::assertSame('inputResumeWithoutApproval', $rows[0]->reason);
+        // Which suspend the refused call rode in on — never the arguments.
+        self::assertSame('inputTool=ask_user', $rows[0]->detail);
     }
 
     #[Test]

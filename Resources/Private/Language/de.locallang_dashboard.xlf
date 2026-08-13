@@ -178,6 +178,10 @@
                 <source>Content filter</source>
                 <target>Content-Filter</target>
             </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.write_unapproved">
+                <source>Unapproved write refused</source>
+                <target>Schreibzugriff ohne Freigabe abgelehnt</target>
+            </trans-unit>
             <trans-unit id="widget.tool_denials.title">
                 <source>Tool denials by reason</source>
                 <target>Tool-Ablehnungen nach Grund</target>

@@ -257,6 +257,11 @@ ceiling. Two places show them:
   denials, guardrail response blocks, and the guardrail's own
   ``approval_required`` verdict on a response.
 
+  A ``write_unapproved`` bar counts writes the runtime refused because
+  nothing had approved them: a pending call that reached the input-resume
+  path after its tool was switched on mid-run. It is a refusal, not an
+  approval record, which is why it belongs in this table.
+
   The ``approval_required`` bar is **not** a count of tools held for human
   approval. A tool-approval suspend writes no row in this table,
   deliberately: the approval trail lives on the run itself, under the

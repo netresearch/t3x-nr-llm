@@ -655,6 +655,26 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // the approval scan and suspends for a real one.
                 $result = sprintf('Error: tool "%s" requires approval that was not given.', $call->name);
                 $runTrace?->recordToolExecution($state->iterations, 0.0, $call->name, $call->arguments, $result, true);
+                // Recorded, not only traced (#757). The run timeline shows this
+                // refusal for one run; the governance table is what answers
+                // "did this ever fire, and how often" — which is the question
+                // that says whether the gap this branch closes is theoretical.
+                $this->governanceEvents?->record(new GovernanceEvent(
+                    correlationId: $context->run?->correlationId() ?? '',
+                    decision: GovernanceDecision::WRITE_UNAPPROVED->value,
+                    reason: 'inputResumeWithoutApproval',
+                    provider: $configuration->getProviderType(),
+                    model: $configuration->getModelId(),
+                    configurationIdentifier: $configuration->getIdentifier(),
+                    beUser: $context->actor->backendUserUid,
+                    toolName: $call->name,
+                    agentrunUid: $context->run->uid ?? 0,
+                    guardrail: '',
+                    // The tool that DID receive the human's input, so an
+                    // operator can see which suspend the refused call rode in
+                    // on. Never the arguments: this row is metadata.
+                    detail: 'inputTool=' . $state->inputToolName,
+                ));
             } else {
                 $tt0 = hrtime(true);
                 $runTrace?->beforeToolExecution($call->name);
