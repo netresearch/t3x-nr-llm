@@ -14,6 +14,8 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\InputContextDecision;
 use Netresearch\NrLlm\Exception\InputContextTrustZoneException;
@@ -83,10 +85,31 @@ final readonly class InputContextTrustGate
      * A simulator that has not resolved one passes null and gets the zone the
      * configuration's own relation gives — the pre-ADR-149 answer, which for a
      * criteria-mode record is the fail-closed `EXTERNAL_GLOBAL`.
+     *
+     * `$forcedSnippets` / `$forcedSkills` are the sources a caller injects on
+     * top of the configuration for this one run (ADR-164). They bind: the
+     * ceiling is a statement about where the text may travel, and a caller
+     * choosing to attach it does not make the destination more trustworthy.
+     * Passing them folds them into the same classification the configuration's
+     * own sources produce, so the strictest declaration wins and the refusal
+     * names whichever source set it — configuration or forced.
+     *
+     * @param list<PromptSnippet> $forcedSnippets
+     * @param list<Skill>         $forcedSkills
      */
-    public function decide(LlmConfiguration $configuration, ?Model $servingModel = null): InputContextDecision
-    {
-        $classification = $this->classifier->classify($configuration);
+    public function decide(
+        LlmConfiguration $configuration,
+        ?Model $servingModel = null,
+        array $forcedSnippets = [],
+        array $forcedSkills = [],
+    ): InputContextDecision {
+        // sources() + strictest() IS classify() when nothing is forced, so a
+        // caller that injects nothing gets exactly the pre-ADR-164 answer. It
+        // is also the list the ADR-151 readout folds, which is what keeps the
+        // panel and the gate from disagreeing about what a run carries.
+        $classification = InputContextClassifier::strictest(
+            $this->classifier->sources($configuration, $forcedSnippets, $forcedSkills),
+        );
         if (!$classification->isDeclared()) {
             return InputContextDecision::undeclared();
         }
@@ -114,14 +137,22 @@ final readonly class InputContextTrustGate
      *
      * `$agentRunUid` attributes the refusal to the agent run that triggered it
      * (ADR-153); 0 for a plain provider call, which has no run.
+     *
+     * `$forcedSnippets` / `$forcedSkills` carry the run's per-call injections
+     * into the rule (ADR-164) — see {@see self::decide()}.
+     *
+     * @param list<PromptSnippet> $forcedSnippets
+     * @param list<Skill>         $forcedSkills
      */
     public function assertPermitted(
         LlmConfiguration $configuration,
         int $beUser = 0,
         ?Model $servingModel = null,
         int $agentRunUid = 0,
+        array $forcedSnippets = [],
+        array $forcedSkills = [],
     ): void {
-        $decision = $this->decide($configuration, $servingModel);
+        $decision = $this->decide($configuration, $servingModel, $forcedSnippets, $forcedSkills);
         if (!$decision->zoneRefused) {
             return;
         }

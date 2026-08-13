@@ -822,6 +822,11 @@ Netresearch\NrLlm\Domain\ValueObject\GuardrailResult (class)
   property readonly redactedThinking: ?string
   property readonly verdict: Netresearch\NrLlm\Domain\Enum\GuardrailVerdict
 
+Netresearch\NrLlm\Domain\ValueObject\InjectedContext (class)
+  constructor(array $snippets = …, array $skills = …)
+  property readonly skills: array
+  property readonly snippets: array
+
 Netresearch\NrLlm\Domain\ValueObject\RequestComplexity (class)
   constructor(int $score, int $payloadBytes, ?int $tokenEstimate, int $toolCount, ?int $contextPercent, string $shape)
   property readonly contextPercent: ?int
@@ -1322,9 +1327,9 @@ Netresearch\NrLlm\Service\LlmServiceManager (class)
   constructor(Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface $adapterRegistry, Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline $pipeline, Netresearch\NrLlm\Service\KeyedProviderRegistry $providerRegistry, Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver, Netresearch\NrLlm\Service\MessageShaper $messageShaper, Netresearch\NrLlm\Service\EmbedCacheKeyBuilder $embedCacheKeyBuilder, ?Netresearch\NrLlm\Service\Skill\SkillInjectionService $skillInjection = …, ?Netresearch\NrLlm\Service\ModelSelectionServiceInterface $modelSelectionService = …, ?Netresearch\NrLlm\Service\Streaming\StreamingDispatcher $streaming = …, Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener $inputScreener = …, ?Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver $snippetResolver = …, ?Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface $contextWindow = …, ?Psr\Log\LoggerInterface $logger = …, ?Netresearch\NrLlm\Service\Context\InputContextTrustGate $inputContextGate = …)
   method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -1349,9 +1354,9 @@ Netresearch\NrLlm\Service\LlmServiceManager (class)
 Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
   method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
-  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
+  method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\InjectedContext $injectedContext = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeWithConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, array $optionOverrides = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -1577,6 +1582,7 @@ Netresearch\NrLlm\Service\Retrieval\SourceReference (class)
 
 Netresearch\NrLlm\Service\Tool\RunAugmentation (class)
   constructor(array $forcedSkills = …, array $forcedSnippets = …, bool $dryRun = …)
+  method injectedContext(): Netresearch\NrLlm\Domain\ValueObject\InjectedContext
   property readonly dryRun: bool
   property readonly forcedSkills: array
   property readonly forcedSnippets: array

@@ -442,6 +442,75 @@ final class InputContextTrustGateTest extends TestCase
         return $configuration;
     }
 
+    #[Test]
+    public function aForcedSnippetBindsAgainstTheSameCeiling(): void
+    {
+        // ADR-164: the configuration itself declares nothing, so before this the
+        // gate permitted the send. The run injects a SECRET_ADJACENT snippet the
+        // configuration never carried, and it reaches an external provider.
+        $gate = $this->gate([$this->snippet('legal-policy', '')]);
+
+        $this->expectException(InputContextTrustZoneException::class);
+        $gate->assertPermitted(
+            $this->configuration(TrustZone::EXTERNAL_GLOBAL),
+            0,
+            null,
+            0,
+            [$this->snippet('incident-report', ToolDataClass::SECRET_ADJACENT->value)],
+        );
+    }
+
+    #[Test]
+    public function theRefusalNamesTheForcedSourceNotTheConfiguration(): void
+    {
+        // An operator seeing "blocked" has to be able to tell which of the two
+        // halves refused, or the refusal is unactionable: the configuration's
+        // own sources are edited in one place and the run's forced set in
+        // another.
+        $gate = $this->gate([$this->snippet('legal-policy', '')]);
+
+        try {
+            $gate->assertPermitted(
+                $this->configuration(TrustZone::EXTERNAL_GLOBAL),
+                0,
+                null,
+                0,
+                [$this->snippet('incident-report', ToolDataClass::SECRET_ADJACENT->value)],
+            );
+            self::fail('The forced snippet must be refused.');
+        } catch (InputContextTrustZoneException $e) {
+            self::assertStringContainsString('incident-report', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function aForcedSnippetBelowTheCeilingIsPermitted(): void
+    {
+        // The forced set must not be treated as suspicious per se — only its
+        // declaration counts, exactly as for a configuration's own snippet.
+        $this->gate([$this->snippet('legal-policy', '')])->assertPermitted(
+            $this->configuration(TrustZone::EXTERNAL_GLOBAL),
+            0,
+            null,
+            0,
+            [$this->snippet('house-style', ToolDataClass::PUBLIC_CONTENT->value)],
+        );
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function theConfigurationsOwnClassStillRefusesWhenNothingIsForced(): void
+    {
+        // The regression guard for the rewrite: decide() now folds sources()
+        // instead of calling classify(). With an empty forced set the two are
+        // the same fold, and this pins that they stay the same.
+        $gate = $this->gate([$this->snippet('legal-policy', ToolDataClass::SECRET_ADJACENT->value)]);
+
+        $this->expectException(InputContextTrustZoneException::class);
+        $gate->assertPermitted($this->configuration(TrustZone::EXTERNAL_GLOBAL), 0, null, 0, [], []);
+    }
+
     /**
      * A criteria-mode configuration: model_uid = 0, so no model relation and no
      * provider — the record whose zone only the resolved model can supply.
