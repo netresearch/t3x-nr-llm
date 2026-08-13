@@ -6,10 +6,12 @@
 ADR-151: The context budget is a breakdown, not a number
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (the forced set is gated after all — see
+   :ref:`ADR-164 <adr-164>`)
 :Date: 2026-08-11
 :Amends: :ref:`ADR-081 <adr-081>` (a fifth ``RunStep`` kind, and therefore a
    fifth persisted event kind)
+:Amended: 2026-08-13 by :ref:`ADR-164 <adr-164>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-151-context:
@@ -101,11 +103,12 @@ classification exists because the text is sensitive.
 *The run, not the configuration.* A playground run also injects the forced
 snippets and skills the operator ticked, and those reach the wire exactly like
 the configuration's own, so :php:`sources()` takes them as arguments and the
-panel lists them. The gate does not see them: it asks :php:`classify()`, which
-answers for the configuration alone. A forced source is therefore **shown and
-not gated**, and the panel is a superset of what ADR-144 enforces rather than a
-mirror of it. Widening the gate to the forced set is a decision about
-enforcement and belongs to ADR-144, not to a readout.
+panel lists them. The gate did not see them at the time of writing: it asked
+:php:`classify()`, which answers for the configuration alone, so a forced source
+was **shown and not gated** and the panel was a superset of what ADR-144
+enforced rather than a mirror of it. Widening the gate was a decision about
+enforcement and belonged to ADR-144, not to a readout; it was taken in
+:ref:`ADR-164 <adr-164>`, and the panel and the ceiling now fold the same list.
 
 .. _adr-151-not:
 

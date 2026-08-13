@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -206,6 +207,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * so the model this gate judges is the model the terminal will resolve
      * (ADR-138: two resolutions of one call pass the same operation).
      *
+     * `$injectedContext` carries the sources this ONE run injects on top of the
+     * configuration (ADR-164). They bind against the same ceiling: the tool
+     * loop is the only caller that has them, and it forwards its own.
+     *
      * @param array<string, mixed> $metadata
      * @param int                  $agentRunUid the run this call belongs to (ADR-153), stamped onto the
      *                                          refusal row; 0 when the call is not part of a run
@@ -215,6 +220,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         array $metadata,
         ProviderOperation $operation,
         int $agentRunUid = 0,
+        ?InjectedContext $injectedContext = null,
     ): void {
         if (!$this->inputContextGate instanceof InputContextTrustGate) {
             return;
@@ -227,6 +233,8 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             is_int($beUser) ? $beUser : 0,
             $this->servingModelForGate($configuration, $operation),
             $agentRunUid,
+            $injectedContext->snippets ?? [],
+            $injectedContext->skills ?? [],
         );
     }
 
@@ -818,9 +826,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param list<ToolSpec|array<string, mixed>>    $tools
-     * @param ?AgentRunReference                     $run      the agent run driving this round (ADR-153); null outside a run
+     * @param ?AgentRunReference                     $run             the agent run driving this round (ADR-153); null outside a run
+     * @param ?InjectedContext                       $injectedContext sources this run injects on top of the configuration (ADR-164);
+     *                                                                the ADR-144 ceiling binds against them too
      */
-    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null, ?AgentRunReference $run = null): CompletionResponse
+    public function chatWithToolsForConfiguration(array $messages, array $tools, LlmConfiguration $configuration, ?ToolOptions $options = null, ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null): CompletionResponse
     {
         $options ??= new ToolOptions();
         $optionOverrides = $options->toArray();
@@ -878,6 +888,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             },
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
             $run,
+            $injectedContext,
         );
     }
 
@@ -1049,8 +1060,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param array<string, mixed>                   $metadata
      * @param array<string, mixed>                   $optionOverrides per-call options that take precedence over the configuration's stored defaults
      * @param ?AgentRunReference                     $run             the agent run driving this call (ADR-153); null outside a run
+     * @param ?InjectedContext                       $injectedContext sources this run injects on top of the configuration (ADR-164);
+     *                                                                the ADR-144 ceiling binds against them too
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null): CompletionResponse
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null): CompletionResponse
     {
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
@@ -1069,6 +1082,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             },
             $metadata,
             $run,
+            $injectedContext,
         );
     }
 
@@ -1184,6 +1198,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         callable $terminal,
         array $metadata = [],
         ?AgentRunReference $run = null,
+        ?InjectedContext $injectedContext = null,
     ): mixed {
         // The run's own uid is authoritative and goes on the LEFT: `$metadata`
         // is caller-supplied on the public entry points, and `+` keeps the left
@@ -1198,7 +1213,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // rather than in each terminal because it is a property of the
         // configuration, not of the payload, and every configuration-driven
         // operation runs through this pipeline.
-        $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0);
+        $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0, $injectedContext);
 
         return $this->pipeline->run(
             ProviderCallContext::forConfiguration($operation, $configuration, $metadata, $run?->correlationId()),

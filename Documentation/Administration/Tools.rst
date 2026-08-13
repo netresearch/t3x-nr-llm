@@ -703,8 +703,10 @@ loop, while the Tools module governs *which* tools exist and are enabled.
      class it declared (:ref:`ADR-144 <adr-144>`) or *not classified*, and the
      strictest class across all of them. The list covers the snippets and
      skills you force-injected for this one run as well as the
-     configuration's own — the input-context gate itself still answers for the
-     configuration alone, so a forced source is shown here and is not gated.
+     configuration's own, and the input-context gate reads the same list
+     (:ref:`ADR-164 <adr-164>`): a source shown here is a source that is
+     gated. Forcing a snippet the configuration's trust zone would refuse
+     therefore refuses the run, naming that snippet.
 
 .. figure:: /Images/ToolPlaygroundRun.png
    :alt: A completed tool run — the summary strip, the ordered step list and

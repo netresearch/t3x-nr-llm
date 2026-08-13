@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 
 /**
  * Per-run prompt augmentation for an inspectable {@see ToolLoopService} run,
@@ -38,4 +39,16 @@ final readonly class RunAugmentation
         public array $forcedSnippets = [],
         public bool $dryRun = false,
     ) {}
+
+    /**
+     * The forced set in the shape the ADR-144 ceiling reads (ADR-164).
+     *
+     * The dry-run flag is deliberately not carried: a dry run assembles the
+     * messages and returns without calling a provider, so nothing leaves the
+     * installation and there is no send for the ceiling to judge.
+     */
+    public function injectedContext(): InjectedContext
+    {
+        return new InjectedContext($this->forcedSnippets, $this->forcedSkills);
+    }
 }

@@ -195,7 +195,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
-            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options), run: $context->run);
+            $resp = $this->mgr->chatWithConfiguration($messages, $configuration, $this->budgetMetadata($options), run: $context->run, injectedContext: $augmentation?->injectedContext());
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
 
             // Fold in any carried-over counters (a resume whose continuation has
@@ -247,7 +247,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // The run travels with the call (ADR-153): every round of one run
                 // lands on the run's correlation id instead of minting its own,
                 // so its telemetry rows are attributable to the run afterwards.
-                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options, $context->run);
+                $resp = $this->mgr->chatWithToolsForConfiguration($messages, $specs, $configuration, $options, $context->run, $augmentation?->injectedContext());
                 $runTrace?->recordLlmCall($iterations, $this->elapsedMs($t0), $resp);
                 $lastUsage         = $resp->usage;
                 $promptTokens     += $resp->usage->promptTokens;
@@ -371,6 +371,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $configuration,
                 $this->budgetMetadata($options),
                 run: $context->run,
+                injectedContext: $augmentation?->injectedContext(),
             );
             $runTrace?->recordLlmCall($iterations + 1, $this->elapsedMs($t0), $final);
             $promptTokens     += $final->usage->promptTokens;

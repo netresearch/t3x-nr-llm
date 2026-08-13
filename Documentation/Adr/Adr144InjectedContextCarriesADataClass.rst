@@ -6,12 +6,13 @@ ADR-144: Injected context carries a declared data class
 
 :Status: Accepted (the criteria-mode zone now comes from the resolved model —
     see :ref:`ADR-149 <adr-149>`; the system prompt is classified after all —
-    see :ref:`ADR-155 <adr-155>`)
+    see :ref:`ADR-155 <adr-155>`; a run's forced sources bind too — see
+    :ref:`ADR-164 <adr-164>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-094 <adr-094>` (the axis now binds in both directions)
          and :ref:`ADR-139 <adr-139>` (its "no trust-zone ceiling" gap)
-:Amended: 2026-08-11 by :ref:`ADR-149 <adr-149>`, and 2026-08-11 by
-    :ref:`ADR-155 <adr-155>`
+:Amended: 2026-08-11 by :ref:`ADR-149 <adr-149>`, 2026-08-11 by
+    :ref:`ADR-155 <adr-155>`, and 2026-08-13 by :ref:`ADR-164 <adr-164>`
 :Authors: Netresearch DTT GmbH
 
 Context

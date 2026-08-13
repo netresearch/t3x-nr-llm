@@ -66,10 +66,14 @@ final readonly class InputContextClassifier
      * `$forcedSnippets` / `$forcedSkills` are the per-RUN additions a caller
      * injects on top of the configuration (the playground's forced set). They
      * really do reach the wire, so a readout that omitted them would
-     * under-report the run — but the ADR-144 gate does NOT see them: it asks
-     * {@see self::classify()}, which answers for the configuration alone. A
-     * forced source is therefore listed and NOT gated, and both the panel and
-     * this docblock say so rather than implying the gate covers it.
+     * under-report the run.
+     *
+     * Since ADR-164 the gate reads THIS method with the same forced set rather
+     * than {@see self::classify()}, so the panel and the ceiling now answer for
+     * the same source list. `classify()` deliberately keeps its narrower
+     * configuration-only meaning: it is the fold a caller wants when the
+     * question really is "what does this configuration carry", independent of
+     * any one run.
      *
      * A forced source the configuration already carries is listed once: the
      * loop's own assembly drops the duplicate text, so counting it twice would
