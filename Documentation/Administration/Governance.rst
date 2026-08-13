@@ -264,8 +264,9 @@ ceiling. Two places show them:
   an approver carries resumable work and must outlive the telemetry-length
   window this table uses. Read it per run in the run timeline, not here.
 
-The bar therefore answers "how often did the data-class axis fire in the
-last 30 days", not "how many tools would enforcement remove". Use it to see
+The :guilabel:`Trust zone ceiling` bar therefore answers "how often did the
+data-class axis fire in the last 30 days", not "how many tools would
+enforcement remove". Use it to see
 *that* the axis fires. Take the number you act on from the table.
 
 The list you actually need is one row per configuration and tool, and it
