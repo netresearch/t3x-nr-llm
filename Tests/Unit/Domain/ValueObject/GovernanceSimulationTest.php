@@ -27,7 +27,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The fold from four axes to one verdict (ADR-157).
+ * The fold from five axes to one verdict (ADR-157, ADR-167).
  *
  * Each axis gets its own refusal here, because the whole point of the record is
  * that ANY of them decides — a fold that only consulted the tool gate would
@@ -130,11 +130,30 @@ final class GovernanceSimulationTest extends TestCase
         self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
     }
 
+    #[Test]
+    public function configurationAccessRefusing(): void
+    {
+        // ADR-167: the actor may not use the configuration at all, so no gate
+        // downstream of it gets a say.
+        $simulation = $this->simulation(configurationAllowed: false);
+
+        self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
+    }
+
+    #[Test]
+    public function configurationAccessRefusingIsNotRescuedByAnApprovalBoundTool(): void
+    {
+        $simulation = $this->simulation(approvalRequired: true, configurationAllowed: false);
+
+        self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
+    }
+
     private function simulation(
         ?ToolPolicyDecision $tool = null,
         ?InputContextDecision $context = null,
         ?RoutingReadout $routing = null,
         bool $approvalRequired = false,
+        bool $configurationAllowed = true,
     ): GovernanceSimulation {
         $model = new Model();
         $model->setModelId('gpt-4o');
@@ -151,6 +170,7 @@ final class GovernanceSimulationTest extends TestCase
                 false,
             ),
             $approvalRequired,
+            $configurationAllowed,
             new SimulationActor(7, 'editor', false),
         );
     }

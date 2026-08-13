@@ -4,10 +4,13 @@
 ADR-157: The simulation covers the run, and answers for an actor
 =========================================================================
 
-:Status: Accepted
+:Status: Accepted (its "Revisit when" clause fired — see
+         :ref:`ADR-167 <adr-167>`, which makes configuration access a fifth,
+         actor-scoped axis)
 :Date: 2026-08-11
 :Amends: :ref:`ADR-145 <adr-145>` (the simulator gains the remaining gate, an
          actor, and an audit decision)
+:Amended: 2026-08-13 by :ref:`ADR-167 <adr-167>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -176,6 +179,10 @@ therefore reads ``Allowed`` here and is refused at runtime. Budget and
 guardrails are outside the four as well, but neither is a pairing the picker
 can produce. The docs page states the limitation next to the picker.
 
+  **Closed by** :ref:`ADR-167 <adr-167>` (2026-08-13): configuration access is
+  a fifth axis, asked through the same resolver, and the scope column now
+  carries two actor-scoped rows. Budget and guardrails remain outside.
+
 ✕ Simulations leave no trace. See :ref:`the audit decision <adr-157-audit>`.
 
 ✕ The picker cannot answer for a usergroup, a service account, or a frontend
@@ -188,3 +195,7 @@ An axis becomes actor-scoped that is not today — a per-user model catalogue, o
 a configuration-access check folded into the verdict — or a requirement appears
 for a record of who simulated what. The first widens the scope column; the
 second is a new log, not a change to the governance stream.
+
+The configuration-access half fired on 2026-08-13 and is
+:ref:`ADR-167 <adr-167>`. It widened the scope column exactly as stated: a
+second row now answers ``Yes``.

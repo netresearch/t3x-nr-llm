@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceSimulation;
 use Netresearch\NrLlm\Domain\ValueObject\SimulationActor;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
@@ -23,7 +24,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * Runs one tool call past every gate that could stop it, and reports what each
  * one said (ADR-157).
  *
- * Four axes, four real runtime services, no second copy of any rule:
+ * Five axes, five real runtime services, no second copy of any rule:
  *
  * - the tool gate — {@see ToolCallPolicyInterface::decide()} (ADR-094);
  * - the input-context gate — {@see InputContextTrustGate::decide()}, the
@@ -32,7 +33,10 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *   the same {@see \Netresearch\NrLlm\Service\Routing\RoutingDecisionService}
  *   call the runtime makes (ADR-142);
  * - the approval requirement — {@see ToolApprovalRule}, the predicate the loop
- *   itself scans with (ADR-084/134).
+ *   itself scans with (ADR-084/134);
+ * - configuration access — {@see ConfigurationResolver::actorMayUse()}, the
+ *   non-throwing half of the rule `getActiveByIdentifierForActor()` enforces
+ *   (ADR-070, ADR-167).
  *
  * **It lives in the tool module, not in `Service\Governance`.** Core may not
  * import the tool module (ADR-090, enforced by `ModuleSeamTest`), and the thing
@@ -76,6 +80,7 @@ final readonly class GovernanceSimulator
         private ModelSelectionServiceInterface $modelSelectionService,
         private ToolRegistry $toolRegistry,
         private ActingBackendUserResolverInterface $actingBackendUserResolver,
+        private ConfigurationResolver $configurationResolver,
     ) {}
 
     /**
@@ -98,8 +103,36 @@ final readonly class GovernanceSimulator
             $this->inputContextGate->decide($configuration),
             $this->modelSelectionService->explainRouting($configuration, self::OPERATION, null),
             ToolApprovalRule::requiresApproval($this->toolRegistry->get($toolName)),
+            $this->configurationResolver->actorMayUse($configuration, $this->actorContext($user)),
             $actor,
         );
+    }
+
+    /**
+     * The actor the configuration-access rule is asked with.
+     *
+     * Built from the RESOLVED backend user, never from the uid alone.
+     * `AiActorContext::backendUser($actorUid)` above carries the defaults
+     * `isAdmin=false, backendGroupIds=[]`, which is correct as an argument to
+     * {@see ActingBackendUserResolverInterface::resolve()} — that call answers
+     * with the real record — and would be a lie here: every restricted
+     * configuration would read "Refused" for every actor, administrators
+     * included. {@see ToolExecutionContext::fromBackendUser()} is the one place
+     * a live user is turned into a context, so the uid/admin/group extraction
+     * is not written a second time.
+     *
+     * No user — a uid that no longer resolves, or no ambient operator — yields
+     * the anonymous actor, which is a member of no group and holds no scope. A
+     * restricted configuration is therefore refused for it, matching how the
+     * tool gate treats the same case.
+     */
+    private function actorContext(?BackendUserAuthentication $user): AiActorContext
+    {
+        if (!$user instanceof BackendUserAuthentication) {
+            return AiActorContext::anonymous();
+        }
+
+        return ToolExecutionContext::fromBackendUser($user)->actor;
     }
 
     /**

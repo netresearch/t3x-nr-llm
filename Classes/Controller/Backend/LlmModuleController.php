@@ -385,9 +385,10 @@ final class LlmModuleController extends ActionController
      * Answer "would this run be allowed" through the REAL gates (ADR-145,
      * ADR-157).
      *
-     * {@see GovernanceSimulator} calls the four runtime services in turn — the
-     * tool gate, the input-context gate, the routing decision and the approval
-     * predicate — and folds their answers into one verdict. None of them is
+     * {@see GovernanceSimulator} calls the five runtime services in turn — the
+     * tool gate, the input-context gate, the routing decision, the approval
+     * predicate and configuration access (ADR-167) — and folds their answers
+     * into one verdict. None of them is
      * reimplemented here: a simulator with its own copy of a policy is worse
      * than none, because the two can disagree and only one of them runs.
      *

@@ -409,8 +409,8 @@
                 <target>Wäre das erlaubt?</target>
             </trans-unit>
             <trans-unit id="governance.simulator.lead">
-                <source>Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
-                <target>Frag die Gates, die die Runtime fragt. Hier laufen die echte Tool-Policy, das echte Eingabekontext-Gate, die echte Routing-Entscheidung und das echte Freigabe-Prädikat, und ihre Antworten werden zu einem Urteil zusammengefasst. Wähle einen Backend-Benutzer, um für jemand anderen als dich selbst zu antworten: der Benutzer wird nur lesend aufgelöst, es wird nichts in seinem Namen ausgeführt und nichts geschrieben.</target>
+                <source>Ask the gates the runtime asks. This runs the real configuration-access rule, the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
+                <target>Frag die Gates, die die Runtime fragt. Hier laufen die echte Konfigurationszugriffs-Regel, die echte Tool-Policy, das echte Eingabekontext-Gate, die echte Routing-Entscheidung und das echte Freigabe-Prädikat, und ihre Antworten werden zu einem Urteil zusammengefasst. Wähle einen Backend-Benutzer, um für jemand anderen als dich selbst zu antworten: der Benutzer wird nur lesend aufgelöst, es wird nichts in seinem Namen ausgeführt und nichts geschrieben.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration">
                 <source>Configuration</source>
@@ -508,6 +508,10 @@
                 <source>Depends on the actor?</source>
                 <target>Hängt vom Handelnden ab?</target>
             </trans-unit>
+            <trans-unit id="governance.simulator.axis.configuration">
+                <source>Configuration access</source>
+                <target>Konfigurationszugriff</target>
+            </trans-unit>
             <trans-unit id="governance.simulator.axis.tool">
                 <source>Tool gate</source>
                 <target>Tool-Gate</target>
@@ -523,6 +527,18 @@
             <trans-unit id="governance.simulator.axis.approval">
                 <source>Human approval</source>
                 <target>Menschliche Freigabe</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.allowedLead">
+                <source>This user may use this configuration.</source>
+                <target>Dieser Benutzer darf diese Konfiguration verwenden.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.deniedLead">
+                <source>This configuration is restricted to backend groups this user is not a member of, so the run is refused before any gate is reached.</source>
+                <target>Diese Konfiguration ist auf Backend-Gruppen beschränkt, denen dieser Benutzer nicht angehört. Der Lauf wird abgelehnt, bevor ein Gate erreicht wird.</target>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.configuration">
+                <source>Yes, it reads which backend groups the user is in.</source>
+                <target>Ja, sie liest die Backend-Gruppen des handelnden Benutzers.</target>
             </trans-unit>
             <trans-unit id="governance.simulator.scope.actor">
                 <source>Yes, through requiresAdmin().</source>

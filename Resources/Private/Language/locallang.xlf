@@ -311,7 +311,7 @@
                 <source>Would this be allowed?</source>
             </trans-unit>
             <trans-unit id="governance.simulator.lead">
-                <source>Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
+                <source>Ask the gates the runtime asks. This runs the real configuration-access rule, the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.configuration">
                 <source>Configuration</source>
@@ -385,6 +385,9 @@
             <trans-unit id="governance.simulator.column.scope">
                 <source>Depends on the actor?</source>
             </trans-unit>
+            <trans-unit id="governance.simulator.axis.configuration">
+                <source>Configuration access</source>
+            </trans-unit>
             <trans-unit id="governance.simulator.axis.tool">
                 <source>Tool gate</source>
             </trans-unit>
@@ -396,6 +399,15 @@
             </trans-unit>
             <trans-unit id="governance.simulator.axis.approval">
                 <source>Human approval</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.allowedLead">
+                <source>This user may use this configuration.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.configuration.deniedLead">
+                <source>This configuration is restricted to backend groups this user is not a member of, so the run is refused before any gate is reached.</source>
+            </trans-unit>
+            <trans-unit id="governance.simulator.scope.configuration">
+                <source>Yes, it reads which backend groups the user is in.</source>
             </trans-unit>
             <trans-unit id="governance.simulator.scope.actor">
                 <source>Yes, through requiresAdmin().</source>

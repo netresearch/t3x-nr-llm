@@ -318,25 +318,25 @@ Would this be allowed?
 ======================
 
 Pick a configuration, a tool and — optionally — a backend user, then press
-:guilabel:`Simulate`. The tab runs that call past the four gates listed below
+:guilabel:`Simulate`. The tab runs that call past the five gates listed below
 and reports one verdict plus each gate's own answer
-(:ref:`ADR-157 <adr-157>`).
+(:ref:`ADR-157 <adr-157>`, :ref:`ADR-167 <adr-167>`).
 
 The verdict is one of three:
 
 ``Allowed``
-   All four gates permit the call and it would run unattended.
+   All five gates permit the call and it would run unattended.
 
 ``Allowed, after a human approves``
-   All four gates permit the call, and the tool is approval-bound
+   All five gates permit the call, and the tool is approval-bound
    (:ref:`ADR-134 <adr-134>`): the run suspends and waits for a decision
    before it executes. Folding this into ``Allowed`` would hide the axis at
    exactly the moment it decides, so it is its own outcome.
 
 ``Blocked``
-   At least one of the four refuses. The table says which.
+   At least one of the five refuses. The table says which.
 
-Four gates are asked, each through the service the runtime itself calls:
+Five gates are asked, each through the service the runtime itself calls:
 
 .. list-table::
    :header-rows: 1
@@ -344,6 +344,10 @@ Four gates are asked, each through the service the runtime itself calls:
    * - Gate
      - What it decides
      - Depends on the actor?
+   * - Configuration access (:ref:`ADR-070 <adr-070>`)
+     - whether this backend user may use this configuration at all, given the
+       backend groups it is restricted to
+     - **Yes** — through the user's group membership
    * - Tool gate (:ref:`ADR-094 <adr-094>`)
      - registered, enabled, permitted, within the configuration's tool groups,
        within the provider trust zone's data-class ceiling
@@ -359,27 +363,29 @@ Four gates are asked, each through the service the runtime itself calls:
      - whether the tool is bound to an operator decision
      - No
 
-**Only one axis is actor-scoped, and the table says so.** Routing reads the
-model catalogue with enable-fields ignored and no user context, the
-input-context gate compares a configuration against a trust zone, and the
-approval requirement is a property of the tool's own declaration. A picker
-that implied four per-user answers where there is one would be worse than no
+**Two axes are actor-scoped, and the table says so.** Routing reads the model
+catalogue with enable-fields ignored and no user context, the input-context
+gate compares a configuration against a trust zone, and the approval
+requirement is a property of the tool's own declaration. The two that read the
+user are the tool gate, through the tool's ``requiresAdmin()``, and
+configuration access, through the backend groups the record carries. A picker
+that implied five per-user answers where there are two would be worse than no
 picker.
 
-**Three things that can stop a real call are not asked here**, so ``Allowed``
-does not promise them.
+The configuration selector lists every active configuration and applies no
+membership filter, so a group-restricted configuration paired with a
+non-member is a pairing the picker makes easy to produce. The tab asks
+``ConfigurationResolver`` the same question the runtime asks it, so that
+pairing reads ``Blocked`` here and names the restriction as the reason
+(:ref:`ADR-167 <adr-167>`).
 
-Configuration access (:ref:`ADR-070 <adr-070>`) is the one the picker makes
-easy to miss. ``ConfigurationResolver`` refuses a configuration whose backend
-groups the acting user is not a member of. The configuration selector lists
-every active configuration and applies no such filter. So a group-restricted
-configuration paired with a non-member reads ``Allowed`` on this tab and is
-refused at runtime. It is the second axis that reads the user's groups, and it
-is the one the tab does not ask.
-
-The other two are the budget check and the guardrail pipeline. Both decide on
-the call itself — the remaining spend, the text of the prompt — and a picker
-supplies neither.
+**Two things that can stop a real call are not asked here**, so ``Allowed``
+does not promise them: the budget check and the guardrail pipeline. Both
+decide on the call itself — the remaining spend, the text of the prompt — and
+a picker supplies neither. The budget check has a second reason, stated in
+:ref:`ADR-167 <adr-167>`: it reports usage and limit numbers only when it
+refuses, so "close to the limit" and "no data" cannot be told apart from
+"plenty left", and a row saying otherwise would be a measurement nobody took.
 
 **The actor picker is not impersonation.** The selected backend user is
 resolved read-only through the same seam a queue worker uses to authorise for

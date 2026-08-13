@@ -149,18 +149,33 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
     public function everyAxisIsShownWithItsOwnAnswerAndItsScope(): void
     {
         // The verdict alone cannot say which gate decided, and the fix differs
-        // per gate. The scope column is the other half: three of the four axes
-        // answer the same for every actor, and a simulator that implied
-        // otherwise would be worse than one that says so.
+        // per gate. The scope column is the other half: three of the five axes
+        // answer the same for every actor and two do not, and a simulator that
+        // implied otherwise would be worse than one that says so.
         $body = $this->render(null, [], $this->simulation());
 
+        self::assertStringContainsString('Configuration access', $body);
         self::assertStringContainsString('Tool gate', $body);
         self::assertStringContainsString('Input-context gate', $body);
         self::assertStringContainsString('Routing', $body);
         self::assertStringContainsString('Human approval', $body);
         self::assertStringContainsString('Yes, through requiresAdmin().', $body);
+        self::assertStringContainsString('Yes, it reads which backend groups the user is in.', $body);
         self::assertStringContainsString('enable-fields ignored and no user context', $body);
         self::assertStringContainsString('constrains nothing', $body, 'the undeclared input context says so in words');
+    }
+
+    #[Test]
+    public function aConfigurationTheActorMayNotUseIsNamedAsTheAxisThatBlocked(): void
+    {
+        // ADR-167: the pairing that used to read "Allowed" here and was refused
+        // at runtime. It has to name the restriction, because the fix is a
+        // group membership rather than anything on the four gates below it.
+        $body = $this->render(null, [], $this->simulation(configurationAllowed: false));
+
+        self::assertStringContainsString('Blocked', $body);
+        self::assertStringContainsString('Configuration access', $body);
+        self::assertStringContainsString('restricted to backend groups this user is not a member of', $body);
     }
 
     #[Test]
@@ -643,6 +658,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
         ?RoutingReadout $routing = null,
         bool $approvalRequired = false,
         ?SimulationActor $actor = null,
+        bool $configurationAllowed = true,
     ): GovernanceSimulation {
         $model = new Model();
         $model->setModelId('gpt-4o');
@@ -659,6 +675,7 @@ final class GovernanceTabRenderTest extends AbstractFunctionalTestCase
                 false,
             ),
             $approvalRequired,
+            $configurationAllowed,
             $actor ?? new SimulationActor(3, 'editor', false),
         );
     }

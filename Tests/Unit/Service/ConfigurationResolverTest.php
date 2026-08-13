@@ -388,4 +388,50 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->resolverFor($configuration)
             ->getActiveByIdentifierForActor('restricted', AiActorContext::backendUser(3, backendGroupIds: [2]));
     }
+
+    // ---- actorMayUse(): the same decision, without the throw (ADR-167) ----
+    //
+    // The eight cases above are the characterization of the throwing entry
+    // point and are unchanged by the extraction. These pin that the predicate
+    // the Governance tab asks answers identically — one implementation, two
+    // callers — over an entity the caller already holds, with no identifier
+    // lookup and no exception to sort by type.
+
+    #[Test]
+    public function theAccessPredicateRefusesANonMemberWithoutThrowing(): void
+    {
+        self::assertFalse((new ConfigurationResolver())->actorMayUse(
+            $this->restrictedConfiguration([7]),
+            AiActorContext::backendUser(3, backendGroupIds: [2, 5]),
+        ));
+    }
+
+    #[Test]
+    public function theAccessPredicateAllowsAMemberAnAdminAndAnUnrestrictedConfiguration(): void
+    {
+        $subject = new ConfigurationResolver();
+
+        self::assertTrue($subject->actorMayUse(
+            $this->restrictedConfiguration([7, 9]),
+            AiActorContext::backendUser(3, backendGroupIds: [2, 9]),
+        ));
+        self::assertTrue($subject->actorMayUse(
+            $this->restrictedConfiguration([7]),
+            AiActorContext::backendUser(3, isAdmin: true),
+        ));
+        self::assertTrue($subject->actorMayUse(
+            $this->restrictedConfiguration([]),
+            AiActorContext::anonymous(),
+        ));
+    }
+
+    #[Test]
+    public function theAccessPredicateRefusesAnAnonymousActorARestrictedConfiguration(): void
+    {
+        // The fail-closed answer the simulator's unresolved-actor case relies on.
+        self::assertFalse((new ConfigurationResolver())->actorMayUse(
+            $this->restrictedConfiguration([7]),
+            AiActorContext::anonymous(),
+        ));
+    }
 }

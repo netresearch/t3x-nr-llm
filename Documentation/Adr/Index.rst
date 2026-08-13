@@ -511,3 +511,4 @@ Tools
    Adr164ForcedSourcesBindAgainstTheCeiling
    Adr165ResumeReGatesTheForcedSet
    Adr166DeactivationDoesNotLowerACeiling
+   Adr167ConfigurationAccessIsASimulatedAxis
