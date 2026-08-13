@@ -122,4 +122,50 @@ final class SuspendedRunStateTest extends TestCase
 
         self::assertSame([], $restored->callPreviews);
     }
+
+    #[Test]
+    public function theForcedSetSurvivesTheRoundTrip(): void
+    {
+        // ADR-165: a resume runs in a different process from the suspend, so
+        // the run's forced sources reach the ADR-164 ceiling only if the state
+        // carries their uids.
+        $state = new SuspendedRunState([], [], 1, 0, 0, forcedSnippetUids: [41, 7], forcedSkillUids: [77]);
+
+        // Through real JSON, because that is the round trip the AgentRun row
+        // makes: an int list survives it, and this is where it would not.
+        $decoded = json_decode(json_encode($state->toArray(), JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        /** @var array<string, mixed> $decoded */
+        $restored = SuspendedRunState::fromArray($decoded);
+
+        self::assertSame([41, 7], $restored->forcedSnippetUids);
+        self::assertSame([77], $restored->forcedSkillUids);
+    }
+
+    #[Test]
+    public function aRowWrittenBeforeTheForcedSetExistedRehydratesWithoutIt(): void
+    {
+        // Every state suspended before ADR-165 lacks both keys, and a running
+        // installation has such rows. They must resume, not fail.
+        $restored = SuspendedRunState::fromArray(['messages' => [], 'pendingCalls' => []]);
+
+        self::assertSame([], $restored->forcedSnippetUids);
+        self::assertSame([], $restored->forcedSkillUids);
+    }
+
+    #[Test]
+    public function anUnusableUidIsDroppedRatherThanHandedToARepository(): void
+    {
+        // JSON round-trips and hand-edited rows can carry anything. A uid of 0
+        // or below identifies no record, and a non-numeric entry is not a uid
+        // at all; both would only produce a lookup that answers nothing.
+        $restored = SuspendedRunState::fromArray([
+            'messages'          => [],
+            'pendingCalls'      => [],
+            'forcedSnippetUids' => [41, 0, -3, 'nine', '12', null, ['nested']],
+        ]);
+
+        self::assertSame([41, 12], $restored->forcedSnippetUids);
+    }
 }

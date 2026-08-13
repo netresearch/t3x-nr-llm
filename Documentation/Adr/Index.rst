@@ -509,3 +509,4 @@ Tools
    Adr162BulkEditorActionsAsOrdinaryRuns
    Adr163UseCasePacks
    Adr164ForcedSourcesBindAgainstTheCeiling
+   Adr165ResumeReGatesTheForcedSet

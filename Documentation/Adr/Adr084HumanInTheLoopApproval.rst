@@ -6,9 +6,11 @@
 ADR-084: Human-in-the-loop tool approval with suspend and resume
 ============================================================================
 
-:Status: Accepted (the trigger is widened by :ref:`ADR-134 <adr-134>`)
+:Status: Accepted (the trigger is widened by :ref:`ADR-134 <adr-134>`; the
+    suspended state carries a further field — see :ref:`ADR-165 <adr-165>`)
 :Date: 2026-07-18
-:Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`
+:Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-08-13 by
+    :ref:`ADR-165 <adr-165>`
 :Authors: Netresearch DTT GmbH
 
 .. note::

@@ -13,7 +13,11 @@ use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\PromptSnippet;
+use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
+use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -115,7 +119,77 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // in exactly the place that inspects it — the playground — and the
         // budget would be short by the snippet block on every production run.
         private ?ConfigurationSnippetResolver $snippetResolver = null,
+        // Re-load the run's forced sources on resume so the ADR-164 ceiling
+        // still sees them (ADR-165). Optional like the collaborators above: a
+        // construction without them keeps the pre-ADR-165 behaviour, where a
+        // resumed send was not re-gated against the forced set.
+        private ?PromptSnippetRepository $promptSnippetRepository = null,
+        private ?SkillRepository $skillRepository = null,
     ) {}
+
+    /**
+     * The uids of a forced source list, for the suspend state (ADR-165).
+     *
+     * A record with no uid is not persistable and is dropped: it cannot be
+     * re-loaded on resume, so writing a placeholder would only produce a
+     * lookup that answers nothing.
+     *
+     * @param list<PromptSnippet>|list<Skill> $records
+     *
+     * @return list<int>
+     */
+    private function uidsOf(array $records): array
+    {
+        $uids = [];
+        foreach ($records as $record) {
+            $uid = $record->getUid();
+            if ($uid !== null && $uid > 0) {
+                $uids[] = $uid;
+            }
+        }
+
+        return $uids;
+    }
+
+    /**
+     * The run's forced set, re-loaded from the uids the suspend persisted
+     * (ADR-165), or null when the run forced nothing.
+     *
+     * Null rather than an empty augmentation, so the send path keeps passing
+     * null exactly as an ordinary run does — the gate then takes its
+     * configuration-only path rather than folding an empty list.
+     *
+     * A uid that no longer resolves — the snippet was deleted while the run was
+     * suspended — contributes nothing. The transcript still carries its text,
+     * so this degrades to the pre-ADR-165 answer for that one source rather
+     * than refusing a resume over a record that is gone.
+     */
+    private function augmentationFrom(SuspendedRunState $state): ?RunAugmentation
+    {
+        if ($state->forcedSnippetUids === [] && $state->forcedSkillUids === []) {
+            return null;
+        }
+
+        $snippets = $state->forcedSnippetUids !== [] && $this->promptSnippetRepository instanceof PromptSnippetRepository
+            ? $this->promptSnippetRepository->findByUids($state->forcedSnippetUids)
+            : [];
+
+        $skills = [];
+        if ($state->forcedSkillUids !== [] && $this->skillRepository instanceof SkillRepository) {
+            $wanted = array_flip($state->forcedSkillUids);
+            foreach ($this->skillRepository->findAll() as $skill) {
+                if ($skill instanceof Skill && $skill->getUid() !== null && isset($wanted[$skill->getUid()])) {
+                    $skills[] = $skill;
+                }
+            }
+        }
+
+        if ($snippets === [] && $skills === []) {
+            return null;
+        }
+
+        return new RunAugmentation(forcedSkills: $skills, forcedSnippets: $snippets);
+    }
 
     /**
      * Run the bounded agent loop and return its outcome.
@@ -300,6 +374,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // approval time: this is the run's actor context, the
                             // only identity allowed to read the targets (ADR-136).
                             callPreviews: $this->previewsForTurn($resp->toolCalls ?? [], $allowedNames, $context),
+                            // The forced set travels with the suspend so resume
+                            // re-applies the ADR-164 ceiling to it (ADR-165).
+                            forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
+                            forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
                         ));
                     }
                 }
@@ -334,6 +412,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             $options?->toArray() ?? [],
                             inputToolName: $call->name,
                             inputSchema: $schema,
+                            forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
+                            forcedSkillUids: $this->uidsOf($augmentation->forcedSkills ?? []),
                         ));
                     }
                 }
@@ -573,7 +653,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             $maxIterations,
             $runTrace,
-            null,
+            // Rebuilt from the persisted uids, not carried in memory: a resume
+            // runs in a different process from the suspend (ADR-165).
+            $this->augmentationFrom($state),
             true,
             $state->iterations,
             $state->promptTokens,
@@ -694,7 +776,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $options,
             $maxIterations,
             $runTrace,
-            null,
+            // Rebuilt from the persisted uids, not carried in memory: a resume
+            // runs in a different process from the suspend (ADR-165).
+            $this->augmentationFrom($state),
             true,
             $state->iterations,
             $state->promptTokens,

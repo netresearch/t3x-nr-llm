@@ -38,6 +38,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `chatWithToolsForConfiguration()` take it as a trailing optional
   parameter, additive on both.
 
+- **A resumed run re-gates its forced sources** (`#761`, ADR-165). ADR-164 made
+  a run's forced snippets and skills bind against the ADR-144 trust ceiling but
+  could not reach a resume: `SuspendedRunState` carried no forced set, so a run
+  that came back from an approval or an input pause was judged on its
+  configuration alone.
+
+  The state now carries `forcedSnippetUids` / `forcedSkillUids`, and the loop
+  re-loads them on resume — so the ceiling is re-applied against the *live*
+  trust zone, which is what can have changed while the run was suspended (the
+  configuration re-pointed at a less trusted provider, or enforcement switched
+  from observe to enforce).
+
+  A row suspended before this change has neither key and resumes exactly as it
+  did. A uid that no longer resolves — the snippet was deleted meanwhile —
+  contributes nothing rather than stranding the run.
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed
