@@ -15,10 +15,11 @@ use Netresearch\NrLlm\Domain\Enum\SimulationVerdict;
  * What the whole run would do, axis by axis, and the one verdict that follows
  * (ADR-157).
  *
- * ADR-145's simulator answered for the tool gate alone, which is one of four
+ * ADR-145's simulator answered for the tool gate alone, which is one of five
  * things that can stop a tool-calling run. A page that says "Allowed" while the
- * input-context gate would refuse the send, or while routing resolves no model
- * at all, is not a partial answer — it is a wrong one.
+ * input-context gate would refuse the send, while routing resolves no model at
+ * all, or while the actor may not use the configuration in the first place
+ * (ADR-167), is not a partial answer — it is a wrong one.
  *
  * Every axis keeps its own answer. The verdict is a fold over them, never a
  * substitute for them: an operator needs to see WHICH axis decided, because the
@@ -30,8 +31,9 @@ use Netresearch\NrLlm\Domain\Enum\SimulationVerdict;
  * {@see \Netresearch\NrLlm\Domain\Repository\ModelRepository::findActive()}
  * ignores enable-fields and reads no user — and so does the input-context gate,
  * which compares a configuration's declared classes against the zone it can
- * reach. Only the tool gate reads the actor, through `requiresAdmin()`. A
- * simulator that silently answered identically on three axes would imply a
+ * reach. Two axes read the actor: the tool gate through `requiresAdmin()`, and
+ * configuration access through the actor's backend groups (ADR-070, ADR-167). A
+ * simulator that silently answered identically on the other two would imply a
  * dimension that is not there.
  *
  * @internal
@@ -39,18 +41,22 @@ use Netresearch\NrLlm\Domain\Enum\SimulationVerdict;
 final readonly class GovernanceSimulation
 {
     /**
-     * @param ToolPolicyDecision   $tool             the ADR-094 gate — the ONE actor-scoped axis
-     * @param InputContextDecision $context          the ADR-144 gate, per configuration
-     * @param RoutingReadout       $routing          the ADR-142 decision, per configuration
-     * @param bool                 $approvalRequired whether {@see \Netresearch\NrLlm\Service\Tool\ToolApprovalRule}
-     *                                               binds the tool to a human decision (ADR-084/134)
-     * @param SimulationActor      $actor            whose permissions the tool gate was asked with
+     * @param ToolPolicyDecision   $tool                 the ADR-094 gate — actor-scoped
+     * @param InputContextDecision $context              the ADR-144 gate, per configuration
+     * @param RoutingReadout       $routing              the ADR-142 decision, per configuration
+     * @param bool                 $approvalRequired     whether {@see \Netresearch\NrLlm\Service\Tool\ToolApprovalRule}
+     *                                                   binds the tool to a human decision (ADR-084/134)
+     * @param bool                 $configurationAllowed whether the actor may use this configuration at all —
+     *                                                   {@see \Netresearch\NrLlm\Service\ConfigurationResolver::actorMayUse()},
+     *                                                   the second actor-scoped axis (ADR-070/167)
+     * @param SimulationActor      $actor                whose permissions the actor-scoped axes were asked with
      */
     public function __construct(
         public ToolPolicyDecision $tool,
         public InputContextDecision $context,
         public RoutingReadout $routing,
         public bool $approvalRequired,
+        public bool $configurationAllowed,
         public SimulationActor $actor,
     ) {}
 
@@ -62,7 +68,11 @@ final readonly class GovernanceSimulation
      */
     public function getVerdict(): SimulationVerdict
     {
-        if (!$this->tool->allowed || !$this->context->isPermitted() || !$this->routing->hasSelection()) {
+        if (!$this->configurationAllowed
+            || !$this->tool->allowed
+            || !$this->context->isPermitted()
+            || !$this->routing->hasSelection()
+        ) {
             return SimulationVerdict::BLOCK;
         }
 

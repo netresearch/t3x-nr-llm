@@ -187,7 +187,29 @@ final readonly class ConfigurationResolver
         return $configuration;
     }
 
-    private function actorMayUse(LlmConfiguration $configuration, AiActorContext $actor): bool
+    /**
+     * Whether this actor may use this configuration at all (ADR-070, ADR-167).
+     *
+     * The same rule {@see self::getActiveByIdentifierForActor()} enforces, as a
+     * predicate over an entity the caller already holds: an unrestricted
+     * configuration is usable by anyone, a restricted one by an administrator, by
+     * a service account carrying the
+     * {@see ServiceAccountScope::CONFIGURATION_USE} scope (ADR-110), or by a
+     * member of one of its backend groups.
+     *
+     * Public because a readout has to be able to ASK the rule without triggering
+     * it. Routing the Governance tab's simulator through the throwing entry point
+     * would have meant re-querying by identifier and catching one of three
+     * exception types to tell "refused" from "not found" — and a second copy of
+     * the group comparison in the simulator would be the copy that ages
+     * (the warning {@see \Netresearch\NrLlm\Service\Tool\EditorActionCatalogue}
+     * already carries). One implementation, two callers.
+     *
+     * An anonymous actor — the fail-closed context a uid that no longer resolves
+     * produces — is a member of no group, so a restricted configuration is
+     * refused for it and an unrestricted one is not.
+     */
+    public function actorMayUse(LlmConfiguration $configuration, AiActorContext $actor): bool
     {
         if (!$configuration->hasAccessRestrictions()) {
             return true;

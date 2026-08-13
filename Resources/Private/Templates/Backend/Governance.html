@@ -78,7 +78,7 @@
 
     <h2 class="mt-4"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.heading" default="Would this be allowed?" /></h2>
     <p class="text-body-secondary">
-        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gates the runtime asks. This runs the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written." />
+        <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.lead" default="Ask the gates the runtime asks. This runs the real configuration-access rule, the real tool policy, the real input-context gate, the real routing decision and the real approval predicate, and folds their answers into one verdict. Pick a backend user to answer for someone other than yourself: the user is resolved read-only, nothing is executed as them, and nothing is written." />
     </p>
 
     <f:form action="governance" method="get" class="row g-2 align-items-end mb-3">
@@ -182,6 +182,22 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr>
+                        <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.configuration" default="Configuration access" /></td>
+                        <td>
+                            <f:if condition="{simulation.configurationAllowed}">
+                                <f:then>
+                                    <span class="text-success"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.allowed" default="Allowed" /></span>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration.allowedLead" default="This user may use this configuration." /></div>
+                                </f:then>
+                                <f:else>
+                                    <span class="text-danger"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.denied" default="Refused" /></span>
+                                    <div class="small"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration.deniedLead" default="This configuration is restricted to backend groups this user is not a member of, so the run is refused before any gate is reached." /></div>
+                                </f:else>
+                            </f:if>
+                        </td>
+                        <td class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.scope.configuration" default="Yes, it reads which backend groups the user is in." /></td>
+                    </tr>
                     <tr>
                         <td><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.axis.tool" default="Tool gate" /></td>
                         <td>

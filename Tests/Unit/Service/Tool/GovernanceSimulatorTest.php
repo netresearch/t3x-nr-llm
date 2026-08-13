@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\SimulationVerdict;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\BackendUserGroup;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\InputContextClassifier;
 use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
@@ -44,9 +46,10 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
 /**
- * The wiring ADR-157 rests on: WHICH user the actor-scoped axis is asked with.
+ * The wiring ADR-157 rests on: WHICH user the actor-scoped axes are asked with.
  *
  * The readout's own tests render a simulation that was handed to them
  * ready-made, so they prove the template. These prove the resolution — that a
@@ -54,6 +57,13 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * operator, and that a uid resolving to nothing fails closed instead of
  * quietly answering with the operator's rights, which would report privilege
  * the account does not have.
+ *
+ * The configuration-access axis (ADR-167) is asked with an actor built from the
+ * SAME resolved record, and is tested from both sides: a non-member is refused,
+ * and a member and an administrator are not. The admin case is the one that
+ * catches the mirror-image defect — feeding the rule the uid-only actor the
+ * resolver is called with would refuse every restricted configuration for
+ * everyone.
  */
 #[CoversClass(GovernanceSimulator::class)]
 final class GovernanceSimulatorTest extends TestCase
@@ -156,6 +166,75 @@ final class GovernanceSimulatorTest extends TestCase
         self::assertFalse($simulation->approvalRequired);
     }
 
+    #[Test]
+    public function aGroupRestrictedConfigurationIsRefusedForANonMemberActor(): void
+    {
+        // The defect ADR-167 closes: the pairing the picker makes easy to
+        // produce read "Allowed" here and was refused by ConfigurationResolver
+        // at runtime.
+        $editor = $this->user(7, 'editor', admin: false, groups: [4]);
+
+        $simulation = $this->simulator($this->recordingPolicy(), $this->resolver($editor))
+            ->simulate('get_page_tree', $this->configuration(restrictedTo: 5), 7, $this->user(1, 'root', admin: true));
+
+        self::assertFalse($simulation->configurationAllowed);
+        self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
+    }
+
+    #[Test]
+    public function aGroupRestrictedConfigurationIsAllowedForAMemberActor(): void
+    {
+        $editor = $this->user(7, 'editor', admin: false, groups: [5]);
+
+        $simulation = $this->simulator($this->recordingPolicy(), $this->resolver($editor))
+            ->simulate('get_page_tree', $this->configuration(restrictedTo: 5), 7, $this->user(1, 'root', admin: true));
+
+        self::assertTrue($simulation->configurationAllowed);
+        self::assertSame(SimulationVerdict::ALLOW, $simulation->getVerdict());
+    }
+
+    #[Test]
+    public function aGroupRestrictedConfigurationIsAllowedForAnAdministrator(): void
+    {
+        // The trap on the other side of the fix: the actor the resolver is
+        // ASKED with carries isAdmin=false and no groups by construction. Fed
+        // to the access rule, it would refuse every restricted configuration
+        // for everyone — including an administrator, who is in no group and
+        // may use all of them.
+        $admin = $this->user(9, 'root', admin: true);
+
+        $simulation = $this->simulator($this->recordingPolicy(), $this->resolver($admin))
+            ->simulate('get_page_tree', $this->configuration(restrictedTo: 5), 9, null);
+
+        self::assertTrue($simulation->configurationAllowed);
+        self::assertSame(SimulationVerdict::ALLOW, $simulation->getVerdict());
+    }
+
+    #[Test]
+    public function anUnrestrictedConfigurationIsAllowedForEveryone(): void
+    {
+        $editor = $this->user(7, 'editor', admin: false, groups: [4]);
+
+        $simulation = $this->simulator($this->recordingPolicy(), $this->resolver($editor))
+            ->simulate('get_page_tree', $this->configuration(), 7, $this->user(1, 'root', admin: true));
+
+        self::assertTrue($simulation->configurationAllowed);
+        self::assertSame(SimulationVerdict::ALLOW, $simulation->getVerdict());
+    }
+
+    #[Test]
+    public function anUnresolvedActorIsRefusedARestrictedConfiguration(): void
+    {
+        // Same fail-closed rule the other axes apply to a uid that resolves to
+        // nothing: no user, no group membership, no access.
+        $simulation = $this->simulator($this->recordingPolicy(), $this->resolver(null))
+            ->simulate('get_page_tree', $this->configuration(restrictedTo: 5), 42, $this->user(1, 'root', admin: true));
+
+        self::assertFalse($simulation->actor->resolved);
+        self::assertFalse($simulation->configurationAllowed);
+        self::assertSame(SimulationVerdict::BLOCK, $simulation->getVerdict());
+    }
+
     private function simulator(
         RecordingToolCallPolicy $policy,
         RecordingActingBackendUserResolver $resolver,
@@ -173,6 +252,9 @@ final class GovernanceSimulatorTest extends TestCase
             $modelSelection,
             new ToolRegistry([$this->tool($effect)]),
             $resolver,
+            // The REAL rule, over the entity the simulation already holds. No
+            // repository: actorMayUse() reads the passed configuration.
+            new ConfigurationResolver(),
         );
     }
 
@@ -260,15 +342,20 @@ final class GovernanceSimulatorTest extends TestCase
         };
     }
 
-    private function user(int $uid, string $username, bool $admin): BackendUserAuthentication
+    /**
+     * @param list<int> $groups the backend group uids the account belongs to,
+     *                          as the live record carries them
+     */
+    private function user(int $uid, string $username, bool $admin, array $groups = []): BackendUserAuthentication
     {
-        $user       = new BackendUserAuthentication();
-        $user->user = ['uid' => $uid, 'username' => $username, 'admin' => $admin ? 1 : 0];
+        $user                 = new BackendUserAuthentication();
+        $user->user           = ['uid' => $uid, 'username' => $username, 'admin' => $admin ? 1 : 0];
+        $user->userGroupsUID  = $groups;
 
         return $user;
     }
 
-    private function configuration(): LlmConfiguration
+    private function configuration(?int $restrictedTo = null): LlmConfiguration
     {
         $provider = new Provider();
         $provider->setIdentifier('some-provider');
@@ -281,6 +368,16 @@ final class GovernanceSimulatorTest extends TestCase
         $configuration = new LlmConfiguration();
         $configuration->setIdentifier('simulated');
         $configuration->setLlmModel($model);
+
+        if ($restrictedTo !== null) {
+            $group = new BackendUserGroup();
+            $group->_setProperty('uid', $restrictedTo);
+
+            /** @var ObjectStorage<BackendUserGroup> $groups */
+            $groups = new ObjectStorage();
+            $groups->attach($group);
+            $configuration->setBeGroups($groups);
+        }
 
         return $configuration;
     }

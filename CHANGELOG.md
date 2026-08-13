@@ -80,6 +80,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contributes nothing, and a legacy suspended row with no uids still resumes.
   The skill half never had the filter and needed no change.
 
+- **The run simulator no longer answers `Allowed` for a configuration the actor
+  cannot use** (#767, ADR-167). The Governance tab asked four gates; configuration
+  access (ADR-070) was not one of them, while the configuration picker filters
+  nothing. A group-restricted configuration paired with a non-member therefore
+  read `Allowed` on the page and was refused at runtime — a false positive on
+  the one surface whose purpose is that an operator does not have to guess.
+
+  It is now the fifth axis, asked through `ConfigurationResolver::actorMayUse()`
+  — the same rule the runtime enforces, promoted to a public non-throwing
+  predicate with `getActiveByIdentifierForActor()` as its other caller. The
+  actor is built from the RESOLVED backend user, so an administrator and a group
+  member still read `Allowed`; an unresolvable uid fails closed like every other
+  axis. The scope column now carries two actor-scoped rows.
+
+  Budget stays outside the simulation, deliberately: `BudgetCheckResult` reports
+  usage and limit only when it refuses, so a row could not tell "near the limit"
+  from "nothing measured".
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed
