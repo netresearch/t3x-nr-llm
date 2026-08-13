@@ -117,7 +117,7 @@
                 <source>Governance blocks</source>
             </trans-unit>
             <trans-unit id="widget.governance_blocks.description">
-                <source>Bar chart of governance decisions (tool denials, guardrail blocks, approvals required, content-filter blocks) over the last 30 days.</source>
+                <source>Bar chart of governance decisions over the last 30 days, one bar per decision kind.</source>
             </trans-unit>
             <trans-unit id="widget.governance_blocks.dataset">
                 <source>Events</source>
@@ -136,6 +136,9 @@
             </trans-unit>
             <trans-unit id="widget.governance_blocks.decision.write_unapproved">
                 <source>Unapproved write refused</source>
+            </trans-unit>
+            <trans-unit id="widget.governance_blocks.decision.context_blocked">
+                <source>Injected context above the ceiling</source>
             </trans-unit>
             <trans-unit id="widget.tool_denials.title">
                 <source>Tool denials by reason</source>

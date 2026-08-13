@@ -54,6 +54,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   did. A uid that no longer resolves — the snippet was deleted meanwhile —
   contributes nothing rather than stranding the run.
 
+### Fixed
+
+- **The Governance blocks widget names every decision it can show** (`#763`).
+  `context_blocked` (ADR-144, the input-context ceiling) had neither a colour
+  nor a label, so its bar rendered grey and was captioned with the raw
+  `LLL:EXT:nr_llm/…` path — what an operator saw the first time that gate
+  fired. It now has both.
+
+  Two guards so the next case cannot slip through the same way: one asserts
+  every `GovernanceDecision` gets its own colour rather than the grey fallback,
+  the other that each has an English and a German label. The widget
+  description no longer enumerates the kinds — that prose had drifted twice.
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed

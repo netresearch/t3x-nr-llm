@@ -18,11 +18,12 @@ use TYPO3\CMS\Dashboard\Widgets\ChartDataProviderInterface;
 /**
  * Chart.js bar-chart data provider for "governance blocks (last N days)".
  *
- * Aggregates tx_nrllm_governance_event by decision kind: tool-gate denials,
- * guardrail response blocks, approval-required routings and provider
- * content-filter blocks — the outcomes that were previously only logged or
- * reflected on a run. Bars are emitted in {@see GovernanceDecision} case order
- * so the chart is stable.
+ * Aggregates tx_nrllm_governance_event by decision kind — one bar per
+ * {@see GovernanceDecision} case, in case order so the chart is stable.
+ *
+ * The prose deliberately does not enumerate the cases. It did, and drifted
+ * twice: `write_unapproved` and `context_blocked` were both added to the enum
+ * without this text being touched (`#763`). The enum is the list.
  *
  * @internal Not part of the @api surface; may change without notice (ADR-127).
  */
@@ -34,13 +35,22 @@ final readonly class GovernanceBlocksOverTimeDataProvider implements ChartDataPr
 
     private const LLL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:';
 
-    /** Semantic colour per decision; a missing key falls back to grey. */
+    /**
+     * Semantic colour per decision.
+     *
+     * Every {@see GovernanceDecision} case must have one — asserted by
+     * {@see \Netresearch\NrLlm\Tests\Unit\Widgets\DataProvider\GovernanceBlocksOverTimeDataProviderTest}.
+     * The grey fallback below stays for a case added at runtime by another
+     * extension, not as a licence to leave one out here: `context_blocked`
+     * shipped without a colour and rendered as an unnamed grey bar (`#763`).
+     */
     private const DECISION_COLORS = [
         'tool_denied'       => '#607D8B',
         'response_blocked'  => '#D9534F',
         'approval_required' => '#E8A33D',
         'content_filter'    => '#8E2A27',
         'write_unapproved'  => '#7B4FA8',
+        'context_blocked'   => '#17877D',
     ];
 
     public function __construct(
