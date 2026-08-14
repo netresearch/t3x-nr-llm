@@ -2640,6 +2640,9 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.tool.selfApproval">
+                <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
+            </trans-unit>
             <trans-unit id="error.mcp.unknownServer">
                 <source>Unknown MCP server</source>
             </trans-unit>
@@ -2962,6 +2965,9 @@
             </trans-unit>
             <trans-unit id="runs.error.approverNotPermitted">
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
+            </trans-unit>
+            <trans-unit id="runs.error.selfApproval">
+                <source>You started this run, and its configuration requires a second approver. Someone else has to release it. You can still deny it.</source>
             </trans-unit>
             <trans-unit id="runs.error.submitterNotPermitted">
                 <source>This form feeds a tool you are not permitted to use yourself, so you may not submit its input. The run is still waiting for someone who is.</source>

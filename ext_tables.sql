@@ -167,6 +167,11 @@ CREATE TABLE tx_nrllm_configuration (
     -- Access control (MM relation to be_groups)
     allowed_groups int(11) DEFAULT '0' NOT NULL,
 
+    -- Four-eyes approval (ADR-172): 1 refuses an approval from the backend user
+    -- who started the run, so releasing a write needs a second person. 0 keeps
+    -- the single-operator behaviour every existing row has.
+    require_second_approver tinyint(1) DEFAULT '0' NOT NULL,
+
     -- Comma list of permitted tool groups (empty = all groups allowed)
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
     allowed_guardrails varchar(255) DEFAULT '' NOT NULL,

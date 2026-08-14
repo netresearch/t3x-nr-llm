@@ -241,6 +241,12 @@
             <trans-unit id="tx_nrllm_configuration.allowed_guardrails.description">
                 <source>Which optional guardrails apply to runs with this configuration. Empty = all apply. Security-critical guardrails (secret redaction) always run and are not listed here.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_second_approver">
+                <source>Require a second approver</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_second_approver.description">
+                <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
+            </trans-unit>
 
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>

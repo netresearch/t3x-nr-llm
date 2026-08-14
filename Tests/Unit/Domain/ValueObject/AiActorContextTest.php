@@ -214,4 +214,31 @@ final class AiActorContextTest extends TestCase
             AiActorContext::backendUser(7)->mayActOnRun($someoneElsesRun, ServiceAccountScope::AGENT_APPROVE),
         );
     }
+
+    /**
+     * ADR-172: "may act on this run" and "started this run" are different
+     * questions, and four-eyes rests on the second one.
+     */
+    #[Test]
+    public function isInitiatorOfAnswersOnlyForTheBackendUserWhoStartedTheRun(): void
+    {
+        $run = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 42, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+
+        self::assertTrue(AiActorContext::backendUser(42)->isInitiatorOf($run));
+        self::assertFalse(AiActorContext::backendUser(7)->isInitiatorOf($run));
+
+        // An administrator who started it is still the initiator: acting on
+        // every run does not make one a second pair of eyes on one's own.
+        self::assertTrue(AiActorContext::backendUser(42, isAdmin: true)->isInitiatorOf($run));
+
+        // A service account is never the initiator, and neither is "no user".
+        self::assertFalse(
+            AiActorContext::serviceAccount('nightly', [ServiceAccountScope::AGENT_APPROVE])->isInitiatorOf($run),
+        );
+        self::assertFalse(AiActorContext::anonymous()->isInitiatorOf($run));
+
+        // A run with no backend user matches nobody, uid 0 included.
+        $machineRun = new AgentRun(2, 'uuid2', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+        self::assertFalse(AiActorContext::backendUser(0)->isInitiatorOf($machineRun));
+    }
 }

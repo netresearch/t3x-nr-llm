@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
@@ -208,6 +209,21 @@ final readonly class ResumeCoordinator
         $configuration = $this->configurationRepository->findByUid($run->configurationUid);
         if ($configuration === null) {
             throw RunConfigurationGoneException::forRun($runUuid);
+        }
+
+        // Four-eyes (ADR-172). Refused here, before anything is claimed, so the
+        // run stays WAITING_FOR_APPROVAL and a colleague can still decide it.
+        //
+        // An APPROVAL only. A DENIAL by the initiator stays allowed for the same
+        // reason it passes gates 2 and 3 below: the control exists to stop a
+        // write from EXECUTING, and a denial never runs the pending call — it
+        // resumes the loop with the refusal. Refusing the denial would strand
+        // the turn while the person who wants it gone is turned away.
+        if ($decision->approved
+            && $configuration->requiresSecondApprover()
+            && $actor->isInitiatorOf($run)
+        ) {
+            throw SelfApprovalDeniedException::forActor($actor, $runUuid, $run->configurationIdentifier);
         }
 
         // Reject an already-unreadable state BEFORE the claim, and do not carry

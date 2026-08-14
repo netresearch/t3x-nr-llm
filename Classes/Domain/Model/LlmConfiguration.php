@@ -128,6 +128,13 @@ class LlmConfiguration extends AbstractEntity
 
     protected bool $isDefault = false;
 
+    /**
+     * Whether releasing a suspended write on a run of this configuration needs
+     * somebody other than the person who started it (ADR-172). False keeps the
+     * single-operator behaviour, which is what every pre-existing record has.
+     */
+    protected bool $requireSecondApprover = false;
+
     protected int $tstamp = 0;
 
     protected int $crdate = 0;
@@ -447,6 +454,21 @@ class LlmConfiguration extends AbstractEntity
     public function isDefault(): bool
     {
         return $this->getIsDefault();
+    }
+
+    public function getRequireSecondApprover(): bool
+    {
+        return $this->requireSecondApprover;
+    }
+
+    public function requiresSecondApprover(): bool
+    {
+        return $this->getRequireSecondApprover();
+    }
+
+    public function setRequireSecondApprover(bool $requireSecondApprover): void
+    {
+        $this->requireSecondApprover = $requireSecondApprover;
     }
 
     /**

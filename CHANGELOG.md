@@ -8,6 +8,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Four-eyes approval, per configuration** (`#786`). A new configuration field,
+  *Require a second approver*, refuses an approval from the backend user who
+  started the run. Default off, so every existing record keeps the
+  single-operator behaviour it has today.
+
+  An approval only: the initiator can still deny their own run, because a denial
+  never runs the pending call. No exemption for administrators — being allowed
+  to act on every run does not make an admin a second pair of eyes on their own
+  request. Service accounts are unaffected: a run they start records no backend
+  user and matches nobody.
+
+  The refusal reaches the operator as a flash message, the same way every other
+  approval refusal in the module does; the run stays at the fence so a colleague
+  can decide it. See ADR-172.
+
+  Additive on the `@api` surface: `LlmConfiguration::getRequireSecondApprover()`,
+  `::requiresSecondApprover()`, `::setRequireSecondApprover()` and
+  `AiActorContext::isInitiatorOf()`.
+
 - **A use-case pack can declare the editor actions it is built for** (`#769`).
   `UseCasePack::$recommendedEditorActions` names the editorial writes a pack was
   designed for. The install plan reports, per declared action, whether this
