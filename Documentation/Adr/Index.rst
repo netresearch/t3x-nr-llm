@@ -523,3 +523,4 @@ Tools
    Adr169RecordManagementUsesTypo3Permissions
    Adr170OneDeadlinePerMcpOperation
    Adr171PersonasTheCodeAlreadyAssumes
+   Adr172FourEyesApprovalPerConfiguration

@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
@@ -177,6 +178,10 @@ final class AgentRunController extends ActionController
             // ADR-133: the run was released, not consumed — someone who may run
             // the pending write can still decide it.
             return $this->flashRedirect('runs.error.approverNotPermitted', ContextualFeedbackSeverity::ERROR);
+        } catch (SelfApprovalDeniedException) {
+            // ADR-172: the run was released, not consumed — a colleague can
+            // still decide it, and the initiator can still deny it.
+            return $this->flashRedirect('runs.error.selfApproval', ContextualFeedbackSeverity::WARNING);
         } catch (ApprovalNotAuditableException) {
             return $this->flashRedirect('runs.error.notAuditable', ContextualFeedbackSeverity::ERROR);
         } catch (CorruptSuspendedStateException|RunStateUnavailableException) {

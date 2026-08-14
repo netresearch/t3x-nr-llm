@@ -234,6 +234,26 @@ final readonly class AiActorContext
     }
 
     /**
+     * Whether this actor is the backend user who started the run (ADR-172).
+     *
+     * Separate from {@see mayActOnRun()} on purpose: that answers whether the
+     * actor may act at all, this answers whether the actor would be deciding
+     * their own request. An administrator is not exempt — being allowed to act
+     * on every run does not make an admin a second pair of eyes on their own.
+     *
+     * A service account is never the initiator: `beUser` identifies a backend
+     * user, so a run a service account started carries 0 and matches nobody.
+     * Four-eyes therefore constrains humans and leaves machine callers to the
+     * scope mechanism, which is where their authorisation lives.
+     */
+    public function isInitiatorOf(AgentRun $run): bool
+    {
+        return !$this->isServiceAccount()
+            && $this->backendUserUid > 0
+            && $this->backendUserUid === $run->beUser;
+    }
+
+    /**
      * A short, log-safe description of the actor for exception messages and
      * audit entries. Never contains a session uuid or any content.
      */

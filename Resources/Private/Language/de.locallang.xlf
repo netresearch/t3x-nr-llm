@@ -3930,6 +3930,10 @@
                 <source>This action runs a tool you are not permitted to use yourself, so you may not approve it. The run is still waiting for someone who is.</source>
                 <target>Diese Aktion führt ein Werkzeug aus, das Sie selbst nicht verwenden dürfen; deshalb können Sie sie nicht freigeben. Der Lauf wartet weiterhin auf eine berechtigte Person.</target>
             </trans-unit>
+            <trans-unit id="runs.error.selfApproval">
+                <source>You started this run, and its configuration requires a second approver. Someone else has to release it. You can still deny it.</source>
+                <target>Sie haben diesen Lauf gestartet, und seine Konfiguration verlangt eine zweite freigebende Person. Die Freigabe muss jemand anderes erteilen. Ablehnen können Sie ihn weiterhin.</target>
+            </trans-unit>
             <trans-unit id="runs.error.submitterNotPermitted">
                 <source>This form feeds a tool you are not permitted to use yourself, so you may not submit its input. The run is still waiting for someone who is.</source>
                 <target>Dieses Formular versorgt ein Werkzeug, das Sie selbst nicht verwenden dürfen; deshalb können Sie seine Eingabe nicht absenden. Der Lauf wartet weiterhin auf eine berechtigte Person.</target>

@@ -52,6 +52,7 @@ return [
                     allowed_groups,
                     allowed_tool_groups,
                     allowed_guardrails,
+                    require_second_approver,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     hidden,
                     --palette--;;status
@@ -442,6 +443,15 @@ return [
                 'renderType' => 'selectCheckBox',
                 'itemsProcFunc' => GuardrailItems::class . '->addItems',
                 'default' => '',
+            ],
+        ],
+        'require_second_approver' => [
+            'label' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_second_approver.description',
+            'config' => [
+                'type' => 'check',
+                'renderType' => 'checkboxToggle',
+                'default' => 0,
             ],
         ],
         'snippet_tags' => [

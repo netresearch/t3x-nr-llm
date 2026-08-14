@@ -430,6 +430,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getPresetChecksum(): string
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
   method getProviderType(): string
+  method getRequireSecondApprover(): bool
   method getSkills(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getSnippetTagList(): array
   method getSnippetTags(): string
@@ -448,6 +449,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method isActive(): bool
   method isDefault(): bool
   method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method requiresSecondApprover(): bool
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
   method setBeGroups(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $beGroups): void
@@ -472,6 +474,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setOptionsArray(array $options): void
   method setPresencePenalty(float $presencePenalty): void
   method setPresetChecksum(string $presetChecksum): void
+  method setRequireSecondApprover(bool $requireSecondApprover): void
   method setSkills(TYPO3\CMS\Extbase\Persistence\ObjectStorage $skills): void
   method setSnippetTags(string $snippetTags): void
   method setSystemPrompt(string $systemPrompt): void
@@ -725,6 +728,7 @@ Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method hasGrant(Netresearch\NrLlm\Domain\Enum\BackendUserGrant $grant): bool
   method hasScope(Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
   method isAuthenticated(): bool
+  method isInitiatorOf(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run): bool
   method isServiceAccount(): bool
   method mayAccessSession(Netresearch\NrLlm\Domain\ValueObject\AiSession $session): bool
   method mayActOnRun(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run, Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool

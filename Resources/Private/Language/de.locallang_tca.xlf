@@ -311,6 +311,15 @@
                 <target>Welche optionalen Schutzmechanismen für Läufe mit dieser Konfiguration gelten. Leer = alle aktiv. Sicherheitskritische Schutzmechanismen (Schwärzung von Geheimnissen) laufen immer und werden hier nicht aufgeführt.</target>
             </trans-unit>
 
+            <trans-unit id="tx_nrllm_configuration.require_second_approver">
+                <source>Require a second approver</source>
+                <target>Zweite freigebende Person verlangen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_second_approver.description">
+                <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
+                <target>Wer einen Lauf startet, kann dessen angehaltenen Schreibzugriff nicht selbst freigeben; das muss jemand anderes tun. Einschalten, wo die Freigabe die Prüfinstanz ist und nicht bloß ein Bestätigungsdialog — etwa bei einem geteilten Backend-Zugang oder wenn festgehalten werden muss, dass eine zweite Person hingesehen hat. Ablehnen kann die startende Person weiterhin, und Administratoren sind nicht ausgenommen.</target>
+            </trans-unit>
+
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
                 <target>Tags für Prompt-Bausteine</target>
