@@ -95,3 +95,10 @@ An install that turns the switch on without having a second person with either
 admin rights or the ``AGENT_APPROVE`` grant will strand its runs at the fence.
 That is the setting doing what it says; the field description states the
 requirement.
+
+**The Playground cannot complete such a run.** Its caller is always the person
+who started it, so a suspended turn on a four-eyes configuration can only be
+released from the Agent Runs inbox, by somebody else. The Playground answers
+403 with that sentence rather than an unhandled error. This is the switch
+working as specified, but it is the consequence an operator is most likely to
+meet first, which is why it is written down here and not left to be discovered.

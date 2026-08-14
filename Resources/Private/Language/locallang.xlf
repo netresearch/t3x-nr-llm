@@ -2640,6 +2640,9 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.tool.selfApproval">
+                <source>You started this run and its configuration requires a second approver. Someone else has to release it.</source>
+            </trans-unit>
             <trans-unit id="error.mcp.unknownServer">
                 <source>Unknown MCP server</source>
             </trans-unit>

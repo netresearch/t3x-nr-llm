@@ -37,6 +37,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunStateUnavailableException;
+use Netresearch\NrLlm\Service\Agent\Exception\SelfApprovalDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\SubmitterNotPermittedException;
@@ -334,6 +335,19 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'status'  => 'awaiting_approval',
                 'runUuid' => $runUuid,
                 'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.approverNotPermitted', 'You may not approve an action that runs a tool you are not permitted to use yourself.'),
+            ], 403);
+        } catch (SelfApprovalDeniedException) {
+            // ADR-172: the caller started this run and the configuration wants a
+            // second approver. In the Playground the caller is ALWAYS the
+            // initiator, so a write-declaring turn on such a configuration can
+            // only be released from the Agent Runs inbox by somebody else. Same
+            // shape as above: nothing ran, the run is decidable again, 403
+            // because the obstacle is who is asking.
+            return $this->respondJson([
+                'success' => false,
+                'status'  => 'awaiting_approval',
+                'runUuid' => $runUuid,
+                'error'   => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.selfApproval', 'You started this run and its configuration requires a second approver. Someone else has to release it.'),
             ], 403);
         } catch (ApprovalNotAuditableException) {
             // Nothing was executed and the run is decidable again; 503, because
