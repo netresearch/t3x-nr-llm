@@ -18,11 +18,21 @@ declare(strict_types=1);
  * nothing here would notice — the two files simply disagree, and which one an
  * agent believes depends on its vendor.
  *
- * The gap this check closes was real rather than hypothetical.
- * `Documentation/` was the one directory of eight without the pair, so an agent
- * reading CLAUDE.md got the RST conventions, the ADR format and the
- * `Adr/Index.rst` lifecycle from nowhere, while an agent reading AGENTS.md got
- * all three. Nothing failed; the rules were just absent for half the readers.
+ * ONE exemption, named rather than pattern-matched: `Documentation/`. The TYPO3
+ * docs renderer walks that tree through Flysystem, whose local adapter throws
+ * `SymbolicLinkEncountered` on ANY symlink it lists — so adding the pair there
+ * does not degrade the render, it aborts it:
+ *
+ *   [League\Flysystem\SymbolicLinkEncountered]
+ *   Unsupported symbolic link encountered at location /project/Documentation/CLAUDE.md
+ *
+ * That was measured, not predicted: the aliases were added, and all three
+ * `Render Documentation` jobs failed on it. Excluding the path is not ours to
+ * do — the render is a shared `netresearch/*` reusable workflow serving every
+ * caller — and a copy is refused above for the drift it invites. So the scope
+ * stays reachable the way it already was: the root `AGENTS.md`, which does have
+ * the aliases, names `Documentation/AGENTS.md` in its index table, so a reader
+ * who opened CLAUDE.md is still told the file exists and where.
  *
  * Runs in the shared workflow's `repo-checks` job via `ci:test:repo`, which is
  * also what pre-commit runs, so the local and CI halves are the same command.
@@ -32,6 +42,12 @@ const ALIASES = ['CLAUDE.md', 'GEMINI.md'];
 
 /** Directories that never hold source we govern. */
 const SKIP = ['.git', '.Build', 'vendor', 'node_modules', 'var', 'public'];
+
+/** Directories where the pair cannot exist, and why. */
+const EXEMPT = [
+    // Flysystem aborts the docs render on any symlink under this tree.
+    'Documentation',
+];
 
 $root = dirname(__DIR__, 2);
 
@@ -64,6 +80,10 @@ $problems = [];
 
 foreach (agentsDirectories($root) as $directory) {
     $relative = ltrim(str_replace($root, '', $directory), '/') ?: '.';
+
+    if (in_array($relative, EXEMPT, true)) {
+        continue;
+    }
 
     foreach (ALIASES as $alias) {
         $path = $directory . '/' . $alias;
@@ -100,7 +120,10 @@ fwrite(STDERR, sprintf(
     . "Create them relative, so they survive a clone and a worktree:\n\n"
     . "  cd <directory> && ln -s AGENTS.md CLAUDE.md && ln -s AGENTS.md GEMINI.md\n\n"
     . "Do not copy the file instead. A copy is a second source that drifts in\n"
-    . "silence, and this check cannot tell you which of the two is current.\n",
+    . "silence, and this check cannot tell you which of the two is current.\n\n"
+    . "If a tree genuinely cannot carry a symlink — the docs render is the one\n"
+    . "known case — add the directory to EXEMPT in this script together with the\n"
+    . "reason, rather than dropping the alias silently.\n",
     implode("\n", $problems),
 ));
 
