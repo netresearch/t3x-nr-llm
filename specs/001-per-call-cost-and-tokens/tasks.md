@@ -4,11 +4,9 @@
 
 Dependency-ordered. `[P]` marks tasks that can run in parallel with the one above them; everything else depends on what precedes it.
 
-## Phase 0 — Blocking decision
+## Phase 0 — Settled
 
-The plan leaves one question open, and it decides whether Phase 2 has one task or three. Nothing below Phase 1 may start until it is answered.
-
-- [ ] T001 Decide whether FR-003 "retry count" means fallback hops or provider-level retries. Read `Classes/Provider/Middleware/FallbackMiddleware.php` for what the retry path actually distinguishes, and record the answer in `specs/001-per-call-cost-and-tokens/plan.md` under the open question. If it means hops, `fallback_attempts` already satisfies FR-003 and T012 is dropped.
+- [x] T001 Decide what FR-003 "retry count" means. **Answered by the code, not by preference**: `FallbackCandidateResolver` (ADR-137) documents "No self-retry" and removes the primary's identifier from its own chain, so a same-provider retry does not exist in this system. FR-003 can only mean fallback hops, `tx_nrllm_telemetry.fallback_attempts` already records them, and T012 is dropped.
 
 ## Phase 1 — Failing tests first
 
@@ -27,7 +25,7 @@ Written before the schema so each one fails for the reason it names, not because
 - [ ] T009 Extend `Classes/Service/Telemetry/TelemetryRepository.php` to write the three columns, keeping null distinct from zero all the way to the parameter binding — a `(int)` cast anywhere on this path reintroduces the defect T002 exists to catch.
 - [ ] T010 Add a recorder method and its properties to `Classes/Provider/Middleware/TelemetrySignals.php`, following the shape of `recordServedBy()` and its null-until-set properties.
 - [ ] T011 Record the measured values from `Classes/Provider/Middleware/UsageMiddleware.php` onto the signals, taking them from the same `$usage` object the aggregate already uses and passing null through where it is null rather than coalescing.
-- [ ] T012 Only if T001 decided "provider-level retries": expose that count from `Classes/Provider/Middleware/FallbackMiddleware.php` and carry it the same way. Dropped otherwise.
+- [ ] ~~T012~~ Dropped by T001: `fallback_attempts` already satisfies FR-003 and no same-provider retry exists to count.
 - [ ] T013 Read the signals in `Classes/Provider/Middleware/TelemetryMiddleware.php` into the record it already writes, leaving its fail-soft behaviour intact — a telemetry write error stays logged and swallowed.
 
 ## Phase 3 — Make Phase 1 pass

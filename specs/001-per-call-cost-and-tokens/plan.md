@@ -59,14 +59,15 @@ Existing rows keep `NULL` and are therefore not mistakable for measured zeros �
 
 An ADR is required — the public surface moves. It records the two decisions above and their alternative, in `Documentation/Adr/` as `Adr<N>Description.rst`, not as Markdown under `specs/`. It also has a relationship to state: ADR-156's third activation criterion becomes computable, and ADR-058's "one row per run" is what makes SC-001 hold.
 
-## Open question the spec left to this plan
+## Resolved — FR-003 needs nothing
 
-**Is a retry a fallback attempt?** `fallback_attempts` counts hops within a run, and a hop is a swap to another configuration. A retry against the *same* provider is a different event, and FR-003 does not say which it means. Two readings, and they produce different data:
+This was raised as an open question ("is a retry a fallback attempt, or a retry against the same provider?") and then answered by reading the code rather than by choosing.
 
-- if FR-003 means hops, it is already satisfied and no column is needed;
-- if it means provider-level retries, the count does not exist anywhere today and the retry path in `FallbackMiddleware` must expose it.
+There is no provider-level retry in this system, by design. `FallbackCandidateResolver` (ADR-137) removes the primary's own identifier from its chain, documented as "**No self-retry.** The primary's identifier is removed from its own chain; a configuration listing itself yields no candidate." `FallbackMiddleware` increments the counter only when it swaps to another configuration, and its comment states that the primary attempt is not counted.
 
-This must be answered before the tasks are cut. Assuming either silently would produce a column whose meaning nobody can state — which principle VI exists to prevent, one level up from its usual application.
+So a "retry" here can only mean a fallback hop, and `tx_nrllm_telemetry.fallback_attempts` already records it. **FR-003 is satisfied by existing data. No column, no signal, no task.**
+
+Worth keeping as a note for whoever reads FR-003 later: the number is hops, not attempts including the first. A call that succeeded on its second configuration reads `1`.
 
 ## Compatibility
 
