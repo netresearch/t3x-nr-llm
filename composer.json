@@ -104,6 +104,7 @@
             "@ci",
             "@ci:test:php:functional"
         ],
+        "ci:test:agent-docs": "php Build/Scripts/check-agent-doc-symlinks.php",
         "ci:test:badges": "php Build/Scripts/check-badge-contrast.php",
         "ci:test:changelog": "php Build/Scripts/check-changelog-unreleased.php",
         "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
@@ -118,6 +119,7 @@
         "ci:test:php:rector": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then rector process --config Build/rector/rector.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s rector -n \"$@\"; fi' --",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",
         "ci:test:repo": [
+            "@ci:test:agent-docs",
             "@ci:test:badges",
             "@ci:test:changelog",
             "@ci:test:workflows"
