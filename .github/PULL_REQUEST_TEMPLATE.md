@@ -17,7 +17,7 @@
 ## Checklist
 
 - [ ] My code follows the project's coding standards
-- [ ] I have run `composer ci` and all checks pass
+- [ ] I have run `make gate` and all checks pass (not `composer ci` — that set omits Rector and the functional suite)
 - [ ] I have added tests that prove my fix/feature works
 - [ ] I have updated the documentation accordingly
 - [ ] I have added a `CHANGELOG.md` entry under `## [Unreleased]`
