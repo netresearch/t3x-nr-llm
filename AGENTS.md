@@ -116,7 +116,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 <!-- AGENTS-GENERATED:START directory-structure -->
 ## Architecture
 
-Three-tier model: **Provider → Model → Configuration**. See `Documentation/Adr/Adr001ThreeTierProviderArchitecture.rst` for the design rationale and `Classes/Provider/AGENTS.md` for adapter contracts.
+Three-tier model: **Provider → Model → Configuration**. See `Documentation/Adr/Adr013ThreeLevelConfigurationArchitecture.rst` for the design rationale and `Classes/AGENTS.md` for adapter contracts.
 
 ### Directory Structure
 ```
@@ -158,7 +158,7 @@ nr_llm/
 - **NEVER commit `composer.lock`** — TYPO3 extensions are libraries; the lock file would conflict with project-level resolution.
 - **NEVER hardcode a cache backend in `Configuration/Caching.php`** — let the host instance configure Redis/Valkey/Memcached transparently. Specify only `frontend`, `options`, and `groups`.
 - **NEVER take TYPO3 backend screenshots below 1440px viewport** — sidebar and table columns get cut off.
-- **API keys MUST be stored as nr-vault UUID identifiers**, never as plaintext in TCA / yaml / env. See `Documentation/Adr/Adr012ApiKeyStorageVault.rst`.
+- **API keys MUST be stored as nr-vault UUID identifiers**, never as plaintext in TCA / yaml / env. `Documentation/Adr/Adr012ApiKeyEncryption.rst` records the application-level encryption this replaced and is `Superseded`; the nr-vault integration itself was decided by no ADR, which `Documentation/Adr/Index.rst` states explicitly.
 - **No email addresses in public docs** — use the GitHub issues / discussions / security-advisories links only.
 <!-- AGENTS-GENERATED:END critical -->
 

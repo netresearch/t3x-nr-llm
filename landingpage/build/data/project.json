@@ -65,7 +65,7 @@
       "label": "API keys stored as vault identifiers",
       "detail": "Envelope encryption via nr-vault; nr-llm never stores or logs a raw key.",
       "state": "implemented",
-      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Adr012ApiKeyStorageVault.rst"
+      "evidence": "https://github.com/netresearch/t3x-nr-llm/blob/main/Documentation/Adr/Adr012ApiKeyEncryption.rst"
     },
     {
       "id": "guardrails",
