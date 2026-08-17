@@ -63,7 +63,7 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
     /** Where a reference can be written. Binary and generated formats are not scanned. */
     private const SCANNED_EXTENSIONS = ['md', 'rst', 'json', 'php', 'yml', 'yaml', 'neon', 'txt', 'xml'];
 
-    private static function repoRoot(): string
+    private function repoRoot(): string
     {
         return dirname(__DIR__, 2);
     }
@@ -71,11 +71,11 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
     #[Test]
     public function everyAdrNamedByFilenameExists(): void
     {
-        $adrDir  = self::repoRoot() . '/Documentation/Adr';
+        $adrDir  = $this->repoRoot() . '/Documentation/Adr';
         $missing = [];
 
-        foreach (self::scannableFiles() as $relative) {
-            $contents = file_get_contents(self::repoRoot() . '/' . $relative);
+        foreach ($this->scannableFiles() as $relative) {
+            $contents = file_get_contents($this->repoRoot() . '/' . $relative);
             self::assertIsString($contents, $relative . ' could not be read.');
 
             if (preg_match_all(self::REFERENCE_PATTERN, $contents, $matches) === 0) {
@@ -103,12 +103,12 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
     /**
      * @return list<string> repo-relative paths
      */
-    private static function scannableFiles(): array
+    private function scannableFiles(): array
     {
         $found    = [];
         $iterator = new RecursiveIteratorIterator(
             new RecursiveCallbackFilterIterator(
-                new RecursiveDirectoryIterator(self::repoRoot(), FilesystemIterator::SKIP_DOTS),
+                new RecursiveDirectoryIterator($this->repoRoot(), FilesystemIterator::SKIP_DOTS),
                 static fn(SplFileInfo $file): bool => !$file->isDir()
                     || !in_array($file->getFilename(), self::SKIPPED_DIRECTORIES, true),
             ),
@@ -130,7 +130,7 @@ final class AdrReferenceIntegrityTest extends AbstractUnitTestCase
                 continue;
             }
 
-            $found[] = substr($file->getPathname(), strlen(self::repoRoot()) + 1);
+            $found[] = substr($file->getPathname(), strlen($this->repoRoot()) + 1);
         }
 
         sort($found);
