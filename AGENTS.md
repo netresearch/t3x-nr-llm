@@ -76,11 +76,34 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 
 ## Development Workflow
 
-1. Branch off `main` (worktree convention — see project memory).
-2. Use `make` shortcuts (`make test-unit`, `make phpstan`, `make cgl`) — they delegate to `runTests.sh`.
-3. Pre-commit hooks via `Build/captainhook.json` (auto-installed by composer plugin) run cgl + phpstan + commit-msg checks.
-4. Sign commits with `git commit -S --signoff` (DCO required).
-5. **Pre-push gate: `make gate`.** It runs the six suites CI runs — `cgl`,
+1. **Specify before designing, for the classes of change below.** Write down what
+   the change must do, what it explicitly does **not** do, and which suite proves
+   each requirement — before choosing where the code goes. The format is not
+   prescribed here; writing it at all is the rule.
+
+   | Change | Specify first |
+   |--------|---------------|
+   | Bugfix, dependency update, small internal refactor, documentation only | no |
+   | New provider | usually |
+   | New feature, new public API contract, breaking or deprecating change, security or credential topic, a change spanning several layers, large compatibility rework | yes |
+
+   Why this step exists as a rule: every other gate in this repository runs on a
+   diff that already exists. `make gate`, the api-surface snapshot, PHPStan, the
+   CHANGELOG check and the ADR checkbox all presuppose code. Nothing before this
+   step checked anything, so a wrong premise about *what* was wanted survived
+   until review, and a wrong premise about the public surface survived until
+   `api-surface.txt` failed.
+
+   **This one is not machine-checked, and cannot be here.** `ci:test:repo` sees
+   the working tree, not the pull request; the job that could see one is
+   `pr-quality`, which belongs to the shared `netresearch/.github` workflow and
+   is not this repository's to extend. Keep it because it is the rule, not
+   because something will catch you.
+2. Branch off `main` (worktree convention — see project memory).
+3. Use `make` shortcuts (`make test-unit`, `make phpstan`, `make cgl`) — they delegate to `runTests.sh`.
+4. Pre-commit hooks via `Build/captainhook.json` (auto-installed by composer plugin) run cgl + phpstan + commit-msg checks.
+5. Sign commits with `git commit -S --signoff` (DCO required).
+6. **Pre-push gate: `make gate`.** It runs the six suites CI runs — `cgl`,
    `phpstan`, `unit`, `fuzzy`, `rector -n` (pinned to PHP 8.2, as in CI) and
    `functional -d sqlite` — plus the CHANGELOG check. Run it as one command:
    invoking the six by hand is how `rector` and `fuzzy` get skipped, which is
@@ -92,7 +115,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 
    Contract changes (setter clamps, validation ranges) have assertion twins in
    `Tests/Fuzzy/` — grep there before pushing.
-6. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3`; merged via `--merge` strategy (preserves signatures).
+7. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3`; merged via `--merge` strategy (preserves signatures).
 <!-- AGENTS-GENERATED:END development -->
 
 <!-- AGENTS-GENERATED:START filemap -->
@@ -170,7 +193,7 @@ nr_llm/
 - **Where does TCA live?** Per-table file under `Configuration/TCA/` for new tables; `Configuration/TCA/Overrides/` to extend existing tables (incl. `pages`, `tt_content`).
 - **Stuck on a "this works locally but breaks in CI" issue?** Reproduce inside `Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
 - **Adding a config option?** TCA + `LLL:` translation key in `Resources/Private/Language/locallang*.xlf` for both EN and DE.
-- **Touching the public surface?** Add an ADR under `Documentation/Adr/`. Format: `Adr<N>Description.rst`.
+- **Touching the public surface?** Add an ADR under `Documentation/Adr/`. Format: `Adr<N>Description.rst`. It lands **before** the implementation PR, not inside it — the decision is what the implementation follows from, and `api-surface.txt` already tells you when you are touching the surface, so there is nothing to wait for. `AdrReferenceIntegrityTest` refuses a reference to a record that does not exist; that the record arrived first is not machine-checked.
 - **Changing an `@api` signature?** `Tests/Unit/Api/api-surface.txt` freezes it, constructors included — the class's own, or the one it inherits from a base inside `Netresearch\NrLlm`; one inherited from TYPO3 core or the SPL is left out because it differs across the version matrix. The failure says whether the diff is additive (regenerate + `### Added`) or breaking (decide first). Removals follow `Documentation/Api/Deprecation.rst`, whose inventory is asserted against the `@deprecated` docblocks in both directions.
 - **Changing the supported TYPO3 / PHP range?** `VersionConsistencyTest` pins four surfaces against each other — `composer.json`, `ext_emconf.php`, the `ci.yml` matrix and `Documentation/Api/SupportMatrix.rst` — and fails on the first of those you forget. It does **not** see the prose: `README.md` (the two badges and the Requirements list), `Documentation/Installation/Index.rst`, `Documentation/Introduction/Index.rst`, `Documentation/Developer/FeatureServices/Index.rst`, `Documentation/Testing/CiConfiguration.rst` (a hand-copied matrix excerpt) and `Documentation/Developer/IntegrationGuide.rst` (the TER constraint in its `ext_emconf.php` example) repeat the same range with nothing checking them. Update those by hand in the same change — and grep for the old floor before you finish, because that list is what has been found, not a guarantee. `BASELINE.md`'s "Multi-version CI" row is the one prose surface that IS asserted, by `Tests/Unit/BaselineConsistencyTest`.
 - **Linking between backend controllers?** Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`; the bot's suggested namespaced form is wrong for this instance). Introduced by ADR-027's TaskController split.
