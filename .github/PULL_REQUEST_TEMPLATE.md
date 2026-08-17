@@ -21,5 +21,5 @@
 - [ ] I have added tests that prove my fix/feature works
 - [ ] I have updated the documentation accordingly
 - [ ] I have added a `CHANGELOG.md` entry under `## [Unreleased]`
-- [ ] I have added an ADR under `Documentation/Adr/` if this changes the public surface
+- [ ] If this changes the public surface, the ADR under `Documentation/Adr/` landed before this PR (see step 1 of the Development Workflow in `AGENTS.md`)
 - [ ] My changes generate no new warnings
