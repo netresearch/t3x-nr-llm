@@ -24,7 +24,7 @@ The conclusion in #770 stands. Its stated location does not, and a plan written 
 
 - **FR-001**: Each provider call MUST record the input token count the provider reported, and the output token count the provider reported, as two separate values.
 - **FR-002**: Each provider call MUST record the model that actually served it, which is not necessarily the model that was requested.
-- **FR-003**: Each provider call MUST record the number of retries that preceded the recorded outcome.
+- **FR-003**: Each provider call MUST record the number of retries that preceded the recorded outcome. *Already satisfied* — `tx_nrllm_telemetry.fallback_attempts` records it, and a retry against the same provider does not exist in this system (`FallbackCandidateResolver`, ADR-137: "No self-retry"). Kept as a requirement rather than deleted, because the recording has to keep it true.
 - **FR-004**: Each provider call MUST record a `correlation_id` equal to the one the call already carries, such that a cost record and its telemetry record can be joined on it.
 - **FR-005**: Where a provider reported no usage, the recorded value MUST be null and MUST NOT be zero. A measured zero and an absent measurement MUST remain distinguishable in the stored data and in anything derived from it.
 - **FR-006**: Cost MUST be derived from the recorded token counts and the pricing of the model that actually served the call. Where either input is absent, cost is null under FR-005 rather than derived from a substitute.
@@ -72,7 +72,7 @@ A provider returns a valid response with no usage block.
 
 ## Assumptions
 
-- The correlation id the call already carries is stable across retries within one call, so FR-003 and FR-004 do not conflict. If it is not, the plan must resolve which of the two the id identifies.
+- The correlation id the call already carries is stable across fallback hops within one call, so FR-003 and FR-004 do not conflict. Confirmed: `ProviderCallContext` mints one UUID per call and `TelemetryMiddleware` writes exactly one row per run (ADR-058), with `fallback_attempts` counting the hops inside that row.
 - Providers that report usage report it in the same response as the content, so no second request is needed to obtain it.
 - The distinction demanded by FR-005 must survive the storage layer, which today is where it is lost. Enforcing it only in the domain model would leave the defect in place.
 

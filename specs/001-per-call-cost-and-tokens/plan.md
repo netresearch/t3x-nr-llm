@@ -16,7 +16,7 @@ Measured rather than assumed, because three of the six requirements turn out to 
 |---|---|
 | FR-002 model actually served | `tx_nrllm_telemetry.served_model`, `served_provider`, `served_configuration_identifier` — written when a swap happened, equal to the requested triple otherwise |
 | FR-004 correlation id | `tx_nrllm_telemetry.correlation_id varchar(36)` with `KEY correlation`, a UUID v4 minted per call in `ProviderCallContext` |
-| FR-003 retry count | `fallback_attempts` — counts hops, which is **not** the same thing; see the open question below |
+| FR-003 retry count | `fallback_attempts` — satisfied in full; see the resolution below for why a hop is the only thing "retry" can mean here |
 | FR-001 real token counts | absent from telemetry; the aggregate has `prompt_tokens` / `completion_tokens` summed per day |
 | FR-006 cost | absent from telemetry; the aggregate has `estimated_cost` |
 | FR-005 null ≠ zero | already the convention in this table: `complexity_tokens` is `DEFAULT NULL` with the comment "NULL where no context fit ran, which is not the same as an empty send" |
