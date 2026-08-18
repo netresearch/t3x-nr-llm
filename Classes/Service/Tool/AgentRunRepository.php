@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
@@ -611,6 +612,47 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->fetchAllAssociative();
 
         return array_map($this->hydrateEvent(...), $rows);
+    }
+
+    public function findApprovalDeciders(array $runUids): array
+    {
+        if ($runUids === []) {
+            return [];
+        }
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $rows = $queryBuilder
+            ->select('run', 'payload')
+            ->from(self::TABLE_EVENT)
+            ->where(
+                $queryBuilder->expr()->in('run', $queryBuilder->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)),
+                $queryBuilder->expr()->eq('kind', $queryBuilder->createNamedParameter(AgentEventKind::APPROVAL->value)),
+            )
+            ->orderBy('run', 'ASC')
+            ->addOrderBy('sequence', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $deciders = [];
+        foreach ($rows as $row) {
+            $raw     = $row['payload'] ?? '';
+            $payload = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+            // Strict true: an approval is the only decision that authorises the
+            // pending write, and a payload that cannot be decoded says nothing.
+            if (!is_array($payload) || ($payload['approved'] ?? null) !== true) {
+                continue;
+            }
+
+            $decidedBy = $payload['decidedBy'] ?? null;
+            // 0 for an unusable value rather than a skip: the approval happened,
+            // and dropping it would let the run read as never having passed a
+            // fence. ApprovalAttribution renders that as UNRESOLVED.
+            $deciders[self::toInt($row['run'] ?? null)][] = is_int($decidedBy) ? $decidedBy : 0;
+        }
+
+        return $deciders;
     }
 
     public function maxEventSequence(int $runUid): int

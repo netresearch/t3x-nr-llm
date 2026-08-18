@@ -4094,6 +4094,26 @@
                 <source>Details</source>
                 <target>Details</target>
             </trans-unit>
+            <trans-unit id="runs.terminal.approval">
+                <source>Approval</source>
+                <target>Freigabe</target>
+            </trans-unit>
+            <trans-unit id="runs.attribution.self">
+                <source>Approved by the person who started the run</source>
+                <target>Freigegeben von der Person, die den Lauf gestartet hat</target>
+            </trans-unit>
+            <trans-unit id="runs.attribution.secondPerson">
+                <source>Approved by someone other than the person who started the run</source>
+                <target>Freigegeben von jemand anderem als der Person, die den Lauf gestartet hat</target>
+            </trans-unit>
+            <trans-unit id="runs.attribution.initiatorUnknown">
+                <source>Approved, but the record does not say who started the run</source>
+                <target>Freigegeben, aber der Datensatz nennt nicht, wer den Lauf gestartet hat</target>
+            </trans-unit>
+            <trans-unit id="runs.attribution.unresolved">
+                <source>Approved, but the record does not say by whom</source>
+                <target>Freigegeben, aber der Datensatz nennt nicht, von wem</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

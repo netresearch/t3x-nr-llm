@@ -107,7 +107,14 @@
                                                 <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.detail.outcome.{entry.outcome}" />
                                             </f:if>
                                         </td>
-                                        <td><code>{entry.detail}</code></td>
+                                        <td>
+                                            <code>{entry.detail}</code>
+                                            <f:if condition="{entry.approvalAttribution}">
+                                                <div class="mt-1">
+                                                    <f:render partial="Backend/AgentRun/ApprovalAttribution" arguments="{attribution: entry.approvalAttribution}" />
+                                                </div>
+                                            </f:if>
+                                        </td>
                                     </tr>
                                 </f:for>
                             </tbody>

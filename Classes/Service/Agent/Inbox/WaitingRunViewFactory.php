@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Inbox;
 
+use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
@@ -66,16 +67,21 @@ final readonly class WaitingRunViewFactory
     }
 
     /**
-     * @param list<AgentRun>      $runs
-     * @param AiActorContext|null $actor the actor the table is rendered for, asked whether it may READ each run
-     *                                   (ADR-153). The list is deliberately wider than the read — an approval-grant
-     *                                   holder sees every user's run — so the detail link is offered only where
-     *                                   {@see AiActorContext::mayActOnRun()} would let it resolve. Null withholds
-     *                                   every link (fail-closed)
+     * @param list<AgentRun>        $runs
+     * @param AiActorContext|null   $actor            the actor the table is rendered for, asked whether it may READ each run
+     *                                                (ADR-153). The list is deliberately wider than the read — an approval-grant
+     *                                                holder sees every user's run — so the detail link is offered only where
+     *                                                {@see AiActorContext::mayActOnRun()} would let it resolve. Null withholds
+     *                                                every link (fail-closed)
+     * @param array<int, list<int>> $decidersByRunUid the `decidedBy` uids of each run's GRANTED approvals, keyed by run uid
+     *                                                (ADR-173), as {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::findApprovalDeciders()}
+     *                                                returns them. Absent or empty means the row states no attribution — which
+     *                                                is also what a failed load degrades to, so a store hiccup costs the marker
+     *                                                and never fabricates one
      *
      * @return list<TerminalRunView>
      */
-    public function buildTerminal(array $runs, ?AiActorContext $actor = null): array
+    public function buildTerminal(array $runs, ?AiActorContext $actor = null, array $decidersByRunUid = []): array
     {
         return array_map(
             fn(AgentRun $run): TerminalRunView => new TerminalRunView(
@@ -86,9 +92,32 @@ final readonly class WaitingRunViewFactory
                 configLabel: $this->configLabel($run),
                 formattedCost: $run->estimatedCost > 0.0 ? number_format($run->estimatedCost, 4) : null,
                 openableByViewer: $actor?->mayActOnRun($run, ServiceAccountScope::AGENT_READ) ?? false,
+                // Neither surface owns the rule: both ask ApprovalAttribution
+                // (ADR-173). They can still read differently on a run with
+                // several fences — the timeline states each one, this list
+                // collapses them by rank in fromDecisions(). That is the
+                // accepted price recorded on the enum, not a disagreement
+                // about the rule.
+                approvalAttribution: $this->attribution($run, $decidersByRunUid[$run->uid] ?? []),
             ),
             $runs,
         );
+    }
+
+    /**
+     * Who released this run, as the row states it (ADR-173). `''` is the row
+     * stating nothing, and three inputs reach it: the run granted no approval,
+     * every approval was a denial (denials never enter `$deciders`), or the
+     * deciders could not be loaded or decoded and the caller passed the empty fallback.
+     * They are not told apart here — see {@see TerminalRunView} for why.
+     *
+     * @param list<int> $deciders
+     */
+    private function attribution(AgentRun $run, array $deciders): string
+    {
+        $attribution = ApprovalAttribution::fromDecisions($run->beUser, $deciders);
+
+        return $attribution instanceof ApprovalAttribution ? $attribution->value : '';
     }
 
     /**

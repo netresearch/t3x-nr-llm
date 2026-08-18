@@ -3086,6 +3086,21 @@
             <trans-unit id="runs.detail.facts">
                 <source>Details</source>
             </trans-unit>
+            <trans-unit id="runs.terminal.approval">
+                <source>Approval</source>
+            </trans-unit>
+            <trans-unit id="runs.attribution.self">
+                <source>Approved by the person who started the run</source>
+            </trans-unit>
+            <trans-unit id="runs.attribution.secondPerson">
+                <source>Approved by someone other than the person who started the run</source>
+            </trans-unit>
+            <trans-unit id="runs.attribution.initiatorUnknown">
+                <source>Approved, but the record does not say who started the run</source>
+            </trans-unit>
+            <trans-unit id="runs.attribution.unresolved">
+                <source>Approved, but the record does not say by whom</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\ApprovalEventFailingRunRepository;
 use Netresearch\NrVault\Crypto\EnvelopeCodecInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -56,6 +57,62 @@ final class AgentRunPersisterTest extends AbstractFunctionalTestCase
 
         $this->repository = new AgentRunRepository($connectionPool, $this->get(AgentStateCodec::class));
         $this->persister  = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+    }
+
+    /**
+     * ADR-173: one statement answers for every listed run. Granted approvals
+     * only — a denial is a legitimate self-decision (ADR-172) and must not reach
+     * the readout — and runs that passed no fence stay out of the map rather
+     * than appearing with an empty list.
+     */
+    #[Test]
+    public function approvalDecidersAreReadForSeveralRunsAtOnceAndExcludeDenials(): void
+    {
+        $approved = $this->persister->begin(null, 4);
+        self::assertNotNull($approved);
+        self::assertTrue($this->persister->recordApproval($approved, true, 4));
+        self::assertTrue($this->persister->recordApproval($approved, true, 9));
+
+        $denied = $this->persister->begin(null, 4);
+        self::assertNotNull($denied);
+        self::assertTrue($this->persister->recordApproval($denied, false, 4));
+
+        $untouched = $this->persister->begin(null, 4);
+        self::assertNotNull($untouched);
+
+        $deciders = $this->persister->findApprovalDeciders([$approved->runUid, $denied->runUid, $untouched->runUid]);
+
+        self::assertSame([$approved->runUid => [4, 9]], $deciders);
+    }
+
+    #[Test]
+    public function approvalDecidersOfNoRunsAsksNothing(): void
+    {
+        self::assertSame([], $this->persister->findApprovalDeciders([]));
+    }
+
+    /**
+     * The fail-soft branch ADR-173 promises: a store error while loading the
+     * deciders costs the marker, not the inbox. Reachable only with a repository
+     * that throws — against a delegating fixture, swallowing the error and
+     * rethrowing it look identical. The healthy read first, so the empty map is
+     * the fault's doing and not an empty fixture.
+     */
+    #[Test]
+    public function aDeciderReadThatThrowsDegradesToAnEmptyMap(): void
+    {
+        $handle = $this->persister->begin(null, 4);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->recordApproval($handle, true, 4));
+        self::assertSame([$handle->runUid => [4]], $this->persister->findApprovalDeciders([$handle->runUid]));
+
+        $failing = new AgentRunPersister(
+            new ApprovalEventFailingRunRepository($this->repository, failingKind: '', failsApprovalDeciderRead: true),
+            FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL),
+            new NullLogger(),
+        );
+
+        self::assertSame([], $failing->findApprovalDeciders([$handle->runUid]));
     }
 
     #[Test]

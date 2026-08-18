@@ -31,8 +31,45 @@ The module shows two lists:
 - **Awaiting your decision** — runs paused for an approval or for input, each
   rendered as a card with the controls to resolve it.
 - **Recent runs** — a read-only table of the most recently finished runs
-  (configuration, status, created, finished, cost when non-zero, and — on the
-  runs you may open — a :guilabel:`Timeline` link to the run's detail page).
+  (configuration, status, created, finished, approval, cost when non-zero, and —
+  on the runs you may open — a :guilabel:`Timeline` link to the run's detail
+  page).
+
+The :guilabel:`Approval` column states who granted a run's approval
+(:ref:`ADR-173 <adr-173>`), so you can see it without opening each run. Four
+readings, and only *Approved by the person who started the run* is highlighted:
+
+- **Approved by the person who started the run** — the decision and the request
+  came from the same backend user. Allowed by default; whether it is refused is
+  the *Require a second approver* setting (:ref:`ADR-172 <adr-172>`).
+- **Approved by someone other than the person who started the run** — two people
+  were involved.
+- **Approved, but the record does not say who started the run** — the run was
+  started by a service account or another non-backend caller, so there is no
+  backend user to compare the approver against. The approver is still recorded.
+- **Approved, but the record does not say by whom** — the approving user was not
+  recorded, so nothing can be said about the decision either way.
+
+A run can pass several approval fences, and the column has one cell for it. It
+then shows the strongest single reading, not a summary: *Approved by the person
+who started the run* if any one fence was released by the initiator, otherwise
+*Approved, but the record does not say by whom* if any one approver went
+unrecorded. So a run whose second fence a colleague signed still reads as
+self-approved, and the run timeline is where the fences are shown one by one.
+
+An empty cell says three different things and must not be read as "no approval
+was needed": the run passed no approval fence, or it was denied, or the
+approvals could not be loaded or decoded. The run's timeline tells them apart, on the runs
+you may open.
+
+The same label appears on the approval row of the run timeline, next to the
+``decidedBy`` uid. A denial never carries one: denying your own run is
+deliberate, not an anomaly.
+
+The column shows the same label to everyone who can see the row. A user holding
+*Approve suspended AI runs* (``agent_approve``) lists other people's runs
+without being able to open them, and for those runs the label is all the column
+says — it never names a user.
 
 If the store cannot be read, the page shows a warning box rather than a
 silently empty inbox — an empty list therefore means "nothing waiting", not

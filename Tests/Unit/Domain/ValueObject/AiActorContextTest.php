@@ -216,6 +216,31 @@ final class AiActorContextTest extends TestCase
     }
 
     /**
+     * ADR-173 rests on this. A request with no backend session produces
+     * {@see AiActorContext::anonymous()}, and an anonymous actor is refused
+     * every operation on every run — the approval it would record with
+     * `decidedBy = 0` included, and on a run whose own `beUser` is 0 too, where
+     * a plain `===` would have matched. So the enum's UNRESOLVED case guards a
+     * corrupt payload, not a sessionless approval, and this is the link that
+     * would have to move for that to change.
+     */
+    #[Test]
+    public function anAnonymousActorMayNotActOnAnyRun(): void
+    {
+        $humanRun   = new AgentRun(1, 'uuid', 'waiting_for_approval', 0, '', 42, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+        $machineRun = new AgentRun(2, 'uuid2', 'waiting_for_approval', 0, '', 0, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0, '{}');
+
+        foreach ([$humanRun, $machineRun] as $run) {
+            foreach (ServiceAccountScope::cases() as $scope) {
+                self::assertFalse(
+                    AiActorContext::anonymous()->mayActOnRun($run, $scope),
+                    sprintf('Anonymous was admitted to %s on run %d', $scope->value, $run->uid),
+                );
+            }
+        }
+    }
+
+    /**
      * ADR-172: "may act on this run" and "started this run" are different
      * questions, and four-eyes rests on the second one.
      */

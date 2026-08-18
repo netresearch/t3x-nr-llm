@@ -36,18 +36,26 @@ final readonly class RunTimelineEntry
 
     public const OUTCOME_FAILED = 'failed';
 
+    /** The row is not a granted approval, so there is nobody to attribute (ADR-173). */
+    public const ATTRIBUTION_NONE = '';
+
     /**
-     * @param string $source     one of the SOURCE_* constants; the view translates it
-     * @param string $kind       the row's own kind (step kind, operation, or decision)
-     * @param int    $occurredAt UNIX timestamp the row was written
-     * @param int    $sequence   the step sequence within the run; -1 for rows that have none,
-     *                           which also orders them after a step of the same second
-     * @param int    $round      the loop round, 0 when the row has none
-     * @param float  $durationMs 0.0 when the row has none
-     * @param string $detail     `key=value` metadata pairs, already joined for display
-     * @param string $outcome    one of the OUTCOME_* constants — a string rather than a
-     *                           nullable bool because the view has to tell "no outcome"
-     *                           apart from "failed", which a Fluid truth test cannot
+     * @param string $source              one of the SOURCE_* constants; the view translates it
+     * @param string $kind                the row's own kind (step kind, operation, or decision)
+     * @param int    $occurredAt          UNIX timestamp the row was written
+     * @param int    $sequence            the step sequence within the run; -1 for rows that have none,
+     *                                    which also orders them after a step of the same second
+     * @param int    $round               the loop round, 0 when the row has none
+     * @param float  $durationMs          0.0 when the row has none
+     * @param string $detail              `key=value` metadata pairs, already joined for display
+     * @param string $outcome             one of the OUTCOME_* constants — a string rather than a
+     *                                    nullable bool because the view has to tell "no outcome"
+     *                                    apart from "failed", which a Fluid truth test cannot
+     * @param string $approvalAttribution
+     *                                    an {@see \Netresearch\NrLlm\Domain\Enum\ApprovalAttribution}
+     *                                    value on a granted-approval row, `''` on every other row
+     *                                    (ADR-173). A string for the same reason `$outcome` is one:
+     *                                    the partial switches on it as a literal; it assembles no key
      */
     public function __construct(
         public string $source,
@@ -58,5 +66,6 @@ final readonly class RunTimelineEntry
         public float $durationMs,
         public string $detail,
         public string $outcome = self::OUTCOME_NONE,
+        public string $approvalAttribution = self::ATTRIBUTION_NONE,
     ) {}
 }

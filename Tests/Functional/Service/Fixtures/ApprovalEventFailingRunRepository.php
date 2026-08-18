@@ -16,19 +16,26 @@ use RuntimeException;
 
 /**
  * The real, database-backed repository with ONE fault injected: the event of a
- * chosen kind cannot be written.
+ * chosen kind cannot be written, or — with `$failsApprovalDeciderRead` — the
+ * approval deciders of the inbox's listed runs cannot be read.
  *
  * Models the store hiccup that hits a single audit record rather than the whole
  * connection, which is what {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::recordApproval()}'s
  * boolean is about (ADR-132). Everything else — the claim, the suspend, the
  * status transitions the assertions read back — stays real, so the test asserts
  * the row the operator would actually see.
+ *
+ * The read fault is the mirror for ADR-173: it enters
+ * {@see \Netresearch\NrLlm\Service\Tool\AgentRunPersister::findApprovalDeciders()}'s
+ * catch, which a delegating fixture never does — and against a delegating
+ * fixture, swallow-and-return-`[]` and a rethrow are the same test.
  */
 final readonly class ApprovalEventFailingRunRepository implements AgentRunRepositoryInterface
 {
     public function __construct(
         private AgentRunRepositoryInterface $inner,
         private string $failingKind,
+        private bool $failsApprovalDeciderRead = false,
     ) {}
 
     public function recordEvent(int $runUid, int $sequence, string $kind, int $round, float $durationMs, string $payloadJson): void
@@ -154,6 +161,15 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
     public function findEvents(int $runUid, int $afterSequence = -1): array
     {
         return $this->inner->findEvents($runUid, $afterSequence);
+    }
+
+    public function findApprovalDeciders(array $runUids): array
+    {
+        if ($this->failsApprovalDeciderRead) {
+            throw new RuntimeException('findApprovalDeciders() failed', 1786500001);
+        }
+
+        return $this->inner->findApprovalDeciders($runUids);
     }
 
     public function maxEventSequence(int $runUid): int

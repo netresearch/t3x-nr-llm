@@ -64,6 +64,14 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
  * has no grant equivalent, so the approval grant widens the list but not the
  * detail page (ADR-153).
  *
+ * The list therefore carries ONE fact the detail page would refuse to that same
+ * viewer: the ADR-173 approval attribution, derived from the approval events of
+ * runs a grant holder may list but not open. Deliberate and bounded — it is the
+ * same audit-only class as the `decidedBy` uid above — four labels and an empty
+ * cell, and it names nobody. The
+ * alternative, showing the column only on the viewer's own rows, would hide
+ * exactly the rows an approval grant exists to review.
+ *
  * The page works fully with JavaScript OFF: native `<f:form>` POST, a
  * POST-redirect-GET flush with session flash messages, and a 422 in-place
  * re-render that preserves the operator's raw input. The CSRF defence is the
@@ -286,7 +294,7 @@ final class AgentRunController extends ActionController
 
         $this->moduleTemplate->assignMultiple([
             'waiting'        => $this->viewFactory->buildWaiting($waitingRuns ?? [], $viewer instanceof BackendUserAuthentication ? $viewer : null),
-            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor),
+            'terminal'       => $this->viewFactory->buildTerminal($terminalRuns ?? [], $actor, $this->approvalDeciders($terminalRuns ?? [])),
             'dataLoadError'  => $dataLoadError,
             'errorRunUuid'   => $errorRunUuid,
             'rawInput'       => $rawInput,
@@ -295,6 +303,33 @@ final class AgentRunController extends ActionController
         ]);
 
         return $this->moduleTemplate->renderResponse('Backend/AgentRun/List');
+    }
+
+    /**
+     * Who granted each listed run's approvals (ADR-173), in ONE statement for the
+     * whole table — the alternative, an event read per row, would be twenty
+     * queries for a marker.
+     *
+     * No authorisation is added or needed here: the rows are exactly the ones
+     * the list query already released to this viewer. That is not an actor-scoped
+     * set — for an admin or an `agent_approve` grant holder `$restrictTo` is null
+     * and the list is every user's run on purpose (ADR-131), which is the case
+     * this marker exists for. A `decidedBy` uid is audit metadata the inbox
+     * docblock already names as such.
+     *
+     * @param list<AgentRun> $runs
+     *
+     * @return array<int, list<int>>
+     */
+    private function approvalDeciders(array $runs): array
+    {
+        if ($runs === []) {
+            return [];
+        }
+
+        return $this->persister->findApprovalDeciders(
+            array_map(static fn(AgentRun $run): int => $run->uid, $runs),
+        );
     }
 
     /**

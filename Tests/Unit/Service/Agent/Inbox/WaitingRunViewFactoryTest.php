@@ -301,6 +301,58 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     /**
+     * ADR-173: the recent-runs table states the same distinction the run
+     * timeline does, so an auditor scanning the list does not have to open each
+     * run to find the ones that released themselves.
+     */
+    #[Test]
+    public function aTerminalRowSaysWhetherItsApprovalCameFromItsOwnInitiator(): void
+    {
+        $run = $this->makeRun('a', null, status: 'completed', beUser: 7);
+
+        // makeRun() gives every run uid 1, which is the key of the deciders map.
+        self::assertSame('self', $this->factory()->buildTerminal([$run], null, [1 => [7]])[0]->approvalAttribution);
+        self::assertSame('secondPerson', $this->factory()->buildTerminal([$run], null, [1 => [9]])[0]->approvalAttribution);
+        self::assertSame('self', $this->factory()->buildTerminal([$run], null, [1 => [9, 7]])[0]->approvalAttribution);
+    }
+
+    #[Test]
+    public function aTerminalRowThatPassedNoFenceStatesNoAttribution(): void
+    {
+        $run = $this->makeRun('a', null, status: 'completed', beUser: 7);
+
+        // No entry for this run, and the degraded empty map a failed load yields.
+        self::assertSame('', $this->factory()->buildTerminal([$run], null, [2 => [7]])[0]->approvalAttribution);
+        self::assertSame('', $this->factory()->buildTerminal([$run])[0]->approvalAttribution);
+    }
+
+    /**
+     * A run a service account started records beUser 0; 0 === 0 must not put a
+     * self-approved marker on a row nobody self-approved.
+     */
+    #[Test]
+    public function aTerminalRowWithoutResolvableUsersIsUnresolvedNotSelf(): void
+    {
+        $run = $this->makeRun('a', null, status: 'completed', beUser: 0);
+
+        self::assertSame('unresolved', $this->factory()->buildTerminal([$run], null, [1 => [0]])[0]->approvalAttribution);
+    }
+
+    /**
+     * A service-account run a backend user released: the row must not claim the
+     * decider is unrecorded, because it is. What is missing is the initiator to
+     * compare against.
+     */
+    #[Test]
+    public function aTerminalRowOfARunNoBackendUserStartedSeparatesTheTwoAbsences(): void
+    {
+        $run = $this->makeRun('a', null, status: 'completed', beUser: 0);
+
+        self::assertSame('initiatorUnknown', $this->factory()->buildTerminal([$run], null, [1 => [5]])[0]->approvalAttribution);
+        self::assertSame('unresolved', $this->factory()->buildTerminal([$run], null, [1 => [5, 0]])[0]->approvalAttribution);
+    }
+
+    /**
      * ADR-136: the card shows what the call WOULD do, not only its arguments.
      */
     #[Test]

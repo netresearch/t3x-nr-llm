@@ -168,7 +168,104 @@ final class RunTimelineFactoryTest extends TestCase
         self::assertStringContainsString('fallbackAttempts=1', $timeline[1]->detail);
     }
 
-    private function agentRun(): AgentRun
+    /**
+     * ADR-173: the approval row states who decided relative to who started the
+     * run. The run fixture's initiator is beUser 1.
+     */
+    #[Test]
+    public function anApprovalGrantedByTheRunsOwnInitiatorIsMarkedSelf(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [$this->approvalEvent(0, true, 1, 1_700_000_010)]);
+
+        self::assertSame('self', $timeline[0]->approvalAttribution);
+    }
+
+    #[Test]
+    public function anApprovalGrantedByAnotherUserIsMarkedSecondPerson(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [$this->approvalEvent(0, true, 9, 1_700_000_010)]);
+
+        self::assertSame('secondPerson', $timeline[0]->approvalAttribution);
+    }
+
+    /**
+     * A denial is a legitimate self-decision (ADR-172) and an ordinary step is
+     * not a decision at all — neither may carry a marker.
+     */
+    #[Test]
+    public function neitherADenialNorAnOrdinaryStepCarriesAnAttribution(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [
+            $this->approvalEvent(0, false, 1, 1_700_000_010),
+            $this->event(1, 'llm', 1_700_000_011),
+        ]);
+
+        self::assertSame(RunTimelineEntry::ATTRIBUTION_NONE, $timeline[0]->approvalAttribution);
+        self::assertSame(RunTimelineEntry::ATTRIBUTION_NONE, $timeline[1]->approvalAttribution);
+    }
+
+    /**
+     * An approval whose decider was not recorded must not compare equal to a run
+     * a service account started — 0 === 0 is not four eyes and not self either.
+     */
+    #[Test]
+    public function anApprovalWithoutResolvableUsersIsUnresolvedNotSelf(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(beUser: 0), [$this->approvalEvent(0, true, 0, 1_700_000_010)]);
+
+        self::assertSame('unresolved', $timeline[0]->approvalAttribution);
+    }
+
+    /**
+     * The ordinary shape of a service-account run: `beUser` 0, released by a
+     * backend user whose uid IS on the row. "The record does not say by whom"
+     * would be a false statement about it.
+     */
+    #[Test]
+    public function anApprovalOnARunNoBackendUserStartedNamesItsDeciderStill(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(beUser: 0), [$this->approvalEvent(0, true, 5, 1_700_000_010)]);
+
+        self::assertSame('initiatorUnknown', $timeline[0]->approvalAttribution);
+        self::assertStringContainsString('decidedBy=5', $timeline[0]->detail);
+    }
+
+    /**
+     * A payload whose `decidedBy` is not an int (a corrupt or hand-edited row)
+     * degrades to unresolved rather than coercing into a uid comparison.
+     */
+    #[Test]
+    public function aNonIntegerDecidedByDegradesToUnresolved(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [
+            new AgentRunEvent(
+                uid: 300,
+                run: 7,
+                sequence: 0,
+                kind: 'approval',
+                round: 0,
+                durationMs: 0.0,
+                payload: ['approved' => true, 'decidedBy' => '1'],
+                crdate: 1_700_000_010,
+            ),
+        ]);
+
+        self::assertSame('unresolved', $timeline[0]->approvalAttribution);
+    }
+
+    private function agentRun(int $beUser = 1): AgentRun
     {
         return new AgentRun(
             uid: 7,
@@ -176,7 +273,7 @@ final class RunTimelineFactoryTest extends TestCase
             status: 'completed',
             configurationUid: 3,
             configurationIdentifier: 'editorial',
-            beUser: 1,
+            beUser: $beUser,
             iterations: 2,
             truncated: false,
             totalPromptTokens: 120,
@@ -215,6 +312,23 @@ final class RunTimelineFactoryTest extends TestCase
             round: 1,
             durationMs: 4.0,
             payload: ['kind' => 'tool', 'toolName' => 'get_page', 'toolIsError' => $isError],
+            crdate: $crdate,
+        );
+    }
+
+    /**
+     * An APPROVAL event exactly as AgentRunPersister::recordApproval() writes it.
+     */
+    private function approvalEvent(int $sequence, bool $approved, int $decidedBy, int $crdate): AgentRunEvent
+    {
+        return new AgentRunEvent(
+            uid: 300 + $sequence,
+            run: 7,
+            sequence: $sequence,
+            kind: 'approval',
+            round: 0,
+            durationMs: 0.0,
+            payload: ['approved' => $approved, 'decidedBy' => $decidedBy],
             crdate: $crdate,
         );
     }
