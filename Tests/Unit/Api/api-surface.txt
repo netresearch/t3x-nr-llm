@@ -1402,8 +1402,11 @@ Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
   method vision(array $content, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
 
 Netresearch\NrLlm\Service\Option\AbstractOptions (class)
+  method getCallerSourceExtension(): ?string
+  method getCallerSourceOperation(): ?string
   method getIdempotencyKey(): ?string
   method toArray(): array
+  method withCallerSource(string $extension, string $operation = …): static
   method withIdempotencyKey(string $idempotencyKey): static
 
 Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface (interface)

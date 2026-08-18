@@ -68,6 +68,13 @@ final readonly class TelemetryRecord
      *                                                          production caller does; the column is
      *                                                          nullable because rows written before it
      *                                                          existed have no value for it.
+     * @param string             $sourceExtension               which piece of software made the call
+     *                                                          (ADR-177), e.g. "ai_seo_helper"; '' for an
+     *                                                          unannotated call — identical to a
+     *                                                          pre-feature row on purpose.
+     * @param string             $sourceOperation               the operation inside the calling software
+     *                                                          (ADR-177), e.g. "requestAi"; '' when the
+     *                                                          caller named only itself.
      */
     public function __construct(
         public string $correlationId,
@@ -90,5 +97,7 @@ final readonly class TelemetryRecord
         public ?RequestFacts $requestFacts = null,
         public ?ProviderCallUsage $callUsage = null,
         public ?int $providerRetries = null,
+        public string $sourceExtension = '',
+        public string $sourceOperation = '',
     ) {}
 }

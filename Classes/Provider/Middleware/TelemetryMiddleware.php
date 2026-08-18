@@ -77,6 +77,16 @@ use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
 {
     /**
+     * Context-metadata key naming the calling software (ADR-177), set by
+     * {@see \Netresearch\NrLlm\Service\CallMetadataFactory::callerSource()}
+     * from the options object; persisted as `source_extension`.
+     */
+    public const METADATA_SOURCE_EXTENSION = 'sourceExtension';
+
+    /** Companion to {@see self::METADATA_SOURCE_EXTENSION}; persisted as `source_operation`. */
+    public const METADATA_SOURCE_OPERATION = 'sourceOperation';
+
+    /**
      * Pipeline priority, read by the tagged iterator via
      * `defaultPriorityMethod` (ADR-085 ordering).
      *
@@ -208,6 +218,12 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 requestFacts: $signals->requestFacts,
                 callUsage: $signals->callUsage,
                 providerRetries: $providerRetries,
+                // Caller identity (ADR-177), set on the way in by
+                // CallMetadataFactory::callerSource() from the options object.
+                // '' for unannotated calls — indistinguishable from a
+                // pre-feature row on purpose.
+                sourceExtension: $this->metadataString($context, self::METADATA_SOURCE_EXTENSION),
+                sourceOperation: $this->metadataString($context, self::METADATA_SOURCE_OPERATION),
             ));
         } catch (Throwable $e) {
             // Observability must not break the call it observes. safeRecord()
@@ -229,6 +245,13 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 // Nothing safe left to do; never let observability break the call.
             }
         }
+    }
+
+    private function metadataString(ProviderCallContext $context, string $key): string
+    {
+        $value = $context->metadata[$key] ?? '';
+
+        return \is_string($value) ? $value : '';
     }
 
     /**
