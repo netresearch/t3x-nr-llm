@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Api\Support;
 use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionEnum;
+use ReflectionEnumBackedCase;
 use ReflectionIntersectionType;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -36,6 +37,10 @@ use UnitEnum;
  *   break for callers.
  * - Type strings are self-built with sorted union members — never
  *   `(string)$type`, whose format has changed across PHP versions.
+ * - Backed-enum cases render WITH their backing value (`case Read = "read"`):
+ *   the values are the frozen vocabulary (persisted rows, wire formats), so a
+ *   value change under a stable case name must be a visible diff — name-only
+ *   lines let it pass green (netresearch/t3x-nr-vault#319 caught this first).
  * - The constructor renders as its own `constructor(...)` line rather than
  *   as a method, because it is keyed and classified separately: a widened
  *   constructor is a break for every value object a consumer builds with
@@ -158,7 +163,17 @@ final class ApiSurfaceRenderer
             \assert(\is_subclass_of($enumName, UnitEnum::class));
             $enum = new ReflectionEnum($enumName);
             foreach ($enum->getCases() as $case) {
-                $lines[] = 'case ' . $case->getName();
+                // The BACKING VALUE is rendered, not just the case name: for
+                // `@api` enums the values are the frozen vocabulary (persisted
+                // rows, wire formats, CSV round-trips), and a name-only line
+                // let `case Read = 'read'` become `= 'reveal'` with the
+                // snapshot staying byte-identical. The enum-case constant
+                // path cannot catch it either: `isEnumCase()` rows are
+                // skipped below and `getValue()` on a case renders as
+                // `array`. json_encode keeps the rendering deterministic.
+                $lines[] = $case instanceof ReflectionEnumBackedCase
+                    ? sprintf('case %s = %s', $case->getName(), json_encode($case->getBackingValue(), JSON_THROW_ON_ERROR))
+                    : 'case ' . $case->getName();
             }
         }
 
