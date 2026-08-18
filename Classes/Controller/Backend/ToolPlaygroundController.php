@@ -983,25 +983,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      */
     private function resolveForcedSkills(array $uids): array
     {
-        if ($uids === []) {
-            return [];
-        }
-
-        $byUid = [];
-        foreach ($this->skillRepository->findAll() as $skill) {
-            if ($skill instanceof Skill && $skill->getUid() !== null) {
-                $byUid[$skill->getUid()] = $skill;
-            }
-        }
-
-        $skills = [];
-        foreach ($uids as $uid) {
-            if (isset($byUid[$uid])) {
-                $skills[] = $byUid[$uid];
-            }
-        }
-
-        return $skills;
+        return $this->skillRepository->findByUids($uids);
     }
 
     /**

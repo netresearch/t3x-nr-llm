@@ -205,9 +205,15 @@ final readonly class AgentRunRequestCodec
     }
 
     /**
-     * Forced skills by uid, preserving order. Resolved without the enabled
-     * filter — forcing a skill overrides its global toggle, the same semantics
-     * the playground's force-inject control has.
+     * Forced skills by uid, preserving order, enabled only.
+     *
+     * A queued run has composed nothing yet, so dequeuing it is new
+     * composition: a skill switched off between enqueue and start must not
+     * enter it, exactly as {@see self::snippetsByUids()} has always held for
+     * snippets (ADR-166, ADR-175). This docblock previously claimed the
+     * opposite — that forcing overrides the global toggle — which no record
+     * decided and which the force-inject picker does not offer, since it lists
+     * enabled skills only.
      *
      * @param list<int> $uids
      *
@@ -219,21 +225,7 @@ final readonly class AgentRunRequestCodec
             return [];
         }
 
-        $byUid = [];
-        foreach ($this->skillRepository->findAll() as $skill) {
-            if ($skill instanceof Skill && $skill->getUid() !== null) {
-                $byUid[$skill->getUid()] = $skill;
-            }
-        }
-
-        $skills = [];
-        foreach ($uids as $uid) {
-            if (isset($byUid[$uid])) {
-                $skills[] = $byUid[$uid];
-            }
-        }
-
-        return $skills;
+        return $this->skillRepository->findByUids($uids);
     }
 
     /**
