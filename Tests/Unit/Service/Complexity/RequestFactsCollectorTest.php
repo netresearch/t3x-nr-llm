@@ -11,7 +11,9 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Complexity;
 
 use Netresearch\NrLlm\Domain\Enum\RequestShape;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Service\Complexity\MessageInspector;
 use Netresearch\NrLlm\Service\Complexity\RequestFactsCollector;
+use Netresearch\NrLlm\Service\Context\TranscriptEstimator;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -46,8 +48,8 @@ final class RequestFactsCollectorTest extends TestCase
 
         self::assertSame(
             [
-                'Netresearch\NrLlm\Service\Complexity\MessageInspector',
-                'Netresearch\NrLlm\Service\Context\TranscriptEstimator',
+                MessageInspector::class,
+                TranscriptEstimator::class,
             ],
             $parameterTypes,
             'A new collaborator here needs ADR-174 read first: neither of these can name a model, '

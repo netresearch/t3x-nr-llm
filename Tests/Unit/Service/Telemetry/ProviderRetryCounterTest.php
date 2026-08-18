@@ -40,6 +40,7 @@ final class ProviderRetryCounterTest extends TestCase
         $innerBefore = $counter->total();
         $counter->recordRetry();
         $counter->recordRetry();
+
         $innerDelta = $counter->total() - $innerBefore;
 
         $counter->recordRetry();

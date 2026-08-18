@@ -689,13 +689,12 @@ final readonly class StreamingDispatcher
             complexity: $context->telemetrySignals->complexity,
             // Recorded on the same scratchpad before the stream opened (ADR-174).
             requestFacts: $context->telemetrySignals->requestFacts,
-            // Deliberately NOT filled: a streamed response carries no usage
-            // block, so this path has no provider-reported token counts to
-            // record. What it does have is a char-based estimate, and writing
-            // that into a column named "actual" would be the exact confusion
-            // between an estimate and a measurement that ADR-174 exists to end.
-            // The estimate stays where it already is — the usage aggregate.
-            callUsage: null,
+            // callUsage is left at its null default, deliberately: a streamed
+            // response carries no usage block, so this path has no
+            // provider-reported token counts. What it does have is a char-based
+            // estimate, and writing that into a column named "actual" would be
+            // the exact confusion between an estimate and a measurement that
+            // ADR-174 exists to end. The estimate stays in the usage aggregate.
             providerRetries: $providerRetries,
         ));
     }
