@@ -82,7 +82,7 @@ emitter) is intentionally deferred rather than shipped empty.
 The sole v1 emitter is ``ReadRecordsTool``, which builds its ``TABLE`` rows from
 the SAME already-redacted ``formatValue()`` cells its text lines use, in one
 pass — the artifact can never drift from, or re-expose more than, the text
-egress. The other 40 builtins ship text-parity via a mechanical
+egress. Every other builtin ships text-parity via a mechanical
 ``ToolResult::text($string)`` wrap.
 
 Fail-closed bounding
@@ -123,7 +123,11 @@ This is intentional for the admin-only module, not a bypass.
 Consequences
 ============
 
-- ``ToolInterface`` is a breaking change across all 41 builtins. Pre-1.0
+- ``ToolInterface`` is a breaking change across every builtin. That was 41 of
+  them when this was written; the live count is
+  ``grep -l ToolInterface Classes/Service/Tool/Builtin/*.php | wc -l``, which
+  answers 46 today. The magnitude is the point here, so it is anchored to the
+  command rather than left as a number nothing re-derives. Pre-1.0
   (:ref:`ADR-090 <adr-090>`) this is acceptable and announced; third-party tools
   discovered via the ``nr_llm.tool`` tag must return a ``ToolResult`` (the
   ``ToolResult::text()`` factory keeps the trivial case a one-line change).
