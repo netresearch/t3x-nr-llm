@@ -169,9 +169,9 @@ final class ApprovalSurfaceInventoryTest extends TestCase
             // satisfied by the `nrllm_runs` already in the text, and a fourth
             // surface whose name merely extends an existing one would pass the
             // one assertion whose job is to notice it.
-            self::assertSame(
-                1,
-                \preg_match('/(?<![a-z_])' . \preg_quote($module, '/') . '(?![a-z_])/', $constraint),
+            self::assertMatchesRegularExpression(
+                '/(?<![a-z_])' . \preg_quote($module, '/') . '(?![a-z_])/',
+                $constraint,
                 'ADR-130 constraint 3 enumerates the approval surfaces but never mentions ' . $module
                     . ' as an identifier of its own. The record is the thing that goes stale; name it there.',
             );
