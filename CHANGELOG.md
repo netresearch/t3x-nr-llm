@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-08-18
+
 ### Added
 - **Telemetry rows can name their caller** (`#816`, ADR-177). A downstream consumer tags its calls with `->withCallerSource('my_extension', 'operation')` on any options object; the identity is persisted on the telemetry row as `source_extension` / `source_operation` and never sent to the provider. Unannotated calls keep writing `''`, so existing rows and consumers are untouched. Driving consumer: the nr-llm-compat bridge layer.
 - **A self-approved run says so** (`#785`). An approval granted by the backend user who started the run is now labelled as such — on the run timeline, and in the *Recent runs* table of the Agent Runs inbox, which gains an *Approval* column. An approval granted by anybody else is labelled too, so the two are told apart at a glance instead of by comparing two uid numbers.
