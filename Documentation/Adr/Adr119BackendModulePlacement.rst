@@ -15,10 +15,17 @@ ADR-119: Where the backend modules live — Administration, for now
 Context
 =======
 
-nr_llm registers a parent module ``nrllm`` with twelve submodules — providers,
-models, configurations, tasks, snippets, skills, tools, playground, agent runs,
-analytics, setup wizard and overview — under TYPO3's **Administration**
-section. The question raised: should this become its own top-level section,
+nr_llm registers a parent module ``nrllm`` with fourteen submodules — overview,
+providers, models, configurations, tasks, snippets, use-case packs, setup
+wizard, skills, tools, MCP servers, playground, agent runs and analytics —
+under TYPO3's **Administration** section.
+``grep -c "'parent' => 'nrllm'" Configuration/Backend/Modules.php`` answers
+fourteen, and is the count to re-derive rather than trust this sentence.
+
+A fifteenth nr_llm module, ``nrllm_aitasks``, is parented to ``web`` on purpose
+(:ref:`ADR-131 <adr-131>`) because the menu hides a child whose parent's access
+check fails. It is not a submodule of this tree and must not be folded into the
+number by a later reader correcting it. The question raised: should this become its own top-level section,
 a sibling of Content, Media, Sites, Administration and System, and should it be
 called "LLM" or "AI"?
 
@@ -32,11 +39,14 @@ admin-only modules."** Access level is not the grouping principle. In the core,
 ``systemMaintainer`` — stricter than admin, not the same. Sections mix access
 levels, so this explains nothing.
 
-**"A move is expensive."** It is — the ``nrllm`` route and its bookmarks, two
-``setShortcutContext`` calls, the docheader submodule dropdown, 33 references
-across 20 documentation files, roughly 17 backend screenshots, and
-``t3_cowriter``'s ``position => ['after' => 'nrllm']`` anchor. But cost answers
-"what does it take", not "what is right". The two must not be confused.
+**"A move is expensive."** It is — the ``nrllm`` route and its bookmarks, the
+``setShortcutContext`` calls, the docheader submodule dropdown, the module
+identifier spread across the documentation and its backend screenshots, and
+``t3_cowriter``'s ``position => ['after' => 'nrllm']`` anchor. This record
+originally counted them: two calls, 33 references in 20 files, roughly 17
+screenshots. Every one of those has since grown. The figures are dropped rather
+than maintained, because cost answers "what does it take", not "what is right".
+The two must not be confused.
 
 .. _adr-119-context-principle:
 
@@ -117,7 +127,7 @@ When it is reopened, these are settled in advance:
   identifier is a shared namespace with no owner: the label and icon would
   depend on package load order, and removing the owning extension would strip
   the routes of any foreign submodules parented to it.
-- **Twelve flat entries do not move as they are.** They read as a dumping
+- **Fourteen flat entries do not move as they are.** They read as a dumping
   ground at any level. Group them by subject first — setup (provider, model,
   configuration), authoring (tasks, skills, snippets), operation (tools,
   playground, runs, analytics) — and let the section hold three or four
@@ -136,9 +146,9 @@ Consequences
 - No code changes. The placement, identifiers, routes and documentation stay
   as they are.
 - The discoverability problem is real and remains: TYPO3's module menu renders
-  two levels, and nr_llm's twelve submodules sit at the third, so they are
+  two levels, and nr_llm's fourteen submodules sit at the third, so they are
   invisible from the main menu. That is worth fixing on its own terms — by
-  strengthening the Overview as the hub, or by grouping the twelve — and does
+  strengthening the Overview as the hub, or by grouping the fourteen — and does
   not require the top level.
 - If the editor surfaces are built without reopening this ADR, they will land
   in an admin-only section where their users cannot reach them. The revisit
