@@ -527,3 +527,4 @@ Tools
    Adr173SelfApprovalIsVisibleInTheRecord
    Adr174PerCallCostAndPreRoutingFacts
    Adr175ForcedSkillsBindByTheSnippetRule
+   Adr176PerCallOutcomeSeparateFromApproval
