@@ -20,13 +20,14 @@ closes them. The [`deferred`](https://github.com/netresearch/t3x-nr-llm/issues?q
 label marks issues an ADR explicitly deferred; it spans this section and
 Toward 1.0 alike, so it defines neither.
 
-- **[#731](https://github.com/netresearch/t3x-nr-llm/issues/731) — a per-call injected snippet has no trust-zone ceiling.**
-  The sources a *record* declares are classified and gated: snippets and skills
-  (ADR-144), and the configuration's system prompt (ADR-155), judged against
-  the zone of the model that actually serves the call (ADR-149). Context a
-  *caller* hands the send is not, because it has no per-record home a
-  declaration could live on — the same argument that keeps task input
-  unclassified. ADR-155's own `Revisit when`.
+None open. #731 was the last, and ADR-164 with ADR-165 closed it in code: a
+run's forced sources now bind against the same trust ceiling as a
+configuration's own, at assembly and again on resume.
+
+The task input stays unclassified and does not belong here. ADR-144 declined it
+for want of a per-record home the declaration could live on, and ADR-164
+restates that reason where it declines to extend the ceiling to it — no code
+closes it, so no issue tracks it.
 
 ## Toward 1.0
 
