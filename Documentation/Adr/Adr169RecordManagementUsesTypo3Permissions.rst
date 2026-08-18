@@ -6,9 +6,38 @@
 ADR-169: Record management belongs to TYPO3's permission model
 ============================================================================
 
-:Status: Proposed
+:Status: Accepted (section 6's recommendation is the one exception — it is
+    recorded as open, see `Disposition`_)
 :Date: 2026-08-13
+:Accepted: 2026-08-18
+:Amends: :ref:`ADR-130 <adr-130>` (named constraint 4 reserved ``tasks_manage``;
+    it is retired rather than fulfilled) and :ref:`ADR-131 <adr-131>` (whose
+    "``tasks_manage`` still does not exist" bullet said the same)
 :Authors: Netresearch DTT GmbH
+
+.. _adr-169-disposition:
+
+Disposition
+===========
+
+Accepted on 2026-08-18, section by section, on the personas
+:ref:`ADR-171 <adr-171>` derived. Those personas were still unvalidated at that
+moment — NEXT-152 asks Stefan and Sandra to check them and had no answer. That
+is stated here rather than hidden, because it names where a later answer would
+have to land: persona 7, the management-grant holder, is the one this record
+retires, and if it turns out to be real, section 5 is what an answer would
+reopen.
+
+Sections 1, 2, 3, 4, 5 and 7 are accepted as written.
+
+**Section 6 is not.** It recommends reopening :ref:`ADR-119 <adr-119>` and says
+so as a recommendation "not done here". Reopening it creates a new top-level
+backend section shared with nr_ai_search, nr_repurpose and the cowriter, so it
+is not a side effect of a grant decision in this repository. It is issue `#812`,
+with ADR-119 as its addressee. Nothing is misrepresented in the meantime:
+ADR-119's own status already says the placement is unsettled, and its trigger —
+the first cross-consumer editor surface — has not fired by :ref:`ADR-131 <adr-131>`'s
+own account.
 
 .. _adr-169-context:
 
@@ -17,7 +46,7 @@ Context
 
 Issue `#691` declines to add a ``MANAGE`` grant case until a management surface
 exists, under :ref:`ADR-130 <adr-130>`'s rule that a case arrives together with
-its enforcement point (``Adr130BackendUserGrants.rst:34-38``). That rule exists
+its enforcement point (its Decision, "Grants, not roles"). That rule exists
 because :ref:`ADR-023 <adr-023>` shipped backend-group checkboxes that gated
 nothing and :ref:`ADR-117 <adr-117>` had to remove them: "a control that has to
 be labelled 'has no effect' is worse than its absence"
@@ -242,11 +271,11 @@ acceptable grant of ``allowed_groups``.
 5. The grant's name
 -------------------
 
-``tasks_manage`` is reserved in three places: ADR-130 named constraint 4
-(``Adr130BackendUserGrants.rst:199-203``), ADR-131's "what stays out"
-(``Adr131EditorModule.rst:69-70``) and the enum docblock
-(``Classes/Domain/Enum/BackendUserGrant.php:24-27``). `#691` asks for something
-wider — providers, models, configurations and tasks.
+``tasks_manage`` was reserved in three places: :ref:`ADR-130 <adr-130>`'s named
+constraint 4, :ref:`ADR-131 <adr-131>`'s "what stays out" bullet, and the class
+docblock of :php:`BackendUserGrant`. `#691` asks for something wider —
+providers, models, configurations and tasks. All three now record the
+reservation as retired; see `Disposition`_.
 
 **Recommendation: neither name. Close `#691` as answered.** Section 2 removes
 providers and models from the manageable set, and what remains is governed by
@@ -277,7 +306,7 @@ first; old routes keep working through kept identifiers plus
 an actor-scoped run viewport, but the record states that "'Own runs' for editors
 is mostly the approver's view", that agent runs "are currently started from
 admin surfaces", and that the ownership filter "matters the moment any non-admin
-path starts runs" (``Adr131EditorModule.rst:71-74``). A personal run history is
+path starts runs". A personal run history is
 what that surface will become, not what it is.
 
 What has changed is the count and the constraint. ADR-119 describes twelve
@@ -287,7 +316,7 @@ registered outside it under ``parent => 'web'``
 file). It sits there for a verified platform reason: the module menu drops every
 top-level module whose own access check fails, so a child of the admin-only
 ``nrllm`` (``:53``) would be invisible to non-admins
-(``Adr131EditorModule.rst:31-35``). A management surface has that same
+(:ref:`ADR-131 <adr-131>`, Context). A management surface has that same
 constraint.
 
 **Recommendation: reopen ADR-119 — recommended here, not done here.** Without
@@ -409,12 +438,14 @@ Consequences
 
 If the recommendations are accepted as they stand:
 
-- :ref:`ADR-119 <adr-119>` is reopened by the accepting change, which edits its
-  ``:Status:`` and ``:Amended:`` fields and applies the four pre-settled answers.
+- :ref:`ADR-119 <adr-119>` is **not** reopened by the accepting change. This
+  bullet said it would be, and the acceptance deliberately did not — see
+  `Disposition`_. ADR-119 keeps its ``Accepted (deferred)`` status and its four
+  pre-settled answers stand unapplied.
 - :ref:`ADR-130 <adr-130>` named constraint 4, :ref:`ADR-131 <adr-131>`'s
-  ``tasks_manage`` bullet and the docblock at
-  ``Classes/Domain/Enum/BackendUserGrant.php:24-27`` are amended together: the
-  grant is retired, not pending. Issue `#691` closes as answered.
+  ``tasks_manage`` bullet and the class docblock of :php:`BackendUserGrant` are
+  amended together: the grant is retired, not pending. Issue `#691` closes as
+  answered.
 - **Upgrade note.** A group holding ``tables_modify`` on a ``tx_nrllm_*`` table
   can already edit any record of that table sitting on a page it can edit —
   today, with no flag and no module. Such an entry is inert only where every
@@ -438,5 +469,13 @@ Revisit when
   for credentials; if the usage path stops reading them, the reason expires.
 - Anything starts filtering ``tx_nrllm_*`` reads by pid — that turns page
   storage into a scoping boundary and changes section 1's second cost.
-- TYPO3 changes what ``ignoreRootLevelRestriction`` grants. Section 1 is read
-  off 14.3.5; the 13.4 leg of the matrix was not enumerated.
+- TYPO3 changes what ``ignoreRootLevelRestriction`` grants. Section 1 was read
+  off 14.3.5 and this bullet used to say the 13.4 leg was not enumerated. It has
+  since been read as well, and 13.4 answers identically: the same three
+  ``RootLevelCapability`` constants with ``TYPE_BOTH = -1``, the same skipped
+  early return for ``TYPE_BOTH`` in
+  :php:`isTableAllowedForThisPage()`, the same
+  :php:`admin || shallIgnoreRootLevelRestriction()` at pid 0 and doktype-only
+  above it, and the same split in :php:`hasPageContextPermission()` between
+  ``VirtualRecord::RootPage`` and the web mount plus the ``perms_*`` bitmask. So
+  the trigger is a future core change, not an unchecked leg of the matrix.

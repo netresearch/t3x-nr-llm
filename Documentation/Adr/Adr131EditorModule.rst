@@ -8,6 +8,8 @@ ADR-131: The editor-facing module
 :Date: 2026-08-06
 :Amends: :ref:`ADR-130 <adr-130>` (constraint 3: this module is a third
    approval surface its enumeration did not have)
+:Amended: 2026-08-18 by :ref:`ADR-169 <adr-169>` (its "``tasks_manage`` still
+   does not exist" bullet said the grant was pending; it is retired)
 
 Context
 =======
@@ -66,8 +68,12 @@ What stays out, and why
   :php:`TableReadAccessService` into the picker would also restrict
   administrators, which is its own decision, not a side effect of this
   module.
-- **``tasks_manage`` still does not exist.** This module adds no
-  management surface, so the grant would still have no enforcement point.
+- **``tasks_manage`` does not exist, and will not** — amended, see
+  :ref:`ADR-169 <adr-169>`. This bullet said the grant had no enforcement
+  point *yet*. ADR-169 settles that the records a management surface would
+  own are authorised by ``tables_modify`` and ``non_exclude_fields``, so the
+  enforcement point it was waiting for belongs to TYPO3 rather than to this
+  extension. The reservation is retired.
 - **"Own runs" for editors is mostly the approver's view.** Task
   executions do not create agent runs (they are usage rows); agent runs
   are currently started from admin surfaces. The ownership filter matters

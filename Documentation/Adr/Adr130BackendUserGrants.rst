@@ -7,7 +7,9 @@ ADR-130: Capability grants for backend users
 :Status: Accepted (constraint 3 enumerated the approval surfaces and the
    enumeration was not exhaustive — see :ref:`ADR-131 <adr-131>`)
 :Date: 2026-08-06
-:Amended: 2026-08-06 by :ref:`ADR-131 <adr-131>`
+:Amended: 2026-08-06 by :ref:`ADR-131 <adr-131>`; 2026-08-18 by
+   :ref:`ADR-169 <adr-169>` (named constraint 4's reserved ``tasks_manage`` is
+   retired rather than fulfilled)
 
 Context
 =======
@@ -207,11 +209,25 @@ Named constraints, each verified against the code
    and the gate would be decorative. There is no four-eyes check on that
    path: :ref:`ADR-172 <adr-172>` refuses a self-*approval*, and
    supplying input is not one.
-4. **``tasks_manage`` does not exist yet.** The list/wizard actions have
-   no per-action gate to migrate (they are module-gated only), and the
-   trait's JSON 403 body is the wrong shape for HTML module actions. The
-   grant arrives together with its consumer in the editing-module
-   milestone.
+4. **``tasks_manage`` is retired, not pending** — amended, see
+   :ref:`ADR-169 <adr-169>`. This constraint reserved the name and said the
+   grant would arrive with the editing module.
+
+   It will not, and the reason is this record's own rule rather than a change
+   of mind: a case is added together with its enforcement point. ADR-169
+   section 2 settles which records a non-admin may manage — ``tx_nrllm_task``,
+   ``tx_nrllm_promptsnippet`` and ``tx_nrllm_configuration`` — and section 4
+   settles that they are managed through FormEngine with ``exclude => true``
+   on the governance and spend fields. Both halves are then authorised by
+   ``tables_modify`` and ``non_exclude_fields``, which are TYPO3's own
+   permissions on the same fields. A ``tasks_manage`` case would sit in front
+   of nothing.
+
+   The original observation still holds and is why the name was reserved
+   rather than built: the list and wizard actions carry no per-action gate to
+   migrate, and the trait's JSON 403 body is the wrong shape for an HTML
+   module action. What changed is that the gate they lack turns out not to be
+   ours to add.
 5. **The record picker stays admin-only.** ``TaskRecordsController``
    reads arbitrary table rows with only a housekeeping-prefix exclusion —
    no ``tables_select`` check, no denylist for ``be_users``/``sys_log``/

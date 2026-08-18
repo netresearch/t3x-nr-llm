@@ -23,8 +23,14 @@ namespace Netresearch\NrLlm\Domain\Enum;
  *
  * Each case maps to exactly one enforcement point — there is no wildcard
  * grant, and a case is only added TOGETHER with its consumer (a grant
- * nothing reads is worse than none). `tasks_manage` therefore arrives with
- * the editing module, not here.
+ * nothing reads is worse than none).
+ *
+ * This docblock used to reserve `tasks_manage` for the editing module.
+ * ADR-169 retired that reservation: the records a management surface would
+ * own are authorised by `tables_modify` and `non_exclude_fields`, so the
+ * enforcement point it was waiting for is TYPO3's, not ours. Do not add the
+ * case back without naming an action those two permissions do not already
+ * cover.
  *
  * The values are deliberately underscore-separated, not colon-namespaced
  * like {@see ServiceAccountScope}: TYPO3 strips `:|,` from custom
