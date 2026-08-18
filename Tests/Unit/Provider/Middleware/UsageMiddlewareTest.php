@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -505,6 +506,148 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configurationWithModel($model, uid: 7)),
             terminal: static fn(): CompletionResponse => $response,
         );
+    }
+
+    /**
+     * The per-call copy on the scratchpad (ADR-174): the same tokens and the
+     * same derived cost the daily aggregate gets, but reachable by correlation
+     * id.
+     */
+    #[Test]
+    public function recordsTheProviderReportedTokensAndDerivedCostOnTheCallContext(): void
+    {
+        $model = new Model();
+        $model->setModelId('gpt-4o');
+        $model->setCostInput(250);
+        $model->setCostOutput(1000);
+        $this->setModelUid($model, 99);
+
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            $this->configurationWithModel($model, uid: 7),
+        );
+
+        $this->pipeline()->run(
+            context: $context,
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
+                content: 'hi',
+                // The provider answered on a dated snapshot of the alias the
+                // configuration named; the row must say which one answered.
+                model: 'gpt-4o-2024-08-06',
+                usage: new UsageStatistics(1000, 500, 1500),
+                finishReason: 'stop',
+                provider: 'openai',
+            ),
+        );
+
+        $usage = $context->telemetrySignals->callUsage;
+        self::assertInstanceOf(ProviderCallUsage::class, $usage);
+        self::assertSame(1000, $usage->inputTokens);
+        self::assertSame(500, $usage->outputTokens);
+        self::assertSame(0.0075, $usage->cost);
+        self::assertSame('gpt-4o-2024-08-06', $usage->responseModel);
+    }
+
+    /**
+     * The defect issue #770 names: a model priced at zero — Ollama, Groq, any
+     * local one — reports a cost of 0 by construction, and 0 is also what an
+     * unpriced model reports. The arm a cheap-model experiment is about is
+     * exactly the one that cannot be told from a missing measurement.
+     *
+     * Tokens are real here and the cost is NULL. Both halves matter: dropping
+     * the tokens too would lose the only real measurement the call produced.
+     */
+    #[Test]
+    public function aModelWithoutPricingRecordsRealTokensAndANullCost(): void
+    {
+        $model = new Model();
+        $model->setModelId('qwen3:4b');
+        $model->setCostInput(0);
+        $model->setCostOutput(0);
+        $this->setModelUid($model, 42);
+
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            $this->configurationWithModel($model, uid: 7),
+        );
+
+        $this->pipeline()->run(
+            context: $context,
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
+                content: 'hi',
+                model: 'qwen3:4b',
+                usage: new UsageStatistics(1000, 500, 1500),
+                finishReason: 'stop',
+                provider: 'ollama',
+            ),
+        );
+
+        $usage = $context->telemetrySignals->callUsage;
+        self::assertInstanceOf(ProviderCallUsage::class, $usage);
+        self::assertSame(1000, $usage->inputTokens);
+        self::assertSame(500, $usage->outputTokens);
+        self::assertNull($usage->cost, 'An unpriced model has no cost; 0 would claim the call was free.');
+    }
+
+    /**
+     * A provider that sends no `usage` block leaves the adapter building
+     * UsageStatistics(0, 0, 0) — the same object it would build for a measured
+     * zero. All three at zero is the only signal that separates them, because a
+     * call that reached a provider consumed prompt tokens.
+     */
+    #[Test]
+    public function aResponseWithNoUsageBlockRecordsNullTokensRatherThanZeros(): void
+    {
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            $this->configuration(uid: 7),
+        );
+
+        $this->pipeline()->run(
+            context: $context,
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
+                content: 'hi',
+                model: 'some-model',
+                usage: new UsageStatistics(0, 0, 0),
+                finishReason: 'stop',
+                provider: 'openai',
+            ),
+        );
+
+        $usage = $context->telemetrySignals->callUsage;
+        self::assertInstanceOf(ProviderCallUsage::class, $usage);
+        self::assertNull($usage->inputTokens);
+        self::assertNull($usage->outputTokens);
+    }
+
+    /**
+     * The mirror case, and the reason the rule asks for all three counts rather
+     * than for the one being read: a response that produced no output still
+     * reports its prompt tokens, so this zero is a measurement.
+     */
+    #[Test]
+    public function aResponseThatProducedNoOutputKeepsAMeasuredZero(): void
+    {
+        $context = ProviderCallContext::forConfiguration(
+            ProviderOperation::Chat,
+            $this->configuration(uid: 7),
+        );
+
+        $this->pipeline()->run(
+            context: $context,
+            terminal: static fn(): CompletionResponse => new CompletionResponse(
+                content: '',
+                model: 'some-model',
+                usage: new UsageStatistics(120, 0, 120),
+                finishReason: 'length',
+                provider: 'openai',
+            ),
+        );
+
+        $usage = $context->telemetrySignals->callUsage;
+        self::assertInstanceOf(ProviderCallUsage::class, $usage);
+        self::assertSame(120, $usage->inputTokens);
+        self::assertSame(0, $usage->outputTokens);
     }
 
     #[Test]

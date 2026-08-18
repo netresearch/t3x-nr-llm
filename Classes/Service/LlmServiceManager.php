@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -33,6 +34,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetrySignals;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Complexity\RequestComplexityEstimator;
+use Netresearch\NrLlm\Service\Complexity\RequestFactsCollector;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\InputContextTrustGate;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
@@ -454,6 +456,41 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $signals->recordComplexity((new RequestComplexityEstimator())->estimate($messages, $toolCount, $fit));
         } catch (Throwable $e) {
             $this->logger?->warning('Failed to measure request complexity; the call is unaffected', ['exception' => $e]);
+        }
+    }
+
+    /**
+     * Describe the request before anything chooses a model for it (ADR-174).
+     *
+     * The counterpart of {@see self::measureComplexity()}, and deliberately not
+     * the same measurement. That one hangs off the context fit, which needs the
+     * resolved model's budget; this one runs on the caller's own thread before
+     * {@see self::runThroughPipeline()} builds a context, so no resolution can
+     * have happened yet. Both records land on one row, which is what lets a
+     * later analysis ask whether the model-independent half predicts anything
+     * about the decision the other half describes.
+     *
+     * OBSERVATION. Nothing reads it inside the decision path; :ref:`ADR-156
+     * <adr-156>` keeps its observer-only status and states what must hold first.
+     *
+     * Fail-soft like every other observation here: a measurement error must not
+     * turn a working call into a failed one.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param list<array<string, mixed>>             $toolSpecs
+     */
+    private function collectRequestFacts(array $messages, array $toolSpecs = []): ?RequestFacts
+    {
+        try {
+            // Constructed here rather than injected, like the complexity
+            // estimator above and for the same reason: it is a stateless pure
+            // function object, and this manager's constructor is pinned by the
+            // shared test factory.
+            return (new RequestFactsCollector())->collect($messages, $toolSpecs);
+        } catch (Throwable $e) {
+            $this->logger?->warning('Failed to collect request facts; the call is unaffected', ['exception' => $e]);
+
+            return null;
         }
     }
 
@@ -889,6 +926,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
             $run,
             $injectedContext,
+            $this->collectRequestFacts(
+                $normalisedMessages,
+                array_map(static fn(ToolSpec $spec): array => $spec->toArray(), $normalisedTools),
+            ),
         );
     }
 
@@ -1083,6 +1124,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $metadata,
             $run,
             $injectedContext,
+            $this->collectRequestFacts($normalisedMessages),
         );
     }
 
@@ -1111,6 +1153,12 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 return $adapter->complete($prompt, $options);
             },
             $metadata,
+            null,
+            null,
+            // A raw prompt is one user turn — the same list
+            // reportPromptOverflow() measures on the way through, so the two
+            // records describe the same send.
+            $this->collectRequestFacts([ChatMessage::user($prompt)]),
         );
     }
 
@@ -1199,6 +1247,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         array $metadata = [],
         ?AgentRunReference $run = null,
         ?InjectedContext $injectedContext = null,
+        ?RequestFacts $facts = null,
     ): mixed {
         // The run's own uid is authoritative and goes on the LEFT: `$metadata`
         // is caller-supplied on the public entry points, and `+` keeps the left
@@ -1215,10 +1264,17 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // operation runs through this pipeline.
         $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0, $injectedContext);
 
-        return $this->pipeline->run(
-            ProviderCallContext::forConfiguration($operation, $configuration, $metadata, $run?->correlationId()),
-            $terminal,
-        );
+        $context = ProviderCallContext::forConfiguration($operation, $configuration, $metadata, $run?->correlationId());
+
+        // Recorded here rather than inside the terminal, and that placement is
+        // the entire point (ADR-174): the terminal is where resolveModel() runs,
+        // so anything measured in there is measured after a model was chosen.
+        // This is the last moment that is still unambiguously before it.
+        if ($facts instanceof RequestFacts) {
+            $context->telemetrySignals->recordRequestFacts($facts);
+        }
+
+        return $this->pipeline->run($context, $terminal);
     }
 
     /**
@@ -1369,6 +1425,14 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // complete at this point — the context copies it, so a later write
         // would not reach the context anyway.
         $streamContext = ProviderCallContext::for(ProviderOperation::Stream, $metadata);
+
+        // Before the opener, which is where the model gets resolved (ADR-174).
+        // Measured on the normalised list because that is what the opener sends;
+        // the collector reads either shape, but the byte count would differ.
+        $facts = $this->collectRequestFacts($this->messageShaper->normalise($messages));
+        if ($facts instanceof RequestFacts) {
+            $streamContext->telemetrySignals->recordRequestFacts($facts);
+        }
 
         $open = function (LlmConfiguration $config) use ($messages, $optionOverrides, $streamContext): Generator {
             $signals  = $streamContext->telemetrySignals;

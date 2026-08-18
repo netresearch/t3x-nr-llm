@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Telemetry;
 
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
+use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 
 /**
@@ -47,6 +49,25 @@ final readonly class TelemetryRecord
      *                                                          Observation only; nothing routes on it. Null
      *                                                          on the paths that carry no measurable
      *                                                          payload.
+     * @param ?RequestFacts      $requestFacts                  what the request was BEFORE a model was
+     *                                                          chosen (ADR-174). Model-independent by
+     *                                                          construction, which is what separates it
+     *                                                          from the complexity record above. Null on
+     *                                                          the paths that form no fact set.
+     * @param ?ProviderCallUsage $callUsage                     what the provider actually reported and what
+     *                                                          it cost (ADR-174). Null wherever no provider
+     *                                                          call produced a token-shaped response: a
+     *                                                          cache hit, a failed run, a streamed run, a
+     *                                                          specialized operation.
+     * @param ?int               $providerRetries               HTTP attempts an adapter had to repeat during
+     *                                                          this run (ADR-174). Both write sites hold the
+     *                                                          counter and always pass a count, so every row
+     *                                                          this version writes carries one and a recorded
+     *                                                          0 is a measured "no retry". Nullable only so
+     *                                                          the parameter can be omitted — which no
+     *                                                          production caller does; the column is
+     *                                                          nullable because rows written before it
+     *                                                          existed have no value for it.
      */
     public function __construct(
         public string $correlationId,
@@ -66,5 +87,8 @@ final readonly class TelemetryRecord
         public ?int $timeToFirstTokenMs = null,
         public ?RoutingSummary $routingSummary = null,
         public ?RequestComplexity $complexity = null,
+        public ?RequestFacts $requestFacts = null,
+        public ?ProviderCallUsage $callUsage = null,
+        public ?int $providerRetries = null,
     ) {}
 }

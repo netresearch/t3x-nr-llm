@@ -649,9 +649,11 @@ CREATE TABLE tx_nrllm_telemetry (
     --
     -- complexity_shape is '' on the paths that measure nothing: the provider-
     -- pinned entry points (chatWithTools(), vision(), and chat()/complete()
-    -- with no default configuration), embeddings by identifier, and the
-    -- specialized image/speech services. Only a configuration-driven chat,
-    -- completion, tool or stream send runs the context fit the measurement
+    -- with no default configuration), embeddings by identifier, and every
+    -- specialized service — image, speech and translation alike, all of which
+    -- run through this pipeline and so reach this row. Only a
+    -- configuration-driven chat, completion, tool or stream send runs the
+    -- context fit the measurement
     -- hangs off. The empty shape is the flag for "this row carries no
     -- complexity", the way routing_policy_mode is for the decision, and the
     -- Governance readout reads it before showing the other five figures.
@@ -665,6 +667,78 @@ CREATE TABLE tx_nrllm_telemetry (
     -- and clamping it here would hide it.
     complexity_context_percent int(11) unsigned DEFAULT NULL,
     complexity_shape varchar(32) DEFAULT '' NOT NULL,
+
+    -- What the request WAS, measured BEFORE any model was chosen (ADR-174).
+    -- The complexity group above is measured after the model is chosen and
+    -- partly FROM it (its size term is estimated tokens against the budget of
+    -- the model already selected), so it can describe a decision but never
+    -- inform one. This group is model-independent by construction: no window,
+    -- no price, no utilisation, no chosen model. The operation is not repeated
+    -- either — `operation` above already names it.
+    --
+    -- OBSERVATION ONLY, exactly like the complexity group: nothing routes on
+    -- these columns, and ADR-156 still names what must hold before anything may.
+    --
+    -- The counts describe the CALLER's transcript, not the bytes on the wire:
+    -- the configuration's system prompt is prepended later, from options built
+    -- out of the resolved model, so counting it would mean measuring after the
+    -- decision. The complexity group draws the same line, which is what keeps
+    -- the two comparable.
+    --
+    -- All five figures are measured in one pass or not at all, so they are NULL
+    -- together on every path that forms no fact set — only the four
+    -- configuration-driven sends (chat, completion, tools, stream) form one, so
+    -- the provider-pinned entry points, embeddings and every specialized
+    -- service (image, speech and translation alike) write NULL here — and
+    -- facts_shape is '' there, the same "nothing was measured" flag
+    -- complexity_shape is. NULL rather than 0 throughout: a request nobody
+    -- measured is not a request with no messages.
+    facts_messages smallint(5) unsigned DEFAULT NULL,
+    facts_turns smallint(5) unsigned DEFAULT NULL,
+    facts_tools smallint(5) unsigned DEFAULT NULL,
+    facts_payload_bytes int(11) unsigned DEFAULT NULL,
+    -- Provider- and model-independent, from the same estimator the context fit
+    -- uses but uncalibrated — so it can be compared with complexity_tokens
+    -- without being derived from the model that answered.
+    facts_token_estimate int(11) unsigned DEFAULT NULL,
+    facts_shape varchar(32) DEFAULT '' NOT NULL,
+
+    -- What the call actually consumed, and what it cost (ADR-174).
+    -- tx_nrllm_service_usage carries the same figures as a DAILY AGGREGATE with
+    -- no correlation_id, so nothing there can be joined to a call, a request
+    -- shape or a complexity bucket. These columns can, because they sit on the
+    -- row the correlation id already identifies.
+    --
+    -- NULL is a measurement that did not happen and is never a zero. Both token
+    -- columns are NULL where the provider reported no usage block at all
+    -- (adapters build UsageStatistics with plain ints, so all three counts zero
+    -- at once is the only signal an absent block leaves). actual_cost is NULL
+    -- where the serving model carries no pricing — which is the defect these
+    -- columns exist to fix: a free local model and an unpriced one both used to
+    -- report a cost of 0, and the free arm is precisely what a cheap-model
+    -- experiment is about.
+    --
+    -- All four are NULL/'' wherever no provider call produced a token-shaped
+    -- response: a cache hit (Cache short-circuits above Usage), a failed run, a
+    -- streamed run (no usage block, only a char estimate — which is not what
+    -- "actual" means), and the specialized image/speech/translation operations
+    -- that record through their own extractors.
+    actual_input_tokens int(11) unsigned DEFAULT NULL,
+    actual_output_tokens int(11) unsigned DEFAULT NULL,
+    -- Dollars. decimal, not float: a per-call cost of a cheap model is small
+    -- enough that binary rounding shows up once these are summed.
+    actual_cost decimal(14,8) DEFAULT NULL,
+    -- The model the PROVIDER named on the response, which need not be the one
+    -- the configuration asked for: an alias can resolve to a dated snapshot,
+    -- and which one answered is the joinable fact. '' where none was named.
+    response_model varchar(128) DEFAULT '' NOT NULL,
+    -- HTTP attempts an adapter had to repeat during this run, fallback re-sends
+    -- included. Unlike the columns above, this one is always written: both write
+    -- sites hold the counter, so a recorded 0 is a measured "no retry" and no
+    -- row from this version reports NULL here. Nullable because the rows that
+    -- existed before the column did have no value for it — which is the only
+    -- population `provider_retries IS NULL` selects.
+    provider_retries smallint(5) unsigned DEFAULT NULL,
 
     -- Standard TYPO3 field (append-only; no tstamp — rows are never updated)
     crdate int(11) unsigned DEFAULT '0' NOT NULL,

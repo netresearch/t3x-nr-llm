@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailPolicyResolver;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailRegistry;
 use Netresearch\NrLlm\Service\Guardrail\StreamRedactableInterface;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -133,6 +134,11 @@ final readonly class StreamingDispatcher
         private GuardrailPolicyResolver $policyResolver = new GuardrailPolicyResolver(new GuardrailRegistry([], [])),
         #[AutowireIterator(GuardrailInterface::TAG_NAME)]
         iterable $guardrails = [],
+        // Autowired to the shared singleton in production. The private default
+        // is an isolated counter, which is the honest answer for a hand-wired
+        // dispatcher: no adapter increments it, so it reports no retries rather
+        // than another call's (ADR-174).
+        private ProviderRetryCounter $retryCounter = new ProviderRetryCounter(),
     ) {
         // Materialise the unfiltered baseline once; drain() derives the per-call
         // live-redactor and audit lists from it via the policy resolver (ADR-106).
@@ -200,6 +206,18 @@ final readonly class StreamingDispatcher
         $served          = $configuration;
         $success         = false;
         $errorClass      = '';
+        // Retries are summed per RESUMPTION SEGMENT, not as one difference
+        // around the whole drain (ADR-174). This is a generator: between two
+        // yields the CONSUMER runs, and a provider call it makes there
+        // increments the same process-wide counter. A single before/after
+        // difference would put those retries on this stream's row. $retryMark
+        // is the counter reading at the start of the segment currently on the
+        // stack, and null while the generator is suspended — so what happens in
+        // the consumer cannot be counted here. What is counted stays complete:
+        // the opener's retries, a fallback candidate's before one primed, and
+        // every retry the inner stream consumes while it is being pulled.
+        $retriesDrained  = 0;
+        $retryMark       = $this->retryCounter->total();
 
         try {
             [$inner, $served] = $this->openWithFallback($context, $configuration, $open);
@@ -219,13 +237,17 @@ final readonly class StreamingDispatcher
 
                 if (!$window instanceof StreamRedactionWindow) {
                     // No redaction-capable guardrail: verbatim pass-through.
+                    $this->closeRetrySegment($retriesDrained, $retryMark);
                     yield $chunk;
+                    $retryMark = $this->retryCounter->total();
                     $inner->next();
                     continue;
                 }
 
                 foreach ($window->push($chunk) as $delta) {
+                    $this->closeRetrySegment($retriesDrained, $retryMark);
                     yield $delta;
+                    $retryMark = $this->retryCounter->total();
                 }
 
                 $inner->next();
@@ -234,7 +256,9 @@ final readonly class StreamingDispatcher
             // Flush the redacted remainder once the stream is complete.
             if ($window instanceof StreamRedactionWindow) {
                 foreach ($window->flush() as $delta) {
+                    $this->closeRetrySegment($retriesDrained, $retryMark);
                     yield $delta;
+                    $retryMark = $this->retryCounter->total();
                 }
             }
 
@@ -249,6 +273,13 @@ final readonly class StreamingDispatcher
 
             throw $e;
         } finally {
+            // Closes the segment that was running when the drain ended, whether
+            // it ended by completing or by throwing. A generator the consumer
+            // ABANDONS reaches here from its destructor while still suspended —
+            // the mark is null then, and the retries some later, unrelated call
+            // recorded in the meantime are correctly left out.
+            $this->closeRetrySegment($retriesDrained, $retryMark);
+
             $this->settle(
                 $context,
                 $configuration,
@@ -258,8 +289,34 @@ final readonly class StreamingDispatcher
                 $firstTokenNs,
                 $success,
                 $errorClass,
+                $retriesDrained,
             );
         }
+    }
+
+    /**
+     * Close the retry segment currently on the stack, and open no new one
+     * (ADR-174).
+     *
+     * Everything the counter recorded since the mark was taken was consumed
+     * while this drain held the stack: the opener, the inner stream's own
+     * resumptions, and anything either of them nests. A null mark means the
+     * generator is suspended in the consumer's code, where the counter belongs
+     * to whatever the consumer is doing.
+     *
+     * @param int  $drained running total of retries this drain consumed
+     * @param ?int $mark    counter reading the open segment started from, or null when suspended
+     *
+     * @param-out null $mark the segment is closed and none is opened; the next one starts at the yield
+     */
+    private function closeRetrySegment(int &$drained, ?int &$mark): void
+    {
+        if ($mark === null) {
+            return;
+        }
+
+        $drained += $this->retryCounter->total() - $mark;
+        $mark = null;
     }
 
     /**
@@ -405,6 +462,7 @@ final readonly class StreamingDispatcher
         int|float|null $firstTokenNs,
         bool $success,
         string $errorClass,
+        int $providerRetries,
     ): void {
         try {
             if (!$success && $errorClass === '') {
@@ -435,6 +493,7 @@ final readonly class StreamingDispatcher
                 $errorClass,
                 $this->elapsedMs($startNs),
                 $firstTokenNs !== null ? $this->elapsedMs($startNs, $firstTokenNs) : null,
+                $providerRetries,
             );
         } catch (Throwable $e) {
             try {
@@ -593,6 +652,7 @@ final readonly class StreamingDispatcher
         string $errorClass,
         int $latencyMs,
         ?int $timeToFirstTokenMs,
+        int $providerRetries,
     ): void {
         if (!$this->telemetryEnabled()) {
             return;
@@ -627,6 +687,16 @@ final readonly class StreamingDispatcher
             // write sites have to move together.
             routingSummary: $context->telemetrySignals->routingSummary,
             complexity: $context->telemetrySignals->complexity,
+            // Recorded on the same scratchpad before the stream opened (ADR-174).
+            requestFacts: $context->telemetrySignals->requestFacts,
+            // Deliberately NOT filled: a streamed response carries no usage
+            // block, so this path has no provider-reported token counts to
+            // record. What it does have is a char-based estimate, and writing
+            // that into a column named "actual" would be the exact confusion
+            // between an estimate and a measurement that ADR-174 exists to end.
+            // The estimate stays where it already is — the usage aggregate.
+            callUsage: null,
+            providerRetries: $providerRetries,
         ));
     }
 

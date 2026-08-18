@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Provider\GeminiProvider;
 use Netresearch\NrLlm\Provider\GroqProvider;
 use Netresearch\NrLlm\Provider\MistralProvider;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
@@ -984,6 +985,89 @@ class AbstractProviderTest extends AbstractUnitTestCase
             self::assertStringNotContainsString('Unknown error', $e->getMessage());
             self::assertSame($underlying, $e->getPrevious());
         }
+    }
+
+    /**
+     * The retry counter records REPEATS, not attempts (ADR-174).
+     *
+     * `maxRetries = 2` sends three requests; two of them are repeats. Counting
+     * per attempt would report three, and counting at the `$attempt++` inside
+     * the catch would report three as well — the last increment happens on the
+     * attempt that then falls out of the loop and is never repeated. The
+     * difference matters because the figure lands in a telemetry column an
+     * operator reads as "how often did we have to try again".
+     */
+    #[Test]
+    public function theRetryCounterCountsRepeatedAttemptsAndNotTheFinalFailedOne(): void
+    {
+        $counter  = new ProviderRetryCounter();
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            $counter,
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel'     => 'mistral-large-latest',
+            'maxRetries'       => 2,
+            // The send loop treats an attempt that consumed the timeout as a
+            // client-side timeout and refuses to retry it. A generous timeout
+            // keeps this test on the retry path.
+            'timeout'          => 3600,
+        ]);
+
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects(self::exactly(3))
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException('socket reset'));
+        $provider->setHttpClient($client);
+
+        try {
+            $provider->complete('hi');
+            self::fail('Expected ProviderConnectionException was not thrown');
+        } catch (ProviderConnectionException) {
+            // The row this test is about is written from the counter, not from
+            // the exception.
+        }
+
+        self::assertSame(2, $counter->total(), 'Three attempts, two of them repeats.');
+    }
+
+    /**
+     * A call that succeeds first time consumed no retry — and 0 has to be a
+     * measured zero, because the telemetry column distinguishes it from "not
+     * observed" (NULL).
+     */
+    #[Test]
+    public function aCallThatNeverRepeatsLeavesTheRetryCounterAtZero(): void
+    {
+        $counter  = new ProviderRetryCounter();
+        $provider = new MistralProvider(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->createLoggerMock(),
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            $counter,
+        );
+        $provider->configure([
+            'apiKeyIdentifier' => $this->randomApiKey(),
+            'defaultModel'     => 'mistral-large-latest',
+        ]);
+        $client = $this->createHttpClientMock();
+        $client->method('sendRequest')->willReturn($this->createJsonResponseMock([
+            'choices' => [['message' => ['content' => 'hi'], 'finish_reason' => 'stop']],
+            'model'   => 'mistral-large-latest',
+            'usage'   => ['prompt_tokens' => 3, 'completion_tokens' => 1, 'total_tokens' => 4],
+        ]));
+        $provider->setHttpClient($client);
+
+        $provider->complete('hi');
+
+        self::assertSame(0, $counter->total());
     }
 
     /**

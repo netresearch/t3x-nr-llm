@@ -8,6 +8,52 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Per-call cost and real token counts on the telemetry row** (`#770`). Every
+  provider call now records what it actually consumed — input tokens, output
+  tokens, the model the provider named on the response, the cost derived from
+  its pricing, and how many HTTP attempts had to be repeated — under the
+  correlation id the call already carries.
+
+  `tx_nrllm_service_usage` holds the same figures as a daily aggregate with no
+  per-call key, so nothing there can be joined to a call, a request shape or a
+  complexity bucket. That made ADR-156's third activation criterion, "real cost
+  drops", not computable rather than merely awkward.
+
+  `NULL`, never `0`, where nothing was measured. A model priced at zero —
+  Ollama, Groq, anything local — used to record a cost of `0`, which is also
+  what an unpriced model records; it now records real tokens and no cost. Token
+  counts are `NULL` where the provider reported no usage block, and a recorded
+  `0` is a measured zero. Streamed runs record no token counts at all: they
+  carry an estimate, and an estimate does not belong in a column named
+  `actual`. See ADR-174.
+
+  Additive on the `@api` surface: `ProviderCallUsage`,
+  `TelemetrySignals::recordCallUsage()`, and an optional trailing
+  `ProviderRetryCounter` argument on `ProviderAdapterRegistry`'s constructor.
+
+- **Request facts, measured before the model is chosen** (`#771`). Message
+  count, turn count, tool count, payload bytes, a provider-independent token
+  estimate and the request shape are now recorded for every
+  configuration-driven send, formed before the pipeline runs — which is before
+  any model resolution.
+
+  The counts describe the transcript the caller sent. The configuration's system
+  prompt is prepended later, from options built out of the resolved model, so it
+  is in none of them — the same line the complexity record draws, which is what
+  keeps the two comparable.
+
+  The existing complexity record is measured *after* the model is chosen and
+  partly *from* it: its size term is estimated tokens against the budget of the
+  model already selected. It stays as it is and answers a different question;
+  the new set is model-independent by construction and deliberately excludes
+  context utilisation, the chosen model, its window and its price.
+
+  Nothing routes on either set. ADR-156 keeps its observer-only status and its
+  three activation criteria unchanged. See ADR-174.
+
+  Additive on the `@api` surface: `RequestFacts` and
+  `TelemetrySignals::recordRequestFacts()`.
+
 - **Four-eyes approval, per configuration** (`#786`). A new configuration field,
   *Require a second approver*, refuses an approval from the backend user who
   started the run. Default off, so every existing record keeps the
