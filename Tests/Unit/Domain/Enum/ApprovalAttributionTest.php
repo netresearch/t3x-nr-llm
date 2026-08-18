@@ -178,7 +178,7 @@ final class ApprovalAttributionTest extends TestCase
     #[Test]
     public function everyCaseIsRenderedByTheSharedPartial(): void
     {
-        $partial = self::read('Resources/Private/Partials/Backend/AgentRun/ApprovalAttribution.html');
+        $partial = $this->read('Resources/Private/Partials/Backend/AgentRun/ApprovalAttribution.html');
 
         foreach (ApprovalAttribution::values() as $value) {
             $key     = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.attribution.' . $value;
@@ -200,7 +200,7 @@ final class ApprovalAttributionTest extends TestCase
         ];
 
         foreach ($views as $view) {
-            $markup = self::read($view);
+            $markup = $this->read($view);
 
             self::assertStringContainsString('partial="Backend/AgentRun/ApprovalAttribution"', $markup, $view);
             self::assertStringNotContainsString('runs.attribution.{', $markup, $view);
@@ -225,7 +225,7 @@ final class ApprovalAttributionTest extends TestCase
         }
     }
 
-    private static function read(string $relativePath): string
+    private function read(string $relativePath): string
     {
         $path     = __DIR__ . '/../../../../' . $relativePath;
         $contents = file_get_contents($path);
