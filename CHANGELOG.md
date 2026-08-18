@@ -65,6 +65,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **ADR-130's constraint 3 is amended by ADR-131** (`#787`). The record called
+  `agent_approve` doubly unreachable for non-admins because it named two
+  approval surfaces and both were admin-gated. Both still are: `nrllm_runs` is
+  `access => 'admin'` and the Playground's resume path still calls
+  `denyNonAdmin()`. The enumeration was what went out of date — the editor
+  module `nrllm_aitasks` is `access => 'user'` and registers `approve` and
+  `submitInput`, so a non-admin whose group has that module ticked and who holds
+  the grant decides other users' runs today (both switches are required). The
+  amendment states the three bounds that apply on top of module access — the
+  module tick is required but bounds nothing on its own — in the order
+  `ResumeCoordinator::approve()` evaluates them: `mayActOnRun()`, the opt-in
+  four-eyes refusal (ADR-172), and the approver tool gate (ADR-133) that
+  withholds a write the approver could not run themselves. That list is the
+  approve path; `submitInput` is recorded next to it with the same first and
+  last gate and no four-eyes check (ADR-150). The stale citations ADR-169 and
+  ADR-171 carried into the same records are corrected with it. A new
+  `ApprovalSurfaceInventoryTest` pins which modules register `approve` /
+  `submitInput` under which `access`, which classes under `Classes/Controller`
+  reach the approval runtime, and that ADR-130 names each module it finds — so a
+  new approval module cannot be registered without editing the record. The ADR
+  states what the three lists do not cover. No behaviour changes.
+
 - **One MCP operation now has one timeout, not one per HTTP request** (`#773`,
   ADR-170). A tool call against an MCP server is three requests — the protocol
   handshake, its confirmation, then `tools/call` — and each carried a full

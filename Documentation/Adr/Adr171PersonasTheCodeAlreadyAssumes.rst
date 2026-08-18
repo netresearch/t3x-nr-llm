@@ -111,8 +111,8 @@ per-task, per-category or per-group scoping, and no task ownership field.
 
 **Code.** ``BackendUserGrant.php:47-52``; the grant branch in
 :php:`AiActorContext::mayActOnRun()` (``:229``) — "deliberately the only scope
-with a grant equivalent" (``Adr130:57-60``); the write side at
-``ResumeCoordinator.php:204`` and ``:634``; the list viewport at
+with a grant equivalent" (``Adr130:59-62``); the write side at
+``ResumeCoordinator.php:205`` and ``:650``; the list viewport at
 ``AgentRunController.php:267``. It sits in no recommended preset: "granting it is
 an explicit trust decision"
 (``Documentation/Administration/Permissions.rst:55-59``).
@@ -216,7 +216,7 @@ one of ours. No third-party integrator is evidenced anywhere.
 
 **Code.** None, by design: "a case is only added TOGETHER with its consumer (a
 grant nothing reads is worse than none)" (``BackendUserGrant.php:24-27``);
-reserved again at ``Adr130:84-88`` and ``Adr131:67-68``.
+reserved again at ``Adr130:199-203`` and ``Adr131:69-70``.
 
 **Human (unvalidated).** Curates the AI catalogue for their own team while keys
 and endpoints stay administrator-only.
@@ -234,14 +234,20 @@ that should be retired.
 Contradictions found
 ====================
 
-**A. A control ADR-130 said was inactive went live, and the record still says it
-is not.** ``Adr130BackendUserGrants.rst:78-83``: "``agent_approve`` is **doubly
-unreachable for non-admins today** — both human approval surfaces sit behind
-admin gates … only becomes exercisable for non-admins with the editing module.
-Stated here so nobody reads it as an already-active control." It shipped:
-``Modules.php:375-381`` registers ``AgentRunController::approve`` and
-``submitInput`` in ``nrllm_aitasks``, ``'access' => 'user'`` (``:344``). A
-non-admin deciding another user's write is an active control. Nothing filed it.
+**A. A control ADR-130 said was inactive went live** — RESOLVED, `#787`.
+ADR-130 constraint 3 read "``agent_approve`` is **doubly unreachable for
+non-admins today** — both human approval surfaces sit behind admin gates …
+only becomes exercisable for non-admins with the editing module. Stated here so
+nobody reads it as an already-active control." It shipped: ``Modules.php:375-381``
+registers ``AgentRunController::approve`` and ``submitInput`` in
+``nrllm_aitasks``, ``'access' => 'user'`` (``:344``). A non-admin who holds the
+grant and whose group has that module ticked decides another user's write today.
+ADR-130 now carries ``:Amended:`` and a rewritten constraint 3
+(``Adr130BackendUserGrants.rst:80-198``), and
+``Tests/Unit/Configuration/ApprovalSurfaceInventoryTest.php`` pins the module
+inventory, so a new approval *module* cannot be registered without ADR-130
+naming it. It does not cover every shape an approval surface could take;
+ADR-130 says which.
 
 **B. One codebase, two answers to "may this person use this model".** The Editor
 Action Center refuses a user outside the configuration's allowed groups —
@@ -253,9 +259,11 @@ module** does not: ``TaskExecutionService.php:63`` calls
 configuration, returned unchecked; the method has no actor to check with. A task
 pinned to a restricted configuration bypasses that restriction.
 
-**C. The bound that justifies the grant is opt-in.** ``Adr130:55-56`` and
-``Permissions.rst:41-43``: "The per-user budget pre-flight … bounds what a grant
-holder can spend." ``BudgetService.php:76-79``: with no ``tx_nrllm_user_budget``
+**C. The bound that justifies the grant is opt-in.** ``Adr130:57-58``: "The
+per-user budget pre-flight … bounds what a grant holder can spend."
+``Permissions.rst:43-45`` states it in its own words, not this one's — "Every run
+is pre-flighted against the user's own usage budget and attributed to them."
+``BudgetService.php:76-79``: with no ``tx_nrllm_user_budget``
 record for that uid, an inactive one, or one with no limit set, the check returns
 ``allowed()``. The budget is per user and opt-in; the grant is per group.
 Ticking ``tasks_use`` for a group without creating budget records ships an
@@ -281,7 +289,7 @@ operator" that is a **non-admin** holding one grant, and says so: "identical to
 "Each case maps to exactly one enforcement point — there is no wildcard"; the
 ``TASKS_USE`` docblock names two. There are nine, across task execution, a module
 index, the Editor Action Center and a record context menu. That is a role-ladder
-rung, which ``Adr130:24`` promised the design would not grow.
+rung, which ``Adr130:26`` promised the design would not grow.
 
 .. _adr-171-invented:
 
@@ -292,12 +300,12 @@ These exist because a gate exists, not because anyone does the job. A reviewer
 should read this section first.
 
 - **The approver, as a distinct person.** The gate is real and tested. But
-  ``Adr130:57-60`` calls it "**deliberately** the only scope with a grant
+  ``Adr130:59-62`` calls it "**deliberately** the only scope with a grant
   equivalent" — a design choice, not an observed org chart. Until
   contradiction A shipped, no non-admin could reach it at all. We built the
   separation before meeting anyone who wants it.
-- **The input submitter.** ``ResumeCoordinator.php:634`` calls the *same*
-  predicate as ``:204``, so submitting is the approver's grant.
+- **The input submitter.** ``ResumeCoordinator.php:650`` calls the *same*
+  predicate as ``:205``, so submitting is the approver's grant.
   :ref:`ADR-150 <adr-150>` reasons about them as a distinct actor with a
   different danger model — and no production tool can produce one:
   ``InputPauseCoverageTest::INPUT_REQUIRING_TOOLS = []`` pins the empty list,
@@ -368,7 +376,7 @@ What TYPO3 gives us and what it does not
 
 TYPO3 gives **roles**: three enforcement primitives, all of which nr_llm uses.
 ``admin`` is the whole default posture. ``user`` on a module means one tick in a
-group's module list and nothing more — ``Adr131:34-39`` records the verified trap
+group's module list and nothing more — ``Adr131:36-41`` records the verified trap
 that ``'user,group'`` denies everyone. ``systemMaintainer`` we never check but
 depend on.
 
