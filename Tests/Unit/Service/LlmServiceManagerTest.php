@@ -44,6 +44,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
@@ -2640,6 +2641,41 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $metadata = $spy->calls[0]['metadata'];
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_BE_USER_UID, $metadata);
         self::assertArrayNotHasKey(BudgetMiddleware::METADATA_PLANNED_COST, $metadata);
+    }
+
+    #[Test]
+    public function chatPlumbsCallerSourceMetadataFromOptions(): void
+    {
+        // ADR-177 — the manager translates the caller identity on the
+        // options object into the metadata keys TelemetryMiddleware
+        // persists as source_extension / source_operation.
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $options = (new ChatOptions())
+            ->withProvider('openai')
+            ->withCallerSource('ai_seo_helper', 'requestAi');
+
+        $manager->chat([['role' => 'user', 'content' => 'hi']], $options);
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertSame('ai_seo_helper', $metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION]);
+        self::assertSame('requestAi', $metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION]);
+    }
+
+    #[Test]
+    public function chatOmitsCallerSourceMetadataWhenOptionsAreUnannotated(): void
+    {
+        $spy     = new RecordingMiddleware();
+        $manager = $this->buildManagerWithMiddleware([$spy]);
+
+        $manager->chat([['role' => 'user', 'content' => 'hi']], new ChatOptions(provider: 'openai'));
+
+        self::assertCount(1, $spy->calls);
+        $metadata = $spy->calls[0]['metadata'];
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_EXTENSION, $metadata);
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_OPERATION, $metadata);
     }
 
     #[Test]

@@ -56,6 +56,11 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             'served_provider'          => $record->servedProvider,
             'served_model'             => $record->servedModel,
             'time_to_first_token_ms'   => $record->timeToFirstTokenMs,
+            // Caller identity (ADR-177). Truncated to the column width rather
+            // than left to the database to reject — a telemetry write must
+            // never be the thing that fails a call.
+            'source_extension'         => substr($record->sourceExtension, 0, 64),
+            'source_operation'         => substr($record->sourceOperation, 0, 64),
             'crdate'                   => time(),
         ]);
     }

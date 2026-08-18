@@ -602,6 +602,13 @@ CREATE TABLE tx_nrllm_telemetry (
     -- Attribution (backend user; 0 for CLI / scheduler / unauthenticated)
     be_user int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Caller identity (ADR-177): which piece of software made the call and
+    -- which operation inside it (e.g. 'ai_seo_helper' / 'requestAi'), set via
+    -- AbstractOptions::withCallerSource(). '' = unannotated call — identical
+    -- to a pre-feature row on purpose.
+    source_extension varchar(64) DEFAULT '' NOT NULL,
+    source_operation varchar(64) DEFAULT '' NOT NULL,
+
     -- Outcome. error_class is the exception FQCN on failure ('' on success);
     -- the message is deliberately NOT stored (privacy).
     success smallint(5) unsigned DEFAULT '0' NOT NULL,

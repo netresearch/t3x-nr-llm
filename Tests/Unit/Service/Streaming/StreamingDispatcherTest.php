@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionGuardrail;
@@ -464,6 +465,31 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertLessThan(60000, $record->timeToFirstTokenMs);
         // A completed stream is never the "aborted before completion" path.
         self::assertNull($this->logger->firstMatching('info', 'aborted before completion'));
+        // No caller annotation supplied — the source fields keep their ''
+        // defaults, indistinguishable from a pre-ADR-177 row.
+        self::assertSame('', $record->sourceExtension);
+        self::assertSame('', $record->sourceOperation);
+    }
+
+    #[Test]
+    public function recordsTheCallerSourceFromMetadata(): void
+    {
+        // ADR-177: the streaming write site reads the same metadata keys as
+        // the non-streaming TelemetryMiddleware — the two sites move together.
+        $dispatcher = $this->dispatcher();
+
+        iterator_to_array($dispatcher->stream(
+            $this->context([
+                TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'ai_seo_helper',
+                TelemetryMiddleware::METADATA_SOURCE_OPERATION => 'requestAi',
+            ]),
+            $this->configuration('primary', providerType: 'openai', modelId: 'gpt-4o', model: $this->model(pricing: false), uid: 9),
+            $this->staticStream(['Hello']),
+        ));
+
+        self::assertCount(1, $this->telemetry->records);
+        self::assertSame('ai_seo_helper', $this->telemetry->records[0]->sourceExtension);
+        self::assertSame('requestAi', $this->telemetry->records[0]->sourceOperation);
     }
 
     /**

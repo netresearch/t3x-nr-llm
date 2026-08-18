@@ -562,7 +562,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->chatWithConfiguration(
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
                 $optionsArray,
             );
         }
@@ -576,7 +576,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Chat, $providerKey),
             ProviderOperation::Chat,
             fn(): CompletionResponse => $this->getProvider($providerKey)->chatCompletion($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $optionsArray),
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options),
         );
     }
 
@@ -594,7 +594,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             return $this->completeWithConfiguration(
                 $this->injectConfigSkillsIntoPrompt($prompt, $defaultConfiguration),
                 $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
                 $optionsArray,
             );
         }
@@ -606,7 +606,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $this->synthesizeTransientConfiguration(ProviderOperation::Completion, $providerKey),
             ProviderOperation::Completion,
             fn(): CompletionResponse => $this->getProvider($providerKey)->complete($prompt, $optionsArray),
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
         );
     }
 
@@ -625,7 +625,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // is left out and CacheMiddleware becomes a no-op for this call. The
         // ad-hoc path keys by provider identifier.
         $cacheTtl = is_int($optionsArray['cache_ttl'] ?? null) ? $optionsArray['cache_ttl'] : 0;
-        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options);
         $resolvedProvider = $providerKey ?? 'default';
         $metadata += $this->embedCacheKeyBuilder->build(
             $cacheTtl,
@@ -724,7 +724,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->analyzeImage($normalisedContent, $optionsArray);
             },
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
         );
     }
 
@@ -753,7 +753,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration),
                 $defaultConfiguration,
                 $optionsArray,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()),
+                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->callerSource($options),
             );
         }
 
@@ -783,7 +783,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // first iteration inside the dispatcher.
         $this->assertStreamingCapable($this->getProvider($providerKey), 1581627129);
 
-        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->callerSource($options);
         $metadata[StreamingDispatcher::METADATA_PROVIDER]     = $providerKey ?? 'default';
         $metadata[StreamingDispatcher::METADATA_PROMPT_CHARS] = $this->estimatePromptChars($messages);
 
@@ -839,7 +839,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
                 return $provider->chatCompletionWithTools($this->applyAndScreenSystemPrompt($normalisedMessages, $optionsArray), $normalisedTools, $optionsArray);
             },
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
         );
     }
 
@@ -923,7 +923,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $callOptions,
                 );
             },
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             $run,
             $injectedContext,
             $this->collectRequestFacts(
@@ -965,7 +965,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);
 
-        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey());
+        $metadata = $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options);
 
         // Cache metadata mirrors embed(), but the configuration path keys by
         // configuration identifier plus the effective model (options override
@@ -1188,7 +1188,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $this->injectConfigSkillsIntoMessages($messages, $configuration),
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             $optionsArray,
         );
     }
@@ -1209,7 +1209,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->chatWithConfiguration(
             $this->injectConfigSkillsIntoMessages($messages, $configuration),
             $configuration,
-            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()),
+            $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             $optionsArray,
         );
     }

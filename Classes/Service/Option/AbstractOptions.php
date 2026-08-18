@@ -56,6 +56,42 @@ abstract class AbstractOptions
     }
 
     /**
+     * Which piece of software makes this call (ADR-177). Like the idempotency
+     * key, deliberately kept out of {@see self::toArray()}: it is call
+     * metadata persisted on the telemetry row, never a provider option.
+     */
+    protected ?string $callerSourceExtension = null;
+
+    /** The operation inside the calling software (ADR-177); '' = unspecified. */
+    protected ?string $callerSourceOperation = null;
+
+    /**
+     * Return a copy tagged with the caller's identity — the extension key of
+     * the calling software and optionally the operation inside it (e.g.
+     * "ai_seo_helper" / "requestAi"). Persisted on the telemetry row as
+     * source_extension / source_operation (ADR-177); never sent to the
+     * provider.
+     */
+    public function withCallerSource(string $extension, string $operation = ''): static
+    {
+        $clone                        = clone $this;
+        $clone->callerSourceExtension = $extension;
+        $clone->callerSourceOperation = $operation;
+
+        return $clone;
+    }
+
+    public function getCallerSourceExtension(): ?string
+    {
+        return $this->callerSourceExtension;
+    }
+
+    public function getCallerSourceOperation(): ?string
+    {
+        return $this->callerSourceOperation;
+    }
+
+    /**
      * Validate value is within numeric range.
      *
      * @throws InvalidArgumentException

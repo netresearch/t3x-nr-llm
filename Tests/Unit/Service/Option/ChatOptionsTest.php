@@ -512,4 +512,37 @@ class ChatOptionsTest extends AbstractUnitTestCase
         self::assertArrayNotHasKey('planned_cost', $array);
         self::assertArrayNotHasKey('plannedCost', $array);
     }
+
+    #[Test]
+    public function withCallerSourceReturnsATaggedCopy(): void
+    {
+        $original = new ChatOptions();
+
+        $tagged = $original->withCallerSource('ai_seo_helper', 'requestAi');
+
+        self::assertSame('ai_seo_helper', $tagged->getCallerSourceExtension());
+        self::assertSame('requestAi', $tagged->getCallerSourceOperation());
+        self::assertNull($original->getCallerSourceExtension());
+        self::assertNull($original->getCallerSourceOperation());
+    }
+
+    #[Test]
+    public function callerSourceIsOmittedFromToArray(): void
+    {
+        // The caller identity is telemetry metadata (ADR-177), not provider
+        // wire payload — like the budget fields and the idempotency key it
+        // must never reach the provider's options array.
+        $options = (new ChatOptions())->withCallerSource('ai_seo_helper', 'requestAi');
+
+        $array = $options->toArray();
+
+        self::assertArrayNotHasKey('caller_source_extension', $array);
+        self::assertArrayNotHasKey('callerSourceExtension', $array);
+        self::assertArrayNotHasKey('source_extension', $array);
+        self::assertArrayNotHasKey('sourceExtension', $array);
+        self::assertArrayNotHasKey('caller_source_operation', $array);
+        self::assertArrayNotHasKey('callerSourceOperation', $array);
+        self::assertArrayNotHasKey('source_operation', $array);
+        self::assertArrayNotHasKey('sourceOperation', $array);
+    }
 }

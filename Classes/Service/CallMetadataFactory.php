@@ -13,17 +13,20 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
+use Netresearch\NrLlm\Service\Option\AbstractOptions;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
 /**
  * Builds the pipeline metadata the middlewares read, extracted verbatim from
  * LlmServiceManager (ADR-059 stage 2).
  *
- * Four producers, four disjoint key sets — budget, idempotency, request
- * counting, agent run — which is why every call site merges them with `+` and
- * must keep doing so: the disjointness is load-bearing, and array_merge would
- * let a later set silently win over an earlier one if a key ever collided.
+ * Five producers, five disjoint key sets — budget, idempotency, request
+ * counting, caller source, agent run — which is why every call site merges
+ * them with `+` and must keep doing so: the disjointness is load-bearing, and
+ * array_merge would let a later set silently win over an earlier one if a key
+ * ever collided.
  *
  * Stateless and pure; the manager holds one instance.
  */
@@ -95,6 +98,28 @@ final readonly class CallMetadataFactory
         return $options->getSuppressRequestCount()
             ? [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true]
             : [];
+    }
+
+    /**
+     * Translate the caller identity (ADR-177) into the metadata keys the
+     * TelemetryMiddleware persists as source_extension / source_operation.
+     * An unannotated call produces no entry, so its telemetry row keeps the
+     * '' defaults and stays indistinguishable from a pre-feature row.
+     * Disjoint from every other producer's keys, so it merges with `+`.
+     *
+     * @return array<string, string>
+     */
+    public function callerSource(AbstractOptions $options): array
+    {
+        $extension = $options->getCallerSourceExtension();
+        if ($extension === null || $extension === '') {
+            return [];
+        }
+
+        return [
+            TelemetryMiddleware::METADATA_SOURCE_EXTENSION => $extension,
+            TelemetryMiddleware::METADATA_SOURCE_OPERATION => $options->getCallerSourceOperation() ?? '',
+        ];
     }
 
     /**

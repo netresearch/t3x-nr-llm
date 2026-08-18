@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FailureClassifier;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
@@ -696,7 +697,19 @@ final readonly class StreamingDispatcher
             // the exact confusion between an estimate and a measurement that
             // ADR-174 exists to end. The estimate stays in the usage aggregate.
             providerRetries: $providerRetries,
+            // Caller identity (ADR-177), from the same metadata keys the
+            // non-streaming TelemetryMiddleware reads — the two write sites
+            // move together, as above.
+            sourceExtension: $this->metadataString($context, TelemetryMiddleware::METADATA_SOURCE_EXTENSION),
+            sourceOperation: $this->metadataString($context, TelemetryMiddleware::METADATA_SOURCE_OPERATION),
         ));
+    }
+
+    private function metadataString(ProviderCallContext $context, string $key): string
+    {
+        $value = $context->metadata[$key] ?? '';
+
+        return \is_string($value) ? $value : '';
     }
 
     private function resolveProvider(ProviderCallContext $context, LlmConfiguration $served): string

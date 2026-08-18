@@ -306,6 +306,44 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function persistsTheCallerSourceFromMetadata(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $context = new ProviderCallContext(
+            ProviderOperation::Chat,
+            'corr',
+            metadata: [
+                TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'ai_seo_helper',
+                TelemetryMiddleware::METADATA_SOURCE_OPERATION => 'requestAi',
+            ],
+        );
+
+        $this->pipeline($repository)->run(
+            $context->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
+        );
+
+        self::assertSame('ai_seo_helper', $repository->records[0]->sourceExtension);
+        self::assertSame('requestAi', $repository->records[0]->sourceOperation);
+    }
+
+    #[Test]
+    public function anUnannotatedCallPersistsEmptySourceFields(): void
+    {
+        $repository = $this->recordingRepository();
+
+        $this->pipeline($repository)->run(
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'x',
+        );
+
+        self::assertSame('', $repository->records[0]->sourceExtension);
+        self::assertSame('', $repository->records[0]->sourceOperation);
+    }
+
+    #[Test]
     public function resolvesBeUserFromAmbientAspectWhenMetadataAbsent(): void
     {
         $repository = $this->recordingRepository();
