@@ -6,6 +6,8 @@ ADR-131: The editor-facing module
 
 :Status: Accepted
 :Date: 2026-08-06
+:Amends: :ref:`ADR-130 <adr-130>` (constraint 3: this module is a third
+   approval surface its enumeration did not have)
 
 Context
 =======

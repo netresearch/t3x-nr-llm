@@ -17,7 +17,7 @@ Context
 
 Issue `#691` declines to add a ``MANAGE`` grant case until a management surface
 exists, under :ref:`ADR-130 <adr-130>`'s rule that a case arrives together with
-its enforcement point (``Adr130BackendUserGrants.rst:32-36``). That rule exists
+its enforcement point (``Adr130BackendUserGrants.rst:34-38``). That rule exists
 because :ref:`ADR-023 <adr-023>` shipped backend-group checkboxes that gated
 nothing and :ref:`ADR-117 <adr-117>` had to remove them: "a control that has to
 be labelled 'has no effect' is worse than its absence"
@@ -243,8 +243,8 @@ acceptable grant of ``allowed_groups``.
 -------------------
 
 ``tasks_manage`` is reserved in three places: ADR-130 named constraint 4
-(``Adr130BackendUserGrants.rst:84-88``), ADR-131's "what stays out"
-(``Adr131EditorModule.rst:67-68``) and the enum docblock
+(``Adr130BackendUserGrants.rst:199-203``), ADR-131's "what stays out"
+(``Adr131EditorModule.rst:69-70``) and the enum docblock
 (``Classes/Domain/Enum/BackendUserGrant.php:24-27``). `#691` asks for something
 wider — providers, models, configurations and tasks.
 
@@ -277,7 +277,7 @@ first; old routes keep working through kept identifiers plus
 an actor-scoped run viewport, but the record states that "'Own runs' for editors
 is mostly the approver's view", that agent runs "are currently started from
 admin surfaces", and that the ownership filter "matters the moment any non-admin
-path starts runs" (``Adr131EditorModule.rst:69-72``). A personal run history is
+path starts runs" (``Adr131EditorModule.rst:71-74``). A personal run history is
 what that surface will become, not what it is.
 
 What has changed is the count and the constraint. ADR-119 describes twelve
@@ -287,7 +287,7 @@ registered outside it under ``parent => 'web'``
 file). It sits there for a verified platform reason: the module menu drops every
 top-level module whose own access check fails, so a child of the admin-only
 ``nrllm`` (``:53``) would be invisible to non-admins
-(``Adr131EditorModule.rst:29-33``). A management surface has that same
+(``Adr131EditorModule.rst:31-35``). A management surface has that same
 constraint.
 
 **Recommendation: reopen ADR-119 — recommended here, not done here.** Without
