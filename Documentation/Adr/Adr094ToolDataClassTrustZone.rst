@@ -110,9 +110,14 @@ Consequences
   external ceiling. That is correct — the run really can reach that provider —
   but it will surprise operators who added a fallback purely for availability.
 - ``ToolInterface`` is **not** changed yet. Classifying by group plus seven
-  explicit declarations covers all 41 builtins without 41 edits; promoting
-  ``getDataClass()`` onto the contract is a later, announced breaking change,
-  once observe-mode evidence exists.
+  explicit declarations covers every builtin without one edit per builtin.
+  The ratio is the argument, not the number, and it has only widened since:
+  41 builtins when this was written against 46 today
+  (``grep -l ToolInterface Classes/Service/Tool/Builtin/*.php | wc -l``),
+  while the declarations are still seven
+  (``grep -l 'function getDataClass' Classes/Service/Tool/Builtin/*.php | wc -l``).
+  Promoting ``getDataClass()`` onto the contract is a later, announced
+  breaking change, once observe-mode evidence exists.
 - ``isEnabledByDefault()`` and the "never-toggled group is enabled" default stay
   as they are. Flipping them would make a fresh install offer zero tools and buy
   nothing the ceiling does not already buy. The fail-closed default belongs on
