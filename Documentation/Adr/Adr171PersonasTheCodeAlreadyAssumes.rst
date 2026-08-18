@@ -56,7 +56,7 @@ short-circuits :php:`hasGrant()`, :php:`mayAccessSession()` and
 the configuration group restriction (``ConfigurationResolver.php:218``). The
 docblock records where that comes from: "Administrators hold every grant
 implicitly (the core ``check()`` short-circuits on isAdmin)"
-(``BackendUserGrant.php:19-21``) — the platform's rule, not ours.
+(:php:`BackendUserGrant`'s class docblock) — the platform's rule, not ours.
 
 **Human (unvalidated).** One person owning the instance's AI capability end to
 end: holds the vault key, chooses providers and models, decides which tools exist
@@ -109,9 +109,9 @@ per-task, per-category or per-group scoping, and no task ownership field.
 3. Approver (``agent_approve``)
 -------------------------------
 
-**Code.** ``BackendUserGrant.php:47-52``; the grant branch in
+**Code.** :php:`BackendUserGrant::AGENT_APPROVE`; the grant branch in
 :php:`AiActorContext::mayActOnRun()` (``:229``) — "deliberately the only scope
-with a grant equivalent" (``Adr130:59-62``); the write side at
+with a grant equivalent" (:ref:`ADR-130 <adr-130>`, Decision); the write side at
 ``ResumeCoordinator.php:205`` and ``:650``; the list viewport at
 ``AgentRunController.php:267``. It sits in no recommended preset: "granting it is
 an explicit trust decision"
@@ -170,7 +170,9 @@ and which model and configuration it uses is defined by whoever manages the task
 (``Permissions.rst:40-43``). Nothing checks it:
 :php:`TaskExecutionService::execute()` takes ``(Task, string, ?int $beUserUid)`` —
 no actor, nothing to check against. ``tasks_manage`` occurs once in ``Classes/``,
-in a docblock saying it does not exist yet (``BackendUserGrant.php:24-27``).
+in :php:`BackendUserGrant`'s class docblock — which, since
+:ref:`ADR-169 <adr-169>` was accepted, records the reservation as retired rather
+than pending.
 
 **Human (unvalidated).** Writes the prompt, picks the configuration, and thereby
 sets the data reach of everything an editor runs — without holding credentials.
@@ -215,19 +217,22 @@ one of ours. No third-party integrator is evidenced anywhere.
 --------------------------
 
 **Code.** None, by design: "a case is only added TOGETHER with its consumer (a
-grant nothing reads is worse than none)" (``BackendUserGrant.php:24-27``);
-reserved again at ``Adr130:199-203`` and ``Adr131:69-70``.
+grant nothing reads is worse than none)" (:php:`BackendUserGrant`'s class
+docblock). It was reserved again in :ref:`ADR-130 <adr-130>` and
+:ref:`ADR-131 <adr-131>`; all three reservations are now retired.
 
 **Human (unvalidated).** Curates the AI catalogue for their own team while keys
 and endpoints stay administrator-only.
 
-**Confidence.** Required by a planned feature that
-``Adr169…rst:251-255`` now recommends **deleting**: "Recommendation: neither name.
-Close `#691` as answered."
+**Confidence.** Was required by a planned feature that
+:ref:`ADR-169 <adr-169>` section 5 recommended deleting: "Recommendation:
+neither name. Close `#691` as answered."
 
-**Blocks.** `#691`, `#768`, and whether ADR-169 is accepted. If this person is
-real, ADR-169's section 5 is wrong; if not, three documents carry a reservation
-that should be retired.
+**Blocks.** Nothing any more, and how it stopped is worth recording. ADR-169 was
+accepted on 2026-08-18 while this persona was still unvalidated, so section 5's
+recommendation carried. If a validated persona 7 turns up later, section 5 is
+the decision that was made without them and the one an answer would reopen —
+not this paragraph.
 
 .. _adr-171-contradictions:
 
@@ -242,8 +247,7 @@ nobody reads it as an already-active control." It shipped: ``Modules.php:375-381
 registers ``AgentRunController::approve`` and ``submitInput`` in
 ``nrllm_aitasks``, ``'access' => 'user'`` (``:344``). A non-admin who holds the
 grant and whose group has that module ticked decides another user's write today.
-ADR-130 now carries ``:Amended:`` and a rewritten constraint 3
-(``Adr130BackendUserGrants.rst:80-198``), and
+ADR-130 now carries ``:Amended:`` and a rewritten constraint 3, and
 ``Tests/Unit/Configuration/ApprovalSurfaceInventoryTest.php`` pins the module
 inventory, so a new approval *module* cannot be registered without ADR-130
 naming it. It does not cover every shape an approval surface could take;
@@ -259,8 +263,9 @@ module** does not: ``TaskExecutionService.php:63`` calls
 configuration, returned unchecked; the method has no actor to check with. A task
 pinned to a restricted configuration bypasses that restriction.
 
-**C. The bound that justifies the grant is opt-in.** ``Adr130:57-58``: "The
-per-user budget pre-flight … bounds what a grant holder can spend."
+**C. The bound that justifies the grant is opt-in.** :ref:`ADR-130 <adr-130>`,
+Decision: "The per-user budget pre-flight … bounds what a grant holder can
+spend."
 ``Permissions.rst:43-45`` states it in its own words, not this one's — "Every run
 is pre-flighted against the user's own usage budget and attributed to them."
 ``BudgetService.php:76-79``: with no ``tx_nrllm_user_budget``
@@ -285,11 +290,12 @@ configuration (``Adr140:164``), and a person with shell and cron
 operator" that is a **non-admin** holding one grant, and says so: "identical to
 *AI editor* on purpose".
 
-**F. The enum's own invariant no longer holds.** ``BackendUserGrant.php:24-25``:
+**F. The enum's own invariant no longer holds.** :php:`BackendUserGrant`'s class docblock:
 "Each case maps to exactly one enforcement point — there is no wildcard"; the
 ``TASKS_USE`` docblock names two. There are nine, across task execution, a module
 index, the Editor Action Center and a record context menu. That is a role-ladder
-rung, which ``Adr130:26`` promised the design would not grow.
+rung, which :ref:`ADR-130 <adr-130>`'s Context promised the design would not
+grow.
 
 .. _adr-171-invented:
 
@@ -300,7 +306,7 @@ These exist because a gate exists, not because anyone does the job. A reviewer
 should read this section first.
 
 - **The approver, as a distinct person.** The gate is real and tested. But
-  ``Adr130:59-62`` calls it "**deliberately** the only scope with a grant
+  :ref:`ADR-130 <adr-130>` calls it "**deliberately** the only scope with a grant
   equivalent" — a design choice, not an observed org chart. Until
   contradiction A shipped, no non-admin could reach it at all. We built the
   separation before meeting anyone who wants it.
@@ -325,7 +331,7 @@ should read this section first.
   approved it — belongs to the editor, where a human can be asked about it.
 - **The anonymous caller and the backend group.** A fail-closed null object
   (``AiActorContext.php:72-79``) and the unit of entitlement
-  (``BackendUserGrant.php:20-22``). Both are load-bearing; neither is a person.
+  (:php:`BackendUserGrant`'s class docblock). Both are load-bearing; neither is a person.
 - **The service account.** A machine, not a persona — and the counter-example to
   ADR-023: fail-closed from its first line. One exists, ``cli:nrllm:agent:cancel``
   (``CancelAgentRunCommand.php:69``), declaring one of the five scopes.
@@ -376,7 +382,7 @@ What TYPO3 gives us and what it does not
 
 TYPO3 gives **roles**: three enforcement primitives, all of which nr_llm uses.
 ``admin`` is the whole default posture. ``user`` on a module means one tick in a
-group's module list and nothing more — ``Adr131:36-41`` records the verified trap
+group's module list and nothing more — :ref:`ADR-131 <adr-131>` records the verified trap
 that ``'user,group'`` denies everyone. ``systemMaintainer`` we never check but
 depend on.
 
