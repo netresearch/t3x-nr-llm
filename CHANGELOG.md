@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **A self-approved run says so** (`#785`). An approval granted by the backend user who started the run is now labelled as such — on the run timeline, and in the *Recent runs* table of the Agent Runs inbox, which gains an *Approval* column. An approval granted by anybody else is labelled too, so the two are told apart at a glance instead of by comparing two uid numbers.
+
+  Derived at read time from values that were already stored, so it is right for runs recorded before this change. The readout compares the two uids in one place, `Domain\Enum\ApprovalAttribution`, and both surfaces render its answer; ADR-172's four-eyes gate keeps its own, stricter comparison in `AiActorContext::isInitiatorOf()`.
+
+  Granted approvals only: a denial carries no label, because ADR-172 lets an initiator deny their own run on purpose. Nothing reads *self* unless both uids are present and equal, and the two ways one can be missing are two labels rather than one: a run started by a service account and released by a backend user reads *Approved, but the record does not say who started the run*, while an approval whose decider was not recorded reads *Approved, but the record does not say by whom*. An empty cell is not the opposite of any of that — it means the run passed no fence, was denied, or its approvals could not be loaded or decoded.
+
+  This is a readout and refuses nothing. Whether self-approval is allowed remains the `require_second_approver` switch (ADR-172). See ADR-173.
+
 
 - **Per-call cost and real token counts on the telemetry row** (`#770`). Every
   provider call now records what it actually consumed — input tokens, output

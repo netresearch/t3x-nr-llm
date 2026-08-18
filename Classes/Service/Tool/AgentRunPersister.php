@@ -583,6 +583,30 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * The `decidedBy` uids of several runs' GRANTED approvals, keyed by run uid
+     * (ADR-173) — the read the approvals inbox turns into its self-approved
+     * marker, in one statement for the whole page.
+     *
+     * Fail-soft like {@see self::findEvents()}: an empty map on a store error, so
+     * a hiccup costs the marker and not the inbox. The marker's absence is the
+     * safe direction — it never invents a second approver.
+     *
+     * @param list<int> $runUids
+     *
+     * @return array<int, list<int>>
+     */
+    public function findApprovalDeciders(array $runUids): array
+    {
+        try {
+            return $this->repository->findApprovalDeciders($runUids);
+        } catch (Throwable $exception) {
+            $this->logger?->warning('AgentRun approval deciders could not be loaded', ['exception' => $exception]);
+
+            return [];
+        }
+    }
+
+    /**
      * Running runs whose lease has expired (ADR-104 reaper). Fail-soft: an empty
      * list on error, so a reaper tick simply does nothing that pass.
      *

@@ -220,6 +220,24 @@ interface AgentRunRepositoryInterface
     public function findEvents(int $runUid, int $afterSequence = -1): array;
 
     /**
+     * The `decidedBy` uids of the GRANTED approvals of several runs, keyed by run
+     * uid and ordered by sequence (ADR-173).
+     *
+     * One statement for the whole page rather than {@see findEvents()} per row:
+     * the approvals inbox lists up to twenty terminal runs, and the marker it
+     * needs must not cost a query each. Runs without a granted approval are
+     * absent from the result, not present with an empty list.
+     *
+     * Denials are excluded here, not by the caller: ADR-172 permits an initiator
+     * to deny their own run, so a self-denial is not a fact any surface flags.
+     *
+     * @param list<int> $runUids
+     *
+     * @return array<int, list<int>>
+     */
+    public function findApprovalDeciders(array $runUids): array;
+
+    /**
      * The highest event sequence recorded for a run, or -1 when the run has no
      * events yet. A resume continues the stream at max + 1 (ADR-101) —
      * MAX-based, not count-based, so gaps can never cause a duplicate sequence.

@@ -394,6 +394,151 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('id="run-timeline-heading"', $body);
     }
 
+    /**
+     * ADR-173, the central case: the same approval row reads differently
+     * depending on whether the person who granted it is the person who started
+     * the run. Both uids were already on the page as numbers; what was missing
+     * is the sentence.
+     */
+    #[Test]
+    public function theTimelineSaysWhenAnApprovalCameFromTheRunsOwnInitiator(): void
+    {
+        $body = $this->renderTimelineOfApproval(initiator: 1, decidedBy: 1, approved: true);
+
+        self::assertStringContainsString('Approved by the person who started the run', $body);
+        self::assertStringNotContainsString('Approved by someone other than', $body);
+    }
+
+    #[Test]
+    public function theTimelineSaysWhenASecondPersonApproved(): void
+    {
+        $body = $this->renderTimelineOfApproval(initiator: 1, decidedBy: 9, approved: true);
+
+        self::assertStringContainsString('Approved by someone other than the person who started the run', $body);
+        self::assertStringNotContainsString('Approved by the person who started the run</span>', $body);
+    }
+
+    /**
+     * The absent-user case must not produce a false marker: a run a service
+     * account started records beUser 0, and 0 === 0 is not a self-approval.
+     */
+    #[Test]
+    public function anApprovalWithoutResolvableUsersIsNotMarkedSelfApproved(): void
+    {
+        $body = $this->renderTimelineOfApproval(initiator: 0, decidedBy: 0, approved: true);
+
+        self::assertStringContainsString('Approved, but the record does not say by whom', $body);
+        self::assertStringNotContainsString('Approved by the person who started the run', $body);
+    }
+
+    /**
+     * The rendered half of the split: a service-account run approved by backend
+     * user 5. The page prints `decidedBy=5`, so a label saying the record does
+     * not name the decider would contradict the row it sits on.
+     */
+    #[Test]
+    public function aRunNoBackendUserStartedIsNotLabelledAsHavingNoRecordedDecider(): void
+    {
+        $body = $this->renderTimelineOfApproval(initiator: 0, decidedBy: 5, approved: true);
+
+        self::assertStringContainsString('decidedBy=5', $body);
+        self::assertStringContainsString('Approved, but the record does not say who started the run', $body);
+        self::assertStringNotContainsString('Approved, but the record does not say by whom', $body);
+        self::assertStringNotContainsString('Approved by the person who started the run', $body);
+    }
+
+    /**
+     * ADR-172 lets an initiator deny their own run on purpose, so the denial the
+     * initiator recorded is the case the readout must stay silent about.
+     */
+    #[Test]
+    public function aDenialByTheInitiatorCarriesNoAttribution(): void
+    {
+        $body = $this->renderTimelineOfApproval(initiator: 1, decidedBy: 1, approved: false);
+
+        self::assertStringContainsString('decidedBy=1', $body, 'The recorded decision is still on the page.');
+        self::assertStringNotContainsString('Approved by the person who started the run', $body);
+        self::assertStringNotContainsString('Approved by someone other than', $body);
+    }
+
+    /**
+     * The list half of ADR-173: an auditor scanning the recent-runs table sees
+     * which runs released themselves without opening each one. Unlike the
+     * timeline tests above this goes through the real
+     * AgentRunRepository::findApprovalDeciders() query.
+     */
+    #[Test]
+    public function theRecentRunsTableMarksASelfApprovedRun(): void
+    {
+        $handle = $this->persister->begin(null, 1);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->recordApproval($handle, true, 1));
+        self::assertTrue($this->persister->settleCompleted(
+            $handle,
+            new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(3, 4)),
+        ));
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('Approved by the person who started the run', $body);
+    }
+
+    #[Test]
+    public function theRecentRunsTableMarksARunASecondPersonApproved(): void
+    {
+        $handle = $this->persister->begin(null, 1);
+        self::assertNotNull($handle);
+        self::assertTrue($this->persister->recordApproval($handle, true, 9));
+        self::assertTrue($this->persister->settleCompleted(
+            $handle,
+            new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(3, 4)),
+        ));
+
+        $controller = $this->makeController(new ToolRegistry([]), self::createStub(AgentRuntimeInterface::class));
+        $this->setRequest($controller, 'list');
+
+        $body = (string)$controller->listAction()->getBody();
+
+        self::assertStringContainsString('Approved by someone other than the person who started the run', $body);
+        self::assertStringNotContainsString('Approved by the person who started the run</span>', $body);
+    }
+
+    /**
+     * Render one run's timeline holding a single APPROVAL event, as
+     * AgentRunPersister::recordApproval() writes it.
+     */
+    private function renderTimelineOfApproval(int $initiator, int $decidedBy, bool $approved): string
+    {
+        $runUuid = 'c0ffee00-0000-4000-8000-000000000043';
+        $run     = $this->terminalRun($runUuid, $initiator);
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($run);
+        $runtime->method('events')->willReturn([
+            new AgentRunEvent(
+                uid: 1,
+                run: $run->uid,
+                sequence: 0,
+                kind: 'approval',
+                round: 0,
+                durationMs: 0.0,
+                payload: ['approved' => $approved, 'decidedBy' => $decidedBy],
+                crdate: 1_700_000_010,
+            ),
+        ]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        $response = $controller->showAction($runUuid);
+        self::assertSame(200, $response->getStatusCode());
+
+        return (string)$response->getBody();
+    }
+
     #[Test]
     public function showActionRedirectsWhenTheRuntimeReleasesNothing(): void
     {
@@ -408,7 +553,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertSame(303, $controller->showAction('does-not-exist')->getStatusCode());
     }
 
-    private function terminalRun(string $uuid): AgentRun
+    private function terminalRun(string $uuid, int $beUser = 1): AgentRun
     {
         return new AgentRun(
             uid: 4711,
@@ -416,7 +561,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
             status: 'completed',
             configurationUid: 0,
             configurationIdentifier: 'agent',
-            beUser: 1,
+            beUser: $beUser,
             iterations: 1,
             truncated: false,
             totalPromptTokens: 120,

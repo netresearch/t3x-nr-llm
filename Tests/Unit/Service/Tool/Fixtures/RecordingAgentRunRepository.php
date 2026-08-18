@@ -308,6 +308,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
      */
     public array $maxSequenceReturns = [];
 
+    public function findApprovalDeciders(array $runUids): array
+    {
+        return [];
+    }
+
     public function maxEventSequence(int $runUid): int
     {
         if ($this->throwOnMaxSequence) {

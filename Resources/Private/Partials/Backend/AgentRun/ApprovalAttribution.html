@@ -1,0 +1,24 @@
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<!--
+ * The ADR-173 label, in ONE place for both surfaces that show it: the
+ * recent-runs table and the run timeline. One case per branch rather than a key
+ * assembled from {attribution} — an assembled key has no `default`, so a
+ * catalogue that has not loaded renders an empty cell instead of English.
+ *
+ * The literals are the ApprovalAttribution case values;
+ * ApprovalAttributionTest::everyCaseIsRenderedByTheSharedPartial() pins them, so
+ * renaming a case fails a test instead of silently emptying two views.
+ *
+ * An empty {attribution} matches no case and renders nothing. It carries three
+ * meanings at once — no fence, a denial, or deciders that could not be loaded —
+ * so it deliberately gets no label of its own.
+-->
+<f:switch expression="{attribution}">
+    <f:case value="self"><span class="badge text-bg-warning"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.attribution.self" default="Approved by the person who started the run" /></span></f:case>
+    <f:case value="secondPerson"><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.attribution.secondPerson" default="Approved by someone other than the person who started the run" /></span></f:case>
+    <f:case value="initiatorUnknown"><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.attribution.initiatorUnknown" default="Approved, but the record does not say who started the run" /></span></f:case>
+    <f:case value="unresolved"><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.attribution.unresolved" default="Approved, but the record does not say by whom" /></span></f:case>
+</f:switch>

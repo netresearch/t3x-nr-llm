@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\Timeline;
 
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
+use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
@@ -96,6 +98,7 @@ final readonly class RunTimelineFactory
                 durationMs: $event->durationMs,
                 detail: $this->stepDetail($event->payload),
                 outcome: $this->stepOutcome($event->payload),
+                approvalAttribution: $this->approvalAttribution($run, $event),
             );
         }
 
@@ -222,6 +225,38 @@ final readonly class RunTimelineFactory
         }
 
         return $this->join($facts);
+    }
+
+    /**
+     * Who decided this row, relative to who started the run (ADR-173) — `''` for
+     * every row that is not a GRANTED approval.
+     *
+     * `decidedBy` is already in {@see self::STEP_FACTS}, so the uid was on the
+     * page; what was missing is the comparison against the run's own initiator.
+     * Among the surfaces that PRESENT it, {@see ApprovalAttribution} is the only
+     * place it is made, which is what lets the inbox state the same fact without
+     * a second definition of it. POLICY compares the same two uids again, in
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\AiActorContext::isInitiatorOf()}
+     * (ADR-172's four-eyes gate) — by a stricter rule that also excludes service
+     * accounts, so it is not this comparison duplicated.
+     *
+     * A denial carries no attribution on purpose: ADR-172 allows an initiator to
+     * deny their own run, so flagging that would mark the case the design calls
+     * correct.
+     */
+    private function approvalAttribution(AgentRun $run, AgentRunEvent $event): string
+    {
+        if ($event->kind !== AgentEventKind::APPROVAL->value) {
+            return RunTimelineEntry::ATTRIBUTION_NONE;
+        }
+
+        if (($event->payload['approved'] ?? null) !== true) {
+            return RunTimelineEntry::ATTRIBUTION_NONE;
+        }
+
+        $decidedBy = $event->payload['decidedBy'] ?? null;
+
+        return ApprovalAttribution::fromDecision($run->beUser, is_int($decidedBy) ? $decidedBy : 0)->value;
     }
 
     /**
