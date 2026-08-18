@@ -7,7 +7,9 @@ ADR-156: Persist the routing decision, and observe complexity without routing
 :Status: Accepted
 :Date: 2026-08-11
 :Amends: :ref:`ADR-142 <adr-142>` (both of its deferrals are lifted, one of them only halfway)
-:Amended: 2026-08-14 by :ref:`ADR-174 <adr-174>`
+:Amended: 2026-08-14 by :ref:`ADR-174 <adr-174>`; 2026-08-18 by
+   :ref:`ADR-176 <adr-176>` (its second activation criterion cited ADR-060,
+   whose per-model value cannot distinguish two canary arms)
 :Authors: Netresearch DTT GmbH
 
 Context
