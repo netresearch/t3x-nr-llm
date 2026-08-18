@@ -7,6 +7,9 @@ ADR-166: Deactivating a source does not lower a ceiling
 :Status: Accepted
 :Date: 2026-08-13
 :Amends: :ref:`ADR-165 <adr-165>` (which lookup the resume re-gate uses)
+:Amended: 2026-08-18 by :ref:`ADR-175 <adr-175>` (its "the skill half was
+    already correct" held for the resume path and not for the two composition
+    paths)
 :Authors: Netresearch DTT GmbH
 
 Context
