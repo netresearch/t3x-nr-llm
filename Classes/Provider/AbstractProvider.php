@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
@@ -90,12 +91,23 @@ abstract class AbstractProvider implements ProviderInterface
 
     private ?ClientInterface $configuredHttpClient = null;
 
+    /**
+     * @param ?ProviderRetryCounter $retryCounter the process-wide retry tally the telemetry write
+     *                                            sites take a difference of (ADR-174). Optional and
+     *                                            nullable because adapters are also constructed by
+     *                                            hand — in tests and in
+     *                                            {@see ProviderAdapterRegistry::instantiateAdapter()} —
+     *                                            and an adapter without one simply reports no
+     *                                            retries rather than failing to build. The container
+     *                                            supplies it for every autowired adapter.
+     */
     public function __construct(
         protected readonly RequestFactoryInterface $requestFactory,
         protected readonly StreamFactoryInterface $streamFactory,
         protected readonly LoggerInterface $logger,
         protected readonly VaultServiceInterface $vault,
         protected readonly SecureHttpClientFactory $httpClientFactory,
+        protected readonly ?ProviderRetryCounter $retryCounter = null,
     ) {}
 
     abstract public function getName(): string;
@@ -374,6 +386,13 @@ abstract class AbstractProvider implements ProviderInterface
                 }
 
                 if ($attempt < $maxAttempts) {
+                    // Counted here rather than at the `$attempt++` above: this
+                    // branch is the one that repeats the request. The final
+                    // failed attempt increments $attempt and then falls out of
+                    // the loop, and calling that a retry would report one more
+                    // than were ever sent (ADR-174).
+                    $this->retryCounter?->recordRetry();
+
                     // Exponential backoff capped at 30s. Short-circuit at
                     // attempt >= 9 (100000 * 2**9 = 51.2s already exceeds the
                     // cap) so the 2 ** $attempt term cannot overflow the float→int

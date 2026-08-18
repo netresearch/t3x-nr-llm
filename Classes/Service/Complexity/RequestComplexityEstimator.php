@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Complexity;
 
-use Netresearch\NrLlm\Domain\Enum\MessageRole;
-use Netresearch\NrLlm\Domain\Enum\RequestShape;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
@@ -44,8 +42,27 @@ final readonly class RequestComplexityEstimator
     private const SIZE_TERM_MAX = 30;
 
     /**
-     * @param list<ChatMessage|array<string, mixed>> $messages  the transcript as it goes on the wire
-     * @param int                                    $toolCount tool schemas on the wire for this send
+     * The transcript reader is shared with {@see RequestFactsCollector} so that
+     * "a turn", "tool traffic" and the byte count mean the same thing in both
+     * records — the two sit on one row precisely to be compared (ADR-174).
+     *
+     * Defaulted rather than injected: this class is constructed inline by
+     * {@see \Netresearch\NrLlm\Service\LlmServiceManager}, whose constructor is
+     * pinned by the shared test factory.
+     */
+    public function __construct(
+        private MessageInspector $inspector = new MessageInspector(),
+    ) {}
+
+    /**
+     * @param list<ChatMessage|array<string, mixed>> $messages  the bounded transcript, post-pruning — NOT the
+     *                                                          bytes on the wire: the configuration's system
+     *                                                          prompt is prepended after the fit, so it is in
+     *                                                          neither this list nor the byte count. The same
+     *                                                          line {@see RequestFactsCollector} draws, which
+     *                                                          is what keeps the two records on one row
+     *                                                          comparable (ADR-174)
+     * @param int                                    $toolCount tool schemas this send carries
      * @param ?ContextFitResult                      $fit       the context fit for this send (ADR-107/143),
      *                                                          or null where none ran — the token and
      *                                                          utilisation figures come from it, and stay
@@ -55,21 +72,9 @@ final readonly class RequestComplexityEstimator
     {
         $toolCount = max(0, $toolCount);
 
-        $bytes         = 0;
-        $conversation  = 0;
-        $carriesTools  = $toolCount > 0;
-        foreach ($messages as $message) {
-            $role = $this->roleOf($message);
-            $bytes += strlen($this->contentOf($message));
-
-            if ($this->isToolTraffic($message, $role)) {
-                $carriesTools = true;
-            }
-
-            if ($role !== MessageRole::SYSTEM->value) {
-                ++$conversation;
-            }
-        }
+        $bytes        = $this->inspector->payloadBytes($messages);
+        $conversation = $this->inspector->turnCount($messages);
+        $carriesTools = $toolCount > 0 || $this->inspector->carriesToolTraffic($messages);
 
         $percent = $this->contextPercent($fit);
 
@@ -79,7 +84,7 @@ final readonly class RequestComplexityEstimator
             tokenEstimate: $fit?->estimatedTokens,
             toolCount: $toolCount,
             contextPercent: $percent,
-            shape: $this->shape($conversation, $carriesTools)->value,
+            shape: $this->inspector->shape($conversation, $carriesTools)->value,
         );
     }
 
@@ -124,63 +129,5 @@ final readonly class RequestComplexityEstimator
         $sizeTerm = (int)round(self::SIZE_TERM_MAX * min($contextPercent ?? 0, 100) / 100);
 
         return $turnTerm + $toolTerm + $sizeTerm;
-    }
-
-    private function shape(int $conversationTurns, bool $carriesTools): RequestShape
-    {
-        if ($carriesTools) {
-            return RequestShape::TOOL_ASSISTED;
-        }
-
-        return $conversationTurns > 1 ? RequestShape::MULTI_TURN : RequestShape::SINGLE_TURN;
-    }
-
-    /**
-     * Tool traffic is either half of a tool exchange: an assistant message that
-     * requested calls, or the result that answered one.
-     *
-     * @param ChatMessage|array<string, mixed> $message
-     */
-    private function isToolTraffic(ChatMessage|array $message, string $role): bool
-    {
-        if ($role === MessageRole::TOOL->value) {
-            return true;
-        }
-
-        if ($message instanceof ChatMessage) {
-            return $message->toolCalls !== null;
-        }
-
-        $toolCalls = $message['tool_calls'] ?? $message['toolCalls'] ?? null;
-
-        return is_array($toolCalls) && $toolCalls !== [];
-    }
-
-    /**
-     * @param ChatMessage|array<string, mixed> $message
-     */
-    private function roleOf(ChatMessage|array $message): string
-    {
-        if ($message instanceof ChatMessage) {
-            return $message->getRole()->value;
-        }
-
-        $role = $message['role'] ?? null;
-
-        return is_string($role) ? $role : '';
-    }
-
-    /**
-     * @param ChatMessage|array<string, mixed> $message
-     */
-    private function contentOf(ChatMessage|array $message): string
-    {
-        if ($message instanceof ChatMessage) {
-            return $message->content;
-        }
-
-        $content = $message['content'] ?? null;
-
-        return is_string($content) ? $content : '';
     }
 }

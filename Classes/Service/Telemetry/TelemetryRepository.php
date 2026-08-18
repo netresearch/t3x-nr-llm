@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Telemetry;
 
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
+use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -35,6 +37,9 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
         $this->connectionPool->getConnectionForTable(self::TABLE)->insert(self::TABLE, [
             ...$this->routingColumns($record->routingSummary),
             ...$this->complexityColumns($record->complexity),
+            ...$this->requestFactColumns($record->requestFacts),
+            ...$this->callUsageColumns($record->callUsage),
+            'provider_retries'         => $record->providerRetries,
             'pid'                      => 0,
             'correlation_id'           => $record->correlationId,
             'operation'                => $record->operation,
@@ -116,6 +121,70 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
             'complexity_tools'           => $complexity->toolCount,
             'complexity_context_percent' => $complexity->contextPercent,
             'complexity_shape'           => $complexity->shape,
+        ];
+    }
+
+    /**
+     * The pre-routing fact group (ADR-174). Everything here is measured in one
+     * pass or not at all, so a run that formed no fact set writes NULL across
+     * the numbers and an empty shape — the same "nothing was measured" flag the
+     * complexity group uses, and never a zero somebody could average.
+     *
+     * The operation is not among them: `operation` on the same row already
+     * names it.
+     *
+     * @return array<string, int|string|null>
+     */
+    private function requestFactColumns(?RequestFacts $facts): array
+    {
+        if (!$facts instanceof RequestFacts) {
+            return [
+                'facts_messages'       => null,
+                'facts_turns'          => null,
+                'facts_tools'          => null,
+                'facts_payload_bytes'  => null,
+                'facts_token_estimate' => null,
+                'facts_shape'          => '',
+            ];
+        }
+
+        return [
+            'facts_messages'       => $facts->messageCount,
+            'facts_turns'          => $facts->turnCount,
+            'facts_tools'          => $facts->toolCount,
+            'facts_payload_bytes'  => $facts->payloadBytes,
+            'facts_token_estimate' => $facts->tokenEstimate,
+            'facts_shape'          => $facts->shape,
+        ];
+    }
+
+    /**
+     * What the provider reported, and what it cost (ADR-174).
+     *
+     * Every figure here is nullable and stays NULL when it was not measured.
+     * That is the defect this group exists to fix: a zero-priced model used to
+     * be indistinguishable from an unpriced one, both reporting a cost of 0,
+     * and the zero-priced arm is exactly what a cheap-model experiment is
+     * about.
+     *
+     * @return array<string, float|int|string|null>
+     */
+    private function callUsageColumns(?ProviderCallUsage $usage): array
+    {
+        if (!$usage instanceof ProviderCallUsage) {
+            return [
+                'actual_input_tokens'  => null,
+                'actual_output_tokens' => null,
+                'actual_cost'          => null,
+                'response_model'       => '',
+            ];
+        }
+
+        return [
+            'actual_input_tokens'  => $usage->inputTokens,
+            'actual_output_tokens' => $usage->outputTokens,
+            'actual_cost'          => $usage->cost,
+            'response_model'       => $usage->responseModel,
         ];
     }
 

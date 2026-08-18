@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Psr\Log\LoggerInterface;
@@ -62,6 +63,13 @@ use Throwable;
  * tracked here. Failure-rate telemetry is handled by the dedicated
  * TelemetryMiddleware (ADR-058), which wraps the whole pipeline and records
  * one row regardless of outcome.
+ *
+ * It writes the same three facts twice, to two different shapes (ADR-174): the
+ * daily aggregate in tx_nrllm_service_usage, which is what a budget needs, and
+ * a per-call copy on {@see TelemetrySignals} that TelemetryMiddleware puts on
+ * the telemetry row under this call's correlation id. The aggregate has no
+ * per-call key, so without the second write no cost can be joined to a request
+ * shape, a routing decision or a complexity bucket.
  *
  * Recording is fail-soft: a failure while writing to tx_nrllm_service_usage is
  * logged and swallowed, never re-thrown, so this post-flight bookkeeping cannot
@@ -187,6 +195,21 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             $cost = $model->estimateCost($usage->promptTokens, $usage->completionTokens);
         }
 
+        // The same three facts, per call and joinable by correlation id
+        // (ADR-174). tx_nrllm_service_usage aggregates them per day, which is
+        // the right shape for a budget and the wrong one for "what did THIS
+        // request cost". Recorded before the tracker call so a tracker failure
+        // (swallowed by handle()) still leaves the telemetry row measured.
+        $context->telemetrySignals->recordCallUsage(new ProviderCallUsage(
+            inputTokens: $this->reportedTokens($usage, $usage->promptTokens),
+            outputTokens: $this->reportedTokens($usage, $usage->completionTokens),
+            // NULL, not 0, where no price is known: a model with no pricing and
+            // a model that is genuinely free are different claims, and only one
+            // of them is "this call cost nothing".
+            cost: $cost,
+            responseModel: $responseModel,
+        ));
+
         /** @var array{tokens: int, promptTokens: int, completionTokens: int, cost?: float} $metrics */
         $metrics = [
             'tokens'           => $usage->totalTokens,
@@ -229,6 +252,27 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             beUserUid: $beUserUid,
             countsAsRequest: $countsAsRequest,
         );
+    }
+
+    /**
+     * One token figure as the PROVIDER reported it, or null where it reported
+     * nothing (ADR-174).
+     *
+     * {@see UsageStatistics} types its three counts as plain ints, so an
+     * adapter that finds no `usage` block in the response builds the same
+     * object as one that was told zero. The only signal separating them is that
+     * all three are zero at once: a call that reached a provider consumed
+     * prompt tokens, so an all-zero triple is an absent measurement rather than
+     * a measured one. A response that produced no output still reports its
+     * prompt count, so a `0` that survives this check is genuine.
+     */
+    private function reportedTokens(UsageStatistics $usage, int $value): ?int
+    {
+        if ($usage->promptTokens === 0 && $usage->completionTokens === 0 && $usage->totalTokens === 0) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**

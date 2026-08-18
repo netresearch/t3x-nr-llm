@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Domain\ValueObject\RequestComplexity;
+use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\RoutingSummary;
 
 /**
@@ -85,6 +87,34 @@ final class TelemetrySignals
     public ?RequestComplexity $complexity = null;
 
     /**
+     * What the request WAS, before anything chose a model for it (ADR-174).
+     *
+     * Recorded by {@see \Netresearch\NrLlm\Service\LlmServiceManager} on the way
+     * IN — before the pipeline runs, therefore before any resolution — which is
+     * the whole point: {@see RequestComplexity} is measured after the model is
+     * chosen and partly from it, so it cannot describe a request independently
+     * of the answer it got.
+     *
+     * Only the four configuration-driven sends form a fact set — chat,
+     * completion, tools and stream — so this stays null everywhere else: the
+     * provider-pinned entry points, embeddings, and every specialized service
+     * (image, speech and translation alike, all of which run their own
+     * operations through the pipeline and so reach the telemetry row).
+     */
+    public ?RequestFacts $requestFacts = null;
+
+    /**
+     * What the provider reported and what it cost (ADR-174).
+     *
+     * Recorded by {@see UsageMiddleware} from the response that came back, so
+     * it is null wherever no provider call happened or nothing token-shaped
+     * came out of it: a cache hit (CacheMiddleware short-circuits above Usage),
+     * a failed run, and the specialized operations that record through a tagged
+     * extractor instead.
+     */
+    public ?ProviderCallUsage $callUsage = null;
+
+    /**
      * CacheMiddleware calls this when it serves a stored response instead of
      * invoking the terminal.
      */
@@ -150,5 +180,36 @@ final class TelemetrySignals
     public function recordComplexity(RequestComplexity $complexity): void
     {
         $this->complexity = $complexity;
+    }
+
+    /**
+     * {@see \Netresearch\NrLlm\Service\LlmServiceManager} calls this once per
+     * call, before the pipeline starts.
+     *
+     * FIRST writer wins, unlike the complexity: the facts describe the request
+     * the caller made, and a fallback re-send is the same request against a
+     * different configuration. Re-measuring would produce the identical numbers
+     * at best; letting a later write through would only create a way for them
+     * to disagree.
+     */
+    public function recordRequestFacts(RequestFacts $facts): void
+    {
+        if ($this->requestFacts instanceof RequestFacts) {
+            return;
+        }
+
+        $this->requestFacts = $facts;
+    }
+
+    /**
+     * {@see UsageMiddleware} calls this with what the provider reported for the
+     * call that answered.
+     *
+     * Last writer wins: on a fallback swap the sibling's response is the one
+     * that was served, and its tokens are the ones that were spent.
+     */
+    public function recordCallUsage(ProviderCallUsage $usage): void
+    {
+        $this->callUsage = $usage;
     }
 }

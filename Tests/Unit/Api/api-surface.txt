@@ -831,6 +831,13 @@ Netresearch\NrLlm\Domain\ValueObject\InjectedContext (class)
   property readonly skills: array
   property readonly snippets: array
 
+Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage (class)
+  constructor(?int $inputTokens, ?int $outputTokens, ?float $cost, string $responseModel)
+  property readonly cost: ?float
+  property readonly inputTokens: ?int
+  property readonly outputTokens: ?int
+  property readonly responseModel: string
+
 Netresearch\NrLlm\Domain\ValueObject\RequestComplexity (class)
   constructor(int $score, int $payloadBytes, ?int $tokenEstimate, int $toolCount, ?int $contextPercent, string $shape)
   property readonly contextPercent: ?int
@@ -839,6 +846,15 @@ Netresearch\NrLlm\Domain\ValueObject\RequestComplexity (class)
   property readonly shape: string
   property readonly tokenEstimate: ?int
   property readonly toolCount: int
+
+Netresearch\NrLlm\Domain\ValueObject\RequestFacts (class)
+  constructor(int $messageCount, int $turnCount, int $toolCount, int $payloadBytes, int $tokenEstimate, string $shape)
+  property readonly messageCount: int
+  property readonly payloadBytes: int
+  property readonly shape: string
+  property readonly tokenEstimate: int
+  property readonly toolCount: int
+  property readonly turnCount: int
 
 Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   constructor(string $policyMode, int $candidateCount, array $rejectionReasons, bool $qualitySignalUsed, bool $healthSignalUsed, bool $costSignalUsed)
@@ -1063,13 +1079,17 @@ Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
 
 Netresearch\NrLlm\Provider\Middleware\TelemetrySignals (class)
   method recordCacheHit(): void
+  method recordCallUsage(Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage $usage): void
   method recordComplexity(Netresearch\NrLlm\Domain\ValueObject\RequestComplexity $complexity): void
   method recordFallbackAttempt(): void
+  method recordRequestFacts(Netresearch\NrLlm\Domain\ValueObject\RequestFacts $facts): void
   method recordRoutingSummary(?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary $summary): void
   method recordServedBy(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   property cacheHit: bool
+  property callUsage: ?Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage
   property complexity: ?Netresearch\NrLlm\Domain\ValueObject\RequestComplexity
   property fallbackAttempts: int
+  property requestFacts: ?Netresearch\NrLlm\Domain\ValueObject\RequestFacts
   property routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
   property servedConfigurationIdentifier: ?string
   property servedModel: ?string
@@ -1093,7 +1113,7 @@ Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface (inte
   method supports(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
 Netresearch\NrLlm\Provider\ProviderAdapterRegistry (class)
-  constructor(Psr\Http\Message\RequestFactoryInterface $requestFactory, Psr\Http\Message\StreamFactoryInterface $streamFactory, Psr\Log\LoggerInterface $logger, Netresearch\NrVault\Service\VaultServiceInterface $vault, Netresearch\NrVault\Http\SecureHttpClientFactory $httpClientFactory, array $adapterOverrides = …)
+  constructor(Psr\Http\Message\RequestFactoryInterface $requestFactory, Psr\Http\Message\StreamFactoryInterface $streamFactory, Psr\Log\LoggerInterface $logger, Netresearch\NrVault\Service\VaultServiceInterface $vault, Netresearch\NrVault\Http\SecureHttpClientFactory $httpClientFactory, array $adapterOverrides = …, ?Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter $retryCounter = …)
   method clearCache(?int $providerUid = …): void
   method createAdapterFromModel(Netresearch\NrLlm\Domain\Model\Model $model, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
   method createAdapterFromProvider(Netresearch\NrLlm\Domain\Model\Provider $provider, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface

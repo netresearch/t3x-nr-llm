@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Exception\GuardrailPolicyException;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Psr\Log\LoggerInterface;
@@ -94,6 +95,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
         private Context $context,
         private ExtensionConfiguration $extensionConfiguration,
         private LoggerInterface $logger,
+        private ProviderRetryCounter $retryCounter = new ProviderRetryCounter(),
     ) {}
 
     /**
@@ -110,6 +112,17 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
         $start      = hrtime(true);
         $success    = false;
         $errorClass = '';
+        // Snapshot difference rather than a reset (ADR-174): a tool loop nests
+        // pipeline runs, and a reset by an inner run would make this row report
+        // only the retries that happened after it finished. Taken here, on the
+        // outermost layer, so the count covers the fallback re-sends too.
+        //
+        // ONE difference is exact here because the run below is synchronous:
+        // the pipeline holds the stack from this line to the finally, so no
+        // caller code runs in between. The streaming path does not go through
+        // the pipeline and is a generator, which is why StreamingDispatcher
+        // accumulates per resumption segment instead.
+        $retriesBefore = $this->retryCounter->total();
 
         try {
             $result  = $next($context);
@@ -130,7 +143,13 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
 
             throw $e;
         } finally {
-            $this->safeRecord($context, $success, $errorClass, $this->elapsedMs($start));
+            $this->safeRecord(
+                $context,
+                $success,
+                $errorClass,
+                $this->elapsedMs($start),
+                $this->retryCounter->total() - $retriesBefore,
+            );
         }
     }
 
@@ -148,6 +167,7 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
         bool $success,
         string $errorClass,
         int $latencyMs,
+        int $providerRetries,
     ): void {
         try {
             $signals = $context->telemetrySignals;
@@ -180,6 +200,14 @@ final readonly class TelemetryMiddleware implements ProviderMiddlewareInterface
                 // inner layers found.
                 routingSummary: $signals->routingSummary,
                 complexity: $signals->complexity,
+                // The two halves of ADR-174, from the same scratchpad: the
+                // facts were recorded on the way in, before anything resolved a
+                // model, and the usage on the way out, by UsageMiddleware. Null
+                // stays null on both — a cache hit and a failed run reach here
+                // with no usage, and neither spent a token.
+                requestFacts: $signals->requestFacts,
+                callUsage: $signals->callUsage,
+                providerRetries: $providerRetries,
             ));
         } catch (Throwable $e) {
             // Observability must not break the call it observes. safeRecord()

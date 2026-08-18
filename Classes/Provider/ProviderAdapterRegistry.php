@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -90,6 +91,11 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
      *                                                                        production container passes an empty array (the default);
      *                                                                        tests use this seam to exercise override / custom-type /
      *                                                                        invalid-class handling without runtime mutation.
+     * @param ?ProviderRetryCounter                         $retryCounter     passed on to every adapter this registry builds, so
+     *                                                                        the retries an adapter consumes reach the telemetry
+     *                                                                        row (ADR-174). Trailing and nullable: adapters built
+     *                                                                        without one report no retries, which is what a
+     *                                                                        hand-constructed registry in a test wants.
      *
      * @throws ProviderConfigurationException when an override class does not extend AbstractProvider
      */
@@ -100,6 +106,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         private readonly VaultServiceInterface $vault,
         private readonly SecureHttpClientFactory $httpClientFactory,
         array $adapterOverrides = [],
+        private readonly ?ProviderRetryCounter $retryCounter = null,
     ) {
         foreach ($adapterOverrides as $adapterType => $adapterClass) {
             // Defensive: callers may pass untyped arrays; validate keys
@@ -297,6 +304,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
             $this->logger,
             $this->vault,
             $this->httpClientFactory,
+            $this->retryCounter,
         );
     }
 

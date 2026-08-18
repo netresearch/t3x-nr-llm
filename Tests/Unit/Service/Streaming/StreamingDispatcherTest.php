@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Guardrail\GuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\SecretRedactionGuardrail;
 use Netresearch\NrLlm\Service\Streaming\StreamingDispatcher;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Tests\Fixture\GuardrailIdentityDoubleTrait;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
@@ -463,6 +464,118 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         self::assertLessThan(60000, $record->timeToFirstTokenMs);
         // A completed stream is never the "aborted before completion" path.
         self::assertNull($this->logger->firstMatching('info', 'aborted before completion'));
+    }
+
+    /**
+     * The retry count on a streamed row covers what THIS STREAM consumed, and
+     * nothing the consumer did between two chunks (ADR-174).
+     *
+     * drain() is a generator: it suspends at every yield, and the consumer is
+     * free to make provider calls of its own in that gap — each of which
+     * increments the same process-wide counter. A single difference taken
+     * around the whole drain attributes those to this stream, so the figure an
+     * operator reads as "how often did we have to try again" would grow with
+     * how busy the consumer was between chunks.
+     */
+    #[Test]
+    public function countsOnlyTheRetriesConsumedWhileTheStreamItselfHoldsTheStack(): void
+    {
+        $counter = new ProviderRetryCounter();
+
+        // Two retries inside the stream: one while the opener primes, one while
+        // the inner generator produces its second chunk.
+        $open = static function () use ($counter): Generator {
+            $counter->recordRetry();
+
+            yield 'Hello';
+
+            $counter->recordRetry();
+
+            yield ' World';
+        };
+
+        foreach ($this->dispatcher(retryCounter: $counter)->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $open,
+        ) as $ignored) {
+            // The consumer's own work while the drain is suspended — a nested
+            // call of its own that retried three times. Not this stream's.
+            $counter->recordRetry();
+            $counter->recordRetry();
+            $counter->recordRetry();
+        }
+
+        self::assertCount(1, $this->telemetry->records);
+        self::assertSame(2, $this->telemetry->records[0]->providerRetries);
+        self::assertSame(8, $counter->total(), 'The counter itself stays monotonic and process-wide.');
+    }
+
+    /**
+     * The same, on the redacted path: the chunks are yielded out of the
+     * redaction window rather than verbatim, and the remainder out of its flush.
+     * Both are yields, so both suspend into the consumer.
+     */
+    #[Test]
+    public function countsOnlyTheStreamsOwnRetriesWhenAGuardrailRedactsTheChunks(): void
+    {
+        $counter = new ProviderRetryCounter();
+
+        $open = static function () use ($counter): Generator {
+            $counter->recordRetry();
+
+            yield 'Hello';
+
+            $counter->recordRetry();
+
+            yield ' World';
+        };
+
+        foreach ($this->dispatcher(
+            guardrails: [new SecretRedactionGuardrail()],
+            retryCounter: $counter,
+        )->stream($this->context(), $this->configuration('primary'), $open) as $ignored) {
+            $counter->recordRetry();
+        }
+
+        self::assertCount(1, $this->telemetry->records);
+        self::assertSame(2, $this->telemetry->records[0]->providerRetries);
+    }
+
+    /**
+     * A consumer that walks away mid-stream leaves the drain suspended until the
+     * generator is collected, and the finally then runs at an arbitrary later
+     * moment. Whatever the process retried in the meantime is not this row's.
+     */
+    #[Test]
+    public function anAbandonedStreamCountsNothingThatHappenedAfterItsLastChunk(): void
+    {
+        $counter = new ProviderRetryCounter();
+
+        $open = static function () use ($counter): Generator {
+            $counter->recordRetry();
+
+            yield 'Hello';
+
+            yield ' World';
+        };
+
+        $stream = $this->dispatcher(retryCounter: $counter)->stream(
+            $this->context(),
+            $this->configuration('primary'),
+            $open,
+        );
+        $stream->current();
+
+        // The consumer gives up, and something else in the request retries
+        // while the abandoned generator is still alive. Only when it is
+        // collected does the finally run and write the row.
+        $counter->recordRetry();
+        $counter->recordRetry();
+        unset($stream);
+
+        self::assertCount(1, $this->telemetry->records);
+        self::assertSame(1, $this->telemetry->records[0]->providerRetries);
     }
 
     #[Test]
@@ -1008,6 +1121,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
         ?LlmConfigurationRepository $repository = null,
         ?ExtensionConfiguration $extensionConfiguration = null,
         iterable $guardrails = [],
+        ?ProviderRetryCounter $retryCounter = null,
     ): StreamingDispatcher {
         return new StreamingDispatcher(
             $budget ?? $this->budget(BudgetCheckResult::allowed()),
@@ -1018,6 +1132,7 @@ final class StreamingDispatcherTest extends AbstractUnitTestCase
             $this->contextWithAmbientUser(0),
             $extensionConfiguration ?? $this->extensionConfiguration(true),
             guardrails: $guardrails,
+            retryCounter: $retryCounter ?? new ProviderRetryCounter(),
         );
     }
 

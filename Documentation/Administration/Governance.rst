@@ -506,9 +506,9 @@ The complexity columns are observed, not applied
 
 The same rows carry a measurement of how involved each request was: a 0-100
 structural score, the request shape (a single question, a conversation, or a
-tool-assisted transcript), the number of tool schemas on the wire, the payload
-size in bytes, the token estimate and how much of the model's context window it
-filled.
+tool-assisted transcript), the number of tool schemas the send carries, the
+payload size in bytes, the token estimate and how much of the model's context
+window it filled.
 
 **You see them for routed calls only.** The measurement is taken on every
 configuration-driven send, fixed-mode ones included, but it is stored on the
@@ -548,6 +548,92 @@ sending a measurable payload through the context fit — an embeddings
 configuration in criteria mode is the usual one. Its row has a decision to show
 and nothing to measure, so the score, the shape, the tool count and the byte
 count are absent rather than shown as zeros.
+
+.. _administration-governance-call-cost:
+
+What a call cost, and what it was before a model was chosen
+===========================================================
+
+The same rows carry two further groups that the page does not show. They are
+queried directly against ``tx_nrllm_telemetry`` (:ref:`ADR-174 <adr-174>`),
+which is why they are described here rather than pointed at on screen.
+
+**What the call consumed.** ``actual_input_tokens``, ``actual_output_tokens``,
+``actual_cost``, ``response_model`` and ``provider_retries``. The cost table
+``tx_nrllm_service_usage`` holds the same figures as a daily aggregate with no
+per-call key, so a cost there cannot be attributed to one request; these columns
+can, because they sit on the row the correlation id identifies.
+
+**What the request was, before anything chose a model.** ``facts_messages``,
+``facts_turns``, ``facts_tools``, ``facts_payload_bytes``,
+``facts_token_estimate`` and ``facts_shape``. The complexity group above is
+measured after the model is chosen and partly from it — its utilisation is a
+property of the chosen window — so it describes a decision and cannot inform
+one. This group is model-independent: no window, no price, no chosen model.
+
+The counts describe the transcript the caller sent, not the bytes that left the
+server: the configuration's system prompt is added afterwards, from options that
+only exist once a model is resolved. A system message the caller wrote is
+counted. ``complexity_payload_bytes`` and the complexity shape are measured the
+same way, before that prompt is applied — but on the *pruned* list, so on a row
+where the fit dropped turns the pre-routing byte count is the larger of the two.
+
+The two token estimates are not. ``facts_token_estimate`` is the raw estimate of
+the caller's transcript and its tool schemas. ``complexity_tokens`` is the
+context fit's figure. Three things separate them, and only the first is on every
+row:
+
+* **The calibration factor.** The fit scales its estimate by a factor that starts
+  at 1.15 and only grows toward the prompt-token counts providers report; the
+  fact group is estimated with the same estimator at 1.0. Two identical lists
+  still differ by at least fifteen percent, and ``complexity_tokens`` is the
+  larger one.
+* **Pruning**, on the rows where the fit dropped turns: ``complexity_tokens``
+  describes the bounded list, ``facts_token_estimate`` the one the caller sent.
+* **The configuration's system prompt**, on the rows whose transcript does not
+  already open with a system message. The fit charges it on top of the
+  transcript; the fact group never sees it.
+
+An injected skill block is *not* a fourth difference. On every path that writes
+both columns it is already inside the transcript by the time the fact group is
+measured, so both figures carry it. Subtract the three above before reading
+anything into the gap.
+
+**NULL means nobody measured, and is never a zero.** A model priced at zero
+records real tokens and no cost, which is what separates "this arm was free"
+from "nobody priced this arm" — the distinction any cheap-model comparison rests
+on. Token counts are NULL where the provider reported no usage block. The fact
+group is NULL across the board with ``facts_shape = ''`` on the paths that
+measure nothing, exactly as ``complexity_shape`` flags the complexity group.
+``provider_retries`` is the one column that is always written — ``0`` there is a
+measured "no retry", and rows that report NULL are the ones written before the
+column existed.
+
+A streamed run records no token counts. It carries a character-based estimate
+rather than a provider usage block, and the columns are named ``actual``.
+
+Cost per request shape over the last thirty days, for example:
+
+.. code-block:: sql
+
+   SELECT facts_shape,
+          COUNT(*)                AS calls,
+          AVG(actual_cost)        AS mean_cost,
+          SUM(actual_cost)        AS total_cost,
+          AVG(actual_input_tokens)  AS mean_in,
+          AVG(actual_output_tokens) AS mean_out
+     FROM tx_nrllm_telemetry
+    WHERE crdate >= UNIX_TIMESTAMP() - 30*86400
+      AND facts_shape <> ''
+    GROUP BY facts_shape;
+
+``AVG`` skips NULLs, so an installation running free local models reports a NULL
+mean cost for those rows instead of pulling the average toward zero. Filter on
+``actual_cost IS NOT NULL`` when you want the priced population only.
+
+**Nothing routes on any of it**, exactly as for the complexity group above. The
+criteria in :ref:`ADR-156 <adr-156>` still decide, and these columns exist so
+they can be evaluated.
 
 .. _administration-governance-no-apply:
 

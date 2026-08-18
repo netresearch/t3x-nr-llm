@@ -7,6 +7,7 @@ ADR-156: Persist the routing decision, and observe complexity without routing
 :Status: Accepted
 :Date: 2026-08-11
 :Amends: :ref:`ADR-142 <adr-142>` (both of its deferrals are lifted, one of them only halfway)
+:Amended: 2026-08-14 by :ref:`ADR-174 <adr-174>`
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -141,6 +142,12 @@ over a sample of real traffic, not argued:
 
 Fail any one of them and the correct outcome is to delete the idea, not to
 weaken the criterion.
+
+The third criterion was not computable when this record was written: cost lived
+only in a daily aggregate with no per-call key. :ref:`ADR-174 <adr-174>` records
+the per-call cost and real token counts on this same row, and adds a
+model-independent fact set measured before the model is chosen. Both are
+observation only; nothing here is relaxed, and the criteria above still decide.
 
 **The score's weights are judgement, not calibration** — the same admission
 ADR-142 makes about the ranking weights. Three capped terms (conversation

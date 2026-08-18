@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
+use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
@@ -349,6 +350,139 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         self::assertSame(0, $repository->records[0]->beUser);
     }
 
+    /**
+     * ADR-174 states that ``provider_retries`` is ALWAYS written, that a stored
+     * ``0`` is therefore a measured "no retry", and that the only rows reporting
+     * NULL are the ones written before the column existed. The streaming write
+     * site had tests for its half; this one had none, so the claim rested on
+     * reading the code — and a middleware that stopped passing the count would
+     * write NULL on every non-streamed call with nothing failing.
+     */
+    #[Test]
+    public function everyRowCarriesAMeasuredRetryCountAndNeverNull(): void
+    {
+        $repository = $this->recordingRepository();
+        $counter    = new ProviderRetryCounter();
+
+        $this->pipeline($repository, retryCounter: $counter)->run(
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr-no-retry'))
+                ->withConfiguration($this->configuration('primary')),
+            static fn(): string => 'answer',
+        );
+
+        self::assertCount(1, $repository->records);
+        self::assertNotNull($repository->records[0]->providerRetries, 'NULL here would read as "rows older than the column".');
+        self::assertSame(0, $repository->records[0]->providerRetries);
+    }
+
+    /**
+     * The row counts what THIS run consumed, which is why the write site takes
+     * a difference rather than reading the total: the counter is process-wide
+     * and monotonic, so whatever an earlier call left on it belongs to that
+     * call's row.
+     */
+    #[Test]
+    public function theRowCountsOnlyTheRetriesConsumedDuringItsOwnRun(): void
+    {
+        $repository = $this->recordingRepository();
+        $counter    = new ProviderRetryCounter();
+
+        // An earlier, unrelated call in the same process.
+        $counter->recordRetry();
+        $counter->recordRetry();
+        $counter->recordRetry();
+
+        $this->pipeline($repository, retryCounter: $counter)->run(
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr-retries'))
+                ->withConfiguration($this->configuration('primary')),
+            static function () use ($counter): string {
+                $counter->recordRetry();
+                $counter->recordRetry();
+
+                return 'answer';
+            },
+        );
+
+        self::assertSame(2, $repository->records[0]->providerRetries);
+        self::assertSame(5, $counter->total(), 'The counter itself is monotonic and never reset.');
+    }
+
+    /**
+     * The nesting case the monotonic counter exists for: a tool loop runs
+     * pipeline runs inside a pipeline run. A reset by the inner one would make
+     * the outer row report only what happened after it finished; a difference
+     * counts correctly at both levels, and the outer row deliberately INCLUDES
+     * the inner one's retries because they were consumed during it.
+     */
+    #[Test]
+    public function anInnerRunCountsItsOwnRetriesAndTheOuterRunCountsThemToo(): void
+    {
+        $repository    = $this->recordingRepository();
+        $counter       = new ProviderRetryCounter();
+        $pipeline      = $this->pipeline($repository, retryCounter: $counter);
+        $configuration = $this->configuration('primary');
+
+        $pipeline->run(
+            (new ProviderCallContext(ProviderOperation::Chat, 'corr-outer'))
+                ->withConfiguration($configuration),
+            static function () use ($counter, $pipeline, $configuration): string {
+                $counter->recordRetry();
+
+                $pipeline->run(
+                    (new ProviderCallContext(ProviderOperation::Chat, 'corr-inner'))
+                        ->withConfiguration($configuration),
+                    static function () use ($counter): string {
+                        $counter->recordRetry();
+                        $counter->recordRetry();
+
+                        return 'inner';
+                    },
+                );
+
+                return 'outer';
+            },
+        );
+
+        $byCorrelation = [];
+        foreach ($repository->records as $record) {
+            $byCorrelation[$record->correlationId] = $record->providerRetries;
+        }
+
+        self::assertSame(2, $byCorrelation['corr-inner']);
+        self::assertSame(3, $byCorrelation['corr-outer'], 'The inner run happened DURING the outer one.');
+    }
+
+    /**
+     * A failed run is still a measured run: the count is taken in the finally,
+     * so the retries that were consumed before the exception are on the row
+     * rather than lost with it.
+     */
+    #[Test]
+    public function aFailedRunStillRecordsTheRetriesItConsumed(): void
+    {
+        $repository = $this->recordingRepository();
+        $counter    = new ProviderRetryCounter();
+
+        try {
+            $this->pipeline($repository, retryCounter: $counter)->run(
+                (new ProviderCallContext(ProviderOperation::Chat, 'corr-failed'))
+                    ->withConfiguration($this->configuration('primary')),
+                static function () use ($counter): string {
+                    $counter->recordRetry();
+                    $counter->recordRetry();
+
+                    throw new RuntimeException('exhausted', 1755100000);
+                },
+            );
+        } catch (RuntimeException) {
+            // The row is what this test is about; the exception propagating is
+            // asserted elsewhere.
+        }
+
+        self::assertFalse($repository->records[0]->success);
+        self::assertSame(2, $repository->records[0]->providerRetries);
+    }
+
     // -----------------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------------
@@ -362,13 +496,17 @@ final class TelemetryMiddlewareTest extends AbstractUnitTestCase
         return new InMemoryTelemetryRepository();
     }
 
-    private function pipeline(InMemoryTelemetryRepository $repository, bool $enabled = true): MiddlewarePipeline
-    {
+    private function pipeline(
+        InMemoryTelemetryRepository $repository,
+        bool $enabled = true,
+        ?ProviderRetryCounter $retryCounter = null,
+    ): MiddlewarePipeline {
         $middleware = new TelemetryMiddleware(
             $repository,
             $this->contextWithAmbientUser(0),
             $this->extensionConfiguration($enabled),
             new NullLogger(),
+            $retryCounter ?? new ProviderRetryCounter(),
         );
 
         return new MiddlewarePipeline([$middleware]);
