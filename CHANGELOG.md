@@ -240,6 +240,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   usage and limit only when it refuses, so a row could not tell "near the limit"
   from "nothing measured".
 
+- The governance link on a use-case pack page now carries the pack's
+  recommended profile.
+
+  The page names the recommendation and then invites the operator to compare it
+  against what is in force. The link went to the readout with nothing selected,
+  so the profile had to be found again by hand, one screen after reading its
+  name. The readout has always honoured a `profile` query parameter; only the
+  link never sent one.
+
+
 ## [0.29.1] - 2026-08-13
 
 ### Fixed

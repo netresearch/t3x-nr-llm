@@ -26,9 +26,11 @@ use Netresearch\NrLlm\Service\UseCase\UseCasePackRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\View\ViewFactoryData;
 use TYPO3\CMS\Core\View\ViewFactoryInterface;
@@ -367,6 +369,64 @@ final class UseCasePackRenderTest extends AbstractFunctionalTestCase
         $view->assignMultiple($variables);
 
         return $view->render();
+    }
+
+    #[Test]
+    public function theGovernanceLinkCarriesThePacksRecommendedProfile(): void
+    {
+        // The whole point of the link: the operator has just read the
+        // recommendation's name and wants it compared against what is in force.
+        // Asserted through a dispatched action rather than by handing the URL to
+        // the template, which would only prove the template prints what it is
+        // given (#778).
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        // The request has to exist before the controller is resolved: Extbase's
+        // ConfigurationManager captures the ambient one when it is constructed,
+        // which is what theControllerIsRegisteredInTheContainer() already works
+        // around.
+        $request    = $this->actionRequest('show', ['pack' => 'editorial-starter']);
+        $controller = $this->getService(UseCasePackController::class);
+        $body       = (string)$controller->processRequest($request)->getBody();
+
+        self::assertStringContainsString('profile=controlled-cloud', $body);
+    }
+
+    /**
+     * A request for one action of the real controller, with its arguments.
+     *
+     * The other tests here hand variables to a view, which can only prove the
+     * template prints what it is given. A URL the controller builds needs the
+     * controller to have built it.
+     *
+     * @param array<string, string> $arguments
+     */
+    private function actionRequest(string $action, array $arguments = []): ExtbaseRequest
+    {
+        $parameters = new ExtbaseRequestParameters();
+        $parameters->setControllerName('Backend\\UseCasePack');
+        $parameters->setControllerActionName($action);
+        $parameters->setControllerExtensionName('NrLlm');
+        foreach ($arguments as $name => $value) {
+            $parameters->setArgument($name, $value);
+        }
+
+        // BackendViewFactory resolves its template paths from the route's
+        // packageName, so a module action cannot be dispatched without one.
+        $route = new Route('/module/nrllm/usecase', ['packageName' => 'netresearch/nr-llm']);
+
+        $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET'))
+            ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
+            ->withAttribute('route', $route)
+            ->withAttribute('extbase', $parameters);
+        $serverRequest = $serverRequest->withAttribute('normalizedParams', NormalizedParams::createFromRequest($serverRequest));
+        $GLOBALS['TYPO3_REQUEST'] = $serverRequest;
+        // ModuleTemplate translates its own chrome and reads $GLOBALS['LANG'].
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)
+            ->createFromUserPreferences($GLOBALS['BE_USER'] ?? null);
+
+        return new ExtbaseRequest($serverRequest);
     }
 
     /**

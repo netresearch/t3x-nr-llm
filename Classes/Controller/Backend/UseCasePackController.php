@@ -114,7 +114,13 @@ final class UseCasePackController extends ActionController
             'pack' => $useCasePack,
             'plan' => $this->installer->plan($useCasePack),
             'wizardUrl' => $this->wizardUrl(),
-            'governanceUrl' => $this->routeUrl('nrllm_overview', 'Backend\\LlmModule', 'governance'),
+            // Carries the pack's recommended profile as the readout's `profile`
+            // query parameter, so the comparison the hint asks for is one click
+            // rather than a hunt through the profile buttons. The readout has
+            // always honoured it; only the link never sent it.
+            'governanceUrl' => $this->routeUrl('nrllm_overview', 'Backend\\LlmModule', 'governance', [
+                'profile' => $useCasePack->recommendedGovernanceProfile->value,
+            ]),
             'toolsUrl' => $this->routeUrl('nrllm_tools', 'Backend\\Tool', 'list'),
             // The Editor Action Center lives in the editor-facing module
             // (ADR-158), not in the admin tree. Linked because the plan names
@@ -206,12 +212,15 @@ final class UseCasePackController extends ActionController
         return $this->routeUrl('nrllm_wizard', 'Backend\\SetupWizard', 'index');
     }
 
-    private function routeUrl(string $route, string $controller, string $action): string
+    /**
+     * @param array<string, string> $extra additional query parameters
+     */
+    private function routeUrl(string $route, string $controller, string $action, array $extra = []): string
     {
         return (string)$this->backendUriBuilder->buildUriFromRoute($route, [
             'controller' => $controller,
             'action' => $action,
-        ]);
+        ] + $extra);
     }
 
     private function enqueueFlashMessage(string $message, string $title, ContextualFeedbackSeverity $severity): void
