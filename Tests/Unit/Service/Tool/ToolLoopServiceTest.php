@@ -68,7 +68,6 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
-use Netresearch\NrLlm\Tests\Unit\Support\InMemoryQueryResult;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -1036,16 +1035,27 @@ final class ToolLoopServiceTest extends TestCase
     #[Test]
     public function resumeRebuildsTheForcedSkillsToo(): void
     {
-        // The skill half of augmentationFrom(), which nothing covered. It needs
-        // no ADR-166 counterpart — SkillRepository::findAll() ignores enable
-        // fields and the loop filters by uid alone, so a skill disabled while the
-        // run was suspended still resolves. Asserted here rather than assumed:
-        // adding an `enabled` filter to that branch would reopen #761 for skills.
-        $wanted   = $this->skillWithUid(77);
-        $unwanted = $this->skillWithUid(78);
+        // The skill half of augmentationFrom(). A skill disabled while the run
+        // was suspended must still resolve, or #761 reopens for skills — so
+        // this path asks findExistingByUids(), the lookup that drops the
+        // `enabled` clause, and never findByUids() (ADR-166, ADR-175).
+        //
+        // What is asserted here is the seam, not the filtering: that the
+        // persisted uids reach that lookup and its answer is what goes into the
+        // injected context. Which rows the lookup itself returns for a disabled
+        // or deleted skill is asserted against real rows in
+        // SkillRepositoryUidLookupTest, where a stub cannot flatter it.
+        $wanted = $this->skillWithUid(77);
 
-        $skills = self::createStub(SkillRepository::class);
-        $skills->method('findAll')->willReturn(new InMemoryQueryResult([$wanted, $unwanted]));
+        $askedFor = null;
+        $skills   = self::createStub(SkillRepository::class);
+        $skills->method('findExistingByUids')->willReturnCallback(
+            function (array $uids) use (&$askedFor, $wanted): array {
+                $askedFor = $uids;
+
+                return [$wanted];
+            },
+        );
 
         $seen = 'unset';
         $mgr  = self::createStub(LlmServiceManagerInterface::class);
@@ -1076,6 +1086,7 @@ final class ToolLoopServiceTest extends TestCase
         $this->service($mgr, new ToolRegistry([$this->approvalTool()]), null, null, $skills)
             ->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, new RunTrace());
 
+        self::assertSame([77], $askedFor, 'the persisted uids must reach the existence lookup unchanged');
         self::assertInstanceOf(InjectedContext::class, $seen);
         self::assertSame([$wanted], $seen->skills);
         self::assertSame([], $seen->snippets);

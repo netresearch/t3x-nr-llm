@@ -171,9 +171,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      * already in the transcript and
      * still goes on the wire, so dropping it here would lower the ADR-164
      * ceiling for content that is still being sent. "Inactive" bars a snippet
-     * from new composition; it does not un-classify text already injected. The
-     * skill half needs no counterpart: {@see SkillRepository::findAll()} ignores
-     * enable fields and the filter below is by uid only.
+     * from new composition; it does not un-classify text already injected.
+     *
+     * The skill half is the same shape and uses
+     * {@see SkillRepository::findExistingByUids()} for the same reason. It also
+     * fixes an ordering divergence: this path used to iterate
+     * {@see SkillRepository::findAll()} and so returned name order, while the
+     * two composition paths returned the order the run was started with. On an
+     * equal data class the later source in the fold wins, so the same run
+     * blamed one skill before it suspended and another after it resumed
+     * (ADR-175).
      */
     private function augmentationFrom(SuspendedRunState $state): ?RunAugmentation
     {
@@ -185,15 +192,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             ? $this->promptSnippetRepository->findExistingByUids($state->forcedSnippetUids)
             : [];
 
-        $skills = [];
-        if ($state->forcedSkillUids !== [] && $this->skillRepository instanceof SkillRepository) {
-            $wanted = array_flip($state->forcedSkillUids);
-            foreach ($this->skillRepository->findAll() as $skill) {
-                if ($skill instanceof Skill && $skill->getUid() !== null && isset($wanted[$skill->getUid()])) {
-                    $skills[] = $skill;
-                }
-            }
-        }
+        $skills = $state->forcedSkillUids !== [] && $this->skillRepository instanceof SkillRepository
+            ? $this->skillRepository->findExistingByUids($state->forcedSkillUids)
+            : [];
 
         if ($snippets === [] && $skills === []) {
             return null;

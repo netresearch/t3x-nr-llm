@@ -203,6 +203,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A row suspended before this change has neither key and resumes exactly as it
   did. A uid that no longer resolves — the snippet was deleted meanwhile —
   contributes nothing rather than stranding the run.
+- A forced skill now resolves enabled-only where it is being composed, and by
+  existence only where it is being re-gated — the rule ADR-166 already gave
+  snippets, applied to skills (ADR-175).
+
+  A run queued with a forced skill that an operator disabled before the run
+  started used to keep that skill, while a forced snippet deactivated in the
+  identical situation was dropped. The two source kinds now answer the same
+  question the same way on the playground's synchronous send and on a queued
+  run's dequeue: a source switched off does not enter a prompt being assembled
+  now.
+
+  A resume is unchanged and deliberately so — its text is already in the
+  transcript, so dropping the source there would lower the ceiling of content
+  still going out.
+
+  `SkillRepository` gains `findByUids()` and `findExistingByUids()`. It is
+  `@internal`, so no frozen surface moves.
+
 
 ### Fixed
 
@@ -256,6 +274,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so the profile had to be found again by hand, one screen after reading its
   name. The readout has always honoured a `profile` query parameter; only the
   link never sent one.
+- The same forced skill set is no longer ordered two different ways.
+
+  Three places rebuilt it from persisted uids; two kept the order the run was
+  started with and the resume path returned `name ASC`. On an equal data class
+  the later source in the fold wins, so one run named one skill in a refusal
+  before it suspended and a different one after it resumed — same ceiling, same
+  outcome, different name in the message and in the governance row. All three
+  now use the caller's order (ADR-175).
+
+
 
 
 ## [0.29.1] - 2026-08-13
