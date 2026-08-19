@@ -40,8 +40,19 @@ declare(strict_types=1);
 
 const ALIASES = ['CLAUDE.md', 'GEMINI.md'];
 
-/** Directories that never hold source we govern. */
-const SKIP = ['.git', '.Build', 'vendor', 'node_modules', 'var', 'public'];
+/**
+ * Directories that never hold source we govern.
+ *
+ * `.specify` is vendored, not written here: `specify preset add` copies an
+ * installed preset in whole, including that preset repository's own AGENTS.md,
+ * which documents the preset rather than any scope of this extension. Two
+ * reasons it is skipped rather than exempted. The aliases genuinely cannot be
+ * there — Spec Kit's `safe_extract_archive` rejects an archive containing a
+ * symlink, so the presets ship without them on purpose. And anything placed
+ * there by hand is destroyed by the next `preset add`, which rewrites the
+ * directory.
+ */
+const SKIP = ['.git', '.Build', 'vendor', 'node_modules', 'var', 'public', '.specify'];
 
 /** Directories where the pair cannot exist, and why. */
 const EXEMPT = [
