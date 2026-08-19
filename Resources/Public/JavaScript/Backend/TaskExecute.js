@@ -479,17 +479,6 @@ class TaskExecute {
             Notification.error('Failed', 'Could not copy to clipboard');
         });
     }
-}
-
-// Initialize when DOM is ready
-// Note: For ES6 modules loaded via importmap, DOMContentLoaded may have already fired
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        new TaskExecute();
-    });
-} else {
-    // DOM already loaded, initialize immediately
-    new TaskExecute();
 
     /**
      * Offer the rating for the call that just answered (ADR-176).
@@ -554,5 +543,15 @@ if (document.readyState === 'loading') {
             Notification.error('Rating not saved', error.message || 'Unknown error');
         }
     }
+}
 
+// Initialize when DOM is ready
+// Note: For ES6 modules loaded via importmap, DOMContentLoaded may have already fired
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        new TaskExecute();
+    });
+} else {
+    // DOM already loaded, initialize immediately
+    new TaskExecute();
 }
