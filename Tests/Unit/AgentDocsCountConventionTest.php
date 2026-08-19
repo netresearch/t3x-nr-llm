@@ -66,9 +66,17 @@ final class AgentDocsCountConventionTest extends AbstractUnitTestCase
 
     /**
      * Directories that hold no repository content: composer's install target,
-     * git's object store, npm's.
+     * git's object store, npm's, and Spec Kit's.
+     *
+     * `.specify` is vendored: `specify preset add` copies an installed preset
+     * in whole, including that preset repository's own AGENTS.md, which
+     * documents the preset rather than any scope of this extension. The count
+     * convention governs the agent docs we write, so a vendored one is not a
+     * candidate — and listing it below would pin a path the next `preset add`
+     * may rewrite or drop. Kept in step with the same entry in
+     * `Build/Scripts/check-agent-doc-symlinks.php`.
      */
-    private const SKIPPED_DIRECTORIES = ['.Build', '.git', 'node_modules'];
+    private const SKIPPED_DIRECTORIES = ['.Build', '.git', 'node_modules', '.specify'];
 
     private static function repoRoot(): string
     {
