@@ -93,16 +93,16 @@ Netresearch\NrLlm\Domain\DTO\ProviderOptions (class)
   property readonly proxy: ?string
 
 Netresearch\NrLlm\Domain\Enum\AgentRunOutcome (enum)
-  case AWAITING_APPROVAL
-  case AWAITING_INPUT
-  case CANCELLED
-  case COMPLETED
-  case FAILED
-  case GUARDRAIL_APPROVAL_REQUIRED
-  case GUARDRAIL_BLOCKED
-  case LEASE_LOST
-  case REQUEUED
-  case SUSPEND_FAILED
+  case AWAITING_APPROVAL = "awaiting_approval"
+  case AWAITING_INPUT = "awaiting_input"
+  case CANCELLED = "cancelled"
+  case COMPLETED = "completed"
+  case FAILED = "failed"
+  case GUARDRAIL_APPROVAL_REQUIRED = "guardrail_approval_required"
+  case GUARDRAIL_BLOCKED = "guardrail_blocked"
+  case LEASE_LOST = "lease_lost"
+  case REQUEUED = "requeued"
+  case SUSPEND_FAILED = "suspend_failed"
   method static cases(): array
   method static from(int|string $value): static
   method static tryFrom(int|string $value): ?static
@@ -110,13 +110,13 @@ Netresearch\NrLlm\Domain\Enum\AgentRunOutcome (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\AgentRunStatus (enum)
-  case CANCELLED
-  case COMPLETED
-  case FAILED
-  case QUEUED
-  case RUNNING
-  case WAITING_FOR_APPROVAL
-  case WAITING_FOR_INPUT
+  case CANCELLED = "cancelled"
+  case COMPLETED = "completed"
+  case FAILED = "failed"
+  case QUEUED = "queued"
+  case RUNNING = "running"
+  case WAITING_FOR_APPROVAL = "waiting_for_approval"
+  case WAITING_FOR_INPUT = "waiting_for_input"
   method isTerminal(): bool
   method static awaitingValues(): array
   method static cases(): array
@@ -131,16 +131,16 @@ Netresearch\NrLlm\Domain\Enum\AgentRunStatus (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
-  case APPROVAL_DENIED
-  case BUDGET_EXHAUSTED
-  case CANCELLED
-  case COMPLETED
-  case CONTEXT_TRUNCATED
-  case MAX_ITERATIONS
-  case NOT_RETRYABLE
-  case POLICY_DENIED
-  case PROVIDER_FAILED
-  case RETRIES_EXHAUSTED
+  case APPROVAL_DENIED = "approval_denied"
+  case BUDGET_EXHAUSTED = "budget_exhausted"
+  case CANCELLED = "cancelled"
+  case COMPLETED = "completed"
+  case CONTEXT_TRUNCATED = "context_truncated"
+  case MAX_ITERATIONS = "max_iterations"
+  case NOT_RETRYABLE = "not_retryable"
+  case POLICY_DENIED = "policy_denied"
+  case PROVIDER_FAILED = "provider_failed"
+  case RETRIES_EXHAUSTED = "retries_exhausted"
   method isRetryable(): bool
   method static cases(): array
   method static from(int|string $value): static
@@ -151,8 +151,8 @@ Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
-  case TABLE
-  case TEXT
+  case TABLE = "table"
+  case TEXT = "text"
   method static cases(): array
   method static from(int|string $value): static
   method static tryFrom(int|string $value): ?static
@@ -160,8 +160,8 @@ Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\BackendUserGrant (enum)
-  case AGENT_APPROVE
-  case TASKS_USE
+  case AGENT_APPROVE = "agent_approve"
+  case TASKS_USE = "tasks_use"
   method permissionValue(): string
   method static cases(): array
   method static from(int|string $value): static
@@ -172,9 +172,9 @@ Netresearch\NrLlm\Domain\Enum\BackendUserGrant (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\CapabilitySource (enum)
-  case Catalog
-  case Discovery
-  case Operator
+  case Catalog = "catalog"
+  case Discovery = "discovery"
+  case Operator = "operator"
   method isVerification(): bool
   method static cases(): array
   method static from(int|string $value): static
@@ -184,11 +184,11 @@ Netresearch\NrLlm\Domain\Enum\CapabilitySource (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
-  case ALLOW
-  case DENY
-  case REDACT
-  case REQUIRE_APPROVAL
-  case RETRY
+  case ALLOW = "allow"
+  case DENY = "deny"
+  case REDACT = "redact"
+  case REQUIRE_APPROVAL = "require_approval"
+  case RETRY = "retry"
   method static cases(): array
   method static from(int|string $value): static
   method static isValid(string $value): bool
@@ -198,10 +198,10 @@ Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\MessageRole (enum)
-  case ASSISTANT
-  case SYSTEM
-  case TOOL
-  case USER
+  case ASSISTANT = "assistant"
+  case SYSTEM = "system"
+  case TOOL = "tool"
+  case USER = "user"
   method static cases(): array
   method static from(int|string $value): static
   method static isValid(string $value): bool
@@ -212,17 +212,17 @@ Netresearch\NrLlm\Domain\Enum\MessageRole (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ModelCapability (enum)
-  case AUDIO
-  case CHAT
-  case COMPLETION
-  case EMBEDDINGS
-  case IMAGE
-  case JSON_MODE
-  case STREAMING
-  case TEXT_TO_SPEECH
-  case TOOLS
-  case TRANSCRIPTION
-  case VISION
+  case AUDIO = "audio"
+  case CHAT = "chat"
+  case COMPLETION = "completion"
+  case EMBEDDINGS = "embeddings"
+  case IMAGE = "image"
+  case JSON_MODE = "json_mode"
+  case STREAMING = "streaming"
+  case TEXT_TO_SPEECH = "text_to_speech"
+  case TOOLS = "tools"
+  case TRANSCRIPTION = "transcription"
+  case VISION = "vision"
   method static cases(): array
   method static from(int|string $value): static
   method static isValid(string $value): bool
@@ -233,8 +233,8 @@ Netresearch\NrLlm\Domain\Enum\ModelCapability (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
-  case CRITERIA
-  case FIXED
+  case CRITERIA = "criteria"
+  case FIXED = "fixed"
   method getDescription(): string
   method static cases(): array
   method static from(int|string $value): static
@@ -246,11 +246,11 @@ Netresearch\NrLlm\Domain\Enum\ModelSelectionMode (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
-  case AGENT_APPROVE
-  case AGENT_CANCEL
-  case AGENT_READ
-  case CONFIGURATION_USE
-  case CONVERSATION_ACCESS
+  case AGENT_APPROVE = "agent:approve"
+  case AGENT_CANCEL = "agent:cancel"
+  case AGENT_READ = "agent:read"
+  case CONFIGURATION_USE = "configuration:use"
+  case CONVERSATION_ACCESS = "conversation:access"
   method static cases(): array
   method static from(int|string $value): static
   method static isValid(string $value): bool
@@ -260,10 +260,10 @@ Netresearch\NrLlm\Domain\Enum\ServiceAccountScope (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\SkillTrustLevel (enum)
-  case COMMUNITY
-  case FIRST_PARTY
-  case UNTRUSTED
-  case VERIFIED
+  case COMMUNITY = "community"
+  case FIRST_PARTY = "first_party"
+  case UNTRUSTED = "untrusted"
+  case VERIFIED = "verified"
   method rank(): int
   method satisfies(self $minimum): bool
   method static cases(): array
@@ -277,8 +277,8 @@ Netresearch\NrLlm\Domain\Enum\SkillTrustLevel (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\SupportStatus (enum)
-  case FULL
-  case PARTIAL
+  case FULL = "full"
+  case PARTIAL = "partial"
   method static cases(): array
   method static from(int|string $value): static
   method static isValid(string $value): bool
@@ -289,12 +289,12 @@ Netresearch\NrLlm\Domain\Enum\SupportStatus (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ToolDataClass (enum)
-  case EDITOR_CONTENT
-  case INTERNAL_CONFIGURATION
-  case PUBLIC_CONTENT
-  case SECRET_ADJACENT
-  case SOURCE_CODE
-  case SYSTEM_DIAGNOSTICS
+  case EDITOR_CONTENT = "editorContent"
+  case INTERNAL_CONFIGURATION = "internalConfiguration"
+  case PUBLIC_CONTENT = "publicContent"
+  case SECRET_ADJACENT = "secretAdjacent"
+  case SOURCE_CODE = "sourceCode"
+  case SYSTEM_DIAGNOSTICS = "systemDiagnostics"
   method isAtMost(self $ceiling): bool
   method rank(): int
   method static cases(): array
@@ -307,12 +307,12 @@ Netresearch\NrLlm\Domain\Enum\ToolDataClass (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\ToolDenialReason (enum)
-  case CONFIGURATION_GROUP
-  case NONE
-  case NOT_REGISTERED
-  case REQUIRES_ADMIN
-  case TOOL_DISABLED
-  case TRUST_ZONE
+  case CONFIGURATION_GROUP = "configurationGroup"
+  case NONE = "none"
+  case NOT_REGISTERED = "notRegistered"
+  case REQUIRES_ADMIN = "requiresAdmin"
+  case TOOL_DISABLED = "toolDisabled"
+  case TRUST_ZONE = "trustZone"
   method static cases(): array
   method static from(int|string $value): static
   method static tryFrom(int|string $value): ?static
@@ -321,10 +321,10 @@ Netresearch\NrLlm\Domain\Enum\ToolDenialReason (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
-  case EXTERNAL_EU
-  case EXTERNAL_GLOBAL
-  case LOCAL
-  case PRIVATE_HOSTED
+  case EXTERNAL_EU = "externalEu"
+  case EXTERNAL_GLOBAL = "externalGlobal"
+  case LOCAL = "local"
+  case PRIVATE_HOSTED = "privateHosted"
   method maxDataClass(): Netresearch\NrLlm\Domain\Enum\ToolDataClass
   method permits(Netresearch\NrLlm\Domain\Enum\ToolDataClass $class): bool
   method rank(): int
@@ -338,18 +338,18 @@ Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Model\AdapterType (enum)
-  case Anthropic
-  case AzureOpenAI
-  case Custom
-  case Fireworks
-  case Gemini
-  case Groq
-  case Mistral
-  case Ollama
-  case OpenAI
-  case OpenRouter
-  case Perplexity
-  case Together
+  case Anthropic = "anthropic"
+  case AzureOpenAI = "azure_openai"
+  case Custom = "custom"
+  case Fireworks = "fireworks"
+  case Gemini = "gemini"
+  case Groq = "groq"
+  case Mistral = "mistral"
+  case Ollama = "ollama"
+  case OpenAI = "openai"
+  case OpenRouter = "openrouter"
+  case Perplexity = "perplexity"
+  case Together = "together"
   method defaultEndpoint(): string
   method label(): string
   method requiresApiKey(): bool
@@ -1058,19 +1058,19 @@ Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface (interface)
   method handle(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context, callable $next): mixed
 
 Netresearch\NrLlm\Provider\Middleware\ProviderOperation (enum)
-  case Chat
-  case Completion
-  case Embedding
-  case ImageEdit
-  case ImageGeneration
-  case ImageVariation
-  case Metadata
-  case SpeechSynthesis
-  case Stream
-  case Tools
-  case Transcription
-  case Translation
-  case Vision
+  case Chat = "chat"
+  case Completion = "complete"
+  case Embedding = "embed"
+  case ImageEdit = "image_edit"
+  case ImageGeneration = "image"
+  case ImageVariation = "image_variation"
+  case Metadata = "metadata"
+  case SpeechSynthesis = "speech"
+  case Stream = "stream"
+  case Tools = "tools"
+  case Transcription = "transcribe"
+  case Translation = "translate"
+  case Vision = "vision"
   method static cases(): array
   method static from(int|string $value): static
   method static tryFrom(int|string $value): ?static

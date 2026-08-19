@@ -122,6 +122,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The api-surface snapshot freezes enum backing values** (`#815`). Backed
+  cases render as `case Read = "read"` instead of the bare name, because for
+  `@api` enums the values are the frozen vocabulary (persisted rows, wire
+  formats, CSV round-trips) and a value change under a stable case name
+  passed the snapshot byte-identical. A fixture enum plus two renderer tests
+  prove the rendering and that a value change classifies as breaking. The
+  committed snapshot is regenerated — 108 case lines gain their value, no
+  other line moves, and no API changed; the rendering rule did. Ported back
+  from nr-vault, which caught the gap in review
+  (netresearch/t3x-nr-vault#319).
+
 - **ADR-130's constraint 3 is amended by ADR-131** (`#787`). The record called
   `agent_approve` doubly unreachable for non-admins because it named two
   approval surfaces and both were admin-gated. Both still are: `nrllm_runs` is
