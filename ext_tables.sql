@@ -367,6 +367,11 @@ CREATE TABLE tx_nrllm_service_usage (
     -- Task dimension (per-task usage tracking)
     task_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- Caller dimension (ADR-178): the extension key a consumer named via
+    -- withCallerSource(). Part of the daily aggregation key, so two
+    -- extensions on the same model produce two rows. '' = unattributed.
+    source_extension varchar(64) DEFAULT '' NOT NULL,
+
     -- User context
     be_user int(11) unsigned DEFAULT '0' NOT NULL,
 

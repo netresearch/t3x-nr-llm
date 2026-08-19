@@ -86,7 +86,7 @@ continuous rather than skipping gaps.
 Breakdown charts
 ================
 
-Three bar charts split the window's usage along different axes:
+Four bar charts split the window's usage along different axes:
 
 - **By provider** — cost and requests per ``service_provider``
   (OpenAI, Anthropic, Ollama, …).
@@ -95,6 +95,36 @@ Three bar charts split the window's usage along different axes:
   usage table, so it only reflects usage recorded after that change.
 - **By service** — cost and requests per service type (chat, vision,
   translation, speech, image).
+- **By extension** — cost and requests per calling extension, see
+  :ref:`administration-analytics-per-extension`.
+
+..  _administration-analytics-per-extension:
+
+Per-extension table
+===================
+
+A table lists cost, requests and tokens per **calling extension**, ordered
+by cost. It answers which piece of software spent what: a consumer names
+itself with ``AbstractOptions::withCallerSource()`` (:ref:`ADR-177
+<adr-177>`), and that name is stored on the usage row alongside the money
+(:ref:`ADR-178 <adr-178>`).
+
+Where the entries come from:
+
+- The compatibility layer `nr-llm-compat
+  <https://github.com/netresearch/t3x-nr-llm-compat>`__ tags every call it
+  reroutes, so an intercepted third-party extension (``ai_filemetadata``,
+  ``texter``, ``ns_t3ai``, …) shows up under its own extension key.
+- Any other consumer that annotates its calls appears the same way.
+- Everything else — wizard tasks, scheduler runs, playground calls and any
+  consumer that does not annotate — is listed as **Unattributed**. That is
+  the normal state, not an error.
+
+..  note::
+    The name is what the caller claims. Attribution is an inventory of the
+    installation, not an access control: a caller can name itself anything,
+    and nothing verifies it. Rows written before the column existed are
+    unattributed — no migration invents an origin for them.
 
 ..  _administration-analytics-per-user:
 

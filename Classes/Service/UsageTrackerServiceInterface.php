@@ -47,6 +47,10 @@ interface UsageTrackerServiceInterface
      *                                   request row (e.g. the language-detection step of a
      *                                   translation), so the metrics (tokens/cost) are still
      *                                   aggregated but the request is counted only once.
+     * @param string   $sourceExtension  Extension key the caller named via
+     *                                   `AbstractOptions::withCallerSource()`; '' when the call
+     *                                   is unattributed. Part of the daily aggregation key, so
+     *                                   per-extension cost stays separable (ADR-178).
      */
     public function trackUsage(
         string $serviceType,
@@ -58,6 +62,7 @@ interface UsageTrackerServiceInterface
         int $taskUid = 0,
         ?int $beUserUid = null,
         bool $countsAsRequest = true,
+        string $sourceExtension = '',
     ): void;
 
     /**

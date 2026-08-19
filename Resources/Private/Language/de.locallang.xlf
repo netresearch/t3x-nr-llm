@@ -1212,6 +1212,30 @@
                 <source>By service</source>
                 <target>Nach Dienst</target>
             </trans-unit>
+            <trans-unit id="analytics.breakdown.source">
+                <source>By extension</source>
+                <target>Nach Extension</target>
+            </trans-unit>
+            <trans-unit id="analytics.source.title">
+                <source>Per calling extension</source>
+                <target>Pro aufrufender Extension</target>
+            </trans-unit>
+            <trans-unit id="analytics.source.description">
+                <source>What each extension spent through this installation. An extension appears here once it names itself on its calls; usage from wizards, scheduler runs and other unnamed callers is listed as unattributed.</source>
+                <target>Was jede Extension über diese Installation ausgegeben hat. Eine Extension erscheint hier, sobald sie sich bei ihren Aufrufen benennt; Verbrauch aus Assistenten, Scheduler-Läufen und anderen unbenannten Aufrufern steht unter "Nicht zugeordnet".</target>
+            </trans-unit>
+            <trans-unit id="analytics.source.unattributed">
+                <source>Unattributed</source>
+                <target>Nicht zugeordnet</target>
+            </trans-unit>
+            <trans-unit id="analytics.source.empty">
+                <source>No usage recorded in this period.</source>
+                <target>In diesem Zeitraum wurde kein Verbrauch erfasst.</target>
+            </trans-unit>
+            <trans-unit id="analytics.table.extension">
+                <source>Extension</source>
+                <target>Extension</target>
+            </trans-unit>
             <trans-unit id="analytics.peruser.title">
                 <source>Per backend user</source>
                 <target>Pro Backend-Benutzer</target>

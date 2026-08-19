@@ -71,7 +71,39 @@
             <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.provider" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-provider-chart"></canvas></div></div>
             <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.model" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-model-chart"></canvas></div></div>
             <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.service" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-service-chart"></canvas></div></div>
+            <div class="nrllm-chart-box"><h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.breakdown.source" /></h3><div class="nrllm-canvas-wrap"><canvas id="nrllm-source-chart"></canvas></div></div>
         </div>
+
+        <f:comment>Per-extension table (ADR-178): which extension spent what</f:comment>
+        <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.title" /></h3>
+        <p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.description" /></p>
+        <f:if condition="{bySource}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.extension" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.cost" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.requests" /></th><th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.table.tokens" /></th></tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{bySource}" as="s">
+                                <tr>
+                                    <td>
+                                        <f:if condition="{s.label} == 'unattributed'">
+                                            <f:then><span class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.unattributed" /></span></f:then>
+                                            <f:else><code>{s.label}</code></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td>~${s.cost -> f:format.number(decimals: 2)}</td>
+                                    <td>{s.requests -> f:format.number(decimals: 0)}</td>
+                                    <td>{s.tokens -> f:format.number(decimals: 0)}</td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+            </f:then>
+            <f:else><p class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.source.empty" /></p></f:else>
+        </f:if>
 
         <f:comment>Per-user table</f:comment>
         <h3><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:analytics.peruser.title" /></h3>

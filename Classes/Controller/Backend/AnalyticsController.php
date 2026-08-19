@@ -70,6 +70,7 @@ final class AnalyticsController extends ActionController
         $byProvider = $this->analytics->getBreakdownByProvider($period->from, $period->to);
         $byModel = $this->analytics->getBreakdownByModel($period->from, $period->to);
         $byService = $this->analytics->getBreakdownByService($period->from, $period->to);
+        $bySource = $this->analytics->getBreakdownBySourceExtension($period->from, $period->to);
 
         $moduleTemplate->assignMultiple([
             'preset'     => $period->preset,
@@ -82,6 +83,11 @@ final class AnalyticsController extends ActionController
             'byProvider' => $byProvider,
             'byModel'    => $byModel,
             'byService'  => $byService,
+            // Who called: the extension key a consumer named via
+            // withCallerSource() (ADR-178). The compatibility layer tags every
+            // bridged third-party call, so this is the AI inventory of the
+            // installation, priced.
+            'bySource'   => $bySource,
             'perUser'    => $this->analytics->getPerUserUsage($period->from, $period->to),
             // Reads tx_nrllm_telemetry, not the usage table: the runs a sibling
             // configuration answered for after the requested one failed.
@@ -99,6 +105,7 @@ final class AnalyticsController extends ActionController
                 'byProvider' => $byProvider,
                 'byModel'    => $byModel,
                 'byService'  => $byService,
+                'bySource'   => $bySource,
             ], JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
         ]);
 

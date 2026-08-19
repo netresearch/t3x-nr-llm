@@ -70,8 +70,12 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         int $taskUid = 0,
         ?int $beUserUid = null,
         bool $countsAsRequest = true,
+        string $sourceExtension = '',
     ): void {
         $beUser = $beUserUid ?? $this->getCurrentBackendUserId();
+        // Mirrors the telemetry column width; a longer claim is truncated
+        // rather than rejected (ADR-178: attribution is a label, not a key).
+        $sourceExtension = substr($sourceExtension, 0, 64);
         $today = strtotime('today');
         $now = time();
         // Sub-calls of a larger operation (e.g. a translation's language-detection
@@ -90,6 +94,10 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
         // indexed (config_lookup) and grouped on by the analytics module, so two
         // configurations on the same model must not merge into one row (which
         // would keep only the first configuration_uid and misattribute usage).
+        // source_extension joins the key for the same reason (ADR-178): two
+        // extensions calling one model on one day must stay two rows, or the
+        // per-extension cost breakdown attributes everything to whoever wrote
+        // the row first.
         $existingUid = $queryBuilder
             ->select('uid')
             ->from(self::TABLE)
@@ -101,6 +109,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 $queryBuilder->expr()->eq('model_uid', $modelUid),
                 $queryBuilder->expr()->eq('model_id', $queryBuilder->createNamedParameter($modelId)),
                 $queryBuilder->expr()->eq('task_uid', $taskUid),
+                $queryBuilder->expr()->eq('source_extension', $queryBuilder->createNamedParameter($sourceExtension)),
                 $queryBuilder->expr()->eq('request_date', $today),
             )
             ->executeQuery()
@@ -143,6 +152,7 @@ final readonly class UsageTrackerService implements UsageTrackerServiceInterface
                 'model_uid' => $modelUid,
                 'model_id' => $modelId,
                 'task_uid' => $taskUid,
+                'source_extension' => $sourceExtension,
                 'be_user' => $beUser,
                 'request_count' => $requestIncrement,
                 'tokens_used' => $metrics['tokens'] ?? 0,

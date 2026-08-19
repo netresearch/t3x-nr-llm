@@ -40,6 +40,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         'service_provider',
         'model_id',
         'service_type',
+        'source_extension',
         'model_uid',
         'configuration_uid',
         'task_uid',
@@ -115,6 +116,15 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     public function getBreakdownByService(DateTimeInterface $from, DateTimeInterface $to): array
     {
         return $this->breakdown('service_type', $from, $to);
+    }
+
+    public function getBreakdownBySourceExtension(DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        // Unattributed rows are the normal case for anything that does not
+        // annotate (a wizard task, a scheduler run), so they get a label of
+        // their own instead of the generic "unknown" the other breakdowns use
+        // for a missing provider or model (ADR-178).
+        return $this->breakdown('source_extension', $from, $to, 'unattributed');
     }
 
     public function getTotalsGroupedBy(string $column, DateTimeInterface $from, DateTimeInterface $to): array
@@ -317,7 +327,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
     /**
      * @return list<array{label: string, cost: float, requests: int, tokens: int}>
      */
-    private function breakdown(string $column, DateTimeInterface $from, DateTimeInterface $to): array
+    private function breakdown(string $column, DateTimeInterface $from, DateTimeInterface $to, string $emptyLabel = 'unknown'): array
     {
         $this->assertGroupableColumn($column);
         $qb = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
@@ -333,7 +343,7 @@ final readonly class UsageAnalyticsService implements UsageAnalyticsServiceInter
         foreach ($rows as $row) {
             $label = is_string($row[$column] ?? null) ? $row[$column] : '';
             if ($label === '') {
-                $label = 'unknown';
+                $label = $emptyLabel;
             }
 
             $out[] = [

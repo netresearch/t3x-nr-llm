@@ -7,6 +7,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Analytics answers "which extension spent what"** (ADR-178). The usage
+  table carries the caller's extension key next to the money, so the
+  Analytics module gains a *By extension* chart and a per-extension table
+  with cost, requests and tokens. Calls that name no caller — wizard
+  tasks, scheduler runs, anything unannotated — are listed as
+  *Unattributed*. `UsageTrackerServiceInterface::trackUsage()` grows one
+  optional trailing `$sourceExtension` parameter (additive); rows written
+  before this change stay unattributed.
+
 - **Agent-harness verification.** `docs/ARCHITECTURE.md` (component map + phpat dependency-rule summary), `docs/exec-plans/` scaffold, `Build/Scripts/verify-harness.sh`, and a `harness-verify.yml` workflow — a thin caller of the shared `script-check` reusable — that fails CI on an AGENTS.md line-budget or dead-reference regression.
 
 - A caller can choose the correlation id its call is traced under, through
