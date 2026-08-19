@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Resources
 
@@ -17,22 +17,7 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 
 ### Templates (`Private/Templates/Backend/`)
 
-| Template | Purpose |
-|----------|---------|
-| `Index.html` | Dashboard overview |
-| `Provider/List.html` | Provider management |
-| `Model/List.html` | Model management |
-| `Configuration/List.html` | Configuration management |
-| `Configuration/WizardForm.html` | AI-powered config wizard form |
-| `Configuration/WizardPreview.html` | Config wizard preview |
-| `Task/List.html` | Task management |
-| `Task/Execute.html` | Task execution UI |
-| `Task/WizardForm.html` | AI-powered task wizard form |
-| `Task/WizardPreview.html` | Task wizard preview |
-| `Task/WizardChainPreview.html` | Task chain wizard preview |
-| `SetupWizard/Index.html` | Initial setup wizard |
-| `Help.html` | Help page |
-| `Test.html` | Test prompt page |
+One directory per backend surface (`Provider/`, `Model/`, `Configuration/`, `Task/`, `AiTask/`, `Skill/`, `PromptSnippet/`, `McpServer/`, `Tool/`, `AgentRun/`, `Playground/`, `Analytics/`, `UseCase/`, `EditorAction/`, `SetupWizard/`), mostly `List.html` plus surface-specific views (`Execute.html`, `WizardForm.html`, `WizardPreview.html`, `Show.html`), and top-level pages `Index.html`, `Governance.html`, `Help.html`, `Test.html`. Follow the sibling surface's structure when adding a view.
 
 ### Language Files (`Private/Language/`)
 
@@ -40,22 +25,14 @@ No build step. Files served directly by TYPO3. JavaScript uses ES modules via `@
 |------|---------|
 | `locallang.xlf` | General labels |
 | `locallang_tca.xlf` | TCA field labels |
+| `locallang_dashboard.xlf` | Dashboard widget labels |
 | `locallang_mod.xlf` | Backend module labels |
-| `locallang_mod_{overview,provider,model,config,task,wizard}.xlf` | Module-specific labels |
-| `de.locallang*.xlf` | German translations (all files) |
+| `locallang_mod_<surface>.xlf` | One file per module surface (overview, provider, model, config, task, aitasks, wizard, skill, snippet, tool, mcp, runs, playground, analytics, usecase) |
+| `de.locallang*.xlf` | German translations — EVERY EN file has a `de.` twin |
 
 ### JavaScript (`Public/JavaScript/Backend/`)
 
-| File | Purpose |
-|------|---------|
-| `ProviderList.js` | Provider list interactions |
-| `ModelList.js` | Model list interactions |
-| `ConfigurationList.js` | Configuration list interactions |
-| `ConfigurationConstraints.js` | Model constraint display |
-| `TaskExecute.js` | Task execution with live output |
-| `SetupWizard.js` | Setup wizard flow |
-| `ModelIdField.js` | Model ID TCA field |
-| `WizardFormLoading.js` | Wizard loading states |
+One ES module per backend interaction concern, named after the surface it drives (`ProviderList.js`, `TaskExecute.js`, `SetupWizard.js`, `ToolPlayground.js`, `AgentRunInbox.js`, …), plus shared helpers (`AjaxError.js`, `HtmlEscape.js`, `ModuleAction.js`). `Public/JavaScript/Vendor/` holds the vendored `chart.umd.js`.
 
 ### Icons (`Public/Icons/`)
 - `Extension.svg` — Branded teal tile with white chip motif + orange accent (extension icon, also TCA iconfile)

@@ -44,8 +44,14 @@ var/
 # Documentation build output
 Documentation-GENERATED-temp/
 
-# Local planning docs (not for repo)
-docs/
+# Local planning docs (not for repo) — but the agent-harness files are tracked:
+# docs/ARCHITECTURE.md and docs/exec-plans/README.md (verified by
+# Build/Scripts/verify-harness.sh). Everything else under docs/ stays local.
+docs/*
+!docs/ARCHITECTURE.md
+!docs/exec-plans/
+docs/exec-plans/*
+!docs/exec-plans/README.md
 claudedocs/
 
 # DDEV local files (keep config, ignore generated)

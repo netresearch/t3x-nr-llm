@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Tests
 
@@ -37,6 +37,18 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 | `E2E/Backend/` | PHPUnit | Backend E2E tests |
 | `E2E/TCA/` | PHPUnit | TCA field tests |
 | `E2E/Playwright/` | Playwright (TS) | Browser-based UI tests |
+
+### Functional suite runtime
+
+The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-connection smoke tests that make REAL outbound HTTPS calls to unreachable providers (deliberate 502 mapping) — the full run takes ~35 min locally while per-class runs stay fast. Scope local runs to the touched test classes; leave the full matrix to CI.
+
+### Runner environment traps (worktrees, Rector, matrix)
+
+- **A fresh worktree needs its own dependency resolution.** `.Build/` is not tracked; copying it from `main/.Build` is the usual shortcut (avoids the WSL2 segfault on a fresh composer resolve), but the copy can be OLDER than `main`'s code — after a dependency bump, PHPStan aborts with an internal error like `Interface "…ForeignEnvelopeRotatorInterface" not found` while analysing an unrelated test. That is a stale `.Build`, not a code defect: run `./Build/Scripts/runTests.sh -s composerUpdate -p 8.4` and re-run the gate.
+- **Run the Rector gate with `-p 8.2`, never `-p 8.4`.** Rector's PHPUnit rules activate from the phpunit version composer *installed*, not from the set named in `Build/rector/rector.php`. PHP 8.2 resolves phpunit ^11, 8.4 resolves ^13, and the 13-only migrations do not apply to a codebase whose blocking matrix caps `phpunit/phpunit:<13`. CI pins the job with `rector-php-version: '8.2'` in `ci.yml`. Running it on 8.4 reports dozens of files CI will never flag — applying those "fixes" breaks the blocking matrix with `Call to an undefined method expectExceptionMessageIsOrContains()` (observed 2026-08-04; a control run on unmodified `main` reproduced the identical finding list, proving the finding was the environment, not the code).
+- **And in a worktree it may not run at all.** `composer install` writes `.Build/vendor/composer/platform_check.php` from the PHP it resolved under, and that file FATALS on an older runtime — a `.Build` resolved at 8.4 makes the pinned `-p 8.2` die with `Composer detected issues in your platform: … require a PHP version ">= 8.4.1"`. The suite did not fail; it never started. `make gate` names that case explicitly. Either keep a second `.Build` resolved at 8.2 for this one gate or accept CI as the only place it runs — and **say so** when reporting which gates were run.
+- **A local gate run covers one matrix cell; CI covers eight** (PHP 8.2–8.5 × TYPO3 13.4/14.3). A PHPStan finding can be invisible locally and red across all eight legs — e.g. a `willReturnCallback` closure type that resolves differently under another PHPUnit version. Green locally means "no reason to push a known failure", not "CI will pass".
+- **"Works locally but breaks in CI"?** Reproduce inside `./Build/Scripts/runTests.sh -s <suite>` first — it uses the same Docker PHP image as CI.
 <!-- AGENTS-GENERATED:END filemap -->
 
 <!-- AGENTS-GENERATED:START code-style -->
@@ -86,6 +98,6 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 <!-- AGENTS-GENERATED:START help -->
 ## When Stuck
 - Test docs: `Documentation/Testing/` — UnitTesting, FunctionalTesting, EndToEndTesting, CiConfiguration
-- PHPUnit 11/12/13 compat: see `MEMORY.md` PHPUnit section
+- PHPUnit 11/12/13 compat notes: `Documentation/Testing/CiConfiguration.rst`
 - Run with `-v` for verbose: `./Build/Scripts/runTests.sh -s unit -v`
 <!-- AGENTS-GENERATED:END help -->

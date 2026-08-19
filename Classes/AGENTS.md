@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Classes
 
@@ -23,7 +23,7 @@ PHP 8.2+ source code with strict typing, PSR-12, PHPStan level 10. Three-tier do
 ./Build/Scripts/runTests.sh -s unit         # Unit tests for Classes/
 ./Build/Scripts/runTests.sh -s functional   # Functional tests (DB)
 ```
-Full test matrix in root `AGENTS.md` Setup section.
+Full test matrix in root `AGENTS.md` Commands section.
 <!-- AGENTS-GENERATED:END tests -->
 
 <!-- AGENTS-GENERATED:START filemap -->
@@ -31,9 +31,10 @@ Full test matrix in root `AGENTS.md` Setup section.
 
 | Directory | Purpose |
 |-----------|---------|
-| `Attribute/` | `#[AsLlmProvider]` auto-registration attribute |
+| `Attribute/` | `#[AsLlmProvider]` and `#[AsTranslator]` auto-registration attributes |
+| `Command/` | CLI commands (purge/reap/eval/agent-run maintenance, `SetProviderApiKeyCommand`) |
 | `Controller/Backend/` | Backend module controllers, request DTOs, Response objects |
-| `DependencyInjection/` | ProviderCompilerPass |
+| `DependencyInjection/` | ProviderCompilerPass, TranslatorCompilerPass |
 | `Domain/DTO/` | BudgetCheckResult, CapabilitySet, FallbackChain, ModelSelectionCriteria, ProviderOptions |
 | `Domain/Enum/` | Backed enums for capabilities, task shape, agent-run state, tool data class / effect / egress, trust zone, governance |
 | `Domain/Model/` | Extbase entities (Provider, Model, LlmConfiguration, Task, UserBudget, Skill, SkillSource, PromptSnippet, BackendUserGroup) and the response/result types |
@@ -50,6 +51,9 @@ Full test matrix in root `AGENTS.md` Setup section.
 | `Service/Option/` | ChatOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |
 | `Service/SetupWizard/` | ProviderDetector, ModelDiscovery (facade), ConfigurationGenerator + DTOs; `Discovery/` holds one model discoverer per provider |
 | `Specialized/` | Image (DALL-E, FAL), Speech (Whisper, TTS), Translation (DeepL, LLM) |
+| `Hook/` | ProviderEndpointNormalizationHook |
+| `Testing/` | Fake service doubles (`FakeCompletionService`, …) for consumers' tests |
+| `Updates/` | Upgrade wizards |
 | `Utility/` | SafeCastTrait, ErrorMessageSanitizerTrait |
 | `Widgets/DataProvider/` | Backend dashboard widgets (MonthlyCost, RequestsByProvider) |
 <!-- AGENTS-GENERATED:END filemap -->
@@ -79,9 +83,9 @@ See `Tests/Architecture/` for enforcement tests.
 
 ### New Provider
 1. Create in `Provider/` extending `AbstractProvider`
-2. Implement capability interfaces from `Provider/Contract/`
+2. Implement capability interfaces from `Provider/Contract/` and add the `#[AsLlmProvider(priority: ...)]` attribute (auto-registers via `ProviderCompilerPass`); return the identifier from `ProviderInterface::getIdentifier()`
 3. Add to `AdapterType` enum (`Domain/Model/AdapterType.php`)
-4. Register via DI (auto-tagged by `ProviderCompilerPass`)
+4. Add the provider icon to `Resources/Public/Icons/provider-<identifier>.svg`
 5. Add unit tests in `Tests/Unit/Provider/`
 6. Add integration tests in `Tests/Integration/Provider/`
 
@@ -90,7 +94,25 @@ See `Tests/Architecture/` for enforcement tests.
 2. Accept option object from `Service/Option/`
 3. Return typed response from `Domain/Model/`
 4. Add to `LlmServiceManager` public API
+
+### Touching the public surface (`@api`)
+- Add an ADR under `Documentation/Adr/` (format `Adr<N>Description.rst`) — it lands **before** the implementation PR, not inside it. `AdrReferenceIntegrityTest` refuses a reference to a record that does not exist; that the record arrived first is not machine-checked.
+- `Tests/Unit/Api/api-surface.txt` freezes every `@api` signature, constructors included — the class's own, or one inherited from a base inside `Netresearch\NrLlm` (bases from TYPO3 core or the SPL are left out because they differ across the version matrix). The failure says whether the diff is additive (regenerate + `### Added`) or breaking (decide first).
+- Removals follow `Documentation/Api/Deprecation.rst`, whose inventory is asserted against the `@deprecated` docblocks in both directions.
+
+### Linking between backend controllers
+Use the full Extbase alias `Backend\<Name>` (e.g. `'controller' => 'Backend\\TaskWizard'`), not the short name — `resolveControllerAliasFromControllerClassName()` keeps the segment after `Controller\`, so a short alias yields an empty URL / `InvalidControllerNameException`. Namespaced backend arguments are OFF here, so use bare `controller`/`action` keys (NOT `tx_nrllm_task[...]`). Introduced by ADR-027's TaskController split.
 <!-- AGENTS-GENERATED:END patterns -->
+
+<!-- AGENTS-GENERATED:START utilities -->
+## Shared Utilities — Don't Reinvent
+
+- **Type coercion**: `Utility/SafeCastTrait` exposes private helpers (`toStr`, `toInt`, `toFloat`) for internal coercion when raw values come from untrusted sources. Use them inside the trait consumer; do not invent `safeIntCast`-style public methods.
+- **Error-message sanitizing**: `Utility/ErrorMessageSanitizerTrait::sanitizeErrorMessage()` strips secret-bearing query parameters (`?key=`, `?token=`, …) before a message is logged or surfaced. Use the trait; do not copy the regex.
+- **Provider invocation**: `Domain/DTO/FallbackChain.php` defines fallback chains; `Provider/Middleware/FallbackMiddleware.php` enforces them at runtime. Always go through the middleware pipeline rather than calling provider classes directly — it handles retries, fallback ordering, and error mapping.
+- **Cost tracking**: `Provider/Middleware/UsageMiddleware.php` records usage after each successful provider call via `UsageTrackerServiceInterface::trackUsage()`. Don't write to the usage table directly.
+- **Cache config**: `Configuration/Caching.php` declares the `nrllm_responses` cache. Add new caches there (no hardcoded backend — let the host instance configure Redis/Valkey/Memcached).
+<!-- AGENTS-GENERATED:END utilities -->
 
 <!-- AGENTS-GENERATED:START security -->
 ## Security

@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Agent-harness verification.** `docs/ARCHITECTURE.md` (component map + phpat dependency-rule summary), `docs/exec-plans/` scaffold, `Build/Scripts/verify-harness.sh`, and a `harness-verify.yml` workflow — a thin caller of the shared `script-check` reusable — that fails CI on an AGENTS.md line-budget or dead-reference regression.
+
+### Changed
+- **AGENTS.md files synchronized with the repository state.** Root slimmed from 356 to 119 lines by moving content into the scoped files it belongs to; stale inventories refreshed (TCA files, database tables, backend templates, JS modules, `Services.Dashboard.php`); phantom `TCA/Overrides/` and dead `MEMORY.md` references removed; generic workflow boilerplate in `.github/workflows/AGENTS.md` replaced with this repository's actual conventions (no local jobs, release flow, dependency automation).
+
 ## [0.30.0] - 2026-08-18
 
 ### Added
