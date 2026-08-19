@@ -1183,3 +1183,45 @@ CREATE TABLE tx_nrllm_mcp_tool (
     KEY server (server),
     UNIQUE KEY tool_name (tool_name)
 );
+
+--
+-- Table structure for table 'tx_nrllm_call_outcome'
+--
+-- How one call turned out (ADR-176). Joined to tx_nrllm_telemetry by
+-- correlation_id, which is why neither the model nor the routing arm is
+-- repeated here: they sit on the telemetry row already and a second copy could
+-- only drift from it.
+--
+-- There is no be_user column, and none is coming. Who ran the call is on the
+-- run record, because budgets and the resume authorisation need it there;
+-- nr_llm ships no per-editor readout and builds no anonymisation of its own,
+-- because erasure belongs to the installation's be_users lifecycle. The join
+-- through the run still exists — that is stated rather than dressed up as
+-- "we store no names".
+--
+-- The source (explicit or observed) is NOT a column. It is derived from the
+-- outcome value, so a row carrying an explicit rating under an observed value
+-- is not a state this table can hold.
+--
+CREATE TABLE tx_nrllm_call_outcome (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- Trace correlation (UUID v4, RFC 4122 = 36 chars), as on tx_nrllm_telemetry
+    correlation_id varchar(36) DEFAULT '' NOT NULL,
+
+    -- A CallOutcome case. Its enum decides which source it belongs to.
+    outcome varchar(24) DEFAULT '' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    -- One row per call per source, so a rater who changes their mind replaces
+    -- their answer instead of adding a second one and leaving the readout to
+    -- guess which counts. The source is part of the key through the outcome
+    -- value's own grouping, enforced by the repository rather than by SQL.
+    KEY correlation (correlation_id),
+    KEY outcome_lookup (outcome, crdate)
+);

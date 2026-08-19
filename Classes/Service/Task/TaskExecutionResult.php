@@ -40,5 +40,19 @@ final readonly class TaskExecutionResult
         public string $outputFormat,
         public UsageStatistics $usage,
         public array $appliedSkills = [],
+        /**
+         * The correlation id this run was traced under (ADR-176).
+         *
+         * Chosen here rather than read back: the id is minted inside the
+         * provider pipeline and never returned, and CompletionResponse is
+         * frozen, so the caller supplies one instead. It is what lets the
+         * surface showing this result record an outcome against the call that
+         * produced it.
+         *
+         * Empty only for a result built by something that did not go through
+         * TaskExecutionService — a test double, most likely. A surface must
+         * treat empty as "cannot be rated" rather than as a call id.
+         */
+        public string $correlationId = '',
     ) {}
 }

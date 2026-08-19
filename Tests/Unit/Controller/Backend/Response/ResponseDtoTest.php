@@ -366,9 +366,16 @@ final class ResponseDtoTest extends TestCase
             completionTokens: $usage->completionTokens,
             totalTokens: $usage->totalTokens,
             appliedSkills: ['cfg:baseline', 'task:additive'],
+            correlationId: '3f2a1b0c-9d8e-4f70-8a61-2b3c4d5e6f70',
         ))->jsonSerialize();
 
-        self::assertSame(['success', 'content', 'model', 'outputFormat', 'usage', 'appliedSkills'], array_keys($data));
+        self::assertSame(
+            ['success', 'content', 'model', 'outputFormat', 'usage', 'appliedSkills', 'correlationId'],
+            array_keys($data),
+        );
+        // The rating bar keys on this, so an omitted or renamed field silently
+        // turns every result into an unrateable one (ADR-176).
+        self::assertSame('3f2a1b0c-9d8e-4f70-8a61-2b3c4d5e6f70', $data['correlationId']);
         self::assertTrue($data['success']);
         self::assertSame('Hello', $data['content']);
         self::assertSame('gpt-4', $data['model']);

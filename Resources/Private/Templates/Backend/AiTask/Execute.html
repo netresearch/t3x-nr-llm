@@ -144,6 +144,18 @@
                             </div>
                         </div>
 
+                        <div data-call-outcome class="d-none d-flex align-items-center gap-2 mb-3">
+                            <span class="small text-body-secondary">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.prompt" default="Was this useful?" />
+                            </span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-outcome="helpful">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.helpful" default="Yes" />
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-outcome="not_helpful">
+                                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:outcome.notHelpful" default="No" />
+                            </button>
+                        </div>
+
                         <div id="outputResult" class="d-none">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:task.execute.output.formatAria', default: 'Output format')}" id="outputFormatToggle">

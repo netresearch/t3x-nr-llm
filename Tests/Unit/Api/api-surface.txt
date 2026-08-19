@@ -1035,6 +1035,7 @@ Netresearch\NrLlm\Provider\Exception\ProviderResponseException (class)
 Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException (class)
 
 Netresearch\NrLlm\Provider\Middleware\ProviderCallContext (class)
+  const METADATA_CORRELATION_ID = "nrllm.correlationId"
   constructor(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, string $correlationId, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …, string $provider = …, string $model = …, string $configurationIdentifier = …, array $metadata = …, Netresearch\NrLlm\Provider\Middleware\TelemetrySignals $telemetrySignals = …)
   method static for(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, array $metadata = …): self
   method static forConfiguration(Netresearch\NrLlm\Provider\Middleware\ProviderOperation $operation, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $metadata = …, ?string $correlationId = …): self
@@ -1404,9 +1405,11 @@ Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)
 Netresearch\NrLlm\Service\Option\AbstractOptions (class)
   method getCallerSourceExtension(): ?string
   method getCallerSourceOperation(): ?string
+  method getCorrelationId(): ?string
   method getIdempotencyKey(): ?string
   method toArray(): array
   method withCallerSource(string $extension, string $operation = …): static
+  method withCorrelationId(string $correlationId): static
   method withIdempotencyKey(string $idempotencyKey): static
 
 Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface (interface)

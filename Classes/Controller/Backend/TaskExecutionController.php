@@ -15,19 +15,22 @@ use Netresearch\NrLlm\Controller\Backend\Response\ErrorResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskExecutionResponse;
 use Netresearch\NrLlm\Controller\Backend\Response\TaskInputResponse;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
+use Netresearch\NrLlm\Domain\Enum\CallOutcome;
+use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Exception\BudgetExceededException;
 // Aliased to make the catch arm explicit about which
 // `InvalidArgumentException` it expects — the project-level one
 // thrown by `TaskExecutionService::execute()`, not PHP's built-in
 // (which is also raised in sibling controllers, e.g. by
 // `RecordTableReader::ensureNotExcluded` in `TaskRecordsController`).
-use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException as DomainInvalidArgumentException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
+use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepositoryInterface;
 use Netresearch\NrLlm\Service\Task\TaskExecutionServiceInterface;
 use Netresearch\NrLlm\Service\Task\TaskInputResolverInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -85,6 +88,7 @@ final class TaskExecutionController extends ActionController
         private readonly PageRenderer $pageRenderer,
         private readonly BackendUriBuilder $backendUriBuilder,
         private readonly LoggerInterface $logger,
+        private readonly CallOutcomeRepositoryInterface $callOutcomeRepository,
     ) {}
 
     /**
@@ -288,6 +292,56 @@ final class TaskExecutionController extends ActionController
      * Same TASKS_USE gate as {@see executeAction()}: refreshing the input a
      * task's MANAGER configured is part of using the task.
      */
+    /**
+     * Record how one call turned out, as judged by the person who read it.
+     *
+     * The rating is keyed on the correlation id the execution handed back, so
+     * it lands on the same call the cost and the routing facts sit on
+     * (ADR-174, ADR-176). Nothing here reads or writes an approval state: an
+     * approval can be withheld for reasons that say nothing about the model,
+     * and folding the gate in would measure governance instead of quality.
+     *
+     * No backend user is stored. Who ran the call is already on the run
+     * record where budgets need it; this table adds no second copy and nr_llm
+     * ships no per-editor readout.
+     */
+    public function recordOutcomeAction(ServerRequestInterface $request): ResponseInterface
+    {
+        if (($deny = $this->denyWithoutGrant(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {
+            return $deny;
+        }
+
+        $body          = $request->getParsedBody();
+        $body          = is_array($body) ? $body : [];
+
+        $correlationId = $body['correlationId'] ?? null;
+        $rating        = $body['outcome'] ?? null;
+
+        $outcome = is_string($rating) ? CallOutcome::tryFrom($rating) : null;
+
+        // Only the explicit cases are acceptable here. The observed ones are
+        // derived from what happened to a record, never claimed by a caller —
+        // accepting one over this route would let a client write a measurement
+        // nobody measured.
+        if (!$outcome instanceof CallOutcome || $outcome->source() !== CallOutcomeSource::EXPLICIT) {
+            return new JsonResponse((new ErrorResponse($this->localize(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.outcome.unknownRating',
+                'Unknown rating.',
+            )))->jsonSerialize(), 400);
+        }
+
+        if (!is_string($correlationId) || $correlationId === '') {
+            return new JsonResponse((new ErrorResponse($this->localize(
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.outcome.missingCall',
+                'This result cannot be rated: it carries no call reference.',
+            )))->jsonSerialize(), 400);
+        }
+
+        $this->callOutcomeRepository->record($correlationId, $outcome);
+
+        return new JsonResponse(['success' => true, 'outcome' => $outcome->value]);
+    }
+
     public function refreshInputAction(ServerRequestInterface $request): ResponseInterface
     {
         if (($deny = $this->denyWithoutGrant(BackendUserGrant::TASKS_USE)) instanceof ResponseInterface) {

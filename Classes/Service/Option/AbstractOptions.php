@@ -31,6 +31,25 @@ abstract class AbstractOptions
     protected ?string $idempotencyKey = null;
 
     /**
+     * Optional caller-supplied correlation id (ADR-176).
+     *
+     * Every send already gets one — {@see ProviderCallContext} generates a
+     * UUID when none is passed — but it is generated inside the pipeline and
+     * never handed back, so a caller cannot say afterwards which row on
+     * tx_nrllm_telemetry was its own call. Supplying it here is the answer to
+     * that: the caller knows the id because it chose it.
+     *
+     * That is what makes a per-call outcome recordable at all. It is also the
+     * reason this is not a return value: {@see CompletionResponse} is frozen
+     * (Tests/Unit/Api/api-surface.txt), so growing it would be a breaking
+     * change, while an option is additive.
+     *
+     * Like the idempotency key it is deliberately kept out of
+     * {@see self::toArray()} and never reaches a provider.
+     */
+    protected ?string $correlationId = null;
+
+    /**
      * Convert options to array format for providers.
      *
      * @return array<string, mixed>
@@ -51,6 +70,30 @@ abstract class AbstractOptions
     {
         $clone = clone $this;
         $clone->idempotencyKey = $idempotencyKey;
+
+        return $clone;
+    }
+
+    public function getCorrelationId(): ?string
+    {
+        return $this->correlationId;
+    }
+
+    /**
+     * Return a copy that will be traced under the given correlation id.
+     *
+     * An empty string is ignored rather than stored: the pipeline treats it as
+     * "none given" anyway, and keeping it would make the getter answer with a
+     * value no telemetry row can ever carry.
+     */
+    public function withCorrelationId(string $correlationId): static
+    {
+        if ($correlationId === '') {
+            return $this;
+        }
+
+        $clone = clone $this;
+        $clone->correlationId = $correlationId;
 
         return $clone;
     }

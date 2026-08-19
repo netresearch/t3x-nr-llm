@@ -14,9 +14,11 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Orchestrates running a `Task` through the LLM.
@@ -39,6 +41,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
     public function __construct(
         private LlmServiceManagerInterface $llmServiceManager,
         private SkillInjectionService $skillInjection,
+        private CallMetadataFactory $callMetadata = new CallMetadataFactory(),
     ) {}
 
     public function execute(Task $task, string $input, ?int $beUserUid = null): TaskExecutionResult
@@ -99,14 +102,22 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
             $fallbackOptions = $fallbackOptions->withBeUserUid($beUserUid);
         }
 
+        // Minted here so the result can carry it. The pipeline would generate
+        // one anyway, but inside itself and without handing it back, which
+        // leaves a caller unable to say which telemetry row was its own call
+        // (ADR-176). Both branches must receive the SAME id — they reach the
+        // pipeline through different channels, and a second id here would
+        // split one execution across two traces.
+        $correlationId = Uuid::v4()->toRfc4122();
+
         $response = $configuration instanceof LlmConfiguration
             ? $this->llmServiceManager->completeWithConfiguration(
                 $prompt,
                 $configuration,
-                $metadata,
+                $metadata + $this->callMetadata->correlation($correlationId),
                 $jsonOutput ? ['response_format' => 'json'] : [],
             )
-            : $this->llmServiceManager->complete($prompt, $fallbackOptions);
+            : $this->llmServiceManager->complete($prompt, $fallbackOptions->withCorrelationId($correlationId));
 
         // The skills injected above contributed to the prompt the provider
         // tokenised, so their cost is already part of $response->usage. Surface
@@ -117,6 +128,7 @@ final readonly class TaskExecutionService implements TaskExecutionServiceInterfa
             outputFormat: $task->getOutputFormat(),
             usage: $response->usage,
             appliedSkills: $appliedSkills,
+            correlationId: $correlationId,
         );
     }
 }

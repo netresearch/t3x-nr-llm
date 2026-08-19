@@ -42,6 +42,9 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
      * deleted by the central purge; the test below proves it.
      */
     private const CONTENT_TABLES = [
+        // Ratings of single calls. Purged on the telemetry window, since a
+        // rating without its telemetry row cannot be read (ADR-176).
+        'tx_nrllm_call_outcome',
         'tx_nrllm_eval_result',
         'tx_nrllm_skill_audit',
         'tx_nrllm_telemetry',
@@ -189,6 +192,14 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
             'run_date'       => $timestamp,
             'tstamp'         => $timestamp,
             'crdate'         => $timestamp,
+        ]);
+
+        $connectionPool->getConnectionForTable('tx_nrllm_call_outcome')->insert('tx_nrllm_call_outcome', [
+            'pid'            => 0,
+            'correlation_id' => 'aged-call',
+            'outcome'        => 'helpful',
+            'crdate'         => $timestamp,
+            'tstamp'         => $timestamp,
         ]);
 
         $connectionPool->getConnectionForTable('tx_nrllm_skill_audit')->insert('tx_nrllm_skill_audit', [

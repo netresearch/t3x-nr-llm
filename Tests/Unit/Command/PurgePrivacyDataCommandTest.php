@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Privacy\ContentRedactor;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicy;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAgentRunRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryAiSessionRepository;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryCallOutcomeRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemorySkillAuditRepository;
@@ -40,6 +41,8 @@ final class PurgePrivacyDataCommandTest extends TestCase
 
     private InMemoryGovernanceEventRepository $governance;
 
+    private InMemoryCallOutcomeRepository $callOutcomes;
+
     protected function setUp(): void
     {
         $this->eval       = new InMemoryEvaluationResultRepository();
@@ -47,7 +50,8 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->telemetry  = new InMemoryTelemetryRepository();
         $this->sessions   = new InMemoryAiSessionRepository();
         $this->agentRuns  = new InMemoryAgentRunRepository();
-        $this->governance = new InMemoryGovernanceEventRepository();
+        $this->governance   = new InMemoryGovernanceEventRepository();
+        $this->callOutcomes = new InMemoryCallOutcomeRepository();
     }
 
     #[Test]
@@ -76,6 +80,10 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->eval->purgeCutoff,
             $this->audit->purgeCutoff,
             $this->telemetry->purgeCutoff,
+            // Same window as telemetry by decision, not by accident: an outcome
+            // is only readable joined to its telemetry row (ADR-176). Listing it
+            // here is what would fail if someone gave it a window of its own.
+            $this->callOutcomes->purgeCutoff,
             $this->sessions->purgeCutoff,
             $this->agentRuns->purgeCutoff,
             $this->agentRuns->purgeUnfinishedCutoff,
@@ -187,6 +195,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->sessions,
             $this->agentRuns,
             $this->governance,
+            $this->callOutcomes,
         );
     }
 }

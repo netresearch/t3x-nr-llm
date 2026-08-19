@@ -9,6 +9,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Agent-harness verification.** `docs/ARCHITECTURE.md` (component map + phpat dependency-rule summary), `docs/exec-plans/` scaffold, `Build/Scripts/verify-harness.sh`, and a `harness-verify.yml` workflow — a thin caller of the shared `script-check` reusable — that fails CI on an AGENTS.md line-budget or dead-reference regression.
 
+- A caller can choose the correlation id its call is traced under, through
+  `ChatOptions::withCorrelationId()` and its siblings on `AbstractOptions`
+  (ADR-176).
+
+  Every send already got an id — the provider pipeline mints a UUID when none
+  is passed — but it was minted inside and never handed back, so a caller could
+  not say afterwards which telemetry row was its own call. Supplying it is the
+  answer: the caller knows the id because it chose it.
+
+  Inside an agent run the run's id still wins, so one run stays one trace. Like
+  the idempotency key, the value never reaches a provider.
+
+  This is what makes a per-call outcome recordable. It is an option rather than
+  a return value because `CompletionResponse` is frozen, so growing it would
+  have been a breaking change.
+
+- The AI tasks module asks whether a result was useful, and stores the answer
+  against the call that produced it (ADR-176).
+
+  The rating lands on `tx_nrllm_call_outcome`, keyed on the same
+  `correlation_id` the cost and pre-routing facts already sit on, so quality and
+  cost join without a second identity. It carries no backend user and no
+  per-editor readout exists: who ran the call is on the run record where budgets
+  need it, and erasure rides on the installation's `be_users` lifecycle.
+
+  An approval is never treated as a rating. It can be withheld for governance
+  reasons that say nothing about the model, so folding it in would measure the
+  gate instead of the answer.
+
 ### Changed
 - **AGENTS.md files synchronized with the repository state.** Root slimmed from 356 to 119 lines by moving content into the scoped files it belongs to; stale inventories refreshed (TCA files, database tables, backend templates, JS modules, `Services.Dashboard.php`); phantom `TCA/Overrides/` and dead `MEMORY.md` references removed; generic workflow boilerplate in `.github/workflows/AGENTS.md` replaced with this repository's actual conventions (no local jobs, release flow, dependency automation).
 

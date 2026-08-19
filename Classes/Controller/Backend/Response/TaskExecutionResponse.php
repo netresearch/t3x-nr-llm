@@ -48,6 +48,16 @@ final readonly class TaskExecutionResponse implements JsonSerializable
         public int $totalTokens,
         public bool $success = true,
         public array $appliedSkills = [],
+        /**
+         * The call this result came from (ADR-176).
+         *
+         * Sent so the surface showing the result can record an outcome against
+         * the call that produced it. Empty means "not rateable" rather than
+         * "not yet rated" — a result built outside TaskExecutionService has no
+         * call to point at, and a rating keyed on the empty string would fold
+         * every such result into one row.
+         */
+        public string $correlationId = '',
     ) {}
 
     public static function fromResult(TaskExecutionResult $result): self
@@ -60,6 +70,7 @@ final readonly class TaskExecutionResponse implements JsonSerializable
             completionTokens: $result->usage->completionTokens,
             totalTokens: $result->usage->totalTokens,
             appliedSkills: $result->appliedSkills,
+            correlationId: $result->correlationId,
         );
     }
 
@@ -70,7 +81,8 @@ final readonly class TaskExecutionResponse implements JsonSerializable
      *   model: string,
      *   outputFormat: string,
      *   usage: array{promptTokens: int, completionTokens: int, totalTokens: int},
-     *   appliedSkills: list<string>
+     *   appliedSkills: list<string>,
+     *   correlationId: string
      * }
      */
     public function jsonSerialize(): array
@@ -85,7 +97,8 @@ final readonly class TaskExecutionResponse implements JsonSerializable
                 'completionTokens' => $this->completionTokens,
                 'totalTokens'      => $this->totalTokens,
             ],
-            'appliedSkills' => $this->appliedSkills,
+            'appliedSkills'  => $this->appliedSkills,
+            'correlationId'  => $this->correlationId,
         ];
     }
 }

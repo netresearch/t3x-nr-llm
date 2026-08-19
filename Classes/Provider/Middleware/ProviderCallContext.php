@@ -122,6 +122,13 @@ final readonly class ProviderCallContext
      * writing '' into `tx_nrllm_telemetry.correlation_id` would collide every
      * such call into one bucket instead of leaving them individually traceable.
      */
+    /**
+     * Call metadata key a caller uses to choose its own correlation id
+     * (ADR-176). Read by {@see LlmServiceManager} rather than here, because a
+     * run's own id has to win over it and this class never sees the run.
+     */
+    public const METADATA_CORRELATION_ID = 'nrllm.correlationId';
+
     private static function resolveCorrelationId(?string $correlationId): string
     {
         return ($correlationId === null || $correlationId === '')

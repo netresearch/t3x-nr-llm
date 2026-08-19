@@ -2890,6 +2890,26 @@
                 <source>Provider and models are required</source>
                 <target>Provider und Modelle sind erforderlich</target>
             </trans-unit>
+            <trans-unit id="outcome.prompt" approved="yes">
+                <source>Was this useful?</source>
+                <target>War das brauchbar?</target>
+            </trans-unit>
+            <trans-unit id="outcome.helpful" approved="yes">
+                <source>Yes</source>
+                <target>Ja</target>
+            </trans-unit>
+            <trans-unit id="outcome.notHelpful" approved="yes">
+                <source>No</source>
+                <target>Nein</target>
+            </trans-unit>
+            <trans-unit id="error.outcome.unknownRating" approved="yes">
+                <source>Unknown rating.</source>
+                <target>Unbekannte Bewertung.</target>
+            </trans-unit>
+            <trans-unit id="error.outcome.missingCall" approved="yes">
+                <source>This result cannot be rated: it carries no call reference.</source>
+                <target>Dieses Ergebnis ist nicht bewertbar: es trägt keinen Bezug zum Aufruf.</target>
+            </trans-unit>
             <trans-unit id="error.task.notFound">
                 <source>Task not found</source>
                 <target>Aufgabe nicht gefunden</target>
