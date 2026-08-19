@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Documentation
 
@@ -101,6 +101,18 @@ ADRs use numbered naming: `AdrNNNTitle.rst`; follow the existing format for new 
 
 ### Branding
 Documentation uses Netresearch branding: teal underline SVG for headings, emoji icons for feature cards, footer card with company info. See `guides.xml` `<extension>` attributes for project links.
+
+### Supported-version prose surfaces (unchecked by tests)
+`VersionConsistencyTest` pins `composer.json`, `ext_emconf.php`, the `ci.yml` matrix and `Api/SupportMatrix.rst` against each other — it does **not** see the prose. These repeat the supported TYPO3/PHP range with nothing checking them; update them by hand in the same change, and grep for the old floor before you finish (this list is what has been found, not a guarantee):
+
+- repo-root `README.md` (the two badges and the Requirements list)
+- `Installation/Index.rst`
+- `Introduction/Index.rst`
+- `Developer/FeatureServices/Index.rst`
+- `Testing/CiConfiguration.rst` (hand-copied matrix excerpt)
+- `Developer/IntegrationGuide.rst` (the TER constraint in its `ext_emconf.php` example)
+
+Repo-root `BASELINE.md`'s "Multi-version CI" row is the one prose surface that IS asserted, by `Tests/Unit/BaselineConsistencyTest.php`.
 <!-- AGENTS-GENERATED:END patterns -->
 
 <!-- AGENTS-GENERATED:START security -->

@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — .ddev
 
@@ -38,6 +38,18 @@ ddev describe   # print URLs and credentials
 | Database import | `ddev import-db < dump.sql.gz` |
 | View logs | `ddev logs` |
 | Restart | `ddev restart` |
+
+### Project commands (`commands/host/`, `commands/web/`)
+| Task | Command |
+|------|---------|
+| Full setup (TYPO3 v14 + extension) | `ddev install-v14` (also `install-v13`, `install-all`, `setup`) |
+| Seed provider/model/config demo data | `ddev seed-ollama` |
+| Seed task demo data | `ddev seed-tasks` (also `seed-usage`; SQL in `.ddev/sql/`) |
+| Ollama status / models | `ddev ollama` |
+| Render RST docs | `ddev docs` |
+
+### Demo data for screenshots and manual testing
+`ddev seed-ollama` creates 1 provider (Local Ollama), 3 models and 4 configurations; `ddev seed-tasks` creates 13 tasks across 4 categories. `ddev install-v14` auto-runs seed-ollama but NOT seed-tasks — run both before documentation screenshots so populated views are visible.
 <!-- AGENTS-GENERATED:END commands -->
 
 <!-- AGENTS-GENERATED:START patterns -->

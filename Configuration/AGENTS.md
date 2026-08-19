@@ -1,4 +1,4 @@
-<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-04-23 -->
+<!-- Managed by agent: keep sections and order; edit content, not structure. Last updated: 2026-08-19 -->
 
 # AGENTS.md — Configuration
 
@@ -25,8 +25,12 @@ Configuration/
 ├── Extbase/Persistence/Classes.php   # Extbase persistence mapping
 ├── TCA/
 │   ├── tx_nrllm_configuration.php
+│   ├── tx_nrllm_mcp_server.php
 │   ├── tx_nrllm_model.php
+│   ├── tx_nrllm_promptsnippet.php
 │   ├── tx_nrllm_provider.php
+│   ├── tx_nrllm_skill.php
+│   ├── tx_nrllm_skill_source.php
 │   ├── tx_nrllm_task.php
 │   └── tx_nrllm_user_budget.php
 ├── Caching.php              # Cache configuration
@@ -34,19 +38,30 @@ Configuration/
 ├── JavaScriptModules.php    # JS module registration
 ├── Services.php             # DI container configuration
 ├── Services.yaml            # Service definitions
-└── Services.Dashboard.yaml  # Dashboard widgets DI
+└── Services.Dashboard.php   # Dashboard widgets DI
 ```
 
+New tables get a per-table file directly under `TCA/`; there is currently no `TCA/Overrides/` directory (nr_llm does not extend foreign tables).
+
 ### Database Tables
+
+`ext_tables.sql` is the authoritative list (24 tables as of 2026-08-19). The core entities:
+
 | Table | Purpose |
 |-------|---------|
 | `tx_nrllm_provider` | API provider connections (OpenAI, Claude, etc.) |
 | `tx_nrllm_model` | Available models per provider |
-| `tx_nrllm_configuration` | Use-case configurations |
-| `tx_nrllm_configuration_begroups_mm` | MM join — configurations ↔ backend user groups |
-| `tx_nrllm_task` | Predefined task templates |
+| `tx_nrllm_configuration` | Use-case configurations (+ `_begroups_mm`, `_skill_mm` joins) |
+| `tx_nrllm_task` | Predefined task templates (+ `_skill_mm` join) |
 | `tx_nrllm_user_budget` | Per-user AI spending ceilings |
 | `tx_nrllm_service_usage` | Usage/cost tracking rows |
+| `tx_nrllm_skill`, `tx_nrllm_skill_source` | Skills and their sources (+ `tx_nrllm_skill_audit`) |
+| `tx_nrllm_promptsnippet` | Reusable prompt snippets |
+| `tx_nrllm_mcp_server`, `tx_nrllm_mcp_tool` | MCP server/tool registry |
+| `tx_nrllm_agentrun`, `tx_nrllm_agentrun_event` | Agent runs and their event log |
+| `tx_nrllm_ai_session`, `tx_nrllm_ai_session_message` | AI sessions |
+| `tx_nrllm_telemetry`, `tx_nrllm_governance_event`, `tx_nrllm_eval_result` | Telemetry / governance / eval records |
+| `tx_nrllm_tool_state`, `tx_nrllm_tool_group_state` | Tool enablement state |
 
 ### Services
 All services use autowiring. Public services defined in `Services.yaml`:
