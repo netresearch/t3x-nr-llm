@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord;
 use Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
@@ -159,6 +160,79 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
                 ProviderOperation::Chat,
                 $this->configuration(uid: 7),
                 [UsageMiddleware::METADATA_SKIP_REQUEST_COUNT => true],
+            ),
+            terminal: static fn(): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function callerSourceMetadataReachesTheCostRow(): void
+    {
+        // ADR-178: the cost row is attributed from the SAME metadata key the
+        // telemetry row uses, so the two cannot disagree about who called.
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                'ai_filemetadata',
+            );
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o-mini',
+            usage: new UsageStatistics(100, 50, 150, 0.0012),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::forConfiguration(
+                ProviderOperation::Chat,
+                $this->configuration(uid: 7),
+                [TelemetryMiddleware::METADATA_SOURCE_EXTENSION => 'ai_filemetadata'],
+            ),
+            terminal: static fn(): CompletionResponse => $response,
+        );
+    }
+
+    #[Test]
+    public function anUnannotatedCallIsRecordedAsUnattributed(): void
+    {
+        $this->tracker->expects(self::once())
+            ->method('trackUsage')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                '',
+            );
+
+        $response = new CompletionResponse(
+            content: 'hi',
+            model: 'gpt-4o-mini',
+            usage: new UsageStatistics(100, 50, 150, 0.0012),
+            finishReason: 'stop',
+            provider: 'openai',
+        );
+
+        $this->pipeline()->run(
+            context: ProviderCallContext::forConfiguration(
+                ProviderOperation::Chat,
+                $this->configuration(uid: 7),
             ),
             terminal: static fn(): CompletionResponse => $response,
         );

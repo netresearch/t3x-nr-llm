@@ -145,6 +145,25 @@ final class UsageAnalyticsServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function breakdownBySourceExtensionSeparatesCallersAndLabelsUnattributedUsage(): void
+    {
+        // ADR-178: the dashboard axis that answers "which extension spent what".
+        $this->insertRow(self::LIT_2026_06_01, ['source_extension' => 'ai_filemetadata', 'estimated_cost' => 0.10]);
+        $this->insertRow(self::LIT_2026_06_01, ['source_extension' => 'texter', 'estimated_cost' => 0.50, 'model_uid' => 2]);
+        $this->insertRow(self::LIT_2026_06_01, ['estimated_cost' => 0.20, 'model_uid' => 3]);
+
+        $bySource = $this->service->getBreakdownBySourceExtension(
+            new DateTimeImmutable(self::LIT_2026_06_01),
+            new DateTimeImmutable(self::LIT_2026_06_01),
+        );
+
+        self::assertSame('texter', $bySource[0]['label']);
+        self::assertSame('unattributed', $bySource[1]['label']);
+        self::assertEqualsWithDelta(0.20, $bySource[1]['cost'], 0.0001);
+        self::assertSame('ai_filemetadata', $bySource[2]['label']);
+    }
+
+    #[Test]
     public function getTotalsGroupedByKeysByColumnValue(): void
     {
         // Two rows share configuration_uid 5 (must SUM), one has 6.

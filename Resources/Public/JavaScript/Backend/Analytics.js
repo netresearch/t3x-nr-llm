@@ -57,6 +57,7 @@ class Analytics {
         this.renderBreakdown('nrllm-provider-chart', this.data.byProvider || []);
         this.renderBreakdown('nrllm-model-chart', this.data.byModel || []);
         this.renderBreakdown('nrllm-service-chart', this.data.byService || []);
+        this.renderBreakdown('nrllm-source-chart', this.data.bySource || []);
     }
 
     /**

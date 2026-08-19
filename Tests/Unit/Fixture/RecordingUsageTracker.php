@@ -32,6 +32,7 @@ final class RecordingUsageTracker implements UsageTrackerServiceInterface
      *     taskUid: int,
      *     beUserUid: ?int,
      *     countsAsRequest: bool,
+     *     sourceExtension: string,
      * }>
      */
     public array $calls = [];
@@ -46,6 +47,7 @@ final class RecordingUsageTracker implements UsageTrackerServiceInterface
         int $taskUid = 0,
         ?int $beUserUid = null,
         bool $countsAsRequest = true,
+        string $sourceExtension = '',
     ): void {
         $this->calls[] = [
             'serviceType'      => $serviceType,
@@ -57,6 +59,7 @@ final class RecordingUsageTracker implements UsageTrackerServiceInterface
             'taskUid'          => $taskUid,
             'beUserUid'        => $beUserUid,
             'countsAsRequest'  => $countsAsRequest,
+            'sourceExtension'  => $sourceExtension,
         ];
     }
 

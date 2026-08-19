@@ -251,7 +251,20 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
             taskUid: $taskUid,
             beUserUid: $beUserUid,
             countsAsRequest: $countsAsRequest,
+            sourceExtension: $this->sourceExtension($context),
         );
+    }
+
+    /**
+     * The caller identity as {@see TelemetryMiddleware} reads it — same
+     * metadata key, so the cost row and the telemetry row cannot disagree
+     * about who called (ADR-178).
+     */
+    private function sourceExtension(ProviderCallContext $context): string
+    {
+        $value = $context->metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null;
+
+        return is_string($value) ? $value : '';
     }
 
     /**
@@ -301,6 +314,7 @@ final readonly class UsageMiddleware implements ProviderMiddlewareInterface
                     taskUid: $record->taskUid,
                     beUserUid: $record->beUserUid,
                     countsAsRequest: $record->countsAsRequest,
+                    sourceExtension: $this->sourceExtension($context),
                 );
             }
 

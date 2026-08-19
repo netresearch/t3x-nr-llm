@@ -916,6 +916,24 @@
             <trans-unit id="analytics.breakdown.service">
                 <source>By service</source>
             </trans-unit>
+            <trans-unit id="analytics.breakdown.source">
+                <source>By extension</source>
+            </trans-unit>
+            <trans-unit id="analytics.source.title">
+                <source>Per calling extension</source>
+            </trans-unit>
+            <trans-unit id="analytics.source.description">
+                <source>What each extension spent through this installation. An extension appears here once it names itself on its calls; usage from wizards, scheduler runs and other unnamed callers is listed as unattributed.</source>
+            </trans-unit>
+            <trans-unit id="analytics.source.unattributed">
+                <source>Unattributed</source>
+            </trans-unit>
+            <trans-unit id="analytics.source.empty">
+                <source>No usage recorded in this period.</source>
+            </trans-unit>
+            <trans-unit id="analytics.table.extension">
+                <source>Extension</source>
+            </trans-unit>
             <trans-unit id="analytics.peruser.title">
                 <source>Per backend user</source>
             </trans-unit>

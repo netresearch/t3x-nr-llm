@@ -45,6 +45,15 @@ interface UsageAnalyticsServiceInterface
     public function getBreakdownByService(DateTimeInterface $from, DateTimeInterface $to): array;
 
     /**
+     * Cost, requests and tokens per calling extension — the `source_extension`
+     * a consumer named via `AbstractOptions::withCallerSource()` (ADR-178).
+     * Calls that named nobody are grouped under `unattributed`.
+     *
+     * @return list<array{label: string, cost: float, requests: int, tokens: int}>
+     */
+    public function getBreakdownBySourceExtension(DateTimeInterface $from, DateTimeInterface $to): array;
+
+    /**
      * Sum cost/requests/tokens grouped by an internal column, keyed by that
      * column's value. $column MUST be a hardcoded internal column name
      * (never user input): 'service_provider', 'model_uid', 'configuration_uid',

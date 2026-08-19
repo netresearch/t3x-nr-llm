@@ -184,6 +184,63 @@ final class UsageTrackerServiceTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function trackUsageKeepsSeparateRecordsForDifferentSourceExtensions(): void
+    {
+        // ADR-178: two extensions calling the same model on the same day must
+        // stay two rows, or the per-extension cost breakdown attributes
+        // everything to whoever wrote the row first.
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 10, 'cost' => 0.01], modelId: 'gpt-4o', sourceExtension: 'ai_filemetadata');
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 20, 'cost' => 0.02], modelId: 'gpt-4o', sourceExtension: 'texter');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        self::assertSame(2, $connection->count('*', self::TABLE, ['model_id' => 'gpt-4o']));
+
+        $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => 'texter'])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsNumeric($row['estimated_cost']);
+        self::assertEqualsWithDelta(0.02, (float)$row['estimated_cost'], 0.0001);
+
+        // The same extension again aggregates into ITS row only.
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 5, 'cost' => 0.01], modelId: 'gpt-4o', sourceExtension: 'texter');
+        self::assertSame(2, $connection->count('*', self::TABLE, ['model_id' => 'gpt-4o']));
+
+        $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => 'texter'])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsNumeric($row['estimated_cost']);
+        self::assertEqualsWithDelta(0.03, (float)$row['estimated_cost'], 0.0001);
+    }
+
+    #[Test]
+    public function trackUsageKeepsUnattributedCallsSeparateFromAttributedOnes(): void
+    {
+        // An unannotated caller (wizard task, scheduler run) writes '' and must
+        // not be merged into an extension's row.
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 10, 'cost' => 0.01], modelId: 'gpt-4o');
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 10, 'cost' => 0.04], modelId: 'gpt-4o', sourceExtension: 'ns_t3ai');
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        self::assertSame(2, $connection->count('*', self::TABLE, ['model_id' => 'gpt-4o']));
+
+        $row = $connection->select(['estimated_cost'], self::TABLE, ['source_extension' => ''])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsNumeric($row['estimated_cost']);
+        self::assertEqualsWithDelta(0.01, (float)$row['estimated_cost'], 0.0001);
+    }
+
+    #[Test]
+    public function trackUsageTruncatesAnOverlongSourceExtension(): void
+    {
+        // The column is varchar(64); a longer claim is a label, not a key, so it
+        // is cut rather than rejected (ADR-178).
+        $this->service->trackUsage('completion', 'openai', ['tokens' => 1, 'cost' => 0.01], sourceExtension: str_repeat('a', 100));
+
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $row = $connection->select(['source_extension'], self::TABLE, ['service_type' => 'completion'])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertSame(str_repeat('a', 64), $row['source_extension']);
+    }
+
+    #[Test]
     public function trackUsageKeepsSeparateRecordsForDifferentConfigurations(): void
     {
         // Two configurations on the same model (same everything else) must yield

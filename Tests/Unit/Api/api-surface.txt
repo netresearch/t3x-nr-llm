@@ -1668,7 +1668,7 @@ Netresearch\NrLlm\Service\UsageTrackerServiceInterface (interface)
   method getTodayUsage(string $serviceType, string $provider): ?array
   method getUsageReport(string $serviceType, DateTimeInterface $from, DateTimeInterface $to): array
   method getUserUsage(int $beUserUid, DateTimeInterface $from, DateTimeInterface $to): array
-  method trackUsage(string $serviceType, string $provider, array $metrics = …, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …): void
+  method trackUsage(string $serviceType, string $provider, array $metrics = …, ?int $configurationUid = …, int $modelUid = …, string $modelId = …, int $taskUid = …, ?int $beUserUid = …, bool $countsAsRequest = …, string $sourceExtension = …): void
 
 Netresearch\NrLlm\Service\UseCase\UseCasePackProviderInterface (interface)
   const TAG_NAME = "nr_llm.use_case_pack"
