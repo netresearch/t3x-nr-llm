@@ -31,9 +31,17 @@ closes it, so no issue tracks it.
 
 ## Toward 1.0
 
-- **[#691](https://github.com/netresearch/t3x-nr-llm/issues/691) — a management grant, once a management surface exists.**
-  `BackendUserGrant` holds two cases, each with an enforcement point. A third
-  without a surface would be the checkbox ADR-117 had to remove (ADR-130).
+None open. #691 was the last, and it closed as *answered* rather than built:
+[ADR-169](Documentation/Adr/Adr169RecordManagementUsesTypo3Permissions.rst) settles that the records a management surface would own are
+authorised by ``tables_modify`` and ``non_exclude_fields``, so a third
+`BackendUserGrant` case would gate nothing. The reservation is retired in all
+three places that carried it rather than left pending.
+
+What that decision did **not** settle is where such a surface lives. ADR-119's
+placement question is open as issue #812, and its trigger — the first
+cross-consumer editor surface — has not fired. It is not listed as roadmap
+here because it is a decision shared with nr_ai_search, nr_repurpose and the
+cowriter, not work this extension can schedule alone.
 
 ## Decisions that live elsewhere
 

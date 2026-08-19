@@ -1,0 +1,37 @@
+name: Roadmap Issue State
+
+# Fails when ROADMAP.md lists an issue that is already closed.
+#
+# Runs on a SCHEDULE as well as on pull requests, and the schedule is the part
+# that matters: the drift is produced by sibling merges, not by the pull request
+# that touches ROADMAP.md, so a pull-request-only check would never see it. The
+# three corrections this exists to prevent (2e2d5431, 90780db1, #804) were all
+# caused that way.
+#
+# Thin caller of the shared script-check reusable, so the checkout pin and
+# harden-runner stay maintained centrally. That workflow forwards no secrets and
+# runs without an authenticated GH_TOKEN — the script therefore reads the public
+# issues endpoint anonymously, and reports "could not determine" (exit 2, a
+# warning that passes) rather than failing when the shared runner IP has
+# exhausted the 60/hour anonymous quota.
+
+on:
+  schedule:
+    # Weekly. The drift accrues over merges, not over hours.
+    - cron: '17 6 * * 1'
+  pull_request:
+    paths:
+      - 'ROADMAP.md'
+      - 'Build/Scripts/check-roadmap-issue-state.sh'
+      - '.github/workflows/roadmap-check.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  roadmap-check:
+    uses: netresearch/.github/.github/workflows/script-check.yml@main
+    permissions:
+      contents: read
+    with:
+      check-cmd: bash Build/Scripts/check-roadmap-issue-state.sh || [ $? -eq 2 ]
