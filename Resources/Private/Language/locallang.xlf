@@ -2182,6 +2182,21 @@
             <trans-unit id="error.wizard.providerModelsRequired">
                 <source>Provider and models are required</source>
             </trans-unit>
+            <trans-unit id="outcome.prompt" resname="outcome.prompt">
+                <source>Was this useful?</source>
+            </trans-unit>
+            <trans-unit id="outcome.helpful" resname="outcome.helpful">
+                <source>Yes</source>
+            </trans-unit>
+            <trans-unit id="outcome.notHelpful" resname="outcome.notHelpful">
+                <source>No</source>
+            </trans-unit>
+            <trans-unit id="error.outcome.unknownRating" resname="error.outcome.unknownRating">
+                <source>Unknown rating.</source>
+            </trans-unit>
+            <trans-unit id="error.outcome.missingCall" resname="error.outcome.missingCall">
+                <source>This result cannot be rated: it carries no call reference.</source>
+            </trans-unit>
             <trans-unit id="error.task.notFound">
                 <source>Task not found</source>
             </trans-unit>

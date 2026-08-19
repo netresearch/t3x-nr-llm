@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Command;
 use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
+use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepositoryInterface;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillAuditRepositoryInterface;
@@ -57,6 +58,7 @@ final class PurgePrivacyDataCommand extends Command
         private readonly AiSessionRepositoryInterface $sessions,
         private readonly AgentRunRepositoryInterface $agentRuns,
         private readonly GovernanceEventRepositoryInterface $governanceEvents,
+        private readonly CallOutcomeRepositoryInterface $callOutcomes,
     ) {
         parent::__construct();
     }
@@ -96,6 +98,10 @@ final class PurgePrivacyDataCommand extends Command
 
         [$days, $cutoff] = $window(PrivacyDataCategory::TELEMETRY);
         $purged[]        = sprintf('Telemetry (%d d): %d', $days, $this->telemetry->purgeOlderThan($cutoff));
+        // Same window on purpose: a call outcome is only readable joined to the
+        // telemetry row carrying its model and cost (ADR-176), so it must not
+        // outlive it or go before it.
+        $purged[]        = sprintf('Call outcomes (%d d): %d', $days, $this->callOutcomes->purgeOlderThan($cutoff));
 
         [$days, $cutoff] = $window(PrivacyDataCategory::CONVERSATION);
         $purged[]        = sprintf('Conversation sessions (%d d): %d', $days, $this->sessions->purgeInactiveSince($cutoff));

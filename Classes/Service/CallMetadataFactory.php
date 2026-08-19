@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Option\AbstractOptions;
@@ -65,6 +66,24 @@ final readonly class CallMetadataFactory
         }
 
         return $metadata;
+    }
+
+    /**
+     * The caller's own correlation id, or nothing.
+     *
+     * Mirrors {@see self::idempotency()}: an empty value produces no entry at
+     * all, so "not given" and "given as empty" cannot be told apart downstream
+     * — they are the same thing.
+     *
+     * @return array<string, string>
+     */
+    public function correlation(?string $correlationId): array
+    {
+        if ($correlationId === null || $correlationId === '') {
+            return [];
+        }
+
+        return [ProviderCallContext::METADATA_CORRELATION_ID => $correlationId];
     }
 
     /**

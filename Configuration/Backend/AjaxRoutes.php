@@ -148,6 +148,14 @@ return [
         'path' => '/nrllm/task/execute',
         'target' => TaskExecutionController::class . '::executeAction',
     ],
+    // How one call turned out, rated by the person who read the result
+    // (ADR-176). Behind the same TASKS_USE grant as the execution itself: a
+    // rating is about a result the rater was allowed to produce, so there is
+    // no case where someone may run a task but not say how it went.
+    'nrllm_task_outcome' => [
+        'path' => '/nrllm/task/outcome',
+        'target' => TaskExecutionController::class . '::recordOutcomeAction',
+    ],
 
     // Configuration preset routes (ADR-056): pending presets declared by
     // consuming extensions (GET, incl. preflight result per preset) and

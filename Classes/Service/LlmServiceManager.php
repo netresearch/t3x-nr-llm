@@ -1264,7 +1264,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // operation runs through this pipeline.
         $this->assertContextPermitted($configuration, $metadata, $operation, $run->uid ?? 0, $injectedContext);
 
-        $context = ProviderCallContext::forConfiguration($operation, $configuration, $metadata, $run?->correlationId());
+        // A run's own id wins: inside an agent run every call belongs to that
+        // run's trace, and a caller-supplied id would split it. Outside one,
+        // the caller's id is used so it can find its own call afterwards
+        // (ADR-176); with neither, ProviderCallContext generates one.
+        $context = ProviderCallContext::forConfiguration(
+            $operation,
+            $configuration,
+            $metadata,
+            $run?->correlationId() ?? $this->callerCorrelationId($metadata),
+        );
 
         // Recorded here rather than inside the terminal, and that placement is
         // the entire point (ADR-174): the terminal is where resolveModel() runs,
@@ -1481,4 +1490,23 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     {
         return $this->adapterRegistry;
     }
+
+    /**
+     * The correlation id a caller chose, if it passed one.
+     *
+     * Read out of the metadata array rather than taken as a parameter: seven
+     * call sites reach runThroughPipeline(), and metadata is the channel this
+     * codebase already uses for call-scoped side-band values (idempotency,
+     * budget, the agent run). A parameter would have been an eighth argument
+     * that six of the seven never set.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    private function callerCorrelationId(array $metadata): ?string
+    {
+        $value = $metadata[ProviderCallContext::METADATA_CORRELATION_ID] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
 }

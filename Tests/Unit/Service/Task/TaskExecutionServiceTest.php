@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -32,6 +33,8 @@ use ReflectionProperty;
 #[CoversClass(TaskExecutionService::class)]
 final class TaskExecutionServiceTest extends AbstractUnitTestCase
 {
+    private ?string $seenCorrelationId = null;
+
     private LlmServiceManagerInterface&MockObject $llmServiceManager;
 
     private TaskExecutionService $subject;
@@ -71,12 +74,19 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Analyse the logs',
                 $configuration,
-                [UsageMiddleware::METADATA_TASK_UID => 99],
+                self::callback($this->metadataCarrying([UsageMiddleware::METADATA_TASK_UID => 99])),
                 [],
             )
             ->willReturn($response);
 
         $result = $this->subject->execute($task, 'the logs');
+
+        // The id the manager was handed and the id the caller gets back are the
+        // same one. Without this, the metadata matcher above would accept ANY
+        // correlation id, and a service minting a second one for the result
+        // would split one execution across two traces without failing a test.
+        self::assertNotSame('', $result->correlationId);
+        self::assertSame($this->seenCorrelationId, $result->correlationId);
 
         self::assertSame('result', $result->content);
     }
@@ -108,10 +118,10 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->with(
                 'Analyse the logs',
                 $configuration,
-                [
+                self::callback($this->metadataCarrying([
                     UsageMiddleware::METADATA_TASK_UID     => 99,
                     BudgetMiddleware::METADATA_BE_USER_UID => 42,
-                ],
+                ])),
                 [],
             )
             ->willReturn($response);
@@ -145,7 +155,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 $configuration,
-                [UsageMiddleware::METADATA_TASK_UID => 99],
+                self::callback($this->metadataCarrying([UsageMiddleware::METADATA_TASK_UID => 99])),
                 [],
             )
             ->willReturn($response);
@@ -210,7 +220,7 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
             ->with(
                 self::anything(),
                 $defaultConfiguration,
-                [UsageMiddleware::METADATA_TASK_UID => 77],
+                self::callback($this->metadataCarrying([UsageMiddleware::METADATA_TASK_UID => 77])),
                 [],
             )
             ->willReturnCallback(
@@ -374,4 +384,40 @@ final class TaskExecutionServiceTest extends AbstractUnitTestCase
         $prop = new ReflectionProperty($task, 'uid');
         $prop->setValue($task, $uid);
     }
+
+    /**
+     * Matcher for the metadata array a task execution forwards.
+     *
+     * The exact-array assertions these replace broke the moment the execution
+     * started tagging its own correlation id (ADR-176), and rewriting them as
+     * "expected keys plus that one" would have asserted the shape without
+     * asserting the thing that matters. So this checks the expected entries are
+     * present unchanged AND that a correlation id came along, and the tests
+     * that care assert separately that the id handed to the manager is the one
+     * the caller gets back.
+     *
+     * @param array<string, mixed> $expected
+     *
+     * @return callable(mixed): bool
+     */
+    private function metadataCarrying(array $expected): callable
+    {
+        return function (mixed $metadata) use ($expected): bool {
+            if (!is_array($metadata)) {
+                return false;
+            }
+
+            foreach ($expected as $key => $value) {
+                if (($metadata[$key] ?? null) !== $value) {
+                    return false;
+                }
+            }
+
+            $correlation = $metadata[ProviderCallContext::METADATA_CORRELATION_ID] ?? null;
+            $this->seenCorrelationId = is_string($correlation) ? $correlation : null;
+
+            return is_string($correlation) && $correlation !== '';
+        };
+    }
+
 }

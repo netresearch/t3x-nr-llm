@@ -25,6 +25,8 @@ class TaskExecute {
         this.fetchRecordsUrl = TYPO3.settings.ajaxUrls.nrllm_task_fetch_records;
         this.refreshInputUrl = TYPO3.settings.ajaxUrls.nrllm_task_refresh_input;
         this.loadRecordDataUrl = TYPO3.settings.ajaxUrls.nrllm_task_load_record_data;
+        this.outcomeUrl = TYPO3.settings.ajaxUrls.nrllm_task_outcome;
+        this.outcomeBar = document.querySelector('[data-call-outcome]');
 
         this.elapsedTimer = null;
 
@@ -70,6 +72,10 @@ class TaskExecute {
         }
 
         // Load records when table is selected
+        this.outcomeBar?.querySelectorAll('[data-outcome]').forEach(button => {
+            button.addEventListener('click', () => this.recordOutcome(button));
+        });
+
         this.tableSelect?.addEventListener('change', () => this.onTableChange());
 
         // Load selected records into input
@@ -289,8 +295,13 @@ class TaskExecute {
                 if (this.outputTokens) this.outputTokens.textContent = response.usage?.totalTokens ?? '-';
                 this.outputResult?.classList.remove('d-none');
 
+                this.showOutcomeBar(response.correlationId || '');
+
                 Notification.success('Task completed', 'The task has been executed successfully.');
             } else {
+                // A failed run has nothing to rate: the rating is about the
+                // answer, and there is none.
+                this.hideOutcomeBar();
                 if (this.errorMessage) this.errorMessage.textContent = response.error || 'Unknown error';
                 this.outputError?.classList.remove('d-none');
                 Notification.error('Task failed', response.error || 'Unknown error');
@@ -467,6 +478,70 @@ class TaskExecute {
         }).catch(() => {
             Notification.error('Failed', 'Could not copy to clipboard');
         });
+    }
+
+    /**
+     * Offer the rating for the call that just answered (ADR-176).
+     *
+     * Hidden when the response carries no correlation id. That is "not
+     * rateable" rather than "not yet rated": a rating keyed on the empty
+     * string would fold every such result into one row, so no button is
+     * better than a button that writes the wrong key.
+     */
+    showOutcomeBar(correlationId) {
+        if (!this.outcomeBar) {
+            return;
+        }
+
+        if (!correlationId) {
+            this.hideOutcomeBar();
+            return;
+        }
+
+        this.outcomeBar.dataset.correlationId = correlationId;
+        this.outcomeBar.classList.remove('d-none');
+        this.outcomeBar.querySelectorAll('[data-outcome]').forEach(button => {
+            button.disabled = false;
+            button.classList.remove('active');
+        });
+    }
+
+    hideOutcomeBar() {
+        if (!this.outcomeBar) {
+            return;
+        }
+
+        this.outcomeBar.classList.add('d-none');
+        delete this.outcomeBar.dataset.correlationId;
+    }
+
+    async recordOutcome(button) {
+        const correlationId = this.outcomeBar?.dataset.correlationId || '';
+        const outcome = button.dataset.outcome || '';
+        if (!correlationId || !outcome) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('correlationId', correlationId);
+        formData.append('outcome', outcome);
+
+        try {
+            const response = await new AjaxRequest(this.outcomeUrl)
+                .post(formData)
+                .then(r => r.resolve());
+
+            if (response.success) {
+                // The stored answer replaces any earlier one, so the UI shows
+                // exactly one active button rather than accumulating them.
+                this.outcomeBar.querySelectorAll('[data-outcome]').forEach(other => other.classList.remove('active'));
+                button.classList.add('active');
+            } else {
+                Notification.error('Rating not saved', response.error || 'Unknown error');
+            }
+        } catch (error) {
+            Notification.error('Rating not saved', error.message || 'Unknown error');
+        }
     }
 }
 
