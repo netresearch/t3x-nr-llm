@@ -426,10 +426,19 @@ check_hooks_autosetup() {
         fi
     fi
 
+    # A hook installer that is a composer PLUGIN needs no script entry: it runs
+    # off its own package lifecycle. captainhook/hook-installer is the case in
+    # this repository, and looking only for post-install-cmd reported "no
+    # auto-setup" on a repository whose own AGENTS.md documents the plugin.
+    if [[ -f "composer.json" ]] && grep -q "captainhook/hook-installer" "composer.json"; then
+        found=true
+        via="captainhook/hook-installer (composer plugin)"
+    fi
+
     if [[ "$found" == true ]]; then
         pass 3 "Git hooks auto-setup via ${via}"
     else
-        warn 3 "No git hooks auto-setup detected (.envrc hooksPath, .husky/, or composer.json post-install-cmd)"
+        warn 3 "No git hooks auto-setup detected (.envrc hooksPath, .husky/, a composer plugin installer, or composer.json post-install-cmd)"
     fi
 }
 
