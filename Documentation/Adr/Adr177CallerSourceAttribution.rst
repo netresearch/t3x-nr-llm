@@ -9,6 +9,7 @@ ADR-177: Caller-source attribution on the options path
 :Status: Accepted
 :Date: 2026-08-18
 :Authors: Netresearch DTT GmbH
+:Amended: 2026-08-19 by :ref:`ADR-178 <adr-178>`
 
 Context
 =======
@@ -89,5 +90,7 @@ Consequences
   control stays with configurations and budgets).
 * Analytics aggregation by source (dashboard widget, module filter) is
   deliberately not part of this record; it can follow as UI work once rows
-  carry the columns.
+  carry the columns. Amended by :ref:`ADR-178 <adr-178>`: the follow-up
+  turned out to need a second persistence decision, because cost lives in
+  the usage table and not in telemetry.
 * ``api-surface.txt`` grows additively (new ``AbstractOptions`` methods).

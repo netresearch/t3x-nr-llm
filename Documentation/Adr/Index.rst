@@ -529,4 +529,5 @@ Tools
    Adr175ForcedSkillsBindByTheSnippetRule
    Adr176PerCallOutcomeSeparateFromApproval
    Adr177CallerSourceAttribution
+   Adr178CallerSourceOnTheCostPath
    Adr179ADroppedForcedSourceIsRecordedOnTheRun
