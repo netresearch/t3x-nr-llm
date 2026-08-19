@@ -9,6 +9,8 @@ ADR-175: A forced skill binds by the same rule as a forced snippet
 :Amends: :ref:`ADR-166 <adr-166>` (whose "the skill half was already correct"
     held for the resume path it was judging and not for the two composition
     paths it did not look at)
+:Amended: 2026-08-19 by :ref:`ADR-179 <adr-179>` (it made the two kinds agree on
+    which sources enter a run and left the silence when one does not)
 :Authors: Netresearch DTT GmbH
 
 Context
