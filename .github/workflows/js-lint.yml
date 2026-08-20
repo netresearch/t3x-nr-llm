@@ -1,0 +1,34 @@
+name: JavaScript Lint
+
+# Lints Resources/Public/JavaScript. Nothing did before #825: a file whose
+# methods had landed outside their class passed the whole CI matrix — 71 green
+# checks — because PHPStan does not read JavaScript, the functional suite
+# renders the template without executing the module, and no Playwright spec
+# covers that view. The defect was found by a person reading the diff.
+#
+# `node --check` was the cheaper candidate and lost on evidence: it parses a
+# `.js` file as a CommonJS script and accepted the broken file, while ESLint
+# parses it as an ES module — which is how the browser loads it — and reports
+# the parse error on the right line.
+#
+# Thin caller of the shared script-check reusable, so the checkout pin and
+# harden-runner stay maintained centrally. `pre-command` installs the npm
+# devDependencies the runner does not ship.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  js-lint:
+    uses: netresearch/.github/.github/workflows/script-check.yml@main
+    permissions:
+      contents: read
+    with:
+      pre-command: npm ci --no-audit --no-fund
+      check-cmd: npx eslint
