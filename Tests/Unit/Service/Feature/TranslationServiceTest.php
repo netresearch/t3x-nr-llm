@@ -91,6 +91,40 @@ class TranslationServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function translateCarriesTheCallerSourceOntoTheChatOptionsItBuilds(): void
+    {
+        // The service translates by building a fresh ChatOptions from the
+        // TranslationOptions it was given. The caller source is set by a wither
+        // rather than a constructor parameter, so the rebuild has to carry it
+        // deliberately — otherwise every translation is unattributed in the
+        // per-extension breakdown, whatever the caller annotated (ADR-178).
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManagerMock->expects(self::once())
+            ->method('chat')
+            ->with(
+                self::anything(),
+                self::callback(static fn(ChatOptions $options): bool
+                    => $options->getCallerSourceExtension() === 'my_extension'
+                    && $options->getCallerSourceOperation() === 'translateTitle'),
+            )
+            ->willReturn($this->createChatResponse('Hallo Welt'));
+
+        $subject = new TranslationService(
+            $llmManagerMock,
+            $this->translatorRegistryMock,
+            $this->configServiceStub,
+            new TranslationPromptBuilder(),
+        );
+
+        $subject->translate(
+            'Hello World',
+            'de',
+            'en',
+            (new TranslationOptions())->withCallerSource('my_extension', 'translateTitle'),
+        );
+    }
+
+    #[Test]
     public function translateThrowsOnEmptyText(): void
     {
         $this->expectException(InvalidArgumentException::class);

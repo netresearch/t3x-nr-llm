@@ -41,6 +41,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
@@ -2479,6 +2480,32 @@ final class ToolLoopServiceTest extends TestCase
         $result = (new ReflectionClass($service))->getMethod('budgetMetadata')->invoke($service, $options);
 
         return $result;
+    }
+
+    #[Test]
+    public function budgetMetadataCarriesTheCallerSource(): void
+    {
+        // The tool loop places two completions itself — the tool-free turn and
+        // the post-cap synthesis — through chatWithConfiguration(), whose only
+        // channel is this metadata array. Without the caller source here, an
+        // annotated run splits across two rows in the per-extension breakdown:
+        // the tool-capable turns attributed, these two not (ADR-178).
+        $meta = $this->budgetMetadata(
+            (new ToolOptions(beUserUid: 42))->withCallerSource('nr_mcp_agent', 'chatTurn'),
+        );
+
+        self::assertSame('nr_mcp_agent', $meta[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null);
+        self::assertSame('chatTurn', $meta[TelemetryMiddleware::METADATA_SOURCE_OPERATION] ?? null);
+        self::assertSame(42, $meta[BudgetMiddleware::METADATA_BE_USER_UID] ?? null);
+    }
+
+    #[Test]
+    public function budgetMetadataOmitsTheCallerSourceWhenTheRunNamedNobody(): void
+    {
+        $meta = $this->budgetMetadata(new ToolOptions(beUserUid: 42));
+
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_EXTENSION, $meta);
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_OPERATION, $meta);
     }
 
     #[Test]

@@ -99,14 +99,14 @@ final readonly class TranslationService implements TranslationServiceInterface
             ChatMessage::user($prompt['user']),
         ];
 
-        $chatOptions = new ChatOptions(
+        $chatOptions = $this->carryCallerSource(new ChatOptions(
             temperature: $options->getTemperature() ?? 0.3,
             maxTokens: $options->getMaxTokens() ?? 2000,
             provider: $options->getProvider(),
             model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
-        );
+        ), $options);
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
@@ -305,14 +305,14 @@ final readonly class TranslationService implements TranslationServiceInterface
                 ['temperature' => 0.1, 'max_tokens' => 10],
             );
         } else {
-            $chatOptions = (new ChatOptions(
+            $chatOptions = $this->carryCallerSource((new ChatOptions(
                 temperature: 0.1,
                 maxTokens: 10,
                 provider: $options->getProvider(),
                 model: $options->getModel(),
                 beUserUid: $this->resolveBeUserUid($options),
                 plannedCost: $options->getPlannedCost(),
-            ))->withSuppressRequestCount(!$countsAsRequest);
+            ))->withSuppressRequestCount(!$countsAsRequest), $options);
 
             $response = $this->llmManager->chat($messages, $chatOptions);
         }
@@ -356,14 +356,14 @@ final readonly class TranslationService implements TranslationServiceInterface
             )),
         ];
 
-        $chatOptions = new ChatOptions(
+        $chatOptions = $this->carryCallerSource(new ChatOptions(
             temperature: 0.1,
             maxTokens: 10,
             provider: $options->getProvider(),
             model: $options->getModel(),
             beUserUid: $this->resolveBeUserUid($options),
             plannedCost: $options->getPlannedCost(),
-        );
+        ), $options);
 
         $response = $this->llmManager->chat($messages, $chatOptions);
 
@@ -675,5 +675,22 @@ final readonly class TranslationService implements TranslationServiceInterface
     private function resolveBeUserUid(TranslationOptions $options): ?int
     {
         return $options->getBeUserUid() ?? $this->beUserContextResolver?->resolveBeUserUid();
+    }
+
+    /**
+     * Carry the caller identity across an options rebuild.
+     *
+     * Every `new ChatOptions(...)` in this service builds a fresh object from a
+     * fixed parameter list, and the caller source is set by a wither rather than
+     * a constructor parameter — so without this it is silently dropped and the
+     * call lands in the "Unattributed" bucket of the per-extension breakdown
+     * (ADR-177/ADR-178), no matter what the caller annotated.
+     */
+    private function carryCallerSource(ChatOptions $rebuilt, TranslationOptions $source): ChatOptions
+    {
+        return $rebuilt->withCallerSource(
+            $source->getCallerSourceExtension() ?? '',
+            $source->getCallerSourceOperation() ?? '',
+        );
     }
 }

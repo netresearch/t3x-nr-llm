@@ -198,6 +198,16 @@ final readonly class VisionService implements VisionServiceInterface
             plannedCost: $options->getPlannedCost(),
         );
 
+        // The caller identity is not a constructor parameter, so the rebuild
+        // above cannot carry it — exactly the trap the comment warns about,
+        // one field further on. Without this line every vision call made
+        // through this service is unattributed in the per-extension breakdown
+        // (ADR-177/ADR-178), including the ones nr-llm-compat's bridges annotate.
+        $visionOptions = $visionOptions->withCallerSource(
+            $options->getCallerSourceExtension() ?? '',
+            $options->getCallerSourceOperation() ?? '',
+        );
+
         return $this->llmManager->vision($content, $visionOptions);
     }
 

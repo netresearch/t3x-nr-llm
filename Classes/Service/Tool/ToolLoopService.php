@@ -29,6 +29,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -1127,9 +1128,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
     }
 
     /**
-     * Forward the budget pre-flight context (BE-user uid, planned cost) onto the
-     * synthesis completion so the cap-hit final call stays budget-gated and
-     * cost-attributed, matching the per-iteration tool calls.
+     * Forward the budget pre-flight context (BE-user uid, planned cost) and the
+     * caller identity onto a completion this service places itself, so the
+     * tool-free turn and the cap-hit synthesis stay budget-gated and attributed
+     * exactly like the per-iteration tool calls.
+     *
+     * The caller source needs carrying by hand here because these two calls go
+     * through `chatWithConfiguration()`, whose channel is the metadata array —
+     * the options object the run was started with does not reach them. Without
+     * it an annotated run splits across two rows in the per-extension
+     * breakdown: the tool-capable turns attributed, these two not (ADR-178).
      *
      * @return array<string, mixed>
      */
@@ -1148,6 +1156,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $plannedCost = $options->getPlannedCost();
         if ($plannedCost !== null) {
             $metadata[BudgetMiddleware::METADATA_PLANNED_COST] = $plannedCost;
+        }
+
+        // Null and '' both mean "named nobody" — the getter is nullable while
+        // the wither writes '' for an omitted operation, so both have to be
+        // treated the same or an unannotated run writes empty metadata keys.
+        $sourceExtension = $options->getCallerSourceExtension() ?? '';
+        if ($sourceExtension !== '') {
+            $metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] = $sourceExtension;
+
+            $sourceOperation = $options->getCallerSourceOperation() ?? '';
+            if ($sourceOperation !== '') {
+                $metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION] = $sourceOperation;
+            }
         }
 
         return $metadata;
