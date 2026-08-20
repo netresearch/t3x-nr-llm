@@ -82,10 +82,38 @@ handle_dbms_options() {
                 echo "Invalid combination -d ${DBMS} -a ${DATABASE_DRIVER}" >&2
                 exit 1
             fi
-            [[ -z "${DBMS_VERSION}" ]] && DBMS_VERSION="11.4"
-            if ! [[ ${DBMS_VERSION} =~ ^(10.5|10.6|10.11|11.0|11.4)$ ]]; then
-                echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
-                exit 1
+            [[ -z "${DBMS_VERSION}" ]] && DBMS_VERSION="11.8"
+            # The MariaDB series still in community support (mariadb.org
+            # maintenance policy): 10.11 until 2028-02, 11.4 until 2029-05,
+            # 11.8 until 2028-06, 12.3 until 2029-06. 10.5, 10.6 and 11.0 are
+            # EOL; 12.0-12.2 are rolling releases, not LTS.
+            #
+            # A version that has left support is mapped onto the LTS of its own
+            # series rather than refused: `-i 10.5` sits in Makefiles, READMEs
+            # and muscle memory, and failing those calls buys nothing. The
+            # substitution is announced on every run, because a suite that
+            # silently ran a different engine than it was asked for is worse
+            # than a broken call. DBMS_VERSION_EXACT=1 skips mapping and check
+            # both, for reproducing a bug on the engine a customer operates.
+            if [[ "${DBMS_VERSION_EXACT:-0}" != "1" ]]; then
+                case "${DBMS_VERSION}" in
+                    10.5|10.6)           DBMS_VERSION_LTS="10.11" ;;
+                    11.0|11.1|11.2|11.3) DBMS_VERSION_LTS="11.4" ;;
+                    11.5|11.6|11.7)      DBMS_VERSION_LTS="11.8" ;;
+                    12.0|12.1|12.2)      DBMS_VERSION_LTS="12.3" ;;
+                    *)                   DBMS_VERSION_LTS="" ;;
+                esac
+                if [[ -n "${DBMS_VERSION_LTS}" ]]; then
+                    echo "WARNING: MariaDB ${DBMS_VERSION} is out of support (EOL, or a rolling release)." >&2
+                    echo "         Running ${DBMS_VERSION_LTS} instead — the supported series it belongs to." >&2
+                    echo "         Set DBMS_VERSION_EXACT=1 to run ${DBMS_VERSION} anyway." >&2
+                    DBMS_VERSION="${DBMS_VERSION_LTS}"
+                fi
+                if ! [[ ${DBMS_VERSION} =~ ^(10.11|11.4|11.8|12.3)$ ]]; then
+                    echo "Invalid combination -d ${DBMS} -i ${DBMS_VERSION}" >&2
+                    echo "Supported: 10.11, 11.4, 11.8, 12.3. Set DBMS_VERSION_EXACT=1 to run an unsupported version." >&2
+                    exit 1
+                fi
             fi
             ;;
         mysql)
@@ -157,7 +185,7 @@ Options:
         Database for functional tests (default: sqlite)
 
     -i version
-        Database version (mariadb: 11.4, mysql: 8.4, postgres: 16)
+        Database version (mariadb: 11.8, mysql: 8.4, postgres: 16)
 
     -p <8.2|8.3|8.4|8.5>
         PHP version (default: 8.5)
