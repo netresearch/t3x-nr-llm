@@ -138,6 +138,100 @@ final readonly class McpSchemaNormalizer
     }
 
     /**
+     * Why {@see self::normalise()} refused a schema, in words an operator can
+     * act on — or null when it did not refuse.
+     *
+     * The rejections are deliberate, but "no usable parameter schema" tells the
+     * person reading the import report nothing: they cannot see whether the
+     * server sent something malformed, something too large, or something well
+     * formed that this import does not carry (a `$ref`, a union). Naming the
+     * reason is the difference between a dead end and a decision.
+     *
+     * The checks below mirror {@see self::normalise()} in the same order and on
+     * the same data — in particular the keyword walk runs over the FILTERED
+     * schema, so a keyword sitting in a key that is dropped anyway is not
+     * reported as the reason it was refused.
+     */
+    public function rejectionReason(mixed $inputSchema): ?string
+    {
+        if (!is_array($inputSchema)) {
+            return 'the server advertised no parameter schema';
+        }
+
+        if (($inputSchema['type'] ?? null) !== 'object') {
+            return 'its top-level type is not "object"';
+        }
+
+        if ($this->carriesUnsupportedKeyword($inputSchema)) {
+            return $this->unsupportedKeywordReason($this->firstUnsupportedKeyword($inputSchema) ?? '');
+        }
+
+        $normalised = [];
+        foreach (self::RETAINED_KEYS as $key) {
+            if (array_key_exists($key, $inputSchema)) {
+                $normalised[$key] = $inputSchema[$key];
+            }
+        }
+
+        if (!$this->retainedValuesAreWellFormed($normalised)) {
+            return 'its properties or required list are not well formed';
+        }
+
+        if (!$this->isWithinDepth($normalised, 1)) {
+            $keyword = $this->firstUnsupportedKeyword($normalised);
+
+            return $keyword !== null
+                ? $this->unsupportedKeywordReason($keyword)
+                : sprintf('it nests deeper than %d levels', self::MAX_DEPTH);
+        }
+
+        $encoded = json_encode($normalised);
+        if ($encoded === false) {
+            return 'it contains bytes that are not valid UTF-8';
+        }
+
+        if (strlen($encoded) > self::MAX_ENCODED_BYTES) {
+            return sprintf('it exceeds %d bytes once stored', self::MAX_ENCODED_BYTES);
+        }
+
+        return null;
+    }
+
+    private function unsupportedKeywordReason(string $keyword): string
+    {
+        return sprintf(
+            'it uses "%s", which this import does not carry: dropping the keyword would widen what the tool '
+            . 'accepts, letting a model produce arguments the server then rejects',
+            $keyword,
+        );
+    }
+
+    /**
+     * The keyword {@see self::isWithinDepth()} tripped over, at any level.
+     *
+     * @param array<array-key, mixed> $node
+     */
+    private function firstUnsupportedKeyword(array $node): ?string
+    {
+        foreach (self::UNSUPPORTED_KEYWORDS as $keyword) {
+            if (array_key_exists($keyword, $node)) {
+                return $keyword;
+            }
+        }
+
+        foreach ($node as $value) {
+            if (is_array($value)) {
+                $nested = $this->firstUnsupportedKeyword($value);
+                if ($nested !== null) {
+                    return $nested;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<array-key, mixed> $node
      */
     private function carriesUnsupportedKeyword(array $node): bool

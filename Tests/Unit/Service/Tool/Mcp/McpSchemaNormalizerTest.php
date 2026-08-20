@@ -234,4 +234,80 @@ final class McpSchemaNormalizerTest extends TestCase
 
         return $schema;
     }
+
+    #[Test]
+    public function rejectionReasonNamesTheKeywordForARealWorldSchema(): void
+    {
+        // Verbatim from https://mcp.deepwiki.com/mcp (tools/list, 2026-08-20):
+        // the `ask_question` tool, whose `repoName` accepts either one repo or
+        // a list. Two sibling tools on the same server import fine — this is
+        // the one an operator sees skipped, and "no usable parameter schema"
+        // gave them nothing to act on.
+        $schema = [
+            'type'       => 'object',
+            'properties' => [
+                'repoName' => [
+                    'anyOf' => [
+                        ['type' => 'string'],
+                        ['items' => ['type' => 'string'], 'type' => 'array'],
+                    ],
+                    'description' => 'GitHub repository or list of repositories (max 10) in owner/repo format.',
+                ],
+                'question' => [
+                    'description' => 'The question to ask about the repository.',
+                    'type'        => 'string',
+                ],
+            ],
+            'required' => ['repoName', 'question'],
+        ];
+
+        $subject = new McpSchemaNormalizer();
+
+        self::assertNull($subject->normalise($schema), 'the schema is still refused');
+
+        $reason = $subject->rejectionReason($schema);
+        self::assertIsString($reason);
+        self::assertStringContainsString('anyOf', $reason);
+    }
+
+    #[Test]
+    public function rejectionReasonIsNullForASchemaThatPasses(): void
+    {
+        $subject = new McpSchemaNormalizer();
+
+        // The sibling tool from the same server, which does import.
+        $schema = [
+            'type'       => 'object',
+            'properties' => [
+                'repoName' => [
+                    'description' => 'GitHub repository in owner/repo format.',
+                    'type'        => 'string',
+                ],
+            ],
+            'required' => ['repoName'],
+        ];
+
+        self::assertNotNull($subject->normalise($schema));
+        self::assertNull($subject->rejectionReason($schema));
+    }
+
+    #[Test]
+    public function rejectionReasonDoesNotBlameAKeywordInADroppedKey(): void
+    {
+        // `outputSchema`-style siblings and other non-retained keys are filtered
+        // out before the walk, so a keyword sitting in one of them is not what
+        // refused the schema — reporting it would send the operator after the
+        // wrong thing.
+        $subject = new McpSchemaNormalizer();
+
+        $schema = [
+            'type'       => 'object',
+            'properties' => ['q' => ['type' => 'string']],
+            'required'   => ['q'],
+            'examples'   => [['anyOf' => [['type' => 'string']]]],
+        ];
+
+        self::assertNotNull($subject->normalise($schema));
+        self::assertNull($subject->rejectionReason($schema));
+    }
 }
