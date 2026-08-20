@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolGroup;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
@@ -52,7 +53,9 @@ final class EditorActionDeclarationTest extends TestCase
      * @var array<string, list<string>>
      */
     private const SUBJECT_ARGUMENTS = [
-        'pages'      => ['uid', 'page'],
+        // `parent` is the page a NEW page is created under (`create_page_draft`):
+        // the uid an editor selects is the parent's, and it is required.
+        'pages'      => ['uid', 'page', 'parent'],
         'tt_content' => ['uid'],
         'sys_file'   => ['uid'],
     ];
@@ -67,6 +70,7 @@ final class EditorActionDeclarationTest extends TestCase
             'set_file_alternative_text'    => [SetFileAlternativeTextTool::class, ['sys_file']],
             'move_content_element'         => [MoveContentElementTool::class, ['tt_content']],
             'create_content_element_draft' => [CreateContentElementDraftTool::class, ['pages']],
+            'create_page_draft'            => [CreatePageDraftTool::class, ['pages']],
             'create_translation_draft'     => [CreateTranslationDraftTool::class, ['pages', 'tt_content']],
         ];
     }

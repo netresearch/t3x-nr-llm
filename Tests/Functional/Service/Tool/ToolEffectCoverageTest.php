@@ -55,6 +55,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      */
     private const DECLARED_WRITERS = [
         'create_content_element_draft',
+        'create_page_draft',
         'create_translation_draft',
         'move_content_element',
         'set_file_alternative_text',
