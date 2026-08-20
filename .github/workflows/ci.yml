@@ -99,8 +99,11 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
   # MariaDB functional leg (one cell): keeps the MySQL-only branches —
   # ke_search MATCH...AGAINST retrieval — permanently exercised in CI.
-  # mariadb:10.11 LTS: images >= 11 ship only mariadb-admin, which fails
-  # the reusable workflow's hardcoded mysqladmin health check.
+  # mariadb:11.8 — one of the two current LTS series (11.8, 12.3); the e2e
+  # leg runs the other, so CI covers both. This sat on 10.11 because images
+  # >= 11 ship only mariadb-admin while the reusable workflow health-checked
+  # with a hardcoded mysqladmin, so the service never turned healthy
+  # (netresearch/typo3-ci-workflows#128, fixed there in #174).
   # The full matrix above stays on SQLite; this narrow second call exists ONLY
   # for the MariaDB functional leg.
   ci-functional-mariadb:
@@ -112,7 +115,7 @@ jobs:
       typo3-versions: '["^14.3"]'
       run-functional-tests: true
       functional-test-db: mariadb
-      db-image: 'mariadb:10.11'
+      db-image: 'mariadb:11.8'
       # Shard by test class here too. With the SQLite cells down to ~2.5min this
       # leg became the single longest job in CI at 6min, i.e. the whole
       # critical-path term of the wall clock.
@@ -122,7 +125,7 @@ jobs:
       # identifier — $originalDatabaseName . '_ft' . substr(sha1(static::class), 0, 7)
       # (FunctionalTestCase.php:361) — so each process creates its OWN database
       # (typo3_test_ft<hash>). No CREATE race, no shared state, and 4 processes
-      # are nowhere near mariadb:10.11's default max_connections of 151.
+      # are nowhere near mariadb:11.8's default max_connections of 151.
       #
       # No event split: this leg never uploaded coverage (upload-coverage is
       # unset here, so the reusable resolves coverage: none). It exists purely to
