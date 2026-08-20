@@ -49,6 +49,10 @@ final readonly class McpSchemaNormalizer
      * The only top-level keys carried over. Everything else is either an
      * annotation a provider ignores (`title`, `$id`, `examples`, vendor
      * extensions) or a constraint handled by self::UNSUPPORTED_KEYWORDS.
+     *
+     * The applicators are listed so a union declared at the TOP level survives
+     * the filter; inside a property they ride along with the property schema,
+     * which is copied whole.
      */
     private const RETAINED_KEYS = [
         'type',
@@ -56,14 +60,25 @@ final readonly class McpSchemaNormalizer
         'properties',
         'required',
         'additionalProperties',
+        'allOf',
+        'anyOf',
+        'oneOf',
+        'not',
     ];
 
     /**
-     * Keywords whose removal would widen what the server accepts: references
-     * into a definition block we do not carry over, and applicators that
-     * further constrain the arguments. Dropping any of them yields a schema
-     * that permits calls the server rejects, so their presence at any level
-     * rejects the whole schema.
+     * Keywords this import refuses to carry, because carrying them would be a
+     * lie and dropping them would widen what the tool accepts.
+     *
+     * The distinction that decides membership is whether the keyword is
+     * SELF-CONTAINED. A union (`anyOf`) carries its alternatives inline, so
+     * handing it to the provider verbatim preserves exactly what the server
+     * said — those keywords are carried (see self::RETAINED_KEYS). A reference
+     * points into a definition block this filter does not carry, so it would
+     * arrive dangling; and the draft-2019/2020 applicators below have no
+     * dependable support across the providers this extension talks to, so
+     * carrying them trades an import-time refusal for a call-time failure with
+     * a worse error message.
      *
      * A property literally named after one of these keywords is rejected along
      * with them: the walk does not distinguish a schema position from a
@@ -74,10 +89,6 @@ final readonly class McpSchemaNormalizer
         '$dynamicRef',
         '$defs',
         'definitions',
-        'allOf',
-        'anyOf',
-        'oneOf',
-        'not',
         'if',
         'then',
         'else',
