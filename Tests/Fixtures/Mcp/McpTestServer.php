@@ -36,7 +36,7 @@ final class McpTestServer implements ClientInterface
      * re-encodes as `[]` and would hide the very distinction a strict server
      * cares about.
      *
-     * @var list<array{method: string|null, body: array<string, mixed>, raw: string, session: string}>
+     * @var list<array{method: string|null, body: array<string, mixed>, raw: string, session: string, accept: string}>
      */
     public array $received = [];
 
@@ -74,6 +74,7 @@ final class McpTestServer implements ClientInterface
             'body'    => $body,
             'raw'     => $raw,
             'session' => $request->getHeaderLine('Mcp-Session-Id'),
+            'accept'  => $request->getHeaderLine('Accept'),
         ];
 
         // A notification carries no id and gets no reply, so it must not eat a

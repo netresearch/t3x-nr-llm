@@ -323,6 +323,30 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
     }
 
     /**
+     * TOOL EXECUTION, answered as an event stream.
+     *
+     * The Streamable HTTP transport lets a server frame the response to a POST
+     * as `text/event-stream`, and the public reference servers do exactly that
+     * for every request. The answer must read the same as a plain JSON one:
+     * same result, same contact recorded — nothing about the framing is
+     * visible above the transport (ADR-181).
+     */
+    #[Test]
+    public function readsAnEventStreamFramedAnswerLikeAPlainOne(): void
+    {
+        $fake = $this->connection()->scriptedServer()->willReturnRaw(
+            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"framed: hello\"}]}}\n\n",
+            200,
+            'text/event-stream',
+        );
+
+        $result = $this->toolFor($fake)->execute(['uid' => 3], ToolExecutionContext::none());
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('framed: hello', $result->content);
+    }
+
+    /**
      * TOOL EXECUTION, failed by the TOOL rather than by the wire.
      *
      * `isError` on an otherwise successful response is how a working server
@@ -604,7 +628,8 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
             'an authentication refusal'     => ['{}', 401, 'application/json'],
             'a JSON-RPC error object'       => ['{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}', 200, 'application/json'],
             'a maintenance page'            => ['<html>maintenance</html>', 200, 'text/html'],
-            'an event stream we do not read' => ["data: {}\n\n", 200, 'text/event-stream'],
+            'an event stream with no message' => [": ping\n\n", 200, 'text/event-stream'],
+            'an event stream carrying only a server notification' => ["data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{}}\n\n", 200, 'text/event-stream'],
             'a body with neither result nor error' => ['{"jsonrpc":"2.0","id":1}', 200, 'application/json'],
             'an empty body'                 => ['', 200, 'application/json'],
         ];

@@ -142,9 +142,80 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function refusesAnEventStreamRatherThanGuessingAtIt(): void
+    public function offersBothMediaTypesTheStreamableTransportRequires(): void
     {
-        $fake = (new McpTestServer())->willReturnRaw("data: {}\n\n", 200, 'text/event-stream');
+        // The reference servers answer `application/json` alone with 406, so
+        // the header is part of the contract, not a preference (ADR-181).
+        $fake = (new McpTestServer())->willReturn(['tools' => []]);
+
+        $this->transportFor($fake)->call(McpTestServer::server(), 'tools/list', [], $this->deadline());
+
+        self::assertSame('application/json, text/event-stream', $fake->received[0]['accept']);
+    }
+
+    #[Test]
+    public function unframesAnEventStreamThatCarriesTheResponse(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw(
+            "event: message\r\nid: 7\r\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\r\ndata:  \"result\":{\"tools\":[{\"name\":\"x\"}]}}\r\n\r\n",
+            200,
+            'text/event-stream; charset=utf-8',
+        );
+
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'tools/list', [], $this->deadline());
+
+        // Two `data:` lines of one event join with a newline; `event:` and
+        // `id:` lines and the leading space after `data:` are framing, not
+        // payload; CRLF is a line ending like any other.
+        self::assertSame(['tools' => [['name' => 'x']]], $answer['result']);
+    }
+
+    #[Test]
+    public function passesOverAServerNotificationOnTheStreamAndTakesTheResponse(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw(
+            ": keep-alive\n\n"
+            . "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{\"level\":\"info\"}}\n\n"
+            . "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n",
+            200,
+            'text/event-stream',
+        );
+
+        $answer = $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+
+        self::assertSame(['ok' => true], $answer['result']);
+    }
+
+    #[Test]
+    public function anEventStreamWithoutAResponseIsAMalformedAnswer(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw(
+            "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/message\",\"params\":{}}\n\n",
+            200,
+            'text/event-stream',
+        );
+
+        $this->expectException(McpTransportException::class);
+        $this->expectExceptionMessageMatches('/carried no response/');
+
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+    }
+
+    #[Test]
+    public function anEmptyEventStreamIsAMalformedAnswer(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw(": ping\n\n", 200, 'text/event-stream');
+
+        $this->expectException(McpTransportException::class);
+        $this->expectExceptionMessageMatches('/carried no message/');
+
+        $this->transportFor($fake)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+    }
+
+    #[Test]
+    public function stillRefusesAContentTypeItCannotRead(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw('<html>maintenance</html>', 200, 'text/html');
 
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990215);

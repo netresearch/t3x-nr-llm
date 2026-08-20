@@ -7,7 +7,8 @@ ADR-161: One conformance suite for every MCP connection we support
 :Status: Accepted (the timeouts row now covers the whole operation — see
     :ref:`ADR-170 <adr-170>`)
 :Date: 2026-08-11
-:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`
+:Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`; 2026-08-20 by
+    :ref:`ADR-181 <adr-181>` (the "no SSE" edge is now "no live stream")
 
 Context
 =======

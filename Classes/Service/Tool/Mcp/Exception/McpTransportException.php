@@ -78,7 +78,7 @@ final class McpTransportException extends RuntimeException
     {
         return new self(
             sprintf(
-                'MCP server "%s" answered with content type "%s"; this client reads JSON responses only and does not consume an event stream.',
+                'MCP server "%s" answered with content type "%s"; this client reads a JSON response, plain or framed as a single event-stream message, and nothing else.',
                 $identifier,
                 self::clip($contentType),
             ),
