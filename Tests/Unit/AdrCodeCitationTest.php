@@ -27,14 +27,20 @@ use SplFileInfo;
  *
  * - a citation naming a file that is no longer in the tree, or whose basename
  *   became ambiguous;
- * - a citation pointing past the end of its file, or at a blank line.
+ * - a citation pointing past the end of its file, or at a blank line;
+ * - an anchored `path#anchor` citation whose anchor the file no longer holds.
  *
  * What it does NOT catch, stated so nobody reads more into it: a line that
  * moved onto different but non-blank code. That is the common case and the
  * dangerous one — the citation then asserts something the cited code does not
- * say, and its precision is what makes a reviewer trust it. No test can tell
- * the difference, which is the argument for citing a symbol rather than a line
- * number wherever the prose allows it.
+ * say, and its precision is what makes a reviewer trust it. ADR-171 cited
+ * AgentRunController.php:267 for "the list viewport"; :267 is that file's
+ * closing brace for an unrelated method, and every assertion here passed on it.
+ *
+ * No line-based test can tell the difference, which is why ADR-171 no longer
+ * cites lines at all: a symbol, a `:ref:` into the record it quotes, or a
+ * `path#anchor` naming a string the file must still contain. The last of those
+ * is the only citation form in this corpus a test can hold to its claim.
  *
  * Citations into TYPO3 core and sibling extensions cannot be checked here at
  * all: that code lives in .Build/vendor, which is not committed, and its line
@@ -77,10 +83,14 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             'cms-install/Configuration/Backend/Modules.php',
             'nr-vault/Configuration/Backend/Modules.php',
         ],
-        'Adr171PersonasTheCodeAlreadyAssumes.rst' => [
-            'cms-install/Configuration/Backend/Modules.php',
-        ],
     ];
+
+    /** Suffixes an ADR in this corpus cites by line. */
+    private const CITED_EXTENSIONS = ['php', 'rst', 'html', 'xlf', 'txt'];
+
+    private const LINE_CITATION = '#([A-Za-z0-9_/.-]+\.(?:php|rst|html|xlf|txt)):(\d+)(?:-(\d+))?#';
+
+    private const ANCHORED_CITATION = '#``([A-Za-z0-9_/.-]+\.(?:php|rst|html|xlf|txt))\#([^`]+)``#';
 
     private function repositoryRoot(): string
     {
@@ -88,7 +98,11 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
     }
 
     /**
-     * Every `File.php:NNN` or `File.php:NNN-MMM` in the corpus.
+     * Every `File.ext:NNN` or `File.ext:NNN-MMM` in the corpus.
+     *
+     * Restricting this to `.php` left 28% of the corpus's citations unread —
+     * ADRs cite templates, XLIFF, the frozen api-surface file and each other by
+     * line just as readily, and one of those was pointing at a blank line.
      *
      * @return list<array{adr: string, adrLine: int, path: string, from: int, to: int}>
      */
@@ -102,7 +116,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         foreach ($files as $file) {
             $lines = explode("\n", (string)file_get_contents($file));
             foreach ($lines as $index => $line) {
-                preg_match_all('#([A-Za-z0-9_/.-]+\.php):(\d+)(?:-(\d+))?#', $line, $matches, PREG_SET_ORDER);
+                preg_match_all(self::LINE_CITATION, $line, $matches, PREG_SET_ORDER);
                 foreach ($matches as $match) {
                     $citations[] = [
                         'adr'     => basename($file),
@@ -144,7 +158,7 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
                 continue;
             }
 
-            if (!$entry->isFile() || $entry->getExtension() !== 'php') {
+            if (!$entry->isFile() || !in_array($entry->getExtension(), self::CITED_EXTENSIONS, true)) {
                 continue;
             }
 
@@ -268,5 +282,68 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
             . 'unverifiable by this suite, so the list is maintained by hand: add the new entry deliberately, '
             . 'or drop one that no longer appears.',
         );
+    }
+
+    /**
+     * Every `path#anchor` citation in the corpus.
+     *
+     * @return list<array{adr: string, adrLine: int, path: string, anchor: string}>
+     */
+    private function anchoredCitations(): array
+    {
+        $files = glob($this->repositoryRoot() . '/Documentation/Adr/Adr*.rst');
+        self::assertIsArray($files);
+        self::assertNotSame([], $files);
+
+        $found = [];
+        foreach ($files as $file) {
+            $lines = explode("\n", (string)file_get_contents($file));
+            foreach ($lines as $index => $line) {
+                preg_match_all(self::ANCHORED_CITATION, $line, $matches, PREG_SET_ORDER);
+                foreach ($matches as $match) {
+                    $found[] = [
+                        'adr'     => basename($file),
+                        'adrLine' => $index + 1,
+                        'path'    => $match[1],
+                        'anchor'  => $match[2],
+                    ];
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    #[Test]
+    public function everyAnchoredCitationNamesAStringItsFileStillContains(): void
+    {
+        $broken = [];
+
+        $index = $this->basenameIndex();
+
+        foreach ($this->anchoredCitations() as $citation) {
+            $where    = sprintf('%s:%d', $citation['adr'], $citation['adrLine']);
+            $resolved = $this->resolve($citation['path'], $index, $where);
+
+            if ($resolved === null) {
+                $broken[] = sprintf('%s anchors into %s, which is not in the tree', $where, $citation['path']);
+                continue;
+            }
+
+            $file = $this->repositoryRoot() . '/' . $resolved;
+            if (str_contains((string)file_get_contents($file), $citation['anchor'])) {
+                continue;
+            }
+
+            $broken[] = sprintf(
+                '%s anchors on "%s", which %s no longer contains. Either the code moved on and the '
+                . 'record needs rewriting, or the anchor was never unique enough to survive an edit.',
+                $where,
+                $citation['anchor'],
+                $citation['path'],
+            );
+        }
+
+        self::assertSame([], $broken, implode("\n", $broken));
     }
 }

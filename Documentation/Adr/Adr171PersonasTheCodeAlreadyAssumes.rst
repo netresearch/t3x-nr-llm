@@ -47,13 +47,14 @@ Personas
 ------------------------------------------
 
 **Code.** Fifteen of the sixteen registered backend modules are
-``'access' => 'admin'`` (``Configuration/Backend/Modules.php:53`` … ``:321``);
-forty ``denyNonAdmin()`` call sites in fourteen controllers restore that line on
-AJAX routes (:ref:`ADR-037 <adr-037>`, enumerated in
-``Adr169RecordManagementUsesTypo3Permissions.rst:308-341``). ``isAdmin``
-short-circuits :php:`hasGrant()`, :php:`mayAccessSession()` and
-:php:`mayActOnRun()` (``AiActorContext.php:180``, ``:196``, ``:217``) and bypasses
-the configuration group restriction (``ConfigurationResolver.php:218``). The
+``'access' => 'admin'`` — ``grep -c "'access' => 'admin'"
+Configuration/Backend/Modules.php`` returns 15. Forty ``denyNonAdmin()`` call
+sites in fourteen controllers restore that line on AJAX routes
+(:ref:`ADR-037 <adr-037>`, enumerated with its own grep in
+:ref:`ADR-169 <adr-169-q6>`). ``isAdmin`` short-circuits :php:`hasGrant()`,
+:php:`mayAccessSession()` and :php:`mayActOnRun()`, and bypasses the
+configuration group restriction (:php:`ConfigurationResolver::actorMayUse()`).
+The
 docblock records where that comes from: "Administrators hold every grant
 implicitly (the core ``check()`` short-circuits on isAdmin)"
 (:php:`BackendUserGrant`'s class docblock) — the platform's rule, not ours.
@@ -79,14 +80,15 @@ person who decides which tools an editor may run.
 ---------------------------------------------------------
 
 **Code.** ``nrllm_aitasks``, ``'parent' => 'web'``, ``'access' => 'user'``
-(``Modules.php:342-344``) — the only non-admin surface in the extension. Two
-switches are required: the module tick in ``be_groups`` and the grant. The grant
-has **nine** enforcement points in four classes: ``TaskExecutionController:198,
-293``; ``AiTaskController:69, 98``; ``EditorActionController:78, 109, 170, 210``;
-``ContextMenu/EditorActionItemProvider:101``. The module withholds what an editor
-must not reach: no FormEngine links, no record picker, ``table``-input tasks
-filtered out (``AiTaskController:106``). Entry is from the record's own context
-menu.
+(``Configuration/Backend/Modules.php#nrllm_aitasks``) — the only non-admin
+surface in the extension. Two switches are required: the module tick in
+``be_groups`` and the grant. The grant has **ten** enforcement points in four
+classes — ``grep -rc "BackendUserGrant::TASKS_USE" Classes/`` locates them in
+:php:`TaskExecutionController` (3), :php:`EditorActionController` (4),
+:php:`AiTaskController` (2) and :php:`EditorActionItemProvider` (1). The module
+withholds what an editor must not reach: no FormEngine links, no record picker,
+``table``-input tasks filtered out (:php:`AiTaskController::executableTasks()`).
+Entry is from the record's own context menu.
 
 **Human (unvalidated).** Works on one record and wants one thing done to it, does
 not know what a provider is, and is afraid of publishing something wrong under
@@ -95,13 +97,15 @@ their own name.
 **Confidence.** Enforced by code.
 
 **Blocks.** :ref:`ADR-119 <adr-119>`'s reopening, which
-``Adr169RecordManagementUsesTypo3Permissions.rst:293-296`` recommends and does
+:ref:`ADR-169 <adr-169-q6>` recommends and does
 not do. ADR-119 argued *for* leaving the modules under Administration because
-"an editor would never open an nr_llm module" (``Adr119:69``); the context-menu
+"an editor would never open an nr_llm module"
+(:ref:`ADR-119 <adr-119-context-editor>`); the context-menu
 item now sends them into one.
 
-**Point at this if you disagree:** ``AiTaskController:149-167`` offers **every**
-active non-``table`` task in the instance to **every** grant holder. There is no
+**Point at this if you disagree:** :php:`AiTaskController::executableTasks()`
+offers **every** active non-``table`` task in the instance to **every** grant
+holder. There is no
 per-task, per-category or per-group scoping, and no task ownership field.
 
 .. _adr-171-p3:
@@ -110,16 +114,16 @@ per-task, per-category or per-group scoping, and no task ownership field.
 -------------------------------
 
 **Code.** :php:`BackendUserGrant::AGENT_APPROVE`; the grant branch in
-:php:`AiActorContext::mayActOnRun()` (``:229``) — "deliberately the only scope
-with a grant equivalent" (:ref:`ADR-130 <adr-130>`, Decision); the write side at
-``ResumeCoordinator.php:205`` and ``:650``; the list viewport at
-``AgentRunController.php:267``. It sits in no recommended preset: "granting it is
-an explicit trust decision"
-(``Documentation/Administration/Permissions.rst:55-59``).
-The card renders the tool's wire name and its pretty-printed ``argumentsJson``
-(``ApprovalControls.html:8``, ``:30``), and states its own limits — "Captured
-when the run paused — the target may have changed since" (``:25``), "No preview
-— you are deciding without one" (``:16``).
+:php:`AiActorContext::mayActOnRun()` — "deliberately the only scope with a grant
+equivalent" (:ref:`ADR-130 <adr-130>`, Decision); the write side in
+:php:`ResumeCoordinator::approve()` and :php:`ResumeCoordinator::submitInput()`;
+the list viewport in :php:`AgentRunController::listAction()`. It sits in no
+recommended preset: "granting it is an explicit trust decision"
+(``Documentation/Administration/Permissions.rst``). The card renders the tool's
+wire name and its pretty-printed ``argumentsJson``
+(``ApprovalControls.html#argumentsJson``), and
+states its own limits — "Captured when the run paused — the target may have
+changed since", "No preview — you are deciding without one".
 
 **Human (unvalidated).** Decides somebody else's proposed write without editing
 it, and can predict a tool call's effect from its arguments.
@@ -132,9 +136,9 @@ it, and can predict a tool call's effect from its arguments.
 
 **Point at this if you disagree:** the approver may release a write to a record
 they hold no rights on, and the preview is withheld exactly then
-(``WaitingRunViewFactory.php:47``, ``:153-162``); the run detail page is withheld
+(:php:`WaitingRunViewFactory::buildApproval()`); the run detail page is withheld
 too, because ``AGENT_READ`` has no grant equivalent
-(``AgentRunController.php:61-64``).
+(:php:`AgentRunController`'s class docblock).
 
 .. _adr-171-p4:
 
@@ -144,11 +148,11 @@ too, because ``AGENT_READ`` has no grant equivalent
 **Code.** ``grep systemMaintainer Classes/`` returns **zero hits**. nr_llm never
 checks this role, and every remedy the governance readout names is behind it: the
 page routes the reader to "the Install Tool under Settings > Extension
-Configuration > nr_llm" (``locallang.xlf:295-296``, rendered at
-``Governance.html:20-22``), and the Settings module is
-``'access' => 'systemMaintainer'`` — "stricter than admin"
-(``Adr169…rst:383-385``, reading core's
-``cms-install/Configuration/Backend/Modules.php:32``).
+Configuration > nr_llm" (``Resources/Private/Language/locallang.xlf``, rendered
+by ``Resources/Private/Templates/Backend/Governance.html``), and the Settings
+module is ``'access' => 'systemMaintainer'`` — "stricter than admin"
+(:ref:`ADR-169 <adr-169-q7>`, reading core's
+``cms-install/Configuration/Backend/Modules.php``).
 
 **Human (unvalidated).** Holds the instance's global switches. May or may not be
 the same account as the administrator who reads the governance page.
@@ -167,7 +171,7 @@ reader no route to the fix.
 **Code.** None. The role exists only as a shipped claim: "What a task may read
 and which model and configuration it uses is defined by whoever manages the task
 — that is the trust boundary: task managers define, grant holders execute"
-(``Permissions.rst:40-43``). Nothing checks it:
+(``Documentation/Administration/Permissions.rst``). Nothing checks it:
 :php:`TaskExecutionService::execute()` takes ``(Task, string, ?int $beUserUid)`` —
 no actor, nothing to check against. ``tasks_manage`` occurs once in ``Classes/``,
 in :php:`BackendUserGrant`'s class docblock — which, since
@@ -191,10 +195,10 @@ the permissions page describes a two-party structure the code does not implement
 ------------------------
 
 **Code.** Named first of three stated audiences
-(``Documentation/Introduction/Index.rst:19-24``) and the only actor with a
-machine-enforced contract: ``Tests/Unit/Api/api-surface.txt`` (1942 lines) freezes
+(``Documentation/Introduction/Index.rst``) and the only actor with a
+machine-enforced contract: ``api-surface.txt#AgentRuntimeInterface`` freezes
 :php:`AiActorContext` as the first parameter of every
-:php:`AgentRuntimeInterface` method (``:1130-1138``), so no consumer can call the
+:php:`AgentRuntimeInterface` method, so no consumer can call the
 runtime without constructing an actor. :ref:`ADR-070 <adr-070>` exists because
 consumers were calling ``findOneByIdentifier()`` and skipping both guards.
 
@@ -243,9 +247,10 @@ Contradictions found
 ADR-130 constraint 3 read "``agent_approve`` is **doubly unreachable for
 non-admins today** — both human approval surfaces sit behind admin gates …
 only becomes exercisable for non-admins with the editing module. Stated here so
-nobody reads it as an already-active control." It shipped: ``Modules.php:375-381``
-registers ``AgentRunController::approve`` and ``submitInput`` in
-``nrllm_aitasks``, ``'access' => 'user'`` (``:344``). A non-admin who holds the
+nobody reads it as an already-active control." It shipped:
+``Configuration/Backend/Modules.php#nrllm_aitasks`` registers
+``AgentRunController::approve`` and ``submitInput`` under
+``'access' => 'user'``. A non-admin who holds the
 grant and whose group has that module ticked decides another user's write today.
 ADR-130 now carries ``:Amended:`` and a rewritten constraint 3, and
 ``Tests/Unit/Configuration/ApprovalSurfaceInventoryTest.php`` pins the module
@@ -255,29 +260,32 @@ ADR-130 says which.
 
 **B. One codebase, two answers to "may this person use this model".** The Editor
 Action Center refuses a user outside the configuration's allowed groups —
-``EditorActionCatalogue.php:206`` via :php:`hasAccess()`, with the comment "a
-fourth copy of it is the copy that ages" (``:195``). The task list in the **same
-module** does not: ``TaskExecutionService.php:63`` calls
-:php:`resolveEffectiveConfiguration($task->getConfiguration())`, which at
-``ConfigurationResolver.php:50-53`` is ``$configuration ?? …`` — the task's pinned
+:php:`EditorActionCatalogue::usableDefault()` via :php:`hasAccess()`, with the
+comment "a fourth copy of it is the copy that ages". The task list in the **same
+module** does not: :php:`TaskExecutionService::execute()` calls
+:php:`resolveEffectiveConfiguration($task->getConfiguration())`, which in
+:php:`ConfigurationResolver::resolveEffectiveConfiguration()` is
+``$configuration ?? …`` — the task's pinned
 configuration, returned unchecked; the method has no actor to check with. A task
 pinned to a restricted configuration bypasses that restriction.
 
 **C. The bound that justifies the grant is opt-in.** :ref:`ADR-130 <adr-130>`,
 Decision: "The per-user budget pre-flight … bounds what a grant holder can
 spend."
-``Permissions.rst:43-45`` states it in its own words, not this one's — "Every run
-is pre-flighted against the user's own usage budget and attributed to them."
-``BudgetService.php:76-79``: with no ``tx_nrllm_user_budget``
-record for that uid, an inactive one, or one with no limit set, the check returns
+``Documentation/Administration/Permissions.rst`` states it in its own words, not
+this one's — "Every run is pre-flighted against the user's own usage budget and
+attributed to them." :php:`BudgetService::checkUserBudget()`: with no
+``tx_nrllm_user_budget`` record for that uid, an inactive one, or one with no
+limit set, the check returns
 ``allowed()``. The budget is per user and opt-in; the grant is per group.
 Ticking ``tasks_use`` for a group without creating budget records ships an
 unbounded spend, and nothing says so.
 
 **D. The approver may decide what they may not read.**
-``AgentRunController.php:61-64`` — ``AGENT_READ`` has no grant equivalent, "so the
-approval grant widens the list but not the detail page"; the preview is withheld
-on the same ground (``WaitingRunViewFactory.php:47``, ``:153-162``). A coherent
+:php:`AgentRunController`'s class docblock — ``AGENT_READ`` has no grant
+equivalent, "so the approval grant widens the list but not the detail page"; the
+preview is withheld on the same ground
+(:php:`WaitingRunViewFactory::buildApproval()`). A coherent
 security position and an incoherent human one. Needs a decision, not a patch.
 
 **E. "Operator" is the most-used word for a person in the corpus and is defined
@@ -285,8 +293,9 @@ nowhere.** 201 occurrences across 57 of 169 ADR files, counted at ``96ee600d``
 and rising with every record that uses the word; no enum case, no gate, no
 glossary. It is used for at least three disjoint permission levels: the
 administrator configuring records, the ``systemMaintainer`` changing extension
-configuration (``Adr140:164``), and a person with shell and cron
-(``Adr103:23``). Meanwhile ``Permissions.rst:70-72`` ships a preset called "AI
+configuration (:ref:`ADR-140 <adr-140>`), and a person with shell and cron
+(:ref:`ADR-103 <adr-103-context>`). Meanwhile
+``Documentation/Administration/Permissions.rst`` ships a preset called "AI
 operator" that is a **non-admin** holding one grant, and says so: "identical to
 *AI editor* on purpose".
 
@@ -310,8 +319,9 @@ should read this section first.
   equivalent" — a design choice, not an observed org chart. Until
   contradiction A shipped, no non-admin could reach it at all. We built the
   separation before meeting anyone who wants it.
-- **The input submitter.** ``ResumeCoordinator.php:650`` calls the *same*
-  predicate as ``:205``, so submitting is the approver's grant.
+- **The input submitter.** :php:`ResumeCoordinator::submitInput()` calls the
+  *same* predicate as :php:`ResumeCoordinator::approve()`, so submitting is the
+  approver's grant.
   :ref:`ADR-150 <adr-150>` reasons about them as a distinct actor with a
   different danger model — and no production tool can produce one:
   ``InputPauseCoverageTest::INPUT_REQUIRING_TOOLS = []`` pins the empty list,
@@ -320,21 +330,23 @@ should read this section first.
   grant that does not exist, using the corpus's most loaded word to mean its
   opposite.
 - **The lead editor.** One clause, once: "and a lead editor needs the same for
-  their editors, or for a group" (``Adr119:79``). Nothing implements it; budgets
-  have no group dimension. ``Adr157:109-113`` is the one surface that tried and
+  their editors, or for a group" (:ref:`ADR-119 <adr-119-context-editor>`).
+  Nothing implements it; budgets have no group dimension.
+  :ref:`ADR-157 <adr-157>` is the one surface that tried and
   declined on principle: "A group is not resolvable to an acting backend user …
   A group entry would have been a control with no reader." It is nonetheless
   ADR-119's stated trigger for moving the whole module tree.
-- **The run owner.** ``AiActorContext.php:233`` is real, but "owner" is a column
+- **The run owner.** :php:`AiActorContext::mayActOnRun()` is real, but "owner"
+  is a column
   on ``AgentRun``, not a job; every ``tasks_use`` holder becomes one by pressing
   execute. Its concern — a write under your identity because somebody else
   approved it — belongs to the editor, where a human can be asked about it.
 - **The anonymous caller and the backend group.** A fail-closed null object
-  (``AiActorContext.php:72-79``) and the unit of entitlement
+  (:php:`AiActorContext::anonymous()`) and the unit of entitlement
   (:php:`BackendUserGrant`'s class docblock). Both are load-bearing; neither is a person.
 - **The service account.** A machine, not a persona — and the counter-example to
   ADR-023: fail-closed from its first line. One exists, ``cli:nrllm:agent:cancel``
-  (``CancelAgentRunCommand.php:69``), declaring one of the five scopes.
+  (:php:`CancelAgentRunCommand::execute()`), declaring one of the five scopes.
 
 .. _adr-171-failure:
 
@@ -347,16 +359,19 @@ each against the code:
 
 **That capability describes a job.** ADR-023 put the flags on the group rather
 than the configuration because "capability is an editor-role concern, not a
-configuration concern" (``:98``). Half the execution paths have no person on
+configuration concern" (:ref:`ADR-023 <adr-023-alternatives>`). Half the
+execution paths have no person on
 them: streaming bypasses the pipeline, and the queue worker never populates
 ``$GLOBALS['BE_USER']`` — so the same run "would be denied synchronously and
-allowed after :php:`enqueue()`" (``Adr117:49-57``). A role-shaped control could
+allowed after :php:`enqueue()`" (:ref:`ADR-117 <adr-117-decision>`). A
+role-shaped control could
 not describe a queue.
 
 **That the person being restricted can reach the product.** They could not. "All
 thirteen nr_llm backend modules are ``'access' => 'admin'`` and administrators
 bypass the check by definition, so unticking a capability would change nothing
-inside nr_llm's own interface" (``Adr117:59-63``). It was a permissions model for
+inside nr_llm's own interface" (:ref:`ADR-117 <adr-117-decision>`). It was a
+permissions model for
 a user who did not exist on the system.
 
 **That absence of a person means nothing to restrict.** :php:`isAllowed()`
@@ -364,14 +379,16 @@ returned ``true`` with no backend user — the natural code to write when thinki
 about *a human being restricted*. Take the caller seriously and "no person" is
 the case that most needs denying.
 
-Verdict, ``Adr117:78-79``: "a control that has to be labelled 'has no effect' is
+Verdict, :ref:`ADR-117 <adr-117-decision-alternatives>`: "a control that has to
+be labelled 'has no effect' is
 worse than its absence." The correction was to reason about an **actor**, which
 may not be human, rather than a **role**, which always is — and it is why
 :php:`AiActorContext` exists.
 
 One consequence is under-read. ADR-130 pushed roles out of code and into
 documentation ("Roles are documentation-level presets (named grant bundles), not
-code", ``:36``). The documentation then invented "AI operator" and "task
+code", :ref:`ADR-130 <adr-130>`). The documentation then invented "AI operator"
+and "task
 managers". **A role nothing enforces is the same defect as a grant nothing reads,
 one layer up.**
 

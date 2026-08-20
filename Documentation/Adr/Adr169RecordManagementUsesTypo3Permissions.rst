@@ -108,7 +108,8 @@ mount (``:7677``) and the ``perms_*`` bitmask (``:7696-7705``).
      - Permitted today. No TCA change.
 
 **This is not theoretical for this extension.** The setup wizard renders a
-"Storage Folder (Page ID)" input (``Backend/SetupWizard/Index.html:328-331``),
+"Storage Folder (Page ID)" input
+(``Resources/Private/Templates/Backend/SetupWizard/Index.html#wizard.field.pid``),
 whose value reaches ``saveAction`` (``SetupWizardController.php:301``) and is
 written onto the provider (``:372-374``), every model (``:449``) and every
 configuration (``:525``) with no page check. All eight Extbase repositories set
@@ -292,7 +293,7 @@ reservation in ADR-130 and ADR-131 is retired rather than fulfilled.
 -------------------
 
 :ref:`ADR-119 <adr-119>` decided "keep the modules under Administration for
-now" (``Adr119BackendModulePlacement.rst:94``) and already carries the status
+now" (:ref:`ADR-119 <adr-119-decision>`) and already carries the status
 ``Accepted (deferred — the placement is not finally settled, see Revisit)``. Its
 trigger is "the first cross-consumer editor surface … a personal
 usage-and-budget view, a personal run history, or a lead-editor view over a
