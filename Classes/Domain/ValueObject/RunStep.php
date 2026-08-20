@@ -49,6 +49,15 @@ final readonly class RunStep
     public const KIND_CONTEXT = 'context';
 
     /**
+     * Forced sources the run asked for and did not get (ADR-179).
+     *
+     * Written once, before the first round, and only when something was
+     * actually dropped — a run whose sources all resolved records no step, so
+     * the step's presence is itself the signal.
+     */
+    public const KIND_DROPPED = 'dropped';
+
+    /**
      * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
      * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
      * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).
@@ -78,6 +87,11 @@ final readonly class RunStep
         public ?bool $toolIsError = null,
         public ?array $toolArtifacts = null,
         public ?ContextBudgetBreakdown $contextBudget = null,
+        /**
+         * @var list<DroppedSource>|null the sources this run asked for and did
+         *                               not get; null on every other kind
+         */
+        public ?array $droppedSources = null,
     ) {}
 
     /**
@@ -106,6 +120,15 @@ final readonly class RunStep
             'estimatedCost'      => $this->estimatedCost,
             'requestedToolCalls' => $this->requestedToolCalls,
             'raw'                => $this->raw,
+            // Flattened to "kind#uid reason" strings rather than nested objects:
+            // the timeline's allow-list renders scalars and simple lists, and a
+            // count alone would flatten the two reasons ADR-179 keeps apart.
+            // uid and reason are metadata, not content — the privacy filter's
+            // concern is the transcript, and nothing here carries prose.
+            'droppedSources'     => $this->droppedSources === null ? null : array_map(
+                static fn(DroppedSource $d): string => sprintf('%s#%d %s', $d->kind, $d->uid, $d->reason->value),
+                $this->droppedSources,
+            ),
             'toolName'           => $this->toolName,
             'toolArguments'      => $this->toolArguments,
             'toolResult'         => $this->toolResult,

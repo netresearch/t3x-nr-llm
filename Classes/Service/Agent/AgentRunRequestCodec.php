@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent;
 
+use Netresearch\NrLlm\Domain\Enum\DroppedSourceReason;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -17,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Service\Agent\Exception\RunConfigurationGoneException;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
@@ -154,10 +156,15 @@ final readonly class AgentRunRequestCodec
         $augmentation = null;
         if (is_array($data['augmentation'] ?? null)) {
             $augmentationData = $data['augmentation'];
+            $skillUids        = $this->uidList($augmentationData['forcedSkillUids'] ?? null);
+            $snippetUids      = $this->uidList($augmentationData['forcedSnippetUids'] ?? null);
+            $forcedSkills     = $this->skillsByUids($skillUids);
+            $forcedSnippets   = $this->snippetsByUids($snippetUids);
             $augmentation     = new RunAugmentation(
-                forcedSkills: $this->skillsByUids($this->uidList($augmentationData['forcedSkillUids'] ?? null)),
-                forcedSnippets: $this->snippetsByUids($this->uidList($augmentationData['forcedSnippetUids'] ?? null)),
+                forcedSkills: $forcedSkills,
+                forcedSnippets: $forcedSnippets,
                 dryRun: ($augmentationData['dryRun'] ?? false) === true,
+                droppedSources: $this->droppedSources($skillUids, $forcedSkills, $snippetUids, $forcedSnippets),
             );
         }
 
@@ -240,5 +247,97 @@ final readonly class AgentRunRequestCodec
         }
 
         return $this->promptSnippetRepository->findByUids($uids);
+    }
+
+    /**
+     * The forced sources this run asked for and did not get (ADR-179).
+     *
+     * Resolves each kind a SECOND time through its existence lookup. That is
+     * the only way to tell the two reasons apart: a uid the enabled-only
+     * lookup skipped but the existence lookup finds is switched off; one
+     * neither finds is gone. Without the second call both look identical, and
+     * a reader would be told "dropped" without being told what to do about it.
+     *
+     * ONE extra query per kind, not two: the records that DID arrive are passed
+     * in, because the rehydration has just resolved them. Re-querying them here
+     * would double every enabled-only lookup on the dequeue path — which is
+     * what `ToolLoopServiceAssemblyOrderTest` pins, and it caught exactly that
+     * in the first version of this method.
+     *
+     * @param list<int>           $skillUids       uids the run was queued with
+     * @param list<Skill>         $arrivedSkills   what the enabled-only lookup returned
+     * @param list<int>           $snippetUids
+     * @param list<PromptSnippet> $arrivedSnippets
+     *
+     * @return list<DroppedSource>
+     */
+    private function droppedSources(array $skillUids, array $arrivedSkills, array $snippetUids, array $arrivedSnippets): array
+    {
+        $dropped = [];
+
+        if ($skillUids !== [] && $this->skillRepository instanceof SkillRepository) {
+            $dropped = [...$dropped, ...$this->missing(
+                'skill',
+                $skillUids,
+                $this->uidsOf($arrivedSkills),
+                $this->uidsOf($this->skillRepository->findExistingByUids($skillUids)),
+            )];
+        }
+
+        if ($snippetUids !== [] && $this->promptSnippetRepository instanceof PromptSnippetRepository) {
+            return [...$dropped, ...$this->missing(
+                'snippet',
+                $snippetUids,
+                $this->uidsOf($arrivedSnippets),
+                $this->uidsOf($this->promptSnippetRepository->findExistingByUids($snippetUids)),
+            )];
+        }
+
+        return $dropped;
+    }
+
+    /**
+     * @param list<int> $requested
+     * @param list<int> $arrived   uids the enabled-only lookup returned
+     * @param list<int> $existing  uids the existence lookup returned
+     *
+     * @return list<DroppedSource>
+     */
+    private function missing(string $kind, array $requested, array $arrived, array $existing): array
+    {
+        $dropped = [];
+        foreach ($requested as $uid) {
+            if (in_array($uid, $arrived, true)) {
+                continue;
+            }
+
+            $dropped[] = new DroppedSource(
+                $kind,
+                $uid,
+                in_array($uid, $existing, true)
+                    ? DroppedSourceReason::DEACTIVATED
+                    : DroppedSourceReason::GONE,
+            );
+        }
+
+        return $dropped;
+    }
+
+    /**
+     * @param list<Skill>|list<PromptSnippet> $records
+     *
+     * @return list<int>
+     */
+    private function uidsOf(array $records): array
+    {
+        $uids = [];
+        foreach ($records as $record) {
+            $uid = $record->getUid();
+            if ($uid !== null) {
+                $uids[] = $uid;
+            }
+        }
+
+        return $uids;
     }
 }

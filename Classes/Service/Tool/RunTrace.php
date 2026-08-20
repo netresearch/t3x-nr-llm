@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
+use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -108,6 +109,29 @@ final class RunTrace
      * the question this answers, and a run only reaches the interesting answer
      * after the boring ones.
      */
+    /**
+     * Record the forced sources this run asked for and did not get (ADR-179).
+     *
+     * Called once, before the first round, and only with a non-empty list: a
+     * run whose sources all resolved records nothing, so the step's presence
+     * is the signal and an empty step would be noise on every other run.
+     *
+     * @param list<DroppedSource> $dropped
+     */
+    public function recordDroppedSources(array $dropped): void
+    {
+        if ($dropped === []) {
+            return;
+        }
+
+        $this->add(new RunStep(
+            kind: RunStep::KIND_DROPPED,
+            round: 0,
+            durationMs: 0.0,
+            droppedSources: $dropped,
+        ));
+    }
+
     public function recordContextBudget(int $round, ContextBudgetBreakdown $breakdown): void
     {
         $this->add(new RunStep(
