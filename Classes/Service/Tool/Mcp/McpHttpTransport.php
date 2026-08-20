@@ -382,6 +382,7 @@ final class McpHttpTransport
                 $payload = substr($line, 5);
                 $data[]  = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
             }
+
             // `event:`, `id:`, `retry:` and `:` comments are not read.
         }
 
