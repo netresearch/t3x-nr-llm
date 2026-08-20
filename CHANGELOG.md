@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-08-20
+
 ### Changed
 - **The MCP client talks to the public Streamable-HTTP servers** (ADR-181).
   It now offers both media types the transport requires
