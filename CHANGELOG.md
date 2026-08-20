@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-08-20
+
 ### Added
 - **Analytics answers "which extension spent what"** (ADR-178). The usage
   table carries the caller's extension key next to the money, so the
