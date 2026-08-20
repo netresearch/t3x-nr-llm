@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-08-20
+
 ### Added
 - **`create_page_draft` — the sixth writing tool, and the first that creates
   a page** (ADR-180). It creates ONE standard page under a parent page,
