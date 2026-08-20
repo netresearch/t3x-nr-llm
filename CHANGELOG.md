@@ -8,6 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **An MCP tool whose schema uses a union now imports.** `anyOf`, `oneOf`, `allOf` and `not` are carried to the provider verbatim instead of causing the whole tool to be skipped. The rule they were caught by protects against *dropping* a constraint — which would let a model produce arguments the server rejects — and carrying one unchanged does not do that. References (`$ref`, `$defs`) and the draft-2019/2020 applicators (`if`/`then`/`else`, `dependentRequired`, `unevaluatedProperties`, …) stay refused: the first would arrive dangling because the definition block is not carried, the second have no dependable provider support. Concretely, DeepWiki's `ask_question` imports now (#848).
 - **An MCP tool that is skipped on import now says why.** The report used to state that a tool had "no usable parameter schema", which is true and unactionable: an operator could not tell a malformed schema from an oversized one from a well-formed one this import deliberately does not carry. It now names the reason — for the common case, the keyword (`anyOf`, `$ref`, …) whose removal would widen what the tool accepts. The rejections themselves are unchanged.
 
 ## [0.31.1] - 2026-08-20

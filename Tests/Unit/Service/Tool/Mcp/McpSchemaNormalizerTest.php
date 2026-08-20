@@ -102,12 +102,6 @@ final class McpSchemaNormalizerTest extends TestCase
      */
     public static function unsupportedKeywordSchemas(): iterable
     {
-        yield 'root allOf' => [[
-            'type'       => 'object',
-            'properties' => ['q' => ['type' => 'string']],
-            'allOf'      => [['required' => ['q']]],
-        ]];
-
         yield 'reference into a dropped definition block' => [[
             'type'       => 'object',
             '$defs'      => ['Id' => ['type' => 'string']],
@@ -119,9 +113,19 @@ final class McpSchemaNormalizerTest extends TestCase
             'properties' => ['id' => ['$ref' => 'https://example.invalid/Id']],
         ]];
 
-        yield 'nested oneOf' => [[
+        // The draft-2019/2020 applicators stay refused: unlike a union they
+        // have no dependable support across the providers this extension talks
+        // to, so carrying them would trade an import-time refusal for a
+        // call-time failure with a worse message.
+        yield 'nested if/then' => [[
             'type'       => 'object',
-            'properties' => ['id' => ['oneOf' => [['type' => 'string'], ['type' => 'integer']]]],
+            'properties' => ['id' => ['if' => ['type' => 'string'], 'then' => ['minLength' => 1]]],
+        ]];
+
+        yield 'root dependentRequired' => [[
+            'type'              => 'object',
+            'properties'        => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+            'dependentRequired' => ['a' => ['b']],
         ]];
     }
 
@@ -236,7 +240,7 @@ final class McpSchemaNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function rejectionReasonNamesTheKeywordForARealWorldSchema(): void
+    public function aRealWorldUnionSchemaIsCarriedThrough(): void
     {
         // Verbatim from https://mcp.deepwiki.com/mcp (tools/list, 2026-08-20):
         // the `ask_question` tool, whose `repoName` accepts either one repo or
@@ -263,11 +267,58 @@ final class McpSchemaNormalizerTest extends TestCase
 
         $subject = new McpSchemaNormalizer();
 
-        self::assertNull($subject->normalise($schema), 'the schema is still refused');
+        $normalised = $subject->normalise($schema);
+        self::assertIsArray($normalised, 'the tool imports instead of being skipped');
+        self::assertNull($subject->rejectionReason($schema));
 
+        // The union survives verbatim: carrying it is what keeps the stored
+        // schema as narrow as the server's own, where dropping it would widen.
+        self::assertIsArray($normalised['properties'] ?? null);
+        $properties = $normalised['properties'];
+        self::assertIsArray($properties['repoName'] ?? null);
+        self::assertSame($schema['properties']['repoName']['anyOf'], $properties['repoName']['anyOf']);
+    }
+
+    #[Test]
+    public function aTopLevelUnionSurvivesTheKeyFilter(): void
+    {
+        // Inside a property the union rides along with the property schema,
+        // which is copied whole. At the top level it only survives because the
+        // applicators are retained keys.
+        $subject = new McpSchemaNormalizer();
+
+        $schema = [
+            'type'  => 'object',
+            'anyOf' => [
+                ['required' => ['a']],
+                ['required' => ['b']],
+            ],
+            'properties' => ['a' => ['type' => 'string'], 'b' => ['type' => 'string']],
+        ];
+
+        $normalised = $subject->normalise($schema);
+        self::assertIsArray($normalised);
+        self::assertSame($schema['anyOf'], $normalised['anyOf'] ?? null);
+    }
+
+    #[Test]
+    public function aReferenceIsStillRefusedBecauseItsTargetIsNotCarried(): void
+    {
+        // The distinction that decides the keyword list: a union carries its
+        // alternatives inline, a $ref points into a $defs block this filter
+        // drops — carrying it would hand the provider a dangling pointer.
+        $subject = new McpSchemaNormalizer();
+
+        $schema = [
+            'type'       => 'object',
+            'properties' => ['repoName' => ['$ref' => '#/$defs/repo']],
+            '$defs'      => ['repo' => ['type' => 'string']],
+        ];
+
+        self::assertNull($subject->normalise($schema));
         $reason = $subject->rejectionReason($schema);
         self::assertIsString($reason);
-        self::assertStringContainsString('anyOf', $reason);
+        self::assertStringContainsString('$', $reason);
     }
 
     #[Test]
