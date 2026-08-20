@@ -28,6 +28,17 @@ How it works
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.
 
+What the client speaks
+======================
+
+Plain HTTP: one POST per JSON-RPC message to the server's endpoint, offering
+both media types the Streamable HTTP transport requires (``application/json``
+and ``text/event-stream``). A server may answer a request as plain JSON or as
+a single event-stream framed message; both read the same here. What the
+client does **not** do: hold a stream open, resume one, answer a request the
+server initiates, or speak stdio (:ref:`ADR-116 <adr-116>`,
+:ref:`ADR-181 <adr-181>`).
+
 Is the server alive?
 ====================
 

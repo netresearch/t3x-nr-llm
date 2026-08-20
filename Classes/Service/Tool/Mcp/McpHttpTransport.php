@@ -185,11 +185,15 @@ final class McpHttpTransport
         $request = $this->requestFactory
             ->createRequest('POST', $server->url)
             ->withHeader('Content-Type', 'application/json')
-            // JSON only, stated honestly: this client does not consume an event
-            // stream, so it does not claim to accept one. A server that can
-            // only answer with a stream rejects the request, which is a clearer
-            // failure than a body we would refuse after the fact.
-            ->withHeader('Accept', 'application/json')
+            // Both media types, because the Streamable HTTP transport requires
+            // a client to offer both on every POST — the reference servers
+            // answer `application/json` alone with 406. Offering the stream
+            // does not mean holding one: a server that frames its answer as
+            // `text/event-stream` gets the single JSON-RPC response unwrapped
+            // in {@see self::decodeResult()}, and nothing here keeps a stream
+            // open, resumes one, or answers a request the server initiates
+            // (ADR-181).
+            ->withHeader('Accept', 'application/json, text/event-stream')
             ->withBody($this->streamFactory->createStream($body));
 
         if ($sessionId !== null && $sessionId !== '') {
@@ -306,7 +310,9 @@ final class McpHttpTransport
     private function decodeResult(McpServerRecord $server, string $body, int $status, string $contentType): array
     {
         $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
-        if ($mediaType !== '' && $mediaType !== 'application/json') {
+        if ($mediaType === 'text/event-stream') {
+            $body = $this->unframeEventStream($server, $body);
+        } elseif ($mediaType !== '' && $mediaType !== 'application/json') {
             throw McpTransportException::forUnsupportedContentType($server->identifier, $mediaType);
         }
 
@@ -338,5 +344,67 @@ final class McpHttpTransport
 
         /** @var array<string, mixed> $result */
         return $result;
+    }
+
+    /**
+     * The one JSON-RPC response inside an event-stream framed answer, as the
+     * JSON text it was sent as.
+     *
+     * The body is read as a whole — it has already been bounded by
+     * {@see self::readBounded()} and the server has closed it — and parsed by
+     * the SSE rules that matter for a single request/response exchange: events
+     * are separated by a blank line, the `data:` lines of one event join with a
+     * newline, `event:`, `id:`, `retry:` and comment lines carry nothing we
+     * read. A server may put its own notifications on the same stream before
+     * the response (the transport allows it); this client declared no
+     * capabilities, so anything that carries a `method` is passed over and the
+     * first message that is a response — a `result` or an `error` — is the
+     * answer. A stream with no such message is a malformed answer, named as one.
+     *
+     * @throws McpTransportException when the stream carries no response
+     */
+    private function unframeEventStream(McpServerRecord $server, string $body): string
+    {
+        $messages = [];
+        $data     = [];
+
+        foreach (preg_split('/\r\n|\r|\n/', $body) ?: [] as $line) {
+            if ($line === '') {
+                if ($data !== []) {
+                    $messages[] = implode("\n", $data);
+                    $data       = [];
+                }
+
+                continue;
+            }
+
+            if (str_starts_with($line, 'data:')) {
+                $payload = substr($line, 5);
+                $data[]  = str_starts_with($payload, ' ') ? substr($payload, 1) : $payload;
+            }
+            // `event:`, `id:`, `retry:` and `:` comments are not read.
+        }
+
+        if ($data !== []) {
+            $messages[] = implode("\n", $data);
+        }
+
+        foreach ($messages as $message) {
+            $decoded = json_decode($message, true);
+            if (!\is_array($decoded) || isset($decoded['method'])) {
+                // Not JSON, or a server-initiated notification/request: neither
+                // is the answer to the request this client made.
+                continue;
+            }
+
+            if (\array_key_exists('result', $decoded) || \array_key_exists('error', $decoded)) {
+                return $message;
+            }
+        }
+
+        throw McpTransportException::forMalformedResponse(
+            $server->identifier,
+            $messages === [] ? 'the event stream carried no message' : 'the event stream carried no response to the request',
+        );
     }
 }

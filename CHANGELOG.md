@@ -48,6 +48,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   gate instead of the answer.
 
 ### Changed
+- **The MCP client talks to the public Streamable-HTTP servers** (ADR-181).
+  It now offers both media types the transport requires
+  (`Accept: application/json, text/event-stream`) — the reference servers
+  answered the JSON-only header with 406 — and reads an answer a server
+  frames as `text/event-stream` exactly like a plain JSON one: the single
+  JSON-RPC response is unwrapped, server notifications on the same stream
+  are passed over, a stream with no response is a malformed answer. Nothing
+  else changes: no stream is held open or resumed, no server-initiated
+  request is answered, stdio stays out of scope. Measured against
+  `mcp.deepwiki.com`, `mcp.context7.com` and `learn.microsoft.com/api/mcp`
+  before the change: 406 each.
+
 - **AGENTS.md files synchronized with the repository state.** Root slimmed from 356 to 119 lines by moving content into the scoped files it belongs to; stale inventories refreshed (TCA files, database tables, backend templates, JS modules, `Services.Dashboard.php`); phantom `TCA/Overrides/` and dead `MEMORY.md` references removed; generic workflow boilerplate in `.github/workflows/AGENTS.md` replaced with this repository's actual conventions (no local jobs, release flow, dependency automation).
 
 ## [0.30.0] - 2026-08-18
