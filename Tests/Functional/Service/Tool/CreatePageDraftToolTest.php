@@ -44,6 +44,8 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
     /** An existing subpage of the open parent, the anchor for positioning. */
     private const EXISTING_SUBPAGE = 20;
 
+    private const DRAFTED_TITLE = 'Drafted page';
+
     private CreatePageDraftTool $tool;
 
     private ConnectionPool $connectionPool;
@@ -101,7 +103,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $admin = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute(
-            ['parent' => self::PARENT_OPEN, 'title' => 'Drafted page', 'nav_title' => 'Drafted'],
+            ['parent' => self::PARENT_OPEN, 'title' => self::DRAFTED_TITLE, 'nav_title' => 'Drafted'],
             ToolExecutionContext::fromBackendUser($admin),
         );
 
@@ -113,7 +115,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(1, (int)($row['hidden'] ?? 0), 'a drafted page must never be visible');
         self::assertSame(self::PARENT_OPEN, (int)($row['pid'] ?? 0));
         self::assertSame(1, (int)($row['doktype'] ?? 0), 'only a standard page is ever created');
-        self::assertSame('Drafted page', $row['title'] ?? null);
+        self::assertSame(self::DRAFTED_TITLE, $row['title'] ?? null);
         self::assertSame('Drafted', $row['nav_title'] ?? null);
         self::assertSame(0, (int)($row['sys_language_uid'] ?? -1));
 
@@ -129,7 +131,7 @@ final class CreatePageDraftToolTest extends AbstractFunctionalTestCase
         $admin = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute(
-            ['parent' => self::PARENT_OPEN, 'title' => 'Drafted page'],
+            ['parent' => self::PARENT_OPEN, 'title' => self::DRAFTED_TITLE],
             ToolExecutionContext::fromBackendUser($admin),
         );
 

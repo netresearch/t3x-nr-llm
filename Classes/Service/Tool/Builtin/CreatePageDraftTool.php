@@ -25,7 +25,6 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
  * Create ONE hidden standard page under a parent page, through the
@@ -125,15 +124,9 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return ToolResult::error(self::NOT_PERMITTED);
-        }
-
-        $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
+        $user = $this->writableActingUser($context, self::TABLE);
+        if ($user instanceof ToolResult) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -141,8 +134,7 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return ToolResult::error($plan);
         }
 
-        $placeholder = StringUtility::getUniqueId('NEW');
-        $record      = [
+        $record = [
             'pid'     => $plan['destination'],
             'title'   => $plan['title'],
             'doktype' => self::DOKTYPE,
@@ -157,21 +149,15 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             $record['nav_title'] = $plan['navTitle'];
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
-        $dataHandler->start([self::TABLE => [$placeholder => $record]], [], $user);
-        $dataHandler->process_datamap();
-
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
-        if ($newUid < 1) {
-            return ToolResult::error(
-                'The page was not created. The acting backend user is most likely missing the grant to create '
-                . 'pages under that parent.',
-            );
+        $newUid = $this->createRecord(
+            self::TABLE,
+            $record,
+            $user,
+            'The page was not created. The acting backend user is most likely missing the grant to create '
+            . 'pages under that parent.',
+        );
+        if ($newUid instanceof ToolResult) {
+            return $newUid;
         }
 
         // Read back before reporting success. A uid is proof that a row exists,

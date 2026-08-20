@@ -9,10 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
  * What the three ADR-146 writers share because they were written together —
@@ -28,6 +32,17 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * - the viewer-side preview gate, which is `plan()` asked about the viewer,
  * - the row lookup: by uid, with only the deleted restriction.
  *
+ * The sixth writer (ADR-180) found two more that had come out identical in all
+ * four, and moved them here in the same pass rather than adding a fourth copy:
+ *
+ * - the guard `execute()` opens with — an acting user, a backend environment,
+ *   the live workspace — answered as the user to write as, or the refusal,
+ * - the creation of ONE record through the DataHandler and the reading back of
+ *   its uid, which is where a missing table grant surfaces.
+ *
+ * What stays per tool is `plan()` itself and everything that reads its shape:
+ * the record to write, the read-back and its fields, the success line.
+ *
  * This is NOT {@see WritesThroughDataHandlerTrait}, and the separation is the
  * point. That trait carries the mechanics all FIVE writers share; ADR-146 asked
  * whether it should grow to hold the row lookup and answered no — putting a
@@ -39,7 +54,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * The consuming class must provide `self::toStr()` / `self::toInt()` (via
  * {@see \Netresearch\NrLlm\Utility\SafeCastTrait}), a
- * `private ConnectionPool $connectionPool`, and the `plan()` declared below.
+ * `private ConnectionPool $connectionPool`, a `NOT_PERMITTED` constant (the
+ * neutral refusal for "no such record or not yours"), the two refusals of
+ * {@see WritesThroughDataHandlerTrait}, and the `plan()` declared below.
  */
 trait PlansOneEditorialWriteTrait
 {
@@ -56,6 +73,63 @@ trait PlansOneEditorialWriteTrait
      * @return array<string, mixed>|string
      */
     abstract private function plan(array $arguments, BackendUserAuthentication $user): array|string;
+
+    /**
+     * The user a write may be performed as — or the refusal that stops it.
+     *
+     * The three questions every `execute()` opens with, in the order that names
+     * the most specific reason first: is there an acting backend user at all
+     * (fail closed, with the neutral refusal so nothing is confirmed); does
+     * this process carry the backend environment the DataHandler needs; is the
+     * user in the live workspace. Only then does a tool resolve its `plan()`.
+     *
+     * @param non-empty-string $table the table whose TCA proves a TCA is loaded at all
+     */
+    private function writableActingUser(ToolExecutionContext $context, string $table): BackendUserAuthentication|ToolResult
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication) {
+            return ToolResult::error(self::NOT_PERMITTED);
+        }
+
+        $refusal = $this->refuseWithoutBackendEnvironment($table)
+            ?? $this->refuseOutsideLiveWorkspace($user);
+
+        return $refusal ?? $user;
+    }
+
+    /**
+     * Create ONE record through the DataHandler as the given user and hand back
+     * its uid — or the refusal, when the DataHandler complained or no row came
+     * into being.
+     *
+     * A uid is proof that a row exists, not that it carries what was asked for:
+     * the caller reads the row back and judges it against its own plan. What is
+     * shared is only the part that is the same for every creation — the
+     * placeholder, the datamap, the error log, and the one failure the
+     * DataHandler reports by silence, a missing grant to create in the table.
+     *
+     * @param non-empty-string     $table
+     * @param array<string, mixed> $record         the fields of the new row, `pid` included
+     * @param string               $whenNotCreated the refusal when no uid came back, naming what was most likely missing
+     */
+    private function createRecord(string $table, array $record, BackendUserAuthentication $user, string $whenNotCreated): int|ToolResult
+    {
+        $placeholder = StringUtility::getUniqueId('NEW');
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start([$table => [$placeholder => $record]], [], $user);
+        $dataHandler->process_datamap();
+
+        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
+        if ($refused instanceof ToolResult) {
+            return $refused;
+        }
+
+        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
+
+        return $newUid < 1 ? ToolResult::error($whenNotCreated) : $newUid;
+    }
 
     /**
      * Whether the person LOOKING at the approval card may see this call

@@ -125,15 +125,9 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return ToolResult::error(self::NOT_PERMITTED);
-        }
-
-        $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
+        $user = $this->writableActingUser($context, self::TABLE);
+        if ($user instanceof ToolResult) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);

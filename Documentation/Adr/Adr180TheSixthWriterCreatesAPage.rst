@@ -79,6 +79,25 @@ The editor-action declaration (:ref:`ADR-152 <adr-152>`) names ``pages`` with
 ``parent`` as the required argument that carries the uid: the record an editor
 selects is the page the new one goes under.
 
+..  _adr-180-trait:
+
+What the fourth ``plan()`` writer showed had become common
+==========================================================
+
+ADR-146 asked, at the next writer, whether anything the shared trait had
+deliberately left per tool had become common. Two things had, identically in
+all four ``plan()`` writers, and a fourth copy of each was what the
+duplication gate refused: the guard ``execute()`` opens with (an acting user,
+a backend environment, the live workspace — answered as the user to write as,
+or the refusal) and the creation of one record through the DataHandler with
+the reading back of its uid. Both moved into :php:`PlansOneEditorialWriteTrait`
+as ``writableActingUser()`` and ``createRecord()``, and the three ADR-146
+writers use them in the same change — a private copy per file would have
+relocated the duplication, not removed it. What stays per tool is ``plan()``
+and everything that reads its shape: the record to write, the read-back and
+its fields, the success line. The two pre-ADR-146 writers are, as before, not
+retrofitted.
+
 .. _adr-180-one-record:
 
 The one-record rule holds
