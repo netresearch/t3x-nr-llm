@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **An MCP tool that is skipped on import now says why.** The report used to state that a tool had "no usable parameter schema", which is true and unactionable: an operator could not tell a malformed schema from an oversized one from a well-formed one this import deliberately does not carry. It now names the reason — for the common case, the keyword (`anyOf`, `$ref`, …) whose removal would widen what the tool accepts. The rejections themselves are unchanged.
+
 ## [0.31.1] - 2026-08-20
 
 ### Changed

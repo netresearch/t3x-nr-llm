@@ -172,7 +172,11 @@ final readonly class McpImportService
 
         $schema = $this->schemas->normalise($tool['inputSchema'] ?? null);
         if ($schema === null) {
-            return sprintf('"%s" has no usable parameter schema and was skipped.', $remoteName);
+            $reason = $this->schemas->rejectionReason($tool['inputSchema'] ?? null);
+
+            return $reason !== null
+                ? sprintf('"%s" was skipped: %s.', $remoteName, $reason)
+                : sprintf('"%s" has no usable parameter schema and was skipped.', $remoteName);
         }
 
         $encodedSchema = $this->encode($schema);
