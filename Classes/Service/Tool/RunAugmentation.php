@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
+use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 
 /**
@@ -33,11 +34,26 @@ final readonly class RunAugmentation
     /**
      * @param list<Skill>         $forcedSkills
      * @param list<PromptSnippet> $forcedSnippets
+     * @param list<DroppedSource> $droppedSources sources asked for that did not arrive
      */
     public function __construct(
         public array $forcedSkills = [],
         public array $forcedSnippets = [],
         public bool $dryRun = false,
+        /**
+         * Forced sources this run asked for and did not get (ADR-179).
+         *
+         * Empty is the normal case and means "nothing was dropped", never
+         * "not checked": a caller that builds the augmentation by hand has
+         * nothing to compare against, and a run whose sources all resolved
+         * is indistinguishable from it — deliberately, because both are the
+         * same statement about what reached the model.
+         *
+         * Appended last with a default, so every existing caller keeps
+         * working. The class is on the frozen surface, so the growth is
+         * announced rather than silent.
+         */
+        public array $droppedSources = [],
     ) {}
 
     /**

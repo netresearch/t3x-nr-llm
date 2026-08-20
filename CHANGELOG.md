@@ -61,6 +61,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reasons that say nothing about the model, so folding it in would measure the
   gate instead of the answer.
 
+- A forced source a queued run asked for and did not get is now recorded on the
+  run (ADR-179).
+
+  Switching a snippet or skill off between enqueue and start drops it — that is
+  ADR-175's rule and stays — but until now nothing said so, and the only way to
+  notice was to compare the queued request against the transcript.
+
+  The run now carries a `dropped` step naming each source and why: `deactivated`
+  for a record that is switched off, `gone` for one that no longer resolves.
+  Those stay apart on purpose — a deactivated record can be switched back on, a
+  removed one cannot, so a single "dropped" would send the reader looking.
+
+  A run that dropped nothing records no step, so the step's presence is the
+  signal. The resume path is untouched: ADR-166 and ADR-175 keep a deactivated
+  source resolving there, so nothing is dropped and a report would imply
+  otherwise.
+
+  `RunAugmentation` gains a `droppedSources` parameter, appended with a default;
+  `RunTrace` gains `recordDroppedSources()`. Both are additive.
+
+
 ### Changed
 - **AGENTS.md files synchronized with the repository state.** Root slimmed from 356 to 119 lines by moving content into the scoped files it belongs to; stale inventories refreshed (TCA files, database tables, backend templates, JS modules, `Services.Dashboard.php`); phantom `TCA/Overrides/` and dead `MEMORY.md` references removed; generic workflow boilerplate in `.github/workflows/AGENTS.md` replaced with this repository's actual conventions (no local jobs, release flow, dependency automation).
 

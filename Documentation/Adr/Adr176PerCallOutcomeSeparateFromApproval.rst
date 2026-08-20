@@ -108,10 +108,18 @@ not an identity. Without a queryable write target there is no join to
 
 That is :ref:`ADR-122 <adr-122>`'s deferred territory. It declined to build a
 side-effecting tool contract because no tool had side effects, and its status
-already records that premise as expired. Five builtins write through the
-DataHandler today. So the prerequisite is not new work invented here; it is the
-part of ADR-122 whose reason for waiting has gone, and the outcome signal is
-the first reader it lacked.
+already records that premise as expired. Builtins write through the DataHandler
+today, and the number is deliberately not repeated here: this record first said
+five, and :ref:`ADR-180 <adr-180>` added a sixth within a day. What the argument
+needs is that the count is no longer zero, which is what expired ADR-122's
+premise. Where a number is wanted,
+``grep -l 'use WritesThroughDataHandlerTrait' Classes/Service/Tool/Builtin/*.php``
+answers it — the trait every writer uses, rather than a search for the class
+name, which also matches the two traits themselves and overcounts by two.
+
+So the prerequisite is not new work invented here; it is the part of ADR-122
+whose reason for waiting has gone, and the outcome signal is the first reader
+it lacked.
 
 What this does not do
 =====================

@@ -69,6 +69,11 @@ final readonly class RunTimelineFactory
         'contentRedacted',
         'approved',
         'decidedBy',
+        // The forced sources a run asked for and did not get (ADR-179). On the
+        // list because the absence is invisible everywhere else: a source that
+        // never arrived leaves no mark in the transcript, which is exactly why
+        // the operator cannot see it today.
+        'droppedSources',
     ];
 
     public function __construct(

@@ -83,8 +83,17 @@ An operator reading a run sees, next to the sources that were injected, the
 ones that were asked for and did not arrive, and which of the two things
 happened to each.
 
-:php:`RunAugmentation` gains a field. It is ``@internal``, so no frozen surface
-moves.
+:php:`RunAugmentation` gains a field, and this record first claimed the class was
+``@internal`` so nothing frozen would move. That was wrong and is corrected
+here rather than left for the implementation to discover:
+``Tests/Unit/Api/api-surface.txt`` lists ``RunAugmentation (class)`` with its
+full constructor, so it is ``@api`` and frozen.
+
+The consequence is not that the field cannot be added — a parameter with a
+default is an additive change, which is what the snapshot's own failure message
+distinguishes from a breaking one. The consequence is that adding it is not
+free: the snapshot is regenerated and the change is announced under
+``### Added``, like any other growth of the public surface.
 
 The playground's synchronous send composes the same way and gains the same
 record. The queued path is where the gap between request and start is wide

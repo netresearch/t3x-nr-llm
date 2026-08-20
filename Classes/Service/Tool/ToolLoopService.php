@@ -252,6 +252,19 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         if ($skipAssembly) {
             $dryRun = false;
         } else {
+            // Before anything is assembled: what the run asked for and did not
+            // get (ADR-179). Recorded on the resolve side rather than inferred
+            // from the assembled messages, because a source that never arrived
+            // leaves no trace in them — that absence is exactly what an
+            // operator cannot see today.
+            //
+            // Not on the resume branch above: ADR-166 and ADR-175 keep a
+            // deactivated source resolving there on purpose, so nothing is
+            // dropped and a step would imply otherwise.
+            if ($augmentation instanceof RunAugmentation) {
+                $runTrace?->recordDroppedSources($augmentation->droppedSources);
+            }
+
             [$messages, $dryRun] = $this->assemble($messages, $configuration, $options, $augmentation);
         }
 
