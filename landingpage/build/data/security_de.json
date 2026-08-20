@@ -13,7 +13,7 @@
       "Backend-Modul nur für Administratoren, dazu kapabilitätsbezogene Berechtigungen über TYPO3-Backend-Gruppen",
       "Guardrail-Pipeline, die Eingabe, Ausgabe, Reasoning und gestreamte Chunks prüft und maskiert",
       "Human-in-the-Loop-Freigabe für Aktionen mit Seiteneffekten",
-      "46 Built-in-Tools in fail-closed-Gruppen — 41 nur lesend, fünf schreibend und freigabepflichtig — mit fail-closed-Netzwerkzugriff",
+      "47 Built-in-Tools in fail-closed-Gruppen — 41 nur lesend, sechs schreibend und freigabepflichtig — mit fail-closed-Netzwerkzugriff",
       "Budgets pro Benutzer (Requests, Tokens, Kosten — täglich und monatlich) samt Nutzungsanalyse",
       "Vollständiger Betrieb auf lokalem Ollama oder jedem OpenAI-kompatiblen Endpoint — ohne Datenabfluss",
       "Signierte Releases: SLSA-Level-3-Provenance, Cosign-Signaturen, SBOMs in SPDX + CycloneDX"
@@ -52,7 +52,7 @@
       "heading": "Human-in-the-Loop-Freigabe",
       "paragraphs": [
         "Ein Tool, das schreibt oder Seiteneffekte hat, kann vor der Ausführung eine menschliche Freigabe verlangen. Das Tool meldet sich mit einem einzigen Marker an; die Agent-Schleife pausiert daraufhin den gesamten Turn, persistiert ein serialisiertes Transkript für diesen Durchlauf im Zustand „wartet auf Freigabe“ und legt es zur Freigabe oder Ablehnung vor.",
-        "Bei Freigabe setzt der Lauf genau dort fort, wo er pausiert hat; bei Ablehnung wird das dem Modell mitgeteilt, und es fährt fort. 41 der 46 heute ausgelieferten Tools sind nur lesend, sodass dieser Pfad für sie nie greift und ihr Verhalten unverändert bleibt. Die fünf schreibenden Tools deklarieren einen Write-Effect, und genau dieser deklarierte Effect löst die Pause aus — keines von ihnen handelt ohne vorherige menschliche Entscheidung. Ein „Freigabe anfordern“-Verdikt eines Guardrails läuft in dieselbe Prüfnahtstelle."
+        "Bei Freigabe setzt der Lauf genau dort fort, wo er pausiert hat; bei Ablehnung wird das dem Modell mitgeteilt, und es fährt fort. 41 der 47 heute ausgelieferten Tools sind nur lesend, sodass dieser Pfad für sie nie greift und ihr Verhalten unverändert bleibt. Die sechs schreibenden Tools deklarieren einen Write-Effect, und genau dieser deklarierte Effect löst die Pause aus — keines von ihnen handelt ohne vorherige menschliche Entscheidung. Ein „Freigabe anfordern“-Verdikt eines Guardrails läuft in dieselbe Prüfnahtstelle."
       ],
       "adrs": [84]
     },
@@ -60,7 +60,7 @@
       "id": "tools",
       "heading": "Tool-Sicherheit",
       "paragraphs": [
-        "41 der 46 Built-in-Tools sind nur lesend, und jedes folgt einem Sicherheitsvertrag: Vom Modell gewählte Argumente werden validiert und begrenzt, Ausgabemengen sind gedeckelt, und jede Secret-tragende Ausgabe wird maskiert oder hinter eine separate Raw-Variante gesperrt, die deaktiviert ausgeliefert wird. Die meisten Tools erfordern Administratorrechte; die nur lesenden Struktur-, Inhalts- und Datei-Tools, die Nicht-Administratoren angeboten werden, setzen die eigenen TYPO3-Berechtigungen dieser Benutzerin durch. Die fünf schreibenden Tools sind bewusst eng geschnitten — jedes führt genau eine benannte redaktionelle Handlung an genau einem Datensatz aus, und die beiden, die etwas anlegen, legen es verborgen an —, werden deaktiviert ausgeliefert, schreiben über den DataHandler als der handelnde Backend-Benutzer und warten zuvor auf eine menschliche Freigabe.",
+        "41 der 47 Built-in-Tools sind nur lesend, und jedes folgt einem Sicherheitsvertrag: Vom Modell gewählte Argumente werden validiert und begrenzt, Ausgabemengen sind gedeckelt, und jede Secret-tragende Ausgabe wird maskiert oder hinter eine separate Raw-Variante gesperrt, die deaktiviert ausgeliefert wird. Die meisten Tools erfordern Administratorrechte; die nur lesenden Struktur-, Inhalts- und Datei-Tools, die Nicht-Administratoren angeboten werden, setzen die eigenen TYPO3-Berechtigungen dieser Benutzerin durch. Die sechs schreibenden Tools sind bewusst eng geschnitten — jedes führt genau eine benannte redaktionelle Handlung an genau einem Datensatz aus, und die beiden, die etwas anlegen, legen es verborgen an —, werden deaktiviert ausgeliefert, schreiben über den DataHandler als der handelnde Backend-Benutzer und warten zuvor auf eine menschliche Freigabe.",
         "Tools sind in Gruppen mit einer dreistufigen, fail-closed-Freigabekaskade organisiert: Eine deaktivierte Gruppe lässt sich nicht durch eine Einzel-Tool-Übersteuerung reaktivieren, und ein Tool, das ein Skill nicht gewährt hat, ist über Prompt-Injection nie erreichbar. Der Netzwerkzugriff wird pro Gruppe geregelt und ist fail-closed — eine Gruppe ohne Deklaration sendet keine ausgehende Anfrage, und es gibt keinen „beliebiger Host“-Scope. Host-nahe Tools laufen über einen Path-Guard, der settings.php und Schlüsselmaterial selbst für Administratoren strukturell unlesbar macht, und die URL-Prüfung ist auf die eigene Website der Instanz begrenzt. Jeder Lauf ist eine begrenzte Agent-Schleife."
       ],
       "adrs": [38, 43, 44, 47]
@@ -121,7 +121,7 @@
       },
       {
         "q": "Was hindert den KI-Agenten daran, Secrets zu lesen oder Daten zu ändern?",
-        "a": "41 der 46 Built-in-Tools sind nur lesend; Secret-tragende Ausgaben werden maskiert oder hinter deaktivierten Raw-Varianten gehalten; Dateien wie settings.php sind strukturell unlesbar; Tool-Gruppen und Netzwerkzugriff sind fail-closed; und die fünf schreibfähigen Tools werden deaktiviert ausgeliefert und suspendieren den Lauf zunächst für eine menschliche Freigabe."
+        "a": "41 der 47 Built-in-Tools sind nur lesend; Secret-tragende Ausgaben werden maskiert oder hinter deaktivierten Raw-Varianten gehalten; Dateien wie settings.php sind strukturell unlesbar; Tool-Gruppen und Netzwerkzugriff sind fail-closed; und die sechs schreibfähigen Tools werden deaktiviert ausgeliefert und suspendieren den Lauf zunächst für eine menschliche Freigabe."
       },
       {
         "q": "Wie verhindere ich, dass eine einzelne Redakteurin die Kosten in die Höhe treibt?",

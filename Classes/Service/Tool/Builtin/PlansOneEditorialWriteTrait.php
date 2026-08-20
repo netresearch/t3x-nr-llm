@@ -33,8 +33,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * whether it should grow to hold the row lookup and answered no — putting a
  * query into the mechanics trait would either bind it to one table or add a
  * generic getter for call sites that already have one, and it would touch two
- * shipped, tested writers to do it. A trait used by exactly the three tools that
- * actually share the shape costs neither.
+ * shipped, tested writers to do it. A trait used by exactly the tools that
+ * actually share the shape costs neither. ADR-146 asked the next writer to use
+ * it, and {@see CreatePageDraftTool} (ADR-180) does.
  *
  * The consuming class must provide `self::toStr()` / `self::toInt()` (via
  * {@see \Netresearch\NrLlm\Utility\SafeCastTrait}), a
