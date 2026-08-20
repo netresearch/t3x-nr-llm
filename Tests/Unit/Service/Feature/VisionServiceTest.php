@@ -254,6 +254,34 @@ class VisionServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function analyzeImageFullPreservesTheCallerSourceThroughTheRebuild(): void
+    {
+        // Twin of the budget-field test above, for the field that arrived with
+        // ADR-177 and was missed by the same rebuild: the caller source is set
+        // by a wither, not a constructor parameter, so it is invisible in the
+        // parameter list the rebuild copies. nr-llm-compat's ai_filemetadata
+        // bridge routes its vision calls through exactly this method.
+        $llmManagerMock = $this->createMock(LlmServiceManagerInterface::class);
+        $subject = new VisionService($llmManagerMock);
+
+        $llmManagerMock->expects(self::once())
+            ->method('vision')
+            ->with(
+                self::anything(),
+                self::callback(static fn(VisionOptions $options): bool
+                    => $options->getCallerSourceExtension() === 'ai_filemetadata'
+                    && $options->getCallerSourceOperation() === 'buildAltText'),
+            )
+            ->willReturn($this->createMockVisionResponse('Alt text'));
+
+        $subject->analyzeImageFull(
+            'https://example.com/image.jpg',
+            'describe',
+            (new VisionOptions(detailLevel: 'high'))->withCallerSource('ai_filemetadata', 'buildAltText'),
+        );
+    }
+
+    #[Test]
     public function analyzeImageFullPreservesBudgetFieldsThroughDetailLevelRebuild(): void
     {
         // Regression test for the same class of bug Gemini caught on
