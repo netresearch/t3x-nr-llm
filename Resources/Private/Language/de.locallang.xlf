@@ -1812,6 +1812,14 @@
                 <source>Creates one hidden content element of a curated type. A human makes it visible.</source>
                 <target>Legt ein verstecktes Inhaltselement eines freigegebenen Typs an. Sichtbar schaltet es ein Mensch.</target>
             </trans-unit>
+            <trans-unit id="editorAction.create_page_draft.label">
+                <source>Create page draft</source>
+                <target>Seite als Entwurf anlegen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.create_page_draft.description">
+                <source>Creates one hidden standard page under the selected page. A human makes it visible.</source>
+                <target>Legt eine versteckte Standardseite unter der gewählten Seite an. Sichtbar schaltet sie ein Mensch.</target>
+            </trans-unit>
             <trans-unit id="editorAction.create_translation_draft.label">
                 <source>Create translation draft</source>
                 <target>Übersetzung als Entwurf anlegen</target>

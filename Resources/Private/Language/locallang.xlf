@@ -1368,6 +1368,12 @@
             <trans-unit id="editorAction.create_content_element_draft.description">
                 <source>Creates one hidden content element of a curated type. A human makes it visible.</source>
             </trans-unit>
+            <trans-unit id="editorAction.create_page_draft.label">
+                <source>Create page draft</source>
+            </trans-unit>
+            <trans-unit id="editorAction.create_page_draft.description">
+                <source>Creates one hidden standard page under the selected page. A human makes it visible.</source>
+            </trans-unit>
             <trans-unit id="editorAction.create_translation_draft.label">
                 <source>Create translation draft</source>
             </trans-unit>

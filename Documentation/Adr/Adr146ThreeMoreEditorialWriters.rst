@@ -6,9 +6,10 @@
 ADR-146: Three more editorial writers, and what the third one reviewed
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its "revisit at the sixth writer" trigger fired — see :ref:`ADR-180 <adr-180>`)
 :Date: 2026-08-10
 :Amends: :ref:`ADR-135 <adr-135>` (its "revisit at the third writer" trigger)
+:Amended: 2026-08-20 by :ref:`ADR-180 <adr-180>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-146-context:

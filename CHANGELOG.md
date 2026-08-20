@@ -7,6 +7,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`create_page_draft` — the sixth writing tool, and the first that creates
+  a page** (ADR-180). It creates ONE standard page under a parent page,
+  always hidden, always in the default language, with title, navigation
+  title and position as the whole field set; the URL segment comes from the
+  DataHandler. Like every writer it ships disabled in the `editing` group,
+  pauses for a human approval with a preview of the page it would create,
+  writes through the DataHandler under the acting user's *new page*
+  permission, and reads the row back — a page that came out visible (an
+  installation with `TCAdefaults.pages.hidden = 0`) is deleted again rather
+  than reported as a success. It creates the page and nothing on it: "a page
+  with an introduction" is this tool followed by `create_content_element_draft`,
+  two approvals each showing one record — ADR-146's one-record rule holds,
+  and ADR-180 says why.
+
 - **Analytics answers "which extension spent what"** (ADR-178). The usage
   table carries the caller's extension key next to the money, so the
   Analytics module gains a *By extension* chart and a per-extension table

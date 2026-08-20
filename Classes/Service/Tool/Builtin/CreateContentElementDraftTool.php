@@ -24,7 +24,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\StringUtility;
 
 /**
  * Create ONE hidden content element on a page, through the DataHandler, as the
@@ -145,15 +144,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return ToolResult::error(self::NOT_PERMITTED);
-        }
-
-        $refusal = $this->refuseWithoutBackendEnvironment(self::TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
+        $user = $this->writableActingUser($context, self::TABLE);
+        if ($user instanceof ToolResult) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
@@ -161,8 +154,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return ToolResult::error($plan);
         }
 
-        $placeholder = StringUtility::getUniqueId('NEW');
-        $record      = [
+        $record = [
             'pid'              => $plan['destination'],
             'CType'            => $plan['type'],
             'header'           => $plan['header'],
@@ -175,21 +167,15 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $record['bodytext'] = $plan['bodytext'];
         }
 
-        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
-        $dataHandler->start([self::TABLE => [$placeholder => $record]], [], $user);
-        $dataHandler->process_datamap();
-
-        $refused = $this->refuseOnDataHandlerErrors($dataHandler);
-        if ($refused instanceof ToolResult) {
-            return $refused;
-        }
-
-        $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
-        if ($newUid < 1) {
-            return ToolResult::error(
-                'The element was not created. The acting backend user is most likely missing the grant to '
-                . 'create records in ' . self::TABLE . ' on that page.',
-            );
+        $newUid = $this->createRecord(
+            self::TABLE,
+            $record,
+            $user,
+            'The element was not created. The acting backend user is most likely missing the grant to '
+            . 'create records in ' . self::TABLE . ' on that page.',
+        );
+        if ($newUid instanceof ToolResult) {
+            return $newUid;
         }
 
         // Read back before reporting success. A uid is proof that a row exists,

@@ -128,18 +128,12 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $context->actingBackendUser();
-        if (!$user instanceof BackendUserAuthentication) {
-            return ToolResult::error(self::NOT_PERMITTED);
-        }
-
         // `pages` stands in for "a TCA is loaded at all", which is what the
         // check is for; running it before the plan means a bare worker process
         // is named rather than sent into a query it cannot make.
-        $refusal = $this->refuseWithoutBackendEnvironment(self::PAGES_TABLE)
-            ?? $this->refuseOutsideLiveWorkspace($user);
-        if ($refusal instanceof ToolResult) {
-            return $refusal;
+        $user = $this->writableActingUser($context, self::PAGES_TABLE);
+        if ($user instanceof ToolResult) {
+            return $user;
         }
 
         $plan = $this->plan($arguments, $user);
