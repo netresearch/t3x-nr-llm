@@ -238,8 +238,12 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
             'a reference into a definition block we do not carry' => [
                 ['type' => 'object', 'properties' => ['a' => ['$ref' => '#/$defs/a']]],
             ],
-            'an applicator that narrows what the server accepts' => [
-                ['type' => 'object', 'properties' => ['a' => ['anyOf' => [['type' => 'string']]]]],
+            // A union is representable and IS carried now — the guard this case
+            // exists for is the keyword whose removal would widen the schema,
+            // and a keyword carried verbatim never gets removed. What stays
+            // unrepresentable is the applicator no provider dependably reads.
+            'an applicator no provider dependably reads' => [
+                ['type' => 'object', 'properties' => ['a' => ['dependentRequired' => ['x' => ['y']]]]],
             ],
             'a conditional' => [
                 ['type' => 'object', 'if' => ['required' => ['a']], 'then' => ['required' => ['b']]],
