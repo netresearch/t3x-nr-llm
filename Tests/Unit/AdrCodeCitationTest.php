@@ -60,28 +60,16 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
      * by this suite; the list exists so a NEW unverifiable citation fails
      * rather than passing as one of these.
      *
+     * It shrank from fifteen entries to one when ADR-169 stopped citing core
+     * by line: a core symbol survives a patch release, a core line number does
+     * not, and this repository does not pin the dependency whose line numbers
+     * those were.
+     *
      * @var array<string, list<string>>
      */
     private const CITATIONS_OUTSIDE_THE_REPOSITORY = [
         'Adr140EffectivePolicyReadoutWithoutApplyPath.rst' => [
             'ExtensionConfiguration.php',
-        ],
-        'Adr169RecordManagementUsesTypo3Permissions.rst' => [
-            'BackendUtility.php',
-            'Clipboard.php',
-            'DataHandler.php',
-            'DatabaseUserPermissionCheck.php',
-            'ElementHistoryController.php',
-            'ElementInformationController.php',
-            'RecordHistory.php',
-            'RecordListController.php',
-            'RootLevelCapability.php',
-            'SuggestWizardController.php',
-            'TcaItemsProcessorFunctions.php',
-            'Typo3Version.php',
-            'VaultFieldHelper.php',
-            'cms-install/Configuration/Backend/Modules.php',
-            'nr-vault/Configuration/Backend/Modules.php',
         ],
     ];
 
