@@ -254,7 +254,7 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
         $beUserUid = $options['beUserUid'] ?? null;
         $plannedCost = $options['plannedCost'] ?? null;
 
-        return new self(
+        return (new self(
             model: is_string($model) ? $model : null,
             size: is_string($size) ? $size : null,
             quality: is_string($quality) ? $quality : null,
@@ -263,7 +263,7 @@ final class ImageGenerationOptions extends AbstractOptions implements BudgetAwar
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
             plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
-        );
+        ))->withCallerSourceFromArray($options);
     }
 
     /**

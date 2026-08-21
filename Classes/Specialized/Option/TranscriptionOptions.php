@@ -89,7 +89,7 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
         $beUserUid = $options['beUserUid'] ?? null;
         $plannedCost = $options['plannedCost'] ?? null;
 
-        return new self(
+        return (new self(
             model: is_string($model) ? $model : null,
             language: is_string($language) ? $language : null,
             format: is_string($format) ? $format : null,
@@ -98,7 +98,7 @@ final class TranscriptionOptions extends AbstractOptions implements BudgetAwareO
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
             plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
-        );
+        ))->withCallerSourceFromArray($options);
     }
 
     /**

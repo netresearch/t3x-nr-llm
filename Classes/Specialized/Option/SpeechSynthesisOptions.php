@@ -98,7 +98,7 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
         $beUserUid = $options['beUserUid'] ?? null;
         $plannedCost = $options['plannedCost'] ?? null;
 
-        return new self(
+        return (new self(
             model: is_string($model) ? $model : null,
             voice: is_string($voice) ? $voice : null,
             format: is_string($format) ? $format : null,
@@ -106,7 +106,7 @@ final class SpeechSynthesisOptions extends AbstractOptions implements BudgetAwar
             configuration: is_string($configuration) ? $configuration : null,
             beUserUid: is_int($beUserUid) ? $beUserUid : null,
             plannedCost: is_float($plannedCost) || is_int($plannedCost) ? (float)$plannedCost : null,
-        );
+        ))->withCallerSourceFromArray($options);
     }
 
     /**

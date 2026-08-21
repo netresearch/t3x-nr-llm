@@ -135,6 +135,36 @@ abstract class AbstractOptions
     }
 
     /**
+     * Re-apply a caller identity (ADR-177) that arrived in a consumer-supplied
+     * array. A `fromArray()` implementation reads its own keys and rebuilds the
+     * object through the constructor, so anything the base class holds is lost
+     * on the round trip unless it is put back here.
+     *
+     * This is deliberately NOT the mirror of {@see self::toArray()}. That method
+     * builds the provider payload, and the caller identity is consumer metadata
+     * that must never reach the provider — the same reason `configuration` and
+     * the budget fields are absent there. The array `fromArray()` reads is the
+     * consumer's own input, which is a different thing that happens to be shaped
+     * alike.
+     *
+     * An absent or empty extension key leaves the object untouched, so an
+     * unannotated call stays indistinguishable from a pre-feature one.
+     *
+     * @param array<string, mixed> $source
+     */
+    protected function withCallerSourceFromArray(array $source): static
+    {
+        $extension = $source['callerSourceExtension'] ?? null;
+        if (!is_string($extension) || $extension === '') {
+            return $this;
+        }
+
+        $operation = $source['callerSourceOperation'] ?? null;
+
+        return $this->withCallerSource($extension, is_string($operation) ? $operation : '');
+    }
+
+    /**
      * Validate value is within numeric range.
      *
      * @throws InvalidArgumentException
