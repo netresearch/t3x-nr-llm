@@ -41,12 +41,34 @@ export XDEBUG_MODE=off
 rm -rf .Build/logs/functional
 mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functional
 
-mapfile -t CLASSES < <(find Tests/Functional Tests/E2E/Backend -name '*Test.php' | sort)
+# The directories come out of Build/FunctionalTests.xml rather than being listed
+# here. Hardcoding them is how Tests/E2E/TCA ended up running in no job at all:
+# the `e2e-tca` testsuite was added to that config on 2026-08-09 — in a commit
+# titled "run the three PHP tests that were in no suite" — while this glob kept
+# walking two directories. One invariant, one place to state it.
+CONFIG="Build/FunctionalTests.xml"
+mapfile -t DIRS < <(
+    awk '/<testsuites?[ >]/{inside=1} /<\/testsuites?>/{inside=0} inside' "${CONFIG}" \
+        | grep -oE '<directory[^>]*>[^<]+</directory>' \
+        | sed 's|.*<directory[^>]*>||; s|</directory>||' \
+        | while IFS= read -r dir; do
+            # Paths in a phpunit config are relative to the config file.
+            realpath -m --relative-to=. "$(dirname "${CONFIG}")/${dir}"
+        done | sort -u
+)
+
+if [ "${#DIRS[@]}" -eq 0 ]; then
+    echo "::error::No <directory> entries under a testsuite in ${CONFIG} — nothing to shard."
+    exit 1
+fi
+echo "Sharding across: ${DIRS[*]}"
+
+mapfile -t CLASSES < <(find "${DIRS[@]}" -name '*Test.php' | sort)
 
 # A glob that matches nothing must not pass as success. This is how #272 rotted:
 # the suite stopped running and CI stayed green.
 if [ "${#CLASSES[@]}" -eq 0 ]; then
-    echo "::error::No functional test classes found under Tests/Functional or Tests/E2E/Backend."
+    echo "::error::No functional test classes found under ${DIRS[*]}."
     exit 1
 fi
 
