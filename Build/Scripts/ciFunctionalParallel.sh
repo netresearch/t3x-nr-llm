@@ -48,7 +48,11 @@ mkdir -p .Build/Web/typo3temp/var/tests/functional-sqlite-dbs .Build/logs/functi
 # walking two directories. One invariant, one place to state it.
 CONFIG="Build/FunctionalTests.xml"
 mapfile -t DIRS < <(
-    awk '/<testsuites?[ >]/{inside=1} /<\/testsuites?>/{inside=0} inside' "${CONFIG}" \
+    # Closing tag WITHOUT the optional s: `</testsuites?>` also matches
+    # `</testsuite>`, which switches the block off before a one-line testsuite's
+    # own <directory> is read — zero directories, and the guard below only fires
+    # on an empty set, which this would not be if any suite were multi-line.
+    awk '/<testsuites[ >]/{inside=1} /<\/testsuites>/{inside=0} inside' "${CONFIG}" \
         | grep -oE '<directory[^>]*>[^<]+</directory>' \
         | sed 's|.*<directory[^>]*>||; s|</directory>||' \
         | while IFS= read -r dir; do
