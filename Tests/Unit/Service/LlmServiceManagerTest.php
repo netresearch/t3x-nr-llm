@@ -2080,7 +2080,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $provider = new TestableVisionProvider();
 
         $providerRecord = self::createStub(Provider::class);
-        $providerRecord->method('getIdentifier')->willReturn('openai-vision');
+        // The row identifier and the adapter key are DIFFERENT on a real
+        // installation ('openai-dcbd8f' vs 'openai') and must differ here too:
+        // the previous fixture returned the same string for both, so it could
+        // not tell which one reached the registry, and #873 shipped (the
+        // registry is keyed by the adapter, and it was handed the row id).
+        $providerRecord->method('getIdentifier')->willReturn('openai-vision-7f3a1c');
+        $providerRecord->method('getAdapterType')->willReturn('openai-vision');
 
         $model = self::createStub(Model::class);
         $model->method('getProvider')->willReturn($providerRecord);
@@ -2119,7 +2125,13 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $provider = new TestableVisionProvider();
 
         $providerRecord = self::createStub(Provider::class);
-        $providerRecord->method('getIdentifier')->willReturn('openai-vision');
+        // The row identifier and the adapter key are DIFFERENT on a real
+        // installation ('openai-dcbd8f' vs 'openai') and must differ here too:
+        // the previous fixture returned the same string for both, so it could
+        // not tell which one reached the registry, and #873 shipped (the
+        // registry is keyed by the adapter, and it was handed the row id).
+        $providerRecord->method('getIdentifier')->willReturn('openai-vision-7f3a1c');
+        $providerRecord->method('getAdapterType')->willReturn('openai-vision');
 
         $model = self::createStub(Model::class);
         $model->method('getProvider')->willReturn($providerRecord);
