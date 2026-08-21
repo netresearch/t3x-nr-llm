@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-08-21
+
 ### Added
 
 - **`attach_file_to_content_element` references an existing file from a content element** — the seventh purpose-built writer and the first that creates a `sys_file_reference`. It appends one existing `sys_file` to a content element's `image`, `assets` or `media` field through the DataHandler as the acting backend user, in the live workspace and the default language. It never uploads, moves or renames anything: the file must already lie in a permitted storage inside the acting user's file mounts, and the element must sit on a page that user may edit — either failure is refused in the same words as an element that does not exist. The file's extension must be one the chosen field accepts, and the field is only inferred when the element's type offers exactly one candidate. Ships disabled, in the `editing` group, and pauses for approval on every call like every other writer (#834).
