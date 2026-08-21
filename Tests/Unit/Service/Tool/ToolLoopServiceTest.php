@@ -1233,7 +1233,7 @@ final class ToolLoopServiceTest extends TestCase
                 ?ToolOptions $options = null,
             ) use (&$queue, &$resumedOptions): CompletionResponse {
                 // The first call suspends; anything after it is the continuation.
-                if ($resumedOptions === null && count($queue) === 1) {
+                if (!$resumedOptions instanceof ToolOptions && count($queue) === 1) {
                     $resumedOptions = $options;
                 }
 
