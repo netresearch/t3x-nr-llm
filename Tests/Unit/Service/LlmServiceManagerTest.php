@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\EmbeddingResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -2067,6 +2068,114 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function visionUsesTheDefaultConfigurationWhenNoProviderIsPinned(): void
+    {
+        // The regression this exists for: a caller that names no provider —
+        // which is what the feature services invite, since model selection is
+        // nr-llm's job — used to hand null to the provider registry and get
+        // "No provider specified and no default provider configured" on an
+        // installation that has a perfectly good default. nr-llm-compat's
+        // ai_filemetadata bridge is that caller, and an image upload on a site
+        // running it answered HTTP 500.
+        $provider = new TestableVisionProvider();
+
+        $providerRecord = self::createStub(Provider::class);
+        $providerRecord->method('getIdentifier')->willReturn('openai-vision');
+
+        $model = self::createStub(Model::class);
+        $model->method('getProvider')->willReturn($providerRecord);
+        $model->method('getModelId')->willReturn('gpt-5.2-vision');
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(false);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($provider);
+
+        $result = $manager->vision([['type' => 'text', 'text' => 'What is on this image?']]);
+
+        self::assertInstanceOf(VisionResponse::class, $result);
+
+        // The configuration drives the call rather than merely unblocking it:
+        // its model reaches the provider, which would otherwise fall back to
+        // its own hardcoded default.
+        self::assertSame('gpt-5.2-vision', $provider->capturedVisionOptions['model'] ?? null);
+    }
+
+    #[Test]
+    public function visionKeepsAModelTheCallerNamedItself(): void
+    {
+        $provider = new TestableVisionProvider();
+
+        $providerRecord = self::createStub(Provider::class);
+        $providerRecord->method('getIdentifier')->willReturn('openai-vision');
+
+        $model = self::createStub(Model::class);
+        $model->method('getProvider')->willReturn($providerRecord);
+        $model->method('getModelId')->willReturn('gpt-5.2-vision');
+
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('hasAccessRestrictions')->willReturn(false);
+
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn($config);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($provider);
+
+        $manager->vision(
+            [['type' => 'text', 'text' => 'What is on this image?']],
+            new VisionOptions(model: 'a-model-the-caller-picked'),
+        );
+
+        self::assertSame('a-model-the-caller-picked', $provider->capturedVisionOptions['model'] ?? null);
+    }
+
+    #[Test]
+    public function visionStillThrowsWhenThereIsNoDefaultConfigurationEither(): void
+    {
+        // The fallback resolves a default, it does not invent one: with no
+        // default configuration and no pinned provider the call must still say
+        // so rather than picking a provider silently (ADR-034).
+        $configRepo = $this->createMock(LlmConfigurationRepository::class);
+        $configRepo->method('findDefault')->willReturn(null);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $this->adapterRegistryStub,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            $configRepo,
+        );
+        $manager->registerProvider($this->provider);
+
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
+
+        $manager->vision([['type' => 'text', 'text' => 'test']]);
+    }
+
+    #[Test]
     public function chatThrowsWhenNoDefaultConfigurationAndNoProviderPinned(): void
     {
         $configRepo = $this->createMock(LlmConfigurationRepository::class);
@@ -2917,6 +3026,14 @@ class TestableProvider extends AbstractProvider
      */
     public array $capturedMessages = [];
 
+    /**
+     * The options the last analyzeImage() call was handed — the caller's own,
+     * plus whatever the manager resolved on their behalf.
+     *
+     * @var array<string, mixed>
+     */
+    public array $capturedVisionOptions = [];
+
     public function __construct(
         private readonly string $id = 'openai',
         private readonly string $providerName = 'OpenAI',
@@ -3045,6 +3162,7 @@ class TestableVisionProvider extends TestableProvider implements VisionCapableIn
     public function analyzeImage(array $content, array $options = []): VisionResponse
     {
         $this->capturedContent = $content;
+        $this->capturedVisionOptions = $options;
 
         return $this->nextVisionResponse ?? new VisionResponse(
             description: 'Default description',
