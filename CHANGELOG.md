@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-08-21
+
 ### Fixed
 
 - **`vision()` and `embed()` use the default configuration when no provider is pinned**, as `chat()` has since ADR-034. Handing them no provider used to throw "No provider specified and no default provider configured" on an installation that has a perfectly good default — which is what the feature services invite, since model selection is nr-llm's job. The resolved configuration drives the call (its model reaches the provider) and shows up in telemetry as itself rather than as an ad-hoc entry; a provider or model the caller named wins, and with no default configuration the call still refuses rather than picking one (#851).
