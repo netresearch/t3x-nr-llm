@@ -432,8 +432,12 @@ import { readAjaxError } from '@netresearch/nr-llm/Backend/AjaxError.js';
             })
             .finally(function () {
                 button.disabled = false;
-                // Restore the original server-rendered button content (icon + text)
-                button.innerHTML = originalHTML; // eslint-disable-line no-unsanitized/property
+                // Restore the original server-rendered button content (icon +
+                // text) read from this same element before the spinner. Nothing
+                // external enters; the rule treats any value read out of
+                // innerHTML as unsafe regardless of where it came from.
+                // eslint-disable-next-line no-unsanitized/property
+                button.innerHTML = originalHTML;
             });
     }
 

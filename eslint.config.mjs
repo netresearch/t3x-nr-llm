@@ -15,6 +15,9 @@
 import globals from 'globals';
 import noUnsanitized from 'eslint-plugin-no-unsanitized';
 
+// `escapeHtml()` from `Backend/HtmlEscape.js` is this codebase's sanitizer.
+const ESCAPER = { escape: { methods: ['escapeHtml'] } };
+
 export default [
     {
         files: ['Resources/Public/JavaScript/**/*.js'],
@@ -36,27 +39,24 @@ export default [
             // The rule that would have caught #825.
             'no-undef': 'error',
             'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-            // Warning, not error, and the reason is measured rather than
-            // cautious. Switched on as an error it reports 12 assignments —
-            // and none of them is a hole: the code escapes first, visibly, at
-            // `SetupWizard.js:471-474` ("SECURITY: Escape all external data")
-            // through `escapeHtml()`. The rule cannot recognise that helper as
-            // a sanitizer, which is a known shape for it.
+            // Both are errors, and the twelve findings that blocked that in
+            // #825 are gone rather than suppressed: `escapeHtml()` is declared
+            // to the rule as what it is. The plugin recognises a fixed set of
+            // sanitizers and a helper of ours was not among them, so every
+            // assignment downstream of it read as unsafe.
             //
-            // The plugin is still loaded, because two files carry
-            // `eslint-disable-line no-unsanitized/property` — suppressions
-            // written for a rule that never ran. Without the plugin those
-            // comments become "rule not found" errors the moment linting is
-            // switched on.
+            // Declaring it does NOT blunt the rule, which was measured rather
+            // than assumed. With the escaper declared, a bare interpolation, a
+            // direct assignment, a value laundered through `.trim()`, an
+            // `insertAdjacentHTML()` argument and — the one that matters — a
+            // template where only ONE of two interpolations is escaped all
+            // still report. Only a value that actually passed through
+            // `escapeHtml()` is accepted.
             //
-            // Making them errors would land a backlog of twelve judgements
-            // nobody asked for on a change whose job is #825. Leaving the rule
-            // out entirely would drop a real check silently. The findings are
-            // triaged in their own issue, with the escapeHtml evidence, so the
-            // security question lives somewhere it can be argued rather than
-            // in a config comment.
-            'no-unsanitized/property': 'warn',
-            'no-unsanitized/method': 'warn',
+            // `methods` is the right key, not `taggedTemplates`: our helper is
+            // called as a function, not used as a template tag.
+            'no-unsanitized/property': ['error', ESCAPER],
+            'no-unsanitized/method': ['error', ESCAPER],
         },
     },
 ];
