@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`attach_file_to_content_element` references an existing file from a content element** — the seventh purpose-built writer and the first that creates a `sys_file_reference`. It appends one existing `sys_file` to a content element's `image`, `assets` or `media` field through the DataHandler as the acting backend user, in the live workspace and the default language. It never uploads, moves or renames anything: the file must already lie in a permitted storage inside the acting user's file mounts, and the element must sit on a page that user may edit — either failure is refused in the same words as an element that does not exist. The file's extension must be one the chosen field accepts, and the field is only inferred when the element's type offers exactly one candidate. Ships disabled, in the `editing` group, and pauses for approval on every call like every other writer (#834).
+
 - **`nrllm:mcp:import` imports an MCP catalogue from the CLI**, so a seeded server gets its tools on deploy instead of waiting for somebody to press **Import catalogue** in the module. Takes a server identifier, or `--all` for every enabled server; prints imported, skipped and orphaned counts per server plus the reason for each skipped tool, and exits non-zero when a server refused. It is the module's button rather than a second path — the same refusals, the same guard rails and the same reconciliation, so a second run against an unchanged catalogue writes nothing. With `--all` a refusing server does not stop the others, and an installation with no enabled server is not a failure (#836).
 
 ### Fixed

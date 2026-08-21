@@ -1356,6 +1356,12 @@
             <trans-unit id="editorAction.set_file_alternative_text.description">
                 <source>Sets the alternative text of one file that already carries a metadata record.</source>
             </trans-unit>
+            <trans-unit id="editorAction.attach_file_to_content_element.label">
+                <source>Attach a file</source>
+            </trans-unit>
+            <trans-unit id="editorAction.attach_file_to_content_element.description">
+                <source>References an existing file from this content element, appended to one of its file fields.</source>
+            </trans-unit>
             <trans-unit id="editorAction.move_content_element.label">
                 <source>Move content element</source>
             </trans-unit>

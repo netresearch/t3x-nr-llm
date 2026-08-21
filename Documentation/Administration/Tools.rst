@@ -43,10 +43,11 @@ reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all six writing tools
+``get_php_info_raw`` and ``list_be_users_raw``) and all seven writing tools
 (``update_page_metadata``, ``set_file_alternative_text``,
 ``move_content_element``, ``create_content_element_draft``,
-``create_page_draft``, ``create_translation_draft``) ship **disabled** and
+``create_page_draft``, ``create_translation_draft``,
+``attach_file_to_content_element``) ship **disabled** and
 must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -283,10 +284,11 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Six tools change anything at all: ``update_page_metadata``,
+Seven tools change anything at all: ``update_page_metadata``,
 ``set_file_alternative_text``, ``move_content_element``,
-``create_content_element_draft``, ``create_page_draft`` and
-``create_translation_draft``. All six write through the TYPO3 DataHandler, as
+``create_content_element_draft``, ``create_page_draft``,
+``create_translation_draft`` and ``attach_file_to_content_element``. All seven
+write through the TYPO3 DataHandler, as
 the acting backend user, in the live workspace only, on exactly **one** record
 per call (:ref:`ADR-135 <adr-135>`, :ref:`ADR-146 <adr-146>`,
 :ref:`ADR-180 <adr-180>`).
@@ -343,6 +345,37 @@ What holds for all of them:
 
    An empty string is accepted and is the correct value for a decorative
    image.
+
+``attach_file_to_content_element``
+   References an **existing** managed file from one content element, appended
+   to one of its file fields (``image``, ``assets`` or ``media``). It creates
+   exactly one ``sys_file_reference``. It never uploads, moves, copies or
+   renames a file, and never touches ``sys_file_metadata`` — the file has to be
+   there already.
+
+   Authorised on both ends: the acting user needs content-edit rights on the
+   element's page, and the file has to lie in a permitted storage inside that
+   user's own file mounts. Either failure is refused in the same words as an
+   element that does not exist.
+
+   Three things worth knowing before enabling it:
+
+   - **The field must accept the file.** Each file field declares which
+     extensions it takes, and they differ — ``image`` accepts fourteen,
+     ``assets`` twenty-seven, ``media`` anything. A ``.docx`` on ``image`` is
+     refused rather than written, because the FormEngine would reject the
+     relation anyway.
+   - **The field is only inferred when it is unambiguous.** When the element's
+     type offers exactly one of the three, that one is used; when it offers
+     several, the call must name the one it means. The tool does not pick.
+   - **Calling twice attaches the file twice.** That is the declared effect
+     (``NON_IDEMPOTENT_WRITE``), not an accident: two references to one image
+     are a valid thing to want, so nothing deduplicates behind the caller's
+     back.
+
+   The new reference is always appended last, and the element's own reference
+   count is re-read afterwards. A write that left the relation inconsistent is
+   reported as a failure and the reference is removed again.
 
 ``move_content_element``
    Moves one content element to a page and a column. The element keeps its uid,

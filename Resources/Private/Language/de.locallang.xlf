@@ -1796,6 +1796,14 @@
                 <source>Sets the alternative text of one file that already carries a metadata record.</source>
                 <target>Setzt den Alternativtext einer Datei, die bereits einen Metadatensatz hat.</target>
             </trans-unit>
+            <trans-unit id="editorAction.attach_file_to_content_element.label">
+                <source>Attach a file</source>
+                <target>Datei anhängen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.attach_file_to_content_element.description">
+                <source>References an existing file from this content element, appended to one of its file fields.</source>
+                <target>Verweist aus diesem Inhaltselement auf eine vorhandene Datei und hängt sie an eines seiner Dateifelder an.</target>
+            </trans-unit>
             <trans-unit id="editorAction.move_content_element.label">
                 <source>Move content element</source>
                 <target>Inhaltselement verschieben</target>
