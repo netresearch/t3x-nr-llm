@@ -76,6 +76,14 @@ final readonly class AgentRunRequestCodec
             // request hit the identical budget gate and dedup.
             'plannedCost'      => $request->options?->getPlannedCost(),
             'idempotencyKey'   => $request->options?->getIdempotencyKey(),
+            // Same channel, same reason (#847): the caller identity is call
+            // metadata, not a provider option, so it is absent from toArray() —
+            // and a queued run would otherwise be unattributed for its whole
+            // length even though the enqueuing request named its caller. That is
+            // worse than a missing row: one logical run splits between its own
+            // extension and "Unattributed", and neither figure is its cost.
+            'callerSourceExtension' => $request->options?->getCallerSourceExtension(),
+            'callerSourceOperation' => $request->options?->getCallerSourceOperation(),
             'maxIterations'    => $request->maxIterations,
             'captureRaw'       => $request->captureRaw,
             // null stays null: a non-null augmentation makes the loop bake the
@@ -150,6 +158,15 @@ final readonly class AgentRunRequestCodec
             $idempotencyKey = $data['idempotencyKey'] ?? null;
             if (is_string($idempotencyKey) && $idempotencyKey !== '') {
                 $options = $options->withIdempotencyKey($idempotencyKey);
+            }
+
+            $callerSourceExtension = $data['callerSourceExtension'] ?? null;
+            if (is_string($callerSourceExtension) && $callerSourceExtension !== '') {
+                $callerSourceOperation = $data['callerSourceOperation'] ?? null;
+                $options               = $options->withCallerSource(
+                    $callerSourceExtension,
+                    is_string($callerSourceOperation) ? $callerSourceOperation : '',
+                );
             }
         }
 

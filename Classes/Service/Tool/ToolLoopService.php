@@ -395,7 +395,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             // SAME allow-list and options instead of falling back to
                             // defaults (ADR-084).
                             $allowedToolNames,
-                            $options?->toArray() ?? [],
+                            $this->persistedRunOptions($options),
                             // What the turn WOULD do, captured here and not at
                             // approval time: this is the run's actor context, the
                             // only identity allowed to read the targets (ADR-136).
@@ -435,7 +435,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                             $promptTokens,
                             $completionTokens,
                             $allowedToolNames,
-                            $options?->toArray() ?? [],
+                            $this->persistedRunOptions($options),
                             inputToolName: $call->name,
                             inputSchema: $schema,
                             forcedSnippetUids: $this->uidsOf($augmentation->forcedSnippets ?? []),
@@ -633,7 +633,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Restore the run's options and re-inject the acting user's uid so the
         // resumed continuation is budget-checked — the uid is intentionally not
         // part of the persisted options (ADR-084).
-        $options = ToolOptions::fromArray($state->options, $beUserUid);
+        $options = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
         // Re-apply the gate NOW (a tool may have been disabled or restricted while
         // the run was suspended) rather than trusting the names captured at
         // suspend time.
@@ -724,7 +724,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
 
         $messages     = $state->messages;
         $pendingCalls = $state->toolCalls();
-        $options      = ToolOptions::fromArray($state->options, $beUserUid);
+        $options      = $this->restoreCallerSource(ToolOptions::fromArray($state->options, $beUserUid), $state->options);
         $offered      = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
         $remoteCalls  = new RemoteCallBudget();
 
@@ -1138,6 +1138,59 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $this->bounder->content($result->content),
                 ...$this->bounder->artifacts($result->artifacts),
             );
+    }
+
+    /**
+     * The run's options as they are persisted at suspend: the serialised
+     * `ToolOptions`, plus the caller identity carried alongside them.
+     *
+     * @return array<string, mixed>
+     */
+    private function persistedRunOptions(?ToolOptions $options): array
+    {
+        $persisted = $options?->toArray() ?? [];
+
+        $extension = $options?->getCallerSourceExtension();
+        if ($extension === null || $extension === '') {
+            return $persisted;
+        }
+
+        // Carried BESIDE the serialised options, not inside them: `toArray()`
+        // builds the provider payload and deliberately omits the caller identity,
+        // exactly as it omits the idempotency key and the budget fields. Widening
+        // it here would send the calling extension's key upstream and would take
+        // the reason those other two are excluded down with it (#847).
+        //
+        // `ToolOptions::fromArray()` ignores keys it does not know, so these two
+        // survive the round trip without reaching a provider; resume reads them
+        // back explicitly in {@see self::restoreCallerSource()}.
+        return $persisted + [
+            'callerSourceExtension' => $extension,
+            'callerSourceOperation' => $options?->getCallerSourceOperation() ?? '',
+        ];
+    }
+
+    /**
+     * Put the caller identity back on options rehydrated from a suspended state.
+     *
+     * The same shape as the backend-user uid the resume paths already re-inject
+     * by hand (ADR-084): persisted out-of-band, restored explicitly. Without it
+     * every provider round-trip after an approval or an input submission is
+     * unattributed, so one logical run splits between its own extension and
+     * *Unattributed* and neither figure is the run's cost (#847).
+     *
+     * @param array<string, mixed> $persisted
+     */
+    private function restoreCallerSource(ToolOptions $options, array $persisted): ToolOptions
+    {
+        $extension = $persisted['callerSourceExtension'] ?? null;
+        if (!is_string($extension) || $extension === '') {
+            return $options;
+        }
+
+        $operation = $persisted['callerSourceOperation'] ?? null;
+
+        return $options->withCallerSource($extension, is_string($operation) ? $operation : '');
     }
 
     /**

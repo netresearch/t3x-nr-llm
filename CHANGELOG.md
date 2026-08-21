@@ -9,6 +9,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **A merge conflict marker shipped in the ADR index.** `Documentation/Adr/Index.rst` ended on `||||||| c6503022` — a hand-resolved merge kept both sides and left the diff3 base marker behind as the file's last line, so the toctree carried a stray entry through v0.32.0. Nothing failed: the other guards read structure (status fields, citations, a rendered page) and a stray line at the end of a toctree is none of those to any of them. `NoConflictMarkersTest` now reads the bytes, and both marker shapes were watched failing before it was trusted.
+- **A resumed or queued agent run keeps the caller that started it.** The identity survived only while the `AgentRunRequest` was in memory: `AgentRunRequestCodec` persisted the options through `toArray()`, which omits the caller source by design, and the resume paths rebuilt them the same way. Every provider round-trip after an approval or an input submission was therefore unattributed, and a queued run was unattributed for its whole length even though the enqueuing request named its caller. That is worse than a missing row — the same logical run appeared partly under its extension and partly under *Unattributed*, so neither figure was the run's cost. For an agent whose writing tools all suspend for approval (ADR-134) it was most of the interesting traffic (#847).
+
+  The pair now travels beside the serialised options rather than inside them, in the channel the codec already uses for `plannedCost` and the idempotency key, and the resume paths re-inject it exactly as they re-inject the acting user's uid (ADR-084). `toArray()` stays provider-clean: widening it would have sent the calling extension's key upstream and taken the reason those other fields are excluded down with it.
 
 ## [0.32.0] - 2026-08-21
 
