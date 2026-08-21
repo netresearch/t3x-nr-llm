@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolGroup;
+use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
@@ -120,6 +121,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'find_missing_files' => [FindMissingFilesTool::class, 'files'],
             'update_page_metadata' => [UpdatePageMetadataTool::class, 'editing'],
             'set_file_alternative_text' => [SetFileAlternativeTextTool::class, 'editing'],
+            'attach_file_to_content_element' => [AttachFileToContentElementTool::class, 'editing'],
             'move_content_element' => [MoveContentElementTool::class, 'editing'],
             'create_content_element_draft' => [CreateContentElementDraftTool::class, 'editing'],
             'create_page_draft' => [CreatePageDraftTool::class, 'editing'],

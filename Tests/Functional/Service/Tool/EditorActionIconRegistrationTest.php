@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
@@ -47,6 +48,7 @@ final class EditorActionIconRegistrationTest extends AbstractFunctionalTestCase
         return [
             'update_page_metadata'         => [UpdatePageMetadataTool::class],
             'set_file_alternative_text'    => [SetFileAlternativeTextTool::class],
+            'attach_file_to_content_element' => [AttachFileToContentElementTool::class],
             'move_content_element'         => [MoveContentElementTool::class],
             'create_content_element_draft' => [CreateContentElementDraftTool::class],
             'create_page_draft'            => [CreatePageDraftTool::class],

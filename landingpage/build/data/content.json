@@ -64,7 +64,7 @@
       {
         "icon": "rag",
         "title": "RAG site-search tools",
-        "body": "47 built-in function-calling tools in 9 toggleable groups give the model grounded access to the TYPO3 instance — content search, TCA/FlexForm schema, TypoScript, source and exception reads, FAL files, diagnostics, and backend accounts. 41 of them only read. The rag group returns cited site-content evidence from the installed search index (EXT:solr, ke_search, indexed_search, or a database fallback), and the editing group holds the six writing tools, which ship disabled and pause the run for human approval before they act."
+        "body": "48 built-in function-calling tools in 9 toggleable groups give the model grounded access to the TYPO3 instance — content search, TCA/FlexForm schema, TypoScript, source and exception reads, FAL files, diagnostics, and backend accounts. 41 of them only read. The rag group returns cited site-content evidence from the installed search index (EXT:solr, ke_search, indexed_search, or a database fallback), and the editing group holds the seven writing tools, which ship disabled and pause the run for human approval before they act."
       },
       {
         "icon": "budget",
@@ -154,7 +154,7 @@
       },
       {
         "title": "Tools and RAG",
-        "body": "47 function-calling tools in 9 toggleable groups let models inspect content, schema, configuration, code, files, system diagnostics, and accounts — with the rag group returning cited evidence from the installed search index. 41 only read; the six writers ship disabled and pause for approval."
+        "body": "48 function-calling tools in 9 toggleable groups let models inspect content, schema, configuration, code, files, system diagnostics, and accounts — with the rag group returning cited evidence from the installed search index. 41 only read; the six writers ship disabled and pause for approval."
       },
       {
         "title": "Tool Playground",
@@ -223,7 +223,7 @@
       },
       {
         "q": "What governance and security controls does nr-llm provide?",
-        "a": "Encrypted API keys via nr-vault, an admin-only backend module with per-capability backend-group permissions, a guardrail pipeline that redacts secrets across input, output, and streaming, optional human-in-the-loop approval, and per-user budgets with usage analytics. 41 of the 47 built-in tools are read-only; the six that write ship disabled and suspend the run for human approval before they act. The Governance & Security page covers each control in detail."
+        "a": "Encrypted API keys via nr-vault, an admin-only backend module with per-capability backend-group permissions, a guardrail pipeline that redacts secrets across input, output, and streaming, optional human-in-the-loop approval, and per-user budgets with usage analytics. 41 of the 48 built-in tools are read-only; the six that write ship disabled and suspend the run for human approval before they act. The Governance & Security page covers each control in detail."
       }
     ]
   },
