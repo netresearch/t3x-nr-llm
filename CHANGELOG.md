@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A merge conflict marker shipped in the ADR index.** `Documentation/Adr/Index.rst` ended on `||||||| c6503022` — a hand-resolved merge kept both sides and left the diff3 base marker behind as the file's last line, so the toctree carried a stray entry through v0.32.0. Nothing failed: the other guards read structure (status fields, citations, a rendered page) and a stray line at the end of a toctree is none of those to any of them. `NoConflictMarkersTest` now reads the bytes, and both marker shapes were watched failing before it was trusted.
+
 ## [0.32.0] - 2026-08-21
 
 ### Fixed
