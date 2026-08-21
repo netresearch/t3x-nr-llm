@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `toArray()` deliberately still omits the identity: it builds the provider payload, and the caller's extension key is attribution metadata that must never be sent upstream — the same reason `configuration` and the budget fields are absent there. A test asserts that absence so a later symmetry-minded change cannot turn it into a data leak.
 
   Not covered: `DallEImageService::variation()` and `::edit()` take no options object and stay unattributed, and DeepL's language-detection and metadata calls are internal sub-steps rather than consumer-attributable spend.
+- **`vision()` and `embed()` look up the provider by adapter type, not by the configuration row's identifier.** 0.32.0 gave both methods the default-configuration fallback `chat()` already had, and then handed `KeyedProviderRegistry` the wrong kind of key: the registry is keyed by `ProviderInterface::getIdentifier()` — the adapter's own name, `openai` — while `Domain\Model\Provider::getIdentifier()` is the `tx_nrllm_provider` row's identifier, `openai-dcbd8f` on any installation set up through the wizard. Two namespaces behind one method name. The result was that 0.32.0 replaced *"No provider specified and no default provider configured"* with *"Provider … not found"* — a different message for the same dead end, on exactly the installations the fallback was written for (#873).
+
+  The regression tests that were supposed to cover this could not: their fixture returned the same string for the row identifier and the adapter key, so nothing distinguished them. The fixture now uses different values, and with it the existing tests reproduce the production failure.
 
 ## [0.32.0] - 2026-08-21
 

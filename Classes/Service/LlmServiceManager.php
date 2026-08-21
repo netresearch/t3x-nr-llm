@@ -1396,8 +1396,16 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // lookups below are answered — but a model without a provider record
         // would leave the key null, and then the registry throws as before
         // rather than this method inventing a provider.
+        //
+        // The ADAPTER TYPE, not the record identifier: KeyedProviderRegistry is
+        // keyed by ProviderInterface::getIdentifier() — the adapter's own name
+        // ('openai', 'claude', …) — while Provider::getIdentifier() is the
+        // tx_nrllm_provider row's identifier ('openai-dcbd8f'). The two are
+        // different namespaces behind the same method name, and handing the
+        // registry the row identifier turned "no provider specified" into
+        // "Provider ... not found" (#873).
         $model      = $configuration->getLlmModel();
-        $identifier = $model?->getProvider()?->getIdentifier();
+        $identifier = $model?->getProvider()?->getAdapterType();
         if ($identifier === null || $identifier === '') {
             return [null, null, $optionsArray];
         }
