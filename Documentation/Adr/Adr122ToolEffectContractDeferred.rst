@@ -8,7 +8,7 @@ ADR-122: The side-effecting tool contract waits for a side-effecting tool
 
 :Status: Accepted (premise expired — see :ref:`ADR-135 <adr-135>` and :ref:`ADR-136 <adr-136>`)
 :Date: 2026-07-29
-:Amended: 2026-08-09 by :ref:`ADR-135 <adr-135>` and :ref:`ADR-136 <adr-136>`
+:Amended: 2026-08-09 by :ref:`ADR-135 <adr-135>` and :ref:`ADR-136 <adr-136>`; 2026-08-21 by :ref:`ADR-182 <adr-182>`
 :Authors: Netresearch DTT GmbH
 
 .. note::
