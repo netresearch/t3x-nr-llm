@@ -140,6 +140,72 @@ final class AgentRunRequestCodecTest extends TestCase
     }
 
     /**
+     * Same channel and same reason as the budget fields above (#847): the caller
+     * identity is call metadata, not a provider option, so `toArray()` omits it.
+     * Without carrying it out of band a queued run is unattributed for its whole
+     * length even though the enqueuing request named its caller — and the run
+     * then splits between its own extension and "Unattributed", so neither
+     * number is the run's cost.
+     */
+    #[Test]
+    public function roundTripCarriesTheCallerIdentityOutOfBand(): void
+    {
+        $options = (new ToolOptions())->withCallerSource('nr_mcp_agent', 'chatTurn');
+
+        $request = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [],
+            actor: AiActorContext::backendUser(7),
+            options: $options,
+        );
+
+        $dehydrated = $this->codec()->dehydrate($request);
+        self::assertSame('nr_mcp_agent', $dehydrated['callerSourceExtension']);
+        self::assertSame('chatTurn', $dehydrated['callerSourceOperation']);
+
+        // It must travel out of band, not inside the serialised options: that
+        // array is what rebuilds the provider request, and the calling
+        // extension's key must never be sent upstream.
+        self::assertIsArray($dehydrated['options']);
+        self::assertArrayNotHasKey('callerSourceExtension', $dehydrated['options']);
+
+        $payload = json_encode($dehydrated);
+        self::assertIsString($payload);
+
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+        $restored = $this->codec()->rehydrate($this->queuedRun($payload));
+
+        self::assertNotNull($restored->options);
+        self::assertSame('nr_mcp_agent', $restored->options->getCallerSourceExtension());
+        self::assertSame('chatTurn', $restored->options->getCallerSourceOperation());
+    }
+
+    /**
+     * An unannotated request must rehydrate unannotated rather than picking up
+     * an empty identity: `''` on the row reads as "attributed to nothing", which
+     * is a different claim from "not attributed".
+     */
+    #[Test]
+    public function anUnannotatedRequestRehydratesWithoutACallerIdentity(): void
+    {
+        $request = new AgentRunRequest(
+            configuration: $this->configuration,
+            messages: [],
+            actor: AiActorContext::backendUser(7),
+            options: new ToolOptions(),
+        );
+
+        $payload = json_encode($this->codec()->dehydrate($request));
+        self::assertIsString($payload);
+
+        $this->configurationRepository->method('findByUid')->willReturn($this->configuration);
+        $restored = $this->codec()->rehydrate($this->queuedRun($payload));
+
+        self::assertNotNull($restored->options);
+        self::assertNull($restored->options->getCallerSourceExtension());
+    }
+
+    /**
      * A null augmentation must stay null: a non-null one makes the loop bake the
      * effective system prompt into the transcript, which a null-augmentation run
      * would not do.

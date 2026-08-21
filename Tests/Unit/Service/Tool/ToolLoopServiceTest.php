@@ -1208,6 +1208,99 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     #[Test]
+    public function anApprovedRunContinuesUnderTheCallerThatStartedIt(): void
+    {
+        // #847: the caller identity survived only as long as the AgentRunRequest
+        // was in memory. Everything that rehydrates a run from persisted state
+        // got it back as null, so every provider round-trip after an approval
+        // was unattributed. For an agent whose writing tools all suspend for
+        // approval (ADR-134) that is the majority of the interesting traffic,
+        // and the effect is worse than a missing row: the same logical run shows
+        // up partly under its extension and partly under "Unattributed", so
+        // neither number is the run's cost.
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+
+        $resumedOptions = null;
+        $queue          = [
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])]),
+            $this->response('done', []),
+        ];
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback(
+            function (
+                array $messages,
+                array $tools,
+                LlmConfiguration $configuration,
+                ?ToolOptions $options = null,
+            ) use (&$queue, &$resumedOptions): CompletionResponse {
+                // The first call suspends; anything after it is the continuation.
+                if ($resumedOptions === null && count($queue) === 1) {
+                    $resumedOptions = $options;
+                }
+
+                return array_shift($queue) ?? $this->response('done', []);
+            },
+        );
+
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+        $options = (new ToolOptions())->withCallerSource('nr_mcp_agent', 'chatTurn');
+
+        $state = null;
+        try {
+            $service->runLoop(
+                [$this->userTurn('delete it')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                ['delete_thing'],
+                $options,
+            );
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        // Persisted BESIDE the serialised options, never inside them: that array
+        // rebuilds the provider request, and the calling extension's key must
+        // not reach a provider.
+        self::assertSame('nr_mcp_agent', $state->options['callerSourceExtension'] ?? null);
+        self::assertSame('chatTurn', $state->options['callerSourceOperation'] ?? null);
+
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertInstanceOf(ToolOptions::class, $resumedOptions);
+        self::assertSame('nr_mcp_agent', $resumedOptions->getCallerSourceExtension());
+        self::assertSame('chatTurn', $resumedOptions->getCallerSourceOperation());
+    }
+
+    #[Test]
+    public function anUnannotatedRunSuspendsWithoutACallerIdentity(): void
+    {
+        // The absence needs its own assertion: writing '' would put "attributed
+        // to nothing" on the row, which is a different claim from "not
+        // attributed", and it would hide a wiring mistake that always writes.
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')
+            ->willReturn($this->response('', [new ToolCall('call_1', 'delete_thing', [])]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = null;
+        try {
+            $service->runLoop(
+                [$this->userTurn('go')],
+                $this->localConfiguration(),
+                ToolExecutionContext::none(),
+                ['delete_thing'],
+                new ToolOptions(temperature: 0.3),
+            );
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertNotNull($state);
+        self::assertArrayNotHasKey('callerSourceExtension', $state->options);
+        self::assertArrayNotHasKey('callerSourceOperation', $state->options);
+    }
+
+    #[Test]
     public function resumeReAppliesTheGateAndRefusesANoLongerOfferedTool(): void
     {
         $mgr = self::createStub(LlmServiceManagerInterface::class);
