@@ -212,6 +212,10 @@ class TaskExecute {
             Notification.error('Error', error.message || 'Failed to load record data');
         } finally {
             this.loadRecordsBtn.disabled = false;
+            // Restores the markup this element already held, read at the top of
+            // this method. Nothing external enters here; the rule treats any
+            // value read out of innerHTML as unsafe regardless of origin.
+            // eslint-disable-next-line no-unsanitized/property
             this.loadRecordsBtn.innerHTML = originalBtnHtml;
         }
     }
@@ -244,6 +248,9 @@ class TaskExecute {
             Notification.error('Error', error.message || 'Failed to refresh input data');
         } finally {
             this.refreshInputBtn.disabled = false;
+            // Same round-trip as loadRecords(): the element's own markup, put
+            // back after the spinner.
+            // eslint-disable-next-line no-unsanitized/property
             this.refreshInputBtn.innerHTML = originalHtml;
         }
     }
@@ -351,10 +358,13 @@ class TaskExecute {
     /**
      * Render the stored raw content in the active format.
      *
-     * Security approach per format:
-     * - plain/markdown/json: Content is HTML-escaped via escapeHtml() before insertion.
-     *   Markdown transformations operate on already-escaped content (safe).
-     * - html: Rendered in a fully sandboxed iframe (sandbox="") which prevents
+     * Security approach per format, corrected against what the helpers do:
+     * - plain and json write through textContent, so nothing is escaped and
+     *   nothing needs to be. The previous wording claimed escapeHtml() ran for
+     *   these two; it never did.
+     * - markdown escapes inside renderMarkdownOutput(), which is the only path
+     *   here that reaches innerHTML.
+     * - html renders in a fully sandboxed iframe (sandbox=""), which prevents
      *   script execution and blocks access to the parent page's DOM.
      */
     renderOutput() {
@@ -365,7 +375,6 @@ class TaskExecute {
         }
 
         const content = this._rawContent;
-        const escaped = escapeHtml(content);
 
         switch (this._activeFormat) {
             case 'html':
@@ -373,7 +382,7 @@ class TaskExecute {
                 break;
 
             case 'markdown':
-                this.renderMarkdownOutput(escaped);
+                this.renderMarkdownOutput(content);
                 break;
 
             case 'json':
@@ -392,6 +401,11 @@ class TaskExecute {
     renderHtmlOutput(content) {
         this.outputContent.textContent = '';
         const iframe = document.createElement('iframe');
+        // Load-bearing, and nothing checks it: `content` below is the model's
+        // raw output, unescaped on purpose so HTML renders as HTML. An empty
+        // sandbox denies scripts, same-origin and forms, which is the only
+        // reason that is safe. `no-unsanitized` does not cover `srcdoc`, so
+        // removing this line would not fail the build.
         iframe.sandbox = '';
         iframe.style.cssText = 'width:100%;border:none;min-height:200px;background:#fff;';
         iframe.srcdoc = [
@@ -412,10 +426,18 @@ class TaskExecute {
     }
 
     /**
-     * Render escaped content with basic markdown transformations.
+     * Render content with basic markdown transformations.
+     *
+     * Takes RAW content and escapes it here rather than trusting the caller:
+     * the assignment at the end of this method carries an eslint suppression,
+     * and a suppression cannot tell a deliberate escape from a removed one. It
+     * stops detecting exactly this — that the value reaching innerHTML was
+     * escaped. Keeping the escape inside the method means breaking it requires
+     * editing the six lines below this comment, not a line eighty rows away in
+     * a different method.
      */
-    renderMarkdownOutput(escaped) {
-        const rendered = escaped
+    renderMarkdownOutput(content) {
+        const rendered = escapeHtml(content)
             // Headers
             .replace(/^(#{1,6})\s+(\S.*)$/gm, (_, hashes, text) => {
                 const level = hashes.length;
@@ -439,7 +461,12 @@ class TaskExecute {
             .replaceAll('\n', '<br>');
         const wrapper = document.createElement('div');
         wrapper.className = 'markdown-content';
-        wrapper.innerHTML = rendered; // eslint-disable-line no-unsanitized/property -- content is pre-escaped via escapeHtml()
+        // `rendered` is escapeHtml() output with our own markdown tags wrapped
+        // around it, so every captured group is already escaped. The rule
+        // cannot follow a `.replace()` chain — measured, not assumed: it breaks
+        // the trace even when the escaper is called in this same expression.
+        // eslint-disable-next-line no-unsanitized/property
+        wrapper.innerHTML = rendered;
         this.outputContent.textContent = '';
         this.outputContent.appendChild(wrapper);
     }

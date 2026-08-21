@@ -263,10 +263,13 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('models-loading').style.display = 'none';
-            // SECURITY: Escape error message to prevent XSS (unchanged pattern; transport-only change)
-            const discoverError = escapeHtml(await readAjaxError(e));
+            // SECURITY: escape the error before it reaches innerHTML. Called
+            // here rather than through a const: the rule cannot follow a
+            // binding declared inside a catch block, and an escaper it can see
+            // beats one it has to be told about.
             document.getElementById('models-list').innerHTML =
-                '<div class="alert alert-danger">Failed to discover models: ' + discoverError + '</div>';
+                '<div class="alert alert-danger">Failed to discover models: '
+                + escapeHtml(await readAjaxError(e)) + '</div>';
         }
     }
 
@@ -278,11 +281,15 @@ class SetupWizard {
             // SECURITY: Escape all external data to prevent XSS
             const safeName = escapeHtml(model.name);
             const safeModelId = escapeHtml(model.modelId);
-            const safeDescription = model.description ? escapeHtml(model.description) : '';
+            const safeDescription = escapeHtml(model.description || '');
 
-            const capabilities = (model.capabilities || ['chat']).map(cap =>
-                `<span class="badge bg-secondary">${escapeHtml(cap)}</span>`
-            ).join('');
+            // Accumulated rather than `.map().join('')`: the rule cannot see
+            // through map/join and would report the assignment below, which
+            // would then also hide a genuinely removed escapeHtml() there.
+            let capabilities = '';
+            for (const cap of (model.capabilities || ['chat'])) {
+                capabilities += `<span class="badge bg-secondary">${escapeHtml(cap)}</span>`;
+            }
 
             let contextStr = '-';
             if (model.contextLength) {
@@ -291,24 +298,39 @@ class SetupWizard {
                     `${(model.contextLength / 1000).toFixed(0)}K`;
             }
 
+            // The four interpolations below were ternaries. The rule rejects a
+            // conditional whose test is a member expression even when both
+            // branches are literals, and it reports the assignment ONCE — so a
+            // suppression here would also have hidden a removed escapeHtml().
+            // Verified: it does. Same strings, same conditions, shape the rule
+            // can follow.
+            let descriptionHtml = '';
+            if (safeDescription) {
+                descriptionHtml = `<div class="small text-muted">${safeDescription}</div>`;
+            }
+
+            let recommendedBadge = '<span class="text-muted">-</span>';
+            if (model.recommended) {
+                recommendedBadge = '<span class="badge bg-success">Recommended</span>';
+            }
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
                     <input type="checkbox" class="form-check-input model-checkbox"
-                           data-index="${index}" ${model.recommended ? 'checked' : ''}
+                           data-index="${escapeHtml(String(index))}"
+                           ${escapeHtml(model.recommended ? 'checked' : '')}
                            aria-label="Select model ${safeName}">
                 </td>
                 <td>
                     <strong>${safeName}</strong>
                     <div class="small text-muted">${safeModelId}</div>
-                    ${safeDescription ? `<div class="small text-muted">${safeDescription}</div>` : ''}
+                    ${descriptionHtml}
                 </td>
-                <td>${contextStr}</td>
+                <td>${escapeHtml(contextStr)}</td>
                 <td>${capabilities}</td>
                 <td>
-                    ${model.recommended ?
-                        '<span class="badge bg-success">Recommended</span>' :
-                        '<span class="text-muted">-</span>'}
+                    ${recommendedBadge}
                 </td>
             `;
             tbody.appendChild(row);
@@ -380,10 +402,11 @@ class SetupWizard {
             }
         } catch (e) {
             document.getElementById('configs-loading').style.display = 'none';
-            // SECURITY: Escape error message to prevent XSS (unchanged pattern; transport-only change)
-            const generateError = escapeHtml(await readAjaxError(e));
+            // SECURITY: escape the error before it reaches innerHTML — see
+            // the catch block in discoverModels() for why it is not a const.
             document.getElementById('configs-list').innerHTML =
-                '<div class="alert alert-danger">Failed to generate configurations: ' + generateError + '</div>';
+                '<div class="alert alert-danger">Failed to generate configurations: '
+                + escapeHtml(await readAjaxError(e)) + '</div>';
         }
     }
 
@@ -395,14 +418,17 @@ class SetupWizard {
             // SECURITY: Escape all external data to prevent XSS
             const safeName = escapeHtml(config.name);
             const safeDescription = escapeHtml(config.description);
-            // temperature and maxTokens are numbers, safe to use directly
-            const safeTemp = Number.parseFloat(config.temperature) || 0;
-            const safeMaxTokens = Number.parseInt(config.maxTokens, 10) || 0;
+            // Coerced to numbers, then escaped anyway: `|| 0` guarantees a
+            // number, but the rule cannot see that through Number.parseFloat,
+            // and an escaper it can verify beats a comment it cannot.
+            const safeTemp = escapeHtml(String(Number.parseFloat(config.temperature) || 0));
+            const safeMaxTokens = escapeHtml(String(Number.parseInt(config.maxTokens, 10) || 0));
 
             const col = document.createElement('div');
             col.className = 'col-md-6 mb-3';
             col.innerHTML = `
-                <div class="card config-card selected" data-index="${index}">
+                <div class="card config-card selected"
+                     data-index="${escapeHtml(String(index))}">
                     <div class="card-header">
                         <input type="checkbox" class="form-check-input config-check" checked
                                aria-label="Select configuration ${safeName}">
@@ -493,22 +519,30 @@ class SetupWizard {
         // Models list
         document.getElementById('review-models-count').textContent = selectedModels.length;
         const modelsUl = document.getElementById('review-models');
-        modelsUl.innerHTML = selectedModels.map(m => `
+        let modelsHtml = '';
+        for (const m of selectedModels) {
+            modelsHtml += `
             <li class="list-group-item">
                 <span class="badge bg-primary">${escapeHtml(m.modelId)}</span>
                 <span>${escapeHtml(m.name)}</span>
             </li>
-        `).join('');
+        `;
+        }
+        modelsUl.innerHTML = modelsHtml;
 
         // Configurations list
         document.getElementById('review-configs-count').textContent = selectedConfigs.length;
         const configsUl = document.getElementById('review-configs');
-        configsUl.innerHTML = selectedConfigs.map(c => `
+        let configsHtml = '';
+        for (const c of selectedConfigs) {
+            configsHtml += `
             <li class="list-group-item">
                 <span class="badge bg-info">${escapeHtml(c.identifier)}</span>
                 <span>${escapeHtml(c.name)}</span>
             </li>
-        `).join('');
+        `;
+        }
+        configsUl.innerHTML = configsHtml;
 
         // Show review content
         document.getElementById('review-content').style.display = 'block';
