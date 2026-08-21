@@ -24,6 +24,30 @@ How it works
    rendered. Tool input schemas are normalised into the supported subset
    on import; a tool whose schema cannot be expressed is skipped rather
    than silently weakened.
+
+   The same import runs from the CLI, which is what a deploy needs: a
+   seeded server has a record but no catalogue until somebody presses the
+   button, and on a rebuilt instance that is a manual step after every
+   fresh install.
+
+   .. code-block:: bash
+      :caption: Import one server, or every enabled one
+
+      vendor/bin/typo3 nrllm:mcp:import deepwiki
+      vendor/bin/typo3 nrllm:mcp:import --all
+
+   The command is the module's button, not a second path: the same
+   refusals, the same guard rails, the same reconciliation. It prints one
+   line per server — imported, skipped and orphaned counts, plus the
+   reason for each skipped tool — and exits non-zero when a server refused.
+   With ``--all`` a refusing server does not stop the others, and an
+   installation with no enabled server is not a failure. Running it twice
+   changes nothing: the second run reconciles against the same catalogue.
+
+   Servers are named by their identifier rather than their uid, because a
+   uid is not knowable to whoever writes the deploy script. Two *enabled*
+   servers sharing an identifier is refused with both named — identifiers
+   name the imported tools, so they cannot collide.
 3. **Enable individual tools** — imported tools start disabled and are
    switched on one by one, exactly like the builtin tools in the
    :ref:`Tools module <administration-tools>`.

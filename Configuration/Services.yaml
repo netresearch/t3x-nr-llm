@@ -508,6 +508,17 @@ services:
         description: 'Store a provider API key read from STDIN and link it to the provider record.'
         schedulable: false
 
+  # The only schedulable one of the four: the import is idempotent — a second
+  # run against an unchanged catalogue reconciles to the same rows — and a
+  # catalogue changes on the server's schedule, not ours. Registered explicitly
+  # rather than left to autoconfigure so the flag is a decision, not a default.
+  Netresearch\NrLlm\Command\ImportMcpCatalogueCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:mcp:import'
+        description: "Import an MCP server's advertised tool catalogue."
+        schedulable: true
+
 
   # ========================================
   # nr-vault integration

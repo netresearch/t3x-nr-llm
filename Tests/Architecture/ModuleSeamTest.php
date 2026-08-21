@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Architecture;
 
 use Netresearch\NrLlm\Command\CancelAgentRunCommand;
+use Netresearch\NrLlm\Command\ImportMcpCatalogueCommand;
 use Netresearch\NrLlm\Command\PurgePrivacyDataCommand;
 use Netresearch\NrLlm\Command\ReapStaleAgentRunsCommand;
 use Netresearch\NrLlm\Form\Tca\ToolGroupItems;
@@ -181,13 +182,18 @@ final class ModuleSeamTest
      * into `nr_llm_tools` would make the two packages mutually dependent.
      *
      * "Core" here is the remainder: everything that is not one of the mapped
-     * module namespaces above. Seven classes are excluded BY NAME rather than by
-     * directory, because they are the tool module's own operational surface
-     * living in shared directories — in a split each moves WITH its module,
-     * so their coupling is ownership, not leakage:
+     * module namespaces above. The classes listed below are excluded BY NAME
+     * rather than by directory, because they are the tool module's own
+     * operational surface living in shared directories — in a split each moves
+     * WITH its module, so their coupling is ownership, not leakage. The list is
+     * not counted here: it said "seven" while carrying six, because a class
+     * left it without the number following.
      *
      * - `CancelAgentRunCommand`, `ReapStaleAgentRunsCommand` — CLI entry
      *   points of the agent runtime (→ nr_llm_tools)
+     * - `ImportMcpCatalogueCommand` — the CLI entry point of the MCP
+     *   catalogue import, the same operation the MCP Servers module runs
+     *   (→ nr_llm_tools)
      * - `PurgePrivacyDataCommand` — sweeps, among others, the agent-run
      *   tables through their repository (→ split into per-module sweeps when
      *   the packages separate)
@@ -227,6 +233,7 @@ final class ModuleSeamTest
                     Selector::inNamespace(self::NS_WIDGETS),
                     Selector::inNamespace(self::NS_TESTS),
                     Selector::classname(CancelAgentRunCommand::class),
+                    Selector::classname(ImportMcpCatalogueCommand::class),
                     Selector::classname(PurgePrivacyDataCommand::class),
                     Selector::classname(ReapStaleAgentRunsCommand::class),
                     Selector::classname(ToolGroupItems::class),

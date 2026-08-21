@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`nrllm:mcp:import` imports an MCP catalogue from the CLI**, so a seeded server gets its tools on deploy instead of waiting for somebody to press **Import catalogue** in the module. Takes a server identifier, or `--all` for every enabled server; prints imported, skipped and orphaned counts per server plus the reason for each skipped tool, and exits non-zero when a server refused. It is the module's button rather than a second path — the same refusals, the same guard rails and the same reconciliation, so a second run against an unchanged catalogue writes nothing. With `--all` a refusing server does not stop the others, and an installation with no enabled server is not a failure (#836).
+
 ### Fixed
 
 - **A merge conflict marker shipped in the ADR index.** `Documentation/Adr/Index.rst` ended on `||||||| c6503022` — a hand-resolved merge kept both sides and left the diff3 base marker behind as the file's last line, so the toctree carried a stray entry through v0.32.0. Nothing failed: the other guards read structure (status fields, citations, a rendered page) and a stray line at the end of a toctree is none of those to any of them. `NoConflictMarkersTest` now reads the bytes, and both marker shapes were watched failing before it was trusted.
