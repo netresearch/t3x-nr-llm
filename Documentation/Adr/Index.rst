@@ -64,6 +64,37 @@ edits that earlier record's ``:Status:`` and ``:Amended:`` in the same change.
 An accepted ADR with an expired premise and a clean ``Accepted`` status is a
 defect, not history.
 
+.. _adr-citations:
+
+How a record cites code
+=======================
+
+**Records do not cite line numbers.** A line number is invalidated by any edit
+above it in the cited file, and nothing announces that. ADR-171 cited
+``ResumeCoordinator.php:204`` for an authorisation check a later commit pushed
+to :205; it cited ``AgentRunController.php:267`` for "the list viewport", which
+by then was that file's closing brace for an unrelated method. Both still read
+as verified citations, and the second is the dangerous shape: precision is what
+makes a reviewer trust a citation.
+
+Three forms replace it, in order of preference:
+
+- **A symbol** — :php:`ResumeCoordinator::approve()`, or a class docblock named
+  as such. Survives every edit that does not rename it.
+- **A** ``:ref:`` **into the record being quoted**, with the quote in the prose.
+  ``Tests/Unit/AdrLifecycleTest.php`` already fails on a target that does not
+  resolve. Quoting an ADR by line rotted three times here, all three by the
+  same ten lines: ``9b902993`` corrected the module inventory ADR-119 opens
+  with, and every citation into that record from two others moved with it.
+- **A** ``path#anchor`` — the file plus a unique string it must still contain,
+  for configuration arrays, Fluid templates and XLIFF, which have no symbols.
+  ``Tests/Unit/AdrCodeCitationTest.php`` asserts the string is still there.
+
+A countable claim carries the command that counts it, next to the number:
+:ref:`ADR-169 <adr-169-q6>` prints its grep beside "40". A bare count is a
+positional claim with no way to fail — ADR-171 said "nine enforcement points"
+and the grep now returns ten.
+
 .. _adr-symbol-legend:
 
 Symbol legend
