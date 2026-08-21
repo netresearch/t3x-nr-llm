@@ -19,8 +19,11 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
+use Netresearch\NrLlm\Service\CallMetadataFactory;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
+use Netresearch\NrLlm\Service\Option\AbstractOptions;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Specialized\Exception\ServiceConfigurationException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
@@ -155,6 +158,65 @@ abstract class AbstractSpecializedService
                 $this->withinLifecycle = $previous;
             }
         });
+    }
+
+    /**
+     * The caller identity (ADR-177) as the metadata keys the pipeline already
+     * reads: {@see TelemetryMiddleware} persists them as source_extension /
+     * source_operation, and {@see UsageMiddleware} aggregates the cost row on the
+     * same extension key, so the two cannot disagree about who called (ADR-178).
+     *
+     * A specialized service builds its own {@see ProviderCallContext} instead of
+     * going through {@see LlmServiceManager}, which is where this translation
+     * normally happens — so without this, an options object carrying a perfectly
+     * good identity reaches a pipeline that would have read it and never gets
+     * asked. Merge the result into the context metadata with `+`: the keys are
+     * disjoint from the usage intent's.
+     *
+     * An unannotated call produces no entry and keeps the '' defaults.
+     *
+     * {@see CallMetadataFactory} is a stateless `final readonly` service with no
+     * constructor, instantiated here rather than injected: the constructor of
+     * this base class is shared verbatim by every specialized service and frozen
+     * by their tests, and a mapping of two array keys does not justify moving it.
+     *
+     * @return array<string, string>
+     */
+    protected function callerSourceMetadata(AbstractOptions $options): array
+    {
+        return (new CallMetadataFactory())->callerSource($options);
+    }
+
+    /**
+     * The same identity for the services that take a plain options array instead
+     * of a typed DTO (FAL and DeepL — see their `extractBeUserUid()`), reading
+     * the two documented keys directly.
+     *
+     * Both services build their provider payload from an explicit allowlist, so
+     * neither key can reach the upstream API — the same guarantee that lets
+     * `beUserUid`, `plannedCost` and `configuration` travel in that array.
+     *
+     * Lives here rather than in each service because the identity mapping would
+     * otherwise be its fourth copy in this namespace; `extractBeUserUid()` is
+     * already duplicated three times and is left alone.
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array<string, string>
+     */
+    protected function callerSourceFromArray(array $options): array
+    {
+        $extension = $options['callerSourceExtension'] ?? null;
+        if (!is_string($extension) || $extension === '') {
+            return [];
+        }
+
+        $operation = $options['callerSourceOperation'] ?? null;
+
+        return [
+            TelemetryMiddleware::METADATA_SOURCE_EXTENSION => $extension,
+            TelemetryMiddleware::METADATA_SOURCE_OPERATION => is_string($operation) ? $operation : '',
+        ];
     }
 
     /**

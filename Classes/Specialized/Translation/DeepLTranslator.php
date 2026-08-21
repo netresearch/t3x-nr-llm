@@ -128,7 +128,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 modelId: '',
                 beUserUid: $this->extractBeUserUid($options),
                 characters: mb_strlen($text),
-            )]);
+            )] + $this->callerSourceFromArray($options));
 
         $response = $this->runLifecycle(
             $context,
@@ -193,7 +193,7 @@ final class DeepLTranslator extends AbstractSpecializedService implements Transl
                 beUserUid: $this->extractBeUserUid($options),
                 characters: array_sum(array_map(mb_strlen(...), $texts)),
                 batchSize: count($texts),
-            )]);
+            )] + $this->callerSourceFromArray($options));
 
         $response = $this->runLifecycle(
             $context,

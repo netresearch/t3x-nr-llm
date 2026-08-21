@@ -121,7 +121,7 @@ final class TextToSpeechService extends AbstractSpecializedService
                 configurationUid: $this->resolveConfigurationUid($options->configuration),
                 beUserUid: $options->getBeUserUid(),
                 characters: mb_strlen($text),
-            )]);
+            )] + $this->callerSourceMetadata($options));
 
         $audioContent = $this->runLifecycle(
             $context,

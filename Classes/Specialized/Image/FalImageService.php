@@ -408,7 +408,7 @@ final class FalImageService extends AbstractSpecializedService implements ImageG
                 modelId: $model,
                 modelUid: $this->resolveModelUid($model),
                 beUserUid: $this->extractBeUserUid($options),
-            )]);
+            )] + $this->callerSourceFromArray($options));
 
         return $this->runLifecycle(
             $context,

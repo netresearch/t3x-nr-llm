@@ -110,7 +110,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
 
         $payload = $this->buildGeneratePayload($prompt, $optionsArray);
         $response = $this->runLifecycle(
-            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid()),
+            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid(), $options),
             function () use ($payload, $model): array {
                 $this->setAuditContext(sprintf('%s, generate', $model));
 
@@ -186,7 +186,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         $payload['n'] = $count;
 
         $response = $this->runLifecycle(
-            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid()),
+            $this->imageDispatchContext(ProviderOperation::ImageGeneration, $model, $size, $quality, $options->configuration, $options->getBeUserUid(), $options),
             function () use ($payload, $model): array {
                 $this->setAuditContext(sprintf('%s, generate', $model));
 
@@ -492,7 +492,14 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         string $quality,
         ?string $configuration,
         ?int $beUserUid,
+        ?ImageGenerationOptions $options = null,
     ): ProviderCallContext {
+        // `variation()` and `edit()` take no options object — they are annotated
+        // as unattributable rather than given a channel that carries nothing.
+        $callerSource = $options instanceof ImageGenerationOptions
+            ? $this->callerSourceMetadata($options)
+            : [];
+
         return ProviderCallContext::forService($operation, $this->getServiceProvider(), $model)
             ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
                 modelId: $model,
@@ -501,7 +508,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
                 beUserUid: $beUserUid,
                 size: $size,
                 quality: $quality,
-            )]);
+            )] + $callerSource);
     }
 
     /**

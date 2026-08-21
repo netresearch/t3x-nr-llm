@@ -14,7 +14,9 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
+use Netresearch\NrLlm\Provider\Middleware\TelemetryMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\UsageMiddleware;
 use Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
@@ -404,6 +406,81 @@ class TextToSpeechServiceTest extends AbstractUnitTestCase
         $subject->synthesize('hello world');
 
         $this->assertRoutedThroughPipeline($capture, ProviderOperation::SpeechSynthesis);
+    }
+
+    #[Test]
+    public function anAnnotatedCallReachesTheMiddlewareWithItsCallerIdentity(): void
+    {
+        // #844 / ADR-177: a specialized service builds its own ProviderCallContext
+        // instead of going through LlmServiceManager, which is where the caller
+        // identity is normally translated into metadata. Without that translation
+        // the annotation below is written by the consumer and then never read,
+        // and the spend stays in "Unattributed" while every chat call moves out.
+        // TelemetryMiddleware persists these two keys as source_extension /
+        // source_operation, and UsageMiddleware aggregates the cost row on the
+        // first of them (ADR-178) -- so asserting them on the captured context
+        // asserts both destinations at once.
+        $capture = new CapturingMiddleware();
+
+        $this->setupSuccessfulRequest();
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            [],
+            new MiddlewarePipeline([$capture]),
+        );
+
+        $subject->synthesize(
+            'hello world',
+            (new SpeechSynthesisOptions())->withCallerSource('nr_repurpose', 'generatePodcast'),
+        );
+
+        $captured = $capture->captured;
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        self::assertSame('nr_repurpose', $captured->metadata[TelemetryMiddleware::METADATA_SOURCE_EXTENSION] ?? null);
+        self::assertSame('generatePodcast', $captured->metadata[TelemetryMiddleware::METADATA_SOURCE_OPERATION] ?? null);
+    }
+
+    #[Test]
+    public function anUnannotatedCallAddsNoSourceMetadata(): void
+    {
+        // The absence has to be asserted separately: an empty string would read
+        // as "attributed to nothing" on the row rather than "not attributed",
+        // and it would also mask a wiring mistake that always writes a key.
+        $capture = new CapturingMiddleware();
+
+        $this->setupSuccessfulRequest();
+        $this->extensionConfigMock
+            ->expects(self::once())->method('get')
+            ->with('nr_llm')
+            ->willReturn(['providers' => ['openai' => ['apiKeyIdentifier' => 'test-api-key']]]);
+
+        $subject = $this->buildService(
+            $this->httpClientStub,
+            $this->requestFactoryStub,
+            $this->streamFactoryStub,
+            $this->extensionConfigMock,
+            $this->usageTrackerStub,
+            $this->loggerStub,
+            [],
+            new MiddlewarePipeline([$capture]),
+        );
+
+        $subject->synthesize('hello world');
+
+        $captured = $capture->captured;
+        self::assertInstanceOf(ProviderCallContext::class, $captured);
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_EXTENSION, $captured->metadata);
+        self::assertArrayNotHasKey(TelemetryMiddleware::METADATA_SOURCE_OPERATION, $captured->metadata);
     }
 
     #[Test]

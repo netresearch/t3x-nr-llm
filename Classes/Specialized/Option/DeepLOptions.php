@@ -70,7 +70,7 @@ final class DeepLOptions extends AbstractOptions
         $ignoreTags = $options['ignore_tags'] ?? $options['ignoreTags'] ?? null;
         $nonSplittingTags = $options['non_splitting_tags'] ?? $options['nonSplittingTags'] ?? null;
 
-        return new self(
+        return (new self(
             formality: is_string($formality) ? $formality : null,
             glossaryId: is_string($glossaryId) ? $glossaryId : null,
             preserveFormatting: is_bool($preserveFormatting) ? $preserveFormatting : null,
@@ -78,7 +78,7 @@ final class DeepLOptions extends AbstractOptions
             tagHandling: is_string($tagHandling) ? $tagHandling : null,
             ignoreTags: is_array($ignoreTags) ? array_values(array_filter($ignoreTags, is_string(...))) : null,
             nonSplittingTags: is_array($nonSplittingTags) ? array_values(array_filter($nonSplittingTags, is_string(...))) : null,
-        );
+        ))->withCallerSourceFromArray($options);
     }
 
     /**

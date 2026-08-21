@@ -477,7 +477,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
                 modelUid: $this->resolveModelUid($model),
                 configurationUid: $this->resolveConfigurationUid($options->configuration),
                 beUserUid: $options->getBeUserUid(),
-            )]);
+            )] + $this->callerSourceMetadata($options));
     }
 
     /**
