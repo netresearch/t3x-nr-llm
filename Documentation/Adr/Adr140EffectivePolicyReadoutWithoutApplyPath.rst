@@ -67,7 +67,7 @@ A read-only view, in an existing module, reading through the runtime resolvers.
    resolver exposes provenance, and it is not reconstructable from the stored
    configuration either: TYPO3's own
    :php:`ExtensionConfiguration::synchronizeExtConfTemplateWithLocalConfigurationOfAllExtensions()`
-   (``ExtensionConfiguration.php:197-218``) merges every ``ext_conf_template.txt``
+   merges every ``ext_conf_template.txt``
    default into ``settings.php`` whenever an unknown key is read or the Install
    Tool is entered. By the time anything could ask, the shipped defaults are
    already stored values.
@@ -92,21 +92,21 @@ The only API for writing extension configuration is
 :php:`ExtensionConfiguration::set()`. Three properties, each verified against
 the shipped core:
 
-- **It is ``@internal``** (``ExtensionConfiguration.php:150``) and documented as
-  *"Set a full extension configuration"* — it takes the whole array and calls
-  :php:`setLocalConfigurationValueByPath('EXTENSIONS/' . $extension, $value)`
-  (``:166``). There is no per-key write.
+- **It is ``@internal``** and documented as *"Set a full extension
+  configuration"* — it takes the whole array and calls
+  :php:`setLocalConfigurationValueByPath('EXTENSIONS/' . $extension, $value)`.
+  There is no per-key write.
 - **It materialises every shipped default.** A caller has no source for the
   array other than :php:`get()`, which returns the template-merged result. Our
-  own :php:`DataClassEnforcementDefaultUpdateWizard::executeUpdate()`
-  (``Classes/Updates/DataClassEnforcementDefaultUpdateWizard.php:77-85``) does
+  own :php:`DataClassEnforcementDefaultUpdateWizard::executeUpdate()` does
   exactly this: ``get()`` → mutate one key → ``set()``. Every default in
   ``ext_conf_template.txt`` becomes an explicitly stored value.
-  :php:`storedEnforcement()` (``:121-131``) — the "did the operator ever choose
+  :php:`storedEnforcement()` — the "did the operator ever choose
   a mode?" probe :ref:`ADR-115 <adr-115>`'s wizard depends on — could then never
   return ``null`` again.
-- **``additional.php`` spoils it.** The core docblock says so outright
-  (``ExtensionConfiguration.php:145-146``): if that file overwrites a setting,
+- **``additional.php`` spoils it.** The core docblock on
+  :php:`ExtensionConfiguration::set()` says so outright: if that file
+  overwrites a setting,
   ``->set()`` "may not end up as expected". An apply button would report success
   and the next request would serve the old value — the worst failure mode a
   governance UI can have.

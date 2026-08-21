@@ -42,49 +42,21 @@ use SplFileInfo;
  * `path#anchor` naming a string the file must still contain. The last of those
  * is the only citation form in this corpus a test can hold to its claim.
  *
- * Citations into TYPO3 core and sibling extensions cannot be checked here at
- * all: that code lives in .Build/vendor, which is not committed, and its line
- * numbers move with every patch release of a dependency this repository does
- * not pin. They are listed instead, so adding one is a deliberate act rather
- * than something the resolver quietly skips.
+ * Only `Adr*.rst` is scanned, and that is load-bearing rather than incidental:
+ * `Adr/Index.rst` states the citation convention and quotes two rotted
+ * citations as the examples of what not to write. Widening this glob to
+ * `*.rst` would fail the build on the page that documents the rule.
+ *
+ * Citations into TYPO3 core and sibling extensions used to be listed as
+ * unverifiable — sixteen of them, in .Build/vendor, whose line numbers move
+ * with every patch release of a dependency this repository does not pin. The
+ * corpus now names those symbols instead, so the list emptied and went with
+ * it: an escape hatch nothing reaches for is a declaration nothing reads.
+ * A record that cites a file this suite cannot open now simply fails.
  */
 #[CoversNothing]
 final class AdrCodeCitationTest extends AbstractUnitTestCase
 {
-    /**
-     * Citations that resolve to no file in this repository, as
-     * ADR basename => list of cited paths.
-     *
-     * Every entry is TYPO3 core or a sibling extension, read from
-     * .Build/vendor while the record was written. Nothing here is verifiable
-     * by this suite; the list exists so a NEW unverifiable citation fails
-     * rather than passing as one of these.
-     *
-     * @var array<string, list<string>>
-     */
-    private const CITATIONS_OUTSIDE_THE_REPOSITORY = [
-        'Adr140EffectivePolicyReadoutWithoutApplyPath.rst' => [
-            'ExtensionConfiguration.php',
-        ],
-        'Adr169RecordManagementUsesTypo3Permissions.rst' => [
-            'BackendUtility.php',
-            'Clipboard.php',
-            'DataHandler.php',
-            'DatabaseUserPermissionCheck.php',
-            'ElementHistoryController.php',
-            'ElementInformationController.php',
-            'RecordHistory.php',
-            'RecordListController.php',
-            'RootLevelCapability.php',
-            'SuggestWizardController.php',
-            'TcaItemsProcessorFunctions.php',
-            'Typo3Version.php',
-            'VaultFieldHelper.php',
-            'cms-install/Configuration/Backend/Modules.php',
-            'nr-vault/Configuration/Backend/Modules.php',
-        ],
-    ];
-
     /** Suffixes an ADR in this corpus cites by line. */
     private const CITED_EXTENSIONS = ['php', 'rst', 'html', 'xlf', 'txt'];
 
@@ -199,9 +171,8 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
     #[Test]
     public function everyCitationNamesAFileThatStillExists(): void
     {
-        $index    = $this->basenameIndex();
-        $declared = self::CITATIONS_OUTSIDE_THE_REPOSITORY;
-        $orphans  = [];
+        $index   = $this->basenameIndex();
+        $orphans = [];
 
         foreach ($this->citations() as $citation) {
             $where = sprintf('%s:%d', $citation['adr'], $citation['adrLine']);
@@ -209,11 +180,12 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
                 continue;
             }
 
-            if (in_array($citation['path'], $declared[$citation['adr']] ?? [], true)) {
-                continue;
-            }
-
-            $orphans[] = sprintf('%s cites %s, which is in neither the tree nor the declared list', $where, $citation['path']);
+            $orphans[] = sprintf(
+                '%s cites %s, which is not a file in this repository. A record cites what this suite '
+                . 'can open: a symbol for code we do not ship, never a path into .Build/vendor.',
+                $where,
+                $citation['path'],
+            );
         }
 
         self::assertSame([], $orphans, implode("\n", $orphans));
@@ -246,42 +218,6 @@ final class AdrCodeCitationTest extends AbstractUnitTestCase
         }
 
         self::assertSame([], $stale, implode("\n", $stale));
-    }
-
-    #[Test]
-    public function theListOfUncheckableCitationsMatchesTheCorpus(): void
-    {
-        $index  = $this->basenameIndex();
-        $actual = [];
-
-        foreach ($this->citations() as $citation) {
-            $where = sprintf('%s:%d', $citation['adr'], $citation['adrLine']);
-            if ($this->resolve($citation['path'], $index, $where) !== null) {
-                continue;
-            }
-
-            $actual[$citation['adr']][$citation['path']] = true;
-        }
-
-        $normalised = [];
-        foreach ($actual as $adr => $paths) {
-            $names = array_keys($paths);
-            sort($names);
-            $normalised[$adr] = $names;
-        }
-
-        ksort($normalised);
-
-        $declared = self::CITATIONS_OUTSIDE_THE_REPOSITORY;
-        ksort($declared);
-
-        self::assertSame(
-            $declared,
-            $normalised,
-            'The citations that resolve to no file in this repository have changed. Every one of them is '
-            . 'unverifiable by this suite, so the list is maintained by hand: add the new entry deliberately, '
-            . 'or drop one that no longer appears.',
-        );
     }
 
     /**

@@ -159,9 +159,9 @@ percent, with the fit's figure the larger one.
 bounded list, ``facts_token_estimate`` the list the caller handed over.
 
 *The configuration's system prompt, when the transcript does not already open
-with one.* ``missingSystemPromptTokens()`` returns 0 when ``$messages[0]`` is a
-system message, and 0 again when the effective prompt is empty
-(``ContextWindowManager.php:231``); otherwise it charges that prompt — per-call
+with one.* :php:`ContextWindowManager::missingSystemPromptTokens()` returns 0
+when ``$messages[0]`` is a system message, and 0 again when the effective prompt
+is empty; otherwise it charges that prompt — per-call
 override and composed snippets included. On a configuration without a system
 prompt this difference is therefore absent. Neither figure holds that prompt as text; it is a
 charge the fit adds beside its transcript estimate, which is why it moves this
