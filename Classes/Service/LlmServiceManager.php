@@ -619,6 +619,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     {
         $options ??= new EmbeddingOptions();
         [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
+        [$configuration, $providerKey, $optionsArray] = $this->applyDefaultConfiguration($providerKey, $optionsArray);
 
         // Cache metadata: EmbedCacheKeyBuilder returns an empty array when
         // cache_ttl <= 0 (the EmbeddingOptions::noCache() contract), so the key
@@ -640,7 +641,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $raw = $this->pipeline->run(
             ProviderCallContext::forConfiguration(
                 ProviderOperation::Embedding,
-                $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
+                $configuration ?? $this->synthesizeTransientConfiguration(ProviderOperation::Embedding, $providerKey),
                 $metadata,
             ),
             function () use ($input, $optionsArray, $providerKey): array {
@@ -681,6 +682,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     {
         $options ??= new VisionOptions();
         [$providerKey, $optionsArray] = $this->splitProviderKey($options->toArray());
+        [$configuration, $providerKey, $optionsArray] = $this->applyDefaultConfiguration($providerKey, $optionsArray);
 
         $normalisedContent = array_values(array_map(
             static function (VisionContent|array $item): VisionContent {
@@ -711,7 +713,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         );
 
         return $this->runThroughPipeline(
-            $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
+            $configuration ?? $this->synthesizeTransientConfiguration(ProviderOperation::Vision, $providerKey),
             ProviderOperation::Vision,
             function () use ($normalisedContent, $optionsArray, $providerKey): VisionResponse {
                 $provider = $this->getProvider($providerKey);
@@ -1354,6 +1356,58 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         unset($optionsArray['provider']);
 
         return [$providerKey, $optionsArray];
+    }
+
+    /**
+     * Let the backend-managed default configuration drive an entry point that
+     * takes no configuration argument.
+     *
+     * `chat()` has done this since ADR-034: with no provider pinned it resolves
+     * the default configuration rather than handing `null` to the provider
+     * registry, which throws. `vision()` and `embed()` did hand it `null`, so
+     * the usage the feature services invite — options without a provider,
+     * because model selection is nr-llm's job — failed with "No provider
+     * specified and no default provider configured" on an installation that
+     * has a perfectly good default. nr-llm-compat's ai_filemetadata bridge is
+     * exactly that caller, and an image upload on a site running it died with
+     * a 500 rather than a missing alt text.
+     *
+     * The caller's own choices win: an explicitly pinned provider skips this
+     * entirely (the resolver returns null for a non-null key), and a model
+     * named in the options is left alone.
+     *
+     * @param array<string, mixed> $optionsArray
+     *
+     * @return array{0: LlmConfiguration|null, 1: string|null, 2: array<string, mixed>}
+     *                                                                                  the resolved configuration (null when none applies), the provider key to use, and the options
+     */
+    private function applyDefaultConfiguration(?string $providerKey, array $optionsArray): array
+    {
+        if ($providerKey !== null) {
+            return [null, $providerKey, $optionsArray];
+        }
+
+        $configuration = $this->configurationResolver->resolveDefaultConfiguration(null);
+        if (!$configuration instanceof LlmConfiguration) {
+            return [null, null, $optionsArray];
+        }
+
+        // The resolver only returns a configuration that HAS a model, so both
+        // lookups below are answered — but a model without a provider record
+        // would leave the key null, and then the registry throws as before
+        // rather than this method inventing a provider.
+        $model      = $configuration->getLlmModel();
+        $identifier = $model?->getProvider()?->getIdentifier();
+        if ($identifier === null || $identifier === '') {
+            return [null, null, $optionsArray];
+        }
+
+        $modelId = $model?->getModelId() ?? '';
+        if ($modelId !== '' && ($optionsArray['model'] ?? null) === null) {
+            $optionsArray['model'] = $modelId;
+        }
+
+        return [$configuration, $identifier, $optionsArray];
     }
 
     /**
