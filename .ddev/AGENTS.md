@@ -43,13 +43,12 @@ ddev describe   # print URLs and credentials
 | Task | Command |
 |------|---------|
 | Full setup (TYPO3 v14 + extension) | `ddev install-v14` (also `install-v13`, `install-all`, `setup`) |
-| Seed provider/model/config demo data | `ddev seed-ollama` |
-| Seed task demo data | `ddev seed-tasks` (also `seed-usage`; SQL in `.ddev/sql/`) |
+| Seed the demo graph and usage history | `ddev seed-demo [days]` |
 | Ollama status / models | `ddev ollama` |
 | Render RST docs | `ddev docs` |
 
 ### Demo data for screenshots and manual testing
-`ddev seed-ollama` creates 1 provider (Local Ollama), 3 models and 4 configurations; `ddev seed-tasks` creates 13 tasks across 4 categories. `ddev install-v14` auto-runs seed-ollama but NOT seed-tasks — run both before documentation screenshots so populated views are visible.
+`ddev seed-demo` delegates to the extension's own `nrllm:demo:seed`. The data lives in `Resources/Private/Demo/DemoData.php` and ships with the extension, so the functional suite and a screenshot run seed the same rows — the two MySQL dumps and the raw-PDO script that used to live under `.ddev/` could only ever reach ddev. `ddev install-v14` runs it, so a fresh install already has populated views.
 <!-- AGENTS-GENERATED:END commands -->
 
 <!-- AGENTS-GENERATED:START patterns -->

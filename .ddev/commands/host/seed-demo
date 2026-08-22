@@ -1,0 +1,14 @@
+#!/bin/bash
+## Description: Seed the demo record graph and usage history (delegates to nrllm:demo:seed)
+## Usage: seed-demo [days]
+## Example: ddev seed-demo
+## Example: ddev seed-demo 30
+
+# A wrapper, not an implementation. The seed used to live here as two MySQL
+# dumps plus a raw-PDO script hard-wired to host `db`, database `v14` and
+# root/root — which is why nothing but ddev could use it. It now ships with the
+# extension in Resources/Private/Demo/ and runs through the ConnectionPool, so
+# the functional suite and a screenshot run reach the same rows.
+DAYS="${1:-90}"
+
+ddev exec ./.Build/bin/typo3 nrllm:demo:seed --days="${DAYS}"

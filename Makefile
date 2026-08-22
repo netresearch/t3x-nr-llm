@@ -24,7 +24,7 @@ help:
 	@echo "  install-all Install all supported TYPO3 versions (v14)"
 	@echo "  sync        Sync database schema (run extension:setup)"
 	@echo "  seed        Import Ollama seed data (provider, models, configs)"
-	@echo "  seed-tasks  Import task seed data (one-shot prompts)"
+	@echo "  seed        Seed the whole demo graph (providers, models, tasks, usage)"
 	@echo "  ollama      Check Ollama status and available models"
 	@echo ""
 	@echo "Testing:"
@@ -80,10 +80,10 @@ sync:
 	ddev exec -d /var/www/html/v14 vendor/bin/typo3 cache:flush
 
 seed:
-	ddev seed-ollama
+	ddev seed-demo
 
 seed-tasks:
-	ddev seed-tasks
+	@echo "seed-tasks is gone — 'make seed' now seeds the whole demo graph."
 
 ollama:
 	@echo "🤖 Ollama Status:"

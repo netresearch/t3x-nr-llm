@@ -96,14 +96,10 @@ vendor/bin/typo3 styleguide:generate || echo "⚠️ Styleguide generation skipp
 # Flush caches
 vendor/bin/typo3 cache:flush
 
-# Import Ollama seed data (provider, models, configurations)
-echo "🤖 Importing Ollama LLM seed data..."
-SQL_FILE="/var/www/nr_llm/.ddev/sql/seed-ollama.sql"
-if [ -f "$SQL_FILE" ]; then
-    mysql -h db -u root -proot "$VERSION" < "$SQL_FILE" && echo "   ✅ Seed data imported" || echo "   ⚠️ Seed import skipped"
-else
-    echo "   ⚠️ Seed file not found, skipping"
-fi
+# Seed the demo graph. Ships with the extension now, so this is the same
+# command the functional suite and a screenshot run use.
+echo "🤖 Seeding demo data..."
+./.Build/bin/typo3 nrllm:demo:seed --days=90 && echo "   ✅ Demo data seeded" || echo "   ⚠️ Seeding failed"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
