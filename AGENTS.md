@@ -54,7 +54,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 | Rector (dry-run) | `./Build/Scripts/runTests.sh -s rector -n` |
 | Mutation testing (Infection) | `./Build/Scripts/runTests.sh -s mutation` |
 | E2E (Playwright) | `./Build/Scripts/runTests.sh -s e2e` |
-| Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3` |
+| Pin PHP version | `./Build/Scripts/runTests.sh -p 8.3` — omit `-p` unless you have a named reason. The default is derived from `composer.json`: the highest supported version the constraint allows, 8.5 here. The one standing exception is the Rector gate, and `Tests/AGENTS.md` says why. |
 | Coverage (HTML) | `./Build/Scripts/runTests.sh -s unitCoverage` |
 <!-- AGENTS-GENERATED:END commands -->
 
