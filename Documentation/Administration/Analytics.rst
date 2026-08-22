@@ -28,7 +28,7 @@ against this month's budget.
 Opening the module
 ==================
 
-Open :guilabel:`Admin Tools > LLM > Analytics`. The submodule sits next
+Open :guilabel:`AI > Operation > Analytics`. The submodule sits next
 to the other LLM sections in the left-hand navigation and is
 admin-only, like the rest of the module.
 

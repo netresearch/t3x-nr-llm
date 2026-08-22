@@ -49,7 +49,7 @@ Ollama, and more.
    :class: with-border with-shadow
    :zoom: lightbox
 
-   The :guilabel:`Admin Tools > LLM` backend module.
+   The :guilabel:`AI` backend module.
 
 ----
 

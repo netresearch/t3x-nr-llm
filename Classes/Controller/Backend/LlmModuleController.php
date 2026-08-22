@@ -103,7 +103,7 @@ final class LlmModuleController extends ActionController
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-                routeIdentifier: 'nrllm',
+                routeIdentifier: 'nrllm_overview',
                 displayName: 'LLM - Dashboard',
             );
         }
@@ -219,7 +219,7 @@ final class LlmModuleController extends ActionController
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-                routeIdentifier: 'nrllm',
+                routeIdentifier: 'nrllm_overview',
                 displayName: 'LLM - Test',
                 arguments: ['action' => 'test'],
             );
@@ -305,7 +305,7 @@ final class LlmModuleController extends ActionController
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
-                routeIdentifier: 'nrllm',
+                routeIdentifier: 'nrllm_overview',
                 displayName: 'LLM - Governance',
                 arguments: ['action' => 'governance'],
             );

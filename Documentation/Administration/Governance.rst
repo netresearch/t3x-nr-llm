@@ -18,7 +18,7 @@ puts the values in force on one page.
 Where the values are shown
 ==========================
 
-:guilabel:`Admin Tools > LLM > Overview`, docheader tab
+:guilabel:`AI > Overview`, docheader tab
 :guilabel:`Governance` (admin-only, like every other nr_llm admin surface).
 The table has three columns: the setting, the value the runtime applies
 right now, and the class that resolved it.

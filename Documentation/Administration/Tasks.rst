@@ -25,7 +25,7 @@ extensions can execute with a single call.
 Adding a task manually
 ======================
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Authoring >
    Tasks`.
 2. Click :guilabel:`Add Task`.
 3. Fill in the required fields:

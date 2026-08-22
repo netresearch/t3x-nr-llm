@@ -493,7 +493,7 @@ and never return secrets — the result leaves the instance.
 Managing tools
 ==============
 
-The :guilabel:`Admin Tools > LLM > Tools` module lists every registered tool
+The :guilabel:`AI > Operation > Tools` module lists every registered tool
 with its global enable state and lets an admin toggle it. A **disabled** tool
 is refused on every run, everywhere — the runtime gate is fail-closed, so a
 disabled tool can never be offered to the model regardless of a skill's
@@ -697,7 +697,7 @@ request, so the grant does not loosen them.
 Using the Tool Playground
 =========================
 
-The playground lives in :guilabel:`Admin Tools > LLM > Playground` and is
+The playground lives in :guilabel:`AI > Operation > Playground` and is
 admin-only. It is a sibling of the :ref:`Tools
 <administration-tools-manage>` management module: the playground *runs* the
 loop, while the Tools module governs *which* tools exist and are enabled.

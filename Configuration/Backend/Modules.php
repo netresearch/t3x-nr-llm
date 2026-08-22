@@ -29,54 +29,110 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
 /**
  * Backend module registration for nr_llm.
  *
- * Structure: Main module under 'tools', sub-modules as children of main module.
- * Sub-modules only appear in docheader dropdown, not in main navigation.
+ * Structure (ADR-119, decided in #812):
  *
- * Uses 'tools' as parent for v13+v14 compatibility:
- * - v13: 'tools' exists natively as the admin tools group
- * - v14: 'tools' is an alias for the new 'admin' group
+ *   netresearch_ai            top-level section, shared with the sibling
+ *                             extensions; no access check of its own
+ *   ├── nrllm_aitasks         editor surface        (access => user)
+ *   ├── nrllm_overview        landing page          (access => admin)
+ *   ├── nrllm_setup           providers, models, configurations, use-case
+ *   ├── nrllm_authoring       tasks, skills, snippets
+ *   └── nrllm_operation       tools, MCP, playground, runs, analytics
  *
- * Pattern follows TYPO3 Styleguide extension:
- * - Main module identifier without prefix (e.g., 'nrllm' not 'tools_nrllm')
- * - Child modules with parent as prefix (e.g., 'nrllm_providers')
- * - Nested paths under main module path
+ * The section replaces 'tools' as the top-level parent; the depth is unchanged
+ * (a section held one container holding fourteen entries before, and now holds
+ * five entries holding their own).
  *
- * v13 compatibility: 'nrllm_overview' is registered as first submodule so that
- * v13 (which redirects to the first submodule) shows the overview page.
- * v14 uses 'showSubmoduleOverview' on the parent module for the same effect.
+ * WHY A SECTION AND NOT A CONTAINER UNDER ADMINISTRATION. The module menu drops
+ * every top-level module whose own access check FAILS, together with all its
+ * children (ADR-131). Under the admin-only 'nrllm' container an editor surface
+ * was therefore invisible, and 'nrllm_aitasks' had to be parented to 'web' to
+ * be reachable at all. Every further editor surface would have landed there for
+ * the same reason, one flat entry at a time. A section carries no 'access' key
+ * of its own — exactly like the core's own sections — so it never filters; its
+ * children filter individually, and admin-only and editor-facing modules can
+ * finally live in one place.
+ *
+ * WHY THE IDENTIFIER IS VENDOR-SCOPED. Module identifiers merge last-package-
+ * wins. A bare 'ai' would be a shared namespace with no owner: the label and
+ * icon would depend on package load order, and removing the owning extension
+ * would strip the routes of any foreign submodule parented to it.
+ *
+ * OLD ROUTES. 'nrllm' is no longer a registered identifier, so 'nrllm_overview'
+ * carries it as an alias — an alias is shadowed by a real module of the same
+ * name, which is why the container had to go first. Backend shortcuts store the
+ * module identifier, so they resolve through that alias. ModuleFactory also
+ * rewrites 'position' references through aliases, so a foreign module anchored
+ * with ['after' => 'nrllm'] keeps its place without changing.
+ *
+ * Submodule identifiers and explicit paths are unchanged on purpose: a regroup
+ * that also renamed the leaves would break every bookmark for no gain.
+ *
+ * v13 compatibility: each container registers 'nrllm_*' children and carries
+ * both 'dependsOnSubmodules' (v13 redirects to the first submodule) and
+ * 'showSubmoduleOverview' (v14 renders an overview instead).
  */
 return [
-    // Main dashboard module (parent container)
-    'nrllm' => [
-        'parent' => 'tools',
-        'position' => ['after' => 'styleguide'],
-        'access' => 'admin',
+    // The shared top-level section. No 'parent', no 'path', no 'access' and no
+    // 'controllerActions' — that is the shape of a section rather than a module,
+    // and it is what the core's own sections look like. The absent access check
+    // is load-bearing, not an omission: see the header.
+    //
+    // Positioned after 'media' rather than at the end with the admin sections,
+    // because the audience that makes the section necessary is editors.
+    'netresearch_ai' => [
+        'position' => ['after' => 'media'],
         'iconIdentifier' => 'module-nrllm',
-        'path' => '/module/nrllm',
-        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod.xlf',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_section.xlf',
+    ],
+    // Setup: what has to exist before anything can run.
+    'nrllm_setup' => [
+        'parent' => 'netresearch_ai',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-provider',
+        'path' => '/module/nrllm/setup',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_setup.xlf',
         'extensionName' => 'NrLlm',
         'appearance' => [
             'dependsOnSubmodules' => true,
         ],
-        // v14+: Show overview page for parent module
         'showSubmoduleOverview' => true,
-        'controllerActions' => [
-            LlmModuleController::class => [
-                'index',
-                'test',
-                'executeTest',
-                'governance',
-                'help',
-            ],
-        ],
     ],
-    // Overview submodule - v13 compatibility
-    // In v13, dependsOnSubmodules redirects to the first submodule.
-    // This ensures the overview page is shown instead of providers.
-    // In v14, showSubmoduleOverview on the parent handles this natively.
+    // Authoring: what the models are asked to do.
+    'nrllm_authoring' => [
+        'parent' => 'netresearch_ai',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-snippet',
+        'path' => '/module/nrllm/authoring',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_authoring.xlf',
+        'extensionName' => 'NrLlm',
+        'appearance' => [
+            'dependsOnSubmodules' => true,
+        ],
+        'showSubmoduleOverview' => true,
+    ],
+    // Operation: what is running, and what it cost.
+    'nrllm_operation' => [
+        'parent' => 'netresearch_ai',
+        'access' => 'admin',
+        'iconIdentifier' => 'module-nrllm-runs',
+        'path' => '/module/nrllm/operation',
+        'labels' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_operation.xlf',
+        'extensionName' => 'NrLlm',
+        'appearance' => [
+            'dependsOnSubmodules' => true,
+        ],
+        'showSubmoduleOverview' => true,
+    ],
+    // The section's landing page, and the holder of the old container's
+    // identifier. 'aliases' resolves backend shortcuts stored against 'nrllm'
+    // and re-anchors foreign modules positioned ['after' => 'nrllm'] — both
+    // only work because 'nrllm' is no longer registered as a real module, which
+    // would shadow the alias.
     'nrllm_overview' => [
-        'parent' => 'nrllm',
+        'parent' => 'netresearch_ai',
         'position' => ['before' => '*'],
+        'aliases' => ['nrllm'],
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm',
         'path' => '/module/nrllm/overview',
@@ -99,7 +155,7 @@ return [
     // Provider management - child of main module
     // Note: AJAX actions (toggleActive, testConnection) are registered via AjaxRoutes.php
     'nrllm_providers' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_setup',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-provider',
         'path' => '/module/nrllm/providers',
@@ -114,7 +170,7 @@ return [
     // Model management - child of main module
     // Note: AJAX actions (toggleActive, setDefault, etc.) are registered via AjaxRoutes.php
     'nrllm_models' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_setup',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-model',
         'path' => '/module/nrllm/models',
@@ -129,7 +185,7 @@ return [
     // Configuration management - child of main module
     // Note: AJAX actions (toggleActive, setDefault, testConfiguration) are registered via AjaxRoutes.php
     'nrllm_configurations' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_setup',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm',
         'path' => '/module/nrllm/configurations',
@@ -146,7 +202,7 @@ return [
     // Task management - child of main module
     // Note: new/edit/save/delete use FormEngine (record_edit route), AJAX actions via AjaxRoutes.php
     'nrllm_tasks' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_authoring',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-task',
         'path' => '/module/nrllm/tasks',
@@ -170,7 +226,7 @@ return [
     // Prompt snippet library - child of main module
     // Note: new/edit/save/delete use FormEngine (record_edit route)
     'nrllm_snippets' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_authoring',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-snippet',
         'path' => '/module/nrllm/snippets',
@@ -190,7 +246,7 @@ return [
     // Shares the wizard's icon deliberately: the two are one entry path, and a
     // second wizard-family glyph would suggest a second kind of thing.
     'nrllm_usecase' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_setup',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-wizard',
         'path' => '/module/nrllm/use-case',
@@ -207,7 +263,7 @@ return [
     // Setup wizard - child of main module
     // Note: AJAX actions (detect, test, discover, generate, save) are registered via AjaxRoutes.php
     'nrllm_wizard' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_setup',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-wizard',
         'path' => '/module/nrllm/wizard',
@@ -222,7 +278,7 @@ return [
     // Skills management - child of main module
     // Note: AJAX actions (sync, toggleSkill, setToken) are registered via AjaxRoutes.php
     'nrllm_skills' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_authoring',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-skill',
         'path' => '/module/nrllm/skills',
@@ -240,7 +296,7 @@ return [
     // (nrllm_tool_toggle) and additionally guards itself with
     // RequiresBackendAdminTrait (ADR-037).
     'nrllm_tools' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_operation',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-tool',
         'path' => '/module/nrllm/tools',
@@ -260,7 +316,7 @@ return [
     // RequiresBackendAdminTrait because a backend route bypasses this
     // module's access setting (ADR-037).
     'nrllm_mcp' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_operation',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-tool',
         'path' => '/module/nrllm/mcp',
@@ -278,7 +334,7 @@ return [
     // Note: the AJAX runAction is registered via AjaxRoutes.php (nrllm_tool_run)
     // and additionally guards itself with RequiresBackendAdminTrait.
     'nrllm_playground' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_operation',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-tool',
         'path' => '/module/nrllm/playground',
@@ -297,7 +353,7 @@ return [
     // gates the three list/write actions, and `show` is additionally authorised
     // per run by the runtime (AGENT_READ).
     'nrllm_runs' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_operation',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-runs',
         'path' => '/module/nrllm/runs',
@@ -317,7 +373,7 @@ return [
     ],
     // Usage analytics dashboard - child of main module
     'nrllm_analytics' => [
-        'parent' => 'nrllm',
+        'parent' => 'nrllm_operation',
         'access' => 'admin',
         'iconIdentifier' => 'module-nrllm-analytics',
         'path' => '/module/nrllm/analytics',
@@ -340,7 +396,7 @@ return [
     // ticked in be_groups; the tasks_use/agent_approve grants are checked per
     // action on top — the module switch alone never grants execution.
     'nrllm_aitasks' => [
-        'parent' => 'web',
+        'parent' => 'netresearch_ai',
         'access' => 'user',
         'iconIdentifier' => 'module-nrllm-task',
         'path' => '/module/web/nrllm-aitasks',

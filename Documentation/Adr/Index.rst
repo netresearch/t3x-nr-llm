@@ -565,3 +565,4 @@ Tools
    Adr180TheSixthWriterCreatesAPage
    Adr181EventStreamFramedAnswers
    Adr182AWriteToolNamesTheRecordItWrote
+   Adr183AiSectionExists

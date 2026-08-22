@@ -24,7 +24,7 @@ credentials, and adapter-specific settings.
 Adding a provider
 =================
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Setup >
    Providers`.
 2. Click :guilabel:`Add Provider`.
 3. Fill in the required fields:

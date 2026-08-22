@@ -54,7 +54,7 @@ configuration using AI. Instead of filling in each
 field manually, describe your use case in plain
 language and the wizard generates everything.
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Setup >
    Configurations`.
 2. Click :guilabel:`Create with AI`.
 3. Describe your use case (e.g., *"summarize blog
@@ -82,7 +82,7 @@ The task wizard creates a complete task setup — a
 task **and** a dedicated configuration — in one
 step.
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Authoring >
    Tasks`.
 2. Click :guilabel:`Create with AI`.
 3. Describe the task (e.g., *"extract the five most
