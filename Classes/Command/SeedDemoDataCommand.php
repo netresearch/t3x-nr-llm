@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Command;
 
 use Doctrine\DBAL\Exception as DbalException;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -161,31 +161,11 @@ final class SeedDemoDataCommand extends Command
         $uids       = [];
 
         foreach ($records as $record) {
-            $row = [];
-            foreach ($record as $field => $value) {
-                if (isset($relations[$field])) {
-                    [$column, $map] = $relations[$field];
-                    // A dangling reference is a defect in the data file, not a
-                    // runtime condition: fail loudly rather than write a 0 that
-                    // renders as an empty relation in the backend.
-                    if (!is_string($value) || !isset($map[$value])) {
-                        throw new RuntimeException(sprintf(
-                            'Demo data: %s references unknown %s "%s".',
-                            $table,
-                            $field,
-                            is_scalar($value) ? (string)$value : gettype($value),
-                        ), 1787360001);
-                    }
-                    $row[$column] = $map[$value];
-
-                    continue;
-                }
-                $row[$field] = $value;
-            }
+            $row = $this->resolveRow($table, $record, $relations);
 
             $identifier = $row['identifier'] ?? null;
             if (!is_string($identifier) || $identifier === '') {
-                throw new RuntimeException(sprintf('Demo data: a %s record has no identifier.', $table), 1787360002);
+                throw new InvalidArgumentException(sprintf('Demo data: a %s record has no identifier.', $table), 1787360002);
             }
 
             $row['pid']    = 0;
@@ -207,6 +187,48 @@ final class SeedDemoDataCommand extends Command
         }
 
         return $uids;
+    }
+
+    /**
+     * One record with its identifier references turned into uids.
+     *
+     * Split out of upsertAll() so that method reads as write-or-update and this
+     * one as resolve. Together they carried a cognitive complexity the analyser
+     * was right to flag.
+     *
+     * @param array<string, mixed>                                   $record
+     * @param array<string, array{0: string, 1: array<string, int>}> $relations
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveRow(string $table, array $record, array $relations): array
+    {
+        $row = [];
+        foreach ($record as $field => $value) {
+            if (!isset($relations[$field])) {
+                $row[$field] = $value;
+
+                continue;
+            }
+
+            [$column, $map] = $relations[$field];
+
+            // A dangling reference is a defect in the data file, not a runtime
+            // condition: fail loudly rather than write a 0, which renders in the
+            // backend as "nothing selected" rather than as an error.
+            if (!is_string($value) || !isset($map[$value])) {
+                throw new InvalidArgumentException(sprintf(
+                    'Demo data: %s references unknown %s "%s".',
+                    $table,
+                    $field,
+                    is_scalar($value) ? (string)$value : gettype($value),
+                ), 1787360001);
+            }
+
+            $row[$column] = $map[$value];
+        }
+
+        return $row;
     }
 
     /**

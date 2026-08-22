@@ -56,7 +56,7 @@ cleanup() {
 }
 [ "${KEEP}" = "1" ] || trap cleanup EXIT
 
-if [ ! -x .Build/bin/typo3 ]; then
+if [[ ! -x .Build/bin/typo3 ]]; then
     echo "screenshots.sh: .Build/bin/typo3 is missing — run composer install first." >&2
     exit 1
 fi
@@ -134,7 +134,7 @@ fi
 # image ships matching browsers, and a mismatch fails with "Executable
 # doesn't exist at /ms-playwright/...".
 PW_VERSION="$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version" 2>/dev/null || echo "")"
-if [ -z "${PW_VERSION}" ]; then
+if [[ -z "${PW_VERSION}" ]]; then
     echo "screenshots.sh: could not read the Playwright version from package-lock.json." >&2
     exit 1
 fi
@@ -147,6 +147,6 @@ TYPO3_BASE_URL="${CONTAINER_URL}" TYPO3_PASSWORD="${ADMIN_PASSWORD}" \
 echo "==> Written to Documentation/Images/"
 git status --porcelain Documentation/Images/ || true
 
-if [ "${KEEP}" = "1" ]; then
+if [[ "${KEEP}" = "1" ]]; then
     echo "==> --keep: ${LOCAL_URL} still serving as pid ${SERVER_PID} (admin / ${ADMIN_PASSWORD})"
 fi

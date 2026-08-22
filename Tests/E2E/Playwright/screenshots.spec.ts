@@ -74,7 +74,12 @@ async function moduleElement(page: Page) {
   const height = Math.min(Math.max(content + 40, 500), 4000);
   await page.setViewportSize({ width, height });
 
-  // One frame for the reflow, so the shot is not taken mid-resize.
+  // A bounded wait, not a condition. SonarCloud's typescript:S2925 asks for an
+  // observable condition here and it is right in general — but both conditions
+  // that fit (a requestAnimationFrame loop watching the iframe box, and one
+  // watching the chart canvases settle) hang: rAF is throttled inside the module
+  // iframe, so the promise never resolves and every test dies at its 30s
+  // timeout. Measured, not assumed — that revision is what made all eight fail.
   await page.waitForTimeout(400);
 
   return page.locator('iframe').first();
@@ -99,6 +104,7 @@ test.describe('documentation screenshots', () => {
       }
 
       // Charts animate in; a shot taken mid-animation shows half a bar chart.
+      // Fixed for the same reason as the wait in moduleElement() above.
       await page.waitForTimeout(1200);
 
       const element = await moduleElement(page);
