@@ -6,8 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`nrllm:demo:seed` — the demo record graph ships with the extension** — providers, models, configurations, tasks and a span of usage history, written through the ConnectionPool so it runs on whatever DBMS the instance uses. It replaces two MySQL dumps and a raw-PDO script under `.ddev/` that were hard-wired to host `db`, database `v14` and root/root, which is why nothing but ddev could use them — not the functional suite, which runs on SQLite, and not a documentation screenshot run. Idempotent by identifier, and every value in the usage history is derived from `(seed, day, model)`, so the same `--days` reproduces the same figures on every machine. Refuses to run in Production context without `--force`. `ddev seed-demo` delegates to it (#812 follow-up).
+- **`Build/Scripts/screenshots.sh` — documentation screenshots without ddev** — installs TYPO3 on SQLite, seeds it, serves it with PHP's built-in server and drives Playwright against it. Every piece already existed; nothing tied them together, and `E2E_BASE_URL` pointing at a ddev site was the only local answer. The new `screenshots.spec.ts` captures the module IFRAME rather than the window, so a screenshot shows the module and nothing else: the sixteen full-window PNGs all went stale the day the modules moved into the AI section, because each showed `Administration > LLM` in the sidebar. A module-only shot cannot go stale that way.
+
 ### Changed
 
+- **The eight backend screenshots now show real, reproducible figures** — aggregated from the seeded rows and priced from each model's own `cost_input`/`cost_output`, with no module menu in frame.
 - **BREAKING: the backend modules moved into a shared `AI` section** — nr_llm no longer registers a `nrllm` container under Administration. A top-level section `netresearch_ai` now holds five entries: the editor task module, the overview, and three subject containers (`nrllm_setup`, `nrllm_authoring`, `nrllm_operation`) holding the fourteen former flat entries. A section carries no access check of its own, which is the point: the module menu hides a top-level module whose access check fails together with all its children, so an admin-only container could never hold an editor surface — `nrllm_aitasks` had to sit under `web` for that reason, and every further editor surface would have landed there too. Submodule identifiers and paths are unchanged; `nrllm_overview` carries `'aliases' => ['nrllm']`, so backend shortcuts keep resolving and a foreign module anchored `['after' => 'nrllm']` keeps its position (the core rewrites `position` through aliases, not only `parent`). What does NOT survive is the container's own URL `/module/nrllm`, which had no successor by design. ADR-183 amends ADR-119; closes #812.
 
 ## [0.33.0] - 2026-08-21

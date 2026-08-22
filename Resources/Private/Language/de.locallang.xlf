@@ -1277,8 +1277,8 @@
                 <target>Keine Nutzung erfasst</target>
             </trans-unit>
             <trans-unit id="analytics.empty.message">
-                <source>No LLM usage was recorded for this period. Run ddev seed-usage on a dev instance to populate demo data, or make some LLM requests.</source>
-                <target>Für diesen Zeitraum wurde keine LLM-Nutzung erfasst. Führen Sie auf einer Dev-Instanz `ddev seed-usage` aus, um Demodaten zu erzeugen, oder lösen Sie einige LLM-Anfragen aus.</target>
+                <source>No LLM usage was recorded for this period. Run vendor/bin/typo3 nrllm:demo:seed on a non-production instance to populate demo data, or make some LLM requests.</source>
+                <target>Für diesen Zeitraum wurde keine LLM-Nutzung erfasst. Führen Sie auf einer Nicht-Produktivinstanz `vendor/bin/typo3 nrllm:demo:seed` aus, um Demodaten zu erzeugen, oder lösen Sie einige LLM-Anfragen aus.</target>
             </trans-unit>
             <trans-unit id="analytics.col.cost">
                 <source>Cost (30d)</source>

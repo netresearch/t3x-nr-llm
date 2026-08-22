@@ -308,7 +308,7 @@ development, run the dev-only DDEV command:
 
 ..  code-block:: bash
 
-    ddev seed-usage
+    ddev seed-demo
 
 It generates roughly 90 days of realistic historic usage across
 providers, models, services, and users so the trend line, breakdown

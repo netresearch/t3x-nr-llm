@@ -486,6 +486,15 @@ services:
   # CommandRegistry and is made public by ConsoleCommandPass — it does not
   # add a `public: true` override to the audited surface (ADR-028 / ADR-060).
 
+  # Demo data. Not schedulable on purpose: this writes fixed rows, so a
+  # scheduler task pointing at it would rewrite the same graph on a timer.
+  Netresearch\NrLlm\Command\SeedDemoDataCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:demo:seed'
+        description: 'Seed the demo record graph and usage history for demos, tests and screenshots.'
+        schedulable: false
+
   Netresearch\NrLlm\Command\EvalRunCommand:
     tags:
       - name: 'console.command'
