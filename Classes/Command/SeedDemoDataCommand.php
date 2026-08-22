@@ -18,6 +18,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -157,7 +158,7 @@ final class SeedDemoDataCommand extends Command
     private function upsertAll(string $table, array $records, array $relations): array
     {
         $connection = $this->connection($table);
-        $now        = self::toInt($GLOBALS['EXEC_TIME'] ?? time());
+        $now        = self::toInt(GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp') ?? time());
         $uids       = [];
 
         foreach ($records as $record) {
@@ -247,7 +248,7 @@ final class SeedDemoDataCommand extends Command
     private function seedUsage(int $days, array $models, array $configurations, array $tasks): int
     {
         $connection = $this->connection('tx_nrllm_service_usage');
-        $now        = self::toInt($GLOBALS['EXEC_TIME'] ?? time());
+        $now        = self::toInt(GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('date', 'timestamp') ?? time());
 
         // Only the demo graph's own rows: an instance may carry real usage next
         // to the demo data, and a blanket TRUNCATE would take it.
@@ -336,7 +337,7 @@ final class SeedDemoDataCommand extends Command
 
         $hash = hash('xxh3', self::RANDOM_SEED . ':' . $day . ':' . $modelUid . ':' . $purpose);
 
-        return $min + (int)(hexdec(substr($hash, 0, 8)) % (($max - $min) + 1));
+        return $min + hexdec(substr($hash, 0, 8)) % (($max - $min) + 1);
     }
 
     /**
