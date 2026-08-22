@@ -12,7 +12,7 @@ wants to make, or to supply a piece of typed input it asked for. The
 :guilabel:`Agent Runs` module is the inbox where you make those decisions and
 review runs that have finished.
 
-The admin inbox lives in :guilabel:`Admin Tools > LLM > Agent Runs`;
+The admin inbox lives in :guilabel:`AI > Operation > Agent Runs`;
 the same actions are also reachable through the editor module
 :guilabel:`Web > AI Tasks` (:ref:`ADR-131 <adr-131>`). Visibility is
 actor-scoped: an administrator or a holder of the *Approve suspended AI

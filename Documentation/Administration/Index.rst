@@ -17,7 +17,7 @@ The LLM backend module
 ======================
 
 All AI **management** happens in
-:guilabel:`Admin Tools > LLM`; editors run prepared tasks and decide
+:guilabel:`AI`; editors run prepared tasks and decide
 approvals in the separate :guilabel:`Web > AI Tasks` module
 (:ref:`administration-permissions`). The **Overview** is a guided starting point:
 

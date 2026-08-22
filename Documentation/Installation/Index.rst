@@ -22,9 +22,9 @@ After installation:
 
 1. Activate the extension in :guilabel:`Admin Tools > Extension Manager`.
 2. Configure providers and API keys in
-   :guilabel:`Admin Tools > LLM > Providers`.
-3. Define available models in :guilabel:`Admin Tools > LLM > Models`.
-4. Create configurations in :guilabel:`Admin Tools > LLM > Configurations`.
+   :guilabel:`AI > Setup > Providers`.
+3. Define available models in :guilabel:`AI > Setup > Models`.
+4. Create configurations in :guilabel:`AI > Setup > Configurations`.
 5. Clear caches.
 
 .. _installation-composer:
@@ -66,7 +66,7 @@ Installation steps
 3. **Configure API keys**
 
    Use the setup wizard at
-   :guilabel:`Admin Tools > LLM > Setup Wizard`
+   :guilabel:`AI > Setup > Setup Wizard`
    to auto-detect your provider and discover models.
 
    .. figure:: /Images/backend-setup-wizard.png
@@ -79,7 +79,7 @@ Installation steps
 
    .. tip::
 
-      Not sure which provider you need? :guilabel:`Admin Tools > LLM > Get
+      Not sure which provider you need? :guilabel:`AI > Setup > Get
       Started` asks what you want to do first — editorial assistance,
       translation, metadata, media accessibility, agent workflows, developer
       integration — and can install a use-case pack for it: a configuration,

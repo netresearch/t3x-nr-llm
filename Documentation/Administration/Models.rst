@@ -24,7 +24,7 @@ through a provider (e.g., ``gpt-5``,
 Adding a model manually
 =======================
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Setup >
    Models`.
 2. Click :guilabel:`Add Model`.
 3. Fill in the required fields:

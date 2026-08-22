@@ -556,7 +556,7 @@ test.describe('Wizard Navigation from List Pages', () => {
       const page = authenticatedPage;
 
       // Dashboard is the main LLM module
-      await page.goto('/typo3/module/nrllm');
+      await page.goto('/typo3/module/nrllm/overview');
       const moduleFrame = getModuleFrame(page);
       await moduleFrame.getByRole('heading', { level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
 

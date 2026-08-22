@@ -25,7 +25,7 @@ configurations by identifier in their code.
 Adding a configuration manually
 ===============================
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Setup >
    Configurations`.
 2. Click :guilabel:`Add Configuration`.
 3. Fill in the required fields:

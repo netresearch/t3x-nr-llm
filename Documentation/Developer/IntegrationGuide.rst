@@ -182,7 +182,7 @@ nr-llm throws typed exceptions so you can provide meaningful feedback:
    } catch (ProviderConfigurationException) {
        // No provider configured — guide the admin
        return 'AI features require LLM configuration. '
-            . 'An administrator can set this up in Admin Tools > LLM.';
+            . 'An administrator can set this up in AI > Setup.';
    } catch (ProviderConnectionException) {
        // Network issue — suggest retry
        return 'Could not reach the AI provider. Please try again.';
@@ -318,4 +318,4 @@ Integration checklist
 5. **Testing** — Mock :php:`LlmServiceManagerInterface` in unit tests
 
 6. **Documentation** — Tell your users they need to
-   configure a provider in Admin Tools > LLM
+   configure a provider in AI > Setup

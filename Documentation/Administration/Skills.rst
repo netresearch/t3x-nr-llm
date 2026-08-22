@@ -13,7 +13,7 @@ source** that points at GitHub, sync it, and then enable the individual
 skills you want.
 
 Skill management is **admin-only**. It lives in
-:guilabel:`Admin Tools > LLM > Skills` and is not delegated to other
+:guilabel:`AI > Authoring > Skills` and is not delegated to other
 backend groups: a skill body becomes prompt context, so the two skill
 tables are treated as a privilege-escalation surface.
 
@@ -52,7 +52,7 @@ A source has one of three types:
 Adding a source
 ===============
 
-1. Navigate to :guilabel:`Admin Tools > LLM > Skills`.
+1. Navigate to :guilabel:`AI > Authoring > Skills`.
 2. Click :guilabel:`New Skill Source`.
 3. Fill in the fields:
 

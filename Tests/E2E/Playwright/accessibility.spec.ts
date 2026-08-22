@@ -51,7 +51,7 @@ test.describe('Accessibility Tests @accessibility', () => {
       const page = authenticatedPage;
 
       // Navigate to main module
-      await page.goto('/typo3/module/nrllm');
+      await page.goto('/typo3/module/nrllm/overview');
       await page.waitForLoadState('networkidle');
 
       const results = await runAxeAnalysis(page, 'Main Dashboard');
@@ -245,7 +245,7 @@ test.describe('Accessibility Tests @accessibility', () => {
     test('should have sufficient color contrast in main module @accessibility', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm');
+      await page.goto('/typo3/module/nrllm/overview');
       await page.waitForLoadState('networkidle');
 
       const results = await new AxeBuilder({ page })
@@ -328,7 +328,7 @@ test.describe('Accessibility Tests @accessibility', () => {
     test('should have proper landmark regions @accessibility', async ({ authenticatedPage }) => {
       const page = authenticatedPage;
 
-      await page.goto('/typo3/module/nrllm');
+      await page.goto('/typo3/module/nrllm/overview');
       await page.waitForLoadState('networkidle');
 
       const results = await new AxeBuilder({ page })

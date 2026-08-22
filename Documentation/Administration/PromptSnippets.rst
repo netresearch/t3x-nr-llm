@@ -24,7 +24,7 @@ model binding.
 Adding a snippet
 ================
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Authoring >
    Snippets`.
 2. Click :guilabel:`New Snippet`.
 3. Fill in the fields:
@@ -90,7 +90,7 @@ request made with that configuration then carries
 them — chat, single-prompt completion, streaming and
 agent runs alike — without any extension code.
 
-1. Navigate to :guilabel:`Admin Tools > LLM >
+1. Navigate to :guilabel:`AI > Setup >
    Configurations` and edit a configuration.
 2. Open the :guilabel:`Parameters` tab.
 3. Tick the wanted tags under :guilabel:`Prompt

@@ -36,10 +36,19 @@ final class OverviewCardCoverageTest extends TestCase
     private const NOT_A_CARD_TARGET = 'nrllm_overview';
 
     /**
-     * Only the children of the LLM module get a card. 'nrllm' itself is the
-     * module the overview belongs to and sits under 'tools'.
+     * Only the LEAF modules get a card. Until the AI section existed these were
+     * the children of the single 'nrllm' container; they are now spread across
+     * three subject containers (ADR-119, #812). The containers themselves get
+     * no card — they hold nothing a card could describe — and neither does the
+     * section, which is not a module of this extension in the first place.
+     *
+     * A list rather than one name on purpose: a fourth container will be added
+     * here, and a card check that silently covers only one third of the modules
+     * is worse than none.
+     *
+     * @var list<string>
      */
-    private const CARD_PARENT = 'nrllm';
+    private const CARD_PARENTS = ['nrllm_setup', 'nrllm_authoring', 'nrllm_operation'];
 
     /**
      * Both files are read as source rather than executed. This is a
@@ -119,7 +128,15 @@ final class OverviewCardCoverageTest extends TestCase
                 continue;
             }
 
-            if (!\str_contains($block, "'parent' => '" . self::CARD_PARENT . "'")) {
+            $isCardTarget = false;
+            foreach (self::CARD_PARENTS as $parent) {
+                if (\str_contains($block, "'parent' => '" . $parent . "'")) {
+                    $isCardTarget = true;
+                    break;
+                }
+            }
+
+            if (!$isCardTarget) {
                 continue;
             }
 

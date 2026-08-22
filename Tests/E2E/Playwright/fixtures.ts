@@ -44,7 +44,7 @@ async function loginToBackend(page: Page): Promise<void> {
  */
 async function navigateToLlmModule(page: Page): Promise<FrameLocator> {
   // Navigate directly to the module URL (module is under 'admin' parent)
-  await page.goto('/typo3/module/nrllm');
+  await page.goto('/typo3/module/nrllm/overview');
 
   // TYPO3 v14 loads module content in an iframe
   const moduleFrame = getModuleFrame(page);

@@ -6,7 +6,7 @@
 Get Started: use-case packs
 ===========================
 
-:guilabel:`Admin Tools > LLM > Get Started` asks what you want to do before it
+:guilabel:`AI > Setup > Get Started` asks what you want to do before it
 asks anything technical — editorial assistance, translation, metadata, media
 accessibility, agent workflows, developer integration — and answers with a
 **use-case pack**: a named bundle of one configuration, several tasks and

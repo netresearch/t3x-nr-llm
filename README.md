@@ -49,7 +49,7 @@ nr-llm provides the missing shared layer:
 │         Provider Abstraction Layer              │
 │  OpenAI · Anthropic · Gemini · Ollama · …       │
 ├─────────────────────────────────────────────────┤
-│     Admin Tools > LLM (Backend Module)          │
+│     AI (Backend Section)                        │
 │  Encrypted keys · Usage tracking · Setup wizard │
 └─────────────────────────────────────────────────┘
 ```
@@ -141,7 +141,7 @@ nr-llm solves this once for the entire TYPO3 ecosystem.
 
 ### One dashboard for all AI
 
-The **Admin Tools > LLM** backend module gives you full control:
+The **AI** backend section gives you full control:
 
 ![LLM module overview — 30-day usage and cost KPIs, a per-provider request breakdown with live reachability, and a card grid where every module shows its readiness state](Documentation/Images/backend-dashboard.png)
 
@@ -296,7 +296,7 @@ See [ADR-090](Documentation/Adr/Adr090SingleExtensionUntil10.rst) for the full r
 composer require netresearch/nr-llm
 ```
 
-Then activate in **Admin Tools > Extensions** and run **Admin Tools > LLM > Setup Wizard**.
+Then activate in **Admin Tools > Extensions** and run **AI > Setup > Setup Wizard**.
 
 ---
 

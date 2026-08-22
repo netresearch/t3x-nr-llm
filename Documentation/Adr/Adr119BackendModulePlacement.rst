@@ -6,8 +6,10 @@
 ADR-119: Where the backend modules live — Administration, for now
 ============================================================================
 
-:Status: Accepted (deferred — the placement is not finally settled, see Revisit)
+:Status: Accepted (its placement decision was overturned; the section now
+         exists and the four pre-settled answers below have been applied)
 :Date: 2026-07-28
+:Amended: 2026-08-22 by :ref:`ADR-183 <adr-183>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-119-context:
