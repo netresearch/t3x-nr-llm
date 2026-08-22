@@ -108,7 +108,10 @@ test-fuzzy:
 	$(RUNTESTS) -s fuzzy
 
 test-e2e:
-	$(RUNTESTS) -s e2e
+	@# The suite needs a running TYPO3 and the runner starts none. `ddev e2e`
+	@# supplies this project's URL and the container arguments to reach it;
+	@# without ddev, set TYPO3_BASE_URL and call the runner directly.
+	ddev e2e
 
 coverage:
 	$(RUNTESTS) -s unitCoverage

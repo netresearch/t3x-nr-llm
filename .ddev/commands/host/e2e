@@ -1,0 +1,33 @@
+#!/bin/bash
+
+## Description: Run the Playwright E2E suite against this ddev site
+## Usage: e2e [playwright args]
+## Example: ddev e2e
+## Example: ddev e2e --headed Tests/E2E/Playwright/specs/backend.spec.ts
+
+set -e
+
+PROJECT_DIR="$(dirname "$(dirname "$(dirname "$0")")")/.."
+cd "$PROJECT_DIR"
+
+# The shared test runner starts no TYPO3 and knows nothing about ddev — by
+# design, since it also runs where no ddev exists. Everything ddev-specific
+# lives here, in a command that only exists when ddev does:
+#
+#   * the URL to test against, which is this project's ddev site, and
+#   * the two container arguments the Playwright container needs to reach it,
+#     because *.ddev.site resolves only on ddev's own network.
+export TYPO3_BASE_URL="https://v14.nr-llm.ddev.site"
+
+ROUTER_IP="$(docker inspect ddev-router \
+    --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true)"
+
+if [ -z "${ROUTER_IP}" ]; then
+    echo "❌ ddev-router is not running — start the project first: ddev start" >&2
+    exit 1
+fi
+
+export E2E_CONTAINER_ARGS="--network ddev_default --add-host v14.nr-llm.ddev.site:${ROUTER_IP}"
+
+echo "🎭 Playwright against ${TYPO3_BASE_URL} (ddev-router ${ROUTER_IP})"
+exec Build/Scripts/runTests.sh -s e2e "$@"
