@@ -127,7 +127,8 @@ if ! curl -fsS -o /dev/null -m 5 "${LOCAL_URL}/typo3/login"; then
 fi
 
 # The shared runner (netresearch/typo3-ci-workflows v1.6.0) uses
-# ${IMAGE_PLAYWRIGHT} but never assigns it — every sibling IMAGE_* is set
+# ${IMAGE_PLAYWRIGHT} but never assigns it (netresearch/typo3-ci-workflows#206)
+# — every sibling IMAGE_* is set
 # around line 540 and this one is not — so docker reads /bin/bash as the
 # image and answers "invalid reference format". Supplied here until that is
 # fixed upstream, pinned to the version package-lock.json resolves: the
