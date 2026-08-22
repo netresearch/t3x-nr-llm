@@ -29,8 +29,14 @@ return [
         [
             'identifier' => 'ollama-local',
             'name' => 'Local Ollama',
-            'description' => 'Local Ollama LLM server running in DDEV container. No API key required.',
+            'description' => 'Local Ollama LLM server on the container network. No API key required.',
             'adapter_type' => 'ollama',
+            // http, not https, and deliberately so: this is a container-internal
+            // hostname on a private network, and Ollama serves no TLS — the
+            // upstream project has no HTTPS listener to point at. Rewriting the
+            // scheme to satisfy a clear-text-protocol rule would leave a demo
+            // provider that cannot connect. Flagged by SonarCloud on #879 and
+            // kept.
             'endpoint_url' => 'http://ollama:11434',
             'api_key' => '',
             'api_timeout' => 120,
