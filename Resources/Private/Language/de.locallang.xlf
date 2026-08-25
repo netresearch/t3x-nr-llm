@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" target-language="de" datatype="plaintext" original="messages">
         <body>
             <trans-unit id="module.title">
                 <source>LLM Providers</source>
                 <target>LLM-Anbieter</target>
             </trans-unit>
-
             <!-- Provider List -->
             <trans-unit id="provider.field.name">
                 <source>Name</source>
@@ -52,7 +52,6 @@
                 <source>(default)</source>
                 <target>(Standard)</target>
             </trans-unit>
-
             <!-- Model List -->
             <trans-unit id="model.field.identifier">
                 <source>Identifier</source>
@@ -114,7 +113,6 @@
                 <source>No provider</source>
                 <target>Kein Anbieter</target>
             </trans-unit>
-
             <!-- Configuration List -->
             <trans-unit id="configuration.list.title">
                 <source>LLM Configurations</source>
@@ -172,7 +170,6 @@
                 <source>Tokens used</source>
                 <target>Verbrauchte Token</target>
             </trans-unit>
-
             <!-- Shared labels -->
             <trans-unit id="configured">
                 <source>Configured</source>
@@ -326,7 +323,6 @@
                 <source>All Providers</source>
                 <target>Alle Anbieter</target>
             </trans-unit>
-
             <!-- Button actions -->
             <trans-unit id="btn.provider.new">
                 <source>New Provider</source>
@@ -356,7 +352,6 @@
                 <source>Refresh</source>
                 <target>Aktualisieren</target>
             </trans-unit>
-
             <!-- Docheader tab menu -->
             <trans-unit id="tab.dashboard">
                 <source>Dashboard</source>
@@ -370,7 +365,6 @@
                 <source>Help</source>
                 <target>Hilfe</target>
             </trans-unit>
-
             <!-- Effective policy readout (ADR-140) -->
             <trans-unit id="governance.page.title">
                 <source>Effective policy</source>
@@ -744,7 +738,6 @@
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
                 <target>Gilt nur für eingebaute Tools. Tools von einem MCP-Server werden immer gegen die Trust-Zone-Obergrenze durchgesetzt, nie nur beobachtet.</target>
             </trans-unit>
-
             <!-- Routing readout (ADR-148) -->
             <trans-unit id="routing.heading">
                 <source>Why this model?</source>
@@ -1006,7 +999,6 @@
                 <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
                 <target>Im Zeitraum hat nichts ein Modell automatisch gewählt. Entweder lief kein Aufruf, jede Konfiguration nennt ein festes Modell, oder die Telemetrie ist abgeschaltet.</target>
             </trans-unit>
-
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
                 <source>Prompt Snippets</source>
@@ -1048,7 +1040,6 @@
                 <source>Open Analytics</source>
                 <target>Statistik öffnen</target>
             </trans-unit>
-
             <!-- Task controller messages -->
             <trans-unit id="task.notFound">
                 <source>Task not found.</source>
@@ -1114,7 +1105,6 @@
                 <source>Error reading sys_log. See system log for details.</source>
                 <target>Fehler beim Lesen des sys_log. Details siehe Systemlog.</target>
             </trans-unit>
-
             <!-- Configuration controller -->
             <trans-unit id="configuration.notConfigured">
                 <source>(not configured)</source>
@@ -1136,7 +1126,6 @@
                 <source>Generation failed. See system log for details.</source>
                 <target>Generierung fehlgeschlagen. Details siehe Systemlog.</target>
             </trans-unit>
-
             <!-- Model test results -->
             <trans-unit id="model.test.responded">
                 <source>Model "%s" responded: "%s" (tokens: %d in, %d out)</source>
@@ -1158,7 +1147,6 @@
                 <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>
                 <target>Modell "%s" erfolgreich verbunden (Token: %d rein, %d raus) - Antwortinhalt leer, Modell nutzt möglicherweise internes Reasoning</target>
             </trans-unit>
-
             <!-- Analytics dashboard -->
             <trans-unit id="analytics.title">
                 <source>LLM Usage Analytics</source>
@@ -1408,7 +1396,6 @@
                 <source>No active provider is configured and no provider was called recently.</source>
                 <target>Es ist kein aktiver Provider konfiguriert, und zuletzt wurde keiner aufgerufen.</target>
             </trans-unit>
-
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">
                 <source>Skills</source>
@@ -1514,7 +1501,6 @@
                 <source>No skills have been ingested yet. Add a source and run a sync.</source>
                 <target>Es wurden noch keine Skills importiert. Fügen Sie eine Quelle hinzu und starten Sie eine Synchronisierung.</target>
             </trans-unit>
-
             <!-- Glossary partial -->
             <trans-unit id="glossary.title">
                 <source>Terms &amp; Parameters</source>
@@ -1640,7 +1626,6 @@
                 <source>Encourages introducing new topics (typically -2 to 2). Higher values push the model toward novelty.</source>
                 <target>Fördert das Einbringen neuer Themen (typisch -2 bis 2). Höhere Werte drängen das Modell zu mehr Abwechslung.</target>
             </trans-unit>
-
             <!-- Per-module help / admin / see-also -->
             <trans-unit id="module.adminOnly">
                 <source>This module is admin-only. Records and actions here affect every editor using LLM features.</source>
@@ -1674,7 +1659,6 @@
                 <source>Open Help</source>
                 <target>Hilfe öffnen</target>
             </trans-unit>
-
             <!-- Readiness (overview) -->
             <trans-unit id="readiness.title">
                 <source>Setup readiness</source>
@@ -2080,7 +2064,6 @@
                 <source>Open Help</source>
                 <target>Hilfe öffnen</target>
             </trans-unit>
-
             <!-- Readiness signals (lists) -->
             <trans-unit id="configuration.noModel.badge">
                 <source>No model assigned</source>
@@ -2162,7 +2145,6 @@
                 <source>Edit source</source>
                 <target>Quelle bearbeiten</target>
             </trans-unit>
-
             <!-- Empty-state standardization -->
             <trans-unit id="provider.empty.hint">
                 <source>Providers are the first tier of setup (Provider → Model → Configuration). Launch the Setup Wizard to add one.</source>
@@ -2176,7 +2158,6 @@
                 <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
                 <target>Konfigurationen sind die dritte Stufe der Einrichtung und erfordern zuerst ein Modell (Anbieter → Modell → Konfiguration).</target>
             </trans-unit>
-
             <!-- Configuration presets (ADR-056) -->
             <trans-unit id="configuration.presets.title">
                 <source>Pending presets</source>
@@ -2282,7 +2263,6 @@
                 <source>Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool.</source>
                 <target>Entwickler: Implementieren Sie Netresearch\NrLlm\Service\Tool\ToolInterface und versehen Sie die Klasse mit dem Tag nr_llm.tool, um ein neues Werkzeug zu registrieren.</target>
             </trans-unit>
-
             <!-- Tasks list (translation sweep) -->
             <trans-unit id="task.list.title">
                 <source>Tasks</source>
@@ -2340,7 +2320,6 @@
                 <source>Each task uses a &lt;strong&gt;Configuration&lt;/strong&gt; that defines &lt;strong&gt;how&lt;/strong&gt; the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</source>
                 <target>Jede Aufgabe verwendet eine &lt;strong&gt;Konfiguration&lt;/strong&gt;, die festlegt, &lt;strong&gt;wie&lt;/strong&gt; sich die KI verhält (Modell, Temperatur, System-Prompt). Je nach Anwendungsfall können Sie Aufgaben unterschiedliche Konfigurationen zuweisen — eine Übersetzungsaufgabe nutzt vielleicht eine präzise Konfiguration mit niedriger Temperatur, während eine kreative Schreibaufgabe eine mit hoher Temperatur verwendet.</target>
             </trans-unit>
-
             <!-- Overview AI task callout (translation sweep) -->
             <trans-unit id="taskAi.callout.title">
                 <source>Create Tasks with AI</source>
@@ -2358,7 +2337,6 @@
                 <source>Create with AI</source>
                 <target>Mit KI erstellen</target>
             </trans-unit>
-
             <!-- Configuration list intro (translation sweep) -->
             <trans-unit id="configuration.intro.line1">
                 <source>Configurations define &lt;strong&gt;how&lt;/strong&gt; the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</source>
@@ -2368,7 +2346,6 @@
                 <source>Configurations are shared across &lt;strong&gt;Tasks&lt;/strong&gt;. A Task defines &lt;strong&gt;what&lt;/strong&gt; to do (the prompt template), while a Configuration defines &lt;strong&gt;how&lt;/strong&gt; to do it (model, temperature, system prompt). One configuration can power many different tasks.</source>
                 <target>Konfigurationen werden von mehreren &lt;strong&gt;Aufgaben&lt;/strong&gt; gemeinsam genutzt. Eine Aufgabe legt fest, &lt;strong&gt;was&lt;/strong&gt; zu tun ist (die Prompt-Vorlage), während eine Konfiguration festlegt, &lt;strong&gt;wie&lt;/strong&gt; es zu tun ist (Modell, Temperatur, System-Prompt). Eine Konfiguration kann viele verschiedene Aufgaben antreiben.</target>
             </trans-unit>
-
             <!-- Prompt snippet list intro + empty (translation sweep) -->
             <trans-unit id="snippet.list.title">
                 <source>Prompt Snippets</source>
@@ -2402,7 +2379,6 @@
                 <source>Tags</source>
                 <target>Tags</target>
             </trans-unit>
-
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>
@@ -2560,7 +2536,6 @@
                 <source>Setup wizard progress</source>
                 <target>Fortschritt des Einrichtungsassistenten</target>
             </trans-unit>
-
             <!-- Test page (translation sweep) -->
             <trans-unit id="test.page.title">
                 <source>Test LLM Provider</source>
@@ -2686,7 +2661,6 @@
                 <source>Sending request...</source>
                 <target>Anfrage wird gesendet …</target>
             </trans-unit>
-
             <!-- Help page (translation sweep) -->
             <trans-unit id="help.page.title">
                 <source>LLM Management Help</source>
@@ -2848,7 +2822,6 @@
                 <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They are exposed to consuming extensions and the API as preset options. A consuming extension provides the editor-facing UI where editors pick a task or write a custom instruction.</source>
                 <target>&lt;strong&gt;Aufgaben&lt;/strong&gt; sind einfache einmalige Prompts, die hier im LLM-Modul definiert werden. Sie werden nutzenden Erweiterungen und der API als vorgegebene Optionen bereitgestellt. Eine nutzende Erweiterung stellt die redakteursseitige Oberfläche bereit, in der Redakteure eine Aufgabe auswählen oder eine eigene Anweisung schreiben.</target>
             </trans-unit>
-
             <!-- Backend AJAX error messages -->
             <trans-unit id="error.provider.noUid">
                 <source>No provider UID specified</source>
@@ -2994,7 +2967,6 @@
                 <source>Failed to load records. See system log for details.</source>
                 <target>Datensätze konnten nicht geladen werden. Siehe Systemprotokoll für Details.</target>
             </trans-unit>
-
             <!-- Task wizard flash messages -->
             <trans-unit id="flash.task.missingDescription.body">
                 <source>Please describe what this task should do.</source>
@@ -3900,7 +3872,6 @@
                 <source>Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring.</source>
                 <target>Alles, was Sie hier konfigurieren, ist aus PHP über den LlmServiceManager erreichbar. Ihre Extension erbt Anbieter, Modelle, Konfigurationen, Budgets und die Middleware-Pipeline – ohne eigene API-Anbindung.</target>
             </trans-unit>
-
             <!-- Agent Runs approvals inbox (ADR-109) -->
             <trans-unit id="runs.heading.waiting">
                 <source>Awaiting your decision</source>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" datatype="plaintext" original="messages">
         <body>
             <!-- Table title -->
@@ -9,7 +10,6 @@
             <trans-unit id="tx_nrllm_user_budget">
                 <source>LLM User Budget</source>
             </trans-unit>
-
             <!-- User budget tabs -->
             <trans-unit id="tab.daily_limits">
                 <source>Daily Limits</source>
@@ -17,7 +17,6 @@
             <trans-unit id="tab.monthly_limits">
                 <source>Monthly Limits</source>
             </trans-unit>
-
             <!-- User budget fields -->
             <trans-unit id="tx_nrllm_user_budget.be_user">
                 <source>Backend User</source>
@@ -46,7 +45,6 @@
             <trans-unit id="tx_nrllm_user_budget.max_cost_per_month">
                 <source>Max Cost/Month ($)</source>
             </trans-unit>
-
             <!-- Tabs -->
             <trans-unit id="tab.parameters">
                 <source>Parameters</source>
@@ -63,7 +61,6 @@
             <trans-unit id="tab.fallback">
                 <source>Fallback Chain</source>
             </trans-unit>
-
             <!-- Palettes -->
             <trans-unit id="palette.identity">
                 <source>Identity</source>
@@ -80,7 +77,6 @@
             <trans-unit id="palette.status">
                 <source>Status</source>
             </trans-unit>
-
             <!-- Fields -->
             <trans-unit id="tx_nrllm_configuration.identifier">
                 <source>Identifier</source>
@@ -88,141 +84,120 @@
             <trans-unit id="tx_nrllm_configuration.identifier.description">
                 <source>Unique technical identifier (lowercase, no spaces)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.name">
                 <source>Name</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.name.description">
                 <source>Human-readable display name for this configuration</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.description">
                 <source>Description</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.provider">
                 <source>Provider</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model">
                 <source>Model</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model.description">
                 <source>Model identifier (e.g., gpt-4o, claude-3-5-sonnet-20241022)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.translator">
                 <source>Specialized Translator</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.translator.description">
                 <source>Use a specialized translation service instead of LLM-based translation</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.system_prompt">
                 <source>System Prompt</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.system_prompt.description">
                 <source>Instructions that define the AI's role, behavior, and constraints. This is sent before every user message and shapes all responses. Be specific about tone, format, and limitations. Example for a translator: "You are a professional translator. Translate the provided text to the target language. Preserve formatting, tone, and cultural context. Do not add explanations unless asked." Example for a summarizer: "Summarize the following content in 3-5 bullet points. Focus on actionable insights. Use clear, non-technical language." Tasks can override or extend this with their own prompt templates.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.system_prompt_data_class">
                 <source>System prompt data class</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.system_prompt_data_class.description">
                 <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode the class is checked against the model routing actually selected, and a send that resolves to a weaker zone is refused. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.temperature.description">
                 <source>Controls how random or creative the output is. Low values (0.0–0.3) produce focused, deterministic responses — ideal for factual tasks, translation, or code. Medium values (0.4–0.7) balance creativity and accuracy — good for general content writing. High values (0.8–2.0) produce more creative, surprising results — useful for brainstorming or poetry. Example: A summarization task works best at 0.2–0.3, while a blog idea generator might use 0.9. Note: Reasoning models (o-series, GPT-5.x) ignore this setting. Anthropic models accept 0.0–1.0 only.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_tokens">
                 <source>Max Tokens</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens.description">
                 <source>Limits how long the response can be. One token is roughly ¾ of a word in English — so 100 tokens ≈ 75 words, 1000 tokens ≈ 750 words, 4000 tokens ≈ a 3-page article. Set this to match your use case: 256 for short answers, 1000–2000 for summaries, 4000–8000 for full articles or translations. Higher values cost more — the model stops generating when it reaches this limit. The upper bound depends on the model (check the model's max output tokens). Set 0 to use the model's configured max output tokens (or the provider default).</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.top_p">
                 <source>Top P (Nucleus Sampling)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.top_p.description">
                 <source>An alternative to temperature for controlling randomness. At each step, the model considers only tokens whose combined probability reaches this threshold. 1.0 = consider all tokens (default). 0.1 = only consider tokens in the top 10% probability mass, producing very focused output. Generally, adjust either temperature OR top_p, not both. Most use cases work fine with the default of 1.0 while adjusting temperature instead. Note: Reasoning models (o-series, GPT-5.x) fix this at 1.0. On Anthropic, top_p and temperature are mutually exclusive.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.frequency_penalty">
                 <source>Frequency Penalty</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.frequency_penalty.description">
                 <source>Penalizes tokens proportionally to how often they have already appeared. Positive values (0.1–2.0) reduce word repetition — higher values make the model avoid repeating the same phrases. 0.0 = no penalty (default). Negative values (-2.0 to 0) encourage repetition. Useful for preventing the model from getting stuck in loops or repeating filler phrases. Example: Set to 0.5 for content writing to reduce "the the" or repeated sentence structures. Only supported by OpenAI-compatible providers — Anthropic and Gemini do not use this parameter.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.presence_penalty">
                 <source>Presence Penalty</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.presence_penalty.description">
                 <source>Penalizes tokens based on whether they have appeared at all (regardless of frequency). Positive values (0.1–2.0) encourage the model to introduce new topics and vocabulary. 0.0 = no penalty (default). Negative values encourage staying on-topic. Unlike frequency_penalty, this applies equally whether a word appeared once or 100 times. Example: Set to 0.6 for brainstorming to push the model toward diverse ideas. Set to 0.0 or negative for focused Q&amp;A. Only supported by OpenAI-compatible providers — Anthropic and Gemini do not use this parameter.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.options">
                 <source>Additional Options</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.options.description">
                 <source>Provider-specific options as a JSON object. These are merged into the API request. Examples: {"stop_sequences": ["\n\n"]} to stop at double newlines, {"seed": 42} for reproducible output (OpenAI), {"response_format": {"type": "json_object"}} to force JSON output. Consult your provider's API documentation for available options.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_requests_per_day">
                 <source>Max Requests/Day</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_requests_per_day.description">
                 <source>Maximum requests per day (0 = unlimited)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.timeout">
                 <source>Timeout (seconds)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.timeout.description">
                 <source>Maximum time to wait for the API to respond, in seconds. Set to 0 to use the model's default timeout. Short tasks (translation, classification) typically need 10–30s. Long content generation may need 60–120s. Reasoning models (o-series, GPT-5.x) can take 60–300s due to internal "thinking" steps. If requests frequently time out, increase this value — but note that longer timeouts also mean users wait longer if something goes wrong.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
                 <source>Max Tokens/Day</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day.description">
                 <source>Daily token usage limit (0 = unlimited)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_cost_per_day">
                 <source>Max Cost/Day ($)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.max_cost_per_day.description">
                 <source>Daily cost limit in dollars (0.00 = unlimited)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.fallback_chain">
                 <source>Fallback Chain</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.fallback_chain.description">
                 <source>Ordered list of configuration identifiers to retry against when the primary fails with a connection error, 5xx, or 429. JSON format: {"configurationIdentifiers":["claude-sonnet","ollama-local"]}. Leave empty to disable fallback. Does not apply to streaming requests.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.is_active">
                 <source>Active</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.is_active.description">
                 <source>Enable this configuration for use</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.is_default">
                 <source>Default Configuration</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.is_default.description">
                 <source>Use as the default configuration when none is specified</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.allowed_groups">
                 <source>Allowed Backend Groups</source>
             </trans-unit>
@@ -247,21 +222,18 @@
             <trans-unit id="tx_nrllm_configuration.require_second_approver.description">
                 <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.snippet_tags.description">
                 <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.skills.description">
                 <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
             </trans-unit>
@@ -274,21 +246,18 @@
             <trans-unit id="tx_nrllm_configuration.model_selection_mode.criteria">
                 <source>Dynamic (Criteria-based)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_uid">
                 <source>Model</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_uid.description">
                 <source>Select a configured LLM model</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_selection_criteria">
                 <source>Selection Criteria</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_configuration.model_selection_criteria.description">
                 <source>Define criteria for automatic model selection. Models matching all selected criteria will be considered.</source>
             </trans-unit>
-
             <!-- Model Selection Criteria Groups -->
             <trans-unit id="tx_nrllm_configuration.criteria.group.capabilities">
                 <source>Required Capabilities</source>
@@ -302,30 +271,25 @@
             <trans-unit id="tx_nrllm_configuration.prefer_lowest_cost">
                 <source>Prefer Lowest Cost</source>
             </trans-unit>
-
             <!-- Provider Table -->
             <trans-unit id="tx_nrllm_provider">
                 <source>LLM API Provider</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.identifier">
                 <source>Identifier</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.identifier.description">
                 <source>Unique technical identifier (lowercase, no spaces)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.name">
                 <source>Name</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.name.description">
                 <source>Human-readable display name for this provider</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.description">
                 <source>Description</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.trust_zone">
                 <source>Trust zone</source>
             </trans-unit>
@@ -386,106 +350,88 @@
             <trans-unit id="tx_nrllm_provider.adapter_type.custom">
                 <source>Custom (OpenAI-compatible)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.endpoint_url.description">
                 <source>Custom API endpoint URL (leave empty for default)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.api_key">
                 <source>API Key</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.api_key.description">
                 <source>Your API key for authentication</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.organization_id">
                 <source>Organization ID</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.organization_id.description">
                 <source>Optional organization ID (OpenAI, Azure)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.api_timeout">
                 <source>API Timeout (seconds)</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.api_timeout.description">
                 <source>Maximum time in seconds to wait for the complete API response, including connection (max 10s) and model processing time. Large or reasoning models may need 120-300 seconds. A configuration- or model-level timeout overrides this value per request.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.max_retries">
                 <source>Max Retries</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.max_retries.description">
                 <source>Number of retries after the first failed request (0 = try once, no retries)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.options">
                 <source>Additional Options</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.options.description">
                 <source>Additional provider-specific options as JSON. Supported: {"customHeaders": {"X-Custom-Header": "value"}} to send extra HTTP headers.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.is_active">
                 <source>Active</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.is_active.description">
                 <source>Enable this provider for use in models</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.priority">
                 <source>Priority</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_provider.priority.description">
                 <source>Higher priority providers are preferred for auto-selection (0-100)</source>
             </trans-unit>
-
             <trans-unit id="palette.connection">
                 <source>Connection Settings</source>
             </trans-unit>
-
             <trans-unit id="palette.request">
                 <source>Request Settings</source>
             </trans-unit>
-
             <trans-unit id="palette.advanced">
                 <source>Advanced Settings</source>
             </trans-unit>
-
             <trans-unit id="tab.connection">
                 <source>Connection</source>
             </trans-unit>
-
             <trans-unit id="tab.advanced">
                 <source>Advanced</source>
             </trans-unit>
-
             <!-- Model Table -->
             <trans-unit id="tx_nrllm_model">
                 <source>LLM Model</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.identifier">
                 <source>Identifier</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.identifier.description">
                 <source>Unique technical identifier (lowercase, no spaces)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.name">
                 <source>Name</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.name.description">
                 <source>Human-readable display name for this model</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.description">
                 <source>Description</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.provider_uid">
                 <source>Provider</source>
             </trans-unit>
@@ -495,35 +441,30 @@
             <trans-unit id="tx_nrllm_model.provider_uid.select">
                 <source>-- Select Provider --</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.model_id">
                 <source>Model ID</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.model_id.description">
                 <source>The model identifier as used in API calls (e.g., gpt-4o, claude-3-5-sonnet)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.context_length">
                 <source>Context Length</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.context_length.description">
                 <source>Maximum context window in tokens (0 = unknown)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.max_output_tokens">
                 <source>Max Output Tokens</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.max_output_tokens.description">
                 <source>Maximum output tokens per request (0 = unknown). Used as the default output cap for requests that do not set max tokens themselves.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.dimensions">
                 <source>Embedding Dimensions</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.dimensions.description">
                 <source>Embedding vector dimensionality of the model (0 = unknown). Used as the default vector size for embedding requests that do not set dimensions themselves.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities">
                 <source>Capabilities</source>
             </trans-unit>
@@ -551,7 +492,6 @@
             <trans-unit id="tx_nrllm_model.capabilities_source.description">
                 <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
             </trans-unit>
-
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">
                 <source>Chat</source>
@@ -559,230 +499,193 @@
             <trans-unit id="tx_nrllm_model.capabilities.chat.description">
                 <source>Conversational interactions with message history. Supports system prompts, user messages, and assistant responses.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.completion">
                 <source>Completion</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.completion.description">
                 <source>Text completion from a prompt. Legacy API format, less common in modern models.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.embeddings">
                 <source>Embeddings</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.embeddings.description">
                 <source>Generate vector embeddings for semantic search, similarity comparison, and RAG applications.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.vision">
                 <source>Vision</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.vision.description">
                 <source>Analyze images and visual content. Accepts image URLs or base64-encoded images in messages.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.streaming">
                 <source>Streaming</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.streaming.description">
                 <source>Receive responses token-by-token via Server-Sent Events for real-time output display.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.tools">
                 <source>Tool Use</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.tools.description">
                 <source>Function calling / tool use. Model can request to call defined functions with structured arguments.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.json_mode">
                 <source>JSON Mode</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.json_mode.description">
                 <source>Guaranteed valid JSON output. Use for structured data extraction and API integrations.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.audio">
                 <source>Audio</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.audio.description">
                 <source>Process audio input (speech-to-text) or generate audio output (text-to-speech).</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.image">
                 <source>Image Generation</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.image.description">
                 <source>Generate images from text prompts. The DALL-E / gpt-image service resolves its default model from active records carrying this capability.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.text_to_speech">
                 <source>Text to Speech</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.text_to_speech.description">
                 <source>Synthesize spoken audio from text. Used by the specialized TTS service to resolve its default model.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.transcription">
                 <source>Transcription</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.capabilities.transcription.description">
                 <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.default_timeout.description">
                 <source>Default timeout in seconds for requests to this model. Thinking/reasoning models may need longer timeouts (120-300s).</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.cost_input">
                 <source>Input Cost</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.cost_input.description">
                 <source>Cost per 1 million input tokens in cents</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.cost_output">
                 <source>Output Cost</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.cost_output.description">
                 <source>Cost per 1 million output tokens in cents</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.is_active">
                 <source>Active</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.is_active.description">
                 <source>Enable this model for use in configurations</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.is_default">
                 <source>Default Model</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_model.is_default.description">
                 <source>Use as the default model for new configurations</source>
             </trans-unit>
-
             <trans-unit id="tab.capabilities">
                 <source>Capabilities</source>
             </trans-unit>
-
             <trans-unit id="tab.pricing">
                 <source>Pricing</source>
             </trans-unit>
-
             <trans-unit id="palette.model_limits">
                 <source>Model Limits</source>
             </trans-unit>
-
             <trans-unit id="palette.pricing">
                 <source>Pricing</source>
             </trans-unit>
-
             <!-- Task Table -->
             <trans-unit id="tx_nrllm_task">
                 <source>LLM Task</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.identifier">
                 <source>Identifier</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.identifier.description">
                 <source>Unique technical identifier (lowercase, no spaces)</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.name">
                 <source>Name</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.name.description">
                 <source>Human-readable display name for this task</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.description">
                 <source>Description</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.category">
                 <source>Category</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.category.description">
                 <source>Task category for organization and filtering</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.configuration_uid">
                 <source>Configuration</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.configuration_uid.description">
                 <source>LLM configuration to use for this task</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.prompt_template.description">
                 <source>Template with placeholders like {{input}} for the LLM prompt</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.input_type">
                 <source>Input Type</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.input_type.description">
                 <source>Type of input data source for this task</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.input_source">
                 <source>Input Source</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.input_source.description">
                 <source>JSON configuration for the input source</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.output_format">
                 <source>Output Format</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.output_format.description">
                 <source>Expected format of the LLM response</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.is_active">
                 <source>Active</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.is_active.description">
                 <source>Enable this task for execution</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.is_system">
                 <source>System Task</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.is_system.description">
                 <source>System tasks are managed by extensions and should not be modified</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.skills">
                 <source>Attached Skills</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_task.skills.description">
                 <source>Skills attached here are injected into this task's text-generation prompt, in addition to any skills on the selected configuration</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.tab.input_output">
                 <source>Input / Output</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.palette.input">
                 <source>Input Configuration</source>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.palette.output">
                 <source>Output Configuration</source>
             </trans-unit>
-
             <trans-unit id="palette.settings">
                 <source>Settings</source>
             </trans-unit>
-
             <!-- Task category select items -->
             <trans-unit id="tx_nrllm_task.category.log_analysis">
                 <source>Log Analysis</source>
@@ -799,12 +702,10 @@
             <trans-unit id="tx_nrllm_task.category.general">
                 <source>General</source>
             </trans-unit>
-
             <!-- Task configuration_uid select items -->
             <trans-unit id="tx_nrllm_task.configuration_uid.default">
                 <source>-- Use Default Configuration --</source>
             </trans-unit>
-
             <!-- Task input_type select items -->
             <trans-unit id="tx_nrllm_task.input_type.manual">
                 <source>Manual Input</source>
@@ -821,7 +722,6 @@
             <trans-unit id="tx_nrllm_task.input_type.file">
                 <source>File</source>
             </trans-unit>
-
             <!-- Task output_format select items -->
             <trans-unit id="tx_nrllm_task.output_format.markdown">
                 <source>Markdown</source>
@@ -835,12 +735,10 @@
             <trans-unit id="tx_nrllm_task.output_format.html">
                 <source>HTML</source>
             </trans-unit>
-
             <!-- Configuration model_uid select items -->
             <trans-unit id="tx_nrllm_configuration.model_uid.select">
                 <source>-- Select Model --</source>
             </trans-unit>
-
             <!-- Configuration adapter select items (model_selection_criteria) -->
             <trans-unit id="tx_nrllm_configuration.adapter.openai">
                 <source>OpenAI</source>
@@ -863,7 +761,6 @@
             <trans-unit id="tx_nrllm_configuration.adapter.ollama">
                 <source>Ollama</source>
             </trans-unit>
-
             <!-- Configuration translator select items -->
             <trans-unit id="tx_nrllm_configuration.translator.none">
                 <source>None (use LLM)</source>
@@ -871,7 +768,6 @@
             <trans-unit id="tx_nrllm_configuration.translator.deepl">
                 <source>DeepL</source>
             </trans-unit>
-
             <!-- Prompt snippet table -->
             <trans-unit id="tx_nrllm_promptsnippet">
                 <source>LLM Prompt Snippet</source>
@@ -1053,7 +949,6 @@
             <trans-unit id="tx_nrllm_skill.enabled">
                 <source>Enabled</source>
             </trans-unit>
-
             <!-- MCP server (ADR-116) -->
             <trans-unit id="tx_nrllm_mcp_server">
                 <source>MCP Server</source>
@@ -1163,7 +1058,6 @@
             <trans-unit id="tx_nrllm_mcp_server.enabled.description">
                 <source>Off until an operator switches it on. A disabled server keeps its catalogue but contributes no tools.</source>
             </trans-unit>
-
             <!-- Tool data class (ADR-094) -->
             <trans-unit id="tx_nrllm.tool_data_class.publicContent">
                 <source>Public content</source>
