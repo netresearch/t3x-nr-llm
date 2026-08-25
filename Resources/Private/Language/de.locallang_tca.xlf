@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" target-language="de" datatype="plaintext" original="messages">
         <body>
             <!-- Table title -->
@@ -11,7 +12,6 @@
                 <source>LLM User Budget</source>
                 <target>LLM-Nutzerbudget</target>
             </trans-unit>
-
             <!-- User budget tabs -->
             <trans-unit id="tab.daily_limits">
                 <source>Daily Limits</source>
@@ -21,7 +21,6 @@
                 <source>Monthly Limits</source>
                 <target>Monatslimits</target>
             </trans-unit>
-
             <!-- User budget fields -->
             <trans-unit id="tx_nrllm_user_budget.be_user">
                 <source>Backend User</source>
@@ -59,7 +58,6 @@
                 <source>Max Cost/Month ($)</source>
                 <target>Max. Kosten/Monat ($)</target>
             </trans-unit>
-
             <!-- Tabs -->
             <trans-unit id="tab.parameters">
                 <source>Parameters</source>
@@ -81,7 +79,6 @@
                 <source>Fallback Chain</source>
                 <target>Fallback-Kette</target>
             </trans-unit>
-
             <!-- Palettes -->
             <trans-unit id="palette.identity">
                 <source>Identity</source>
@@ -103,7 +100,6 @@
                 <source>Status</source>
                 <target>Status</target>
             </trans-unit>
-
             <!-- Fields -->
             <trans-unit id="tx_nrllm_configuration.identifier">
                 <source>Identifier</source>
@@ -113,7 +109,6 @@
                 <source>Unique technical identifier (lowercase, no spaces)</source>
                 <target>Eindeutiger technischer Bezeichner (Kleinbuchstaben, keine Leerzeichen)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.name">
                 <source>Name</source>
                 <target>Name</target>
@@ -122,17 +117,14 @@
                 <source>Human-readable display name for this configuration</source>
                 <target>Lesbarer Anzeigename für diese Konfiguration</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.description">
                 <source>Description</source>
                 <target>Beschreibung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.provider">
                 <source>Provider</source>
                 <target>Anbieter</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model">
                 <source>Model</source>
                 <target>Modell</target>
@@ -141,7 +133,6 @@
                 <source>Model identifier (e.g., gpt-4o, claude-3-5-sonnet-20241022)</source>
                 <target>Modellbezeichner (z. B. gpt-4o, claude-3-5-sonnet-20241022)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.translator">
                 <source>Specialized Translator</source>
                 <target>Spezialisierter Übersetzer</target>
@@ -150,7 +141,6 @@
                 <source>Use a specialized translation service instead of LLM-based translation</source>
                 <target>Einen spezialisierten Übersetzungsdienst anstelle der LLM-basierten Übersetzung verwenden</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.system_prompt">
                 <source>System Prompt</source>
                 <target>System-Prompt</target>
@@ -159,7 +149,6 @@
                 <source>Initial instructions to define the AI's behavior and context</source>
                 <target>Anfängliche Anweisungen zur Definition des KI-Verhaltens und -Kontexts</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.system_prompt_data_class">
                 <source>System prompt data class</source>
                 <target>Datenklasse des System-Prompts</target>
@@ -168,7 +157,6 @@
                 <source>How sensitive the system prompt above is. A configuration that declares one cannot send to a provider in a lower trust zone — in criteria mode the class is checked against the model routing actually selected, and a send that resolves to a weaker zone is refused. Leave empty to declare nothing; an unclassified system prompt places no restriction, exactly as before this field existed.</source>
                 <target>Wie vertraulich der System-Prompt oben ist. Eine Konfiguration mit Angabe kann nicht an einen Provider in einer niedrigeren Vertrauenszone senden — im Kriterien-Modus wird die Klasse gegen das tatsächlich gewählte Modell geprüft; ein Aufruf, der auf ein Modell in einer schwächeren Zone auflöst, wird abgelehnt. Leer lassen heißt: keine Angabe; ein nicht eingestufter System-Prompt schränkt nichts ein, genau wie vor Einführung dieses Feldes.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.temperature">
                 <source>Temperature</source>
                 <target>Temperatur</target>
@@ -177,7 +165,6 @@
                 <source>Controls randomness (0.0 = deterministic, 2.0 = very creative)</source>
                 <target>Steuert die Zufälligkeit (0,0 = deterministisch, 2,0 = sehr kreativ)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_tokens">
                 <source>Max Tokens</source>
                 <target>Max. Token</target>
@@ -186,7 +173,6 @@
                 <source>Maximum number of tokens in the response</source>
                 <target>Maximale Anzahl der Token in der Antwort. 0 = die im Modell hinterlegten maximalen Ausgabe-Token (oder der Anbieter-Standard) gelten.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.top_p">
                 <source>Top P</source>
                 <target>Top P</target>
@@ -195,7 +181,6 @@
                 <source>Nucleus sampling (0.0-1.0). Lower values focus on more likely tokens.</source>
                 <target>Nucleus Sampling (0,0-1,0). Niedrigere Werte bevorzugen wahrscheinlichere Token.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.frequency_penalty">
                 <source>Frequency Penalty</source>
                 <target>Häufigkeitsstrafe</target>
@@ -204,7 +189,6 @@
                 <source>Reduces repetition based on frequency (-2.0 to 2.0)</source>
                 <target>Reduziert Wiederholungen basierend auf der Häufigkeit (-2,0 bis 2,0)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.presence_penalty">
                 <source>Presence Penalty</source>
                 <target>Präsenzstrafe</target>
@@ -213,7 +197,6 @@
                 <source>Encourages new topics based on token presence (-2.0 to 2.0)</source>
                 <target>Fördert neue Themen basierend auf Token-Präsenz (-2,0 bis 2,0)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.options">
                 <source>Additional Options</source>
                 <target>Zusätzliche Optionen</target>
@@ -222,7 +205,6 @@
                 <source>Additional options as JSON (optional)</source>
                 <target>Zusätzliche Optionen als JSON (optional)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_requests_per_day">
                 <source>Max Requests/Day</source>
                 <target>Max. Anfragen/Tag</target>
@@ -231,7 +213,6 @@
                 <source>Maximum requests per day (0 = unlimited)</source>
                 <target>Maximale Anfragen pro Tag (0 = unbegrenzt)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.timeout">
                 <source>Timeout (seconds)</source>
                 <target>Timeout (Sekunden)</target>
@@ -240,7 +221,6 @@
                 <source>Maximum time to wait for API response (0 = use model default)</source>
                 <target>Maximale Wartezeit auf API-Antwort (0 = Modell-Standard verwenden)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_tokens_per_day">
                 <source>Max Tokens/Day</source>
                 <target>Max. Token/Tag</target>
@@ -249,7 +229,6 @@
                 <source>Daily token usage limit (0 = unlimited)</source>
                 <target>Tägliches Token-Nutzungslimit (0 = unbegrenzt)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.max_cost_per_day">
                 <source>Max Cost/Day ($)</source>
                 <target>Max. Kosten/Tag ($)</target>
@@ -258,7 +237,6 @@
                 <source>Daily cost limit in dollars (0.00 = unlimited)</source>
                 <target>Tägliches Kostenlimit in Dollar (0,00 = unbegrenzt)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.fallback_chain">
                 <source>Fallback Chain</source>
                 <target>Fallback-Kette</target>
@@ -267,7 +245,6 @@
                 <source>Ordered list of configuration identifiers to retry against when the primary fails with a connection error, 5xx, or 429. JSON format: {"configurationIdentifiers":["claude-sonnet","ollama-local"]}. Leave empty to disable fallback. Does not apply to streaming requests.</source>
                 <target>Geordnete Liste von Konfigurations-Bezeichnern, die bei Verbindungsfehlern, 5xx oder 429 nacheinander versucht werden. JSON-Format: {"configurationIdentifiers":["claude-sonnet","ollama-local"]}. Leer lassen, um Fallback zu deaktivieren. Gilt nicht für Streaming-Anfragen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.is_active">
                 <source>Active</source>
                 <target>Aktiv</target>
@@ -276,7 +253,6 @@
                 <source>Enable this configuration for use</source>
                 <target>Diese Konfiguration zur Nutzung aktivieren</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.is_default">
                 <source>Default Configuration</source>
                 <target>Standardkonfiguration</target>
@@ -285,7 +261,6 @@
                 <source>Use as the default configuration when none is specified</source>
                 <target>Als Standardkonfiguration verwenden, wenn keine angegeben ist</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.allowed_groups">
                 <source>Allowed Backend Groups</source>
                 <target>Erlaubte Backend-Gruppen</target>
@@ -310,7 +285,6 @@
                 <source>Which optional guardrails apply to runs with this configuration. Empty = all apply. Security-critical guardrails (secret redaction) always run and are not listed here.</source>
                 <target>Welche optionalen Schutzmechanismen für Läufe mit dieser Konfiguration gelten. Leer = alle aktiv. Sicherheitskritische Schutzmechanismen (Schwärzung von Geheimnissen) laufen immer und werden hier nicht aufgeführt.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.require_second_approver">
                 <source>Require a second approver</source>
                 <target>Zweite freigebende Person verlangen</target>
@@ -319,7 +293,6 @@
                 <source>Whoever starts a run cannot approve its own suspended write; someone else has to. Turn this on where the approval is the audit control rather than a confirmation dialog — a shared backend login, or a workflow that has to record that a second person looked. The initiator can still deny the run, and an administrator is not exempt.</source>
                 <target>Wer einen Lauf startet, kann dessen angehaltenen Schreibzugriff nicht selbst freigeben; das muss jemand anderes tun. Einschalten, wo die Freigabe die Prüfinstanz ist und nicht bloß ein Bestätigungsdialog — etwa bei einem geteilten Backend-Zugang oder wenn festgehalten werden muss, dass eine zweite Person hingesehen hat. Ablehnen kann die startende Person weiterhin, und Administratoren sind nicht ausgenommen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
                 <target>Tags für Prompt-Bausteine</target>
@@ -328,7 +301,6 @@
                 <source>Active prompt snippets carrying any of the selected tags are appended to this configuration's system prompt. Empty = no snippets. Tags are matched as whole tokens and case-insensitively, so "style" does not match "lifestyle".</source>
                 <target>Aktive Prompt-Bausteine mit einem der gewählten Tags werden an den System-Prompt dieser Konfiguration angehängt. Leer = keine Bausteine. Tags werden als ganze Token und ohne Beachtung der Groß-/Kleinschreibung verglichen, „style“ trifft also nicht „lifestyle“.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.skills">
                 <source>Attached Skills</source>
                 <target>Zugewiesene Skills</target>
@@ -337,7 +309,6 @@
                 <source>Skills attached here form the baseline injected into every text generation that uses this configuration</source>
                 <target>Hier zugewiesene Skills bilden die Grundlage, die in jede Textgenerierung mit dieser Konfiguration eingefügt wird</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_selection_mode">
                 <source>Model Selection</source>
                 <target>Modellauswahl</target>
@@ -354,7 +325,6 @@
                 <source>Dynamic (Criteria-based)</source>
                 <target>Dynamisch (kriterienbasiert)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_uid">
                 <source>Model</source>
                 <target>Modell</target>
@@ -363,7 +333,6 @@
                 <source>Select a configured LLM model</source>
                 <target>Ein konfiguriertes LLM-Modell auswählen</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_configuration.model_selection_criteria">
                 <source>Selection Criteria</source>
                 <target>Auswahlkriterien</target>
@@ -372,7 +341,6 @@
                 <source>Define criteria for automatic model selection. Models matching all selected criteria will be considered.</source>
                 <target>Definieren Sie Kriterien für die automatische Modellauswahl. Modelle, die alle ausgewählten Kriterien erfüllen, werden berücksichtigt.</target>
             </trans-unit>
-
             <!-- Model Selection Criteria Groups -->
             <trans-unit id="tx_nrllm_configuration.criteria.group.capabilities">
                 <source>Required Capabilities</source>
@@ -390,13 +358,11 @@
                 <source>Prefer Lowest Cost</source>
                 <target>Niedrigste Kosten bevorzugen</target>
             </trans-unit>
-
             <!-- Provider Table -->
             <trans-unit id="tx_nrllm_provider">
                 <source>LLM API Provider</source>
                 <target>LLM-API-Anbieter</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.identifier">
                 <source>Identifier</source>
                 <target>Bezeichner</target>
@@ -405,7 +371,6 @@
                 <source>Unique technical identifier (lowercase, no spaces)</source>
                 <target>Eindeutiger technischer Bezeichner (Kleinbuchstaben, keine Leerzeichen)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.name">
                 <source>Name</source>
                 <target>Name</target>
@@ -414,12 +379,10 @@
                 <source>Human-readable display name for this provider</source>
                 <target>Lesbarer Anzeigename für diesen Anbieter</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.description">
                 <source>Description</source>
                 <target>Beschreibung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.trust_zone">
                 <source>Trust zone</source>
                 <target>Vertrauenszone</target>
@@ -500,7 +463,6 @@
                 <source>Custom (OpenAI-compatible)</source>
                 <target>Benutzerdefiniert (OpenAI-kompatibel)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.endpoint_url">
                 <source>Endpoint URL</source>
                 <target>Endpunkt-URL</target>
@@ -509,7 +471,6 @@
                 <source>Custom API endpoint URL (leave empty for default)</source>
                 <target>Benutzerdefinierte API-Endpunkt-URL (leer lassen für Standard)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.api_key">
                 <source>API Key</source>
                 <target>API-Schlüssel</target>
@@ -518,7 +479,6 @@
                 <source>Your API key for authentication</source>
                 <target>Ihr API-Schlüssel zur Authentifizierung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.organization_id">
                 <source>Organization ID</source>
                 <target>Organisations-ID</target>
@@ -527,7 +487,6 @@
                 <source>Optional organization ID (OpenAI, Azure)</source>
                 <target>Optionale Organisations-ID (OpenAI, Azure)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.api_timeout">
                 <source>API Timeout (seconds)</source>
                 <target>API-Timeout (Sekunden)</target>
@@ -536,7 +495,6 @@
                 <source>Maximum time in seconds to wait for the complete API response, including connection (max 10s) and model processing time. Large or reasoning models may need 120-300 seconds. A configuration- or model-level timeout overrides this value per request.</source>
                 <target>Maximale Wartezeit in Sekunden auf die vollständige API-Antwort, einschließlich Verbindungsaufbau (max. 10 s) und Modellverarbeitungszeit. Große Modelle oder Reasoning-Modelle benötigen möglicherweise 120-300 Sekunden. Ein Timeout auf Konfigurations- oder Modellebene überschreibt diesen Wert pro Anfrage.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.max_retries">
                 <source>Max Retries</source>
                 <target>Max. Wiederholungsversuche</target>
@@ -545,7 +503,6 @@
                 <source>Number of retries after the first failed request (0 = try once, no retries)</source>
                 <target>Anzahl der Wiederholungsversuche nach der ersten fehlgeschlagenen Anfrage (0 = ein Versuch, keine Wiederholung)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.options">
                 <source>Additional Options</source>
                 <target>Zusätzliche Optionen</target>
@@ -554,7 +511,6 @@
                 <source>Additional provider-specific options as JSON. Supported: {"customHeaders": {"X-Custom-Header": "value"}} to send extra HTTP headers.</source>
                 <target>Zusätzliche anbieterspezifische Optionen als JSON. Unterstützt: {"customHeaders": {"X-Custom-Header": "value"}} für zusätzliche HTTP-Header.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.is_active">
                 <source>Active</source>
                 <target>Aktiv</target>
@@ -563,7 +519,6 @@
                 <source>Enable this provider for use in models</source>
                 <target>Diesen Anbieter zur Verwendung in Modellen aktivieren</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_provider.priority">
                 <source>Priority</source>
                 <target>Priorität</target>
@@ -572,38 +527,31 @@
                 <source>Higher priority providers are preferred for auto-selection (0-100)</source>
                 <target>Anbieter mit höherer Priorität werden bei der automatischen Auswahl bevorzugt (0-100)</target>
             </trans-unit>
-
             <trans-unit id="palette.connection">
                 <source>Connection Settings</source>
                 <target>Verbindungseinstellungen</target>
             </trans-unit>
-
             <trans-unit id="palette.request">
                 <source>Request Settings</source>
                 <target>Anfrage-Einstellungen</target>
             </trans-unit>
-
             <trans-unit id="palette.advanced">
                 <source>Advanced Settings</source>
                 <target>Erweiterte Einstellungen</target>
             </trans-unit>
-
             <trans-unit id="tab.connection">
                 <source>Connection</source>
                 <target>Verbindung</target>
             </trans-unit>
-
             <trans-unit id="tab.advanced">
                 <source>Advanced</source>
                 <target>Erweitert</target>
             </trans-unit>
-
             <!-- Model Table -->
             <trans-unit id="tx_nrllm_model">
                 <source>LLM Model</source>
                 <target>LLM-Modell</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.identifier">
                 <source>Identifier</source>
                 <target>Bezeichner</target>
@@ -612,7 +560,6 @@
                 <source>Unique technical identifier (lowercase, no spaces)</source>
                 <target>Eindeutiger technischer Bezeichner (Kleinbuchstaben, keine Leerzeichen)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.name">
                 <source>Name</source>
                 <target>Name</target>
@@ -621,12 +568,10 @@
                 <source>Human-readable display name for this model</source>
                 <target>Lesbarer Anzeigename für dieses Modell</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.description">
                 <source>Description</source>
                 <target>Beschreibung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.provider_uid">
                 <source>Provider</source>
                 <target>Anbieter</target>
@@ -639,7 +584,6 @@
                 <source>-- Select Provider --</source>
                 <target>-- Anbieter auswählen --</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.model_id">
                 <source>Model ID</source>
                 <target>Modell-ID</target>
@@ -648,7 +592,6 @@
                 <source>The model identifier as used in API calls (e.g., gpt-4o, claude-3-5-sonnet)</source>
                 <target>Der Modellbezeichner wie er in API-Aufrufen verwendet wird (z. B. gpt-4o, claude-3-5-sonnet)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.context_length">
                 <source>Context Length</source>
                 <target>Kontextlänge</target>
@@ -657,7 +600,6 @@
                 <source>Maximum context window in tokens (0 = unknown)</source>
                 <target>Maximales Kontextfenster in Token (0 = unbekannt)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.max_output_tokens">
                 <source>Max Output Tokens</source>
                 <target>Max. Ausgabe-Token</target>
@@ -666,7 +608,6 @@
                 <source>Maximum output tokens per request (0 = unknown)</source>
                 <target>Maximale Ausgabe-Token pro Anfrage (0 = unbekannt). Dient als Standard-Obergrenze für Anfragen, die selbst keine maximalen Token setzen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.dimensions">
                 <source>Embedding Dimensions</source>
                 <target>Embedding-Dimensionen</target>
@@ -675,7 +616,6 @@
                 <source>Embedding vector dimensionality of the model (0 = unknown)</source>
                 <target>Dimensionalität des Embedding-Vektors des Modells (0 = unbekannt). Dient als Standard-Vektorgröße für Embedding-Anfragen, die selbst keine Dimensionen setzen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities">
                 <source>Capabilities</source>
                 <target>Fähigkeiten</target>
@@ -712,7 +652,6 @@
                 <source>"discovery" = the provider's own model endpoint reported these capabilities. "catalog" = it did not — either it was unreachable, or it lists model ids without capabilities — and the bundled static catalog supplied them, which is a guess, not a confirmation.</source>
                 <target>„discovery“ = der Modell-Endpunkt des Anbieters hat diese Fähigkeiten gemeldet. „catalog“ = er hat es nicht – entweder war er nicht erreichbar, oder er listet Modell-IDs ohne Fähigkeiten – und der mitgelieferte statische Katalog hat sie geliefert: eine Annahme, keine Bestätigung.</target>
             </trans-unit>
-
             <!-- Capability labels and descriptions -->
             <trans-unit id="tx_nrllm_model.capabilities.chat">
                 <source>Chat</source>
@@ -722,7 +661,6 @@
                 <source>Conversational interactions with message history. Supports system prompts, user messages, and assistant responses.</source>
                 <target>Konversationsinteraktionen mit Nachrichtenverlauf. Unterstützt System-Prompts, Benutzernachrichten und Assistenten-Antworten.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.completion">
                 <source>Completion</source>
                 <target>Vervollständigung</target>
@@ -731,7 +669,6 @@
                 <source>Text completion from a prompt. Legacy API format, less common in modern models.</source>
                 <target>Textvervollständigung aus einem Prompt. Veraltetes API-Format, bei modernen Modellen seltener.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.embeddings">
                 <source>Embeddings</source>
                 <target>Embeddings</target>
@@ -740,7 +677,6 @@
                 <source>Generate vector embeddings for semantic search, similarity comparison, and RAG applications.</source>
                 <target>Vektor-Embeddings für semantische Suche, Ähnlichkeitsvergleiche und RAG-Anwendungen generieren.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.vision">
                 <source>Vision</source>
                 <target>Vision</target>
@@ -749,7 +685,6 @@
                 <source>Analyze images and visual content. Accepts image URLs or base64-encoded images in messages.</source>
                 <target>Bilder und visuelle Inhalte analysieren. Akzeptiert Bild-URLs oder Base64-kodierte Bilder in Nachrichten.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.streaming">
                 <source>Streaming</source>
                 <target>Streaming</target>
@@ -758,7 +693,6 @@
                 <source>Receive responses token-by-token via Server-Sent Events for real-time output display.</source>
                 <target>Antworten Token für Token über Server-Sent Events für Echtzeit-Ausgabe empfangen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.tools">
                 <source>Tool Use</source>
                 <target>Werkzeugnutzung</target>
@@ -767,7 +701,6 @@
                 <source>Function calling / tool use. Model can request to call defined functions with structured arguments.</source>
                 <target>Funktionsaufrufe / Werkzeugnutzung. Das Modell kann definierte Funktionen mit strukturierten Argumenten aufrufen.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.json_mode">
                 <source>JSON Mode</source>
                 <target>JSON-Modus</target>
@@ -776,7 +709,6 @@
                 <source>Guaranteed valid JSON output. Use for structured data extraction and API integrations.</source>
                 <target>Garantiert gültige JSON-Ausgabe. Für strukturierte Datenextraktion und API-Integrationen verwenden.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.audio">
                 <source>Audio</source>
                 <target>Audio</target>
@@ -785,7 +717,6 @@
                 <source>Process audio input (speech-to-text) or generate audio output (text-to-speech).</source>
                 <target>Audioeingabe verarbeiten (Sprache-zu-Text) oder Audioausgabe erzeugen (Text-zu-Sprache).</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.image">
                 <source>Image Generation</source>
                 <target>Bilderzeugung</target>
@@ -794,7 +725,6 @@
                 <source>Generate images from text prompts. The DALL-E / gpt-image service resolves its default model from active records carrying this capability.</source>
                 <target>Bilder aus Textbeschreibungen erzeugen. Der DALL-E-/gpt-image-Dienst ermittelt sein Standardmodell aus aktiven Datensätzen mit dieser Fähigkeit.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.text_to_speech">
                 <source>Text to Speech</source>
                 <target>Text-zu-Sprache</target>
@@ -803,7 +733,6 @@
                 <source>Synthesize spoken audio from text. Used by the specialized TTS service to resolve its default model.</source>
                 <target>Gesprochenes Audio aus Text erzeugen. Der spezialisierte TTS-Dienst ermittelt darüber sein Standardmodell.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.capabilities.transcription">
                 <source>Transcription</source>
                 <target>Transkription</target>
@@ -812,7 +741,6 @@
                 <source>Transcribe audio to text (speech-to-text). Used by the specialized Whisper service to resolve its default model.</source>
                 <target>Audio zu Text transkribieren (Sprache-zu-Text). Der spezialisierte Whisper-Dienst ermittelt darüber sein Standardmodell.</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.default_timeout">
                 <source>Default Timeout</source>
                 <target>Standard-Timeout</target>
@@ -821,7 +749,6 @@
                 <source>Default timeout in seconds for requests to this model. Thinking/reasoning models may need longer timeouts (120-300s).</source>
                 <target>Standard-Timeout in Sekunden für Anfragen an dieses Modell. Denkende/schlussfolgernde Modelle benötigen möglicherweise längere Timeouts (120-300 s).</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.cost_input">
                 <source>Input Cost</source>
                 <target>Eingabekosten</target>
@@ -830,7 +757,6 @@
                 <source>Cost per 1 million input tokens in cents</source>
                 <target>Kosten pro 1 Million Eingabe-Token in Cent</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.cost_output">
                 <source>Output Cost</source>
                 <target>Ausgabekosten</target>
@@ -839,7 +765,6 @@
                 <source>Cost per 1 million output tokens in cents</source>
                 <target>Kosten pro 1 Million Ausgabe-Token in Cent</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.is_active">
                 <source>Active</source>
                 <target>Aktiv</target>
@@ -848,7 +773,6 @@
                 <source>Enable this model for use in configurations</source>
                 <target>Dieses Modell zur Verwendung in Konfigurationen aktivieren</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_model.is_default">
                 <source>Default Model</source>
                 <target>Standardmodell</target>
@@ -857,33 +781,27 @@
                 <source>Use as the default model for new configurations</source>
                 <target>Als Standardmodell für neue Konfigurationen verwenden</target>
             </trans-unit>
-
             <trans-unit id="tab.capabilities">
                 <source>Capabilities</source>
                 <target>Fähigkeiten</target>
             </trans-unit>
-
             <trans-unit id="tab.pricing">
                 <source>Pricing</source>
                 <target>Preise</target>
             </trans-unit>
-
             <trans-unit id="palette.model_limits">
                 <source>Model Limits</source>
                 <target>Modellgrenzen</target>
             </trans-unit>
-
             <trans-unit id="palette.pricing">
                 <source>Pricing</source>
                 <target>Preise</target>
             </trans-unit>
-
             <!-- Task Table -->
             <trans-unit id="tx_nrllm_task">
                 <source>LLM Task</source>
                 <target>LLM-Aufgabe</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.identifier">
                 <source>Identifier</source>
                 <target>Bezeichner</target>
@@ -892,7 +810,6 @@
                 <source>Unique technical identifier (lowercase, no spaces)</source>
                 <target>Eindeutiger technischer Bezeichner (Kleinbuchstaben, keine Leerzeichen)</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.name">
                 <source>Name</source>
                 <target>Name</target>
@@ -901,12 +818,10 @@
                 <source>Human-readable display name for this task</source>
                 <target>Lesbarer Anzeigename für diese Aufgabe</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.description">
                 <source>Description</source>
                 <target>Beschreibung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.category">
                 <source>Category</source>
                 <target>Kategorie</target>
@@ -915,7 +830,6 @@
                 <source>Task category for organization and filtering</source>
                 <target>Aufgabenkategorie zur Organisation und Filterung</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.configuration_uid">
                 <source>Configuration</source>
                 <target>Konfiguration</target>
@@ -924,7 +838,6 @@
                 <source>LLM configuration to use for this task</source>
                 <target>LLM-Konfiguration für diese Aufgabe</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.prompt_template">
                 <source>Prompt Template</source>
                 <target>Prompt-Vorlage</target>
@@ -933,7 +846,6 @@
                 <source>Template with placeholders like {{input}} for the LLM prompt</source>
                 <target>Vorlage mit Platzhaltern wie {{input}} für den LLM-Prompt</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.input_type">
                 <source>Input Type</source>
                 <target>Eingabetyp</target>
@@ -942,7 +854,6 @@
                 <source>Type of input data source for this task</source>
                 <target>Art der Eingabedatenquelle für diese Aufgabe</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.input_source">
                 <source>Input Source</source>
                 <target>Eingabequelle</target>
@@ -951,7 +862,6 @@
                 <source>JSON configuration for the input source</source>
                 <target>JSON-Konfiguration für die Eingabequelle</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.output_format">
                 <source>Output Format</source>
                 <target>Ausgabeformat</target>
@@ -960,7 +870,6 @@
                 <source>Expected format of the LLM response</source>
                 <target>Erwartetes Format der LLM-Antwort</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.is_active">
                 <source>Active</source>
                 <target>Aktiv</target>
@@ -969,7 +878,6 @@
                 <source>Enable this task for execution</source>
                 <target>Diese Aufgabe zur Ausführung aktivieren</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.is_system">
                 <source>System Task</source>
                 <target>Systemaufgabe</target>
@@ -978,7 +886,6 @@
                 <source>System tasks are managed by extensions and should not be modified</source>
                 <target>Systemaufgaben werden von Extensions verwaltet und sollten nicht geändert werden</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.skills">
                 <source>Attached Skills</source>
                 <target>Zugewiesene Skills</target>
@@ -987,27 +894,22 @@
                 <source>Skills attached here are injected into this task's text-generation prompt, in addition to any skills on the selected configuration</source>
                 <target>Hier zugewiesene Skills werden zusätzlich zu den Skills der gewählten Konfiguration in den Textgenerierungs-Prompt dieser Aufgabe eingefügt</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.tab.input_output">
                 <source>Input / Output</source>
                 <target>Eingabe / Ausgabe</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.palette.input">
                 <source>Input Configuration</source>
                 <target>Eingabekonfiguration</target>
             </trans-unit>
-
             <trans-unit id="tx_nrllm_task.palette.output">
                 <source>Output Configuration</source>
                 <target>Ausgabekonfiguration</target>
             </trans-unit>
-
             <trans-unit id="palette.settings">
                 <source>Settings</source>
                 <target>Einstellungen</target>
             </trans-unit>
-
             <!-- Task category select items -->
             <trans-unit id="tx_nrllm_task.category.log_analysis">
                 <source>Log Analysis</source>
@@ -1029,13 +931,11 @@
                 <source>General</source>
                 <target>Allgemein</target>
             </trans-unit>
-
             <!-- Task configuration_uid select items -->
             <trans-unit id="tx_nrllm_task.configuration_uid.default">
                 <source>-- Use Default Configuration --</source>
                 <target>-- Standardkonfiguration verwenden --</target>
             </trans-unit>
-
             <!-- Task input_type select items -->
             <trans-unit id="tx_nrllm_task.input_type.manual">
                 <source>Manual Input</source>
@@ -1057,7 +957,6 @@
                 <source>File</source>
                 <target>Datei</target>
             </trans-unit>
-
             <!-- Task output_format select items -->
             <trans-unit id="tx_nrllm_task.output_format.markdown">
                 <source>Markdown</source>
@@ -1075,13 +974,11 @@
                 <source>HTML</source>
                 <target>HTML</target>
             </trans-unit>
-
             <!-- Configuration model_uid select items -->
             <trans-unit id="tx_nrllm_configuration.model_uid.select">
                 <source>-- Select Model --</source>
                 <target>-- Modell auswählen --</target>
             </trans-unit>
-
             <!-- Configuration adapter select items (model_selection_criteria) -->
             <trans-unit id="tx_nrllm_configuration.adapter.openai">
                 <source>OpenAI</source>
@@ -1111,7 +1008,6 @@
                 <source>Ollama</source>
                 <target>Ollama</target>
             </trans-unit>
-
             <!-- Configuration translator select items -->
             <trans-unit id="tx_nrllm_configuration.translator.none">
                 <source>None (use LLM)</source>
@@ -1121,7 +1017,6 @@
                 <source>DeepL</source>
                 <target>DeepL</target>
             </trans-unit>
-
             <!-- Prompt snippet table -->
             <trans-unit id="tx_nrllm_promptsnippet">
                 <source>LLM Prompt Snippet</source>
@@ -1361,7 +1256,6 @@
                 <source>Enabled</source>
                 <target>Aktiviert</target>
             </trans-unit>
-
             <!-- MCP server (ADR-116) -->
             <trans-unit id="tx_nrllm_mcp_server">
                 <source>MCP Server</source>
@@ -1373,7 +1267,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.identifier.description">
                 <source>Lowercase letters, digits and underscores, up to 32 characters. Prefixes every tool imported from this server and its tool group mcp_&lt;identifier&gt;. Changing it renames all of them.</source>
-                <target>Kleinbuchstaben, Ziffern und Unterstriche, maximal 32 Zeichen. Steht als Pr&#228;fix vor jedem Tool dieses Servers und vor der Tool-Gruppe mcp_&lt;Kennung&gt;. Eine &#196;nderung benennt alle um.</target>
+                <target>Kleinbuchstaben, Ziffern und Unterstriche, maximal 32 Zeichen. Steht als Präfix vor jedem Tool dieses Servers und vor der Tool-Gruppe mcp_&lt;Kennung&gt;. Eine Änderung benennt alle um.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.name">
                 <source>Name</source>
@@ -1397,7 +1291,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.auth_credential.description">
                 <source>Stored in nr-vault. Leave empty for an unauthenticated server.</source>
-                <target>Wird in nr-vault gespeichert. F&#252;r einen Server ohne Authentifizierung leer lassen.</target>
+                <target>Wird in nr-vault gespeichert. Für einen Server ohne Authentifizierung leer lassen.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.auth_placement">
                 <source>Credential placement</source>
@@ -1421,7 +1315,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.auth_header_name.description">
                 <source>Name of the header carrying the credential, for example X-Api-Key.</source>
-                <target>Name des Headers, der die Zugangsdaten tr&#228;gt, zum Beispiel X-Api-Key.</target>
+                <target>Name des Headers, der die Zugangsdaten trägt, zum Beispiel X-Api-Key.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_promptsnippet.data_class">
                 <source>Data class</source>
@@ -1453,7 +1347,7 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.requires_approval.description">
                 <source>Every tool of this server pauses for a human before an agent run executes it. On by default: what a remote tool does cannot be inspected here, and the server's own annotations do not decide this.</source>
-                <target>Jedes Tool dieses Servers h&#228;lt vor der Ausf&#252;hrung f&#252;r eine menschliche Freigabe an. Standardm&#228;&#223;ig aktiv: was ein entferntes Tool tut, ist hier nicht pr&#252;fbar, und die Angaben des Servers entscheiden das nicht.</target>
+                <target>Jedes Tool dieses Servers hält vor der Ausführung für eine menschliche Freigabe an. Standardmäßig aktiv: was ein entferntes Tool tut, ist hier nicht prüfbar, und die Angaben des Servers entscheiden das nicht.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.import_status">
                 <source>Import status</source>
@@ -1505,13 +1399,12 @@
             </trans-unit>
             <trans-unit id="tx_nrllm_mcp_server.enabled.description">
                 <source>Off until an operator switches it on. A disabled server keeps its catalogue but contributes no tools.</source>
-                <target>Standardm&#228;&#223;ig aus, bis ein Operator ihn einschaltet. Ein deaktivierter Server beh&#228;lt seinen Katalog, steuert aber keine Tools bei.</target>
+                <target>Standardmäßig aus, bis ein Operator ihn einschaltet. Ein deaktivierter Server behält seinen Katalog, steuert aber keine Tools bei.</target>
             </trans-unit>
-
             <!-- Tool data class (ADR-094) -->
             <trans-unit id="tx_nrllm.tool_data_class.publicContent">
                 <source>Public content</source>
-                <target>&#214;ffentliche Inhalte</target>
+                <target>Öffentliche Inhalte</target>
             </trans-unit>
             <trans-unit id="tx_nrllm.tool_data_class.editorContent">
                 <source>Editor content</source>

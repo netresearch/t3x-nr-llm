@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" datatype="plaintext" original="messages">
         <body>
             <trans-unit id="module.title">
                 <source>LLM Integration</source>
             </trans-unit>
-
             <!-- Provider List -->
             <trans-unit id="provider.field.name">
                 <source>Name</source>
@@ -40,7 +40,6 @@
             <trans-unit id="provider.endpoint.default">
                 <source>(default)</source>
             </trans-unit>
-
             <!-- Model List -->
             <trans-unit id="model.field.identifier">
                 <source>Identifier</source>
@@ -87,7 +86,6 @@
             <trans-unit id="noProvider">
                 <source>No provider</source>
             </trans-unit>
-
             <!-- Configuration List -->
             <trans-unit id="configuration.list.title">
                 <source>LLM Configurations</source>
@@ -131,7 +129,6 @@
             <trans-unit id="tokensUsed">
                 <source>Tokens used</source>
             </trans-unit>
-
             <!-- Shared labels -->
             <trans-unit id="configured">
                 <source>Configured</source>
@@ -247,7 +244,6 @@
             <trans-unit id="allProviders">
                 <source>All Providers</source>
             </trans-unit>
-
             <!-- Button actions -->
             <trans-unit id="btn.provider.new">
                 <source>New Provider</source>
@@ -270,7 +266,6 @@
             <trans-unit id="btn.refresh">
                 <source>Refresh</source>
             </trans-unit>
-
             <!-- Docheader tab menu -->
             <trans-unit id="tab.dashboard">
                 <source>Dashboard</source>
@@ -281,7 +276,6 @@
             <trans-unit id="tab.help">
                 <source>Help</source>
             </trans-unit>
-
             <!-- Effective policy readout (ADR-140) -->
             <trans-unit id="governance.page.title">
                 <source>Effective policy</source>
@@ -562,7 +556,6 @@
             <trans-unit id="governance.note.remoteAlwaysEnforced">
                 <source>Applies to built-in tools only. Tools provided by an MCP server are always enforced against the trust-zone ceiling, never observed.</source>
             </trans-unit>
-
             <!-- Routing readout (ADR-148) -->
             <trans-unit id="routing.heading">
                 <source>Why this model?</source>
@@ -759,7 +752,6 @@
             <trans-unit id="routedCalls.empty.text">
                 <source>Nothing in the window chose a model automatically. Either no call ran, every configuration names a fixed model, or telemetry is switched off.</source>
             </trans-unit>
-
             <!-- Dashboard overview cards -->
             <trans-unit id="snippet.card.title">
                 <source>Prompt Snippets</source>
@@ -791,7 +783,6 @@
             <trans-unit id="analytics.card.button">
                 <source>Open Analytics</source>
             </trans-unit>
-
             <!-- Task controller messages -->
             <trans-unit id="task.notFound">
                 <source>Task not found.</source>
@@ -841,7 +832,6 @@
             <trans-unit id="task.syslog.readError">
                 <source>Error reading sys_log. See system log for details.</source>
             </trans-unit>
-
             <!-- Configuration controller -->
             <trans-unit id="configuration.notConfigured">
                 <source>(not configured)</source>
@@ -858,7 +848,6 @@
             <trans-unit id="flash.configuration.generationFailed.generic">
                 <source>Generation failed. See system log for details.</source>
             </trans-unit>
-
             <!-- Model test results -->
             <trans-unit id="model.test.responded">
                 <source>Model "%s" responded: "%s" (tokens: %d in, %d out)</source>
@@ -875,7 +864,6 @@
             <trans-unit id="model.test.emptyResponse">
                 <source>Model "%s" connected successfully (tokens: %d in, %d out) - response content empty, model may use internal reasoning</source>
             </trans-unit>
-
             <!-- Analytics dashboard -->
             <trans-unit id="analytics.title">
                 <source>LLM Usage Analytics</source>
@@ -1063,7 +1051,6 @@
             <trans-unit id="analytics.health.empty">
                 <source>No active provider is configured and no provider was called recently.</source>
             </trans-unit>
-
             <!-- Skills backend module -->
             <trans-unit id="skill.list.title">
                 <source>Skills</source>
@@ -1143,7 +1130,6 @@
             <trans-unit id="skill.skills.empty.message">
                 <source>No skills have been ingested yet. Add a source and run a sync.</source>
             </trans-unit>
-
             <!-- Glossary partial -->
             <trans-unit id="glossary.title">
                 <source>Terms &amp; Parameters</source>
@@ -1238,7 +1224,6 @@
             <trans-unit id="glossary.param.presencePenalty">
                 <source>Encourages introducing new topics (typically -2 to 2). Higher values push the model toward novelty.</source>
             </trans-unit>
-
             <!-- Per-module help / admin / see-also -->
             <trans-unit id="module.adminOnly">
                 <source>This module is admin-only. Records and actions here affect every editor using LLM features.</source>
@@ -1264,7 +1249,6 @@
             <trans-unit id="seeAlso.help">
                 <source>Open Help</source>
             </trans-unit>
-
             <!-- Readiness (overview) -->
             <trans-unit id="readiness.title">
                 <source>Setup readiness</source>
@@ -1569,7 +1553,6 @@
             <trans-unit id="help.card.button">
                 <source>Open Help</source>
             </trans-unit>
-
             <!-- Readiness signals (lists) -->
             <trans-unit id="configuration.noModel.badge">
                 <source>No model assigned</source>
@@ -1631,7 +1614,6 @@
             <trans-unit id="skill.source.edit">
                 <source>Edit source</source>
             </trans-unit>
-
             <!-- Empty-state standardization -->
             <trans-unit id="provider.empty.hint">
                 <source>Providers are the first tier of setup (Provider → Model → Configuration). Launch the Setup Wizard to add one.</source>
@@ -1642,7 +1624,6 @@
             <trans-unit id="configuration.empty.hint">
                 <source>Configurations are the third tier of setup and require a Model first (Provider → Model → Configuration).</source>
             </trans-unit>
-
             <!-- Configuration presets (ADR-056) -->
             <trans-unit id="configuration.presets.title">
                 <source>Pending presets</source>
@@ -1722,7 +1703,6 @@
             <trans-unit id="playground.empty.developer">
                 <source>Developers: implement Netresearch\NrLlm\Service\Tool\ToolInterface and tag it with nr_llm.tool to register a new tool.</source>
             </trans-unit>
-
             <!-- Tasks list (translation sweep) -->
             <trans-unit id="task.list.title">
                 <source>Tasks</source>
@@ -1766,7 +1746,6 @@
             <trans-unit id="task.intro.line2">
                 <source>Each task uses a &lt;strong&gt;Configuration&lt;/strong&gt; that defines &lt;strong&gt;how&lt;/strong&gt; the AI behaves (model, temperature, system prompt). You can assign different configurations to tasks depending on the use case — a translation task might use a precise, low-temperature configuration, while a creative writing task uses a high-temperature one.</source>
             </trans-unit>
-
             <!-- Overview AI task callout (translation sweep) -->
             <trans-unit id="taskAi.callout.title">
                 <source>Create Tasks with AI</source>
@@ -1780,7 +1759,6 @@
             <trans-unit id="taskAi.createWithAi">
                 <source>Create with AI</source>
             </trans-unit>
-
             <!-- Configuration list intro (translation sweep) -->
             <trans-unit id="configuration.intro.line1">
                 <source>Configurations define &lt;strong&gt;how&lt;/strong&gt; the AI behaves: which model to use, creativity level (temperature), response length, and a system prompt that sets the AI's role. Each configuration is a reusable preset — for example, a "Translator" config with low temperature and a translation-focused system prompt.</source>
@@ -1788,7 +1766,6 @@
             <trans-unit id="configuration.intro.line2">
                 <source>Configurations are shared across &lt;strong&gt;Tasks&lt;/strong&gt;. A Task defines &lt;strong&gt;what&lt;/strong&gt; to do (the prompt template), while a Configuration defines &lt;strong&gt;how&lt;/strong&gt; to do it (model, temperature, system prompt). One configuration can power many different tasks.</source>
             </trans-unit>
-
             <!-- Prompt snippet list intro + empty (translation sweep) -->
             <trans-unit id="snippet.list.title">
                 <source>Prompt Snippets</source>
@@ -1814,7 +1791,6 @@
             <trans-unit id="snippet.col.tags">
                 <source>Tags</source>
             </trans-unit>
-
             <!-- Setup wizard (translation sweep) -->
             <trans-unit id="wizard.step.connect">
                 <source>Connect</source>
@@ -1933,7 +1909,6 @@
             <trans-unit id="wizard.progress.aria">
                 <source>Setup wizard progress</source>
             </trans-unit>
-
             <!-- Test page (translation sweep) -->
             <trans-unit id="test.page.title">
                 <source>Test LLM Provider</source>
@@ -2028,7 +2003,6 @@
             <trans-unit id="test.loading">
                 <source>Sending request...</source>
             </trans-unit>
-
             <!-- Help page (translation sweep) -->
             <trans-unit id="help.page.title">
                 <source>LLM Management Help</source>
@@ -2150,7 +2124,6 @@
             <trans-unit id="help.faq.a4">
                 <source>&lt;strong&gt;Tasks&lt;/strong&gt; are simple one-shot prompts defined here in the LLM module. They are exposed to consuming extensions and the API as preset options. A consuming extension provides the editor-facing UI where editors pick a task or write a custom instruction.</source>
             </trans-unit>
-
             <!-- Backend AJAX error messages -->
             <trans-unit id="error.provider.noUid">
                 <source>No provider UID specified</source>
@@ -2260,7 +2233,6 @@
             <trans-unit id="error.records.loadFailed">
                 <source>Failed to load records. See system log for details.</source>
             </trans-unit>
-
             <!-- Task wizard flash messages -->
             <trans-unit id="flash.task.missingDescription.body">
                 <source>Please describe what this task should do.</source>
@@ -2940,7 +2912,6 @@
             <trans-unit id="overview.dev.description">
                 <source>Everything you configure here is reachable from PHP via LlmServiceManager. Your extension inherits the providers, models, configurations, budgets and the middleware pipeline — no per-extension API wiring.</source>
             </trans-unit>
-
             <!-- Agent Runs approvals inbox (ADR-109) -->
             <trans-unit id="runs.heading.waiting">
                 <source>Awaiting your decision</source>

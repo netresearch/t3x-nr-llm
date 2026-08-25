@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff
+    xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
     <file source-language="en" target-language="de" datatype="plaintext" original="messages">
         <body>
             <trans-unit id="mlang_labels_tablabel">
@@ -56,7 +57,7 @@
             </trans-unit>
             <trans-unit id="server.approval.notRequired">
                 <source>Tools run without asking</source>
-                <target>Tools laufen ohne R&#252;ckfrage</target>
+                <target>Tools laufen ohne Rückfrage</target>
             </trans-unit>
             <trans-unit id="server.lastImport">
                 <source>Last import</source>
@@ -112,7 +113,7 @@
             </trans-unit>
             <trans-unit id="server.lastContact.hint">
                 <source>Any completed round trip counts: a tool call, an import or a connection test. It is not the same as the last import — a server that has been answering tool calls for weeks can have an old import date.</source>
-                <target>Z&#228;hlt jede abgeschlossene Anfrage: Tool-Aufruf, Import oder Verbindungstest. Das ist nicht der letzte Import — ein Server, der seit Wochen Tool-Aufrufe beantwortet, kann ein altes Import-Datum haben.</target>
+                <target>Zählt jede abgeschlossene Anfrage: Tool-Aufruf, Import oder Verbindungstest. Das ist nicht der letzte Import — ein Server, der seit Wochen Tool-Aufrufe beantwortet, kann ein altes Import-Datum haben.</target>
             </trans-unit>
             <trans-unit id="server.latency">
                 <source>Latency</source>
