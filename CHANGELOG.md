@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The eight backend screenshots now show real, reproducible figures** — aggregated from the seeded rows and priced from each model's own `cost_input`/`cost_output`, with no module menu in frame.
 - **BREAKING: the backend modules moved into a shared `AI` section** — nr_llm no longer registers a `nrllm` container under Administration. A top-level section `netresearch_ai` now holds five entries: the editor task module, the overview, and three subject containers (`nrllm_setup`, `nrllm_authoring`, `nrllm_operation`) holding the fourteen former flat entries. A section carries no access check of its own, which is the point: the module menu hides a top-level module whose access check fails together with all its children, so an admin-only container could never hold an editor surface — `nrllm_aitasks` had to sit under `web` for that reason, and every further editor surface would have landed there too. Submodule identifiers and paths are unchanged; `nrllm_overview` carries `'aliases' => ['nrllm']`, so backend shortcuts keep resolving and a foreign module anchored `['after' => 'nrllm']` keeps its position (the core rewrites `position` through aliases, not only `parent`). What does NOT survive is the container's own URL `/module/nrllm`, which had no successor by design. ADR-183 amends ADR-119; closes #812.
 
+### Fixed
+
+- **The `tx_nrllm_skill.identifier` index is actually created now** — its definition carried a column prefix length, `KEY identifier (identifier(191))`, which the TYPO3 Database Schema Analyzer rejects, so installs silently ran without the index. The prefix length was a legacy workaround for the 767-byte InnoDB limit; on the MariaDB 10.4+/MySQL 8.0+ floor TYPO3 v13 already requires, a full-column utf8mb4 index on `varchar(512)` (2048 bytes) fits within the 3072-byte DYNAMIC-row limit, so the definition now matches the sibling tables: `KEY identifier (identifier)`.
+
 ## [0.33.0] - 2026-08-21
 
 ### Added

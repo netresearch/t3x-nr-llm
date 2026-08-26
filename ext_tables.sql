@@ -506,7 +506,7 @@ CREATE TABLE tx_nrllm_skill (
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY source (source),
-    KEY identifier (identifier(191))
+    KEY identifier (identifier)
 );
 
 #
