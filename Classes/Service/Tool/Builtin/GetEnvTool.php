@@ -82,6 +82,7 @@ final readonly class GetEnvTool implements ToolInterface
         ksort($env);
         $lines = [];
         foreach ($env as $name => $value) {
+            /** @var string $name */
             $lines[] = $name . '=' . $this->maskValue($name, $value);
         }
 
@@ -97,8 +98,9 @@ final readonly class GetEnvTool implements ToolInterface
      * entirely rather than forwarded. Losing one line of host context is cheaper
      * than leaking a credential.
      */
-    private function maskValue(string|int $name, string $value): string
+    private function maskValue(string $name, string $value): string
     {
+        // $name is string per @var in caller, but getenv() can return int keys in edge cases
         $nameStr = (string)$name;
         if (preg_match(self::SECRET_PATTERN, $nameStr) === 1) {
             return self::REDACTED;
