@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Specialized\Usage\DeepLUsageExtractor;
 use Netresearch\NrLlm\Tests\Fixture\AllowingBudgetService;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +31,7 @@ use ReflectionClass;
  * Additional tests for DeepLTranslator to kill escaped mutants.
  */
 #[CoversClass(DeepLTranslator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DeepLTranslatorOptionsTest extends AbstractUnitTestCase
 {
     /**

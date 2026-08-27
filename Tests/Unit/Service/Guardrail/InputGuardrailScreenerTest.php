@@ -102,7 +102,7 @@ final class InputGuardrailScreenerTest extends TestCase
         $screener = new InputGuardrailScreener([$this->denying('policy says no')]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->expectExceptionMessage('policy says no');
+        $this->expectExceptionMessageIsOrContains('policy says no');
         $screener->screen([ChatMessage::user('anything')]);
     }
 
@@ -112,7 +112,7 @@ final class InputGuardrailScreenerTest extends TestCase
         $screener = new InputGuardrailScreener([$this->requireApproval('needs review')]);
 
         $this->expectException(GuardrailApprovalRequiredException::class);
-        $this->expectExceptionMessage('needs review');
+        $this->expectExceptionMessageIsOrContains('needs review');
         $screener->screen([ChatMessage::user('anything')]);
     }
 
@@ -159,7 +159,7 @@ final class InputGuardrailScreenerTest extends TestCase
         $screener = new InputGuardrailScreener([$this->denying('policy says no')]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->expectExceptionMessage('policy says no');
+        $this->expectExceptionMessageIsOrContains('policy says no');
         $screener->screenText('anything');
     }
 
@@ -169,7 +169,7 @@ final class InputGuardrailScreenerTest extends TestCase
         $screener = new InputGuardrailScreener([$this->requireApproval('needs review')]);
 
         $this->expectException(GuardrailApprovalRequiredException::class);
-        $this->expectExceptionMessage('needs review');
+        $this->expectExceptionMessageIsOrContains('needs review');
         $screener->screenText('anything');
     }
 

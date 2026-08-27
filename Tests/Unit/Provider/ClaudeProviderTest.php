@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,6 +34,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(ClaudeProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClaudeProviderTest extends AbstractUnitTestCase
 {
     private ClaudeProvider $subject;
@@ -607,7 +609,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function embeddingsThrowsUnsupportedFeatureException(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessage('Anthropic Claude does not support embeddings');
+        $this->expectExceptionMessageIsOrContains('Anthropic Claude does not support embeddings');
 
         $this->subject->embeddings('test text');
     }

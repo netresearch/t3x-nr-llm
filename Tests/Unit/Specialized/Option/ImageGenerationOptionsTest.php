@@ -95,7 +95,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidSizeOnDalle3(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid size');
+        $this->expectExceptionMessageIsOrContains('Invalid size');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-3', size: '256x256'));
     }
@@ -104,7 +104,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidSizeOnDalle2(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid size');
+        $this->expectExceptionMessageIsOrContains('Invalid size');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-2', size: '1792x1024'));
     }
@@ -133,7 +133,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidQuality(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('quality must be one of');
+        $this->expectExceptionMessageIsOrContains('quality must be one of');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(quality: 'ultra'));
     }
@@ -162,7 +162,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidStyle(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('style must be one of');
+        $this->expectExceptionMessageIsOrContains('style must be one of');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(style: 'artistic'));
     }
@@ -191,7 +191,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidFormat(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('format must be one of');
+        $this->expectExceptionMessageIsOrContains('format must be one of');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(format: 'binary'));
     }
@@ -220,7 +220,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidModel(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('model must be one of');
+        $this->expectExceptionMessageIsOrContains('model must be one of');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(model: 'dall-e-4'));
     }
@@ -254,7 +254,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     {
         // The prefix is strict ("gpt-image-"), so near-misses without the dash are not the family.
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('model must be one of');
+        $this->expectExceptionMessageIsOrContains('model must be one of');
 
         $options = new ImageGenerationOptions(model: $model);
         self::fail('Expected the constructor to reject model: ' . $options->model);
@@ -604,7 +604,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativeBeUserUid(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(beUserUid: -1));
     }
@@ -613,7 +613,7 @@ class ImageGenerationOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativePlannedCost(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(ImageGenerationOptions::class, new ImageGenerationOptions(plannedCost: -0.01));
     }

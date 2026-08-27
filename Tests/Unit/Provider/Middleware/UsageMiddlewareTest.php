@@ -372,7 +372,7 @@ final class UsageMiddlewareTest extends AbstractUnitTestCase
         $this->tracker->expects(self::never())->method('trackUsage');
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('boom');
+        $this->expectExceptionMessageIsOrContains('boom');
 
         $this->pipeline()->run(
             context: ProviderCallContext::forConfiguration(ProviderOperation::Chat, $this->configuration()),

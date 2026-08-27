@@ -79,7 +79,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $this->expectException(ConfigurationNotFoundException::class);
-        $this->expectExceptionMessage('LLM configuration "non-existent" not found');
+        $this->expectExceptionMessageIsOrContains('LLM configuration "non-existent" not found');
 
         $this->subject->getConfiguration('non-existent');
     }
@@ -90,7 +90,7 @@ class LlmConfigurationServiceTest extends AbstractFunctionalTestCase
         $this->setUpAdminUser();
 
         $this->expectException(ConfigurationNotFoundException::class);
-        $this->expectExceptionMessage('LLM configuration "inactive-config" is not active');
+        $this->expectExceptionMessageIsOrContains('LLM configuration "inactive-config" is not active');
 
         $this->subject->getConfiguration('inactive-config');
     }

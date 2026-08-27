@@ -579,7 +579,7 @@ class ResponseParserTraitMutationTest extends AbstractUnitTestCase
     public function decodeJsonResponseThrowsOnNonObjectJson(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Expected JSON object');
+        $this->expectExceptionMessageIsOrContains('Expected JSON object');
         $this->invokeTraitMethod('decodeJsonResponse', ['"string"']);
     }
 

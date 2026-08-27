@@ -226,7 +226,7 @@ class EmbeddingResponseTest extends AbstractUnitTestCase
         $vectorB = [0.1, 0.2];
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Vectors must have the same dimensions');
+        $this->expectExceptionMessageIsOrContains('Vectors must have the same dimensions');
 
         EmbeddingResponse::cosineSimilarity($vectorA, $vectorB);
     }

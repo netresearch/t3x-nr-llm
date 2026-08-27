@@ -84,7 +84,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('boom');
+        $this->expectExceptionMessageIsOrContains('boom');
 
         $subject->chatWithTools([], []);
     }
@@ -115,7 +115,7 @@ final class FakeToolCallingServiceTest extends TestCase
         $subject = new FakeToolCallingService();
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('no response was queued');
+        $this->expectExceptionMessageIsOrContains('no response was queued');
 
         $subject->chatWithTools([], []);
     }

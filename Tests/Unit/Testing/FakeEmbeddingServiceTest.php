@@ -107,7 +107,7 @@ final class FakeEmbeddingServiceTest extends TestCase
         $subject->throwable = new RuntimeException('embed failed');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('embed failed');
+        $this->expectExceptionMessageIsOrContains('embed failed');
 
         $subject->embed('text');
     }

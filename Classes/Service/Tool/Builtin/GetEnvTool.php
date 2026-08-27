@@ -97,9 +97,10 @@ final readonly class GetEnvTool implements ToolInterface
      * entirely rather than forwarded. Losing one line of host context is cheaper
      * than leaking a credential.
      */
-    private function maskValue(string $name, string $value): string
+    private function maskValue(string|int $name, string $value): string
     {
-        if (preg_match(self::SECRET_PATTERN, $name) === 1) {
+        $nameStr = (string)$name;
+        if (preg_match(self::SECRET_PATTERN, $nameStr) === 1) {
             return self::REDACTED;
         }
 
@@ -113,7 +114,12 @@ final readonly class GetEnvTool implements ToolInterface
         // Then every recognised secret shape, masked in place: a connection-string
         // variable still shows its host and path, which is the context this tool
         // exists to provide, while a standalone secret leaves nothing but the mask.
-        return $this->redactSecretShapesStrict($masked) ?? self::REDACTED;
+        $redacted = $this->redactSecretShapesStrict($masked) ?? self::REDACTED;
+
+        // The name itself is not secret-bearing, but we keep the contract that
+        // maskValue returns a string for the VALUE only. The caller uses $nameStr
+        // for the name comparison above.
+        return $redacted;
     }
 
     public function isEnabledByDefault(): bool

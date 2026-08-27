@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -36,6 +37,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
 #[CoversClass(OpenAiProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class OpenAiProviderTest extends AbstractUnitTestCase
 {
     private OpenAiProvider $subject;
@@ -345,7 +347,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createErrorResponseMock(401, 'Invalid API key'));
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Invalid API key');
+        $this->expectExceptionMessageIsOrContains('Invalid API key');
 
         $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
     }
@@ -998,7 +1000,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createErrorResponseMock(400, 'Invalid request format'));
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Invalid request format');
+        $this->expectExceptionMessageIsOrContains('Invalid request format');
 
         $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
     }
@@ -1033,7 +1035,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($response);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Model not found');
+        $this->expectExceptionMessageIsOrContains('Model not found');
 
         $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
     }
@@ -1056,7 +1058,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($response);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Rate limit exceeded');
+        $this->expectExceptionMessageIsOrContains('Rate limit exceeded');
 
         $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
     }
@@ -1079,7 +1081,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($response);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('Unknown provider error');
+        $this->expectExceptionMessageIsOrContains('Unknown provider error');
 
         $this->subject->chatCompletion([['role' => 'user', 'content' => 'test']]);
     }
@@ -2026,7 +2028,7 @@ class OpenAiProviderTest extends AbstractUnitTestCase
             ->willReturn($response);
 
         $this->expectException(ProviderResponseException::class);
-        $this->expectExceptionMessage('bad stream request');
+        $this->expectExceptionMessageIsOrContains('bad stream request');
 
         foreach ($this->subject->streamChatCompletion([['role' => 'user', 'content' => 'hi']]) as $ignored) {
             unset($ignored);

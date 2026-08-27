@@ -52,7 +52,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidTemperature(float $temperature): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(temperature: $temperature));
     }
@@ -95,7 +95,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForNegativeMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('max_tokens must be a positive integer');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(maxTokens: 0));
     }
@@ -105,7 +105,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidTopP(float $topP): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('top_p must be between 0 and 1');
+        $this->expectExceptionMessageIsOrContains('top_p must be between 0 and 1');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(topP: $topP));
     }
@@ -126,7 +126,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidFrequencyPenalty(float $penalty): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('frequency_penalty must be between -2 and 2');
+        $this->expectExceptionMessageIsOrContains('frequency_penalty must be between -2 and 2');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(frequencyPenalty: $penalty));
     }
@@ -136,7 +136,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidPresencePenalty(float $penalty): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('presence_penalty must be between -2 and 2');
+        $this->expectExceptionMessageIsOrContains('presence_penalty must be between -2 and 2');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(presencePenalty: $penalty));
     }
@@ -156,7 +156,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidResponseFormat(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('response_format must be one of: text, json, markdown');
+        $this->expectExceptionMessageIsOrContains('response_format must be one of: text, json, markdown');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(responseFormat: 'xml'));
     }
@@ -448,7 +448,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         // Per BudgetMiddleware contract: 0 = anonymous / skip, positive
         // = real BE user. Negative is always a caller bug.
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(beUserUid: -1));
     }
@@ -467,7 +467,7 @@ class ChatOptionsTest extends AbstractUnitTestCase
         // Negative cost would credit the per-day ceiling — i.e. a
         // budget bypass. Refuse it at construction time.
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(ChatOptions::class, new ChatOptions(plannedCost: -0.01));
     }

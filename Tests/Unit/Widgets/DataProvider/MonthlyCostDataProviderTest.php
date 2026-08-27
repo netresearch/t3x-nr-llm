@@ -12,11 +12,13 @@ namespace Netresearch\NrLlm\Tests\Unit\Widgets\DataProvider;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Widgets\DataProvider\MonthlyCostDataProvider;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
 #[CoversClass(MonthlyCostDataProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class MonthlyCostDataProviderTest extends AbstractUnitTestCase
 {
     #[Test]

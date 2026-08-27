@@ -18,7 +18,7 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 ./Build/Scripts/runTests.sh -s fuzzy             # Property-based tests
 ./Build/Scripts/runTests.sh -s mutation          # Mutation testing
 ./Build/Scripts/runTests.sh -s architecture      # PHPat layer tests
-ddev e2e                                         # Playwright E2E (supplies TYPO3_BASE_URL)
+./Build/Scripts/runTests.sh -s e2e               # Playwright E2E
 ./Build/Scripts/runTests.sh -s unitCoverage      # Unit with coverage
 ./Build/Scripts/runTests.sh -p 8.3               # Pin a PHP version. Omit it unless you have a
                                                  # named reason: the default is derived from

@@ -366,7 +366,7 @@ class VisionServiceMutationTest extends AbstractUnitTestCase
         $service = new VisionService($llmManagerStub);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid image URL or base64 data URI');
+        $this->expectExceptionMessageIsOrContains('Invalid image URL or base64 data URI');
 
         $service->analyzeImageFull('not-a-valid-url', 'Analyze this');
     }

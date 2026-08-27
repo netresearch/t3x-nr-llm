@@ -11,8 +11,8 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
-
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
@@ -71,6 +71,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ShiftingPreviewTool;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -83,6 +84,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 #[CoversClass(ToolLoopService::class)]
 #[CoversClass(ToolResultBounder::class)]
+#[AllowMockObjectsWithoutExpectations]
 final class ToolLoopServiceTest extends TestCase
 {
     #[Test]

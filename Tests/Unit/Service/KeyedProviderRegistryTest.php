@@ -71,7 +71,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionCode(6273324883);
-        $this->expectExceptionMessage('Provider "nope" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "nope" not found');
 
         $registry->getProvider('nope');
     }
@@ -83,7 +83,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionCode(4867297358);
-        $this->expectExceptionMessage('No provider specified and no default provider configured');
+        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
 
         $registry->getProvider();
     }
@@ -194,7 +194,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
 
         $this->expectException(ProviderException::class);
         $this->expectExceptionCode(5332497319);
-        $this->expectExceptionMessage('Provider "unknown" not found');
+        $this->expectExceptionMessageIsOrContains('Provider "unknown" not found');
 
         $registry->configureProvider('unknown', []);
     }

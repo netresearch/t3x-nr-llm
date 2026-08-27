@@ -152,7 +152,7 @@ final class McpClientTest extends AbstractUnitTestCase
         }
 
         $this->expectException(McpTransportException::class);
-        $this->expectExceptionMessage('did not end within 50 pages');
+        $this->expectExceptionMessageIsOrContains('did not end within 50 pages');
 
         $this->clientFor($fake)->listTools(McpTestServer::server());
     }
@@ -177,7 +177,7 @@ final class McpClientTest extends AbstractUnitTestCase
             ->willReturn(['something else' => true]);
 
         $this->expectException(McpTransportException::class);
-        $this->expectExceptionMessage('carries no "tools" array');
+        $this->expectExceptionMessageIsOrContains('carries no "tools" array');
 
         $this->clientFor($fake)->listTools(McpTestServer::server());
     }

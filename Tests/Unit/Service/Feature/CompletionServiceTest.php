@@ -149,7 +149,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Failed to decode JSON response');
+        $this->expectExceptionMessageIsOrContains('Failed to decode JSON response');
 
         $subject->completeJson('Generate JSON');
     }
@@ -215,7 +215,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnInvalidTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         $this->subject->complete('Test', new ChatOptions(temperature: 3.0));
     }
@@ -224,7 +224,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnInvalidMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('max_tokens must be a positive integer');
 
         $this->subject->complete('Test', new ChatOptions(maxTokens: -1));
     }
@@ -233,7 +233,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnInvalidResponseFormat(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('response_format must be');
+        $this->expectExceptionMessageIsOrContains('response_format must be');
 
         $this->subject->complete('Test', new ChatOptions(responseFormat: 'invalid'));
     }
@@ -260,7 +260,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnInvalidTopP(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('top_p must be between 0 and 1');
+        $this->expectExceptionMessageIsOrContains('top_p must be between 0 and 1');
 
         $this->subject->complete('Test', new ChatOptions(topP: 1.5));
     }
@@ -278,7 +278,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('JSON response must be an object');
+        $this->expectExceptionMessageIsOrContains('JSON response must be an object');
 
         $subject->completeJson('Test');
     }
@@ -541,7 +541,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Failed to decode JSON response');
+        $this->expectExceptionMessageIsOrContains('Failed to decode JSON response');
 
         $subject->completeJson('Test');
     }
@@ -580,7 +580,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($mockResponse);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('JSON response must be an object');
+        $this->expectExceptionMessageIsOrContains('JSON response must be an object');
 
         $subject->completeJson('Test');
     }
@@ -589,7 +589,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnNegativeTemperature(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         $this->subject->complete('Test', new ChatOptions(temperature: -0.1));
     }
@@ -598,7 +598,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnZeroMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('max_tokens must be a positive integer');
 
         $this->subject->complete('Test', new ChatOptions(maxTokens: 0));
     }
@@ -607,7 +607,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
     public function validateOptionsThrowsOnNegativeTopP(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('top_p must be between 0 and 1');
+        $this->expectExceptionMessageIsOrContains('top_p must be between 0 and 1');
 
         $this->subject->complete('Test', new ChatOptions(topP: -0.1));
     }
@@ -875,7 +875,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
         $configuration = self::createStub(LlmConfiguration::class);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         $this->subject->completeForConfiguration('Test', $configuration, new ChatOptions(temperature: 3.0));
     }
@@ -916,7 +916,7 @@ class CompletionServiceTest extends AbstractUnitTestCase
             ->willReturn($this->createMockResponse('not json'));
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Failed to decode JSON response');
+        $this->expectExceptionMessageIsOrContains('Failed to decode JSON response');
 
         $subject->completeJsonForConfiguration('Prompt', $configuration);
     }

@@ -42,7 +42,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidDetailLevel(string $detailLevel): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('detail_level must be one of: auto, low, high');
+        $this->expectExceptionMessageIsOrContains('detail_level must be one of: auto, low, high');
 
         self::assertInstanceOf(VisionOptions::class, new VisionOptions(detailLevel: $detailLevel));
     }
@@ -84,7 +84,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForNegativeMaxTokens(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('max_tokens must be a positive integer');
+        $this->expectExceptionMessageIsOrContains('max_tokens must be a positive integer');
 
         self::assertInstanceOf(VisionOptions::class, new VisionOptions(maxTokens: 0));
     }
@@ -94,7 +94,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidTemperature(float $temperature): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('temperature must be between 0 and 2');
+        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
 
         self::assertInstanceOf(VisionOptions::class, new VisionOptions(temperature: $temperature));
     }
@@ -290,7 +290,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativeBeUserUid(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('be_user_uid must be >= 0');
+        $this->expectExceptionMessageIsOrContains('be_user_uid must be >= 0');
 
         self::assertInstanceOf(VisionOptions::class, new VisionOptions(beUserUid: -2));
     }
@@ -299,7 +299,7 @@ class VisionOptionsTest extends AbstractUnitTestCase
     public function constructorRejectsNegativePlannedCost(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('planned_cost must be >= 0.0');
+        $this->expectExceptionMessageIsOrContains('planned_cost must be >= 0.0');
 
         self::assertInstanceOf(VisionOptions::class, new VisionOptions(plannedCost: -0.5));
     }
