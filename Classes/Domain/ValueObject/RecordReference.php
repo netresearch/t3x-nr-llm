@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Stringable;
 
 /**
  * The record a tool created or changed — a table name and a uid, and nothing
@@ -25,7 +26,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  *
  * @api
  */
-final readonly class RecordReference
+final readonly class RecordReference implements Stringable
 {
     /**
      * @param string $table the database table the record lives in
