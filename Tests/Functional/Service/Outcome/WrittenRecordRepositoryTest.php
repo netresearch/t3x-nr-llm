@@ -107,6 +107,7 @@ final class WrittenRecordRepositoryTest extends AbstractFunctionalTestCase
 
         $runs = $pool->getConnectionForTable('tx_nrllm_agentrun');
         $runs->insert('tx_nrllm_agentrun', ['pid' => 0, 'uuid' => $uuid, 'status' => 'completed', 'crdate' => self::NOW]);
+
         $runUid = (int)$runs->lastInsertId();
 
         $events = $pool->getConnectionForTable('tx_nrllm_agentrun_event');
