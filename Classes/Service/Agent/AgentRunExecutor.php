@@ -310,7 +310,17 @@ final readonly class AgentRunExecutor
     private function recordStepFailClosedForWrites(AgentRunHandle $handle, RunStep $step): void
     {
         $persisted = $this->persister->recordStep($handle, $step);
-        if (!$persisted && $this->stepEffect($step)->isWrite()) {
+        if ($persisted) {
+            return;
+        }
+
+        // KIND_WRITE names the record a write produced (ADR-182): it IS the
+        // audit row for that mutation, so it is fail-closed on its own kind
+        // rather than through the effect resolver — the tool it names has
+        // already been resolved once, for the KIND_TOOL step that preceded it,
+        // and asking again would also re-run the fence clear in
+        // {@see self::renewOrClearFence()} for a step that fences nothing.
+        if ($step->kind === RunStep::KIND_WRITE || $this->stepEffect($step)->isWrite()) {
             throw AuditPersistenceFailedException::forRun($handle->uuid, $step->toolName ?? '');
         }
     }

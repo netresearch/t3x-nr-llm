@@ -6,7 +6,7 @@
 ADR-182: A write tool names the record it wrote
 ============================================================================
 
-:Status: Proposed
+:Status: Accepted
 :Date: 2026-08-21
 :Amends: :ref:`ADR-122 <adr-122>` (the deferral whose premise expired)
 :Authors: Netresearch DTT GmbH

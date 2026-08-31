@@ -74,6 +74,11 @@ final readonly class RunTimelineFactory
         // never arrived leaves no mark in the transcript, which is exactly why
         // the operator cannot see it today.
         'droppedSources',
+        // The record a write produced (ADR-182). An identity, never a field the
+        // record holds — and the one fact that lets an operator reading the
+        // timeline go and look at what the run actually changed.
+        'writeTargetTable',
+        'writeTargetUid',
     ];
 
     public function __construct(

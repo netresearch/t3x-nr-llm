@@ -14,9 +14,11 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 
 /**
  * Opt-in recorder that captures each step of a {@see ToolLoopService} run for
@@ -214,6 +216,35 @@ final class RunTrace
             toolResult: $result,
             toolIsError: $isError,
             toolArtifacts: $artifacts === [] ? null : $artifacts,
+        ));
+    }
+
+    /**
+     * Record one executed tool call from its typed result — and, when that call
+     * wrote a record, the write it produced as a step of its own (ADR-182).
+     *
+     * The four success sites in {@see ToolLoopService} go through here rather
+     * than through {@see self::recordToolExecution()}, so the write step cannot
+     * be forgotten at one of them: there is one place that decides, and it reads
+     * the decision off the result instead of off an argument a caller must
+     * remember to pass.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function recordToolResult(int $round, float $durationMs, string $name, array $arguments, ToolResult $result): void
+    {
+        $this->recordToolExecution($round, $durationMs, $name, $arguments, $result->content, $result->isError, $result->artifacts);
+
+        if (!$result->writeTarget instanceof RecordReference) {
+            return;
+        }
+
+        $this->add(new RunStep(
+            kind: RunStep::KIND_WRITE,
+            round: $round,
+            durationMs: 0.0,
+            toolName: $name,
+            writeTarget: $result->writeTarget,
         ));
     }
 

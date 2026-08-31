@@ -454,7 +454,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                     // WIRE: content ONLY — artifacts are run-scoped and never egress to the provider.
                     $messages[] = ChatMessage::toolResult($call->id, $tr->content);
                     $trace[]    = new ToolInvocation($call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
-                    $runTrace?->recordToolExecution($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                    $runTrace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
                 }
             }
 
@@ -662,7 +662,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
             }
 
             $messages[] = ChatMessage::toolResult($call->id, $result);
@@ -737,7 +737,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr = $this->invoke($this->withInput($call, $state->inputSchema, $inputData), $offered, $context, $remoteCalls);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
             } elseif ($this->registry->get($call->name) instanceof RequiresInputInterface) {
                 // A second input-requiring call in the same turn got no data —
                 // one submission satisfies one tool. Fail-closed refusal.
@@ -788,7 +788,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 $runTrace?->beforeToolExecution($call->name);
                 $tr     = $this->invoke($call, $offered, $context, $remoteCalls);
                 $result = $tr->content;
-                $runTrace?->recordToolExecution($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr->content, $tr->isError, $tr->artifacts);
+                $runTrace?->recordToolResult($state->iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
             }
 
             $messages[] = ChatMessage::toolResult($call->id, $result);
