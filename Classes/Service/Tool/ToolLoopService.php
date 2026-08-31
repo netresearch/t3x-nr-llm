@@ -1135,11 +1135,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // Transform, never rebuild (ADR-182). A ToolResult reconstructed from a
         // subset of its properties drops everything the subset omits — the shape
         // that already cost #844, #845 and #846 — and no test asserting on the
-        // tool's own return value would notice. An error result keeps its
-        // fail-closed emptiness because the tool built it that way.
+        // tool's own return value would notice. The fail-closed emptiness of an
+        // error result is the value object's rule, not a condition repeated at
+        // every call site.
         return $result->withBoundedChannels(
             $this->bounder->content($result->content),
-            $result->isError ? [] : $this->bounder->artifacts($result->artifacts),
+            $this->bounder->artifacts($result->artifacts),
         );
     }
 

@@ -91,10 +91,20 @@ final readonly class ToolResult
      * so it is expressed as one — a property added to this class is carried by
      * default instead of being dropped by default.
      *
+     * An error result stays empty of both side channels whatever the caller
+     * supplies. {@see self::error()} and {@see self::withWriteTarget()} enforce
+     * that at their own end; without it here, a public transformation could put
+     * an artifact back on a failed call, and the fail-closed rule would hold by
+     * caller discipline rather than by construction.
+     *
      * @param list<ToolArtifact> $artifacts the bounded artifacts
      */
     public function withBoundedChannels(string $content, array $artifacts): self
     {
-        return new self($content, $this->isError, $artifacts, $this->writeTarget);
+        if ($this->isError) {
+            return new self($content, true, [], null);
+        }
+
+        return new self($content, false, $artifacts, $this->writeTarget);
     }
 }

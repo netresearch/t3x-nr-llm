@@ -133,6 +133,23 @@ final class ToolResultTest extends TestCase
     }
 
     /**
+     * The fail-closed rule holds through the transformation too, whatever the
+     * caller supplies. Without this the rule would live in the loop's call site
+     * — one condition, in one place, that a second caller would not know about.
+     */
+    #[Test]
+    public function boundingAnErrorResultKeepsBothSideChannelsEmpty(): void
+    {
+        $bounded = ToolResult::error('The update did not take.')
+            ->withBoundedChannels('bounded', [new ToolArtifact(ArtifactType::TEXT, 'label', ['text' => 'x'])]);
+
+        self::assertTrue($bounded->isError);
+        self::assertSame('bounded', $bounded->content);
+        self::assertSame([], $bounded->artifacts);
+        self::assertNull($bounded->writeTarget);
+    }
+
+    /**
      * Every property of the value object is either bounded or carried. A new one
      * added without a decision fails here rather than silently vanishing on the
      * way through the loop.
