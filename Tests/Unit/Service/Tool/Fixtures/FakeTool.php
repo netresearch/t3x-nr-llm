@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -41,6 +42,7 @@ final readonly class FakeTool implements ToolInterface, ToolEffectInterface
         private string $group = 'test',
         private array $artifacts = [],
         private ToolEffect $effect = ToolEffect::READ_ONLY,
+        private ?RecordReference $writeTarget = null,
     ) {}
 
     public function getEffect(): ToolEffect
@@ -62,7 +64,11 @@ final readonly class FakeTool implements ToolInterface, ToolEffectInterface
      */
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        return ToolResult::text($this->result, ...$this->artifacts);
+        $result = ToolResult::text($this->result, ...$this->artifacts);
+
+        return $this->writeTarget instanceof RecordReference
+            ? $result->withWriteTarget($this->writeTarget)
+            : $result;
     }
 
     public function isEnabledByDefault(): bool
