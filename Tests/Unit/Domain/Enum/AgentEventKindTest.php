@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 #[CoversNothing]
 final class AgentEventKindTest extends TestCase
@@ -21,7 +22,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'approval', 'input'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input'], AgentEventKind::values());
     }
 
     #[Test]
@@ -54,5 +55,79 @@ final class AgentEventKindTest extends TestCase
         self::assertNull(AgentEventKind::fromRunStepKind('approval'));
         self::assertNull(AgentEventKind::fromRunStepKind('input'));
         self::assertNull(AgentEventKind::fromRunStepKind('artifact'));
+    }
+
+    /**
+     * The limitation this enum states about itself, asserted rather than
+     * intended (#900).
+     *
+     * It drifted twice without anything noticing: `dropped` has been written to
+     * `tx_nrllm_agentrun_event.kind` since ADR-179 and `tool_write` since
+     * ADR-182, and neither had a case. Nothing broke — the repository inserts
+     * the raw string — but `AgentRunEvent::kindEnum()` answered null for both,
+     * and the two functional suites that filter an event stream by typed kind
+     * would have lost exactly the rows they were looking for.
+     *
+     * Reflection over `RunStep`'s own constants rather than a second hand-kept
+     * list, because a hand-kept list is what failed.
+     */
+    #[Test]
+    public function everyRunStepKindHasACase(): void
+    {
+        $missing = [];
+        foreach ((new ReflectionClass(RunStep::class))->getConstants() as $name => $value) {
+            if (!str_starts_with($name, 'KIND_') || !is_string($value)) {
+                continue;
+            }
+
+            if (!AgentEventKind::isValid($value)) {
+                $missing[] = sprintf('%s (%s)', $name, $value);
+            }
+        }
+
+        self::assertSame(
+            [],
+            $missing,
+            "A RunStep kind is persisted with no case here, so AgentRunEvent::kindEnum() answers null for it\n"
+            . "and anything filtering an event stream by typed kind silently drops those rows:\n"
+            . implode("\n", $missing),
+        );
+    }
+
+    /**
+     * The other direction, so the enum cannot grow a case for a kind nothing
+     * emits. APPROVAL and INPUT are the two deliberate exceptions — they are
+     * AgentRuntime events, not RunStep kinds, which is exactly why
+     * `fromRunStepKind()` refuses to resolve them.
+     */
+    #[Test]
+    public function everyCaseIsEitherARunStepKindOrOneOfTheTwoRuntimeEvents(): void
+    {
+        $stepKinds = [];
+        foreach ((new ReflectionClass(RunStep::class))->getConstants() as $name => $value) {
+            if (str_starts_with($name, 'KIND_') && is_string($value)) {
+                $stepKinds[] = (string)$value;
+            }
+        }
+
+        $unexplained = [];
+        foreach (AgentEventKind::cases() as $case) {
+            if (in_array($case, [AgentEventKind::APPROVAL, AgentEventKind::INPUT], true)) {
+                continue;
+            }
+
+            if (!in_array($case->value, $stepKinds, true)) {
+                $unexplained[] = (string)$case->value;
+            }
+        }
+
+        self::assertSame([], $unexplained, 'A case exists for a kind no RunStep emits: ' . implode(', ', $unexplained));
+    }
+
+    #[Test]
+    public function theTwoRunStepKindsThatWereMissingResolve(): void
+    {
+        self::assertSame(AgentEventKind::DROPPED, AgentEventKind::fromRunStepKind(RunStep::KIND_DROPPED));
+        self::assertSame(AgentEventKind::TOOL_WRITE, AgentEventKind::fromRunStepKind(RunStep::KIND_WRITE));
     }
 }
