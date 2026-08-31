@@ -25,6 +25,9 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * itself derives meaning from (ADR-182). It never reaches the wire and never
  * carries a field value — it names the record a write produced so the run trace
  * can persist it and the observed outcome can join `sys_history` against it.
+ * It is the one channel the loop does not bound on the way out, because
+ * {@see RecordReference} refuses anything that is not a database identifier at
+ * construction: there is no unbounded string to coerce.
  *
  * Fail-closed: {@see self::error()} carries NO artifacts and NO write target.
  *

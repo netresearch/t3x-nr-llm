@@ -62,17 +62,28 @@ class RecordReferenceFuzzyTest extends AbstractFuzzyTestCase
             });
     }
 
+    /**
+     * The table is the one string the tool loop does not bound on the way out,
+     * so the refusal has to hold for everything the loop would have coerced:
+     * whitespace, quoting, qualification, SQL, invalid UTF-8, excess length.
+     */
     #[Test]
-    public function noTableOfWhitespaceIsAccepted(): void
+    public function noTableThatIsNotADatabaseIdentifierIsAccepted(): void
     {
         $this
             ->forAll(
-                Generator\elements(['', ' ', '  ', "\t", "\n", " \t\n "]), // @phpstan-ignore function.notFound
+                Generator\elements([ // @phpstan-ignore function.notFound
+                    '', ' ', '  ', "\t", "\n", " \t\n ",
+                    ' pages', 'pages ', '`pages`', '"pages"', 'db.pages', 'pages-1',
+                    'pages;DROP TABLE pages', 'pages WHERE 1=1', 'pages*', "pages\0",
+                    "pages\n", "pages\r\n", "\npages",
+                    "pages\xFF", 'pä ges', str_repeat('a', 65), str_repeat('a', 4096),
+                ]),
             )
             ->then(function (string $table): void {
                 try {
                     $reference = new RecordReference($table, 1);
-                    $this->fail('A reference was built as ' . $reference . ' for a table name that names no table.');
+                    $this->fail('A reference was built as ' . $reference . ' for a table name that is not an identifier.');
                 } catch (InvalidArgumentException) {
                     $this->addToAssertionCount(1);
                 }

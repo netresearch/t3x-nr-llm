@@ -35,6 +35,10 @@ final class RecordReferenceTest extends TestCase
      * can have, identifies nothing — and would be persisted as an audit row
      * pointing at nowhere, which reads as a recorded write rather than as the
      * defect it is.
+     *
+     * The table is also the one string the tool loop does NOT bound on its way
+     * out, so everything the loop would otherwise have coerced — whitespace,
+     * invalid UTF-8, unbounded length — is refused here instead.
      */
     #[Test]
     #[DataProvider('unusableIdentities')]
@@ -52,9 +56,16 @@ final class RecordReferenceTest extends TestCase
      */
     public static function unusableIdentities(): iterable
     {
-        yield 'empty table'      => ['', 1];
-        yield 'whitespace table' => ['   ', 1];
-        yield 'zero uid'         => ['pages', 0];
-        yield 'negative uid'     => ['pages', -1];
+        yield 'empty table'        => ['', 1];
+        yield 'whitespace table'   => ['   ', 1];
+        yield 'padded table'       => [' pages ', 1];
+        yield 'quoted table'       => ['`pages`', 1];
+        yield 'qualified table'    => ['db.pages', 1];
+        yield 'sql fragment'       => ['pages WHERE 1=1', 1];
+        yield 'invalid utf-8'      => ["pages\xFF", 1];
+        yield 'newline'            => ["pages\n", 1];
+        yield 'longer than 64'     => [str_repeat('a', 65), 1];
+        yield 'zero uid'           => ['pages', 0];
+        yield 'negative uid'       => ['pages', -1];
     }
 }
