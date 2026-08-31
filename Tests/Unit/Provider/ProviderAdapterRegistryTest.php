@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Provider\OpenAiProvider;
 use Netresearch\NrLlm\Provider\OpenRouterProvider;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrLlm\Tests\Unit\Provider\Fixtures\UnreachableProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -566,6 +567,72 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $provider->method('getMaxRetries')->willReturn(3);
         $provider->method('getOrganizationId')->willReturn($organizationId);
         $provider->method('getOptionsArray')->willReturn($options);
+
+        return $provider;
+    }
+
+    /**
+     * What the removed wall-clock assertions were really about (#868).
+     *
+     * `ProviderConnectionTest` measured `microtime()` against a non-routable
+     * address and asserted the call came back inside fifteen seconds. That
+     * measures the runner: it passed alone and failed under the four-way
+     * sharded functional run that gates every pull request. The behaviour worth
+     * pinning is not the duration — it is that a provider which does not answer
+     * becomes a RESULT the backend can render, never an exception the caller
+     * has to catch.
+     */
+    #[Test]
+    public function anAdapterThatCannotConnectBecomesAFailureResult(): void
+    {
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            [AdapterType::Ollama->value => UnreachableProvider::class],
+        );
+
+        $result = $subject->testProviderConnection($this->unreachableProvider());
+
+        self::assertFalse($result['success']);
+        self::assertIsString($result['message']);
+        self::assertStringStartsWith('Connection failed:', $result['message']);
+    }
+
+    /**
+     * The same path is the one that sanitises. A connection failure quotes the
+     * URL it failed on, and for a provider whose key travels in the query
+     * string that URL carries the key — into a message the backend renders.
+     */
+    #[Test]
+    public function aFailureMessageDoesNotCarryTheKeyFromTheFailingUrl(): void
+    {
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            [AdapterType::Ollama->value => UnreachableProvider::class],
+        );
+
+        $message = $subject->testProviderConnection($this->unreachableProvider())['message'];
+
+        self::assertIsString($message);
+        self::assertStringNotContainsString('SECRET-VALUE', $message);
+        self::assertStringContainsString('api_key=***', $message);
+    }
+
+    private function unreachableProvider(): Provider
+    {
+        $provider = new Provider();
+        $provider->setIdentifier('unreachable');
+        $provider->setName('Unreachable');
+        $provider->setAdapterTypeEnum(AdapterType::Ollama);
+        $provider->setEndpointUrl('https://provider.example.invalid');
+        $provider->setIsActive(true);
 
         return $provider;
     }
