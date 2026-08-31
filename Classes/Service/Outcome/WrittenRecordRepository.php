@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
+use Netresearch\NrLlm\Domain\Enum\CallOutcome;
+use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
@@ -38,6 +40,8 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
 
     private const TABLE_HISTORY = 'sys_history';
 
+    private const TABLE_OUTCOME = 'tx_nrllm_call_outcome';
+
     /** TYPO3's own action codes; see `RecordHistoryStore`. */
     private const ACTION_DELETE = 4;
 
@@ -46,19 +50,64 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
     ) {}
 
     /**
-     * Every recorded write whose observation window has closed.
+     * Correlations with at least one settled write and no observed outcome yet.
      *
-     * The correlation id comes from the run's uuid, because that IS the
-     * correlation id every provider call of the run reports under — the runs
-     * table has no column of that name (ADR-185).
+     * The exclusion is a subquery rather than a filter in PHP, because a page
+     * of the oldest writes that had all been answered would return the same
+     * page forever and the command would report no work while writes piled up
+     * behind it.
+     *
+     * @return list<string>
+     */
+    public function findUnansweredCorrelations(int $timestamp, int $limit): array
+    {
+        $query = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
+        $sub   = $this->connectionPool->getQueryBuilderForTable(self::TABLE_OUTCOME);
+
+        $sub->select('o.correlation_id')
+            ->from(self::TABLE_OUTCOME, 'o')
+            ->where($sub->expr()->in('o.outcome', $query->createNamedParameter($this->observedValues(), Connection::PARAM_STR_ARRAY)));
+
+        $rows = $query
+            ->select('r.uuid')
+            ->from(self::TABLE_EVENT, 'e')
+            ->innerJoin('e', self::TABLE_RUN, 'r', 'r.uid = e.run')
+            ->where(
+                $query->expr()->eq('e.kind', $query->createNamedParameter(AgentEventKind::TOOL_WRITE->value)),
+                $query->expr()->lt('e.crdate', $query->createNamedParameter($timestamp, Connection::PARAM_INT)),
+                $query->expr()->neq('r.uuid', $query->createNamedParameter('')),
+                $query->expr()->notIn('r.uuid', $sub->getSQL()),
+            )
+            ->groupBy('r.uuid')
+            ->orderBy('r.uuid', 'ASC')
+            ->setMaxResults($limit)
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        $uuids = [];
+        foreach ($rows as $uuid) {
+            if (is_string($uuid) && $uuid !== '') {
+                $uuids[] = $uuid;
+            }
+        }
+
+        return $uuids;
+    }
+
+    /**
+     * Every write one run recorded, oldest first.
      *
      * A malformed payload is skipped rather than guessed at: the identity is
-     * the only thing this row is for, so half of one is worth nothing.
+     * the only thing the row is for, so half of one is worth nothing.
      *
      * @return list<ObservedWrite>
      */
-    public function findWritesSettledBefore(int $timestamp, int $limit): array
+    public function findWritesForCorrelation(string $correlationId): array
     {
+        if ($correlationId === '') {
+            return [];
+        }
+
         $query = $this->connectionPool->getQueryBuilderForTable(self::TABLE_EVENT);
 
         $rows = $query
@@ -67,11 +116,9 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             ->innerJoin('e', self::TABLE_RUN, 'r', 'r.uid = e.run')
             ->where(
                 $query->expr()->eq('e.kind', $query->createNamedParameter(AgentEventKind::TOOL_WRITE->value)),
-                $query->expr()->lt('e.crdate', $query->createNamedParameter($timestamp, Connection::PARAM_INT)),
-                $query->expr()->neq('r.uuid', $query->createNamedParameter('')),
+                $query->expr()->eq('r.uuid', $query->createNamedParameter($correlationId)),
             )
             ->orderBy('e.uid', 'ASC')
-            ->setMaxResults($limit)
             ->executeQuery()
             ->fetchAllAssociative();
 
@@ -87,6 +134,23 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
     }
 
     /**
+     * The outcome values that belong to the observed source.
+     *
+     * @return list<string>
+     */
+    private function observedValues(): array
+    {
+        $values = [];
+        foreach (CallOutcome::cases() as $case) {
+            if ($case->source() === CallOutcomeSource::OBSERVED) {
+                $values[] = $case->value;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
      * What happened to a record after it was written: the history action codes
      * of every row strictly newer than the write, plus whether the write's own
      * row is still there at all.
@@ -96,7 +160,7 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
      * record nobody touched, and reporting that as ACCEPTED_UNCHANGED would be
      * this signal's most plausible lie (ADR-185).
      *
-     * @return array{later: list<int>, hasOwnRow: bool}
+     * @return array{later: list<int>, oldestRetained: int|null}
      */
     public function historyAfter(RecordReference $record, int $writtenAt): array
     {
@@ -114,22 +178,22 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             ->executeQuery()
             ->fetchAllAssociative();
 
-        $later     = [];
-        $hasOwnRow = false;
+        $later          = [];
+        $oldestRetained = null;
         foreach ($rows as $row) {
             $tstamp = $this->toInt($row['tstamp'] ?? null);
             $action = $this->toInt($row['actiontype'] ?? null);
 
-            if ($tstamp <= $writtenAt) {
-                $hasOwnRow = true;
-
-                continue;
+            if ($oldestRetained === null || $tstamp < $oldestRetained) {
+                $oldestRetained = $tstamp;
             }
 
-            $later[] = $action;
+            if ($tstamp > $writtenAt) {
+                $later[] = $action;
+            }
         }
 
-        return ['later' => $later, 'hasOwnRow' => $hasOwnRow];
+        return ['later' => $later, 'oldestRetained' => $oldestRetained];
     }
 
     /**

@@ -58,13 +58,31 @@ says UNKNOWN whenever it cannot say better.**
 
   .. code-block:: text
 
-     no row, record still present   → ACCEPTED_UNCHANGED
-     MODIFY                         → EDITED
-     DELETE, or the record is gone  → DISCARDED
-     our own write row is gone      → UNKNOWN
+     no row, record still present     → ACCEPTED_UNCHANGED
+     MODIFY                           → EDITED
+     DELETE, or the record is gone    → DISCARDED
+     history trimmed past our write   → UNKNOWN
 
-  The write's own row is excluded by timestamp: the ``tool_write`` event carries
-  one, and the write that produced it is the row at or before it.
+  The last line is the subtle one. History is trimmed oldest-first, so what
+  proves our write's row survived is not that SOME row exists at or before it —
+  an older survivor answers that for a write whose own row is long gone — but
+  that the OLDEST retained row is at or before it.
+
+- **One outcome per RUN, combined from every record it wrote**, by an explicit
+  precedence::
+
+     DISCARDED > EDITED > UNKNOWN > ACCEPTED_UNCHANGED
+
+  A run can call more than one write tool and they share a correlation id, so
+  judging only the first would let a run whose second write was deleted be
+  recorded as accepted. A known negative outranks an unknown; and
+  ``ACCEPTED_UNCHANGED`` may only be claimed when every write of the run is
+  known to have survived untouched.
+
+- **The already-answered runs are excluded in the QUERY**, not filtered after
+  it. A fixed page of the oldest writes would stop advancing the moment a full
+  page of them had been answered, and the command would then report no work
+  while writes piled up behind it.
 
 - **A CLI command, schedulable**, like the four purge commands this extension
   already ships. Never the request path — ADR-174's rule for the cost signal
@@ -136,9 +154,10 @@ Revisit when
 
 - **EDITED is measured and high.** That is the trigger for carrying the written
   field names, and the number is what justifies it rather than the suspicion.
-- **A run writes more than once.** One correlation id then covers several
-  writes with possibly different fates, and the outcome has to say which write
-  it describes or stop claiming to describe the run.
+- **The precedence proves wrong in practice.** A run whose several writes end
+  differently is recorded by the worst of them, which is a choice and not a
+  measurement. If the mix turns out to matter, the outcome has to become one row
+  per write — and that needs a key the outcome table does not have.
 - **A caller needs the outcome per round-trip.** That needs a per-call
   identifier the runtime does not have today, and inventing one is a larger
   change than this record.

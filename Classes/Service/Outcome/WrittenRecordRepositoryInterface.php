@@ -24,20 +24,44 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 interface WrittenRecordRepositoryInterface
 {
     /**
-     * Every recorded write whose observation window has closed.
+     * Correlations with at least one write whose window has closed and NO
+     * observed outcome yet.
+     *
+     * Excluding the already-answered ones in the QUERY rather than after it is
+     * load-bearing: a fixed page of the oldest writes would stop advancing the
+     * moment a full page of them had been answered, and the command would then
+     * report no work while writes piled up behind it.
+     *
+     * @return list<string>
+     */
+    public function findUnansweredCorrelations(int $timestamp, int $limit): array;
+
+    /**
+     * Every write one run recorded, oldest first.
+     *
+     * A run can call more than one write tool, and they share a correlation id
+     * because that id is the run's uuid. All of them are needed before the run
+     * can be judged.
      *
      * @return list<ObservedWrite>
      */
-    public function findWritesSettledBefore(int $timestamp, int $limit): array;
+    public function findWritesForCorrelation(string $correlationId): array;
 
     /**
-     * The history action codes of every row strictly newer than the write, and
-     * whether the write's OWN row is still there.
+     * What happened to a record after it was written: the action codes of every
+     * history row strictly newer than the write, and the oldest history
+     * timestamp still retained for that record.
      *
-     * The second half separates "nothing happened" from "the evidence is gone",
-     * which is the difference between `ACCEPTED_UNCHANGED` and `UNKNOWN`.
+     * The second value is how "nothing happened" is told apart from "the
+     * evidence is gone". History is trimmed oldest-first, so a record whose
+     * oldest RETAINED row is newer than our write has had our write — and
+     * anything between — removed. Asking whether a row exists at or before the
+     * write proves nothing: an older row that survived would answer yes for a
+     * write whose own row is long gone.
      *
-     * @return array{later: list<int>, hasOwnRow: bool}
+     * `null` means the record has no retained history at all.
+     *
+     * @return array{later: list<int>, oldestRetained: int|null}
      */
     public function historyAfter(RecordReference $record, int $writtenAt): array;
 

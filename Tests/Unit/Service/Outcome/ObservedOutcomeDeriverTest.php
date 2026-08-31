@@ -84,6 +84,47 @@ final class ObservedOutcomeDeriverTest extends TestCase
     }
 
     /**
+     * The trap in proving that our write's history row survived: an OLDER row
+     * that outlived the trim answers "yes, there is a row at or before the
+     * write" for a write whose own row is long gone. The oldest RETAINED row is
+     * what proves it, and only that.
+     */
+    #[Test]
+    public function anOlderSurvivingRowDoesNotProveOurWriteIsStillInTheHistory(): void
+    {
+        $writes = new class implements WrittenRecordRepositoryInterface {
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
+            {
+                return ['run-uuid'];
+            }
+
+            public function findWritesForCorrelation(string $correlationId): array
+            {
+                return [new ObservedWrite('run-uuid', new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt())];
+            }
+
+            public function historyAfter(RecordReference $record, int $writtenAt): array
+            {
+                // Everything up to a day AFTER the write was trimmed away; what
+                // remains starts later than our write.
+                return ['later' => [], 'oldestRetained' => $writtenAt + 86400];
+            }
+
+            public function recordExists(RecordReference $record): bool
+            {
+                return true;
+            }
+
+            public function isDeletion(int $actionType): bool
+            {
+                return $actionType === 4;
+            }
+        };
+
+        self::assertSame(['unknown' => 1], (new ObservedOutcomeDeriver($writes, $this->outcomes()))->derive(7, self::WRITTEN_AT + 86400 * 30));
+    }
+
+    /**
      * The window is the only thing standing between "judged" and "judged too
      * early", so a zero or negative setting is raised rather than honoured — a
      * window of zero classifies a record the same second it was written and
@@ -95,16 +136,21 @@ final class ObservedOutcomeDeriverTest extends TestCase
         $writes = new class implements WrittenRecordRepositoryInterface {
             public int $settledAt = 0;
 
-            public function findWritesSettledBefore(int $timestamp, int $limit): array
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
             {
                 $this->settledAt = $timestamp;
 
                 return [];
             }
 
+            public function findWritesForCorrelation(string $correlationId): array
+            {
+                return [];
+            }
+
             public function historyAfter(RecordReference $record, int $writtenAt): array
             {
-                return ['later' => [], 'hasOwnRow' => true];
+                return ['later' => [], 'oldestRetained' => 0];
             }
 
             public function recordExists(RecordReference $record): bool
@@ -125,31 +171,88 @@ final class ObservedOutcomeDeriverTest extends TestCase
     }
 
     /**
-     * The answer is final once the window has closed, so a second pass spends
-     * two reads to reach the value it already has.
+     * A run can call more than one write tool, and they share a correlation id
+     * because that id is the run's uuid. Judging only the first would let a run
+     * whose SECOND write was thrown away be recorded as accepted.
      */
     #[Test]
-    public function aWriteThatAlreadyCarriesAnObservedOutcomeIsSkipped(): void
+    public function aRunWhoseSecondWriteWasDiscardedIsNotAccepted(): void
     {
-        $outcomes = $this->outcomes([CallOutcome::EDITED]);
+        $writes = new class implements WrittenRecordRepositoryInterface {
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
+            {
+                return ['run-uuid'];
+            }
 
-        $deriver = new ObservedOutcomeDeriver($this->writes(true, [], true), $outcomes);
+            public function findWritesForCorrelation(string $correlationId): array
+            {
+                return [
+                    new ObservedWrite('run-uuid', new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt()),
+                    new ObservedWrite('run-uuid', new RecordReference('tt_content', 7), ObservedOutcomeDeriverTest::writtenAt()),
+                ];
+            }
 
-        self::assertSame([], $deriver->derive(7, self::WRITTEN_AT + 86400 * 30));
+            public function historyAfter(RecordReference $record, int $writtenAt): array
+            {
+                return ['later' => [], 'oldestRetained' => $writtenAt - 1];
+            }
+
+            public function recordExists(RecordReference $record): bool
+            {
+                // The second write's record is gone.
+                return $record->table === 'pages';
+            }
+
+            public function isDeletion(int $actionType): bool
+            {
+                return $actionType === 4;
+            }
+        };
+
+        $deriver = new ObservedOutcomeDeriver($writes, $this->outcomes());
+
+        self::assertSame(['discarded' => 1], $deriver->derive(7, self::WRITTEN_AT + 86400 * 30));
     }
 
     /**
-     * An explicit rating is a different source and must not stop the observed
-     * one from being derived — ADR-176 keeps the two apart precisely so one
-     * cannot stand in for the other.
+     * One row per RUN, not per write: the correlation id is the run's uuid, so
+     * two writes cannot be told apart in the outcome table.
      */
     #[Test]
-    public function anExplicitRatingDoesNotSuppressTheObservedOne(): void
+    public function aRunWithSeveralWritesIsRecordedOnce(): void
     {
-        $outcomes = $this->outcomes([CallOutcome::HELPFUL]);
+        $outcomes = $this->outcomes();
+        $writes   = new class implements WrittenRecordRepositoryInterface {
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
+            {
+                return ['run-uuid'];
+            }
 
-        $deriver = new ObservedOutcomeDeriver($this->writes(true, [], true), $outcomes);
-        $deriver->derive(7, self::WRITTEN_AT + 86400 * 30);
+            public function findWritesForCorrelation(string $correlationId): array
+            {
+                return [
+                    new ObservedWrite('run-uuid', new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt()),
+                    new ObservedWrite('run-uuid', new RecordReference('pages', 43), ObservedOutcomeDeriverTest::writtenAt()),
+                ];
+            }
+
+            public function historyAfter(RecordReference $record, int $writtenAt): array
+            {
+                return ['later' => [], 'oldestRetained' => $writtenAt - 1];
+            }
+
+            public function recordExists(RecordReference $record): bool
+            {
+                return true;
+            }
+
+            public function isDeletion(int $actionType): bool
+            {
+                return $actionType === 4;
+            }
+        };
+
+        (new ObservedOutcomeDeriver($writes, $outcomes))->derive(7, self::WRITTEN_AT + 86400 * 30);
 
         self::assertSame([CallOutcome::ACCEPTED_UNCHANGED], $outcomes->recorded);
     }
@@ -181,14 +284,19 @@ final class ObservedOutcomeDeriverTest extends TestCase
                 private readonly bool $hasOwnRow,
             ) {}
 
-            public function findWritesSettledBefore(int $timestamp, int $limit): array
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
+            {
+                return ['run-uuid'];
+            }
+
+            public function findWritesForCorrelation(string $correlationId): array
             {
                 return [new ObservedWrite('run-uuid', new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt())];
             }
 
             public function historyAfter(RecordReference $record, int $writtenAt): array
             {
-                return ['later' => $this->later, 'hasOwnRow' => $this->hasOwnRow];
+                return ['later' => $this->later, 'oldestRetained' => $this->hasOwnRow ? ObservedOutcomeDeriverTest::writtenAt() - 1 : ObservedOutcomeDeriverTest::writtenAt() + 1];
             }
 
             public function recordExists(RecordReference $record): bool

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
-use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use TYPO3\CMS\Core\SingletonInterface;
 
 /**
@@ -50,12 +49,12 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
     ) {}
 
     /**
-     * Derive and record outcomes for every write whose window has closed.
+     * Derive and record an outcome for every run whose writes have settled.
      *
      * Returns what it decided, by case, so a caller can print it and an
-     * operator can see the shape of the answer rather than a total. A run that
-     * finds nothing returns an empty map, which is not a failure — most runs
-     * will, because most writes are still inside their window.
+     * operator can see the shape of the answer rather than a total. A pass that
+     * finds nothing returns an empty map, which is not a failure — most will,
+     * because most writes are still inside their window.
      *
      * @param int $windowDays how long a record is watched before it is judged
      * @param int $now        the clock, injected so a test does not need one
@@ -68,20 +67,51 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
         $settledAt = $now - (max(self::MIN_WINDOW_DAYS, $windowDays) * 86400);
 
         $counts = [];
-        foreach ($this->writes->findWritesSettledBefore($settledAt, self::BATCH_SIZE) as $write) {
-            // Already answered. The window has closed, so the answer is final
-            // and re-deriving it would spend two reads to reach the same value.
-            if ($this->alreadyObserved($write->correlationId)) {
+        foreach ($this->writes->findUnansweredCorrelations($settledAt, self::BATCH_SIZE) as $correlationId) {
+            $outcome = $this->outcomeForRun($correlationId);
+            if (!$outcome instanceof CallOutcome) {
                 continue;
             }
 
-            $outcome = $this->classify($write);
-            $this->outcomes->record($write->correlationId, $outcome);
-
+            $this->outcomes->record($correlationId, $outcome);
             $counts[$outcome->value] = ($counts[$outcome->value] ?? 0) + 1;
         }
 
         return $counts;
+    }
+
+    /**
+     * One answer for a run, from every record it wrote.
+     *
+     * A run can call more than one write tool, and they share a correlation id
+     * because that id is the run's uuid (ADR-185). Judging only the first write
+     * would let a run whose SECOND write was deleted be recorded as accepted,
+     * so the writes are combined by an explicit precedence:
+     *
+     *     DISCARDED > EDITED > UNKNOWN > ACCEPTED_UNCHANGED
+     *
+     * A known negative outranks an unknown, because "one of these was thrown
+     * away" is a fact whatever else could not be determined. ACCEPTED_UNCHANGED
+     * is last on purpose: it may only be claimed when EVERY write of the run is
+     * known to have survived untouched.
+     *
+     * Null when the run has no usable write at all — an outcome about no write
+     * would be an outcome about nothing.
+     */
+    private function outcomeForRun(string $correlationId): ?CallOutcome
+    {
+        $seen = [];
+        foreach ($this->writes->findWritesForCorrelation($correlationId) as $write) {
+            $seen[] = $this->classify($write);
+        }
+
+        foreach ([CallOutcome::DISCARDED, CallOutcome::EDITED, CallOutcome::UNKNOWN, CallOutcome::ACCEPTED_UNCHANGED] as $candidate) {
+            if (in_array($candidate, $seen, true)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -101,7 +131,14 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
             return CallOutcome::DISCARDED;
         }
 
-        if (!$history['hasOwnRow']) {
+        // History is trimmed oldest-first, so a record whose oldest RETAINED row
+        // is newer than our write has had our write — and anything between —
+        // removed. Asking whether SOME row exists at or before the write proves
+        // nothing: an older row that survived answers yes for a write whose own
+        // row is long gone, and the result would be ACCEPTED_UNCHANGED inferred
+        // from an absence of evidence.
+        $oldest = $history['oldestRetained'];
+        if ($oldest === null || $oldest > $write->writtenAt) {
             return CallOutcome::UNKNOWN;
         }
 
@@ -127,17 +164,6 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
     {
         foreach ($actions as $action) {
             if ($this->writes->isDeletion($action)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function alreadyObserved(string $correlationId): bool
-    {
-        foreach ($this->outcomes->findByCorrelation($correlationId) as $outcome) {
-            if ($outcome->source() === CallOutcomeSource::OBSERVED) {
                 return true;
             }
         }

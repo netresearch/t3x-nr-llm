@@ -32,13 +32,20 @@ text changed.
    event timestamp and — through the run — the correlation id.
 2. **Wait out the window** (configurable, default seven days) before deciding.
    A write whose window is still open produces no row.
-3. **Classify from `sys_history`**, over rows strictly after the write's own:
-   no row and the record present → `ACCEPTED_UNCHANGED`; a `MODIFY` → `EDITED`;
-   a `DELETE`, or the record gone → `DISCARDED`; the write's own row missing
-   (history purged) → `UNKNOWN`.
-4. **Write one outcome row per write**, once. A second run of the command over
-   the same write changes nothing.
-5. **Run out of request**, from a schedulable CLI command, like the four purge
+3. **Classify from `sys_history`**, over rows strictly after the write: no row
+   and the record present → `ACCEPTED_UNCHANGED`; a `MODIFY` → `EDITED`; a
+   `DELETE`, or the record gone → `DISCARDED`; history trimmed past our write →
+   `UNKNOWN`. History is trimmed oldest-first, so what proves our row survived
+   is the OLDEST retained row being at or before the write — not that some row
+   is, which an older survivor would answer for a write long since purged.
+4. **Write one outcome row per RUN**, combining its writes by the precedence
+   `DISCARDED > EDITED > UNKNOWN > ACCEPTED_UNCHANGED`. A run can call more than
+   one write tool and they share a correlation id, so judging only the first
+   would let a run whose second write was deleted read as accepted.
+5. **Exclude the already-answered runs in the query**, not after it. A fixed
+   page of the oldest writes stops advancing once a full page of them has been
+   answered, and the command then reports no work while writes pile up.
+6. **Run out of request**, from a schedulable CLI command, like the four purge
    commands this extension already ships.
 
 ## What it must NOT do
@@ -72,7 +79,11 @@ without it and the number is what justifies the change.
 | A modification after the write | functional | `EDITED` |
 | A deletion after the write | functional | `DISCARDED` |
 | The record is gone without a delete row | functional | `DISCARDED` |
-| The write's own history row purged | functional | `UNKNOWN`, never `ACCEPTED_UNCHANGED` |
+| History trimmed past the write | functional | `UNKNOWN`, never `ACCEPTED_UNCHANGED` |
+| An older row survived but ours did not | unit | `UNKNOWN` — the oldest retained row is what proves it, not any row |
+| A run whose second write was discarded | unit | `DISCARDED`, not `ACCEPTED_UNCHANGED` |
+| A run with several writes | unit | one outcome row, not one per write |
+| A page of answered runs does not stall the next pass | functional | the query excludes them, so later runs are reached |
 | A window still open | functional | no row at all |
 | The write's own row is not counted as a later edit | functional | `ACCEPTED_UNCHANGED`, not `EDITED` |
 | Running twice writes once | functional | one row, unchanged on the second pass |
