@@ -1132,12 +1132,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name));
         }
 
-        return $result->isError
-            ? ToolResult::error($this->bounder->content($result->content))
-            : ToolResult::text(
-                $this->bounder->content($result->content),
-                ...$this->bounder->artifacts($result->artifacts),
-            );
+        // Transform, never rebuild (ADR-182). A ToolResult reconstructed from a
+        // subset of its properties drops everything the subset omits — the shape
+        // that already cost #844, #845 and #846 — and no test asserting on the
+        // tool's own return value would notice. An error result keeps its
+        // fail-closed emptiness because the tool built it that way.
+        return $result->withBoundedChannels(
+            $this->bounder->content($result->content),
+            $result->isError ? [] : $this->bounder->artifacts($result->artifacts),
+        );
     }
 
     /**
