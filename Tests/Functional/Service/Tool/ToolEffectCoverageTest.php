@@ -11,10 +11,12 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 /**
  * Which registered tools declare a write effect (ADR-111).
@@ -105,5 +107,90 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
         $resolver = new ToolEffectResolver($registry);
 
         self::assertSame(ToolEffect::NON_IDEMPOTENT_WRITE, $resolver->effectFor('a_tool_that_was_removed'));
+    }
+
+    /**
+     * ADR-182's contract invariant: a tool that declares a write effect names
+     * the record it wrote, and a read-only tool never does.
+     *
+     * Asserted over the DECLARED-WRITER LIST rather than tool by tool, so a
+     * writer added later fails here without anyone remembering this ticket —
+     * which is the failure mode ADR-182 names: "a writer that forgets it reports
+     * no outcome and fails no test unless the coverage test above is written to
+     * require one from every declared writer".
+     *
+     * It reads the class source rather than executing the write, because
+     * executing seven DataHandler writes to prove a return-value shape would
+     * test the DataHandler. What must not silently vanish is the CALL, and the
+     * loop-level assertion that the value survives the runtime lives in
+     * `ToolLoopServiceTest::aWriteTargetSurvivesTheLoopIntoTheTraceAndTheRunStep()`.
+     */
+    #[Test]
+    public function everyDeclaredWriterNamesTheRecordItWrote(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+
+        $silent = [];
+        foreach (self::DECLARED_WRITERS as $name) {
+            $tool = $registry->get($name);
+            self::assertInstanceOf(ToolInterface::class, $tool, sprintf('Declared writer "%s" is not registered.', $name));
+
+            $file = (new ReflectionClass($tool))->getFileName();
+            self::assertIsString($file);
+
+            $source = file_get_contents($file);
+            self::assertIsString($source);
+
+            if (!str_contains($source, 'withWriteTarget(')) {
+                $silent[] = $name;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $silent,
+            "A tool declares a write effect but never names the record it wrote (ADR-182). Its writes cannot be\n"
+            . "joined to sys_history, so they produce no observed outcome and nothing else reports the gap:\n"
+            . implode("\n", $silent),
+        );
+    }
+
+    /**
+     * The other direction. A read-only tool that names a written record is a
+     * defect, not a curiosity — it would put a write row in the audit stream for
+     * a call that changed nothing.
+     */
+    #[Test]
+    public function noReadOnlyToolClaimsAWriteTarget(): void
+    {
+        $registry = $this->get(ToolRegistry::class);
+        self::assertInstanceOf(ToolRegistry::class, $registry);
+
+        $resolver = new ToolEffectResolver($registry);
+
+        $claiming = [];
+        foreach ($registry->builtinNames() as $name) {
+            if ($resolver->effectFor($name)->isWrite()) {
+                continue;
+            }
+
+            $tool = $registry->get($name);
+            if (!$tool instanceof ToolInterface) {
+                continue;
+            }
+
+            $file = (new ReflectionClass($tool))->getFileName();
+            if (!is_string($file)) {
+                continue;
+            }
+
+            $source = file_get_contents($file);
+            if (is_string($source) && str_contains($source, 'withWriteTarget(')) {
+                $claiming[] = $name;
+            }
+        }
+
+        self::assertSame([], $claiming, 'A read-only tool names a written record: ' . implode(', ', $claiming));
     }
 }

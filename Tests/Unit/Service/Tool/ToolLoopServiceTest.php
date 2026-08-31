@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
@@ -2745,5 +2746,84 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame(1, $steps[1]->round);
         self::assertGreaterThanOrEqual(0.0, $steps[1]->durationMs);
         self::assertLessThan(60000.0, $steps[1]->durationMs);
+    }
+
+    /**
+     * ADR-182's own acceptance criterion, and the only one that would have
+     * caught #844, #845 and #846: the assertion is on what the LOOP returns
+     * after a suspend and a resume, not on what the tool returns. The loop used
+     * to rebuild the result from two properties, so a tool could declare a write
+     * target, every direct `execute()` assertion could pass, and the runtime
+     * would still answer with nothing.
+     */
+    #[Test]
+    public function aWriteTargetSurvivesTheLoopIntoTheTraceAndTheRunStep(): void
+    {
+        // A declared writer suspends for approval (ADR-134), so the path under
+        // test is the resume path — which is where three of the four recording
+        // sites live.
+        $tool = new FakeTool(
+            'update_page_metadata',
+            'Updated page [42]: title.',
+            true,
+            false,
+            'test',
+            [],
+            ToolEffect::IDEMPOTENT_WRITE,
+            new RecordReference('pages', 42),
+        );
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'update_page_metadata', ['uid' => 42])], 5, 2),
+            $this->response('done', null, 3, 4),
+        ]));
+
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state = $this->suspend($service);
+        $trace = new RunTrace();
+        $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), null, $trace);
+
+        // The run trace persists the target as a step of its own kind, which is
+        // what the observed outcome joins sys_history against.
+        $writeSteps = array_values(array_filter(
+            $trace->getSteps(),
+            static fn(RunStep $step): bool => $step->kind === RunStep::KIND_WRITE,
+        ));
+
+        self::assertCount(1, $writeSteps);
+        self::assertSame('update_page_metadata', $writeSteps[0]->toolName);
+        self::assertInstanceOf(RecordReference::class, $writeSteps[0]->writeTarget);
+        self::assertSame('pages:42', (string)$writeSteps[0]->writeTarget);
+
+        // And it reaches the persisted payload as two scalars, not as a nested
+        // pair the timeline's allow-list would drop.
+        $payload = $writeSteps[0]->toArray();
+        self::assertSame('pages', $payload['writeTargetTable'] ?? null);
+        self::assertSame(42, $payload['writeTargetUid'] ?? null);
+    }
+
+    /**
+     * A read-only call records no write step. The step's PRESENCE is the signal
+     * the outcome query reads, so a step emitted for every tool call would make
+     * "wrote nothing" and "write not recorded" the same row.
+     */
+    #[Test]
+    public function aReadOnlyCallRecordsNoWriteStep(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'fetch_records', [])]),
+            $this->response('done'),
+        ]));
+
+        $runTrace = new RunTrace();
+        $service  = $this->service($mgr, new ToolRegistry([new FakeTool('fetch_records', 'rows')]));
+        $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null, null, null, $runTrace);
+
+        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $runTrace->getSteps());
+
+        self::assertNotContains(RunStep::KIND_WRITE, $kinds);
     }
 }

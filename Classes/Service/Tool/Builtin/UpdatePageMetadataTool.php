@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
@@ -236,7 +237,7 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
             'Updated page [%d]: %s.',
             $uid,
             implode(', ', array_keys($values)),
-        ));
+        ))->withWriteTarget(new RecordReference(self::TABLE, $uid));
     }
 
     /**

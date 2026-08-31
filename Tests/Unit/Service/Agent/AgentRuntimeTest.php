@@ -27,10 +27,12 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
@@ -1165,6 +1167,42 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
         self::assertInstanceOf(AuditPersistenceFailedException::class, $result->error);
         // Dead-lettered as non-retryable — the queue never re-dispatched it.
+        self::assertSame([], $this->repository->requeues);
+    }
+
+    #[Test]
+    public function aWriteTargetWhoseAuditCannotBePersistedFailsTheRun(): void
+    {
+        // ADR-182: the tool_write step IS the audit row naming the record the
+        // mutation produced. It is fail-closed on the same terms as the tool
+        // step — and on its own kind, so a run whose tool is no longer
+        // registered still cannot continue over an unrecorded write target.
+        $this->repository->findResult    = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $this->repository->throwOnRecord = true;
+
+        $loop = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(
+            function (array $messages, LlmConfiguration $config, ToolExecutionContext $context, ?array $allowed, mixed $options, ?int $max, ?RunTrace $trace): ToolLoopResult {
+                $trace?->recordToolResult(
+                    1,
+                    0.0,
+                    'update_page_metadata',
+                    [],
+                    ToolResult::text('Updated page [42]: title.')
+                        ->withWriteTarget(new RecordReference('pages', 42)),
+                );
+
+                return $this->loopResult('unreachable');
+            },
+        );
+
+        // Deliberately built WITHOUT an effect resolver: the guard must hold on
+        // the step's kind alone.
+        $result = $this->runtime($loop)->runQueued('run-uuid-q');
+
+        self::assertNotNull($result);
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome, 'dead-lettered, not REQUEUED');
+        self::assertInstanceOf(AuditPersistenceFailedException::class, $result->error);
         self::assertSame([], $this->repository->requeues);
     }
 

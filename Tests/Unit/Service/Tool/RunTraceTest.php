@@ -14,9 +14,11 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -199,5 +201,47 @@ final class RunTraceTest extends TestCase
             usage: UsageStatistics::fromTokens(1, 1),
             metadata: $metadata,
         );
+    }
+
+    /**
+     * One call, two steps: the tool step every call records, and — only for a
+     * write — the record it produced (ADR-182). One method decides, because the
+     * four success sites in the loop would otherwise each have to remember, and
+     * a fifth added later would not.
+     */
+    #[Test]
+    public function aWriteRecordsItsTargetAsAStepOfItsOwn(): void
+    {
+        $trace = new RunTrace();
+
+        $trace->recordToolResult(
+            1,
+            12.5,
+            'update_page_metadata',
+            ['uid' => 42],
+            ToolResult::text('Updated page [42]: title.')->withWriteTarget(new RecordReference('pages', 42)),
+        );
+
+        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        self::assertSame([RunStep::KIND_TOOL, RunStep::KIND_WRITE], $kinds);
+
+        $write = $trace->getSteps()[1];
+        self::assertSame('update_page_metadata', $write->toolName);
+        self::assertInstanceOf(RecordReference::class, $write->writeTarget);
+        self::assertSame('pages:42', (string)$write->writeTarget);
+        // Identity only — the write step carries nothing the record holds.
+        self::assertNull($write->toolResult);
+        self::assertNull($write->toolArguments);
+    }
+
+    #[Test]
+    public function aResultWithoutAWriteTargetRecordsOnlyTheToolStep(): void
+    {
+        $trace = new RunTrace();
+
+        $trace->recordToolResult(1, 1.0, 'fetch_records', [], ToolResult::text('rows'));
+
+        $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
+        self::assertSame([RunStep::KIND_TOOL], $kinds);
     }
 }

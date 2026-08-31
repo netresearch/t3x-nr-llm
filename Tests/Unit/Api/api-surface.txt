@@ -838,6 +838,13 @@ Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage (class)
   property readonly outputTokens: ?int
   property readonly responseModel: string
 
+Netresearch\NrLlm\Domain\ValueObject\RecordReference (class)
+  constructor(string $table, int $uid)
+  method __toString(): string
+  method toArray(): array
+  property readonly table: string
+  property readonly uid: int
+
 Netresearch\NrLlm\Domain\ValueObject\RequestComplexity (class)
   constructor(int $score, int $payloadBytes, ?int $tokenEstimate, int $toolCount, ?int $contextPercent, string $shape)
   property readonly contextPercent: ?int
@@ -927,9 +934,12 @@ Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision (class)
 Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   method static error(string $content): self
   method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
+  method withBoundedChannels(string $content, array $artifacts): self
+  method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target): self
   property readonly artifacts: array
   property readonly content: string
   property readonly isError: bool
+  property readonly writeTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
   const TYPE_FUNCTION = "function"
@@ -1631,6 +1641,7 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordLlmCall(int $round, float $durationMs, Netresearch\NrLlm\Domain\Model\CompletionResponse $response): void
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
   method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
+  method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
 
 Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method decide(string $toolName, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision

@@ -484,6 +484,15 @@ class ToolPlayground {
             title.textContent = step.toolName || '(tool)';
             sub.textContent = step.toolIsError ? 'error' : 'ok';
             metrics.textContent = this.ms(step.durationMs);
+        } else if (step.kind === 'tool_write') {
+            // ADR-182: the record a write produced. Its own row rather than a
+            // line on the tool row, because the row's PRESENCE is the signal —
+            // and without a branch here the fallback below would render it as a
+            // model answer, which is what an unknown kind becomes.
+            icon.classList.add('is-tool');
+            icon.textContent = '✎';
+            title.textContent = step.toolName || '(write)';
+            sub.textContent = this.writeTargetLabel(step);
         } else {
             const hasCalls = Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0;
             icon.classList.add(hasCalls ? 'is-req' : 'is-final');
@@ -557,6 +566,18 @@ class ToolPlayground {
             return;
         }
 
+        if (step.kind === 'tool_write') {
+            detail.appendChild(this.detailHeader(
+                `Wrote · ${step.toolName || ''}`,
+                this.writeTargetLabel(step),
+                '',
+            ));
+            // Identity only (ADR-182/ADR-064): the step carries no field the
+            // record holds, so there is nothing else to show.
+            detail.appendChild(this.note('The record this call wrote. Open it in the backend to see what changed.'));
+            return;
+        }
+
         // llm
         const isFinal = !(Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0);
         detail.appendChild(this.detailHeader(
@@ -572,6 +593,18 @@ class ToolPlayground {
             ['Thinking', () => step.thinking?.trim() ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
         ];
         detail.appendChild(this.tabBox(tabs));
+    }
+
+    /**
+     * `table:uid` for a write step, or an empty string when the payload carries
+     * neither — a REDACTED level never masks these (they are identity, not
+     * content), but a step from an older backend has no such keys at all.
+     */
+    writeTargetLabel(step) {
+        const table = typeof step.writeTargetTable === 'string' ? step.writeTargetTable : '';
+        const uid = Number.isInteger(step.writeTargetUid) ? step.writeTargetUid : 0;
+
+        return table !== '' && uid > 0 ? `${table}:${uid}` : '';
     }
 
     /**

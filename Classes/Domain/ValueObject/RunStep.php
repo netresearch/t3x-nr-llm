@@ -58,6 +58,19 @@ final readonly class RunStep
     public const KIND_DROPPED = 'dropped';
 
     /**
+     * The record one tool write produced (ADR-182).
+     *
+     * Its own kind rather than a field on {@see self::KIND_TOOL}, for the same
+     * reason {@see self::KIND_DROPPED} is its own: the step's PRESENCE is the
+     * signal a later reader queries for, and a nullable field on every tool step
+     * would make "no write" and "write not recorded" the same row.
+     *
+     * It carries an identity and nothing the record holds — see
+     * {@see \Netresearch\NrLlm\Domain\ValueObject\RecordReference}.
+     */
+    public const KIND_WRITE = 'tool_write';
+
+    /**
      * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
      * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
      * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).
@@ -92,6 +105,11 @@ final readonly class RunStep
          *                               not get; null on every other kind
          */
         public ?array $droppedSources = null,
+        /**
+         * @var RecordReference|null the record this tool write produced; null
+         *                           on every other kind (ADR-182)
+         */
+        public ?RecordReference $writeTarget = null,
     ) {}
 
     /**
@@ -137,6 +155,13 @@ final readonly class RunStep
                 ? null
                 : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
             'contextBudget'      => $this->contextBudget?->toArray(),
+            // Identity only: table and uid, never a field the record holds
+            // (ADR-182, ADR-064). Two scalars rather than one nested pair, for
+            // the reason droppedSources is flattened above: the timeline renders
+            // scalars and simple lists, and the outcome join wants a value it can
+            // read without parsing a composite string.
+            'writeTargetTable'   => $this->writeTarget?->table,
+            'writeTargetUid'     => $this->writeTarget?->uid,
         ];
 
         foreach ($optional as $key => $value) {
