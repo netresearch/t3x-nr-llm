@@ -19,8 +19,18 @@ use PHPUnit\Framework\Attributes\Test;
 /**
  * Functional tests for provider connection testing.
  *
- * These tests verify that provider connections can be tested
- * without hanging indefinitely.
+ * They verify the SHAPE a connection test comes back in — always an array with
+ * `success` and `message`, a failure for a host that cannot answer — against
+ * the real adapter wiring.
+ *
+ * They no longer assert elapsed time. A wall-clock bound on a shared runner
+ * measures the runner: these passed when run alone and failed under the
+ * four-way sharded functional run that gates every pull request, where the
+ * failure would have read as a provider regression on an unrelated change
+ * (#868). What that bound was really protecting — that an adapter which cannot
+ * connect produces a RESULT rather than an exception or a hang — is asserted in
+ * `Tests/Unit/Provider/ProviderAdapterRegistryTest.php` against an adapter
+ * double, where no socket and no clock are involved.
  */
 #[CoversClass(ProviderAdapterRegistry::class)]
 final class ProviderConnectionTest extends AbstractFunctionalTestCase
@@ -36,7 +46,7 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function testProviderConnectionReturnsWithinTimeout(): void
+    public function testProviderConnectionReturnsAResultShape(): void
     {
         $provider = new Provider();
         $provider->setIdentifier('test-ollama');
@@ -47,13 +57,8 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
-        $startTime = microtime(true);
         $result = $this->registry->testProviderConnection($provider);
-        $elapsed = microtime(true) - $startTime;
 
-        // Should return within timeout + small buffer, never hang
-        // Allow 15s to account for DNS resolution and network delays
-        self::assertLessThan(15, $elapsed, 'Connection test should not hang');
         // Result is always an array with 'success' and 'message' keys
         self::assertArrayHasKey('success', $result);
         self::assertArrayHasKey('message', $result);
@@ -73,13 +78,8 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
-        $startTime = microtime(true);
         $result = $this->registry->testProviderConnection($provider);
-        $elapsed = microtime(true) - $startTime;
 
-        // Should fail quickly, not hang
-        // Allow 15s to account for network delays and retries
-        self::assertLessThan(15, $elapsed, 'Connection test to unreachable host should not hang');
         self::assertFalse($result['success']);
         // Message should indicate connection failure (not API key issues)
         self::assertStringContainsString('fail', strtolower($result['message']));
@@ -98,12 +98,8 @@ final class ProviderConnectionTest extends AbstractFunctionalTestCase
         $provider->setMaxRetries(1); // No retries for connection tests
         $provider->setIsActive(true);
 
-        $startTime = microtime(true);
         $result = $this->registry->testProviderConnection($provider);
-        $elapsed = microtime(true) - $startTime;
 
-        // Should return within timeout, never hang forever
-        self::assertLessThan(10, $elapsed, 'Ollama with default endpoint should not hang');
         // Result is always an array - check that it has expected keys
         self::assertArrayHasKey('success', $result);
         self::assertArrayHasKey('message', $result);
