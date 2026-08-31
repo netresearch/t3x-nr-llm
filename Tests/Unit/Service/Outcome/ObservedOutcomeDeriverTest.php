@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Outcome;
 
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
-use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepositoryInterface;
 use Netresearch\NrLlm\Service\Outcome\ObservedOutcomeDeriver;
 use Netresearch\NrLlm\Service\Outcome\ObservedWrite;
 use Netresearch\NrLlm\Service\Outcome\WrittenRecordRepositoryInterface;
@@ -212,31 +211,8 @@ final class ObservedOutcomeDeriverTest extends TestCase
     /**
      * @param list<CallOutcome> $existing
      */
-    private function outcomes(array $existing = []): CallOutcomeRepositoryInterface
+    private function outcomes(array $existing = []): RecordingCallOutcomeRepository
     {
-        return new class ($existing) implements CallOutcomeRepositoryInterface {
-            /** @var list<CallOutcome> */
-            public array $recorded = [];
-
-            /**
-             * @param list<CallOutcome> $existing
-             */
-            public function __construct(private readonly array $existing) {}
-
-            public function record(string $correlationId, CallOutcome $outcome): void
-            {
-                $this->recorded[] = $outcome;
-            }
-
-            public function findByCorrelation(string $correlationId): array
-            {
-                return $this->existing;
-            }
-
-            public function purgeOlderThan(int $timestamp): int
-            {
-                return 0;
-            }
-        };
+        return new RecordingCallOutcomeRepository($existing);
     }
 }

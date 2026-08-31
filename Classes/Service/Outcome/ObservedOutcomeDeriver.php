@@ -95,16 +95,10 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
      */
     private function classify(ObservedWrite $write): CallOutcome
     {
-        if (!$this->writes->recordExists($write->record)) {
-            return CallOutcome::DISCARDED;
-        }
-
         $history = $this->writes->historyAfter($write->record, $write->writtenAt);
 
-        foreach ($history['later'] as $action) {
-            if ($this->writes->isDeletion($action)) {
-                return CallOutcome::DISCARDED;
-            }
+        if (!$this->writes->recordExists($write->record) || $this->wasDeleted($history['later'])) {
+            return CallOutcome::DISCARDED;
         }
 
         if (!$history['hasOwnRow']) {
@@ -117,6 +111,27 @@ final readonly class ObservedOutcomeDeriver implements SingletonInterface
         // fixed something unrelated on the same record. ADR-185 states that
         // limitation and names the measurement that would justify fixing it.
         return $history['later'] === [] ? CallOutcome::ACCEPTED_UNCHANGED : CallOutcome::EDITED;
+    }
+
+    /**
+     * Whether any of the later history rows is a deletion.
+     *
+     * Asked alongside the existence check rather than after it: a soft delete
+     * leaves the row in place, and a hard delete leaves no history. Neither
+     * alone recognises both, and DISCARDED is one answer, so it is one
+     * condition.
+     *
+     * @param list<int> $actions
+     */
+    private function wasDeleted(array $actions): bool
+    {
+        foreach ($actions as $action) {
+            if ($this->writes->isDeletion($action)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function alreadyObserved(string $correlationId): bool

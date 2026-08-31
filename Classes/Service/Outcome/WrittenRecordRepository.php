@@ -176,12 +176,37 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
      */
     private function writeFromRow(array $row): ?ObservedWrite
     {
-        $uuid = $row['uuid'] ?? null;
-        if (!is_string($uuid) || $uuid === '') {
+        $uuid    = $row['uuid'] ?? null;
+        $payload = $this->decodePayload($row['payload'] ?? null);
+        if (!is_string($uuid) || $uuid === '' || $payload === null) {
             return null;
         }
 
-        $payload = $row['payload'] ?? null;
+        $table = $payload['writeTargetTable'] ?? null;
+        $uid   = $payload['writeTargetUid'] ?? null;
+        if (!is_string($table) || !is_int($uid)) {
+            return null;
+        }
+
+        try {
+            // The reference validates its own table name and uid (ADR-182), so
+            // a hand-edited or truncated payload is refused here rather than
+            // becoming an outcome row pointing at nothing.
+            $record = new RecordReference($table, $uid);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return new ObservedWrite($uuid, $record, $this->toInt($row['crdate'] ?? null));
+    }
+
+    /**
+     * The step payload as an array, or null when it is not one.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function decodePayload(mixed $payload): ?array
+    {
         if (!is_string($payload)) {
             return null;
         }
@@ -192,23 +217,7 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             return null;
         }
 
-        if (!is_array($decoded)) {
-            return null;
-        }
-
-        $table = $decoded['writeTargetTable'] ?? null;
-        $uid   = $decoded['writeTargetUid'] ?? null;
-        if (!is_string($table) || !is_int($uid)) {
-            return null;
-        }
-
-        try {
-            $record = new RecordReference($table, $uid);
-        } catch (Throwable) {
-            return null;
-        }
-
-        return new ObservedWrite($uuid, $record, $this->toInt($row['crdate'] ?? null));
+        return is_array($decoded) ? $decoded : null;
     }
 
     /**
