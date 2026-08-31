@@ -50,7 +50,14 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
     ) {}
 
     /**
-     * Correlations with at least one settled write and no observed outcome yet.
+     * Correlations whose writes have ALL settled and that carry no observed
+     * outcome yet.
+     *
+     * `MAX(e.crdate)`, not "any write is old enough". A run's writes share a
+     * correlation id, the outcome is one row for the run, and the exclusion
+     * below then stops it being reconsidered — so selecting a run because its
+     * FIRST write settled would judge it while a later write was still inside
+     * its window, and that judgement would be final.
      *
      * The exclusion is a subquery rather than a filter in PHP, because a page
      * of the oldest writes that had all been answered would return the same
@@ -74,11 +81,14 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             ->innerJoin('e', self::TABLE_RUN, 'r', 'r.uid = e.run')
             ->where(
                 $query->expr()->eq('e.kind', $query->createNamedParameter(AgentEventKind::TOOL_WRITE->value)),
-                $query->expr()->lt('e.crdate', $query->createNamedParameter($timestamp, Connection::PARAM_INT)),
                 $query->expr()->neq('r.uuid', $query->createNamedParameter('')),
                 $query->expr()->notIn('r.uuid', $sub->getSQL()),
             )
             ->groupBy('r.uuid')
+            // Written out rather than built through `expr()`: the builder quotes
+            // the left-hand side as an identifier, and `MAX(e.crdate)` is an
+            // expression — SQLite answers "no such column: MAX(e.crdate)".
+            ->having('MAX(e.crdate) < ' . $query->createNamedParameter($timestamp, Connection::PARAM_INT))
             ->orderBy('r.uuid', 'ASC')
             ->setMaxResults($limit)
             ->executeQuery()
