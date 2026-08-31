@@ -171,6 +171,51 @@ final class ObservedOutcomeDeriverTest extends TestCase
     }
 
     /**
+     * The batch has to keep moving. A page of runs that were already answered
+     * used to be re-selected and skipped, so the command reported no work
+     * while later writes piled up behind it — the exclusion belongs in the
+     * query, and this asserts the deriver relies on it rather than filtering
+     * afterwards.
+     */
+    #[Test]
+    public function onlyTheRunsTheQueryOffersAreJudged(): void
+    {
+        $outcomes = $this->outcomes(['answered-run' => [CallOutcome::EDITED]]);
+        $writes   = new class implements WrittenRecordRepositoryInterface {
+            public function findUnansweredCorrelations(int $timestamp, int $limit): array
+            {
+                // The query is what excludes 'answered-run'; the deriver never
+                // sees it.
+                return ['fresh-run'];
+            }
+
+            public function findWritesForCorrelation(string $correlationId): array
+            {
+                return [new ObservedWrite($correlationId, new RecordReference('pages', 42), ObservedOutcomeDeriverTest::writtenAt())];
+            }
+
+            public function historyAfter(RecordReference $record, int $writtenAt): array
+            {
+                return ['later' => [], 'oldestRetained' => $writtenAt - 1];
+            }
+
+            public function recordExists(RecordReference $record): bool
+            {
+                return true;
+            }
+
+            public function isDeletion(int $actionType): bool
+            {
+                return $actionType === 4;
+            }
+        };
+
+        (new ObservedOutcomeDeriver($writes, $outcomes))->derive(7, self::WRITTEN_AT + 86400 * 30);
+
+        self::assertSame(['fresh-run' => [CallOutcome::ACCEPTED_UNCHANGED]], $outcomes->recordedBy);
+    }
+
+    /**
      * A run can call more than one write tool, and they share a correlation id
      * because that id is the run's uuid. Judging only the first would let a run
      * whose SECOND write was thrown away be recorded as accepted.
@@ -317,7 +362,7 @@ final class ObservedOutcomeDeriverTest extends TestCase
     }
 
     /**
-     * @param list<CallOutcome> $existing
+     * @param array<string, list<CallOutcome>> $existing what a previous derivation already wrote, per correlation
      */
     private function outcomes(array $existing = []): RecordingCallOutcomeRepository
     {

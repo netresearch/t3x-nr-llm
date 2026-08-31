@@ -246,6 +246,24 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
             return null;
         }
 
+        $record = $this->referenceFrom($payload);
+
+        return $record instanceof RecordReference
+            ? new ObservedWrite($uuid, $record, $this->toInt($row['crdate'] ?? null))
+            : null;
+    }
+
+    /**
+     * The record a step payload names, or null when it names none usable.
+     *
+     * The reference validates its own table name and uid (ADR-182), so a
+     * hand-edited or truncated payload is refused here rather than becoming an
+     * outcome row pointing at nothing.
+     *
+     * @param array<array-key, mixed> $payload
+     */
+    private function referenceFrom(array $payload): ?RecordReference
+    {
         $table = $payload['writeTargetTable'] ?? null;
         $uid   = $payload['writeTargetUid'] ?? null;
         if (!is_string($table) || !is_int($uid)) {
@@ -253,15 +271,10 @@ final readonly class WrittenRecordRepository implements WrittenRecordRepositoryI
         }
 
         try {
-            // The reference validates its own table name and uid (ADR-182), so
-            // a hand-edited or truncated payload is refused here rather than
-            // becoming an outcome row pointing at nothing.
-            $record = new RecordReference($table, $uid);
+            return new RecordReference($table, $uid);
         } catch (Throwable) {
             return null;
         }
-
-        return new ObservedWrite($uuid, $record, $this->toInt($row['crdate'] ?? null));
     }
 
     /**
