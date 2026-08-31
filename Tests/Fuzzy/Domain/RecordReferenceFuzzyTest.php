@@ -54,8 +54,8 @@ class RecordReferenceFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (int $uid): void {
                 try {
-                    new RecordReference('pages', $uid);
-                    $this->fail(sprintf('A reference was built for uid %d, which names no record.', $uid));
+                    $reference = new RecordReference('pages', $uid);
+                    $this->fail(sprintf('A reference was built as %s for uid %d, which names no record.', $reference, $uid));
                 } catch (InvalidArgumentException) {
                     $this->addToAssertionCount(1);
                 }
@@ -71,8 +71,8 @@ class RecordReferenceFuzzyTest extends AbstractFuzzyTestCase
             )
             ->then(function (string $table): void {
                 try {
-                    new RecordReference($table, 1);
-                    $this->fail('A reference was built for a table name that names no table.');
+                    $reference = new RecordReference($table, 1);
+                    $this->fail('A reference was built as ' . $reference . ' for a table name that names no table.');
                 } catch (InvalidArgumentException) {
                     $this->addToAssertionCount(1);
                 }

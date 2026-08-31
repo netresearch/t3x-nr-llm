@@ -42,7 +42,9 @@ final class RecordReferenceTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new RecordReference($table, $uid);
+        $reference = new RecordReference($table, $uid);
+
+        self::fail('A reference was built as ' . $reference . ', which names no record.');
     }
 
     /**
