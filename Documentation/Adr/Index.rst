@@ -567,3 +567,4 @@ Tools
    Adr182AWriteToolNamesTheRecordItWrote
    Adr183AiSectionExists
    Adr184ApprovalBindsToTheStateItShowed
+   Adr185ObservedOutcomeFromHistory

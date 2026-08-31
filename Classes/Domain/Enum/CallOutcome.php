@@ -37,12 +37,8 @@ enum CallOutcome: string
     case NOT_HELPFUL = 'not_helpful';
 
     /**
-     * The generated text reached a record and was released untouched.
-     *
-     * Not yet written by anything: the observed source needs a persisted write
-     * target, which ADR-176 records as blocked on ADR-122's deferred contract.
-     * The case is declared with its siblings so the source split has one home,
-     * and {@see self::isImplemented()} says which cases a writer exists for.
+     * The generated text reached a record and nothing changed it inside the
+     * observation window (ADR-185).
      */
     case ACCEPTED_UNCHANGED = 'accepted_unchanged';
 
@@ -56,23 +52,34 @@ enum CallOutcome: string
      */
     case DISCARDED = 'discarded';
 
+    /**
+     * The derivation ran and could not decide (ADR-185).
+     *
+     * A value rather than an absent row, because absence already means "the
+     * window has not closed yet". One storage state cannot hold both facts, and
+     * the difference is the whole point: `ACCEPTED_UNCHANGED` inferred from
+     * missing history would be this signal's most plausible lie.
+     */
+    case UNKNOWN = 'unknown';
+
     public function source(): CallOutcomeSource
     {
         return match ($this) {
             self::HELPFUL, self::NOT_HELPFUL => CallOutcomeSource::EXPLICIT,
-            self::ACCEPTED_UNCHANGED, self::EDITED, self::DISCARDED => CallOutcomeSource::OBSERVED,
+            self::ACCEPTED_UNCHANGED, self::EDITED, self::DISCARDED, self::UNKNOWN => CallOutcomeSource::OBSERVED,
         };
     }
 
     /**
      * Whether a writer for this case exists today.
      *
-     * False is not a defect. ADR-176 ships the explicit source first and the
-     * observed one with its prerequisite; this method is what keeps that
-     * statement checkable instead of a sentence in a record.
+     * True for every case since ADR-185 gave the observed source its deriver.
+     * The method stays because the question it answers is worth being able to
+     * ask in code: ADR-176 shipped the two sources apart, and a case declared
+     * ahead of its writer is a state this codebase has held before.
      */
     public function isImplemented(): bool
     {
-        return $this->source() === CallOutcomeSource::EXPLICIT;
+        return true;
     }
 }
