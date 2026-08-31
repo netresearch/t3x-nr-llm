@@ -68,15 +68,6 @@ use Throwable;
  */
 final readonly class ToolLoopService implements ToolLoopServiceInterface
 {
-    /**
-     * Bounds for a persisted tool preview (ADR-136). A preview goes into the
-     * encrypted suspended state and onto a card a human has to read, so it is
-     * capped like every other model-triggered payload in this loop.
-     */
-    private const PREVIEW_MAX_LINES = 20;
-
-    private const PREVIEW_MAX_LINE_LENGTH = 500;
-
     public function __construct(
         private LlmServiceManagerInterface $mgr,
         private ToolRegistry $registry,
@@ -640,6 +631,18 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
         $remoteCalls = new RemoteCallBudget();
 
+        // ADR-184: an approval is a decision about the state the preview showed.
+        // Checked for the WHOLE turn before any call runs — a turn is approved as
+        // one (ADR-132), and checking inside the loop below would let call one
+        // mutate before call two is found stale, which is a partial write against
+        // a state nobody approved.
+        if ($approved) {
+            $restale = $this->previewComparator()->compare($state, $pendingCalls, $offered, $context);
+            if ($restale instanceof SuspendedRunState) {
+                throw ToolApprovalRequiredException::fromState($restale);
+            }
+        }
+
         foreach ($pendingCalls as $call) {
             if (!$approved) {
                 $result = sprintf('Error: tool "%s" was denied by the operator.', $call->name);
@@ -984,31 +987,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
                 // Bounded before it is persisted: the state is encrypted, stored
                 // and re-read on every resume, and a preview is model-triggered
                 // output like any other.
-                'lines'  => $this->boundedPreviewLines($lines),
+                'lines'  => $this->previewComparator()->bound($lines),
                 'failed' => $failed,
             ];
         }
 
         return $previews;
-    }
-
-    /**
-     * @param list<string> $lines
-     *
-     * @return list<string>
-     */
-    private function boundedPreviewLines(array $lines): array
-    {
-        $bounded = [];
-        foreach (array_slice($lines, 0, self::PREVIEW_MAX_LINES) as $line) {
-            $bounded[] = mb_substr(trim(preg_replace('/\s+/u', ' ', $line) ?? $line), 0, self::PREVIEW_MAX_LINE_LENGTH);
-        }
-
-        if (count($lines) > self::PREVIEW_MAX_LINES) {
-            $bounded[] = sprintf('… and %d more line(s), not shown.', count($lines) - self::PREVIEW_MAX_LINES);
-        }
-
-        return $bounded;
     }
 
     /**
@@ -1142,6 +1126,18 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
             $this->bounder->content($result->content),
             $this->bounder->artifacts($result->artifacts),
         );
+    }
+
+    /**
+     * The ADR-184 comparator, built where it is used.
+     *
+     * Stateless and cheap, so it needs no constructor slot: this class already
+     * carries eleven collaborators, and a twelfth optional one would be a
+     * positional argument every lean test wiring has to skip past.
+     */
+    private function previewComparator(): ApprovalPreviewComparator
+    {
+        return new ApprovalPreviewComparator($this->registry, $this->logger);
     }
 
     /**

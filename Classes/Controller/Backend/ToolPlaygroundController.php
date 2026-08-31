@@ -567,7 +567,11 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
      * than what the call would do; a client that ignores the flag still shows a
      * line and never a blank.
      *
-     * @return list<array{name: string, arguments: array<string, mixed>, preview: array{lines: list<string>, failed: bool}}>
+     * `preview.stale` marks a call the run already refused once because its
+     * preview had moved (ADR-184): the lines are the CURRENT ones and the
+     * decision is being asked again.
+     *
+     * @return list<array{name: string, arguments: array<string, mixed>, preview: array{lines: list<string>, failed: bool, stale: bool}}>
      */
     private function pendingTools(AgentRunResult $result): array
     {
@@ -587,6 +591,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 'preview'   => [
                     'lines'  => $match ? $preview['lines'] : [],
                     'failed' => $match && $preview['failed'],
+                    'stale'  => $state instanceof SuspendedRunState && in_array($index, $state->staleCallIndexes, true),
                 ],
             ];
         }

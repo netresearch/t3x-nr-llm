@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -167,5 +168,119 @@ final class SuspendedRunStateTest extends TestCase
         ]);
 
         self::assertSame([41, 12], $restored->forcedSnippetUids);
+    }
+
+    /**
+     * ADR-184: the marker survives the round trip, so the card can say which
+     * call it is asking about a second time.
+     */
+    #[Test]
+    public function staleCallIndexesSurviveTheRoundTrip(): void
+    {
+        $state = new SuspendedRunState(
+            messages: [['role' => 'user', 'content' => 'go']],
+            pendingCalls: [['id' => 'c1', 'name' => 'attach_file', 'arguments' => []], ['id' => 'c2', 'name' => 'update_page', 'arguments' => []]],
+            iterations: 1,
+            promptTokens: 0,
+            completionTokens: 0,
+            staleCallIndexes: [1],
+        );
+
+        self::assertSame([1], SuspendedRunState::fromArray($state->toArray())->staleCallIndexes);
+    }
+
+    /**
+     * A state persisted before ADR-184 has no such key. It must rehydrate and
+     * resume, not refuse — a running installation has suspended runs, which is
+     * the same reason ADR-136's preview degrades rather than throws.
+     */
+    #[Test]
+    public function aStateWithoutStaleIndexesRehydratesWithNone(): void
+    {
+        $data = [
+            'messages'     => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls' => [['id' => 'c1', 'name' => 'attach_file', 'arguments' => []]],
+            'iterations'   => 1,
+        ];
+
+        self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * The indexes are translated onto the surviving pending calls, exactly as
+     * the previews are: rehydration drops an unusable call and renumbers the
+     * rest, so a stored index would otherwise mark whichever call moved into its
+     * place.
+     */
+    #[Test]
+    public function staleCallIndexesFollowTheirCallThroughRenumbering(): void
+    {
+        $data = [
+            'messages'     => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls' => [
+                // Not an array at all — the shape `listOfArrays()` drops, which
+                // is what renumbers the list.
+                'garbage',
+                ['id' => 'c2', 'name' => 'attach_file', 'arguments' => []],
+            ],
+            'iterations'        => 1,
+            // Position 1 in the stored list is the only usable call; after the
+            // corrupt entry is dropped it becomes position 0.
+            'staleCallIndexes'  => [1],
+        ];
+
+        self::assertSame([0], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * An index whose call did not survive is dropped rather than clamped: one
+     * notice fewer is a worse card, the wrong notice is a false statement.
+     */
+    #[Test]
+    public function aStaleIndexWithNoSurvivingCallIsDropped(): void
+    {
+        $data = [
+            'messages'         => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls'     => [['id' => 'c1', 'name' => 'attach_file', 'arguments' => []]],
+            'iterations'       => 1,
+            'staleCallIndexes' => [7, 'nonsense', -1],
+        ];
+
+        self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * A position is an integer, not "anything `is_numeric()` will take". That
+     * function accepts `0.9` and `1e2`, and the cast behind it turns the first
+     * into `0` — a valid index naming a call the stored value never named. A
+     * marker on the wrong call is a false statement to the approver, so a
+     * malformed value is dropped instead of rounded.
+     */
+    #[Test]
+    #[DataProvider('valuesThatAreNotPositions')]
+    public function aStaleIndexThatIsNotAWholeNumberIsDropped(mixed $stored): void
+    {
+        $data = [
+            'messages'         => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls'     => [['id' => 'c1', 'name' => 'attach_file', 'arguments' => []]],
+            'iterations'       => 1,
+            'staleCallIndexes' => [$stored],
+        ];
+
+        self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function valuesThatAreNotPositions(): iterable
+    {
+        yield 'fraction below one'  => [0.9];
+        yield 'fraction as string'  => ['0.9'];
+        yield 'exponent notation'   => ['1e2'];
+        yield 'leading whitespace'  => [' 0'];
+        yield 'hex string'          => ['0x0'];
+        yield 'boolean'             => [true];
+        yield 'null'                => [null];
     }
 }

@@ -3910,8 +3910,12 @@
                 <target>Keine Vorschau — Sie entscheiden ohne sie</target>
             </trans-unit>
             <trans-unit id="runs.previewCapturedAtPause">
-                <source>Captured when the run paused — the target may have changed since.</source>
-                <target>Beim Pausieren des Laufs erstellt — das Ziel kann sich seitdem geändert haben.</target>
+                <source>Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again.</source>
+                <target>Beim Pausieren des Laufs erstellt. Ändert sich der Datensatz vor Ihrer Freigabe, wird nichts geschrieben und Sie werden erneut gefragt.</target>
+            </trans-unit>
+            <trans-unit id="runs.previewStale">
+                <source>This record changed after the preview you approved, so nothing was written. What follows is its current state — please review it again.</source>
+                <target>Dieser Datensatz hat sich nach der von Ihnen freigegebenen Vorschau geändert, deshalb wurde nichts geschrieben. Es folgt sein aktueller Stand — bitte prüfen Sie ihn erneut.</target>
             </trans-unit>
             <trans-unit id="runs.arguments">
                 <source>Arguments</source>

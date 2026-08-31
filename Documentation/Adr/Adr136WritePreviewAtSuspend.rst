@@ -6,9 +6,11 @@
 ADR-136: The write preview is produced when the run suspends
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its staleness section is overturned — see
+    :ref:`ADR-184 <adr-184>`)
 :Date: 2026-08-09
 :Amends: :ref:`ADR-122 <adr-122>` (the deferred preview)
+:Amended: 2026-08-31 by :ref:`ADR-184 <adr-184>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-136-context:
@@ -98,8 +100,19 @@ to the log, where the operator can already read credentials they own.
 What if the target changed between preview and execution
 =========================================================
 
+.. note::
+
+   **Overturned by** :ref:`ADR-184 <adr-184>` **on 2026-08-31.** The trigger
+   this section names below — a writing tool whose change is RELATIVE — arrived
+   ten days after this record: ``attach_file_to_content_element`` appends, and
+   its own preview line is an operand of the write rather than decoration on
+   it. The
+   reasoning here is kept because it is why the fence was not built earlier, and
+   because ADR-184 answers it rather than ignoring it. What is no longer true is
+   the conclusion.
+
 **The preview is a snapshot of the pause, not a precondition for the write. A
-target that changed in between does not block the approval.** The card says so,
+target that changed in between does not block the approval.** The card said so,
 in as many words: *"Captured when the run paused — the target may have changed
 since."*
 
@@ -130,11 +143,15 @@ overwrite each other, last write wins. A tool that a human explicitly approved
 is not the place to invent an optimistic-locking regime the rest of the system
 does not have.
 
-**Revisit when a writing tool writes a RELATIVE change.** An append, an
-increment, a "remove the third paragraph" — for those, the "before" is not
-decoration, it is an operand, and a snapshot stops being sufficient. That tool
-needs a precondition token; this one does not, and building the token first
-would be ADR-122's mistake repeated.
+**Revisit when a writing tool writes a RELATIVE change** — DISCHARGED on
+2026-08-31. An append, an increment, a "remove the third paragraph" — for those,
+the "before" is not decoration, it is an operand, and a snapshot stops being
+sufficient. That tool needs a precondition token; this one does not, and
+building the token first would be ADR-122's mistake repeated.
+
+   The tool arrived on 2026-08-21 and the token was built:
+   :ref:`ADR-184 <adr-184>`. Every paragraph above this one is why the fence was
+   not built sooner, not advice to defer it again.
 
 .. _adr-136-disclosure:
 
