@@ -47,6 +47,7 @@ final readonly class SuspendedRunState
      * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews      what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
      * @param list<int>                                                                $forcedSnippetUids the run's per-run forced snippets, so resume re-applies the ADR-164 ceiling to them (ADR-165); `[]` for a run that forced none
      * @param list<int>                                                                $forcedSkillUids   the run's per-run forced skills, same reason
+     * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
      */
     public function __construct(
         public array $messages,
@@ -61,10 +62,11 @@ final readonly class SuspendedRunState
         public array $callPreviews = [],
         public array $forcedSnippetUids = [],
         public array $forcedSkillUids = [],
+        public array $staleCallIndexes = [],
     ) {}
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>}
      */
     public function toArray(): array
     {
@@ -81,6 +83,7 @@ final readonly class SuspendedRunState
             'callPreviews'     => $this->callPreviews,
             'forcedSnippetUids' => $this->forcedSnippetUids,
             'forcedSkillUids'   => $this->forcedSkillUids,
+            'staleCallIndexes'  => $this->staleCallIndexes,
         ];
     }
 
@@ -131,6 +134,11 @@ final readonly class SuspendedRunState
             // never a reason to refuse the resume.
             self::uidsFrom($data['forcedSnippetUids'] ?? null),
             self::uidsFrom($data['forcedSkillUids'] ?? null),
+            // ADR-184. Translated onto the surviving pending calls for the same
+            // reason the previews are: rehydration renumbers the list, and an
+            // index that moved would mark the wrong call as stale. An index
+            // whose call did not survive is dropped rather than clamped.
+            self::staleFrom($data['staleCallIndexes'] ?? null, self::survivingIndexMap($rawPendingCalls)),
         );
     }
 
@@ -253,6 +261,43 @@ final readonly class SuspendedRunState
         }
 
         return $previews;
+    }
+
+    /**
+     * The persisted stale-call indexes, translated onto the surviving pending
+     * calls (ADR-184).
+     *
+     * Same treatment as the previews above and for the same reason: rehydration
+     * drops unusable pending calls and renumbers the rest, so a stored index
+     * would otherwise mark the call that moved into its place. An index with no
+     * survivor is dropped — the card then shows one fewer notice, never the
+     * wrong one.
+     *
+     * @param array<int, int> $indexMap
+     *
+     * @return list<int>
+     */
+    private static function staleFrom(mixed $value, array $indexMap): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $indexes = [];
+        foreach ($value as $entry) {
+            if (!is_numeric($entry)) {
+                continue;
+            }
+
+            $index = $indexMap[(int)$entry] ?? null;
+            if ($index === null) {
+                continue;
+            }
+
+            $indexes[] = $index;
+        }
+
+        return array_values(array_unique($indexes));
     }
 
     /**

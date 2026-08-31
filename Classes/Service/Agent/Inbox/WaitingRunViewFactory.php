@@ -197,6 +197,11 @@ final readonly class WaitingRunViewFactory
                 toolStillRegistered: $tool instanceof ToolInterface,
                 previewLines: $previewLines,
                 previewFailed: $previewFailed,
+                // ADR-184: this call was already approved once and refused
+                // because its preview had moved. The lines above are the state
+                // now, and the card has to say so or the approver re-reads what
+                // looks like the same card.
+                previewStale: in_array($index, $state->staleCallIndexes, true),
             );
         }
 

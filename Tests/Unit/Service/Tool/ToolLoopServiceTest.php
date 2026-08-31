@@ -70,6 +70,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\PreviewingApprovalTool;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ShiftingPreviewTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -2825,5 +2826,275 @@ final class ToolLoopServiceTest extends TestCase
         $kinds = array_map(static fn(RunStep $step): string => $step->kind, $runTrace->getSteps());
 
         self::assertNotContains(RunStep::KIND_WRITE, $kinds);
+    }
+
+    /**
+     * ADR-184. The approver saw "2 reference(s) → 3"; by the time they pressed
+     * approve the list held one more. The write must not happen, and the run
+     * must come back with the CURRENT picture rather than the one that aged.
+     */
+    #[Test]
+    public function anApprovedCallWhoseSubjectMovedIsRefusedAndReSuspended(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn(
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+        );
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state = $this->suspend($service);
+        self::assertSame(['2 reference(s) → 3, appended last'], $state->callPreviews[0]['lines']);
+
+        // Somebody else attaches a file while the approval waits.
+        $tool->lines = ['3 reference(s) → 4, appended last'];
+
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('The approval was honoured against a subject that had moved.');
+        } catch (ToolApprovalRequiredException $again) {
+            self::assertSame(0, $tool->executions, 'Nothing may be written when the subject moved.');
+            self::assertSame([0], $again->state->staleCallIndexes);
+            self::assertSame(['3 reference(s) → 4, appended last'], $again->state->callPreviews[0]['lines'], 'The card must show the state now, not the state then.');
+            // The turn itself is untouched: same call, same transcript, so the
+            // approver decides the same thing against a fresh picture.
+            self::assertSame($state->pendingCalls, $again->state->pendingCalls);
+            self::assertSame($state->messages, $again->state->messages);
+        }
+    }
+
+    /**
+     * The other half of the rule, and the one that keeps the loop terminating:
+     * an unchanged subject executes exactly as before ADR-184.
+     */
+    #[Test]
+    public function anApprovedCallWhoseSubjectHeldStillExecutes(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $result = $service->resume($this->suspend($service), true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame(1, $tool->executions);
+        self::assertSame('done', $result->finalContent);
+    }
+
+    /**
+     * The bounce must not become permanent. The stale notice is a field on the
+     * state, never a preview line — a line would join the next comparison, and a
+     * second approval against an unchanged record would then find it missing and
+     * bounce again, forever.
+     */
+    #[Test]
+    public function aReApprovedCallExecutesWhenTheSubjectHoldsStillTheSecondTime(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state       = $this->suspend($service);
+        $tool->lines = ['3 reference(s) → 4, appended last'];
+
+        $second = null;
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+        } catch (ToolApprovalRequiredException $again) {
+            $second = $again->state;
+        }
+
+        self::assertInstanceOf(SuspendedRunState::class, $second);
+
+        $result = $service->resume($second, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame(1, $tool->executions);
+        self::assertSame('done', $result->finalContent);
+    }
+
+    /**
+     * A preview that failed at suspend showed nothing, so there is nothing for
+     * the approval to be a decision about. Binding it would bind the approver to
+     * the shape of an exception message.
+     */
+    #[Test]
+    public function aPreviewThatFailedAtSuspendBindsNothing(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'delete_thing', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([new PreviewingApprovalTool('delete_thing', throw: true)]));
+
+        $state = $this->suspend($service);
+        self::assertTrue($state->callPreviews[0]['failed']);
+
+        $result = $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame('done', $result->finalContent);
+    }
+
+    /**
+     * The opposite direction. Something WAS shown and can no longer be compared,
+     * so the answer is unknown — and unknown is not equality.
+     */
+    #[Test]
+    public function aReviewThatCannotBeRecomputedAtResumeRefuses(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn(
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+        );
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state                = $this->suspend($service);
+        $tool->throwOnPreview = true;
+
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('A call whose preview could not be recomputed was executed anyway.');
+        } catch (ToolApprovalRequiredException $again) {
+            self::assertSame(0, $tool->executions);
+            self::assertSame([0], $again->state->staleCallIndexes);
+            self::assertTrue($again->state->callPreviews[0]['failed']);
+            // The exception BODY never reaches the persisted state — it may carry
+            // credentials, exactly as in invoke() and previewsForTurn().
+            self::assertStringNotContainsString('the record vanished', implode(' ', $again->state->callPreviews[0]['lines']));
+        }
+    }
+
+    /**
+     * A tool that offers no preview keeps the behaviour it had: nothing was
+     * shown, so nothing binds.
+     */
+    #[Test]
+    public function aCallWithNoPreviewAtAllIsUnaffected(): void
+    {
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'delete_thing', [])], 5, 2),
+            $this->response('deleted and done', null, 3, 4),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$this->approvalTool()]));
+
+        $state = $this->suspend($service);
+        self::assertSame([], $state->callPreviews);
+
+        $result = $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame('deleted and done', $result->finalContent);
+    }
+
+    /**
+     * Both sides of the comparison are bounded the same way, so a preview that
+     * overflowed its cap does not stale on its own overflow marker.
+     */
+    #[Test]
+    public function anOverflowingPreviewDoesNotStaleOnItsOwnMarker(): void
+    {
+        $lines = [];
+        for ($i = 0; $i < 25; ++$i) {
+            $lines[] = 'line ' . $i;
+        }
+
+        $tool = new ShiftingPreviewTool('attach_file', $lines);
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $result = $service->resume($this->suspend($service), true, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame(1, $tool->executions);
+        self::assertSame('done', $result->finalContent);
+    }
+
+    /**
+     * ADR-083: the re-preview reads under the RUN's actor, never the approver's.
+     * The resume path hands it the same context the imminent execute() gets.
+     */
+    #[Test]
+    public function theRePreviewRunsWithTheContextTheExecutionWouldGet(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('done'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state  = $this->suspend($service);
+        $resume = ToolExecutionContext::none();
+        $service->resume($state, true, $this->localConfiguration(), $resume);
+
+        self::assertCount(2, $tool->previewContexts, 'once at suspend, once at resume');
+        self::assertSame($resume, $tool->previewContexts[1]);
+    }
+
+    /**
+     * A turn is approved as one (ADR-132), so one stale call refuses the whole
+     * turn. Checking inside the execution loop would let the first call mutate
+     * before the second was found stale.
+     */
+    #[Test]
+    public function oneStaleCallRefusesTheWholeTurn(): void
+    {
+        $moving = new ShiftingPreviewTool('attach_file');
+        $steady = new ShiftingPreviewTool('update_page', ['title stays']);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', 'update_page', ['uid' => 1]),
+            new ToolCall('call_2', 'attach_file', ['uid' => 7]),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$moving, $steady]));
+
+        $state        = $this->suspend($service);
+        $moving->lines = ['3 reference(s) → 4, appended last'];
+
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('A turn with a stale call executed anyway.');
+        } catch (ToolApprovalRequiredException $again) {
+            self::assertSame(0, $steady->executions, 'The unaffected call must not run either.');
+            self::assertSame(0, $moving->executions);
+            self::assertSame([1], $again->state->staleCallIndexes, 'Only the call that moved is marked.');
+        }
+    }
+
+    /**
+     * A denial is not a write, so it is not fenced: the run must be able to end
+     * even when the world moved under it.
+     */
+    #[Test]
+    public function aDenialIsNotFenced(): void
+    {
+        $tool = new ShiftingPreviewTool('attach_file');
+        $mgr  = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback([
+            $this->response('', [new ToolCall('call_1', 'attach_file', ['uid' => 7])]),
+            $this->response('understood'),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$tool]));
+
+        $state       = $this->suspend($service);
+        $tool->lines = ['3 reference(s) → 4, appended last'];
+
+        $result = $service->resume($state, false, $this->localConfiguration(), ToolExecutionContext::none());
+
+        self::assertSame(0, $tool->executions);
+        self::assertSame('understood', $result->finalContent);
     }
 }

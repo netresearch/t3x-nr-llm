@@ -21,6 +21,10 @@ namespace Netresearch\NrLlm\Service\Agent\Inbox;
  *
  * `$previewLines` is what the tool said this call WOULD do, captured when the
  * run suspended (ADR-136) — empty for a tool that declares no preview.
+ * `$previewStale` marks a call whose preview no longer matched the record when
+ * the run was resumed (ADR-184): the approval was refused without writing, the
+ * lines below are the CURRENT ones, and the decision is being asked again.
+ *
  * `$previewFailed` marks the lines as the REASON no preview exists rather than
  * the preview itself, so the card can say the decision is being made blind
  * instead of quietly showing nothing.
@@ -36,5 +40,6 @@ final readonly class PendingCallView
         public bool $toolStillRegistered,
         public array $previewLines = [],
         public bool $previewFailed = false,
+        public bool $previewStale = false,
     ) {}
 }

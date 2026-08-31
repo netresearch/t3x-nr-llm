@@ -75,6 +75,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
      */
     private const PREVIEW_MAX_LINES = 20;
 
+    /**
+     * Shown when the tool that produced a persisted preview can no longer be
+     * asked what it would do (ADR-184).
+     */
+    private const PREVIEW_UNAVAILABLE = 'This tool is no longer available, so what the call would do now cannot be compared with what you were shown.';
+
     private const PREVIEW_MAX_LINE_LENGTH = 500;
 
     public function __construct(
@@ -640,6 +646,18 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $offered     = $this->resolveOfferedNames($state->allowedToolNames, $configuration, $context);
         $remoteCalls = new RemoteCallBudget();
 
+        // ADR-184: an approval is a decision about the state the preview showed.
+        // Checked for the WHOLE turn before any call runs — a turn is approved as
+        // one (ADR-132), and checking inside the loop below would let call one
+        // mutate before call two is found stale, which is a partial write against
+        // a state nobody approved.
+        if ($approved) {
+            $refreshed = $this->refreshedPreviews($state, $pendingCalls, $offered, $context);
+            if ($refreshed !== null) {
+                throw ToolApprovalRequiredException::fromState($this->restaleState($state, $refreshed));
+            }
+        }
+
         foreach ($pendingCalls as $call) {
             if (!$approved) {
                 $result = sprintf('Error: tool "%s" was denied by the operator.', $call->name);
@@ -990,6 +1008,133 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         }
 
         return $previews;
+    }
+
+    /**
+     * Re-run the previews of an approved turn and report whether any of them
+     * moved (ADR-184).
+     *
+     * Returns null when every call still shows what the approver was shown — the
+     * normal case, and the only one that executes. Otherwise it returns the
+     * FRESH previews plus the indexes that changed, which the caller turns into
+     * a second suspension.
+     *
+     * The comparison is line-for-line against what {@see previewsForTurn()}
+     * persisted, bounded the same way on both sides so a preview that overflowed
+     * its cap does not stale on its own overflow marker. It reads only the lines,
+     * which is the whole rule: a field the preview never displayed can change
+     * freely, because the approver never reasoned about it.
+     *
+     * Three cases deliberately do NOT bind:
+     *
+     * - A call with no persisted preview. Nothing was shown, so there is nothing
+     *   to be a decision about — a tool without {@see ToolPreviewInterface}
+     *   keeps exactly the behaviour it had.
+     * - A preview that FAILED at suspend. The card told the approver they were
+     *   deciding blind; binding them to a failure message would be binding them
+     *   to the shape of an exception.
+     * - A call that is no longer offered. The resume loop refuses it below on
+     *   its own terms, and re-previewing a tool the run may not call would read
+     *   under an authority the run no longer has.
+     *
+     * A re-preview that THROWS is the opposite case: something WAS shown and can
+     * no longer be compared. Unknown is not equality, so it stales.
+     *
+     * @param list<ToolCall> $calls
+     * @param list<string>   $offered
+     *
+     * @return array{previews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, stale: list<int>}|null
+     */
+    private function refreshedPreviews(SuspendedRunState $state, array $calls, array $offered, ToolExecutionContext $context): ?array
+    {
+        $shown = [];
+        foreach ($state->callPreviews as $preview) {
+            if ($preview['failed']) {
+                continue;
+            }
+
+            $shown[$preview['index']] = $preview;
+        }
+
+        if ($shown === []) {
+            return null;
+        }
+
+        $previews = [];
+        $stale    = [];
+        foreach ($calls as $index => $call) {
+            $before = $shown[$index] ?? null;
+            if ($before === null || !in_array($call->name, $offered, true)) {
+                continue;
+            }
+
+            $tool = $this->registry->get($call->name);
+            if (!$tool instanceof ToolPreviewInterface) {
+                // The tool was replaced or unregistered while the run waited.
+                // Nothing can answer what it would do now, so the approval
+                // cannot be honoured against a preview only the old tool
+                // produced.
+                $stale[]    = $index;
+                $previews[] = ['index' => $index, 'tool' => $call->name, 'lines' => [self::PREVIEW_UNAVAILABLE], 'failed' => true];
+
+                continue;
+            }
+
+            try {
+                $lines = $this->boundedPreviewLines(array_values(array_filter($tool->previewCall($call->arguments, $context), is_string(...))));
+            } catch (Throwable $e) {
+                $this->logger?->warning('Re-preview failed at resume; the approval is refused rather than executed blind.', ['tool' => $call->name, 'exception' => $e]);
+                $stale[]    = $index;
+                $previews[] = ['index' => $index, 'tool' => $call->name, 'lines' => [sprintf('The preview for this call failed (%s), so what it would do now cannot be compared with what you were shown.', $e::class)], 'failed' => true];
+
+                continue;
+            }
+
+            if ($lines === []) {
+                $lines = ['The tool produced no preview for this call.'];
+            }
+
+            $previews[] = ['index' => $index, 'tool' => $call->name, 'lines' => $lines, 'failed' => false];
+            if ($lines !== $before['lines']) {
+                $stale[] = $index;
+            }
+        }
+
+        return $stale === [] ? null : ['previews' => $previews, 'stale' => $stale];
+    }
+
+    /**
+     * The same suspension again, carrying the CURRENT previews and the calls
+     * that moved (ADR-184).
+     *
+     * Everything else is the state as it was: same transcript, same pending
+     * calls, same allow-list, same options, same counters. The approver decides
+     * the same turn a second time, against a picture that is no longer stale.
+     *
+     * The stale marker is a field of its own rather than an extra preview line,
+     * and that is load-bearing: a notice inside the lines would join the next
+     * comparison, so a second approval against an unchanged record would find it
+     * missing and bounce again, forever.
+     *
+     * @param array{previews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, stale: list<int>} $refreshed
+     */
+    private function restaleState(SuspendedRunState $state, array $refreshed): SuspendedRunState
+    {
+        return new SuspendedRunState(
+            $state->messages,
+            $state->pendingCalls,
+            $state->iterations,
+            $state->promptTokens,
+            $state->completionTokens,
+            $state->allowedToolNames,
+            $state->options,
+            $state->inputToolName,
+            $state->inputSchema,
+            $refreshed['previews'],
+            $state->forcedSnippetUids,
+            $state->forcedSkillUids,
+            $refreshed['stale'],
+        );
     }
 
     /**

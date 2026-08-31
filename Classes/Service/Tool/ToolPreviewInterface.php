@@ -29,9 +29,15 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *
  * Contract for implementors:
  *
- * - The lines describe INTENT. They are a snapshot of the moment the run paused,
- *   not a reservation: nothing prevents a human from editing the same record
- *   before the approval lands (ADR-136).
+ * - The lines describe INTENT, and since ADR-184 they are also the RESERVATION:
+ *   the loop re-runs this method when the run resumes and refuses the approved
+ *   call if the lines no longer match the ones the approver was shown. ADR-136
+ *   said the opposite and named what would reopen it — a tool whose write is a
+ *   relative change, where the "before" is an operand rather than decoration.
+ * - **A preview must therefore be a pure function of the subject's state and the
+ *   arguments.** A line carrying a clock, a random value or an unstable ordering
+ *   makes every approval of that tool stale on the first resume, forever, and
+ *   nothing else will report why.
  * - A refusal is a legitimate preview. A call the tool would reject should say
  *   so — that is exactly what the approver needs to know.
  * - Return at most a handful of short lines. The loop truncates and caps what it

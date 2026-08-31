@@ -2944,7 +2944,10 @@
                 <source>No preview — you are deciding without one</source>
             </trans-unit>
             <trans-unit id="runs.previewCapturedAtPause">
-                <source>Captured when the run paused — the target may have changed since.</source>
+                <source>Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again.</source>
+            </trans-unit>
+            <trans-unit id="runs.previewStale">
+                <source>This record changed after the preview you approved, so nothing was written. What follows is its current state — please review it again.</source>
             </trans-unit>
             <trans-unit id="runs.approve">
                 <source>Approve</source>

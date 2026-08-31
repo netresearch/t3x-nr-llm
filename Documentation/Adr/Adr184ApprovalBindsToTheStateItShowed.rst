@@ -6,8 +6,10 @@
 ADR-184: An approval binds to the state the preview showed
 ============================================================================
 
-:Status: Proposed
+:Status: Accepted
 :Date: 2026-08-31
+:Amends: :ref:`ADR-136 <adr-136>` (its staleness section, answered the
+    other way)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-184-context:
@@ -45,30 +47,54 @@ Decision
 **A run that resumes writes against the state its approver was shown, or it
 does not write.**
 
-At suspend, alongside the preview lines :ref:`ADR-136 <adr-136>` already
-persists, the loop stores what the preview was computed FROM: the identity of
-the subject and a fingerprint of the values that were displayed. At resume,
-before the approved call executes, the subject is re-read and the fingerprint
-recomputed. Equal, and the call runs exactly as today. Different, and **no
-mutation happens at all**: the run produces a distinct stale outcome, a fresh
-preview is built from the current state, and the run suspends for approval
-again.
+**The persisted preview is the binding.** This record was proposed with an
+identity-plus-fingerprint pair; reading the code settled it more simply.
+:php:`SuspendedRunState::$callPreviews` already holds the bounded lines every
+previewing tool produced at suspend, so nothing new is stored. At resume, before
+the approved call executes, the loop re-runs :php:`previewCall()`, bounds the
+result the same way, and compares it with what the approver was shown. Equal,
+and the call runs exactly as today. Different, and **no mutation happens at
+all**: the run suspends for approval again carrying the CURRENT preview and the
+indexes of the calls that moved.
 
-**The fingerprint covers what was shown, not the record.** Not ``tstamp``: a
-hook moves it without touching a relevant field, and a FAL or relation write is
-not covered by a record timestamp at all. An edit to a field the preview never
-displayed does not block — that would fence the approval on state nobody
-reasoned about, which is the failure ADR-136 rightly refused.
+That is the literal form of this record's title — the lines ARE what was shown —
+and it needs no hash, no new persisted fact, no state migration and no second
+contract on tools.
 
-**Workspace and language are part of the identity, not of the fingerprint.** A
-subject read in a different workspace or language is a different subject, not a
-changed one.
+**Only what was displayed counts.** Not ``tstamp``: a hook moves it without
+touching a relevant field, and a FAL or relation write is not covered by a
+record timestamp at all. An edit to a field the preview never displayed does not
+block — that would fence the approval on state nobody reasoned about, which is
+the failure ADR-136 rightly refused. The same applies to the part of a value
+beyond the 120-character excerpt the card renders: the excerpt was what was
+shown, and the fence binds what was shown.
 
-**The check lives in the shared approval path.** A tool contributes the subject
-it can name; it does not compute a hash, compare one, or decide what happens
-when the comparison fails. That is the runtime's job, once, for every tool —
-the same reason :ref:`ADR-136 <adr-136>` put preview production in the loop
-rather than in each tool.
+**A different subject arrives as a changed preview.** The proposal kept identity
+(workspace, language) apart from the fingerprint. Under line comparison it does
+not need to be: a call whose record was deleted, or which now reads in another
+workspace or language, gets the tool's own neutral refusal string as its new
+preview, so the mismatch surfaces with the tool's own explanation rather than a
+generic identity error. There is no second vocabulary to maintain.
+
+**The check lives in the shared approval path, and covers the whole turn.** No
+tool computes, compares or decides anything. And every pending call is checked
+before ANY of them executes: a turn is approved as one
+(:ref:`ADR-132 <adr-132>`), so checking inside the execution loop would let the
+first call mutate before the second was found stale.
+
+**Two cases deliberately do not bind.** A call with no preview — nothing was
+shown, so there is nothing for the approval to be a decision about, and a tool
+without :php:`ToolPreviewInterface` keeps exactly the behaviour it had. And a
+preview that FAILED at suspend: the card told the approver they were deciding
+blind, and binding them to the text of an exception would bind them to nothing
+useful. The opposite case is not symmetric — a re-preview that throws at resume
+means something WAS shown and can no longer be compared, so it refuses.
+
+**A preview must be deterministic, and that is now a written contract.** A line
+carrying a clock, a random value or an unstable ordering would stale every
+approval of that tool forever. :php:`ToolPreviewInterface` says so; the seven
+current writers were checked and none reads such a source inside
+:php:`previewCall()`.
 
 .. _adr-184-repair:
 
@@ -128,22 +154,27 @@ Consequences
   divergence, so it can be counted instead of guessed at.
 - ⚠️ An approval can now bounce back to the approver. That is new, and the card
   has to say why in words an editor understands.
-- ⚠️ :php:`SuspendedRunState` grows a field. It degrades the way ADR-136's
-  preview does: a suspended run persisted before this record carries no subject,
-  and resumes exactly as it does today rather than being refused.
-- ⚠️ Every writer that wants the guarantee has to name its subject. One that
-  names none keeps today's behaviour, which is the honest default — a tool
-  cannot be made safe by a runtime that does not know what it reads.
+- ⚠️ :php:`SuspendedRunState` grows one field — the indexes of the calls whose
+  preview moved — so the card can mark them. It degrades to ``[]`` the way
+  ADR-136's preview degrades to "no preview". The notice is a field rather than
+  an extra preview LINE on purpose: a line would join the next comparison, and a
+  second approval against an unchanged record would then find it missing and
+  bounce again, forever.
+- ✅ Every previewing writer gains the guarantee without any per-tool work, which
+  is more than this record promised when it was proposed. All seven writers
+  implement :php:`ToolPreviewInterface` today.
+- ⚠️ Runs suspended before this shipped are fenced too: they already carry
+  previews, so there is nothing to migrate and no reason to exempt them. Safe
+  because refusing is not a dead end here.
 
 .. _adr-184-revisit:
 
 Revisit when
 ============
 
-- **A tool's subject is not one record.** The append already reads a LIST to
-  decide where the new row lands; a writer whose operand spans several records
-  makes the subject a set, and the fingerprint has to say what a partial change
-  means.
+- **A preview stops being a faithful proxy for the subject.** The binding is
+  only as good as what the lines show; a tool that previews less than it writes
+  narrows the fence without saying so.
 - **The bounce becomes common.** If approvals start re-suspending routinely, the
   answer is not a weaker fingerprint but a shorter path from preview to
   decision.
