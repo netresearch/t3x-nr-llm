@@ -18,6 +18,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The two OpenRouter capability filters declare their return type.** `rector/rector` 2.6.3 proposes `: false` for both — wrong about the expression, and fatal if applied: a callback declared `: false` makes `array_filter()` discard every model. The repository does not commit `composer.lock`, so CI resolves afresh and picked the new release up without anything here moving; the scheduled `main` run skips the Rector job, so it surfaced only inside a pull request and read as that pull request's fault. `: bool` is what the array shape already documents (`capabilities: array<string, bool>`), it matches the sibling filter three lines above, and it leaves the rule nothing to infer (#898).
+
 - **The `tx_nrllm_skill.identifier` index is actually created now** — its definition carried a column prefix length, `KEY identifier (identifier(191))`, which the TYPO3 Database Schema Analyzer rejects, so installs silently ran without the index. The prefix length was a legacy workaround for the 767-byte InnoDB limit; on the MariaDB 10.4+/MySQL 8.0+ floor TYPO3 v13 already requires, a full-column utf8mb4 index on `varchar(512)` (2048 bytes) fits within the 3072-byte DYNAMIC-row limit, so the definition now matches the sibling tables: `KEY identifier (identifier)`.
 
 ## [0.33.0] - 2026-08-21

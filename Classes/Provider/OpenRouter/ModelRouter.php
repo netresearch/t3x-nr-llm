@@ -130,7 +130,7 @@ final readonly class ModelRouter
         if ($this->getBool($options, 'vision_required')) {
             $filtered = array_filter(
                 $filtered,
-                static fn(array $model) => $model['capabilities']['vision'] ?? false,
+                static fn(array $model): bool => $model['capabilities']['vision'] ?? false,
             );
         }
 
@@ -138,7 +138,7 @@ final readonly class ModelRouter
         if ($this->getBool($options, 'function_calling')) {
             return array_filter(
                 $filtered,
-                static fn(array $model) => $model['capabilities']['function_calling'] ?? false,
+                static fn(array $model): bool => $model['capabilities']['function_calling'] ?? false,
             );
         }
 
