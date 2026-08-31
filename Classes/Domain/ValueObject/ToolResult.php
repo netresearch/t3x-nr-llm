@@ -102,7 +102,11 @@ final readonly class ToolResult
     public function withBoundedChannels(string $content, array $artifacts): self
     {
         if ($this->isError) {
-            return new self($content, true, [], null);
+            // No artifacts and — by the constructor's own default — no write
+            // target either. Spelling the null out is redundant and Rector says
+            // so; what matters is that the branch exists here rather than at
+            // the call site.
+            return new self($content, true, []);
         }
 
         return new self($content, false, $artifacts, $this->writeTarget);
