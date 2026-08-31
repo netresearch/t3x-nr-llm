@@ -15,7 +15,6 @@ use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
-use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -53,7 +52,7 @@ final class ShiftingPreviewTool implements ToolInterface, RequiresApprovalInterf
         $this->previewContexts[] = $context;
 
         if ($this->throwOnPreview) {
-            throw new RuntimeException('the record vanished', 1788154900);
+            throw new PreviewFailedException('the record vanished', 1788154900);
         }
 
         return $this->lines;
