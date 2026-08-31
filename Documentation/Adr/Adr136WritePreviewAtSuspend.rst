@@ -143,11 +143,15 @@ overwrite each other, last write wins. A tool that a human explicitly approved
 is not the place to invent an optimistic-locking regime the rest of the system
 does not have.
 
-**Revisit when a writing tool writes a RELATIVE change.** An append, an
-increment, a "remove the third paragraph" — for those, the "before" is not
-decoration, it is an operand, and a snapshot stops being sufficient. That tool
-needs a precondition token; this one does not, and building the token first
-would be ADR-122's mistake repeated.
+**Revisit when a writing tool writes a RELATIVE change** — DISCHARGED on
+2026-08-31. An append, an increment, a "remove the third paragraph" — for those,
+the "before" is not decoration, it is an operand, and a snapshot stops being
+sufficient. That tool needs a precondition token; this one does not, and
+building the token first would be ADR-122's mistake repeated.
+
+   The tool arrived on 2026-08-21 and the token was built:
+   :ref:`ADR-184 <adr-184>`. Every paragraph above this one is why the fence was
+   not built sooner, not advice to defer it again.
 
 .. _adr-136-disclosure:
 

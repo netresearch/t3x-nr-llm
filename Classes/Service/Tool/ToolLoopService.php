@@ -1064,7 +1064,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         $stale    = [];
         foreach ($calls as $index => $call) {
             $before = $shown[$index] ?? null;
-            if ($before === null || !in_array($call->name, $offered, true)) {
+            if ($before === null) {
+                continue;
+            }
+
+            if (!in_array($call->name, $offered, true)) {
+                // Not offered right now, so it is not re-previewed: reading
+                // under an authority the run no longer has is worse than not
+                // reading. But its ORIGINAL preview is carried into the rebuilt
+                // state, because the rebuild replaces the whole list — dropping
+                // it here would leave the call unbound if policy offered it
+                // again before the next approval, and it would then execute
+                // with nothing to compare against.
+                $previews[] = $before;
+
                 continue;
             }
 

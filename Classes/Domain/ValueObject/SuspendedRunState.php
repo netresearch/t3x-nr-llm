@@ -230,7 +230,7 @@ final readonly class SuspendedRunState
                 continue;
             }
 
-            if (!is_numeric($entry['index'] ?? null)) {
+            if (!self::isIndex($entry['index'] ?? null)) {
                 continue;
             }
 
@@ -264,6 +264,31 @@ final readonly class SuspendedRunState
     }
 
     /**
+     * Whether a persisted value is usable as a pending-call POSITION.
+     *
+     * `is_numeric()` is not, and both readers below used to rely on it: it
+     * accepts `0.9` and `1e2`, and the cast that follows turns the first into
+     * `0` — a valid index, pointing at a call the stored value never named. A
+     * position is an integer or the decimal spelling of one; anything else is
+     * malformed data and is dropped rather than rounded into a claim about the
+     * wrong call.
+     *
+     * The assertion is what lets the callers cast: a bare `bool` return tells
+     * the analyser nothing, and the cast behind the guard would stay a cast of
+     * `mixed` at level 10.
+     *
+     * @phpstan-assert-if-true int|numeric-string $value
+     */
+    private static function isIndex(mixed $value): bool
+    {
+        if (is_int($value)) {
+            return $value >= 0;
+        }
+
+        return is_string($value) && preg_match('/\A\d+\z/', $value) === 1;
+    }
+
+    /**
      * The persisted stale-call indexes, translated onto the surviving pending
      * calls (ADR-184).
      *
@@ -285,7 +310,7 @@ final readonly class SuspendedRunState
 
         $indexes = [];
         foreach ($value as $entry) {
-            if (!is_numeric($entry)) {
+            if (!self::isIndex($entry)) {
                 continue;
             }
 

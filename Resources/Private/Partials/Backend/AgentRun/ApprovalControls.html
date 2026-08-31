@@ -27,7 +27,9 @@
                         <li>{line}</li>
                     </f:for>
                 </ul>
-                <small class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewCapturedAtPause" default="Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again." /></small>
+                <f:if condition="{call.previewFailed} == false">
+                    <small class="text-body-secondary"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:runs.previewCapturedAtPause" default="Captured when the run paused. If the record changes before you approve, nothing is written and you are asked again." /></small>
+                </f:if>
             </div>
         </f:if>
         <details class="mt-1">

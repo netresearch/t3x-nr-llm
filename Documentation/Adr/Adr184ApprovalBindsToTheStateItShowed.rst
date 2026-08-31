@@ -58,8 +58,10 @@ all**: the run suspends for approval again carrying the CURRENT preview and the
 indexes of the calls that moved.
 
 That is the literal form of this record's title — the lines ARE what was shown —
-and it needs no hash, no new persisted fact, no state migration and no second
-contract on tools.
+and it needs no hash, no new persisted fact, no state migration and no identity
+or fingerprint contract on tools. (It does add ONE contract, further down: a
+preview has to be deterministic. That is a rule about the method tools already
+implement, not a second thing for them to implement.)
 
 **Only what was displayed counts.** Not ``tstamp``: a hook moves it without
 touching a relevant field, and a FAL or relation write is not covered by a

@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -246,5 +247,40 @@ final class SuspendedRunStateTest extends TestCase
         ];
 
         self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * A position is an integer, not "anything `is_numeric()` will take". That
+     * function accepts `0.9` and `1e2`, and the cast behind it turns the first
+     * into `0` — a valid index naming a call the stored value never named. A
+     * marker on the wrong call is a false statement to the approver, so a
+     * malformed value is dropped instead of rounded.
+     */
+    #[Test]
+    #[DataProvider('valuesThatAreNotPositions')]
+    public function aStaleIndexThatIsNotAWholeNumberIsDropped(mixed $stored): void
+    {
+        $data = [
+            'messages'         => [['role' => 'user', 'content' => 'go']],
+            'pendingCalls'     => [['id' => 'c1', 'name' => 'attach_file', 'arguments' => []]],
+            'iterations'       => 1,
+            'staleCallIndexes' => [$stored],
+        ];
+
+        self::assertSame([], SuspendedRunState::fromArray($data)->staleCallIndexes);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function valuesThatAreNotPositions(): iterable
+    {
+        yield 'fraction below one'  => [0.9];
+        yield 'fraction as string'  => ['0.9'];
+        yield 'exponent notation'   => ['1e2'];
+        yield 'leading whitespace'  => [' 0'];
+        yield 'hex string'          => ['0x0'];
+        yield 'boolean'             => [true];
+        yield 'null'                => [null];
     }
 }

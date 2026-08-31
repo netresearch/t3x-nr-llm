@@ -3075,6 +3075,61 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     /**
+     * The rebuild replaces the whole preview list, so a call that is not offered
+     * at this resume must carry its ORIGINAL preview into the new state. Drop it
+     * and the call is unbound: if policy offers it again before the next
+     * approval, it has nothing to compare against and executes unfenced —
+     * a hole opened by the very refusal meant to close one.
+     */
+    #[Test]
+    public function aCallThatIsNotOfferedKeepsThePreviewItWasApprovedAgainst(): void
+    {
+        $moving = new ShiftingPreviewTool('attach_file');
+        $other  = new ShiftingPreviewTool('update_page', ['title was "old"']);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', 'update_page', ['uid' => 1]),
+            new ToolCall('call_2', 'attach_file', ['uid' => 7]),
+        ]));
+
+        $registry = new ToolRegistry([$moving, $other]);
+        $service  = $this->service($mgr, $registry);
+        $state    = $this->suspend($service);
+
+        // update_page is withdrawn from the allow-list while the run waits, and
+        // attach_file's subject moves.
+        $moving->lines = ['3 reference(s) → 4, appended last'];
+        $narrowed      = new SuspendedRunState(
+            $state->messages,
+            $state->pendingCalls,
+            $state->iterations,
+            $state->promptTokens,
+            $state->completionTokens,
+            ['attach_file'],
+            $state->options,
+            $state->inputToolName,
+            $state->inputSchema,
+            $state->callPreviews,
+            $state->forcedSnippetUids,
+            $state->forcedSkillUids,
+        );
+
+        try {
+            $service->resume($narrowed, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('The moved subject was written anyway.');
+        } catch (ToolApprovalRequiredException $again) {
+            $byIndex = [];
+            foreach ($again->state->callPreviews as $preview) {
+                $byIndex[$preview['index']] = $preview['lines'];
+            }
+
+            self::assertSame(['title was "old"'], $byIndex[0] ?? null, 'The withdrawn call keeps what it was approved against.');
+            self::assertSame(['3 reference(s) → 4, appended last'], $byIndex[1] ?? null);
+        }
+    }
+
+    /**
      * A denial is not a write, so it is not fenced: the run must be able to end
      * even when the world moved under it.
      */
