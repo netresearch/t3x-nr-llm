@@ -71,6 +71,36 @@ final readonly class RunStep
     public const KIND_WRITE = 'tool_write';
 
     /**
+     * Every kind a step can carry, as the class's own statement of its
+     * vocabulary.
+     *
+     * It exists because that vocabulary has a second reader —
+     * {@see \Netresearch\NrLlm\Domain\Enum\AgentEventKind}, which persists
+     * these values and has twice fallen behind them (#900). The check that
+     * holds the two together needs the list from here; asking reflection for it
+     * reads the class's internals to learn something the class can simply say.
+     *
+     * This does not make forgetting impossible — a constant added without a
+     * line here is still a gap. It moves the gap from two files and two ADRs
+     * apart to three lines apart, and the enum check then fails rather than the
+     * absence going unnoticed for a release.
+     *
+     * @return list<string>
+     */
+    public static function kinds(): array
+    {
+        return [
+            self::KIND_REQUEST,
+            self::KIND_LLM,
+            self::KIND_TOOL,
+            self::KIND_ASSEMBLED,
+            self::KIND_CONTEXT,
+            self::KIND_DROPPED,
+            self::KIND_WRITE,
+        ];
+    }
+
+    /**
      * @param list<array<string, mixed>>|null                                             $messagesSent       Snapshot of the messages sent this round (REQUEST/assembled).
      * @param list<string>|null                                                           $toolSpecs          Names of the tools offered this round (REQUEST).
      * @param list<array{id: string, name: string, arguments: array<string, mixed>}>|null $requestedToolCalls Tool calls the model asked for (LLM).

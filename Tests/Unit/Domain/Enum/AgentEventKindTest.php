@@ -14,8 +14,6 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
-use ReflectionClassConstant;
 
 #[CoversNothing]
 final class AgentEventKindTest extends TestCase
@@ -69,16 +67,17 @@ final class AgentEventKindTest extends TestCase
      * and the two functional suites that filter an event stream by typed kind
      * would have lost exactly the rows they were looking for.
      *
-     * Reflection over `RunStep`'s own constants rather than a second hand-kept
-     * list, because a hand-kept list is what failed.
+     * Read from `RunStep::kinds()` — the class's own statement of its
+     * vocabulary — rather than a second list kept here, because a second list
+     * is what failed.
      */
     #[Test]
     public function everyRunStepKindHasACase(): void
     {
         $missing = [];
-        foreach ($this->runStepKindConstants() as $name => $value) {
-            if (!AgentEventKind::isValid($value)) {
-                $missing[] = sprintf('%s (%s)', $name, $value);
+        foreach (RunStep::kinds() as $kind) {
+            if (!AgentEventKind::isValid($kind)) {
+                $missing[] = $kind;
             }
         }
 
@@ -100,7 +99,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function everyCaseIsEitherARunStepKindOrOneOfTheTwoRuntimeEvents(): void
     {
-        $stepKinds = array_values($this->runStepKindConstants());
+        $stepKinds = RunStep::kinds();
 
         $unexplained = [];
         foreach (AgentEventKind::cases() as $case) {
@@ -114,29 +113,6 @@ final class AgentEventKindTest extends TestCase
         }
 
         self::assertSame([], $unexplained, 'A case exists for a kind no RunStep emits: ' . implode(', ', $unexplained));
-    }
-
-    /**
-     * `RunStep`'s own step-kind constants, by name.
-     *
-     * Filtered to PUBLIC deliberately: an unfiltered `getConstants()` reads
-     * private and protected members too, which is an accessibility bypass a
-     * test has no reason to perform — and the constants this asserts against
-     * are part of the class's contract, not its internals.
-     *
-     * @return array<string, string>
-     */
-    private function runStepKindConstants(): array
-    {
-        $kinds = [];
-        foreach ((new ReflectionClass(RunStep::class))->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC) as $constant) {
-            $value = $constant->getValue();
-            if (str_starts_with($constant->getName(), 'KIND_') && is_string($value)) {
-                $kinds[$constant->getName()] = $value;
-            }
-        }
-
-        return $kinds;
     }
 
     #[Test]
