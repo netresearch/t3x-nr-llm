@@ -3130,6 +3130,46 @@ final class ToolLoopServiceTest extends TestCase
     }
 
     /**
+     * A preview that failed at suspend binds nothing — but its entry must still
+     * be CARRIED into a state rebuilt because a sibling call moved. The rebuild
+     * replaces the list whole, so dropping it would take the "you are deciding
+     * without a preview" notice off the card at the very moment the approver is
+     * asked to decide again.
+     */
+    #[Test]
+    public function aFailedPreviewIsCarriedIntoAStateRebuiltForASibling(): void
+    {
+        $moving  = new ShiftingPreviewTool('attach_file');
+        $broken  = new PreviewingApprovalTool('delete_thing', throw: true);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', 'delete_thing', []),
+            new ToolCall('call_2', 'attach_file', ['uid' => 7]),
+        ]));
+        $service = $this->service($mgr, new ToolRegistry([$moving, $broken]));
+
+        $state = $this->suspend($service);
+        self::assertTrue($state->callPreviews[0]['failed']);
+
+        $moving->lines = ['3 reference(s) → 4, appended last'];
+
+        try {
+            $service->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('The moved subject was written anyway.');
+        } catch (ToolApprovalRequiredException $again) {
+            $byIndex = [];
+            foreach ($again->state->callPreviews as $preview) {
+                $byIndex[$preview['index']] = $preview;
+            }
+
+            self::assertArrayHasKey(0, $byIndex, 'The failed preview must survive the rebuild.');
+            self::assertTrue($byIndex[0]['failed']);
+            self::assertSame([1], $again->state->staleCallIndexes, 'The failed one is carried, not marked stale.');
+        }
+    }
+
+    /**
      * A denial is not a write, so it is not fenced: the run must be able to end
      * even when the world moved under it.
      */

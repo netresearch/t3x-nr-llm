@@ -82,12 +82,21 @@ final readonly class ApprovalPreviewComparator
      * state to suspend on instead: the same turn, the CURRENT previews, and the
      * indexes that changed.
      *
-     * Two cases deliberately do NOT bind. A call with no persisted preview:
-     * nothing was shown, so there is nothing for the approval to be a decision
-     * about, and a tool without {@see ToolPreviewInterface} keeps the behaviour
-     * it had. And a preview that FAILED at suspend: the card told the approver
-     * they were deciding blind, and binding them to the text of an exception
-     * would bind them to nothing useful.
+     * Three cases deliberately do NOT bind, and all three are CARRIED rather
+     * than dropped — the rebuilt state replaces the preview list whole, so an
+     * entry left out here is one the next approval has nothing to compare
+     * against, and the card stops showing it at all:
+     *
+     * - A call with no persisted preview. Nothing was shown, so there is nothing
+     *   for the approval to be a decision about, and a tool without
+     *   {@see ToolPreviewInterface} keeps the behaviour it had. Nothing to carry
+     *   either — there is no entry.
+     * - A preview that FAILED at suspend. The card told the approver they were
+     *   deciding blind, and binding them to the text of an exception would bind
+     *   them to nothing useful. Its entry is carried so the card keeps saying so.
+     * - A call that is no longer offered. Re-previewing under an authority the
+     *   run no longer has is worse than not reading; its entry is carried
+     *   unchanged.
      *
      * @param list<ToolCall> $calls
      * @param list<string>   $offered
@@ -96,13 +105,7 @@ final readonly class ApprovalPreviewComparator
     {
         $shown = [];
         foreach ($state->callPreviews as $preview) {
-            if (!$preview['failed']) {
-                $shown[$preview['index']] = $preview;
-            }
-        }
-
-        if ($shown === []) {
-            return null;
+            $shown[$preview['index']] = $preview;
         }
 
         $previews = [];
@@ -113,7 +116,13 @@ final readonly class ApprovalPreviewComparator
                 continue;
             }
 
-            $now = $this->recompute($call, $offered, $context, $before);
+            if ($before['failed'] || !in_array($call->name, $offered, true)) {
+                $previews[] = $before;
+
+                continue;
+            }
+
+            $now        = $this->recompute($call, $context, $before);
             $previews[] = $now;
             if ($now['lines'] !== $before['lines']) {
                 $stale[] = $index;
@@ -126,10 +135,8 @@ final readonly class ApprovalPreviewComparator
     /**
      * What one call's preview says NOW, or the reason it cannot say anything.
      *
-     * A call that is not offered is not re-previewed: reading under an authority
-     * the run no longer has is worse than not reading. Its ORIGINAL preview is
-     * returned unchanged, so it compares equal and — because the caller rebuilds
-     * the whole list — is not silently unbound for the next approval.
+     * Only reached for a call the caller decided is comparable: offered, and
+     * previewed successfully at suspend.
      *
      * A re-preview that THROWS is the opposite of a preview that failed at
      * suspend: something WAS shown and can no longer be compared, so it stales.
@@ -137,17 +144,12 @@ final readonly class ApprovalPreviewComparator
      * {@see ToolLoopService::invoke()}; an exception body may carry DBAL
      * credentials.
      *
-     * @param list<string>                                                       $offered
      * @param array{index: int, tool: string, lines: list<string>, failed: bool} $before
      *
      * @return array{index: int, tool: string, lines: list<string>, failed: bool}
      */
-    private function recompute(ToolCall $call, array $offered, ToolExecutionContext $context, array $before): array
+    private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
-        if (!in_array($call->name, $offered, true)) {
-            return $before;
-        }
-
         $tool = $this->registry->get($call->name);
         if (!$tool instanceof ToolPreviewInterface) {
             return ['index' => $before['index'], 'tool' => $call->name, 'lines' => [self::UNAVAILABLE], 'failed' => true];
