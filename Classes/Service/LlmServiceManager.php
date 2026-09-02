@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
@@ -505,6 +506,25 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->configurationResolver->resolveEffectiveConfiguration($configuration);
     }
 
+    /**
+     * The public string, as the key the registry is actually keyed by (#893).
+     *
+     * The conversion lives HERE, at the boundary, because the signatures above
+     * are frozen (`Tests/Unit/Api/api-surface.txt`) and a consumer outside this
+     * extension must see no change. Inside, the type carries which of the two
+     * identifier namespaces the value belongs to — the distinction that
+     * produced a shipped defect while both were `string` (#873).
+     *
+     * A blank string yields null rather than throwing: `null` already means
+     * "no provider named" on every one of these entry points, and turning an
+     * empty string into an exception would be a new refusal this change has no
+     * business introducing.
+     */
+    private function adapterKey(?string $identifier): ?ProviderAdapterKey
+    {
+        return $identifier === null || trim($identifier) === '' ? null : new ProviderAdapterKey($identifier);
+    }
+
     public function registerProvider(ProviderInterface $provider): void
     {
         $this->providerRegistry->registerProvider($provider);
@@ -512,7 +532,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
 
     public function getProvider(?string $identifier = null): ProviderInterface
     {
-        return $this->providerRegistry->getProvider($identifier);
+        return $this->providerRegistry->getProvider($this->adapterKey($identifier));
     }
 
     /**
@@ -1044,7 +1064,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function supportsFeature(string $feature, ?string $provider = null): bool
     {
-        return $this->providerRegistry->supportsFeature($feature, $provider);
+        return $this->providerRegistry->supportsFeature($feature, $this->adapterKey($provider));
     }
 
     /**
@@ -1054,7 +1074,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function getProviderConfiguration(string $identifier): array
     {
-        return $this->providerRegistry->getProviderConfiguration($identifier);
+        $key = $this->adapterKey($identifier);
+
+        return $key instanceof ProviderAdapterKey ? $this->providerRegistry->getProviderConfiguration($key) : [];
     }
 
     /**
@@ -1064,7 +1086,10 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function configureProvider(string $identifier, array $config): void
     {
-        $this->providerRegistry->configureProvider($identifier, $config);
+        $key = $this->adapterKey($identifier);
+        if ($key instanceof ProviderAdapterKey) {
+            $this->providerRegistry->configureProvider($key, $config);
+        }
     }
 
     // ========================================

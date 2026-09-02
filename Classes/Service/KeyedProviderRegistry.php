@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service;
 
 use Exception;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Psr\Log\LoggerInterface;
@@ -63,9 +64,19 @@ final class KeyedProviderRegistry implements SingletonInterface
         $this->logger->debug('Registered LLM provider', ['provider' => $identifier]);
     }
 
-    public function getProvider(?string $identifier = null): ProviderInterface
+    /**
+     * The adapter registered under a key (#893).
+     *
+     * The parameter is a {@see ProviderAdapterKey} and not a string, because
+     * this map is keyed by the ADAPTER's own name and a `tx_nrllm_provider`
+     * row's identifier is a different value returned by an identically named
+     * method. Handing the row identifier here produced a plausible
+     * "Provider … not found" in 0.32.0 (#873); the type is what stops it
+     * happening again rather than being fixed again.
+     */
+    public function getProvider(?ProviderAdapterKey $key = null): ProviderInterface
     {
-        if ($identifier === null) {
+        if ($key === null) {
             throw new ProviderException(
                 'No provider specified and no default provider configured. '
                 . 'Set up a default in the LLM backend module: create a Provider, a Model and a '
@@ -75,11 +86,11 @@ final class KeyedProviderRegistry implements SingletonInterface
             );
         }
 
-        if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 6273324883);
+        if (!isset($this->providers[$key->value])) {
+            throw new ProviderException(sprintf('Provider "%s" not found', $key->value), 6273324883);
         }
 
-        return $this->providers[$identifier];
+        return $this->providers[$key->value];
     }
 
     /**
@@ -117,7 +128,7 @@ final class KeyedProviderRegistry implements SingletonInterface
     /**
      * Check if a specific feature is supported by a provider.
      */
-    public function supportsFeature(string $feature, ?string $provider = null): bool
+    public function supportsFeature(string $feature, ?ProviderAdapterKey $provider = null): bool
     {
         try {
             $providerInstance = $this->getProvider($provider);
@@ -132,11 +143,12 @@ final class KeyedProviderRegistry implements SingletonInterface
      *
      * @return array<string, mixed>
      */
-    public function getProviderConfiguration(string $identifier): array
+    public function getProviderConfiguration(ProviderAdapterKey $key): array
     {
         /** @var array<string, array<string, mixed>> $providers */
         $providers = is_array($this->configuration['providers'] ?? null) ? $this->configuration['providers'] : [];
-        return $providers[$identifier] ?? [];
+
+        return $providers[$key->value] ?? [];
     }
 
     /**
@@ -144,13 +156,13 @@ final class KeyedProviderRegistry implements SingletonInterface
      *
      * @param array<string, mixed> $config
      */
-    public function configureProvider(string $identifier, array $config): void
+    public function configureProvider(ProviderAdapterKey $key, array $config): void
     {
-        if (!isset($this->providers[$identifier])) {
-            throw new ProviderException(sprintf('Provider "%s" not found', $identifier), 5332497319);
+        if (!isset($this->providers[$key->value])) {
+            throw new ProviderException(sprintf('Provider "%s" not found', $key->value), 5332497319);
         }
 
-        $this->providers[$identifier]->configure($config);
+        $this->providers[$key->value]->configure($config);
     }
 
     private function loadConfiguration(): void
