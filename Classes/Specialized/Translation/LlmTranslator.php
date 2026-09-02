@@ -99,9 +99,7 @@ final readonly class LlmTranslator implements TranslatorInterface
         // Detect source language if not provided. As an internal step of the
         // translation it must not count as a separate request (#473) — the
         // 'translation' row below is the single request of record.
-        if ($sourceLanguage === null) {
-            $sourceLanguage = $this->detectLanguageAttributed($text, $beUserUid, false);
-        }
+        $sourceLanguage ??= $this->detectLanguageAttributed($text, $beUserUid, false);
 
         // Build translation prompt
         $prompt = $this->buildPrompt($text, $sourceLanguage, $targetLanguage, $options);

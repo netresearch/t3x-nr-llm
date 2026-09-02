@@ -70,9 +70,7 @@ final class SolrSearchBackend implements SearchBackendInterface
             return false;
         }
 
-        if ($this->configured === null) {
-            $this->configured = $this->anySiteConfigured();
-        }
+        $this->configured ??= $this->anySiteConfigured();
 
         return $this->configured;
     }

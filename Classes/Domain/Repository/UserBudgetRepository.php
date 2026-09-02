@@ -76,9 +76,7 @@ class UserBudgetRepository extends Repository
 
             $uid = $budget->getBeUser();
             // First budget per user wins (matches findOneByBeUser()'s getFirst()).
-            if (!isset($map[$uid])) {
-                $map[$uid] = $budget;
-            }
+            $map[$uid] ??= $budget;
         }
 
         return $map;

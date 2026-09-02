@@ -195,9 +195,7 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
         // Surface override-only / custom types that are not part of the
         // built-in TCA select list, so backend diagnostics can see them.
         foreach (array_keys($this->adapterMap) as $type) {
-            if (!isset($adapters[$type])) {
-                $adapters[$type] = $type;
-            }
+            $adapters[$type] ??= $type;
         }
 
         return $adapters;
