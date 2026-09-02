@@ -1091,9 +1091,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $byType = [];
         foreach ($providers as $provider) {
             $type = $provider->getAdapterType();
-            if (!isset($byType[$type])) {
-                $byType[$type] = [];
-            }
+            $byType[$type] ??= [];
 
             $byType[$type][] = $provider;
         }

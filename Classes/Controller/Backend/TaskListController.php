@@ -83,12 +83,10 @@ final class TaskListController extends ActionController
 
             $editUrls[$uid] = $this->buildEditUrl($uid);
             $category = $task->getCategory();
-            if (!isset($groupedTasks[$category])) {
-                $groupedTasks[$category] = [
-                    'label' => $category,
-                    'tasks' => [],
-                ];
-            }
+            $groupedTasks[$category] ??= [
+                'label' => $category,
+                'tasks' => [],
+            ];
 
             $groupedTasks[$category]['tasks'][] = $task;
         }

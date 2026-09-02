@@ -68,9 +68,7 @@ final class KeSearchBackend implements SearchBackendInterface
             return false;
         }
 
-        if ($this->tableUsable === null) {
-            $this->tableUsable = $this->indexIsUsable();
-        }
+        $this->tableUsable ??= $this->indexIsUsable();
 
         return $this->tableUsable;
     }

@@ -401,9 +401,7 @@ final readonly class ReadRecordsTool implements ToolInterface
             return false;
         }
 
-        if (!isset($cache[$pageUid])) {
-            $cache[$pageUid] = is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
-        }
+        $cache[$pageUid] ??= is_array(BackendUtility::readPageAccess($pageUid, $permsClause));
 
         return $cache[$pageUid];
     }

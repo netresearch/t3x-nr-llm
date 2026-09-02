@@ -777,9 +777,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $tasksByCategory = [];
         foreach ($tasks as $task) {
             $category = $task->getCategory();
-            if (!isset($tasksByCategory[$category])) {
-                $tasksByCategory[$category] = [];
-            }
+            $tasksByCategory[$category] ??= [];
 
             $tasksByCategory[$category][] = $task;
         }
@@ -1163,9 +1161,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $byType = [];
         foreach ($providers as $provider) {
             $type = $provider->getAdapterType();
-            if (!isset($byType[$type])) {
-                $byType[$type] = 0;
-            }
+            $byType[$type] ??= 0;
 
             $byType[$type]++;
         }
@@ -1185,9 +1181,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $byCategory = [];
         foreach ($tasks as $task) {
             $category = $task->getCategory();
-            if (!isset($byCategory[$category])) {
-                $byCategory[$category] = 0;
-            }
+            $byCategory[$category] ??= 0;
 
             $byCategory[$category]++;
         }
@@ -1206,9 +1200,7 @@ final class DashboardE2ETest extends AbstractBackendE2ETestCase
         $byInputType = [];
         foreach ($tasks as $task) {
             $inputType = $task->getInputType();
-            if (!isset($byInputType[$inputType])) {
-                $byInputType[$inputType] = 0;
-            }
+            $byInputType[$inputType] ??= 0;
 
             $byInputType[$inputType]++;
         }

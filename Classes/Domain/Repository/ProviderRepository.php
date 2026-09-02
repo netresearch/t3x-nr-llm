@@ -201,9 +201,7 @@ class ProviderRepository extends Repository
             }
 
             $type = $provider->getAdapterType();
-            if (!isset($counts[$type])) {
-                $counts[$type] = 0;
-            }
+            $counts[$type] ??= 0;
 
             $counts[$type]++;
         }

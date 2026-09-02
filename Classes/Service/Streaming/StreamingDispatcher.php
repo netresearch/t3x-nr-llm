@@ -224,9 +224,7 @@ final readonly class StreamingDispatcher
             [$inner, $served] = $this->openWithFallback($context, $configuration, $open);
 
             while ($inner->valid()) {
-                if ($firstTokenNs === null) {
-                    $firstTokenNs = hrtime(true);
-                }
+                $firstTokenNs ??= hrtime(true);
 
                 $chunk = $inner->current();
                 // Usage/telemetry count the RAW provider output. A bounded leading
