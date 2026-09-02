@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Preset\ConfigurationPresetImportService;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\UseCase\EditorialStarterPackProvider;
+use Netresearch\NrLlm\Service\UseCase\PackSnippet;
 use Netresearch\NrLlm\Service\UseCase\UseCasePack;
 use Netresearch\NrLlm\Service\UseCase\UseCasePackInstaller;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -62,6 +63,40 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
     private function pack(): UseCasePack
     {
         return (new EditorialStarterPackProvider())->getPacks()[0];
+    }
+
+    /**
+     * The shipped pack with two extra snippets in the shape ADR-186 exists for:
+     * carrying metadata, and read by the declaring extension rather than by the
+     * configuration's tag selection.
+     *
+     * It reuses the Editorial Starter preset so the configuration path stays the
+     * one the other tests already cover — what changes here is the snippets.
+     */
+    private function packWithAnExtensionReadSnippet(): UseCasePack
+    {
+        $shipped = $this->pack();
+
+        return new UseCasePack(
+            identifier: $shipped->identifier,
+            useCase: $shipped->useCase,
+            name: $shipped->name,
+            description: $shipped->description,
+            configurationPreset: $shipped->configurationPreset,
+            recommendedGovernanceProfile: $shipped->recommendedGovernanceProfile,
+            snippets: [
+                ...$shipped->snippets,
+                new PackSnippet(
+                    identifier: 'pack-test-persona-anna',
+                    name: 'Anna',
+                    description: 'A curious host.',
+                    snippet: 'Asks the obvious question the listener is thinking.',
+                    tags: ['persona'],
+                    metadata: ['voice' => 'nova'],
+                    composedByConfiguration: false,
+                ),
+            ],
+        );
     }
 
     /**
@@ -167,6 +202,48 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
                 $packSnippet->identifier . ' was installed but is composed into nothing.',
             );
         }
+    }
+
+    #[Test]
+    public function declaredMetadataReachesTheInstalledRecord(): void
+    {
+        // ADR-186. The installer stores the JSON; the reader interprets it —
+        // here, the `voice` a consuming extension gives one podcast speaker.
+        $this->importModels();
+
+        $this->installer->install($this->packWithAnExtensionReadSnippet());
+
+        $anna = $this->snippetRepository->findOneByIdentifier('pack-test-persona-anna');
+        self::assertInstanceOf(PromptSnippet::class, $anna);
+        self::assertSame(['voice' => 'nova'], $anna->getMetadataArray());
+    }
+
+    #[Test]
+    public function aSnippetTheDeclaringExtensionReadsIsInstalledButReachesNoPromptByTag(): void
+    {
+        // The defect this flag exists for: linking `persona` would make EVERY
+        // completion on this configuration carry every active persona, on top
+        // of the one the extension picked for the call. Assert against the
+        // reader, not only against the column — the column is the means.
+        $this->importModels();
+        $pack = $this->packWithAnExtensionReadSnippet();
+
+        $result = $this->installer->install($pack);
+
+        self::assertContains('pack-test-persona-anna', $result->createdSnippets);
+        self::assertNotContains('persona', $result->addedSnippetTags);
+
+        $configuration = $this->configurationRepository->findOneByIdentifier($pack->configurationPreset->identifier);
+        self::assertInstanceOf(LlmConfiguration::class, $configuration);
+        self::assertNotContains('persona', $configuration->getSnippetTagList());
+
+        $composed = array_map(
+            static fn(PromptSnippet $snippet): string => $snippet->getIdentifier(),
+            $this->getService(ConfigurationSnippetResolver::class)->selectedSnippets($configuration),
+        );
+        self::assertNotContains('pack-test-persona-anna', $composed);
+        // The composed half of the same pack is unaffected.
+        self::assertContains('editorial-starter-house-style', $composed);
     }
 
     #[Test]

@@ -20,6 +20,13 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * ADR-144 made an undeclared snippet one that cannot block a call, and a pack
  * inventing a sensitivity ceiling on the operator's behalf would decide a
  * governance question the operator never answered.
+ *
+ * Two fields carry the extension-owned case (ADR-186). `$metadata` is the
+ * snippet's own `metadata` JSON object, which the reader interprets — nothing
+ * here does. `$composedByConfiguration` says whether the snippet is meant to be
+ * read the way ADR-031 reads one, by configuration tag; a pack whose snippets
+ * its own extension resolves by uid sets it false so the installer does not add
+ * their tags to the configuration.
  */
 final readonly class PackSnippet
 {
@@ -33,7 +40,11 @@ final readonly class PackSnippet
     private const VARCHAR_MAX_LENGTH = 255;
 
     /**
-     * @param list<string> $tags Free-form tags; stored comma-separated
+     * @param list<string>         $tags                    Free-form tags; stored comma-separated
+     * @param array<string, mixed> $metadata                Stored as the record's `metadata` JSON object; `[]` writes ''
+     * @param bool                 $composedByConfiguration Whether the snippet is meant to reach a prompt through
+     *                                                      ADR-031 tag composition. False for one the declaring
+     *                                                      extension resolves by uid itself (ADR-186).
      */
     public function __construct(
         public string $identifier,
@@ -42,6 +53,8 @@ final readonly class PackSnippet
         public string $snippet,
         public array $tags = [],
         public ?ToolDataClass $dataClass = null,
+        public array $metadata = [],
+        public bool $composedByConfiguration = true,
     ) {
         if (preg_match(self::IDENTIFIER_PATTERN, $identifier) !== 1) {
             throw new InvalidArgumentException(
@@ -93,6 +106,22 @@ final readonly class PackSnippet
                 1791460015,
             );
         }
+
+        // Encoded here rather than at install time, so a pack that cannot be
+        // stored fails in the registry constructor where its author is, not on
+        // the operator's install screen. json_encode refuses NAN, INF,
+        // resources and malformed UTF-8; everything a declaration realistically
+        // holds encodes.
+        if (json_encode($this->metadata) === false) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Pack snippet "%s" declares metadata that cannot be JSON-encoded: %s.',
+                    $identifier,
+                    json_last_error_msg(),
+                ),
+                1791460016,
+            );
+        }
     }
 
     /**
@@ -101,5 +130,24 @@ final readonly class PackSnippet
     public function tagList(): string
     {
         return implode(',', $this->tags);
+    }
+
+    /**
+     * The JSON object the `metadata` column stores, '' when nothing is declared.
+     *
+     * Empty means empty, not `{}`: {@see \Netresearch\NrLlm\Domain\Model\PromptSnippet::getMetadataArray()}
+     * reads both as no metadata, and '' is what a hand-created record carries,
+     * so an installed snippet is byte-identical to one an editor would write.
+     */
+    public function metadataJson(): string
+    {
+        if ($this->metadata === []) {
+            return '';
+        }
+
+        // Encodability is asserted in the constructor; the false branch is
+        // unreachable and the cast keeps the return type honest without a
+        // second throw nothing can reach.
+        return (string)json_encode($this->metadata);
     }
 }

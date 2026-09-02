@@ -113,7 +113,10 @@ final readonly class UseCasePackInstaller
                 installed: $installed,
             );
 
-            if (!$installed) {
+            // Only the composed half (ADR-186): a snippet the declaring
+            // extension resolves by uid reaches no configuration by tag, so it
+            // pulls no other configuration into the plan either.
+            if (!$installed && $packSnippet->composedByConfiguration) {
                 $pendingSnippetTags = [...$pendingSnippetTags, ...$this->normalizeTags($packSnippet->tags)];
             }
         }
@@ -452,6 +455,10 @@ final readonly class UseCasePackInstaller
         $snippet->setSnippet($packSnippet->snippet);
         $snippet->setTags($packSnippet->tagList());
         $snippet->setDataClass($packSnippet->dataClass instanceof ToolDataClass ? $packSnippet->dataClass->value : '');
+        // ADR-186: the reader interprets the keys, the installer only stores
+        // them. A persona's `voice` and a layout's `imageSize` are the two the
+        // consuming extension needs and neither means anything here.
+        $snippet->setMetadata($packSnippet->metadataJson());
         $snippet->setIsActive(true);
 
         return $snippet;

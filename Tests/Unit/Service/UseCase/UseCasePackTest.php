@@ -47,7 +47,7 @@ final class UseCasePackTest extends TestCase
     /**
      * @param list<string> $tags
      */
-    private function snippet(string $identifier, array $tags = []): PackSnippet
+    private function snippet(string $identifier, array $tags = [], bool $composedByConfiguration = true): PackSnippet
     {
         return new PackSnippet(
             identifier: $identifier,
@@ -55,6 +55,7 @@ final class UseCasePackTest extends TestCase
             description: '',
             snippet: 'Write plainly.',
             tags: $tags,
+            composedByConfiguration: $composedByConfiguration,
         );
     }
 
@@ -106,6 +107,31 @@ final class UseCasePackTest extends TestCase
     public function aPackWithoutSnippetsDerivesNoTags(): void
     {
         self::assertSame([], $this->pack(tasks: [$this->task('one')])->getSnippetTags());
+    }
+
+    #[Test]
+    public function aSnippetTheDeclaringExtensionReadsItselfContributesNoTag(): void
+    {
+        // ADR-186. Deriving `persona` here would make the configuration compose
+        // every active persona into every completion, on top of the one the
+        // extension selected for the call.
+        $pack = $this->pack(snippets: [
+            $this->snippet('style', ['tone_of_voice']),
+            $this->snippet('anna', ['persona'], composedByConfiguration: false),
+        ]);
+
+        self::assertSame(['tone_of_voice'], $pack->getSnippetTags());
+    }
+
+    #[Test]
+    public function aPackWhoseSnippetsAreAllReadByItsOwnExtensionDerivesNoTags(): void
+    {
+        $pack = $this->pack(snippets: [
+            $this->snippet('anna', ['persona'], composedByConfiguration: false),
+            $this->snippet('square', ['layout'], composedByConfiguration: false),
+        ]);
+
+        self::assertSame([], $pack->getSnippetTags());
     }
 
     #[Test]

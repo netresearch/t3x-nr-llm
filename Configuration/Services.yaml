@@ -509,6 +509,17 @@ services:
         description: 'Run a golden question set against a retriever and report hit rates and regression.'
         schedulable: false
 
+  # Not schedulable (ADR-186): installing a pack is a one-off provisioning
+  # step. It is idempotent, so a timer would do no damage — it would just
+  # re-report the same rows forever, and the flag says which of the two this
+  # is meant to be.
+  Netresearch\NrLlm\Command\InstallUseCasePackCommand:
+    tags:
+      - name: 'console.command'
+        command: 'nrllm:usecasepack:install'
+        description: 'Install a use-case pack: create its configuration, tasks and snippets that do not exist yet.'
+        schedulable: false
+
   # Reads the secret from STDIN, so it cannot run from the scheduler (ADR-124).
   Netresearch\NrLlm\Command\SetProviderApiKeyCommand:
     tags:
