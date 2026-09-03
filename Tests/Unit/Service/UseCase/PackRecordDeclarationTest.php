@@ -141,4 +141,88 @@ final class PackRecordDeclarationTest extends TestCase
 
         self::assertNull($snippet->dataClass);
     }
+
+    #[Test]
+    public function declaredMetadataBecomesTheJsonObjectTheColumnHolds(): void
+    {
+        $snippet = new PackSnippet(
+            'anna',
+            'Anna',
+            '',
+            'A curious host who asks the obvious question.',
+            ['persona'],
+            metadata: ['voice' => 'nova'],
+        );
+
+        self::assertSame('{"voice":"nova"}', $snippet->metadataJson());
+    }
+
+    #[Test]
+    public function undeclaredMetadataIsStoredAsTheEmptyStringRatherThanAnEmptyObject(): void
+    {
+        // '' is what a hand-created record carries, and PromptSnippet reads ''
+        // and '{}' the same way — so the installed record stays byte-identical
+        // to one an editor would have written.
+        $snippet = new PackSnippet('house-style', 'House style', '', 'Write plainly.');
+
+        self::assertSame([], $snippet->metadata);
+        self::assertSame('', $snippet->metadataJson());
+    }
+
+    #[Test]
+    public function metadataThatCannotBeJsonEncodedIsRefusedAtDeclarationTime(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791460016);
+
+        // NAN has no JSON representation. Refusing here puts the failure in the
+        // registry constructor, where the pack's author is, instead of on the
+        // operator's install screen.
+        $snippet = new PackSnippet('anna', 'Anna', '', 'A curious host.', metadata: ['voice' => NAN]);
+        self::fail('Expected the unencodable metadata to be refused, got ' . $snippet->metadataJson());
+    }
+
+    #[Test]
+    public function listShapedMetadataIsRefusedBecauseTheReaderWouldDiscardIt(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791460017);
+
+        // PromptSnippet::getMetadataArray() answers [] for a decoded list, so
+        // this would install a record whose voice is silently absent.
+        //
+        // The `array<string, mixed>` hint already catches a LITERAL list at
+        // analysis time. The runtime check exists for what static analysis
+        // cannot reach: a pack that builds its metadata from data, and one
+        // that does not run PHPStan at all — which is why the value comes
+        // through a `mixed` seam here instead of being written inline.
+        /** @var array<string, mixed> $listShaped */
+        $listShaped = $this->decoded('["nova"]');
+
+        $snippet = new PackSnippet('anna', 'Anna', '', 'A curious host.', metadata: $listShaped);
+        self::fail('Expected the list-shaped metadata to be refused, got ' . $snippet->metadataJson());
+    }
+
+    /**
+     * Decoded metadata, returned as `mixed` on purpose: a declaration built
+     * from data is the case the constructor's own check exists for, and an
+     * inline literal is the one case static analysis already covers.
+     */
+    private function decoded(string $json): mixed
+    {
+        return json_decode($json, true);
+    }
+
+    #[Test]
+    public function aSnippetIsComposedByConfigurationUnlessTheDeclarationSaysOtherwise(): void
+    {
+        // ADR-186: the default is the ADR-031 behaviour every pre-existing pack
+        // relies on. Only a pack whose extension resolves the snippet by uid
+        // opts out.
+        $composed = new PackSnippet('house-style', 'House style', '', 'Write plainly.');
+        $ownRead  = new PackSnippet('anna', 'Anna', '', 'A curious host.', composedByConfiguration: false);
+
+        self::assertTrue($composed->composedByConfiguration);
+        self::assertFalse($ownRead->composedByConfiguration);
+    }
 }

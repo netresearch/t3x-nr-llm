@@ -86,6 +86,21 @@ To keep a snippet out, deactivate it or remove the tag from it before
 installing. To keep another configuration unchanged, edit its snippet-tag
 selection first, or rename the pack's tags afterwards.
 
+A pack may also ship snippets that are **not** linked this way
+(:ref:`ADR-186 <adr-186>`): ones the declaring extension looks up itself, for
+one call, instead of leaving them to tag composition. They are installed as
+ordinary snippet records and appear in the Snippets module like any other, but
+they contribute no tag to the configuration and reach no prompt through it — so
+they show up in neither of the two directions above. `nr_repurpose` is the
+example, and it declares every one of its snippets that way: audience, tone of
+voice, persona, layout and style are each chosen per job in the job form, so
+composing them all into every completion would be a defect rather than a
+feature.
+
+You can still point a configuration at them: select the tag on that
+configuration in the Configurations module. The pack's declaration describes
+what it installs, not what you are allowed to do with the record afterwards.
+
 .. _administration-usecase-packs-recommend:
 
 What a pack recommends but never applies
@@ -184,4 +199,33 @@ A pack cannot be uninstalled. Nothing marks a record as pack-owned — that is
 what makes the installed records ordinary — so removing them is deleting
 records, one by one, like any other.
 
-The full rationale is in :ref:`ADR-163 <adr-163>`.
+.. _administration-usecase-packs-cli:
+
+Installing without the backend
+==============================
+
+A container entrypoint, a deploy step or a CI provisioning run has no backend
+session to confirm a plan screen with. The same install is available on the
+command line:
+
+.. code-block:: bash
+    :caption: Install a pack from a provisioning script
+
+    vendor/bin/typo3 nrllm:usecasepack:install editorial-starter
+
+It writes through the same installer the module uses, so it creates only what
+is missing and reports what was already there. Being idempotent is what makes
+it safe in a step that runs on every deploy — and it is the answer to an
+instance rebuilt from a database seed that predates the pack, which would
+otherwise come up with an empty snippet library.
+
+Pass an identifier the installation does not declare and the command lists the
+ones it does.
+
+What it does not do is the half the installer refuses too: it enables no tool
+group, enables no editor action and applies no governance profile. Those stay
+decisions made in their own modules — see
+:ref:`administration-usecase-packs-recommend`.
+
+The full rationale is in :ref:`ADR-163 <adr-163>`, extended by
+:ref:`ADR-186 <adr-186>`.

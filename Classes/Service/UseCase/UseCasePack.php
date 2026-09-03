@@ -164,12 +164,24 @@ final readonly class UseCasePack
      * (ADR-031), so a hand-written tag list could name a tag no snippet has —
      * and the snippets a pack installs would then be read by nothing.
      *
+     * Snippets marked `composedByConfiguration: false` are left out (ADR-186).
+     * They are read — by the declaring extension, which resolves them by uid
+     * for one call — so the "read by nothing" argument above does not reach
+     * them, and linking their tags would compose EVERY active snippet carrying
+     * one into every completion on this configuration, on top of the selection
+     * the extension made. A pack may mix both kinds; the tag list follows the
+     * composed half.
+     *
      * @return list<string>
      */
     public function getSnippetTags(): array
     {
         $tags = [];
         foreach ($this->snippets as $snippet) {
+            if (!$snippet->composedByConfiguration) {
+                continue;
+            }
+
             foreach ($snippet->tags as $tag) {
                 $tags[$tag] = true;
             }

@@ -20,6 +20,13 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * ADR-144 made an undeclared snippet one that cannot block a call, and a pack
  * inventing a sensitivity ceiling on the operator's behalf would decide a
  * governance question the operator never answered.
+ *
+ * Two fields carry the extension-owned case (ADR-186). `$metadata` is the
+ * snippet's own `metadata` JSON object, which the reader interprets — nothing
+ * here does. `$composedByConfiguration` says whether the snippet is meant to be
+ * read the way ADR-031 reads one, by configuration tag; a pack whose snippets
+ * its own extension resolves by uid sets it false so the installer does not add
+ * their tags to the configuration.
  */
 final readonly class PackSnippet
 {
@@ -33,7 +40,23 @@ final readonly class PackSnippet
     private const VARCHAR_MAX_LENGTH = 255;
 
     /**
-     * @param list<string> $tags Free-form tags; stored comma-separated
+     * What the `metadata` column stores, encoded once at declaration time.
+     *
+     * Held rather than re-encoded per call because `$metadata` is
+     * `array<string, mixed>` and a `mixed` may be an OBJECT: the array itself
+     * cannot change on a readonly class, but a value inside it can, so an
+     * encode that succeeded here could fail later — and a second encode has no
+     * honest failure branch, because the caller was promised a string. Encoding
+     * once means the value that was validated is the value that is stored.
+     */
+    private string $encodedMetadata;
+
+    /**
+     * @param list<string>         $tags                    Free-form tags; stored comma-separated
+     * @param array<string, mixed> $metadata                Stored as the record's `metadata` JSON object; `[]` writes ''
+     * @param bool                 $composedByConfiguration Whether the snippet is meant to reach a prompt through
+     *                                                      ADR-031 tag composition. False for one the declaring
+     *                                                      extension resolves by uid itself (ADR-186).
      */
     public function __construct(
         public string $identifier,
@@ -42,6 +65,8 @@ final readonly class PackSnippet
         public string $snippet,
         public array $tags = [],
         public ?ToolDataClass $dataClass = null,
+        public array $metadata = [],
+        public bool $composedByConfiguration = true,
     ) {
         if (preg_match(self::IDENTIFIER_PATTERN, $identifier) !== 1) {
             throw new InvalidArgumentException(
@@ -93,6 +118,44 @@ final readonly class PackSnippet
                 1791460015,
             );
         }
+
+        // Encoded here rather than at install time, so a pack that cannot be
+        // stored fails in the registry constructor where its author is, not on
+        // the operator's install screen. json_encode refuses NAN, INF,
+        // resources and malformed UTF-8; everything a declaration realistically
+        // holds encodes.
+        $encoded = json_encode($this->metadata);
+        if ($encoded === false) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Pack snippet "%s" declares metadata that cannot be JSON-encoded: %s.',
+                    $identifier,
+                    json_last_error_msg(),
+                ),
+                1791460016,
+            );
+        }
+
+        // The reader's rule, refused where it can still be fixed:
+        // {@see \Netresearch\NrLlm\Domain\Model\PromptSnippet::getMetadataArray()}
+        // discards a decoded LIST and answers []. A list-shaped declaration
+        // would therefore install a record whose metadata reads as absent —
+        // the snippet works, the voice or the image size is silently gone, and
+        // nothing anywhere says why. `[]` is exempt: it is a list, and it is
+        // also the default that means "no metadata".
+        if ($this->metadata !== [] && array_is_list($this->metadata)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Pack snippet "%s" declares list-shaped metadata. The column holds a JSON OBJECT: use string keys, e.g. ["voice" => "nova"].',
+                    $identifier,
+                ),
+                1791460017,
+            );
+        }
+
+        // Empty means empty, not `{}`: PromptSnippet::getMetadataArray() reads
+        // both as no metadata, and '' is what a hand-created record carries.
+        $this->encodedMetadata = $this->metadata === [] ? '' : $encoded;
     }
 
     /**
@@ -101,5 +164,17 @@ final readonly class PackSnippet
     public function tagList(): string
     {
         return implode(',', $this->tags);
+    }
+
+    /**
+     * The JSON object the `metadata` column stores, '' when nothing is declared.
+     *
+     * The encoding the constructor validated, handed back unchanged — so an
+     * installed snippet is byte-identical to one an editor would write, and
+     * the value stored is the value that was checked.
+     */
+    public function metadataJson(): string
+    {
+        return $this->encodedMetadata;
     }
 }

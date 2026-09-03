@@ -568,3 +568,4 @@ Tools
    Adr183AiSectionExists
    Adr184ApprovalBindsToTheStateItShowed
    Adr185ObservedOutcomeFromHistory
+   Adr186PackSnippetsTheExtensionReadsItself
