@@ -68,6 +68,7 @@ use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingUsageTracker;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -143,6 +144,50 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
         $this->expectExceptionMessage('Provider "nonexistent" not found');
 
         $this->subject->getProvider('nonexistent');
+    }
+
+    /**
+     * The boundary the conversion introduced: `adapterKey()` turns null AND a
+     * blank string into null, so `getProvider('')` takes the no-default path
+     * rather than looking up a provider named "". Untested, this reads as an
+     * accident of the refactor; it is the intended behaviour, and the message
+     * the caller sees is the one for a missing default, not "Provider … not
+     * found" naming an empty string.
+     */
+    #[Test]
+    #[DataProvider('blankIdentifiers')]
+    public function aBlankIdentifierIsTreatedAsNoIdentifier(string $identifier): void
+    {
+        $extensionConfigStub = self::createStub(ExtensionConfiguration::class);
+        $extensionConfigStub->method('get')->willReturn(['providers' => []]);
+
+        $manager = $this->createLlmServiceManager($extensionConfigStub, $this->loggerStub, $this->adapterRegistryStub, $this->emptyMiddlewarePipeline(), self::createStub(CacheManagerInterface::class));
+
+        $this->expectException(ProviderException::class);
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
+
+        $manager->getProvider($identifier);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function blankIdentifiers(): iterable
+    {
+        yield 'empty'      => [''];
+        yield 'space'      => [' '];
+        yield 'whitespace' => ["\t\n "];
+    }
+
+    /**
+     * A padded identifier names the adapter it is padded around. Before the key
+     * normalized, this asked the registry for "openai " and got
+     * "Provider … not found" for a provider that is registered.
+     */
+    #[Test]
+    public function aPaddedIdentifierStillFindsItsProvider(): void
+    {
+        self::assertSame($this->provider, $this->subject->getProvider(' openai '));
     }
 
     #[Test]

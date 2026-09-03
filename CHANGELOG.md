@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The provider registry is keyed by a type, not by a string (#893, first step).** `KeyedProviderRegistry` is keyed by the ADAPTER's own name — `openai` — while a `tx_nrllm_provider` row's identifier is `openai-dcbd8f` on any installation set up through the wizard. Both are non-empty strings, both are returned by a method called `getIdentifier()`, and handing one where the other belongs produced a plausible "Provider … not found" that shipped in 0.32.0 and was fixed in 0.33.0 (#873). The registry's four identifier-taking methods now require a `ProviderAdapterKey`, so the confusion is no longer expressible inside the extension. `LlmServiceManager` converts at its public boundary: its own signatures are unchanged, and nothing outside this extension sees a difference. The three remaining identifier types arrive with their own conversion steps, because a value object nobody reads is worse than none.
+
 ### Fixed
 
 - **A capability the enum declares but no discoverer assigns now fails the build.** `ModelCapabilityRegistrationTest` held the enum against its TCA items and its label files; it did not hold it against the discovery side, and that is where the expensive drift was. `json_mode` and `audio` are declared, offered in the Models module and requirable in a configuration's criteria — and no discoverer assigns either, so `EligibilityEvaluator::matchesCapabilities()` matches no model at all for a criteria set naming one. That is not hypothetical: `nr_repurpose_text` asked for `json_mode`, and the use-case pack carrying it could not be installed on any installation until the criterion was dropped. The two known cases are listed with their reason rather than hidden, and a second assertion fails when a discoverer starts assigning one, so the list cannot outlive it (#913).

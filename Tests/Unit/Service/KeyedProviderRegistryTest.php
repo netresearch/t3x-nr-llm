@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
 use Exception;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Service\KeyedProviderRegistry;
@@ -61,7 +62,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $provider = $this->providerStub('openai');
         $registry->registerProvider($provider);
 
-        self::assertSame($provider, $registry->getProvider('openai'));
+        self::assertSame($provider, $registry->getProvider(new ProviderAdapterKey('openai')));
     }
 
     #[Test]
@@ -73,7 +74,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $this->expectExceptionCode(6273324883);
         $this->expectExceptionMessage('Provider "nope" not found');
 
-        $registry->getProvider('nope');
+        $registry->getProvider(new ProviderAdapterKey('nope'));
     }
 
     #[Test]
@@ -120,7 +121,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $registry = $this->createRegistry();
         $registry->registerProvider($this->providerStub('openai', 'OpenAI', true, true));
 
-        self::assertTrue($registry->supportsFeature('vision', 'openai'));
+        self::assertTrue($registry->supportsFeature('vision', new ProviderAdapterKey('openai')));
     }
 
     #[Test]
@@ -129,7 +130,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $registry = $this->createRegistry();
         $registry->registerProvider($this->providerStub('openai', 'OpenAI', true, false));
 
-        self::assertFalse($registry->supportsFeature('vision', 'openai'));
+        self::assertFalse($registry->supportsFeature('vision', new ProviderAdapterKey('openai')));
     }
 
     #[Test]
@@ -137,7 +138,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
     {
         $registry = $this->createRegistry();
 
-        self::assertFalse($registry->supportsFeature('vision', 'unknown'));
+        self::assertFalse($registry->supportsFeature('vision', new ProviderAdapterKey('unknown')));
     }
 
     #[Test]
@@ -147,7 +148,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
             'providers' => ['openai' => ['apiKey' => 'k', 'defaultModel' => 'gpt']],
         ]);
 
-        self::assertSame(['apiKey' => 'k', 'defaultModel' => 'gpt'], $registry->getProviderConfiguration('openai'));
+        self::assertSame(['apiKey' => 'k', 'defaultModel' => 'gpt'], $registry->getProviderConfiguration(new ProviderAdapterKey('openai')));
     }
 
     #[Test]
@@ -155,7 +156,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
     {
         $registry = $this->createRegistry(['providers' => []]);
 
-        self::assertSame([], $registry->getProviderConfiguration('unknown'));
+        self::assertSame([], $registry->getProviderConfiguration(new ProviderAdapterKey('unknown')));
     }
 
     #[Test]
@@ -184,7 +185,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
 
         $provider->expects(self::once())->method('configure')->with(['apiKey' => 'runtime']);
 
-        $registry->configureProvider('openai', ['apiKey' => 'runtime']);
+        $registry->configureProvider(new ProviderAdapterKey('openai'), ['apiKey' => 'runtime']);
     }
 
     #[Test]
@@ -196,7 +197,7 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $this->expectExceptionCode(5332497319);
         $this->expectExceptionMessage('Provider "unknown" not found');
 
-        $registry->configureProvider('unknown', []);
+        $registry->configureProvider(new ProviderAdapterKey('unknown'), []);
     }
 
     #[Test]
@@ -211,6 +212,6 @@ class KeyedProviderRegistryTest extends AbstractUnitTestCase
         $registry = new KeyedProviderRegistry($extensionConfiguration, $logger);
 
         // Configuration failed to load, so no provider configuration is available.
-        self::assertSame([], $registry->getProviderConfiguration('openai'));
+        self::assertSame([], $registry->getProviderConfiguration(new ProviderAdapterKey('openai')));
     }
 }
