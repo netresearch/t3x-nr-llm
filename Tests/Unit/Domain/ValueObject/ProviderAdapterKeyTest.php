@@ -50,6 +50,44 @@ final class ProviderAdapterKeyTest extends TestCase
     }
 
     /**
+     * The gap between what was validated and what was stored. `trim()` decided
+     * whether the key was acceptable and the untrimmed string was kept, so
+     * `openai ` was constructible: not blank, so it passed, and not equal to
+     * `openai`, so the registry answered "Provider … not found" — the exact
+     * failure this type exists to make unrepresentable.
+     */
+    #[Test]
+    #[DataProvider('paddedValues')]
+    public function normalizesSurroundingWhitespace(string $value): void
+    {
+        $key = new ProviderAdapterKey($value);
+
+        self::assertSame('openai', $key->value);
+        self::assertSame('openai', (string)$key);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function paddedValues(): iterable
+    {
+        yield 'trailing space' => ['openai '];
+        yield 'leading space'  => [' openai'];
+        yield 'both'           => ["  openai\t"];
+        yield 'newline'        => ["openai\n"];
+    }
+
+    /**
+     * A padded key must not be a different key. Without normalization these two
+     * compare unequal, which is how one lookup succeeds and the next does not.
+     */
+    #[Test]
+    public function aPaddedKeyEqualsItsCleanForm(): void
+    {
+        self::assertTrue((new ProviderAdapterKey(' openai '))->equals(new ProviderAdapterKey('openai')));
+    }
+
+    /**
      * The distinction the type exists for (#873). The adapter key and a
      * `tx_nrllm_provider` row identifier are both non-empty strings and both
      * come from a method called `getIdentifier()`; only one of them is what the
