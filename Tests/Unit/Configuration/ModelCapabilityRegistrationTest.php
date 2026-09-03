@@ -24,6 +24,14 @@ use PHPUnit\Framework\TestCase;
  * LLL keys; a missing locallang_be entry breaks the BE group permission
  * checkboxes that ext_localconf.php derives from the enum cases. This
  * test fails the build on any of those drifts.
+ *
+ * It also holds the enum against the DISCOVERY side (#913), because a
+ * capability nothing assigns is worse than a missing label: it renders
+ * perfectly, an operator can require it in a configuration's criteria,
+ * and then EligibilityEvaluator::matchesCapabilities() matches no model
+ * at all. That is not hypothetical — nr_repurpose_text asked for
+ * json_mode and its use-case pack could not be installed on any
+ * installation until the criterion was dropped.
  */
 #[CoversNothing]
 final class ModelCapabilityRegistrationTest extends TestCase
@@ -61,6 +69,101 @@ final class ModelCapabilityRegistrationTest extends TestCase
             $enumValues,
             $itemValues,
             'tx_nrllm_model.capabilities TCA items must mirror the ModelCapability enum cases',
+        );
+    }
+
+    /**
+     * Capabilities the enum declares that NO model discoverer assigns.
+     *
+     * They are reachable only by an operator ticking the box on a model
+     * record by hand, so a configuration requiring one matches nothing on a
+     * default installation. Keeping the list here rather than deleting the
+     * cases is deliberate: the TCA offers them, records may already carry
+     * them, and whether the underlying models support the feature is a
+     * question for the model catalogue, not for this test.
+     *
+     * Remove an entry when a discoverer starts assigning it — the test below
+     * fails if a listed capability turns out to be assigned after all, so the
+     * list cannot outlive its reason.
+     *
+     * @var list<string>
+     */
+    private const UNASSIGNED_BY_DISCOVERY = ['json_mode', 'audio'];
+
+    /**
+     * Whether any discoverer source mentions the capability as a string
+     * literal.
+     *
+     * A text scan, because the discoverers have no common seam: only
+     * OpenAiModelDiscoverer keeps a named spec table, the rest build their
+     * DiscoveredModel capabilities inline. It is an APPROXIMATION: any
+     * occurrence of the quoted value counts, including one in a comment or in
+     * an unrelated string, so the answer can be a false positive.
+     *
+     * The two callers are affected in opposite directions, and neither is
+     * "cannot invent a failure":
+     *
+     * - the coverage test reads a false positive as "assigned", so it goes
+     *   quiet about a capability that is in fact dead — it under-reports;
+     * - the staleness test reads the same false positive as "a discoverer now
+     *   assigns this", so it FAILS on a capability nothing assigns — it can
+     *   raise an alarm that is wrong.
+     *
+     * If the second one ever fires, check the hit before removing the entry:
+     * `git grep -n "'<capability>'" -- Classes/Service/SetupWizard/Discovery`
+     * shows whether it is an assignment or prose.
+     */
+    private function isAssignedByAnyDiscoverer(string $capability): bool
+    {
+        $needle = sprintf("'%s'", $capability);
+        foreach (glob(__DIR__ . '/../../../Classes/Service/SetupWizard/Discovery/*.php') ?: [] as $file) {
+            $source = file_get_contents($file);
+            if (is_string($source) && str_contains($source, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    #[Test]
+    public function everyCapabilityIsAssignedBySomeDiscovererOrDeclaredUnassigned(): void
+    {
+        $unexpected = [];
+        foreach (ModelCapability::values() as $value) {
+            if (in_array($value, self::UNASSIGNED_BY_DISCOVERY, true)) {
+                continue;
+            }
+
+            if (!$this->isAssignedByAnyDiscoverer($value)) {
+                $unexpected[] = $value;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $unexpected,
+            'No discoverer assigns these capabilities, so criteria requiring one match nothing: '
+            . implode(', ', $unexpected)
+            . '. Either assign them in the discovery catalog or add them to UNASSIGNED_BY_DISCOVERY with a reason.',
+        );
+    }
+
+    #[Test]
+    public function theUnassignedListDoesNotOutliveItsReason(): void
+    {
+        $nowAssigned = [];
+        foreach (self::UNASSIGNED_BY_DISCOVERY as $value) {
+            if ($this->isAssignedByAnyDiscoverer($value)) {
+                $nowAssigned[] = $value;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $nowAssigned,
+            'A discoverer now assigns these, so drop them from UNASSIGNED_BY_DISCOVERY: '
+            . implode(', ', $nowAssigned),
         );
     }
 

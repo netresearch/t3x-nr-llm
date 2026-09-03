@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A capability the enum declares but no discoverer assigns now fails the build.** `ModelCapabilityRegistrationTest` held the enum against its TCA items and its label files; it did not hold it against the discovery side, and that is where the expensive drift was. `json_mode` and `audio` are declared, offered in the Models module and requirable in a configuration's criteria — and no discoverer assigns either, so `EligibilityEvaluator::matchesCapabilities()` matches no model at all for a criteria set naming one. That is not hypothetical: `nr_repurpose_text` asked for `json_mode`, and the use-case pack carrying it could not be installed on any installation until the criterion was dropped. The two known cases are listed with their reason rather than hidden, and a second assertion fails when a discoverer starts assigning one, so the list cannot outlive it (#913).
+
+
 ## [0.34.0] - 2026-09-03
 
 ### Added
