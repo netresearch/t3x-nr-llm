@@ -40,6 +40,18 @@ final readonly class PackSnippet
     private const VARCHAR_MAX_LENGTH = 255;
 
     /**
+     * What the `metadata` column stores, encoded once at declaration time.
+     *
+     * Held rather than re-encoded per call because `$metadata` is
+     * `array<string, mixed>` and a `mixed` may be an OBJECT: the array itself
+     * cannot change on a readonly class, but a value inside it can, so an
+     * encode that succeeded here could fail later — and a second encode has no
+     * honest failure branch, because the caller was promised a string. Encoding
+     * once means the value that was validated is the value that is stored.
+     */
+    private string $encodedMetadata;
+
+    /**
      * @param list<string>         $tags                    Free-form tags; stored comma-separated
      * @param array<string, mixed> $metadata                Stored as the record's `metadata` JSON object; `[]` writes ''
      * @param bool                 $composedByConfiguration Whether the snippet is meant to reach a prompt through
@@ -112,7 +124,8 @@ final readonly class PackSnippet
         // the operator's install screen. json_encode refuses NAN, INF,
         // resources and malformed UTF-8; everything a declaration realistically
         // holds encodes.
-        if (json_encode($this->metadata) === false) {
+        $encoded = json_encode($this->metadata);
+        if ($encoded === false) {
             throw new InvalidArgumentException(
                 sprintf(
                     'Pack snippet "%s" declares metadata that cannot be JSON-encoded: %s.',
@@ -139,6 +152,10 @@ final readonly class PackSnippet
                 1791460017,
             );
         }
+
+        // Empty means empty, not `{}`: PromptSnippet::getMetadataArray() reads
+        // both as no metadata, and '' is what a hand-created record carries.
+        $this->encodedMetadata = $this->metadata === [] ? '' : $encoded;
     }
 
     /**
@@ -152,19 +169,12 @@ final readonly class PackSnippet
     /**
      * The JSON object the `metadata` column stores, '' when nothing is declared.
      *
-     * Empty means empty, not `{}`: {@see \Netresearch\NrLlm\Domain\Model\PromptSnippet::getMetadataArray()}
-     * reads both as no metadata, and '' is what a hand-created record carries,
-     * so an installed snippet is byte-identical to one an editor would write.
+     * The encoding the constructor validated, handed back unchanged — so an
+     * installed snippet is byte-identical to one an editor would write, and
+     * the value stored is the value that was checked.
      */
     public function metadataJson(): string
     {
-        if ($this->metadata === []) {
-            return '';
-        }
-
-        // Encodability is asserted in the constructor; the false branch is
-        // unreachable and the cast keeps the return type honest without a
-        // second throw nothing can reach.
-        return (string)json_encode($this->metadata);
+        return $this->encodedMetadata;
     }
 }
