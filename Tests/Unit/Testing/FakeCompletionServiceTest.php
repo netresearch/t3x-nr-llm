@@ -110,7 +110,7 @@ final class FakeCompletionServiceTest extends TestCase
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageIsOrContains('boom');
+        $this->expectExceptionMessage('boom');
 
         $subject->complete('a');
     }
@@ -139,7 +139,7 @@ final class FakeCompletionServiceTest extends TestCase
         $subject = new FakeCompletionService();
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessageIsOrContains('no response was queued');
+        $this->expectExceptionMessage('no response was queued');
 
         $subject->complete('a');
     }

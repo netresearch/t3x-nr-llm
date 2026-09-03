@@ -609,7 +609,7 @@ class ClaudeProviderTest extends AbstractUnitTestCase
     public function embeddingsThrowsUnsupportedFeatureException(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessageIsOrContains('Anthropic Claude does not support embeddings');
+        $this->expectExceptionMessage('Anthropic Claude does not support embeddings');
 
         $this->subject->embeddings('test text');
     }

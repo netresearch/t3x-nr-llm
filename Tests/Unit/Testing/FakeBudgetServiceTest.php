@@ -67,7 +67,7 @@ final class FakeBudgetServiceTest extends TestCase
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageIsOrContains('boom');
+        $this->expectExceptionMessage('boom');
 
         $subject->check(1);
     }

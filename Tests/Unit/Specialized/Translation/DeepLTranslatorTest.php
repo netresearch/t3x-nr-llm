@@ -904,7 +904,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceQuotaExceededException::class);
-        $this->expectExceptionMessageIsOrContains('Rate limit exceeded');
+        $this->expectExceptionMessage('Rate limit exceeded');
 
         $subject->translate('Hello', 'de');
     }
@@ -917,7 +917,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         );
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageIsOrContains('quota exceeded');
+        $this->expectExceptionMessage('quota exceeded');
 
         $subject->translate('Hello', 'de');
     }
@@ -930,7 +930,7 @@ class DeepLTranslatorTest extends AbstractUnitTestCase
         $subject = $this->createSubjectWithResponse($this->createJsonResponseMock($apiResponse));
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageIsOrContains('empty translation');
+        $this->expectExceptionMessage('empty translation');
 
         $subject->translate('Hello', 'de');
     }

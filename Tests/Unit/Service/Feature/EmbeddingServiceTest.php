@@ -147,7 +147,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
     public function embedThrowsOnEmptyText(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('Text cannot be empty');
+        $this->expectExceptionMessage('Text cannot be empty');
 
         $this->subject->embed('');
     }
@@ -221,7 +221,7 @@ class EmbeddingServiceTest extends AbstractUnitTestCase
         $subject = new EmbeddingService($llmManagerMock);
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('Text cannot be empty');
+        $this->expectExceptionMessage('Text cannot be empty');
 
         $subject->embedForConfiguration('', $config);
     }

@@ -333,7 +333,7 @@ class GroqProviderTest extends AbstractUnitTestCase
     public function embeddingsThrowsUnsupportedFeatureException(): void
     {
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessageIsOrContains('Groq does not support embeddings');
+        $this->expectExceptionMessage('Groq does not support embeddings');
         // Pin the exception code against Increment/DecrementInteger mutants.
         $this->expectExceptionCode(4840547720);
 

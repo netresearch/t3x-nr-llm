@@ -102,6 +102,53 @@ final class GetEnvToolTest extends TestCase
         ];
     }
 
+    /**
+     * An environment variable named `5` reaches `maskValue()` as int 5, not as
+     * the string it was written as: PHP casts a numeric-string array key to int,
+     * and `collectEnvironment()` builds its map with `$env[self::toStr($name)]`.
+     * Under strict_types a `string` parameter rejects that at the call, so the
+     * tool died with a TypeError before listing anything -- for every variable,
+     * not just the numeric one.
+     *
+     * Sets `$_ENV` directly rather than through fixtureEnv(): `putenv('5=…')` is
+     * refused by some libc builds, and the array key is what the defect is about.
+     */
+    #[Test]
+    public function aNumericVariableNameDoesNotBreakTheListing(): void
+    {
+        $_ENV['5'] = 'numeric-name-value';
+
+        try {
+            $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
+
+            self::assertStringContainsString('5=numeric-name-value', $output);
+            // The listing still carries everything else -- the TypeError took the
+            // whole result, not one line.
+            self::assertStringContainsString(self::PLAIN_KEY . '=' . self::PLAIN_VALUE, $output);
+        } finally {
+            unset($_ENV['5']);
+        }
+    }
+
+    /**
+     * The name test still applies to a numeric-keyed variable: the cast happens
+     * before the pattern match, not instead of it.
+     */
+    #[Test]
+    public function aNumericNameIsStillTestedAgainstTheSecretPattern(): void
+    {
+        $_ENV['9_API_KEY'] = 'must-not-appear';
+
+        try {
+            $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
+
+            self::assertStringContainsString('9_API_KEY=***redacted***', $output);
+            self::assertStringNotContainsString('must-not-appear', $output);
+        } finally {
+            unset($_ENV['9_API_KEY']);
+        }
+    }
+
     #[Test]
     public function getSpecDeclaresGetEnvFunction(): void
     {

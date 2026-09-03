@@ -613,7 +613,7 @@ final class ModelSelectionServiceTest extends TestCase
         $config->setModelSelectionCriteriaArray(['capabilities' => ['chat']]);
 
         $this->expectException(UnsupportedFeatureException::class);
-        $this->expectExceptionMessageIsOrContains('criteria-config');
+        $this->expectExceptionMessage('criteria-config');
 
         $this->subjectWithEnforcement('enforce')->resolveModel($config, ProviderOperation::Tools);
     }

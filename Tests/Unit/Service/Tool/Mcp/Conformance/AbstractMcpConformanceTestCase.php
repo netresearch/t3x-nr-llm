@@ -182,7 +182,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
         }
 
         $this->expectException(McpTransportException::class);
-        $this->expectExceptionMessageIsOrContains('did not end within 50 pages');
+        $this->expectExceptionMessage('did not end within 50 pages');
 
         $this->clientFor($fake)->listTools($this->connection()->server());
     }

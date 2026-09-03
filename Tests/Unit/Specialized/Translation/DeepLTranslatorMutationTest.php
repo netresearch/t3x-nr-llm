@@ -607,7 +607,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageIsOrContains('Internal error');
+        $this->expectExceptionMessage('Internal error');
 
         $translator->translate('Hello', 'de');
     }
@@ -623,7 +623,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageIsOrContains('Unknown DeepL API error');
+        $this->expectExceptionMessage('Unknown DeepL API error');
 
         $translator->translate('Hello', 'de');
     }
@@ -768,7 +768,7 @@ class DeepLTranslatorMutationTest extends AbstractUnitTestCase
         $translator = $this->createTranslatorWithHttpClient($httpClientMock);
 
         $this->expectException(ServiceUnavailableException::class);
-        $this->expectExceptionMessageIsOrContains('Connection failed');
+        $this->expectExceptionMessage('Connection failed');
 
         $translator->translate('Hello', 'de');
     }

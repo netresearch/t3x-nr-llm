@@ -63,7 +63,7 @@ class ToolOptionsTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidToolChoice(string $toolChoice): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('tool_choice must be one of: auto, none, required');
+        $this->expectExceptionMessage('tool_choice must be one of: auto, none, required');
 
         self::assertInstanceOf(ToolOptions::class, new ToolOptions(toolChoice: $toolChoice));
     }
@@ -158,7 +158,7 @@ class ToolOptionsTest extends AbstractUnitTestCase
     public function inheritsChatOptionsValidation(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessageIsOrContains('temperature must be between 0 and 2');
+        $this->expectExceptionMessage('temperature must be between 0 and 2');
 
         self::assertInstanceOf(ToolOptions::class, new ToolOptions(temperature: 3.0));
     }

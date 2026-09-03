@@ -71,7 +71,7 @@ class ChatMessageTest extends AbstractUnitTestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionCode(1736502001);
-        $this->expectExceptionMessageIsOrContains(sprintf('Invalid role "%s"', $invalidRole));
+        $this->expectExceptionMessage(sprintf('Invalid role "%s"', $invalidRole));
 
         self::assertInstanceOf(ChatMessage::class, new ChatMessage($invalidRole, 'content'));
     }

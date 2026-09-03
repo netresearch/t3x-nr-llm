@@ -104,7 +104,7 @@ final class InputContextTrustGateEntryPointTest extends AbstractUnitTestCase
         $manager = $this->manager($this->selecting(null));
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessageIsOrContains('has no model assigned');
+        $this->expectExceptionMessage('has no model assigned');
         $manager->chatWithConfiguration([ChatMessage::user('hi')], $configuration);
     }
 

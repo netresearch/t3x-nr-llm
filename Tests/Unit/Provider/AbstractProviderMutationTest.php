@@ -485,7 +485,7 @@ class AbstractProviderMutationTest extends AbstractUnitTestCase
         ]);
 
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('API key identifier is required');
+        $this->expectExceptionMessage('API key identifier is required');
 
         $reflection = new ReflectionClass($provider);
         $method = $reflection->getMethod('validateConfiguration');

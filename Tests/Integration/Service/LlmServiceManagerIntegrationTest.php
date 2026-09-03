@@ -229,7 +229,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
     public function throwsExceptionForUnknownProvider(): void
     {
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessageIsOrContains('Provider "unknown" not found');
+        $this->expectExceptionMessage('Provider "unknown" not found');
 
         $this->subject->getProvider('unknown');
     }
@@ -246,7 +246,7 @@ class LlmServiceManagerIntegrationTest extends AbstractIntegrationTestCase
         $manager = $this->createLlmServiceManager($configMock, new NullLogger(), $this->adapterRegistryStub, new MiddlewarePipeline([]), self::createStub(CacheManagerInterface::class));
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessageIsOrContains('No provider specified and no default provider configured');
+        $this->expectExceptionMessage('No provider specified and no default provider configured');
 
         $manager->getProvider();
     }

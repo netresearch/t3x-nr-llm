@@ -147,7 +147,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public function constructorThrowsForInvalidOverrideClass(): void
     {
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('must extend');
+        $this->expectExceptionMessage('must extend');
 
         // stdClass is not a subclass of AbstractProvider
         self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
@@ -165,7 +165,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public function constructorThrowsForNumericOverrideKey(): void
     {
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('Adapter override key');
+        $this->expectExceptionMessage('Adapter override key');
 
         // Numeric (int) keys would be re-indexed by array_merge,
         // breaking the adapter-type lookup. Reject at the boundary.
@@ -184,7 +184,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public function constructorThrowsForEmptyStringOverrideKey(): void
     {
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('Adapter override key');
+        $this->expectExceptionMessage('Adapter override key');
 
         self::assertInstanceOf(ProviderAdapterRegistry::class, new ProviderAdapterRegistry(
             $this->createRequestFactoryMock(),
@@ -200,7 +200,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
     public function constructorThrowsForNonStringOverrideValue(): void
     {
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('must be a class-string');
+        $this->expectExceptionMessage('must be a class-string');
 
         // A non-string value would have caused TypeError inside
         // is_subclass_of(); the explicit guard surfaces it as a
@@ -361,7 +361,7 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         $model->method('getIdentifier')->willReturn('orphan-model');
 
         $this->expectException(ProviderConfigurationException::class);
-        $this->expectExceptionMessageIsOrContains('has no associated provider');
+        $this->expectExceptionMessage('has no associated provider');
 
         $this->subject->createAdapterFromModel($model);
     }

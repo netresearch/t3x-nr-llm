@@ -2374,7 +2374,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ->willReturn($this->createSseResponse([], 500));
 
         $this->expectException(ProviderConnectionException::class);
-        $this->expectExceptionMessageIsOrContains('Server returned status 500');
+        $this->expectExceptionMessage('Server returned status 500');
 
         $provider->streamChatCompletion(
             [['role' => 'user', 'content' => 'Hi']],
@@ -2830,7 +2830,7 @@ class OpenRouterProviderTest extends AbstractUnitTestCase
             ));
 
         $this->expectException(ProviderException::class);
-        $this->expectExceptionMessageIsOrContains('OpenRouter API error (500): upstream exploded');
+        $this->expectExceptionMessage('OpenRouter API error (500): upstream exploded');
 
         $this->subject->chatCompletion(
             [['role' => 'user', 'content' => 'Hi']],

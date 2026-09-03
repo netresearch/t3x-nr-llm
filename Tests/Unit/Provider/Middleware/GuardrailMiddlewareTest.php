@@ -98,7 +98,7 @@ final class GuardrailMiddlewareTest extends TestCase
         $middleware = new GuardrailMiddleware([$this->guardrail(GuardrailResult::deny('blocked'))]);
 
         $this->expectException(GuardrailViolationException::class);
-        $this->expectExceptionMessageIsOrContains('blocked');
+        $this->expectExceptionMessage('blocked');
         $this->screen($middleware, fn(): CompletionResponse => $this->response('bad'));
     }
 

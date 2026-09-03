@@ -100,7 +100,7 @@ final class FakeVisionServiceTest extends TestCase
         $subject->throwable = new RuntimeException('boom');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageIsOrContains('boom');
+        $this->expectExceptionMessage('boom');
 
         $subject->generateAltText('https://example.test/a.png');
     }

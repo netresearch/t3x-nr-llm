@@ -136,7 +136,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
 
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990214);
-        $this->expectExceptionMessageIsOrContains('Method not found');
+        $this->expectExceptionMessage('Method not found');
 
         $this->transportFor($fake)->call(McpTestServer::server(), 'nope', [], $this->deadline());
     }
@@ -296,7 +296,7 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
 
         $this->expectException(McpTransportException::class);
         $this->expectExceptionCode(1799990211);
-        $this->expectExceptionMessageIsOrContains('"srv"');
+        $this->expectExceptionMessage('"srv"');
 
         $transport->call(McpTestServer::server(), 'ping', [], $this->deadline());
     }
