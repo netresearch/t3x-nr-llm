@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\ModelSelectionService;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Stub;
@@ -33,6 +34,7 @@ use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
  *
  * Tests the dynamic model selection logic based on criteria.
  */
+#[AllowMockObjectsWithoutExpectations]
 final class ModelSelectionServiceTest extends TestCase
 {
     private ModelRepository&Stub $modelRepository;

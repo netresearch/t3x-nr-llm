@@ -97,9 +97,16 @@ final readonly class GetEnvTool implements ToolInterface
      * entirely rather than forwarded. Losing one line of host context is cheaper
      * than leaking a credential.
      */
-    private function maskValue(string $name, string $value): string
+    private function maskValue(string|int $name, string $value): string
     {
-        if (preg_match(self::SECRET_PATTERN, $name) === 1) {
+        // int is not a defensive `mixed`: PHP casts a numeric-string array key
+        // back to int, so `collectEnvironment()` writing $env[self::toStr($name)]
+        // still yields int 5 for an environment variable named `5`. Under
+        // strict_types a `string` parameter rejects that AT THE CALL, before any
+        // cast in this body could run -- which is why the annotation the caller
+        // used to carry silenced the analyser and left the TypeError standing.
+        $nameStr = (string)$name;
+        if (preg_match(self::SECRET_PATTERN, $nameStr) === 1) {
             return self::REDACTED;
         }
 

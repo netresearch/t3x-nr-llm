@@ -102,6 +102,80 @@ final class GetEnvToolTest extends TestCase
         ];
     }
 
+    /**
+     * An environment variable named `5` reaches `maskValue()` as int 5, not as
+     * the string it was written as: PHP casts a numeric-string array key to int,
+     * and `collectEnvironment()` builds its map with `$env[self::toStr($name)]`.
+     * Under strict_types a `string` parameter rejects that at the call, so the
+     * tool died with a TypeError before listing anything -- for every variable,
+     * not just the numeric one.
+     *
+     * Sets `$_ENV` directly rather than through fixtureEnv(): `putenv('5=…')` is
+     * refused by some libc builds, and the array key is what the defect is about.
+     */
+    #[Test]
+    public function aNumericVariableNameDoesNotBreakTheListing(): void
+    {
+        $restore = $this->overrideEnv('5', 'numeric-name-value');
+
+        try {
+            $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
+
+            self::assertStringContainsString('5=numeric-name-value', $output);
+            // The listing still carries everything else -- the TypeError took the
+            // whole result, not one line.
+            self::assertStringContainsString(self::PLAIN_KEY . '=' . self::PLAIN_VALUE, $output);
+        } finally {
+            $restore();
+        }
+    }
+
+    /**
+     * The name test still applies to a numeric-keyed variable: the cast happens
+     * before the pattern match, not instead of it.
+     */
+    #[Test]
+    public function aNumericNameIsStillTestedAgainstTheSecretPattern(): void
+    {
+        $restore = $this->overrideEnv('9_API_KEY', 'must-not-appear');
+
+        try {
+            $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
+
+            self::assertStringContainsString('9_API_KEY=***redacted***', $output);
+            self::assertStringNotContainsString('must-not-appear', $output);
+        } finally {
+            $restore();
+        }
+    }
+
+    /**
+     * Set one $_ENV entry and hand back the undo.
+     *
+     * Restores rather than unsets: an unconditional unset() in the teardown
+     * removes a variable the process may have arrived with, for the whole
+     * PHPUnit run, which is how one test starts deciding what a later one sees.
+     *
+     * @return callable(): void
+     */
+    private function overrideEnv(string $name, string $value): callable
+    {
+        $had      = \array_key_exists($name, $_ENV);
+        $previous = $had ? $_ENV[$name] : null;
+
+        $_ENV[$name] = $value;
+
+        return static function () use ($name, $had, $previous): void {
+            if ($had) {
+                $_ENV[$name] = $previous;
+
+                return;
+            }
+
+            unset($_ENV[$name]);
+        };
+    }
+
     #[Test]
     public function getSpecDeclaresGetEnvFunction(): void
     {

@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Tests\Unit\Specialized\PipelineRoutingAssertionTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -45,6 +46,7 @@ use Psr\Http\Message\UriInterface;
 use ReflectionClass;
 
 #[CoversClass(DeepLTranslator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DeepLTranslatorTest extends AbstractUnitTestCase
 {
     use PipelineRoutingAssertionTrait;
