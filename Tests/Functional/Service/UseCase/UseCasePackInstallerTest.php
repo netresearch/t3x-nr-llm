@@ -66,7 +66,7 @@ final class UseCasePackInstallerTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The shipped pack with two extra snippets in the shape ADR-186 exists for:
+     * The shipped pack with one extra snippet in the shape ADR-186 exists for:
      * carrying metadata, and read by the declaring extension rather than by the
      * configuration's tag selection.
      *

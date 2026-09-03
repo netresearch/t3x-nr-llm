@@ -122,6 +122,23 @@ final readonly class PackSnippet
                 1791460016,
             );
         }
+
+        // The reader's rule, refused where it can still be fixed:
+        // {@see \Netresearch\NrLlm\Domain\Model\PromptSnippet::getMetadataArray()}
+        // discards a decoded LIST and answers []. A list-shaped declaration
+        // would therefore install a record whose metadata reads as absent —
+        // the snippet works, the voice or the image size is silently gone, and
+        // nothing anywhere says why. `[]` is exempt: it is a list, and it is
+        // also the default that means "no metadata".
+        if ($this->metadata !== [] && array_is_list($this->metadata)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Pack snippet "%s" declares list-shaped metadata. The column holds a JSON OBJECT: use string keys, e.g. ["voice" => "nova"].',
+                    $identifier,
+                ),
+                1791460017,
+            );
+        }
     }
 
     /**

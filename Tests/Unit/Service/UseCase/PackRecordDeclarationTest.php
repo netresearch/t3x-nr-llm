@@ -183,6 +183,37 @@ final class PackRecordDeclarationTest extends TestCase
     }
 
     #[Test]
+    public function listShapedMetadataIsRefusedBecauseTheReaderWouldDiscardIt(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1791460017);
+
+        // PromptSnippet::getMetadataArray() answers [] for a decoded list, so
+        // this would install a record whose voice is silently absent.
+        //
+        // The `array<string, mixed>` hint already catches a LITERAL list at
+        // analysis time. The runtime check exists for what static analysis
+        // cannot reach: a pack that builds its metadata from data, and one
+        // that does not run PHPStan at all — which is why the value comes
+        // through a `mixed` seam here instead of being written inline.
+        /** @var array<string, mixed> $listShaped */
+        $listShaped = $this->decoded('["nova"]');
+
+        $snippet = new PackSnippet('anna', 'Anna', '', 'A curious host.', metadata: $listShaped);
+        self::fail('Expected the list-shaped metadata to be refused, got ' . $snippet->metadataJson());
+    }
+
+    /**
+     * Decoded metadata, returned as `mixed` on purpose: a declaration built
+     * from data is the case the constructor's own check exists for, and an
+     * inline literal is the one case static analysis already covers.
+     */
+    private function decoded(string $json): mixed
+    {
+        return json_decode($json, true);
+    }
+
+    #[Test]
     public function aSnippetIsComposedByConfigurationUnlessTheDeclarationSaysOtherwise(): void
     {
         // ADR-186: the default is the ADR-031 behaviour every pre-existing pack
