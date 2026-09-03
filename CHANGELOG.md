@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-09-03
+
 ### Added
 
 - **`nrllm:outcome:derive` — what became of the records an AI run wrote (ADR-185).** The observed half of ADR-176's outcome signal, blocked until ADR-182 persisted a write target. It takes writes whose observation window has closed (seven days by default), asks `sys_history` what happened to those records afterwards, and records one outcome each: untouched is `ACCEPTED_UNCHANGED`, a later modification is `EDITED`, a deletion or a vanished record is `DISCARDED`. `CallOutcome` gains an `UNKNOWN` case for the answer that matters most — a record whose history has been purged looks exactly like one nobody touched, and reporting that as accepted would be this signal's most plausible lie. It reads no approval state and holds no collaborator that could, because ADR-176 keeps approval and quality apart. Two limitations are stated rather than discovered: the outcome is per RUN, because the correlation id is the run's uuid, and `EDITED` means "a human modified the record", not "a human changed our text" — the write target names a record and not the fields it wrote (#772).
@@ -3972,7 +3974,13 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.29.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.33.0...v0.34.0
+[0.33.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.32.0...v0.33.0
+[0.32.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.31.1...v0.32.0
+[0.31.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.31.0...v0.31.1
+[0.31.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.30.0...v0.31.0
+[0.30.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.27.0...v0.28.0
