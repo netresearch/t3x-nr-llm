@@ -76,7 +76,7 @@ final class KeyedProviderRegistry implements SingletonInterface
      */
     public function getProvider(?ProviderAdapterKey $key = null): ProviderInterface
     {
-        if ($key === null) {
+        if (!$key instanceof ProviderAdapterKey) {
             throw new ProviderException(
                 'No provider specified and no default provider configured. '
                 . 'Set up a default in the LLM backend module: create a Provider, a Model and a '
