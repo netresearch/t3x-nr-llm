@@ -96,9 +96,22 @@ final class ModelCapabilityRegistrationTest extends TestCase
      *
      * A text scan, because the discoverers have no common seam: only
      * OpenAiModelDiscoverer keeps a named spec table, the rest build their
-     * DiscoveredModel capabilities inline. The scan can therefore be too
-     * LENIENT — a capability named in a comment reads as assigned — and never
-     * too strict, so it cannot invent a failure.
+     * DiscoveredModel capabilities inline. It is an APPROXIMATION: any
+     * occurrence of the quoted value counts, including one in a comment or in
+     * an unrelated string, so the answer can be a false positive.
+     *
+     * The two callers are affected in opposite directions, and neither is
+     * "cannot invent a failure":
+     *
+     * - the coverage test reads a false positive as "assigned", so it goes
+     *   quiet about a capability that is in fact dead — it under-reports;
+     * - the staleness test reads the same false positive as "a discoverer now
+     *   assigns this", so it FAILS on a capability nothing assigns — it can
+     *   raise an alarm that is wrong.
+     *
+     * If the second one ever fires, check the hit before removing the entry:
+     * `git grep -n "'<capability>'" -- Classes/Service/SetupWizard/Discovery`
+     * shows whether it is an assignment or prose.
      */
     private function isAssignedByAnyDiscoverer(string $capability): bool
     {
