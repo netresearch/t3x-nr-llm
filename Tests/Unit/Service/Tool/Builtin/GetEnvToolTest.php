@@ -116,7 +116,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function aNumericVariableNameDoesNotBreakTheListing(): void
     {
-        $_ENV['5'] = 'numeric-name-value';
+        $restore = $this->overrideEnv('5', 'numeric-name-value');
 
         try {
             $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
@@ -126,7 +126,7 @@ final class GetEnvToolTest extends TestCase
             // whole result, not one line.
             self::assertStringContainsString(self::PLAIN_KEY . '=' . self::PLAIN_VALUE, $output);
         } finally {
-            unset($_ENV['5']);
+            $restore();
         }
     }
 
@@ -137,7 +137,7 @@ final class GetEnvToolTest extends TestCase
     #[Test]
     public function aNumericNameIsStillTestedAgainstTheSecretPattern(): void
     {
-        $_ENV['9_API_KEY'] = 'must-not-appear';
+        $restore = $this->overrideEnv('9_API_KEY', 'must-not-appear');
 
         try {
             $output = (new GetEnvTool())->execute([], ToolExecutionContext::none())->content;
@@ -145,8 +145,35 @@ final class GetEnvToolTest extends TestCase
             self::assertStringContainsString('9_API_KEY=***redacted***', $output);
             self::assertStringNotContainsString('must-not-appear', $output);
         } finally {
-            unset($_ENV['9_API_KEY']);
+            $restore();
         }
+    }
+
+    /**
+     * Set one $_ENV entry and hand back the undo.
+     *
+     * Restores rather than unsets: an unconditional unset() in the teardown
+     * removes a variable the process may have arrived with, for the whole
+     * PHPUnit run, which is how one test starts deciding what a later one sees.
+     *
+     * @return callable(): void
+     */
+    private function overrideEnv(string $name, string $value): callable
+    {
+        $had      = \array_key_exists($name, $_ENV);
+        $previous = $had ? $_ENV[$name] : null;
+
+        $_ENV[$name] = $value;
+
+        return static function () use ($name, $had, $previous): void {
+            if ($had) {
+                $_ENV[$name] = $previous;
+
+                return;
+            }
+
+            unset($_ENV[$name]);
+        };
     }
 
     #[Test]
