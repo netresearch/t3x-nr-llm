@@ -123,8 +123,10 @@
             "@ci:test:agent-docs",
             "@ci:test:badges",
             "@ci:test:changelog",
+            "@ci:test:reranker-lock",
             "@ci:test:workflows"
         ],
+        "ci:test:reranker-lock": "Build/reranker/check-lock-matches-requirements.sh",
         "ci:test:workflows": "php Build/Scripts/check-workflow-ownership.php",
         "cs:fix": "@ci:cgl",
         "ddev:ci:full": "ddev exec 'cd /var/www/html/v14/vendor/netresearch/nr-llm && composer ci:full'",

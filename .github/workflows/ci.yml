@@ -158,4 +158,3 @@ jobs:
       run-mutation-tests: ${{ github.event_name == 'schedule' }}
       mutation-min-msi: 70
       mutation-min-covered-msi: 74
-
