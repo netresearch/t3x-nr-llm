@@ -82,13 +82,30 @@ final class ModelCapabilityRegistrationTest extends TestCase
      * them, and whether the underlying models support the feature is a
      * question for the model catalogue, not for this test.
      *
+     * `audio` left this list when OpenAiModelDiscoverer started seeding it
+     * from the model id, the same instrument it already used for `tts-`,
+     * `whisper-` and `gpt-image`.
+     *
+     * `json_mode` is the one that stays, and it is a different kind of thing
+     * from the ten around it: it is a REQUEST OPTION, not something a model
+     * can be asked to do. `ChatOptions` carries `responseFormat` to the
+     * provider unconditionally and no call path consults the capability, so
+     * as a selection criterion it can only ever subtract models — which is
+     * exactly the incident that opened #913. Populating it would mean
+     * asserting per model that the provider honours `response_format`, and a
+     * declared capability the provider does not honour fails at call time
+     * instead of at selection time, which is worse than the current state.
+     * Whether the case is removed outright belongs to the 1.0 API freeze
+     * (#895), because both the case and Model::supportsJsonMode() sit on
+     * the frozen public surface.
+     *
      * Remove an entry when a discoverer starts assigning it — the test below
      * fails if a listed capability turns out to be assigned after all, so the
      * list cannot outlive its reason.
      *
      * @var list<string>
      */
-    private const UNASSIGNED_BY_DISCOVERY = ['json_mode', 'audio'];
+    private const UNASSIGNED_BY_DISCOVERY = ['json_mode'];
 
     /**
      * Whether any discoverer source mentions the capability as a string

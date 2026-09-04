@@ -307,7 +307,20 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
     /**
      * Derive default capabilities from the model id shape for OpenAI models
      * without an explicit spec entry. The returned values match the
-     * ModelCapability enum (image / text_to_speech / transcription / chat).
+     * ModelCapability enum (image / text_to_speech / transcription / audio /
+     * chat).
+     *
+     * The id is the only evidence there is here: GET /v1/models returns id,
+     * object, created and owned_by, and nothing that describes what a model
+     * can do. That is why `audio` is keyed on the id the same way `tts-`,
+     * `whisper-` and `gpt-image` already are.
+     *
+     * `audio` is the chat-completions modality -- a model that takes and
+     * returns speech inside an ordinary chat call -- and is therefore a
+     * different capability from `text_to_speech` and `transcription`, which
+     * name the dedicated TTS and Whisper endpoints. It stays alongside `chat`
+     * for that reason: the model answers a prompt, it is just not limited to
+     * text (#913).
      *
      * @return array<string>
      */
@@ -320,6 +333,7 @@ final class OpenAiModelDiscoverer extends AbstractModelDiscoverer
             str_ends_with($modelId, '-tts') => ['text_to_speech'],
             str_starts_with($modelId, 'whisper-'),
             str_ends_with($modelId, '-transcribe') => ['transcription'],
+            str_contains($modelId, '-audio') => ['chat', 'audio'],
             default => ['chat'],
         };
     }

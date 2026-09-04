@@ -165,6 +165,37 @@ final class CapabilitySeedTest extends AbstractUnitTestCase
     }
 
     /**
+     * OpenAI's listing carries no capability fields at all -- id, object,
+     * created, owned_by and nothing else -- so unlike every payload above,
+     * the id is the only evidence that exists. That is why this discoverer
+     * already keys on it for `tts-`, `whisper-` and `gpt-image`, and it is
+     * the same instrument here: OpenAI names the modality in the id.
+     *
+     * `audio` is the chat-completions modality (a model that takes and
+     * returns speech in an ordinary chat call), which is a different thing
+     * from `text_to_speech` and `transcription` -- those name the dedicated
+     * TTS and Whisper endpoints, with their own request shape.
+     */
+    #[Test]
+    public function openAiSeedsAudioForTheModelsWhoseIdCarriesTheModality(): void
+    {
+        $models = $this->discover(OpenAiModelDiscoverer::class, json_encode([
+            'data' => [
+                ['id' => 'gpt-4o-audio-preview', 'object' => 'model', 'owned_by' => 'system'],
+                ['id' => 'gpt-4o-mini-audio-preview', 'object' => 'model', 'owned_by' => 'system'],
+                ['id' => 'gpt-4o', 'object' => 'model', 'owned_by' => 'system'],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        self::assertSame(['chat', 'audio'], $this->capabilitiesOf($models, 'gpt-4o-audio-preview'));
+        self::assertSame(['chat', 'audio'], $this->capabilitiesOf($models, 'gpt-4o-mini-audio-preview'));
+        // gpt-4o has a spec entry and a spec entry wins over the id shape.
+        // Asserted so that a rule broad enough to touch every gpt-4o fails
+        // here rather than passing quietly.
+        self::assertNotContains('audio', $this->capabilitiesOf($models, 'gpt-4o'));
+    }
+
+    /**
      * The token vocabulary is closed. `reasoning` was written by two
      * discoverers and is not a ModelCapability, so CapabilitySet dropped it
      * silently and the TCA checkbox list could not display it -- an entry in
