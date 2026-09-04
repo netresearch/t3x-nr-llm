@@ -35,13 +35,13 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\BrokenListenerException;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingEventDispatcher;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
@@ -160,7 +160,7 @@ final class ToolLoopServiceWriteEventTest extends TestCase
             {
                 $this->reached = true;
 
-                throw new RuntimeException('the listener is broken', 1788500002);
+                throw new BrokenListenerException('the listener is broken', 1788500002);
             }
         };
 

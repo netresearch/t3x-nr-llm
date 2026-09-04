@@ -93,6 +93,6 @@ Two consequences of that placement, stated rather than discovered:
 
 ## Not in scope
 
-The seven builtin writers keep their current previews, approval behaviour and
+The seven built-in writers keep their current previews, approval behaviour and
 result text unchanged. Nothing about the observed-outcome derivation changes:
 that reads the persisted write target, not this event.

@@ -51,15 +51,28 @@ A listener
 
 .. code-block:: php
 
+   use Netresearch\NrLlm\Domain\Enum\WriteKind;
+   use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
+
    final readonly class LabelAiWrittenPages
    {
+       public function __construct(
+           // Your own service. Nothing of the sort ships in nr_llm — what a
+           // site says about an AI-written record is the site's decision.
+           private AiTransparencyLabelRepository $labels,
+       ) {}
+
        public function __invoke(AfterAiRecordWrittenEvent $event): void
        {
            if ($event->record->table !== 'pages') {
                return;
            }
 
-           $this->labels->record($event->record->uid, $event->kind, $event->correlationId);
+           $this->labels->record(
+               $event->record->uid,
+               $event->kind === WriteKind::CREATED ? 'ai-generated' : 'ai-assisted',
+               $event->correlationId,
+           );
        }
    }
 

@@ -47,10 +47,12 @@ final class AfterAiRecordWrittenEventTest extends TestCase
     #[Test]
     public function itRefusesAWriteItCannotAttribute(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionCode(1788500001);
-
-        new AfterAiRecordWrittenEvent('', new RecordReference('pages', 42), WriteKind::CREATED);
+        try {
+            $event = new AfterAiRecordWrittenEvent('', new RecordReference('pages', 42), WriteKind::CREATED);
+            self::fail(sprintf('Expected an empty correlation id to be refused; got an event for %s.', $event->record));
+        } catch (InvalidArgumentException $refused) {
+            self::assertSame(1788500001, $refused->getCode());
+        }
     }
 
     /**
@@ -60,9 +62,12 @@ final class AfterAiRecordWrittenEventTest extends TestCase
     #[Test]
     public function itRefusesABlankCorrelationId(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-
-        new AfterAiRecordWrittenEvent("  \t ", new RecordReference('pages', 42), WriteKind::UPDATED);
+        try {
+            $event = new AfterAiRecordWrittenEvent("  \t ", new RecordReference('pages', 42), WriteKind::UPDATED);
+            self::fail(sprintf('Expected a blank correlation id to be refused; got an event for %s.', $event->record));
+        } catch (InvalidArgumentException $refused) {
+            self::assertSame(1788500001, $refused->getCode());
+        }
     }
 
     /**

@@ -6,7 +6,7 @@
 ADR-187: AI-write provenance is announced, not implemented
 ============================================================================
 
-:Status: Proposed
+:Status: Accepted
 :Date: 2026-09-04
 :Authors: Netresearch DTT GmbH
 
