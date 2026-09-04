@@ -570,3 +570,4 @@ Tools
    Adr185ObservedOutcomeFromHistory
    Adr186PackSnippetsTheExtensionReadsItself
    Adr187ProvenanceIsAnnouncedNotImplemented
+   Adr188EverySessionHasAConfiguration

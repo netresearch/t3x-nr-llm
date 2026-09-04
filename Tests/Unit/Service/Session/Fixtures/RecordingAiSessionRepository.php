@@ -50,6 +50,35 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         return $uid;
     }
 
+    /** @var list<array{session: int, configId: string}> */
+    public array $bindCalls = [];
+
+    /**
+     * Simulates a concurrent turn that binds first: when set, the NEXT
+     * bindConfiguration() call finds this identifier already on the row and
+     * therefore writes nothing, exactly as the conditional UPDATE does.
+     */
+    public ?string $bindRaceWinner = null;
+
+    public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void
+    {
+        $this->bindCalls[] = ['session' => $sessionUid, 'configId' => $configurationIdentifier];
+
+        if ($this->bindRaceWinner !== null) {
+            $this->sessions[$sessionUid]['configId'] = $this->bindRaceWinner;
+            $this->bindRaceWinner                    = null;
+        }
+
+        // Mirrors the production WHERE clause: the identifier is written only
+        // while the row still has none, so a second turn racing the first
+        // cannot re-point a conversation that is already bound.
+        if ($configurationIdentifier === '' || ($this->sessions[$sessionUid]['configId'] ?? '') !== '') {
+            return;
+        }
+
+        $this->sessions[$sessionUid]['configId'] = $configurationIdentifier;
+    }
+
     public function appendMessage(
         int $sessionUid,
         int $sequence,

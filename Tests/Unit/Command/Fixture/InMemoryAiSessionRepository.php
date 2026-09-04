@@ -57,6 +57,11 @@ final class InMemoryAiSessionRepository implements AiSessionRepositoryInterface
         return 0;
     }
 
+    public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void
+    {
+        // Not needed by the command tests.
+    }
+
     public function touch(int $sessionUid, int $messageCount): void
     {
         // Not needed by the command tests.

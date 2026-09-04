@@ -74,6 +74,17 @@ interface AiSessionRepositoryInterface
      * advances, the message count only ever grows — a slower concurrent turn
      * must not report the session back down to its own view of the count.
      */
+    /**
+     * Bind an existing session to a configuration (ADR-188).
+     *
+     * Only for the one case a session can still be unbound: a row created
+     * before every session carried a configuration. The binding happens once,
+     * on that session's next turn, and this method is a no-op for a session
+     * that already has one — so a concurrent second turn cannot re-point a
+     * conversation that has meanwhile been bound.
+     */
+    public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void;
+
     public function touch(int $sessionUid, int $messageCount): void;
 
     public function findByUuid(string $uuid): ?AiSession;

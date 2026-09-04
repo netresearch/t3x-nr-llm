@@ -46,7 +46,11 @@ use Symfony\Component\Uid\Uuid;
  * - **Configuration binding.** The turn runs against the configuration the
  *   session was opened with, resolved fresh each time so a deactivated or
  *   newly restricted configuration stops the conversation instead of silently
- *   continuing on the installation default.
+ *   continuing on the installation default. Every session HAS one from the
+ *   moment it is opened (ADR-188): a caller who names none gets the
+ *   installation default resolved at that moment, persisted, and used by turn 1
+ *   as well as turn 2. Only a session opened before that rule can still be
+ *   unbound, and it binds itself once on its next turn.
  *
  * @api
  */
@@ -82,8 +86,26 @@ final readonly class ConversationService implements ConversationServiceInterface
             );
         }
 
+        // ADR-188: a session is bound to a configuration at the moment it is
+        // opened, never later. Everything computed for turn 1 — the
+        // context-window fit above all, and the skill block it budgets for — is
+        // computed against THIS configuration, and turn 2 uses the same one
+        // because the identifier is persisted rather than re-resolved.
+        $configuration ??= $this->configurationResolver->resolveDefaultForActor($actor);
+        if (!$configuration instanceof LlmConfiguration) {
+            throw new ConfigurationNotFoundException(
+                sprintf(
+                    'A conversation cannot be opened without a configuration: none was given, and %s has no usable '
+                    . 'installation default (there is none, it carries no model, or its access restrictions exclude '
+                    . 'this caller).',
+                    $actor->describe(),
+                ),
+                1788600001,
+            );
+        }
+
         $uuid = Uuid::v4()->toRfc4122();
-        $this->sessions->startSession($uuid, $actor->backendUserUid, $configuration?->getIdentifier() ?? '', $title);
+        $this->sessions->startSession($uuid, $actor->backendUserUid, $configuration->getIdentifier(), $title);
 
         $session = $this->sessions->findByUuid($uuid);
         if (!$session instanceof AiSession) {
@@ -217,6 +239,48 @@ final readonly class ConversationService implements ConversationServiceInterface
     }
 
     /**
+     * Bind a session opened before every session carried a configuration
+     * (ADR-188), once, on its next turn.
+     *
+     * No upgrade wizard: the identifier a wizard would write is the
+     * installation default at the moment it RUNS, which for a conversation
+     * nobody continues is a decision made for nothing, and for one that is
+     * continued is the same decision this makes — one turn later and with the
+     * actor in hand, so an access-restricted default is evaluated rather than
+     * guessed at.
+     *
+     * Returns null when the installation still has no usable default. That
+     * leaves the session on the pre-ADR-188 generic path rather than ending a
+     * conversation someone is in the middle of: the binding is an improvement
+     * to an existing row, and an improvement that cannot be made is not a
+     * reason to refuse the turn.
+     *
+     * Returns the identifier that is ON THE ROW afterwards, which is not
+     * necessarily the one this turn resolved. The write is conditional on the
+     * row still being unbound, so a concurrent turn may have bound it first —
+     * and if the installation default changed between the two reads, that turn
+     * bound a different configuration. The row is the binding; a turn that lost
+     * the race must fit and dispatch against what is persisted rather than
+     * against what it happened to resolve, or ADR-188's "one configuration per
+     * session for its whole life" would hold for the row and not for the run.
+     */
+    private function bindLegacySession(AiSession $session, AiActorContext $actor): ?string
+    {
+        $configuration = $this->configurationResolver->resolveDefaultForActor($actor);
+        if (!$configuration instanceof LlmConfiguration) {
+            return null;
+        }
+
+        $this->sessions->bindConfiguration($session->uid, $configuration->getIdentifier());
+
+        $bound = $this->sessions->findByUuid($session->uuid);
+
+        return $bound instanceof AiSession && $bound->configurationIdentifier !== ''
+            ? $bound->configurationIdentifier
+            : $configuration->getIdentifier();
+    }
+
+    /**
      * Run the turn against the configuration resolved for it.
      *
      * A null configuration is a session opened without one: it keeps the
@@ -273,12 +337,16 @@ final readonly class ConversationService implements ConversationServiceInterface
      */
     private function resolveTurnConfiguration(AiSession $session, AiActorContext $actor): ?LlmConfiguration
     {
-        if ($session->configurationIdentifier === '') {
+        $identifier = $session->configurationIdentifier === ''
+            ? $this->bindLegacySession($session, $actor)
+            : $session->configurationIdentifier;
+
+        if ($identifier === null) {
             return null;
         }
 
         try {
-            return $this->configurationResolver->getActiveByIdentifierForActor($session->configurationIdentifier, $actor);
+            return $this->configurationResolver->getActiveByIdentifierForActor($identifier, $actor);
         } catch (ConfigurationNotFoundException|ConfigurationInactiveException $unusable) {
             // Not found or deactivated: the conversation was opened against a
             // configuration that no longer exists or was switched off. Silently
@@ -287,7 +355,7 @@ final readonly class ConversationService implements ConversationServiceInterface
             throw new AccessDeniedException(
                 sprintf(
                     'The configuration "%s" this session was opened with is no longer usable: %s',
-                    $session->configurationIdentifier,
+                    $identifier,
                     $unusable->getMessage(),
                 ),
                 1784600006,

@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 
@@ -41,7 +42,14 @@ interface ConversationServiceInterface
      * The configuration is bound to the session: every later turn runs against
      * it, not against whatever the installation default happens to be.
      *
-     * @throws AccessDeniedException when the actor is not authenticated
+     * Omitting it does not mean "unbound" — it means "the installation
+     * default, resolved now" (ADR-188). The session is bound either way, so
+     * turn 1's context-window fit and turn 2's run against the same
+     * configuration, and a later change of the installation default leaves this
+     * conversation where it is.
+     *
+     * @throws AccessDeniedException          when the actor is not authenticated
+     * @throws ConfigurationNotFoundException when no configuration is given and the installation has no default this actor can use
      */
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession;
 

@@ -101,6 +101,31 @@ class LlmConfigurationRepositoryTest extends AbstractFunctionalTestCase
         self::assertEquals('default-config', $result->getIdentifier());
     }
 
+    /**
+     * A deactivated default is not a default (ADR-188 leans on this).
+     *
+     * `findDefault()` matches on `isActive` as well as `isDefault`, and
+     * `ConfigurationResolver::resolveDefaultForActor()` therefore does NOT
+     * re-check activity — it would be a second guard over the same fact. That
+     * is only safe while this holds, and nothing asserted it: an inactive
+     * default reaching a session binding would open the conversation and then
+     * kill its first turn, because the turn resolves through
+     * `getActiveByIdentifierForActor()`, which refuses one.
+     */
+    #[Test]
+    public function findDefaultIgnoresADeactivatedDefault(): void
+    {
+        $default = $this->subject->findDefault();
+        self::assertInstanceOf(LlmConfiguration::class, $default);
+
+        $default->setIsActive(false);
+        $this->subject->update($default);
+        $this->persistenceManager->persistAll();
+        $this->persistenceManager->clearState();
+
+        self::assertNull($this->subject->findDefault());
+    }
+
     #[Test]
     public function findAccessibleForGroupsReturnsUnrestrictedConfigurationsForEmptyGroups(): void
     {
