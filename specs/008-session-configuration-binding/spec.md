@@ -29,7 +29,10 @@ wrote down, chosen a layer lower, a turn later, and re-chosen on every turn.
 - A session opened before this rule binds itself once, on its next turn, with
   the actor in hand.
 - The binding write is conditional on the row still being unbound, so two
-  concurrent turns cannot re-point a conversation the first already bound.
+  concurrent turns cannot re-point a conversation the first already bound — and
+  the turn that loses that race follows the row rather than its own read.
+- A criteria-mode default is usable: it carries no model by design, and the
+  resolution every later turn goes through does not ask for one either.
 
 ## What it explicitly does not do
 
@@ -66,6 +69,8 @@ frozen surface is unchanged; the CHANGELOG announces the behaviour.
 | Changing the installation default does not re-route an existing conversation | `ConversationServiceTest::changingTheInstallationDefaultLeavesAnExistingConversationWhereItIs` — sends the second turn through a resolver whose default is a different configuration, and asserts the ORIGINAL one is used |
 | A legacy session binds itself once | `ConversationServiceTest::aLegacySessionWithoutAConfigurationBindsItselfOnItsNextTurn` — two turns, one bind call |
 | Turn 1 is fitted against the same configuration as turn 2 | `ConversationServiceTest::turnOneIsFittedAgainstTheSameConfigurationAsTurnTwo` — records the identifier the context window was handed on each turn |
+| A criteria-mode default without a model is usable | `ConfigurationResolverTest::resolveDefaultForActorAcceptsACriteriaDefaultWithoutAModel` |
+| A bind that loses the race follows the persisted configuration | `ConversationServiceTest::aLegacyBindThatLosesTheRaceFollowsThePersistedConfiguration` — the fixture plants the winner during the write, the way the conditional UPDATE does |
 | A restricted default is evaluated, not refused | `ConfigurationResolverTest::resolveDefaultForActorAppliesARestrictedDefaultToAnEntitledActor` — both directions in one case |
 | No usable default is null, not an exception | `ConfigurationResolverTest::resolveDefaultForActorReturnsNullWhenThereIsNoUsableDefault` — three ways of having none |
 

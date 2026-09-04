@@ -147,14 +147,42 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
      * exception: "this installation has not been set up yet" is a state its
      * caller reports, not one this resolver decides about.
      */
+    /**
+     * A criteria-mode configuration has no `llm_model` by design — it picks one
+     * per call. Demanding one here would make a valid criteria default unable
+     * to open a session, while the identical configuration works for every
+     * session that names it explicitly, because
+     * {@see ConfigurationResolver::getActiveByIdentifierForActor()} does not
+     * ask for a model either.
+     */
+    #[Test]
+    public function resolveDefaultForActorAcceptsACriteriaDefaultWithoutAModel(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('getLlmModel')->willReturn(null);
+        $configuration->method('usesCriteriaSelection')->willReturn(true);
+        $configuration->method('hasAccessRestrictions')->willReturn(false);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($configuration);
+
+        self::assertSame(
+            $configuration,
+            (new ConfigurationResolver($repository))->resolveDefaultForActor(AiActorContext::backendUser(42)),
+        );
+    }
+
     #[Test]
     public function resolveDefaultForActorReturnsNullWhenThereIsNoUsableDefault(): void
     {
         $none = self::createStub(LlmConfigurationRepository::class);
         $none->method('findDefault')->willReturn(null);
 
+        // Fixed mode explicitly: a criteria-mode configuration without a model
+        // is the case above, and is usable.
         $modelless = self::createStub(LlmConfiguration::class);
         $modelless->method('getLlmModel')->willReturn(null);
+        $modelless->method('usesCriteriaSelection')->willReturn(false);
         $withoutModel = self::createStub(LlmConfigurationRepository::class);
         $withoutModel->method('findDefault')->willReturn($modelless);
 

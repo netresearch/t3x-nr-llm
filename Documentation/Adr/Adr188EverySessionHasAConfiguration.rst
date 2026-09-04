@@ -88,6 +88,14 @@ The write is conditional on the row still being unbound —
 the same legacy session cannot re-point a conversation the first one already
 bound. The database decides, not the ordering of two reads.
 
+**And the turn that loses that race follows the row, not its own read.** The
+losing write is a silent no-op, so a turn trusting what it resolved would fit
+and dispatch against a configuration the session is not bound to — the binding
+would hold for the row and not for the run. The bind is therefore followed by a
+re-read, and the identifier that comes back is what the turn uses. It differs
+from the resolved one only when the installation default moved between the two
+reads, which is exactly the case worth being right about.
+
 .. _adr-188-consequences:
 
 Consequences
@@ -109,3 +117,11 @@ Consequences
   actor-aware sibling of :php:`resolveDefaultConfiguration()`, and the two
   differ in exactly one case: a group-restricted default, refused there because
   there is nobody to check, evaluated here because there is.
+- A **criteria-mode** default is usable. It carries no ``llm_model`` by design —
+  it picks one per call — and
+  :php:`ConfigurationResolver::getActiveByIdentifierForActor()`, which every
+  later turn goes through, does not ask for one either. Requiring a model here
+  would have made a valid criteria default unable to open a session at all,
+  while the identical configuration works for every session that names it
+  explicitly. A model is required of a fixed-mode configuration and of nothing
+  else.

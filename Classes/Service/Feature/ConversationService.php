@@ -254,8 +254,17 @@ final readonly class ConversationService implements ConversationServiceInterface
      * conversation someone is in the middle of: the binding is an improvement
      * to an existing row, and an improvement that cannot be made is not a
      * reason to refuse the turn.
+     *
+     * Returns the identifier that is ON THE ROW afterwards, which is not
+     * necessarily the one this turn resolved. The write is conditional on the
+     * row still being unbound, so a concurrent turn may have bound it first —
+     * and if the installation default changed between the two reads, that turn
+     * bound a different configuration. The row is the binding; a turn that lost
+     * the race must fit and dispatch against what is persisted rather than
+     * against what it happened to resolve, or ADR-188's "one configuration per
+     * session for its whole life" would hold for the row and not for the run.
      */
-    private function bindLegacySession(AiSession $session, AiActorContext $actor): ?LlmConfiguration
+    private function bindLegacySession(AiSession $session, AiActorContext $actor): ?string
     {
         $configuration = $this->configurationResolver->resolveDefaultForActor($actor);
         if (!$configuration instanceof LlmConfiguration) {
@@ -264,7 +273,11 @@ final readonly class ConversationService implements ConversationServiceInterface
 
         $this->sessions->bindConfiguration($session->uid, $configuration->getIdentifier());
 
-        return $configuration;
+        $bound = $this->sessions->findByUuid($session->uuid);
+
+        return $bound instanceof AiSession && $bound->configurationIdentifier !== ''
+            ? $bound->configurationIdentifier
+            : $configuration->getIdentifier();
     }
 
     /**
@@ -324,12 +337,16 @@ final readonly class ConversationService implements ConversationServiceInterface
      */
     private function resolveTurnConfiguration(AiSession $session, AiActorContext $actor): ?LlmConfiguration
     {
-        if ($session->configurationIdentifier === '') {
-            return $this->bindLegacySession($session, $actor);
+        $identifier = $session->configurationIdentifier === ''
+            ? $this->bindLegacySession($session, $actor)
+            : $session->configurationIdentifier;
+
+        if ($identifier === null) {
+            return null;
         }
 
         try {
-            return $this->configurationResolver->getActiveByIdentifierForActor($session->configurationIdentifier, $actor);
+            return $this->configurationResolver->getActiveByIdentifierForActor($identifier, $actor);
         } catch (ConfigurationNotFoundException|ConfigurationInactiveException $unusable) {
             // Not found or deactivated: the conversation was opened against a
             // configuration that no longer exists or was switched off. Silently
@@ -338,7 +355,7 @@ final readonly class ConversationService implements ConversationServiceInterface
             throw new AccessDeniedException(
                 sprintf(
                     'The configuration "%s" this session was opened with is no longer usable: %s',
-                    $session->configurationIdentifier,
+                    $identifier,
                     $unusable->getMessage(),
                 ),
                 1784600006,

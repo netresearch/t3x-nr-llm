@@ -292,6 +292,52 @@ final class ConversationServiceTest extends TestCase
     }
 
     /**
+     * The bind is conditional on the row still being unbound, so a concurrent
+     * turn can win it — and if the installation default moved between the two
+     * reads, it bound something else. The turn that lost must then fit and
+     * dispatch against what is PERSISTED, not against what it happened to
+     * resolve, or ADR-188 would hold for the row and not for the run.
+     */
+    #[Test]
+    public function aLegacyBindThatLosesTheRaceFollowsThePersistedConfiguration(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $uid        = $repository->startSession('legacy-uuid', self::OWNER, '', 'opened before ADR-188');
+
+        // The concurrent turn wins the conditional write: the row is still
+        // empty when this turn reads it, and bound by the time this turn's own
+        // write reaches the database.
+        $repository->bindRaceWinner = 'bound-by-the-other-turn';
+
+        $winner = $this->configuration('bound-by-the-other-turn');
+        $winner->setIsActive(true);
+        $winner->setLlmModel(new Model());
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::once())
+            ->method('chatForConfiguration')
+            ->with(self::anything(), self::identicalTo($winner), self::anything())
+            ->willReturn($this->response('the other turn decided'));
+
+        $stub = self::createStub(LlmConfigurationRepository::class);
+        $stub->method('findDefault')->willReturn($this->defaultConfiguration());
+        $stub->method('findOneByIdentifier')->willReturnCallback(
+            static fn(string $identifier): ?LlmConfiguration => $identifier === 'bound-by-the-other-turn' ? $winner : null,
+        );
+
+        $service = new ConversationService($llmManager, $repository, new ConfigurationResolver($stub));
+
+        self::assertSame(
+            'the other turn decided',
+            $service->send($this->owner(), 'legacy-uuid', 'continue')->content,
+        );
+
+        // And the row still carries the winner: this turn's own write was the
+        // no-op it is supposed to be.
+        self::assertSame('bound-by-the-other-turn', $repository->sessions[$uid]['configId']);
+    }
+
+    /**
      * The gap ADR-188 closes, measured where it hurt: turn 1's fit ran against
      * no configuration at all, so the transcript it sent was budgeted against
      * nothing. Both turns now report the same one.

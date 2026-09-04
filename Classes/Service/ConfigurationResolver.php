@@ -227,8 +227,8 @@ final readonly class ConfigurationResolver
      * inactive configuration would open the session and then kill its first
      * turn, because {@see self::getActiveByIdentifierForActor()} refuses one.
      *
-     * Null when there is no default, when it carries no model, or when this
-     * actor may not use it. The caller decides what that means; here it is not
+     * Null when there is no default, when a fixed-mode default carries no
+     * model, or when this actor may not use it. The caller decides what that means; here it is not
      * an error, because "this installation has no default yet" is a setup state
      * rather than a failure.
      */
@@ -236,7 +236,18 @@ final readonly class ConfigurationResolver
     {
         $configuration = $this->configurationRepository?->findDefault();
 
-        if (!$configuration instanceof LlmConfiguration || !$configuration->getLlmModel() instanceof Model) {
+        if (!$configuration instanceof LlmConfiguration) {
+            return null;
+        }
+
+        // A model is required of a FIXED-mode configuration and of nothing
+        // else. A criteria-mode one has no `llm_model` by design — it picks one
+        // per call from its criteria — and {@see self::getActiveByIdentifierForActor()},
+        // which every later turn of the session goes through, does not ask for
+        // one either. Demanding it here would make a valid criteria default
+        // unable to open a session at all, while the identical configuration
+        // works for every session that names it explicitly.
+        if (!$configuration->usesCriteriaSelection() && !$configuration->getLlmModel() instanceof Model) {
             return null;
         }
 
