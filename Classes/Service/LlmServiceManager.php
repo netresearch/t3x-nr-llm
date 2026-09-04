@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -1131,7 +1132,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param ?InjectedContext                       $injectedContext sources this run injects on top of the configuration (ADR-164);
      *                                                                the ADR-144 ceiling binds against them too
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null): CompletionResponse
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         $messages           = $this->screenInput($messages);
         $normalisedMessages = $this->messageShaper->normalise($messages);
@@ -1139,9 +1140,18 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides): CompletionResponse {
-                $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals);
+            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides, $configuration, $resolution): CompletionResponse {
+                $config = $this->planner->requireConfiguration($ctx);
+                // A handed-over decision belongs to the configuration it was
+                // taken for. FallbackMiddleware retries through
+                // ProviderCallContext::withConfiguration(), so this attempt may
+                // be serving a configuration the caller never named -- and
+                // reusing the primary decision there would send the fallback to
+                // the primary model, its adapter and its window, which is the
+                // one thing a fallback exists to avoid. The fallback resolves
+                // for itself.
+                $taken    = $config === $configuration ? $resolution : null;
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals, $taken);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options, [], $ctx->telemetrySignals);
@@ -1207,7 +1217,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse
+    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse
     {
         $options ??= new ChatOptions();
         [, $optionsArray] = $this->splitProviderKey($options->toArray());
@@ -1217,6 +1227,9 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
             $configuration,
             $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->callerSource($options),
             $optionsArray,
+            null,
+            null,
+            $resolution,
         );
     }
 

@@ -23,13 +23,16 @@ use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -900,6 +903,175 @@ final class ConversationServiceTest extends TestCase
         }
 
         self::fail(sprintf('No %s row was recorded.', $role));
+    }
+
+    /**
+     * The turn is budgeted against the window of the model it is sent to.
+     *
+     * ContextWindowManager::fit() reads `$resolvedModel ?? $configuration
+     * ->getLlmModel()`, and a criteria-mode configuration carries no model by
+     * design, so passing nothing meant the fit fell back to the 8192-token
+     * UNKNOWN_WINDOW_FALLBACK while the send resolved a concrete model from
+     * the criteria afterwards. History the dispatched model could have
+     * accepted was dropped, and droppedTurns recorded that on the user row as
+     * if it had been necessary (#922).
+     */
+    #[Test]
+    public function theTurnIsFittedAgainstTheModelItIsSentTo(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+        $resolved      = new Model();
+        $resolved->setName('the-model-actually-used');
+
+        $passedToFit = false;
+        $seenModel   = null;
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs,
+                string $injectedText,
+                ?string $effectiveSystemPrompt,
+                ?Model $resolvedModel = null,
+            ) use (&$passedToFit, &$seenModel): ContextFitResult {
+                $passedToFit = true;
+                $seenModel   = $resolvedModel;
+
+                return new ContextFitResult([ChatMessage::user('and now?')], false, 0, 1, 10, 128000, false, 1.15, ContextBudgetBreakdown::none());
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('answered'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            null,
+            $this->routingReturning($resolved),
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'and now?');
+
+        self::assertTrue($passedToFit, 'the fit did not run at all, so the assertion below would be vacuous');
+        self::assertSame($resolved, $seenModel);
+    }
+
+    /**
+     * Exactly one routing evaluation per turn.
+     *
+     * Two would be two decisions, and two decisions taken moments apart can
+     * disagree about which model the turn runs on — the hazard
+     * ConfigurationCallPlanner::resolveModel() names in its own docblock.
+     */
+    #[Test]
+    public function theModelIsResolvedOncePerTurn(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+        $resolved      = new Model();
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturn(
+            new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 128000, false, 1.15, ContextBudgetBreakdown::none()),
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('answered'));
+
+        $routing = $this->createMock(ModelSelectionServiceInterface::class);
+        $routing->expects(self::once())
+            ->method('resolveModelForCall')
+            ->willReturn(ModelResolution::withoutDecision($resolved));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            null,
+            $routing,
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+    }
+
+    /**
+     * An unservable configuration fails before the user row is written.
+     *
+     * This is the authoritative resolution, so its refusal is the turn's
+     * refusal. It used to surface one step later, from inside the dispatch,
+     * after the user row had already been persisted -- and the row is meant to
+     * record a turn that was sent. A turn whose configuration can serve no
+     * chat model at all never could be.
+     */
+    #[Test]
+    public function anUnservableConfigurationRefusesTheTurnBeforeItIsRecorded(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chatForConfiguration');
+
+        $routing = self::createStub(ModelSelectionServiceInterface::class);
+        $routing->method('resolveModelForCall')->willThrowException(
+            new UnsupportedFeatureException('every matching model declares capabilities without "chat"', 1788700001),
+        );
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            self::createStub(ContextWindowManagerInterface::class),
+            null,
+            null,
+            null,
+            $routing,
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+
+        $before  = $this->rowCount($repository);
+        $refusal = null;
+
+        // Throwable rather than the concrete type: PHPStan's checked-exception
+        // configuration reads a narrower catch here as dead, and the class is
+        // asserted below anyway.
+        try {
+            $service->send($actor, $session->uuid, 'hi');
+        } catch (Throwable $e) {
+            $refusal = $e;
+        }
+
+        self::assertInstanceOf(UnsupportedFeatureException::class, $refusal, 'the unservable configuration did not refuse the turn');
+        self::assertSame($before, $this->rowCount($repository), 'a refused turn must leave no message row behind');
+    }
+
+    private function rowCount(RecordingAiSessionRepository $repository): int
+    {
+        return count($repository->messages);
+    }
+
+    private function routingReturning(Model $model): ModelSelectionServiceInterface
+    {
+        $routing = self::createStub(ModelSelectionServiceInterface::class);
+        $routing->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision($model));
+
+        return $routing;
     }
 
     private function configuration(string $identifier): LlmConfiguration

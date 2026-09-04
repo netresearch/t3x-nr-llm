@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderException;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -63,6 +64,12 @@ final readonly class ConfigurationCallPlanner
      * resolution and a terminal that resolves again would otherwise be able to
      * disagree about which model the call runs on.
      *
+     * `$taken` is this call's routing decision when the caller has already
+     * taken it. ConversationService does, because it has to fit the transcript
+     * against the same model the send uses and cannot do that after the fact
+     * (#922). Given one, nothing is evaluated here and the decision cannot
+     * disagree with itself.
+     *
      * `$signals` is the running call's telemetry scratchpad. Given one, the
      * reasoning behind a criteria-mode selection is recorded on it for the
      * telemetry row (ADR-156); the resolution is unchanged either way, and the
@@ -72,6 +79,7 @@ final readonly class ConfigurationCallPlanner
         LlmConfiguration $configuration,
         ?ProviderOperation $operation,
         ?TelemetrySignals $signals = null,
+        ?ModelResolution $taken = null,
     ): Model {
         // Criteria-mode configurations carry no direct model relation (model_uid = 0);
         // their model is selected at call time from the stored criteria. Resolve
@@ -80,7 +88,15 @@ final readonly class ConfigurationCallPlanner
         // model here. Without this, every *ForConfiguration() call on a criteria-mode
         // configuration threw "has no model assigned".
         $llmModel = $configuration->getLlmModel();
-        if ($this->modelSelectionService instanceof ModelSelectionServiceInterface) {
+        if ($taken instanceof ModelResolution) {
+            // The caller already took this call's ONE routing decision and is
+            // handing it over rather than letting a second evaluation run
+            // here (#922). The summary is still recorded from this point, so
+            // the ordering ADR-174 fixes -- request facts first, routing
+            // summary after -- is unchanged; only the evaluation moved.
+            $llmModel = $taken->model;
+            $signals?->recordRoutingSummary($taken->routingSummary);
+        } elseif ($this->modelSelectionService instanceof ModelSelectionServiceInterface) {
             // One evaluation answers both questions — which model, and why. See
             // ModelSelectionServiceInterface::resolveModelForCall() for why this
             // is not resolveModel() plus explainRouting().

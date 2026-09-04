@@ -19,7 +19,7 @@ use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
  * (find session, load history, append turns, touch) behaves realistically.
  *
  * @phpstan-type SessionRow array{uuid: string, beUser: int, configId: string, title: string, messageCount: int, lastActivity: int, crdate: int}
- * @phpstan-type MessageRow array{session: int, sequence: int, role: string, content: string, model: string, prompt: int, completion: int, total: int}
+ * @phpstan-type MessageRow array{session: int, sequence: int, role: string, content: string, droppedTurns: ?int, model: string, prompt: int, completion: int, total: int}
  */
 final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
 {

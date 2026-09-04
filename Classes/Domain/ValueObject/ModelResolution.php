@@ -25,7 +25,15 @@ use Netresearch\NrLlm\Domain\Model\Model;
  * fixed mode (the operator named the model, so there is nothing to explain) and
  * the paths that resolve no configuration at all.
  *
- * @internal
+ * Public since #922, because a caller that must size a payload against the
+ * serving model has to take this call's decision itself and hand it over --
+ * `LlmServiceManagerInterface::chatForConfiguration()` accepts one so the
+ * dispatch does not take a second. Both members were already reachable from
+ * the frozen surface ({@see \Netresearch\NrLlm\Domain\Model\Model} and
+ * {@see RoutingSummary} are both `@api`), so this publishes the pairing rather
+ * than any new data.
+ *
+ * @api
  */
 final readonly class ModelResolution
 {

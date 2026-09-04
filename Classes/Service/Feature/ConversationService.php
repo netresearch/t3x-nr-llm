@@ -15,13 +15,16 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
@@ -75,6 +78,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         // snippets (ADR-031) into the prompt it sends, so the estimate has to
         // know about them or it budgets for a smaller message than it sends.
         private ?ConfigurationSnippetResolver $snippetResolver = null,
+        // Answers which model this turn will run on, so the fit below budgets
+        // against that model's window instead of the 8192-token fallback a
+        // criteria-mode configuration otherwise gets (#922). Optional like the
+        // three above; absent it the fit behaves exactly as it did before.
+        private ?ModelSelectionServiceInterface $modelSelection = null,
     ) {}
 
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession
@@ -154,7 +162,10 @@ final readonly class ConversationService implements ConversationServiceInterface
         // stored. The count is persisted on the user row below so a trimmed
         // turn is not merely a log line.
         $configuration = $this->resolveTurnConfiguration($session, $actor);
-        $droppedTurns  = null;
+        // One routing decision per turn, taken here and carried to both the
+        // fit below and the dispatch further down (#922).
+        $resolution   = $configuration instanceof LlmConfiguration ? $this->resolveTurnModel($configuration) : null;
+        $droppedTurns = null;
         if ($this->contextWindow instanceof ContextWindowManagerInterface && $configuration instanceof LlmConfiguration) {
             // lastUsage is null: each turn is a fresh assembly, so the
             // manager's calibration starts from its seed rather than carrying a
@@ -179,6 +190,7 @@ final readonly class ConversationService implements ConversationServiceInterface
                 [],
                 $this->skillBlockFor($configuration),
                 $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
+                $resolution?->model,
             );
             $messages     = $fit->messages;
             $droppedTurns = $fit->droppedTurns;
@@ -222,7 +234,7 @@ final readonly class ConversationService implements ConversationServiceInterface
         );
         $this->sessions->touch($session->uid, $userSequence + 1);
 
-        $response = $this->dispatch($messages, $configuration, $options);
+        $response = $this->dispatch($messages, $configuration, $options, $resolution);
 
         $assistantSequence = $this->sessions->appendMessageAtNextSequence(
             $session->uid,
@@ -281,6 +293,42 @@ final readonly class ConversationService implements ConversationServiceInterface
     }
 
     /**
+     * The one routing decision this turn is allowed to take.
+     *
+     * `fit()` reads `$resolvedModel ?? $configuration->getLlmModel()`. A
+     * criteria-mode configuration carries no model by design, so passing
+     * nothing made the fit fall back to UNKNOWN_WINDOW_FALLBACK -- 8192
+     * tokens -- while the send resolved a concrete model from the criteria
+     * afterwards and fitted again against ITS window. Where the resolved model
+     * had the larger window, the first fit had already dropped history the
+     * second would have kept, and `droppedTurns` recorded that on the user row
+     * as if it had been necessary (#922, ADR-121).
+     *
+     * This is the AUTHORITATIVE resolution -- the same `resolveModelForCall()`
+     * the manager's terminal would otherwise run, with its observed-capability
+     * report and its refusal of an unservable operation. The result travels
+     * with the dispatch so the terminal records its routing summary and does
+     * not evaluate a second time. Two evaluations moments apart can disagree
+     * about which model the turn runs on, which is the hazard
+     * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::resolveModel()}
+     * names in its own docblock; one decision per turn is the only shape that
+     * cannot.
+     *
+     * Nothing is caught here. An unservable configuration now fails before the
+     * user row is written rather than one step after it, which is the more
+     * honest ordering: the row records a turn that was sent, and this one
+     * never could be.
+     *
+     * Null only where the service is absent, which is the lean wiring the
+     * three optional collaborators above already describe; the fit then
+     * behaves exactly as it did before.
+     */
+    private function resolveTurnModel(LlmConfiguration $configuration): ?ModelResolution
+    {
+        return $this->modelSelection?->resolveModelForCall($configuration, ProviderOperation::Chat);
+    }
+
+    /**
      * Run the turn against the configuration resolved for it.
      *
      * A null configuration is a session opened without one: it keeps the
@@ -289,13 +337,13 @@ final readonly class ConversationService implements ConversationServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options): CompletionResponse
+    private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options, ?ModelResolution $resolution): CompletionResponse
     {
         if (!$configuration instanceof LlmConfiguration) {
             return $this->llmManager->chat($messages, $options);
         }
 
-        return $this->llmManager->chatForConfiguration($messages, $configuration, $options);
+        return $this->llmManager->chatForConfiguration($messages, $configuration, $options, $resolution);
     }
 
     /**

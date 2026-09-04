@@ -111,6 +111,22 @@ final readonly class RoutingReadout
     }
 
     /**
+     * The model this readout came out with -- the one the operator named in
+     * fixed mode, the one the decision selected in criteria mode.
+     *
+     * The same branch {@see self::hasSelection()} takes, answering with the
+     * model rather than with whether there is one. It exists so that a caller
+     * needing the model without the reporting side of a resolution -- a
+     * context-window budget, say (#922) -- reads one method instead of
+     * re-deriving the fixed/criteria split at its own call site and getting
+     * one of the two branches wrong.
+     */
+    public function selectedModel(): ?Model
+    {
+        return $this->fixed ? $this->namedModel : $this->decision?->selected;
+    }
+
+    /**
      * No model was even considered: the catalogue holds no active model.
      *
      * The case worth separating from "every candidate was rejected", because
