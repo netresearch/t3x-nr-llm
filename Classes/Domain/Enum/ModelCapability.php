@@ -15,7 +15,7 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * **This is a vocabulary, not an inventory.** A case existing here does not
  * mean any model on an installation declares it: discovery writes the subset
  * each provider's own response substantiates, an administrator may tick any
- * box by hand, and three cases are written by nobody at all. The consequence
+ * box by hand, and two cases are written by nobody at all. The consequence
  * is the reason this docblock exists — a configuration whose criteria REQUIRE
  * a capability nothing writes matches no model, silently, because
  * :php:`EligibilityEvaluator::matchesCapabilities()` demands every listed one
