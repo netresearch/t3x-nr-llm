@@ -159,3 +159,24 @@ jobs:
       mutation-min-msi: 70
       mutation-min-covered-msi: 74
 
+  # The reranker sidecar's image installs from requirements.lock, not from
+  # requirements.txt, so a bump to the latter alone ships nothing and only makes
+  # the two disagree. Nothing else in CI reads Build/reranker at all — no job
+  # builds the image — which is how sentence-transformers stood at 5.7.0 in one
+  # file and 5.6.1 in the other from bad803c9 until this check landed. Plain
+  # shell on purpose: no Docker, no network, no Python, so it costs a few
+  # seconds and cannot itself rot.
+  reranker-lock:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.1
+
+      - name: requirements.txt and requirements.lock agree
+        run: Build/reranker/check-lock-matches-requirements.sh
