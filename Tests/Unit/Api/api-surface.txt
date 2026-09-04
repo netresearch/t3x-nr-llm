@@ -337,6 +337,15 @@ Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\WriteKind (enum)
+  case CREATED = "created"
+  case UPDATED = "updated"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Model\AdapterType (enum)
   case Anthropic = "anthropic"
   case AzureOpenAI = "azure_openai"
@@ -936,10 +945,11 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   method static error(string $content): self
   method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
   method withBoundedChannels(string $content, array $artifacts): self
-  method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target): self
+  method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target, Netresearch\NrLlm\Domain\Enum\WriteKind $kind): self
   property readonly artifacts: array
   property readonly content: string
   property readonly isError: bool
+  property readonly writeKind: ?Netresearch\NrLlm\Domain\Enum\WriteKind
   property readonly writeTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
@@ -953,6 +963,12 @@ Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
   property readonly name: string
   property readonly parameters: array
   property readonly type: string
+
+Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent (class)
+  constructor(string $correlationId, Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, Netresearch\NrLlm\Domain\Enum\WriteKind $kind)
+  property readonly correlationId: string
+  property readonly kind: Netresearch\NrLlm\Domain\Enum\WriteKind
+  property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Exception\AccessDeniedException (class)
 

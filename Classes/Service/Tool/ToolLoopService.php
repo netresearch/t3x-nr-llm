@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -20,12 +21,14 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\ContextTruncatedException;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
@@ -40,6 +43,7 @@ use Netresearch\NrLlm\Service\Schema\JsonSchemaValidator;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -117,6 +121,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // resumed send was not re-gated against the forced set.
         private ?PromptSnippetRepository $promptSnippetRepository = null,
         private ?SkillRepository $skillRepository = null,
+        // Announces a completed editorial write to consumers (ADR-187). Optional
+        // like the collaborators above, and for the same reason the governance
+        // sink is: it is an outward announcement, not a gate. Absent it the
+        // write still happens, is still traced and is still joinable — it is
+        // just not broadcast, which is exactly the lean-test wiring's situation.
+        private ?EventDispatcherInterface $eventDispatcher = null,
     ) {}
 
     /**
@@ -1122,10 +1132,66 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface
         // tool's own return value would notice. The fail-closed emptiness of an
         // error result is the value object's rule, not a condition repeated at
         // every call site.
-        return $result->withBoundedChannels(
+        $bounded = $result->withBoundedChannels(
             $this->bounder->content($result->content),
             $this->bounder->artifacts($result->artifacts),
         );
+
+        $this->announceWrite($bounded, $context);
+
+        return $bounded;
+    }
+
+    /**
+     * Tell consumers a record was written by an AI run (ADR-187).
+     *
+     * Dispatched here rather than in the seven writers, because here is the one
+     * place every tool execution passes through — `$tool->execute()` above is
+     * the only call site of the tool contract in this extension, so "exactly
+     * once per successful write" is a property of the code's shape rather than
+     * of seven writers remembering.
+     *
+     * Silent in three cases, each of which is an absence of provenance rather
+     * than a write worth announcing: an error result (which by construction
+     * carries no target at all), a result from a tool that wrote nothing, and a
+     * loop driven without a persisted run — a bare
+     * {@see ToolLoopServiceInterface} consumer has no correlation id, and the
+     * event refuses an empty one rather than reporting a write nobody can
+     * attribute.
+     *
+     * A listener that throws is logged and does not fail the run. The write has
+     * already landed and a human has already approved it; letting a consumer's
+     * label, badge or report take the run down with it would turn a completed
+     * editorial write into a failed one — and the model's next move on a failed
+     * write is to try it again. This is the one place in the loop where foreign
+     * code runs after the side effect, so it is the one place that swallows.
+     * Swallows, not hides: the full Throwable goes to the log.
+     */
+    private function announceWrite(ToolResult $result, ToolExecutionContext $context): void
+    {
+        if (!$this->eventDispatcher instanceof EventDispatcherInterface) {
+            return;
+        }
+
+        if (!$result->writeTarget instanceof RecordReference || !$result->writeKind instanceof WriteKind) {
+            return;
+        }
+
+        $correlationId = $context->run?->correlationId() ?? '';
+        if ($correlationId === '') {
+            return;
+        }
+
+        $event = new AfterAiRecordWrittenEvent($correlationId, $result->writeTarget, $result->writeKind);
+
+        try {
+            $this->eventDispatcher->dispatch($event);
+        } catch (Throwable $e) {
+            $this->logger?->error(
+                sprintf('A listener of the AI-write provenance event failed for %s.', $event->record),
+                ['exception' => $e, 'correlationId' => $correlationId],
+            );
+        }
     }
 
     /**

@@ -27,4 +27,5 @@ Complete API reference for the TYPO3 LLM extension.
    ResponseObjects
    OptionClasses
    ProviderInterface
+   Events
    Exceptions

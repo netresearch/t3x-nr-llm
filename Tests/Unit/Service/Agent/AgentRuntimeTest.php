@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -1189,7 +1190,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
                     'update_page_metadata',
                     [],
                     ToolResult::text('Updated page [42]: title.')
-                        ->withWriteTarget(new RecordReference('pages', 42)),
+                        ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED),
                 );
 
                 return $this->loopResult('unreachable');

@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
+
 /**
  * The typed return value of {@see \Netresearch\NrLlm\Service\Tool\ToolInterface::execute()}.
  *
@@ -29,6 +31,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * {@see RecordReference} refuses anything that is not a database identifier at
  * construction: there is no unbounded string to coerce.
  *
+ * `$writeKind` travels with it and only with it: both are set by the same
+ * method and by no other, so "a target without a kind" is not a state this
+ * class can be in (ADR-187).
+ *
  * Fail-closed: {@see self::error()} carries NO artifacts and NO write target.
  *
  * @api
@@ -43,6 +49,7 @@ final readonly class ToolResult
         public bool $isError,
         public array $artifacts,
         public ?RecordReference $writeTarget = null,
+        public ?WriteKind $writeKind = null,
     ) {}
 
     /**
@@ -70,14 +77,20 @@ final readonly class ToolResult
      *
      * Refused on an error result: fail-closed, mirroring the artifact rule
      * above. A failing write must not report a target.
+     *
+     * The kind is required rather than defaulted, because a default would be a
+     * guess about what the tool did, and the tool is the only party that knows
+     * whether it minted the uid or was handed it. It is what
+     * {@see \Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent} reports to
+     * consumers (ADR-187).
      */
-    public function withWriteTarget(RecordReference $target): self
+    public function withWriteTarget(RecordReference $target, WriteKind $kind): self
     {
         if ($this->isError) {
             return $this;
         }
 
-        return new self($this->content, false, $this->artifacts, $target);
+        return new self($this->content, false, $this->artifacts, $target, $kind);
     }
 
     /**
@@ -109,6 +122,6 @@ final readonly class ToolResult
             return new self($content, true, []);
         }
 
-        return new self($content, false, $artifacts, $this->writeTarget);
+        return new self($content, false, $artifacts, $this->writeTarget, $this->writeKind);
     }
 }

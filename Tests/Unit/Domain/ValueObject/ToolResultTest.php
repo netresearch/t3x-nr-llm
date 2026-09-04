@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -82,7 +83,7 @@ final class ToolResultTest extends TestCase
     public function aSuccessfulResultCanNameTheRecordItWrote(): void
     {
         $result = ToolResult::text('Updated page [42]: title.')
-            ->withWriteTarget(new RecordReference('pages', 42));
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED);
 
         self::assertInstanceOf(RecordReference::class, $result->writeTarget);
         self::assertSame('pages', $result->writeTarget->table);
@@ -105,7 +106,7 @@ final class ToolResultTest extends TestCase
     public function anErrorResultRefusesAWriteTarget(): void
     {
         $result = ToolResult::error('The update did not take.')
-            ->withWriteTarget(new RecordReference('pages', 42));
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED);
 
         self::assertNull($result->writeTarget);
         self::assertTrue($result->isError);
@@ -121,7 +122,7 @@ final class ToolResultTest extends TestCase
     public function boundingTheChannelsCarriesEveryOtherMemberForward(): void
     {
         $original = ToolResult::text('long content', new ToolArtifact(ArtifactType::TEXT, 'label', ['text' => 'x']))
-            ->withWriteTarget(new RecordReference('sys_file_metadata', 137));
+            ->withWriteTarget(new RecordReference('sys_file_metadata', 137), WriteKind::UPDATED);
 
         $bounded = $original->withBoundedChannels('short', []);
 
@@ -150,6 +151,37 @@ final class ToolResultTest extends TestCase
     }
 
     /**
+     * The kind never travels alone and never goes missing: it is set by the one
+     * method that sets the target, and carried by the one method that carries
+     * it. A target without a kind is a state this class cannot be in, which is
+     * what lets the loop dispatch a provenance event without inventing a
+     * default (ADR-187).
+     */
+    #[Test]
+    public function theWriteKindTravelsWithTheTargetAndOnlyWithIt(): void
+    {
+        $written = ToolResult::text('Set the alternative text of file [7].')
+            ->withWriteTarget(new RecordReference('sys_file_metadata', 137), WriteKind::UPDATED);
+
+        self::assertSame(WriteKind::UPDATED, $written->writeKind);
+        self::assertSame(WriteKind::UPDATED, $written->withBoundedChannels('bounded', [])->writeKind);
+
+        self::assertNull(ToolResult::text('read something')->writeKind);
+        self::assertNull(ToolResult::error('nope')->writeKind);
+        self::assertNull(
+            ToolResult::error('nope')
+                ->withWriteTarget(new RecordReference('pages', 42), WriteKind::CREATED)
+                ->writeKind,
+        );
+
+        // An error result drops both halves together, so bounding can never
+        // leave a kind behind on a call that reports no target.
+        $failed = ToolResult::error('the write did not take')->withBoundedChannels('bounded', []);
+        self::assertNull($failed->writeTarget);
+        self::assertNull($failed->writeKind);
+    }
+
+    /**
      * Every property of the value object is either bounded or carried. A new one
      * added without a decision fails here rather than silently vanishing on the
      * way through the loop.
@@ -164,7 +196,7 @@ final class ToolResultTest extends TestCase
         sort($properties);
 
         self::assertSame(
-            ['artifacts', 'content', 'isError', 'writeTarget'],
+            ['artifacts', 'content', 'isError', 'writeKind', 'writeTarget'],
             $properties,
             'ToolResult gained a property. Decide in withBoundedChannels() whether it is bounded or carried '
             . 'forward — ADR-182 names three values already lost to a rebuild that answered for neither.',
