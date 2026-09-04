@@ -216,7 +216,7 @@ final class ConversationSingleRoutingDecisionTest extends AbstractUnitTestCase
             ModelResolution::withoutDecision($primaryModel),
         );
 
-        self::assertSame($fallbackModel, $served, 'the fallback attempt was served by the primary decision\'s model');
+        self::assertSame($fallbackModel, $served, "the fallback attempt was served by the primary decision's model");
         self::assertContains('the-fallback', $askedFor, 'the fallback configuration was never resolved');
     }
 
