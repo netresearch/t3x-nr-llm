@@ -318,6 +318,18 @@ final class CapabilitySeedTest extends AbstractUnitTestCase
             $models[] = $model;
         }
 
+        // OpenAI seeds `audio` from the model id, and its offline spec table
+        // carries no audio model — so without a listing that reaches that
+        // branch the capability looks unseeded and this check would demand it
+        // be declared dead, which it is not.
+        foreach ($this->discover(OpenAiModelDiscoverer::class, json_encode([
+            'data' => [
+                ['id' => 'gpt-4o-audio-preview', 'object' => 'model', 'created' => 1, 'owned_by' => 'openai'],
+            ],
+        ], JSON_THROW_ON_ERROR)) as $model) {
+            $models[] = $model;
+        }
+
         $seeded = [];
         foreach ($models as $model) {
             foreach ($model->capabilities as $capability) {
