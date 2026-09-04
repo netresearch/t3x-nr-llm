@@ -220,6 +220,13 @@ final readonly class ConfigurationResolver
      * opposite situation — it always has an actor — so the restriction is
      * evaluated instead of used as a reason to give up.
      *
+     * Activity is not checked here because
+     * {@see \Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository::findDefault()}
+     * already matches on `isActive = true` — a deactivated default is not a
+     * default. That matters more than it looks: binding a session to an
+     * inactive configuration would open the session and then kill its first
+     * turn, because {@see self::getActiveByIdentifierForActor()} refuses one.
+     *
      * Null when there is no default, when it carries no model, or when this
      * actor may not use it. The caller decides what that means; here it is not
      * an error, because "this installation has no default yet" is a setup state
