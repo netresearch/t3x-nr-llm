@@ -286,7 +286,7 @@ final readonly class ConfigurationPresetImportService
     {
         $narrowed = ['capabilities' => $criteria->capabilities];
         if ($this->modelSelectionService->findCandidates($narrowed) === []) {
-            return 'capabilities: ' . implode(', ', $criteria->capabilities);
+            return 'capabilities: ' . $this->describeFailingCapabilities($criteria->capabilities);
         }
 
         if ($criteria->adapterTypes !== []) {
@@ -311,6 +311,38 @@ final readonly class ConfigurationPresetImportService
         }
 
         return 'combined criteria';
+    }
+
+    /**
+     * Name the capabilities that fail ON THEIR OWN, not the whole requested set.
+     *
+     * One capability no active model declares is enough to make the set
+     * unsatisfiable, and echoing the whole list hides which one it was:
+     * "capabilities: chat, json_mode" sent a reader to look at `chat`, which
+     * every model here declares. Only `json_mode` was actionable, and no model
+     * discoverer assigns it to anything (#913), so nothing on this installation
+     * could ever have matched.
+     *
+     * When each capability matches something alone but the set matches nothing,
+     * the failure is the combination. That is a different problem with a
+     * different fix, so it gets a different sentence rather than the same one.
+     *
+     * @param list<string> $capabilities
+     */
+    private function describeFailingCapabilities(array $capabilities): string
+    {
+        $undeclared = [];
+        foreach ($capabilities as $capability) {
+            if ($this->modelSelectionService->findCandidates(['capabilities' => [$capability]]) === []) {
+                $undeclared[] = $capability;
+            }
+        }
+
+        if ($undeclared !== []) {
+            return implode(', ', $undeclared) . ' (declared by no active model)';
+        }
+
+        return implode(', ', $capabilities) . ' (no active model declares them together)';
     }
 
     /**
