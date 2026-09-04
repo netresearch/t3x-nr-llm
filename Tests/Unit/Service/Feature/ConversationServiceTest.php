@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
+use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -23,6 +24,8 @@ use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
+use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
@@ -30,6 +33,7 @@ use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
@@ -900,6 +904,177 @@ final class ConversationServiceTest extends TestCase
         }
 
         self::fail(sprintf('No %s row was recorded.', $role));
+    }
+
+    /**
+     * The turn is budgeted against the window of the model it is sent to.
+     *
+     * ContextWindowManager::fit() reads `$resolvedModel ?? $configuration
+     * ->getLlmModel()`, and a criteria-mode configuration carries no model by
+     * design, so passing nothing meant the fit fell back to the 8192-token
+     * UNKNOWN_WINDOW_FALLBACK while the send resolved a concrete model from
+     * the criteria afterwards. History the dispatched model could have
+     * accepted was dropped, and droppedTurns recorded that on the user row as
+     * if it had been necessary (#922).
+     */
+    #[Test]
+    public function theTurnIsFittedAgainstTheModelItIsSentTo(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+        $resolved      = new Model();
+        $resolved->setName('the-model-actually-used');
+
+        $passedToFit = false;
+        $seenModel   = null;
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs,
+                string $injectedText,
+                ?string $effectiveSystemPrompt,
+                ?Model $resolvedModel = null,
+            ) use (&$passedToFit, &$seenModel): ContextFitResult {
+                $passedToFit = true;
+                $seenModel   = $resolvedModel;
+
+                return new ContextFitResult([ChatMessage::user('and now?')], false, 0, 1, 10, 128000, false, 1.15, ContextBudgetBreakdown::none());
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('answered'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            null,
+            $this->routingReturning($resolved),
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'and now?');
+
+        self::assertTrue($passedToFit, 'the fit did not run at all, so the assertion below would be vacuous');
+        self::assertSame($resolved, $seenModel);
+    }
+
+    /**
+     * Exactly one routing evaluation per turn.
+     *
+     * Two would be two decisions, and two decisions taken moments apart can
+     * disagree about which model the turn runs on — the hazard
+     * ConfigurationCallPlanner::resolveModel() names in its own docblock.
+     */
+    #[Test]
+    public function theModelIsResolvedOncePerTurn(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+        $resolved      = new Model();
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturn(
+            new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 128000, false, 1.15, ContextBudgetBreakdown::none()),
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('answered'));
+
+        $routing = $this->createMock(ModelSelectionServiceInterface::class);
+        $routing->expects(self::once())
+            ->method('explainRouting')
+            ->willReturn(RoutingReadout::decided(new RoutingDecision($resolved, [], RoutingPolicyMode::BALANCED), true, null, false, false));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            null,
+            $routing,
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+        $service->send($actor, $session->uuid, 'hi');
+    }
+
+    /**
+     * A routing evaluation that fails must not end a conversation.
+     *
+     * The resolution here is a budgeting read, not the authoritative one —
+     * that still happens inside the manager's terminal, where its failure is
+     * the caller's error either way. Losing the window estimate is worth a log
+     * line and the pre-#922 fallback, not a dead turn.
+     */
+    #[Test]
+    public function aRoutingFailureLeavesTheTurnRunningAgainstTheOldFallback(): void
+    {
+        $repository    = new RecordingAiSessionRepository();
+        $configuration = $this->configuration('criteria-mode');
+
+        $seenModel = 'never set';
+
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (
+                array $messages,
+                LlmConfiguration $configuration,
+                ?ChatOptions $options,
+                ?UsageStatistics $lastUsage,
+                array $toolSpecs,
+                string $injectedText,
+                ?string $effectiveSystemPrompt,
+                ?Model $resolvedModel = null,
+            ) use (&$seenModel): ContextFitResult {
+                $seenModel = $resolvedModel;
+
+                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 8192, false, 1.15, ContextBudgetBreakdown::none());
+            },
+        );
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('still answered'));
+
+        $routing = self::createStub(ModelSelectionServiceInterface::class);
+        $routing->method('explainRouting')->willThrowException(new RuntimeException('catalogue unavailable'));
+
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverReturning($configuration),
+            $contextWindow,
+            null,
+            null,
+            null,
+            $routing,
+        );
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, '', $configuration);
+
+        self::assertSame('still answered', $service->send($actor, $session->uuid, 'hi')->content);
+        self::assertNull($seenModel);
+    }
+
+    private function routingReturning(Model $model): ModelSelectionServiceInterface
+    {
+        $routing = self::createStub(ModelSelectionServiceInterface::class);
+        $routing->method('explainRouting')->willReturn(
+            RoutingReadout::decided(new RoutingDecision($model, [], RoutingPolicyMode::BALANCED), true, null, false, false),
+        );
+
+        return $routing;
     }
 
     private function configuration(string $identifier): LlmConfiguration

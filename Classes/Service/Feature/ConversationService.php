@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Feature;
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -19,9 +20,11 @@ use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
@@ -30,6 +33,7 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Uid\Uuid;
+use Throwable;
 
 /**
  * Stateful conversation service (ADR-083).
@@ -75,6 +79,11 @@ final readonly class ConversationService implements ConversationServiceInterface
         // snippets (ADR-031) into the prompt it sends, so the estimate has to
         // know about them or it budgets for a smaller message than it sends.
         private ?ConfigurationSnippetResolver $snippetResolver = null,
+        // Answers which model this turn will run on, so the fit below budgets
+        // against that model's window instead of the 8192-token fallback a
+        // criteria-mode configuration otherwise gets (#922). Optional like the
+        // three above; absent it the fit behaves exactly as it did before.
+        private ?ModelSelectionServiceInterface $modelSelection = null,
     ) {}
 
     public function startSession(AiActorContext $actor, string $title = '', ?LlmConfiguration $configuration = null): AiSession
@@ -179,6 +188,7 @@ final readonly class ConversationService implements ConversationServiceInterface
                 [],
                 $this->skillBlockFor($configuration),
                 $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
+                $this->modelForBudget($configuration),
             );
             $messages     = $fit->messages;
             $droppedTurns = $fit->droppedTurns;
@@ -278,6 +288,50 @@ final readonly class ConversationService implements ConversationServiceInterface
         return $bound instanceof AiSession && $bound->configurationIdentifier !== ''
             ? $bound->configurationIdentifier
             : $configuration->getIdentifier();
+    }
+
+    /**
+     * The model this turn will be sent to, for the budget only.
+     *
+     * `fit()` reads `$resolvedModel ?? $configuration->getLlmModel()`. A
+     * criteria-mode configuration carries no model by design, so passing
+     * nothing made the fit fall back to UNKNOWN_WINDOW_FALLBACK -- 8192
+     * tokens -- while the send resolved a concrete model from the criteria
+     * afterwards and fitted again against ITS window. Where the resolved model
+     * had the larger window, the first fit had already dropped history the
+     * second would have kept, and `droppedTurns` recorded that on the user row
+     * as if it had been necessary (#922, ADR-121).
+     *
+     * `explainRouting()` and not `resolveModelForCall()`, deliberately. The
+     * authoritative resolution belongs to the manager's terminal, where
+     * ADR-174 puts it, and it is the one that must record the observed
+     * capability mismatch or refuse an unservable operation. Asking for a
+     * second reporting resolution here would double-count the observation and
+     * move the refusal to a different layer; `explainRouting()` runs the same
+     * constrained decision without either side effect, so the turn ends up
+     * with one decision and one report, and both fits size the same model.
+     *
+     * Failure is swallowed on purpose: this is a budget estimate, and the
+     * authoritative resolution downstream raises whatever is really wrong.
+     * Losing the estimate costs the pre-#922 fallback, which is the behaviour
+     * every conversation had until now -- not a dead turn.
+     */
+    private function modelForBudget(LlmConfiguration $configuration): ?Model
+    {
+        if (!$this->modelSelection instanceof ModelSelectionServiceInterface) {
+            return null;
+        }
+
+        try {
+            return $this->modelSelection->explainRouting($configuration, ProviderOperation::Chat, null)->selectedModel();
+        } catch (Throwable $e) {
+            $this->logger?->warning('Could not resolve the turn model for the context budget; falling back to the configuration model', [
+                'configuration' => $configuration->getIdentifier(),
+                'exception'     => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
