@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -204,7 +205,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
             $this->excerpt($plan['label']),
             $plan['language'],
             $plan['existingUid'] > 0 ? sprintf(', replacing translation [%d]', $plan['existingUid']) : '',
-        ))->withWriteTarget(new RecordReference($plan['table'], $newUid));
+        ))->withWriteTarget(new RecordReference($plan['table'], $newUid), WriteKind::CREATED);
     }
 
     /**

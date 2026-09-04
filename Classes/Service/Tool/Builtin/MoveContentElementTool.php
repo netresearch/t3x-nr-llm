@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -178,7 +179,7 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
             $plan['targetPage'],
             $plan['column'],
             $plan['afterUid'] > 0 ? sprintf(', after element [%d]', $plan['afterUid']) : '',
-        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']));
+        ))->withWriteTarget(new RecordReference(self::TABLE, $plan['uid']), WriteKind::UPDATED);
     }
 
     /**

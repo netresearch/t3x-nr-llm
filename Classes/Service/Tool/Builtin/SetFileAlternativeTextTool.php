@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -238,7 +239,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             $uid,
             $this->excerpt(self::toStr($file['name'] ?? '')),
             $this->quoted($text),
-        ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid));
+        ))->withWriteTarget(new RecordReference(self::METADATA_TABLE, $metadataUid), WriteKind::UPDATED);
     }
 
     /**

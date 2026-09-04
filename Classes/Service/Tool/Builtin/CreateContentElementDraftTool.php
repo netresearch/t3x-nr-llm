@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -216,7 +217,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $plan['page'],
             $plan['column'],
             $plan['language'],
-        ))->withWriteTarget(new RecordReference(self::TABLE, $newUid));
+        ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED);
     }
 
     /**

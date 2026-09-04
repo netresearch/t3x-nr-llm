@@ -33,6 +33,7 @@
     "require": {
         "php": "^8.2",
         "netresearch/nr-vault": "^0.15.0",
+        "psr/event-dispatcher": "^1.0",
         "psr/http-client": "^1.0",
         "psr/http-factory": "^1.0",
         "psr/log": "^2.0 || ^3.0",

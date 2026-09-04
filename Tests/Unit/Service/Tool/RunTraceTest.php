@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
@@ -219,7 +220,7 @@ final class RunTraceTest extends TestCase
             12.5,
             'update_page_metadata',
             ['uid' => 42],
-            ToolResult::text('Updated page [42]: title.')->withWriteTarget(new RecordReference('pages', 42)),
+            ToolResult::text('Updated page [42]: title.')->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED),
         );
 
         $kinds = array_map(static fn(RunStep $step): string => $step->kind, $trace->getSteps());
