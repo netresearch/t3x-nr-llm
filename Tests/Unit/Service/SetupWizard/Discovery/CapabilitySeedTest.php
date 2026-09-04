@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\SetupWizard\Discovery;
 
 use Netresearch\NrLlm\Domain\DTO\CapabilitySet;
+use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\AbstractModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\GeminiModelDiscoverer;
 use Netresearch\NrLlm\Service\SetupWizard\Discovery\GroqModelDiscoverer;
@@ -226,6 +227,155 @@ final class CapabilitySeedTest extends AbstractUnitTestCase
         // Guards the guard: a fallback branch that stopped returning models
         // would make every assertion above vacuous.
         self::assertGreaterThan(0, $checked);
+    }
+
+    /**
+     * Capabilities the enum offers that no discoverer ever writes.
+     *
+     * A token in this list is vocabulary, not data. It renders in the Models
+     * module and an operator may tick it by hand, but discovery leaves it
+     * unset, so a configuration whose criteria REQUIRE it matches no model at
+     * all — silently, because `EligibilityEvaluator::matchesCapabilities()`
+     * demands every listed capability and says nothing about which one sank
+     * the set. `nr_repurpose_text` required `json_mode` and its use-case pack
+     * could not be installed on any installation until the criterion was
+     * dropped (#913).
+     *
+     * The reason per entry, so the list cannot become folklore. The two are
+     * not the same kind of thing:
+     *
+     * - `json_mode` is a REQUEST OPTION, not something a model can be asked to
+     *   do. `ChatOptions` carries `responseFormat` to the provider
+     *   unconditionally and no call path consults the capability, so as a
+     *   selection criterion it can only ever subtract models — which is the
+     *   incident that opened #913. Populating it would mean asserting per
+     *   model that the provider honours `response_format`, and a declared
+     *   capability the provider does not honour fails at CALL time instead of
+     *   at selection time, which is worse than leaving it empty. Whether the
+     *   case is removed outright belongs to the 1.0 API freeze (#895), because
+     *   both it and `Model::supportsJsonMode()` sit on the frozen surface.
+     * - `completion` is a SYNONYM of `chat` here.
+     *   `CompletionService::complete()` delegates to
+     *   `LlmServiceManager::chat()`, and every adapter posts to
+     *   `chat/completions`; no legacy completions endpoint is called anywhere.
+     *   Seeding it would give chat models a second token with the same
+     *   meaning, so two criteria sets differing only in which one they name
+     *   would select differently for no reason. Ollama already makes that
+     *   judgement — it READS the provider's `completion` token and writes
+     *   `chat`. The only other occurrences in the discovery sources are
+     *   OpenRouter PRICING keys, which is what the predecessor of this check
+     *   mistook for a seed.
+     *
+     * `audio` is deliberately absent: `OpenAiModelDiscoverer` seeds it from
+     * the model id, so it is data now and the staleness test below would fail
+     * if it were listed.
+     *
+     * @var list<string>
+     */
+    private const NOT_SEEDED_BY_DISCOVERY = ['json_mode', 'completion'];
+
+    /**
+     * Every capability any discoverer actually WRITES, across the recorded
+     * responses in this class and every discoverer's offline fallback.
+     *
+     * Measured from `DiscoveredModel::$capabilities`, never from the sources.
+     * The predecessor of this check scanned the discovery sources for the
+     * quoted token and could not tell an assignment from a subscript: it read
+     * `$pricing['completion']` in OpenRouter as evidence that `completion` was
+     * seeded, and therefore stayed quiet about a capability nothing writes.
+     * Output cannot be misread that way.
+     *
+     * What it does NOT prove: that a token is unreachable for EVERY possible
+     * provider response. It proves what these recordings produce. A mapper
+     * branch added without a recording that reaches it stays invisible here,
+     * which is why the list above carries reasons a reader can check rather
+     * than a bare set.
+     *
+     * @return list<string>
+     */
+    private function seededCapabilities(): array
+    {
+        $models = [];
+
+        // Offline: each discoverer's curated or fallback corpus.
+        foreach ([
+            GeminiModelDiscoverer::class,
+            GroqModelDiscoverer::class,
+            MistralModelDiscoverer::class,
+            OllamaModelDiscoverer::class,
+            OpenAiModelDiscoverer::class,
+            OpenRouterModelDiscoverer::class,
+        ] as $class) {
+            foreach ($this->discovererFor($class, null)->discover('https://unreachable.invalid', 'k')->models as $model) {
+                $models[] = $model;
+            }
+        }
+
+        // Online: the recordings above, plus one Ollama tag reporting every
+        // token its mapper understands — without it, `embeddings` would look
+        // unseeded here while Ollama and Gemini both write it.
+        foreach ($this->discoverOllama(['everything:latest' => ['completion', 'tools', 'vision', 'embedding']]) as $model) {
+            $models[] = $model;
+        }
+
+        $seeded = [];
+        foreach ($models as $model) {
+            foreach ($model->capabilities as $capability) {
+                $seeded[$capability] = true;
+            }
+        }
+
+        $tokens = array_keys($seeded);
+        sort($tokens);
+
+        return $tokens;
+    }
+
+    #[Test]
+    public function everyCapabilityIsSeededBySomeDiscovererOrDeclaredUnseeded(): void
+    {
+        $seeded = $this->seededCapabilities();
+
+        // Guards the guard: a fallback branch that stopped returning models
+        // would make the assertion below vacuous by seeding nothing.
+        self::assertNotSame([], $seeded);
+
+        $dead = [];
+        foreach (ModelCapability::values() as $value) {
+            if (in_array($value, self::NOT_SEEDED_BY_DISCOVERY, true)) {
+                continue;
+            }
+
+            if (!in_array($value, $seeded, true)) {
+                $dead[] = $value;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $dead,
+            'No discoverer writes these, so criteria requiring one match nothing: ' . implode(', ', $dead)
+            . '. Seed them in the discovery catalog, or add them to NOT_SEEDED_BY_DISCOVERY with a reason.',
+        );
+    }
+
+    #[Test]
+    public function theUnseededListDoesNotOutliveItsReason(): void
+    {
+        $seeded = $this->seededCapabilities();
+
+        $nowSeeded = [];
+        foreach (self::NOT_SEEDED_BY_DISCOVERY as $value) {
+            if (in_array($value, $seeded, true)) {
+                $nowSeeded[] = $value;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $nowSeeded,
+            'A discoverer now writes these, so drop them from NOT_SEEDED_BY_DISCOVERY: ' . implode(', ', $nowSeeded),
+        );
     }
 
     /**
