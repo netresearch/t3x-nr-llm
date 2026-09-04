@@ -6,7 +6,7 @@
 ADR-185: An observed outcome is derived from history, inside a window
 ============================================================================
 
-:Status: Proposed
+:Status: Accepted
 :Date: 2026-08-31
 :Authors: Netresearch DTT GmbH
 
