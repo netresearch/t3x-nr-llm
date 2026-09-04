@@ -1140,9 +1140,18 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         return $this->runThroughPipeline(
             $configuration,
             ProviderOperation::Chat,
-            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides, $resolution): CompletionResponse {
-                $config   = $this->planner->requireConfiguration($ctx);
-                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals, $resolution);
+            function (ProviderCallContext $ctx) use ($normalisedMessages, $optionOverrides, $configuration, $resolution): CompletionResponse {
+                $config = $this->planner->requireConfiguration($ctx);
+                // A handed-over decision belongs to the configuration it was
+                // taken for. FallbackMiddleware retries through
+                // ProviderCallContext::withConfiguration(), so this attempt may
+                // be serving a configuration the caller never named -- and
+                // reusing the primary decision there would send the fallback to
+                // the primary model, its adapter and its window, which is the
+                // one thing a fallback exists to avoid. The fallback resolves
+                // for itself.
+                $taken    = $config === $configuration ? $resolution : null;
+                $llmModel = $this->planner->resolveModel($config, ProviderOperation::Chat, $ctx->telemetrySignals, $taken);
                 $adapter  = $this->adapterRegistry->createAdapterFromModel($llmModel);
                 $options  = $this->planner->callOptions($config, $llmModel, $optionOverrides);
                 $bounded  = $this->fitToContextWindow($normalisedMessages, $config, $llmModel, $options, [], $ctx->telemetrySignals);

@@ -16,8 +16,12 @@ use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
+use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
+use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
+use Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
@@ -157,11 +161,93 @@ final class ConversationSingleRoutingDecisionTest extends AbstractUnitTestCase
         self::assertSame([0, 0, 0, 0, 0, 0], $dropped, 'history was trimmed against a window the turn was not sent to');
     }
 
+    /**
+     * A handed-over decision belongs to the configuration it was taken for.
+     *
+     * FallbackMiddleware retries through
+     * `ProviderCallContext::withConfiguration()`, so the terminal can be asked
+     * to serve a configuration the caller never named. Reusing the primary
+     * decision there would send the fallback attempt to the primary model --
+     * its adapter, its window -- which is the one thing a fallback exists to
+     * avoid. The fallback resolves for itself.
+     */
+    #[Test]
+    public function aFallbackAttemptResolvesForItsOwnConfigurationRatherThanReusingTheHandedOverDecision(): void
+    {
+        $primary  = $this->criteriaModeConfiguration();
+        $fallback = new LlmConfiguration();
+        $fallback->setIdentifier('the-fallback');
+
+        $primaryModel  = $this->resolvedModel();
+        $fallbackModel = $this->resolvedModel();
+        $fallbackModel->setModelId('fallback-model');
+
+        $askedFor = [];
+        $routing  = self::createStub(ModelSelectionServiceInterface::class);
+        $routing->method('resolveModelForCall')->willReturnCallback(
+            function (LlmConfiguration $configuration) use (&$askedFor, $primary, $primaryModel, $fallbackModel): ModelResolution {
+                $askedFor[] = $configuration->getIdentifier();
+
+                return ModelResolution::withoutDecision($configuration === $primary ? $primaryModel : $fallbackModel);
+            },
+        );
+
+        $served  = null;
+        $adapter = self::createStub(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturn(
+            new CompletionResponse('ok', 'served', new UsageStatistics(1, 1, 2), provider: 'openai'),
+        );
+
+        $registry = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registry->method('createAdapterFromModel')->willReturnCallback(
+            function (Model $model) use (&$served, $adapter): ProviderInterface {
+                $served = $model;
+
+                return $adapter;
+            },
+        );
+
+        $manager = $this->managerWith($registry, $routing, new MiddlewarePipeline([$this->configurationSwappingMiddleware($fallback)]));
+
+        $manager->chatForConfiguration(
+            [ChatMessage::user('hi')],
+            $primary,
+            null,
+            ModelResolution::withoutDecision($primaryModel),
+        );
+
+        self::assertSame($fallbackModel, $served, 'the fallback attempt was served by the primary decision\'s model');
+        self::assertContains('the-fallback', $askedFor, 'the fallback configuration was never resolved');
+    }
+
+    /**
+     * Stands in for FallbackMiddleware: one retry, on another configuration.
+     */
+    private function configurationSwappingMiddleware(LlmConfiguration $fallback): ProviderMiddlewareInterface
+    {
+        return new class ($fallback) implements ProviderMiddlewareInterface {
+            public function __construct(private readonly LlmConfiguration $fallback) {}
+
+            public function handle(ProviderCallContext $context, callable $next): mixed
+            {
+                return $next($context->withConfiguration($this->fallback));
+            }
+        };
+    }
+
     private function manager(ProviderInterface $adapter, ModelSelectionServiceInterface $routing): LlmServiceManager
     {
         $registry = self::createStub(ProviderAdapterRegistryInterface::class);
         $registry->method('createAdapterFromModel')->willReturn($adapter);
 
+        return $this->managerWith($registry, $routing, $this->emptyMiddlewarePipeline());
+    }
+
+    private function managerWith(
+        ProviderAdapterRegistryInterface $registry,
+        ModelSelectionServiceInterface $routing,
+        MiddlewarePipeline $pipeline,
+    ): LlmServiceManager {
         $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['providers' => []]);
 
@@ -169,7 +255,7 @@ final class ConversationSingleRoutingDecisionTest extends AbstractUnitTestCase
             $extensionConfiguration,
             self::createStub(LoggerInterface::class),
             $registry,
-            $this->emptyMiddlewarePipeline(),
+            $pipeline,
             self::createStub(CacheManagerInterface::class),
             null,
             null,
