@@ -101,6 +101,70 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         self::assertSame($configuration, $subject->resolveDefaultConfiguration(null));
     }
 
+    /**
+     * The difference to its sibling above, in one case: a restricted default is
+     * refused by {@see ConfigurationResolver::resolveDefaultConfiguration()}
+     * because that path has nobody to check, and evaluated here because this
+     * one does (ADR-188).
+     */
+    #[Test]
+    public function resolveDefaultForActorAppliesARestrictedDefaultToAnEntitledActor(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $configuration->method('hasAccessRestrictions')->willReturn(true);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($configuration);
+
+        $subject = new ConfigurationResolver($repository);
+
+        self::assertSame($configuration, $subject->resolveDefaultForActor(AiActorContext::backendUser(1, isAdmin: true)));
+        self::assertNull(
+            $subject->resolveDefaultForActor(AiActorContext::backendUser(42)),
+            'A non-entitled actor must not be handed the restricted default just because it is the default.',
+        );
+    }
+
+    #[Test]
+    public function resolveDefaultForActorReturnsTheUnrestrictedDefault(): void
+    {
+        $configuration = self::createStub(LlmConfiguration::class);
+        $configuration->method('getLlmModel')->willReturn(self::createStub(Model::class));
+        $configuration->method('hasAccessRestrictions')->willReturn(false);
+
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($configuration);
+
+        self::assertSame(
+            $configuration,
+            (new ConfigurationResolver($repository))->resolveDefaultForActor(AiActorContext::backendUser(42)),
+        );
+    }
+
+    /**
+     * Two ways to have no usable default, and both are null rather than an
+     * exception: "this installation has not been set up yet" is a state its
+     * caller reports, not one this resolver decides about.
+     */
+    #[Test]
+    public function resolveDefaultForActorReturnsNullWhenThereIsNoUsableDefault(): void
+    {
+        $none = self::createStub(LlmConfigurationRepository::class);
+        $none->method('findDefault')->willReturn(null);
+
+        $modelless = self::createStub(LlmConfiguration::class);
+        $modelless->method('getLlmModel')->willReturn(null);
+        $withoutModel = self::createStub(LlmConfigurationRepository::class);
+        $withoutModel->method('findDefault')->willReturn($modelless);
+
+        $actor = AiActorContext::backendUser(42);
+
+        self::assertNull((new ConfigurationResolver($none))->resolveDefaultForActor($actor));
+        self::assertNull((new ConfigurationResolver($withoutModel))->resolveDefaultForActor($actor));
+        self::assertNull((new ConfigurationResolver())->resolveDefaultForActor($actor), 'No repository wired at all.');
+    }
+
     #[Test]
     public function resolveEffectiveConfigurationReturnsExplicitConfigurationWithoutConsultingRepository(): void
     {

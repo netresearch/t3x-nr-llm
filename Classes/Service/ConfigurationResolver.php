@@ -209,6 +209,33 @@ final readonly class ConfigurationResolver
      * produces — is a member of no group, so a restricted configuration is
      * refused for it and an unrestricted one is not.
      */
+    /**
+     * The installation default, for an actor who is actually present (ADR-188).
+     *
+     * The sibling {@see self::resolveDefaultConfiguration()} refuses an
+     * access-restricted default outright, and that is right where it is used:
+     * the generic chat()/complete() path has no backend user to check group
+     * membership against, so applying a restricted default there would hand it
+     * to arbitrary callers, the CLI worker included. A conversation is the
+     * opposite situation — it always has an actor — so the restriction is
+     * evaluated instead of used as a reason to give up.
+     *
+     * Null when there is no default, when it carries no model, or when this
+     * actor may not use it. The caller decides what that means; here it is not
+     * an error, because "this installation has no default yet" is a setup state
+     * rather than a failure.
+     */
+    public function resolveDefaultForActor(AiActorContext $actor): ?LlmConfiguration
+    {
+        $configuration = $this->configurationRepository?->findDefault();
+
+        if (!$configuration instanceof LlmConfiguration || !$configuration->getLlmModel() instanceof Model) {
+            return null;
+        }
+
+        return $this->actorMayUse($configuration, $actor) ? $configuration : null;
+    }
+
     public function actorMayUse(LlmConfiguration $configuration, AiActorContext $actor): bool
     {
         if (!$configuration->hasAccessRestrictions()) {

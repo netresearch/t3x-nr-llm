@@ -63,6 +63,24 @@ final readonly class AiSessionRepository implements AiSessionRepositoryInterface
         return (int)$connection->lastInsertId();
     }
 
+    public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void
+    {
+        if ($configurationIdentifier === '') {
+            return;
+        }
+
+        // The empty identifier is part of the WHERE, not only of the guard
+        // above: two concurrent turns of the same legacy session both resolve
+        // the default and both call this, and the second must not overwrite
+        // what the first bound. The database decides, not the ordering of two
+        // reads.
+        $this->connectionPool->getConnectionForTable(self::TABLE_SESSION)->update(
+            self::TABLE_SESSION,
+            ['configuration_identifier' => $configurationIdentifier, 'tstamp' => time()],
+            ['uid' => $sessionUid, 'configuration_identifier' => ''],
+        );
+    }
+
     public function appendMessage(
         int $sessionUid,
         int $sequence,

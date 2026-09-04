@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\PromptSnippet;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -23,6 +24,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
+use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
@@ -44,12 +46,14 @@ final class ConversationServiceTest extends TestCase
 {
     private const OWNER = 42;
 
+    private const DEFAULT_IDENTIFIER = 'installation-default';
+
     #[Test]
     public function sendPersistsBothTurnsAndReturnsTheReply(): void
     {
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->expects(self::once())->method('chat')->willReturn($this->response('Hello there'));
+        $llmManager->expects(self::once())->method('chatForConfiguration')->willReturn($this->response('Hello there'));
         $service = $this->service($llmManager, $repository);
 
         $actor    = $this->owner();
@@ -77,6 +81,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
         $service = $this->service($llmManager, $repository);
 
         $session = $service->startSession($this->owner());
@@ -91,7 +96,7 @@ final class ConversationServiceTest extends TestCase
     {
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturn($this->response('ok'));
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
         $service = $this->service($llmManager, $repository);
 
         $session  = $service->startSession($this->owner());
@@ -105,7 +110,7 @@ final class ConversationServiceTest extends TestCase
     {
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturn($this->response('ok'));
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
         $service = $this->service($llmManager, $repository);
 
         $worker   = AiActorContext::serviceAccount('nrllm-worker', [ServiceAccountScope::CONVERSATION_ACCESS]);
@@ -121,6 +126,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
         $service = $this->service($llmManager, $repository);
 
         $session = $service->startSession($this->owner());
@@ -137,6 +143,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
         $service = $this->service($llmManager, $repository);
 
         $session = $service->startSession($this->owner());
@@ -174,6 +181,156 @@ final class ConversationServiceTest extends TestCase
         self::assertSame('bound', $response->content);
     }
 
+    /**
+     * ADR-188: omitting the configuration does not mean "unbound", it means
+     * "the installation default, resolved now". The identifier is on the row
+     * from the moment it is written.
+     */
+    #[Test]
+    public function aSessionOpenedWithoutAConfigurationIsBoundToTheInstallationDefault(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
+
+        $session = $this->service($llmManager, $repository)->startSession($this->owner());
+
+        self::assertSame(self::DEFAULT_IDENTIFIER, $repository->sessions[$session->uid]['configId']);
+    }
+
+    /**
+     * The alternative would be a row with an empty identifier, which is the
+     * state ADR-188 exists to remove — and the caller would learn about the
+     * missing default one turn later, from a different error.
+     */
+    #[Test]
+    public function aSessionCannotBeOpenedWhenTheInstallationHasNoUsableDefault(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverWithDefault(null));
+
+        try {
+            $service->startSession($this->owner());
+            self::fail('Expected the session to be refused for want of a configuration.');
+        } catch (ConfigurationNotFoundException $e) {
+            self::assertSame(1788600001, $e->getCode());
+        }
+
+        self::assertSame([], $repository->sessions, 'No row may be written for a session that cannot be bound.');
+    }
+
+    /**
+     * The point of persisting the identifier rather than re-resolving it: an
+     * operator switching the installation default must not silently move
+     * running conversations onto another model, budget and guardrail set.
+     */
+    #[Test]
+    public function changingTheInstallationDefaultLeavesAnExistingConversationWhereItIs(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = self::createStub(LlmServiceManagerInterface::class);
+
+        $original = $this->defaultConfiguration();
+        $service  = new ConversationService($llmManager, $repository, $this->resolverWithDefault($original));
+        $actor    = $this->owner();
+        $session  = $service->startSession($actor);
+
+        // The operator switches the default. A service built now sees the new
+        // one — and the session opened against the old one keeps it.
+        $replacement = $this->configuration('the-new-default');
+        $replacement->setIsActive(true);
+        $replacement->setLlmModel(new Model());
+
+        $afterwards = $this->createMock(LlmServiceManagerInterface::class);
+        $afterwards->expects(self::once())
+            ->method('chatForConfiguration')
+            ->with(self::anything(), self::identicalTo($original), self::anything())
+            ->willReturn($this->response('still the original'));
+
+        $repositoryStub = self::createStub(LlmConfigurationRepository::class);
+        $repositoryStub->method('findDefault')->willReturn($replacement);
+        $repositoryStub->method('findOneByIdentifier')->willReturnCallback(
+            static fn(string $identifier): ?LlmConfiguration => match ($identifier) {
+                self::DEFAULT_IDENTIFIER => $original,
+                'the-new-default'        => $replacement,
+                default                  => null,
+            },
+        );
+
+        $continued = new ConversationService($afterwards, $repository, new ConfigurationResolver($repositoryStub));
+
+        self::assertSame('still the original', $continued->send($actor, $session->uuid, 'carry on')->content);
+    }
+
+    /**
+     * A row written before ADR-188 binds itself on its next turn, once, and
+     * with the actor in hand — which is why no upgrade wizard does it.
+     */
+    #[Test]
+    public function aLegacySessionWithoutAConfigurationBindsItselfOnItsNextTurn(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $uid        = $repository->startSession('legacy-uuid', self::OWNER, '', 'opened before ADR-188');
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('bound now'));
+
+        $actor   = $this->owner();
+        $service = $this->service($llmManager, $repository);
+
+        self::assertSame('bound now', $service->send($actor, 'legacy-uuid', 'continue')->content);
+        self::assertSame(self::DEFAULT_IDENTIFIER, $repository->sessions[$uid]['configId']);
+
+        // And once: the second turn resolves the identifier that is now on the
+        // row and does not bind again.
+        $service->send($actor, 'legacy-uuid', 'and again');
+        self::assertCount(1, $repository->bindCalls);
+    }
+
+    /**
+     * The gap ADR-188 closes, measured where it hurt: turn 1's fit ran against
+     * no configuration at all, so the transcript it sent was budgeted against
+     * nothing. Both turns now report the same one.
+     */
+    #[Test]
+    public function turnOneIsFittedAgainstTheSameConfigurationAsTurnTwo(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response('ok'));
+
+        $fitted       = [];
+        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
+        $contextWindow->method('fit')->willReturnCallback(
+            function (array $messages, LlmConfiguration $configuration) use (&$fitted): ContextFitResult {
+                $fitted[] = $configuration->getIdentifier();
+
+                /** @var list<ChatMessage|array<string, mixed>> $sent */
+                $sent = array_values($messages);
+
+                return new ContextFitResult($sent, false, 0, count($sent), 10, 100, false, 1.0, ContextBudgetBreakdown::none());
+            },
+        );
+
+        $actor   = $this->owner();
+        $service = new ConversationService(
+            $llmManager,
+            $repository,
+            $this->resolverWithDefault($this->defaultConfiguration()),
+            $contextWindow,
+        );
+
+        $session = $service->startSession($actor);
+        $service->send($actor, $session->uuid, 'first');
+        $service->send($actor, $session->uuid, 'second');
+
+        self::assertSame([self::DEFAULT_IDENTIFIER, self::DEFAULT_IDENTIFIER], $fitted);
+    }
+
     #[Test]
     public function aSessionWhoseConfigurationWasDeactivatedStopsInsteadOfFallingBackToTheDefault(): void
     {
@@ -199,7 +356,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $captured   = null;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturnCallback(function (array $messages, ?ChatOptions $options) use (&$captured): CompletionResponse {
+        $llmManager->method('chatForConfiguration')->willReturnCallback(function (array $messages, LlmConfiguration $configuration, ?ChatOptions $options) use (&$captured): CompletionResponse {
             $captured = $options;
 
             return $this->response('ok');
@@ -220,7 +377,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $captured   = null;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturnCallback(function (array $messages, ?ChatOptions $options) use (&$captured): CompletionResponse {
+        $llmManager->method('chatForConfiguration')->willReturnCallback(function (array $messages, LlmConfiguration $configuration, ?ChatOptions $options) use (&$captured): CompletionResponse {
             $captured = $options;
 
             return $this->response('ok');
@@ -241,7 +398,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $captured   = [];
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturnCallback(function (array $messages) use (&$captured): CompletionResponse {
+        $llmManager->method('chatForConfiguration')->willReturnCallback(function (array $messages, LlmConfiguration $configuration) use (&$captured): CompletionResponse {
             $captured[] = $messages;
 
             return $this->response('reply');
@@ -270,7 +427,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $captured   = [];
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturnCallback(function (array $messages) use (&$captured): CompletionResponse {
+        $llmManager->method('chatForConfiguration')->willReturnCallback(function (array $messages, LlmConfiguration $configuration) use (&$captured): CompletionResponse {
             $captured[] = $messages;
 
             return $this->response('reply');
@@ -308,7 +465,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $calls      = 0;
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chat')->willReturnCallback(function () use (&$calls): CompletionResponse {
+        $llmManager->method('chatForConfiguration')->willReturnCallback(function () use (&$calls): CompletionResponse {
             ++$calls;
             if ($calls === 1) {
                 throw new RuntimeException('provider down', 4844402126);
@@ -339,6 +496,7 @@ final class ConversationServiceTest extends TestCase
         $repository = new RecordingAiSessionRepository();
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
         $llmManager->expects(self::never())->method('chat');
+        $llmManager->expects(self::never())->method('chatForConfiguration');
         $service = $this->service($llmManager, $repository);
 
         $this->expectException(InvalidArgumentException::class);
@@ -364,7 +522,44 @@ final class ConversationServiceTest extends TestCase
 
     private function service(LlmServiceManagerInterface $llmManager, RecordingAiSessionRepository $repository): ConversationService
     {
-        return new ConversationService($llmManager, $repository, new ConfigurationResolver());
+        // A resolver that HAS an installation default, because since ADR-188 a
+        // session cannot be opened without one. These cases are about ownership
+        // and turn assembly; the default is scenery for them, and its absence
+        // is its own case below.
+        return new ConversationService($llmManager, $repository, $this->resolverWithDefault($this->defaultConfiguration()));
+    }
+
+    /**
+     * A resolver whose installation default is $configuration, or which has
+     * none when null.
+     */
+    private function resolverWithDefault(?LlmConfiguration $configuration): ConfigurationResolver
+    {
+        $repository = self::createStub(LlmConfigurationRepository::class);
+        $repository->method('findDefault')->willReturn($configuration);
+        // Also findable BY identifier: since ADR-188 the session is bound to
+        // this configuration, so every later turn resolves it by the identifier
+        // that was persisted. A stub that only answers findDefault() would open
+        // sessions the next turn cannot continue.
+        $repository->method('findOneByIdentifier')->willReturnCallback(
+            static fn(string $identifier): ?LlmConfiguration => $identifier === self::DEFAULT_IDENTIFIER ? $configuration : null,
+        );
+
+        return new ConfigurationResolver($repository);
+    }
+
+    /**
+     * The installation default these cases fall back to: usable, unrestricted,
+     * and distinguishable from a caller-chosen configuration by its identifier.
+     */
+    private function defaultConfiguration(): LlmConfiguration
+    {
+        $configuration = new LlmConfiguration();
+        $configuration->setIdentifier(self::DEFAULT_IDENTIFIER);
+        $configuration->setLlmModel(new Model());
+        $configuration->setIsActive(true);
+
+        return $configuration;
     }
 
     /**

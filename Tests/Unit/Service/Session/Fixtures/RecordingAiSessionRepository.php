@@ -50,6 +50,23 @@ final class RecordingAiSessionRepository implements AiSessionRepositoryInterface
         return $uid;
     }
 
+    /** @var list<array{session: int, configId: string}> */
+    public array $bindCalls = [];
+
+    public function bindConfiguration(int $sessionUid, string $configurationIdentifier): void
+    {
+        $this->bindCalls[] = ['session' => $sessionUid, 'configId' => $configurationIdentifier];
+
+        // Mirrors the production WHERE clause: the identifier is written only
+        // while the row still has none, so a second turn racing the first
+        // cannot re-point a conversation that is already bound.
+        if ($configurationIdentifier === '' || ($this->sessions[$sessionUid]['configId'] ?? '') !== '') {
+            return;
+        }
+
+        $this->sessions[$sessionUid]['configId'] = $configurationIdentifier;
+    }
+
     public function appendMessage(
         int $sessionUid,
         int $sequence,
