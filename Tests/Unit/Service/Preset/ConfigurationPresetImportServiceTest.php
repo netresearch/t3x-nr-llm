@@ -125,8 +125,49 @@ final class ConfigurationPresetImportServiceTest extends TestCase
         $result = $this->subject->preflight($this->preset());
 
         self::assertFalse($result->satisfiable);
-        self::assertSame('capabilities: chat, tools', $result->missingRequirement);
+        self::assertSame('capabilities: chat, tools (declared by no active model)', $result->missingRequirement);
         self::assertNull($result->matchedModelLabel);
+    }
+
+    /**
+     * The case that motivated the wording (#913): every model declares `chat`,
+     * none declares the second capability, and naming both sends the reader to
+     * the wrong one.
+     */
+    #[Test]
+    public function preflightNamesOnlyTheCapabilityNoModelDeclares(): void
+    {
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturnCallback(
+            static fn(array $criteria): array => $criteria['capabilities'] === ['chat'] ? [new Model()] : [],
+        );
+
+        $result = $this->subject->preflight($this->preset());
+
+        self::assertSame('capabilities: tools (declared by no active model)', $result->missingRequirement);
+    }
+
+    /**
+     * Each capability matches something on its own and the set matches nothing.
+     * That is a different failure with a different fix, so it must not borrow
+     * the sentence above — no single capability is the culprit here.
+     */
+    #[Test]
+    public function preflightSaysSoWhenOnlyTheCombinationFails(): void
+    {
+        $this->modelSelectionService->method('findMatchingModel')->willReturn(null);
+        $this->modelSelectionService->method('findCandidates')->willReturnCallback(
+            static fn(array $criteria): array => in_array($criteria['capabilities'], [['chat'], ['tools']], true)
+                ? [new Model()]
+                : [],
+        );
+
+        $result = $this->subject->preflight($this->preset());
+
+        self::assertSame(
+            'capabilities: chat, tools (no active model declares them together)',
+            $result->missingRequirement,
+        );
     }
 
     #[Test]
