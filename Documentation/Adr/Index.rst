@@ -571,3 +571,4 @@ Tools
    Adr186PackSnippetsTheExtensionReadsItself
    Adr187ProvenanceIsAnnouncedNotImplemented
    Adr188EverySessionHasAConfiguration
+   Adr189CapabilityVocabularyVersusData

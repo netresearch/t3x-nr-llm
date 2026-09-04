@@ -47,11 +47,17 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
  * The rest are not enforced at all, and enforcing them would refuse working
  * models outright:
  *
- * - `completion` and `embeddings` are written by NO discoverer; `completion`
- *   appears only in hand-written records such as the ddev seed. Requiring
- *   `completion` would break the primary completion path for every
- *   wizard-created corpus, and requiring `embeddings` would break every
- *   criteria-mode embedding configuration — for a fact nobody stated.
+ * - `completion` is written by NO discoverer and appears only in hand-written
+ *   records such as the ddev seed. Ollama READS a `completion` token from its
+ *   own listing and writes `chat` for it, because that is what the token means
+ *   there. Requiring `completion` would break the primary completion path for
+ *   every wizard-created corpus — for a fact nobody stated.
+ * - `embeddings` IS written, by Gemini (from `supportedGenerationMethods`) and
+ *   by Ollama (from a reported `embedding`), and by nobody else. Enforcing it
+ *   would refuse a correct model from any other provider, so it stays out for
+ *   the same reason as `streaming`: uneven producers, not absent ones. This
+ *   entry said "written by NO discoverer" until the seeds were measured
+ *   rather than read off the sources (#913).
  * - `streaming` is written by Gemini (derived from `supportedGenerationMethods`)
  *   and by the curated OpenAI / Anthropic / Gemini table entries, and by no one
  *   else — not by Mistral, whose listing does not substantiate it, and not by
