@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Feature;
 
-use Netresearch\NrLlm\Domain\Enum\RoutingPolicyMode;
 use Netresearch\NrLlm\Domain\Enum\ServiceAccountScope;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -24,11 +23,11 @@ use Netresearch\NrLlm\Domain\ValueObject\AiSessionMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
-use Netresearch\NrLlm\Domain\ValueObject\RoutingDecision;
-use Netresearch\NrLlm\Domain\ValueObject\RoutingReadout;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
+use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Feature\ConversationService;
@@ -992,8 +991,8 @@ final class ConversationServiceTest extends TestCase
 
         $routing = $this->createMock(ModelSelectionServiceInterface::class);
         $routing->expects(self::once())
-            ->method('explainRouting')
-            ->willReturn(RoutingReadout::decided(new RoutingDecision($resolved, [], RoutingPolicyMode::BALANCED), true, null, false, false));
+            ->method('resolveModelForCall')
+            ->willReturn(ModelResolution::withoutDecision($resolved));
 
         $service = new ConversationService(
             $llmManager,
@@ -1011,50 +1010,33 @@ final class ConversationServiceTest extends TestCase
     }
 
     /**
-     * A routing evaluation that fails must not end a conversation.
+     * An unservable configuration fails before the user row is written.
      *
-     * The resolution here is a budgeting read, not the authoritative one —
-     * that still happens inside the manager's terminal, where its failure is
-     * the caller's error either way. Losing the window estimate is worth a log
-     * line and the pre-#922 fallback, not a dead turn.
+     * This is the authoritative resolution, so its refusal is the turn's
+     * refusal. It used to surface one step later, from inside the dispatch,
+     * after the user row had already been persisted -- and the row is meant to
+     * record a turn that was sent. A turn whose configuration can serve no
+     * chat model at all never could be.
      */
     #[Test]
-    public function aRoutingFailureLeavesTheTurnRunningAgainstTheOldFallback(): void
+    public function anUnservableConfigurationRefusesTheTurnBeforeItIsRecorded(): void
     {
         $repository    = new RecordingAiSessionRepository();
         $configuration = $this->configuration('criteria-mode');
 
-        $seenModel = 'never set';
-
-        $contextWindow = self::createStub(ContextWindowManagerInterface::class);
-        $contextWindow->method('fit')->willReturnCallback(
-            function (
-                array $messages,
-                LlmConfiguration $configuration,
-                ?ChatOptions $options,
-                ?UsageStatistics $lastUsage,
-                array $toolSpecs,
-                string $injectedText,
-                ?string $effectiveSystemPrompt,
-                ?Model $resolvedModel = null,
-            ) use (&$seenModel): ContextFitResult {
-                $seenModel = $resolvedModel;
-
-                return new ContextFitResult([ChatMessage::user('hi')], false, 0, 1, 10, 8192, false, 1.15, ContextBudgetBreakdown::none());
-            },
-        );
-
         $llmManager = $this->createMock(LlmServiceManagerInterface::class);
-        $llmManager->method('chatForConfiguration')->willReturn($this->response('still answered'));
+        $llmManager->expects(self::never())->method('chatForConfiguration');
 
         $routing = self::createStub(ModelSelectionServiceInterface::class);
-        $routing->method('explainRouting')->willThrowException(new RuntimeException('catalogue unavailable'));
+        $routing->method('resolveModelForCall')->willThrowException(
+            new UnsupportedFeatureException('every matching model declares capabilities without "chat"', 1788700001),
+        );
 
         $service = new ConversationService(
             $llmManager,
             $repository,
             $this->resolverReturning($configuration),
-            $contextWindow,
+            self::createStub(ContextWindowManagerInterface::class),
             null,
             null,
             null,
@@ -1063,16 +1045,31 @@ final class ConversationServiceTest extends TestCase
         $actor   = $this->owner();
         $session = $service->startSession($actor, '', $configuration);
 
-        self::assertSame('still answered', $service->send($actor, $session->uuid, 'hi')->content);
-        self::assertNull($seenModel);
+        $before  = $this->rowCount($repository);
+        $refusal = null;
+
+        // Throwable rather than the concrete type: PHPStan's checked-exception
+        // configuration reads a narrower catch here as dead, and the class is
+        // asserted below anyway.
+        try {
+            $service->send($actor, $session->uuid, 'hi');
+        } catch (Throwable $e) {
+            $refusal = $e;
+        }
+
+        self::assertInstanceOf(UnsupportedFeatureException::class, $refusal, 'the unservable configuration did not refuse the turn');
+        self::assertSame($before, $this->rowCount($repository), 'a refused turn must leave no message row behind');
+    }
+
+    private function rowCount(RecordingAiSessionRepository $repository): int
+    {
+        return count($repository->messages);
     }
 
     private function routingReturning(Model $model): ModelSelectionServiceInterface
     {
         $routing = self::createStub(ModelSelectionServiceInterface::class);
-        $routing->method('explainRouting')->willReturn(
-            RoutingReadout::decided(new RoutingDecision($model, [], RoutingPolicyMode::BALANCED), true, null, false, false),
-        );
+        $routing->method('resolveModelForCall')->willReturn(ModelResolution::withoutDecision($model));
 
         return $routing;
     }

@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\Model\VisionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
@@ -106,7 +107,7 @@ interface LlmServiceManagerInterface
      *                                                                row carries the run's correlation id and a governance row its
      *                                                                uid. Null (every caller outside a run) is unchanged behaviour.
      */
-    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null): CompletionResponse;
+    public function chatWithConfiguration(array $messages, LlmConfiguration $configuration, array $metadata = [], array $optionOverrides = [], ?AgentRunReference $run = null, ?InjectedContext $injectedContext = null, ?ModelResolution $resolution = null): CompletionResponse;
 
     /**
      * Chat against a specific configuration from a ChatOptions object.
@@ -120,7 +121,7 @@ interface LlmServiceManagerInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null): CompletionResponse;
+    public function chatForConfiguration(array $messages, LlmConfiguration $configuration, ?ChatOptions $options = null, ?ModelResolution $resolution = null): CompletionResponse;
 
     /**
      * Stream chat completion using a specific LLM configuration.

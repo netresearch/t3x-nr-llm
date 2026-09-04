@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -33,7 +34,6 @@ use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Symfony\Component\Uid\Uuid;
-use Throwable;
 
 /**
  * Stateful conversation service (ADR-083).
@@ -163,7 +163,10 @@ final readonly class ConversationService implements ConversationServiceInterface
         // stored. The count is persisted on the user row below so a trimmed
         // turn is not merely a log line.
         $configuration = $this->resolveTurnConfiguration($session, $actor);
-        $droppedTurns  = null;
+        // One routing decision per turn, taken here and carried to both the
+        // fit below and the dispatch further down (#922).
+        $resolution   = $configuration instanceof LlmConfiguration ? $this->resolveTurnModel($configuration) : null;
+        $droppedTurns = null;
         if ($this->contextWindow instanceof ContextWindowManagerInterface && $configuration instanceof LlmConfiguration) {
             // lastUsage is null: each turn is a fresh assembly, so the
             // manager's calibration starts from its seed rather than carrying a
@@ -188,7 +191,7 @@ final readonly class ConversationService implements ConversationServiceInterface
                 [],
                 $this->skillBlockFor($configuration),
                 $this->snippetResolver?->appendTo($configuration->getSystemPrompt(), $configuration),
-                $this->modelForBudget($configuration),
+                $resolution?->model,
             );
             $messages     = $fit->messages;
             $droppedTurns = $fit->droppedTurns;
@@ -232,7 +235,7 @@ final readonly class ConversationService implements ConversationServiceInterface
         );
         $this->sessions->touch($session->uid, $userSequence + 1);
 
-        $response = $this->dispatch($messages, $configuration, $options);
+        $response = $this->dispatch($messages, $configuration, $options, $resolution);
 
         $assistantSequence = $this->sessions->appendMessageAtNextSequence(
             $session->uid,
@@ -291,7 +294,7 @@ final readonly class ConversationService implements ConversationServiceInterface
     }
 
     /**
-     * The model this turn will be sent to, for the budget only.
+     * The one routing decision this turn is allowed to take.
      *
      * `fit()` reads `$resolvedModel ?? $configuration->getLlmModel()`. A
      * criteria-mode configuration carries no model by design, so passing
@@ -302,36 +305,28 @@ final readonly class ConversationService implements ConversationServiceInterface
      * second would have kept, and `droppedTurns` recorded that on the user row
      * as if it had been necessary (#922, ADR-121).
      *
-     * `explainRouting()` and not `resolveModelForCall()`, deliberately. The
-     * authoritative resolution belongs to the manager's terminal, where
-     * ADR-174 puts it, and it is the one that must record the observed
-     * capability mismatch or refuse an unservable operation. Asking for a
-     * second reporting resolution here would double-count the observation and
-     * move the refusal to a different layer; `explainRouting()` runs the same
-     * constrained decision without either side effect, so the turn ends up
-     * with one decision and one report, and both fits size the same model.
+     * This is the AUTHORITATIVE resolution -- the same `resolveModelForCall()`
+     * the manager's terminal would otherwise run, with its observed-capability
+     * report and its refusal of an unservable operation. The result travels
+     * with the dispatch so the terminal records its routing summary and does
+     * not evaluate a second time. Two evaluations moments apart can disagree
+     * about which model the turn runs on, which is the hazard
+     * {@see \Netresearch\NrLlm\Service\ConfigurationCallPlanner::resolveModel()}
+     * names in its own docblock; one decision per turn is the only shape that
+     * cannot.
      *
-     * Failure is swallowed on purpose: this is a budget estimate, and the
-     * authoritative resolution downstream raises whatever is really wrong.
-     * Losing the estimate costs the pre-#922 fallback, which is the behaviour
-     * every conversation had until now -- not a dead turn.
+     * Nothing is caught here. An unservable configuration now fails before the
+     * user row is written rather than one step after it, which is the more
+     * honest ordering: the row records a turn that was sent, and this one
+     * never could be.
+     *
+     * Null only where the service is absent, which is the lean wiring the
+     * three optional collaborators above already describe; the fit then
+     * behaves exactly as it did before.
      */
-    private function modelForBudget(LlmConfiguration $configuration): ?Model
+    private function resolveTurnModel(LlmConfiguration $configuration): ?ModelResolution
     {
-        if (!$this->modelSelection instanceof ModelSelectionServiceInterface) {
-            return null;
-        }
-
-        try {
-            return $this->modelSelection->explainRouting($configuration, ProviderOperation::Chat, null)->selectedModel();
-        } catch (Throwable $e) {
-            $this->logger?->warning('Could not resolve the turn model for the context budget; falling back to the configuration model', [
-                'configuration' => $configuration->getIdentifier(),
-                'exception'     => $e->getMessage(),
-            ]);
-
-            return null;
-        }
+        return $this->modelSelection?->resolveModelForCall($configuration, ProviderOperation::Chat);
     }
 
     /**
@@ -343,13 +338,13 @@ final readonly class ConversationService implements ConversationServiceInterface
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      */
-    private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options): CompletionResponse
+    private function dispatch(array $messages, ?LlmConfiguration $configuration, ChatOptions $options, ?ModelResolution $resolution): CompletionResponse
     {
         if (!$configuration instanceof LlmConfiguration) {
             return $this->llmManager->chat($messages, $options);
         }
 
-        return $this->llmManager->chatForConfiguration($messages, $configuration, $options);
+        return $this->llmManager->chatForConfiguration($messages, $configuration, $options, $resolution);
     }
 
     /**
