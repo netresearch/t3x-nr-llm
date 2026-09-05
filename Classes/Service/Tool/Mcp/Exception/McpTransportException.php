@@ -112,6 +112,28 @@ final class McpTransportException extends RuntimeException
         );
     }
 
+    /**
+     * The operator cancelled the run and the call did not complete (#774).
+     *
+     * Told apart from {@see self::forTransportFailure()} because it is not a
+     * fault: the server may have been perfectly healthy. The message reaches
+     * the model as the tool's result text -- {@see \Netresearch\NrLlm\Service\Tool\Mcp\McpTool::execute()}
+     * returns a transport exception as `ToolResult::error()` -- so it says
+     * cancelled rather than failed. Neutral about WHEN the cancel landed,
+     * because this side cannot tell: nr-vault raises the same exception for a
+     * transfer torn down in flight and for one refused before the secret was
+     * read, and only its audit row -- `http_call_cancelled` against
+     * `http_call_cancelled_before_send` -- says which of the two it was, and
+     * therefore whether the credential went out.
+     */
+    public static function forCancelledCall(string $identifier): self
+    {
+        return new self(
+            sprintf('The call to MCP server "%s" was cancelled.', $identifier),
+            1799990218,
+        );
+    }
+
     public static function forMissingCredential(string $identifier): self
     {
         return new self(

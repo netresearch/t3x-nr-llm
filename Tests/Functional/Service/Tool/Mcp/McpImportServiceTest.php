@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Mcp;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\ValueObject\McpImportReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
+use Netresearch\NrLlm\Service\Agent\AgentRunCancellationSignalFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
@@ -296,7 +297,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $server = $this->insertServer();
         $this->importer($this->advertising($this->tool('read')))->import($server);
 
-        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient(), $this->cancellations());
         $registry = new ToolRegistry([new FakeTool('a_builtin')], [$provider]);
 
         self::assertSame(['a_builtin', 'mcp_srv_read'], $registry->names());
@@ -323,7 +324,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_server')
             ->update('tx_nrllm_mcp_server', ['data_class' => ''], ['uid' => $server->uid]);
 
-        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient(), $this->cancellations());
 
         self::assertSame([], (new ToolRegistry([], [$provider]))->names());
     }
@@ -346,7 +347,7 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
             $this->tool('read') + ['annotations' => ['readOnlyHint' => true, 'dataClass' => 'publicContent']],
         ))->import($server);
 
-        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient(), $this->cancellations());
         $resolver = new ToolDataClassResolver(new ToolRegistry([], [$provider]));
 
         self::assertStringContainsString(
@@ -373,10 +374,24 @@ final class McpImportServiceTest extends AbstractFunctionalTestCase
         $this->connectionPool->getConnectionForTable('tx_nrllm_mcp_tool')
             ->update('tx_nrllm_mcp_tool', ['input_schema' => '[]'], ['server' => $server->uid]);
 
-        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient());
+        $provider = new McpToolProvider($this->servers, $this->catalogue, $this->createClient(), $this->cancellations());
 
         self::assertSame([], (new ToolRegistry([], [$provider]))->names());
         self::assertCount(1, $this->catalogue->findLiveByServer($server->uid), 'the row stays visible to the operator');
+    }
+
+    /**
+     * The provider needs a signal factory; these cases never run a persisted
+     * agent run, so what it would observe never comes up. Taken from the
+     * container rather than assembled here, so the wiring under test is the
+     * production one.
+     */
+    private function cancellations(): AgentRunCancellationSignalFactory
+    {
+        $factory = $this->get(AgentRunCancellationSignalFactory::class);
+        self::assertInstanceOf(AgentRunCancellationSignalFactory::class, $factory);
+
+        return $factory;
     }
 
     private function createClient(): McpClient

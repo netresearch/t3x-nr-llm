@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\SlowVaultHttpClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\DnsResolverInterface;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -571,22 +572,26 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
      * CANCELLATION — a gap, pinned by its absence (ADR-161).
      *
      * `AgentRuntime::cancel()` flips persisted state and the loop notices at
-     * the NEXT step boundary. A call already in flight is not one of those
-     * boundaries, and it cannot become one while nothing on this path can be
-     * told about a cancellation: neither the client nor the transport takes a
-     * cancellation collaborator, a cancellation argument, or offers a method to
-     * abort what is open. So the run waits the leg out, up to the timeout the
-     * check above bounds.
+     * the NEXT step boundary. Since ADR-190 a call already in flight is told
+     * too: a signal travels from the tool call into the transport, and
+     * nr-vault tears the socket down when it turns true.
      *
-     * What this asserts is exactly that absence and nothing more — it is not a
-     * behavioural test of cancelling, because there is no cancelling to test.
-     * A behavioural one is what the previous version of this check pretended to
-     * be: it raised nothing cancellable and would have kept passing the day an
-     * abort path was built. This one fails that day, which is the point — the
-     * seam cannot appear without this record being revisited.
+     * Still structural rather than behavioural, and for the same reason as when
+     * this asserted the empty list. The behavioural version — a fake client
+     * running a closure mid-request — raises nothing cancellable, so it would
+     * pass whatever the code did. What is worth pinning is WHERE a cancellation
+     * may enter, and the answer is three places: the tool call, and the two
+     * transport sends the handshake and the call itself use. A fourth seam is a
+     * way in that nothing decided, and this check fails the day one appears,
+     * exactly as it failed the day the first three did.
+     *
+     * The behaviour itself is covered where it can actually be exercised:
+     * `McpHttpTransportTest` drives both sends against a client that implements
+     * nr-vault's cancellable interface, and `McpToolTest` follows the chain from
+     * the tool's execution context to the wire.
      */
     #[Test]
-    public function neitherTheClientNorTheTransportHasASeamACancellationCouldReach(): void
+    public function cancellationEntersThroughExactlyTheThreeSeamsAdr190Names(): void
     {
         $seams = [];
 
@@ -596,21 +601,44 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                     $seams[] = $class . '::' . $method->getName() . '()';
                 }
 
-                foreach ($method->getParameters() as $parameter) {
+                $parameters = $method->getParameters();
+
+                foreach ($parameters as $parameter) {
                     $type = $parameter->getType();
 
-                    if ($this->readsAsCancellation($parameter->getName() . ' ' . ($type?->__toString() ?? ''))) {
-                        $seams[] = $class . '::' . $method->getName() . '($' . $parameter->getName() . ')';
+                    if (!$this->readsAsCancellation($parameter->getName() . ' ' . ($type?->__toString() ?? ''))) {
+                        continue;
                     }
+
+                    // Recorded WITH its shape, so the assertion below pins more
+                    // than the fact that something cancellation-shaped is
+                    // there. A `mixed $cancellation`, or one moved out of last
+                    // place, is a different seam from the one ADR-190 names and
+                    // reads differently here.
+                    $seams[] = sprintf(
+                        '%s::%s(%s $%s%s)',
+                        $class,
+                        $method->getName(),
+                        $type?->__toString() ?? 'mixed',
+                        $parameter->getName(),
+                        $parameter->getPosition() === count($parameters) - 1 ? ', last' : ', NOT last',
+                    );
                 }
             }
         }
 
         self::assertSame(
-            [],
+            [
+                McpClient::class . '::callTool(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+                McpHttpTransport::class . '::call(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+                McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+            ],
             $seams,
-            'ADR-161 records cancelling an in-flight call as a gap; this looks like the gap being closed, '
-            . 'which needs its own record rather than a green suite',
+            'ADR-190 names the three places a cancellation may enter this path — the tool call and the '
+            . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, '
+            . 'last. A seam anywhere else is a second way in that nothing decided; a different shape in one '
+            . 'of these three is a different seam from the one the record names. This check has always been '
+            . 'for exactly that, and merely asserted the empty list while the gap was open',
         );
     }
 
