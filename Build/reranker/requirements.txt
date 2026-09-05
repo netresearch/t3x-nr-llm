@@ -4,5 +4,5 @@
 # The image installs from requirements.lock, NOT from this file: that lock pins
 # the full resolved tree, which is what makes the build reproducible. Change a
 # version here, then regenerate the lock (command in its header).
-torch==2.13.0
+torch==2.14.0
 sentence-transformers==6.0.1
