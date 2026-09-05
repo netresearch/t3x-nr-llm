@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -106,20 +107,20 @@ final readonly class ConfigurationResolver
      * @throws ConfigurationInactiveException when the configuration exists but is deactivated
      * @throws AccessDeniedException          when the configuration is restricted to BE groups (ADR-070)
      */
-    public function getActiveByIdentifier(string $identifier): LlmConfiguration
+    public function getActiveByIdentifier(ConfigurationIdentifier $identifier): LlmConfiguration
     {
-        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
+        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier->value);
 
         if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException(
-                sprintf('LLM configuration "%s" not found', $identifier),
+                sprintf('LLM configuration "%s" not found', $identifier->value),
                 1784211001,
             );
         }
 
         if (!$configuration->isActive()) {
             throw new ConfigurationInactiveException(
-                sprintf('LLM configuration "%s" is not active', $identifier),
+                sprintf('LLM configuration "%s" is not active', $identifier->value),
                 1784211002,
             );
         }
@@ -129,7 +130,7 @@ final readonly class ConfigurationResolver
                 sprintf(
                     'LLM configuration "%s" is restricted to backend groups'
                     . ' and cannot be resolved without a user context',
-                    $identifier,
+                    $identifier->value,
                 ),
                 1784211003,
             );
@@ -155,20 +156,20 @@ final readonly class ConfigurationResolver
      * @throws ConfigurationInactiveException when the configuration exists but is deactivated
      * @throws AccessDeniedException          when the actor is not entitled to the restricted configuration
      */
-    public function getActiveByIdentifierForActor(string $identifier, AiActorContext $actor): LlmConfiguration
+    public function getActiveByIdentifierForActor(ConfigurationIdentifier $identifier, AiActorContext $actor): LlmConfiguration
     {
-        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier);
+        $configuration = $this->configurationRepository?->findOneByIdentifier($identifier->value);
 
         if (!$configuration instanceof LlmConfiguration) {
             throw new ConfigurationNotFoundException(
-                sprintf('LLM configuration "%s" not found', $identifier),
+                sprintf('LLM configuration "%s" not found', $identifier->value),
                 1784211001,
             );
         }
 
         if (!$configuration->isActive()) {
             throw new ConfigurationInactiveException(
-                sprintf('LLM configuration "%s" is not active', $identifier),
+                sprintf('LLM configuration "%s" is not active', $identifier->value),
                 1784211002,
             );
         }
@@ -177,7 +178,7 @@ final readonly class ConfigurationResolver
             throw new AccessDeniedException(
                 sprintf(
                     'LLM configuration "%s" is restricted to backend groups %s is not a member of',
-                    $identifier,
+                    $identifier->value,
                     $actor->describe(),
                 ),
                 1784211004,

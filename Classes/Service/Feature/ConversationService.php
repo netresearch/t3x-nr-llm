@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
@@ -279,7 +280,13 @@ final readonly class ConversationService implements ConversationServiceInterface
     private function bindLegacySession(AiSession $session, AiActorContext $actor): ?string
     {
         $configuration = $this->configurationResolver->resolveDefaultForActor($actor);
-        if (!$configuration instanceof LlmConfiguration) {
+        // A blank identifier is a malformed row -- the TCA marks the field
+        // required, so this arrives only through an import or a direct write.
+        // Binding it would write the very sentinel that means "unbound" onto
+        // the row, so the session would re-bind on every turn and the value
+        // would then be handed to ConfigurationIdentifier, which refuses it
+        // (#893). Treated as "no default to bind to", which is what it is.
+        if (!$configuration instanceof LlmConfiguration || $configuration->getIdentifier() === '') {
             return null;
         }
 
@@ -394,7 +401,10 @@ final readonly class ConversationService implements ConversationServiceInterface
         }
 
         try {
-            return $this->configurationResolver->getActiveByIdentifierForActor($identifier, $actor);
+            return $this->configurationResolver->getActiveByIdentifierForActor(
+                new ConfigurationIdentifier($identifier),
+                $actor,
+            );
         } catch (ConfigurationNotFoundException|ConfigurationInactiveException $unusable) {
             // Not found or deactivated: the conversation was opened against a
             // configuration that no longer exists or was switched off. Silently

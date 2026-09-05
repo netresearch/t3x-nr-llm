@@ -295,6 +295,39 @@ final class ConversationServiceTest extends TestCase
     }
 
     /**
+     * The bind is only worth writing when the identifier can name something.
+     *
+     * The TCA marks `identifier` required, so a blank one arrives through an
+     * import or a direct write rather than the backend module. Binding it
+     * anyway would write the sentinel that MEANS unbound onto the row: the
+     * session would re-bind on every turn, and the value would then be handed
+     * to {@see ConfigurationIdentifier}, which refuses it (#893). Treated as
+     * "no default to bind to" -- the generic path, the same branch a missing
+     * default takes.
+     */
+    #[Test]
+    public function aLegacyBindIsSkippedWhenTheDefaultConfigurationHasABlankIdentifier(): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $uid        = $repository->startSession('legacy-uuid', self::OWNER, '', 'opened before ADR-188');
+
+        $malformed = new LlmConfiguration();
+        $malformed->setIdentifier('');
+        $malformed->setLlmModel(new Model());
+        $malformed->setIsActive(true);
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chatForConfiguration');
+        $llmManager->expects(self::once())->method('chat')->willReturn($this->response('generic path'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverWithDefault($malformed));
+
+        self::assertSame('generic path', $service->send($this->owner(), 'legacy-uuid', 'continue')->content);
+        self::assertSame([], $repository->bindCalls, 'A blank identifier must not be written onto the row.');
+        self::assertSame('', $repository->sessions[$uid]['configId']);
+    }
+
+    /**
      * The bind is conditional on the row still being unbound, so a concurrent
      * turn can win it — and if the installation default moved between the two
      * reads, it bound something else. The turn that lost must then fit and
