@@ -14,7 +14,9 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpOperationDeadline;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordingCancellableClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,7 +32,7 @@ use TYPO3\CMS\Core\Http\StreamFactory;
 #[CoversClass(McpHttpTransport::class)]
 final class McpHttpTransportTest extends AbstractUnitTestCase
 {
-    private function transportFor(McpTestServer $fake): McpHttpTransport
+    private function transportFor(ClientInterface $fake): McpHttpTransport
     {
         $transport = new McpHttpTransport(
             self::createStub(VaultServiceInterface::class),
@@ -349,5 +351,125 @@ final class McpHttpTransportTest extends AbstractUnitTestCase
         }
 
         self::assertSame([], $fake->received, 'nothing went on the wire');
+    }
+
+    // -- cancellation (ADR-190) ------------------------------------------
+
+    /**
+     * No signal, no cancellable send. The Tool Playground and any bare
+     * ToolLoopServiceInterface consumer run without a persisted run, so there
+     * is no row a signal could observe, and the call is the blocking one it
+     * always was.
+     */
+    #[Test]
+    public function withoutASignalTheBlockingSendIsUsed(): void
+    {
+        $client = new RecordingCancellableClient();
+
+        $this->transportFor($client)->call(McpTestServer::server(), 'ping', [], $this->deadline());
+
+        self::assertSame(['sendRequest'], $client->calls);
+    }
+
+    /**
+     * Feature-detected on the instance, not on the interface. A platform
+     * without `curl_multi` gets a client that implements the interface and
+     * answers false, and nr-vault returns no transport there at all -- so the
+     * branch has to ask the client, not merely type-check it.
+     */
+    #[Test]
+    public function aClientThatCannotCancelTakesTheBlockingSend(): void
+    {
+        $client = new RecordingCancellableClient(supportsCancellation: false);
+
+        $this->transportFor($client)->call(
+            McpTestServer::server(),
+            'ping',
+            [],
+            $this->deadline(),
+            null,
+            $this->signal(false),
+        );
+
+        self::assertSame(['sendRequest'], $client->calls);
+    }
+
+    /**
+     * A client that predates nr-vault 0.16 implements only PSR-18. The
+     * interface is additive precisely so this keeps working without a version
+     * floor in the branch.
+     */
+    #[Test]
+    public function aClientWithoutTheInterfaceTakesTheBlockingSend(): void
+    {
+        $fake = (new McpTestServer())->willReturn([]);
+
+        $answer = $this->transportFor($fake)->call(
+            McpTestServer::server(),
+            'ping',
+            [],
+            $this->deadline(),
+            null,
+            $this->signal(false),
+        );
+
+        self::assertSame([], $answer['result']);
+    }
+
+    #[Test]
+    public function aSignalAndACapableClientTakeTheCancellableSend(): void
+    {
+        $client = new RecordingCancellableClient();
+
+        $answer = $this->transportFor($client)->call(
+            McpTestServer::server(),
+            'ping',
+            [],
+            $this->deadline(),
+            null,
+            $this->signal(false),
+        );
+
+        self::assertSame(['sendCancellable'], $client->calls);
+        self::assertSame([], $answer['result']);
+    }
+
+    /**
+     * The one that matters. nr-vault raises `RequestCancelledException` when
+     * the signal turned true mid-transfer; without a catch of its own it would
+     * fall into the generic branch and be reported as a server that could not
+     * be reached -- a fault, on a call where nothing was faulty.
+     */
+    #[Test]
+    public function aCancelledTransferBecomesItsOwnTransportException(): void
+    {
+        $client = new RecordingCancellableClient(cancelMidFlight: true);
+
+        try {
+            $this->transportFor($client)->call(
+                McpTestServer::server(),
+                'ping',
+                [],
+                $this->deadline(),
+                null,
+                $this->signal(true),
+            );
+            self::fail('Expected the cancelled transfer to surface as a cancellation.');
+        } catch (McpTransportException $e) {
+            self::assertSame(1799990218, $e->getCode());
+            self::assertStringContainsString('cancelled', $e->getMessage());
+        }
+    }
+
+    private function signal(bool $cancelled): CancellationSignalInterface
+    {
+        return new class ($cancelled) implements CancellationSignalInterface {
+            public function __construct(private readonly bool $cancelled) {}
+
+            public function isCancelled(): bool
+            {
+                return $this->cancelled;
+            }
+        };
     }
 }

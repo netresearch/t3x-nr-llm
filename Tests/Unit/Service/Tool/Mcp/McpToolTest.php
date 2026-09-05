@@ -9,9 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
+use Netresearch\NrLlm\Service\Agent\AgentRunCancellationSignalFactory;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpDeadlineFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpHttpTransport;
@@ -19,13 +25,16 @@ use Netresearch\NrLlm\Service\Tool\Mcp\McpTool;
 use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\FakeMcpClock;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
+use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordingCancellableClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Client\ClientInterface;
 use ReflectionClass;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Http\Client\GuzzleClientFactory;
@@ -52,8 +61,12 @@ final class McpToolTest extends AbstractUnitTestCase
         );
     }
 
-    private function toolFor(McpTestServer $fake, ToolDataClass $dataClass = ToolDataClass::PUBLIC_CONTENT, bool $requiresApproval = true): McpTool
-    {
+    private function toolFor(
+        ClientInterface $fake,
+        ToolDataClass $dataClass = ToolDataClass::PUBLIC_CONTENT,
+        bool $requiresApproval = true,
+        ?AgentRunCancellationSignalFactory $cancellations = null,
+    ): McpTool {
         $transport = new McpHttpTransport(
             self::createStub(VaultServiceInterface::class),
             $this->createSecureHttpClientFactoryMock(),
@@ -73,6 +86,7 @@ final class McpToolTest extends AbstractUnitTestCase
                 new RecordedContacts(),
                 new McpDeadlineFactory(new FakeMcpClock(), self::createStub(ExtensionConfiguration::class)),
             ),
+            $cancellations,
         );
     }
 
@@ -195,5 +209,78 @@ final class McpToolTest extends AbstractUnitTestCase
 
         self::assertStringContainsString('503', $result->content);
         self::assertStringContainsString('"srv"', $result->content);
+    }
+
+    // -- cancellation wiring (ADR-190) -----------------------------------
+
+    /**
+     * A persisted run reaches the wire as a cancellable send -- for the
+     * handshake as well as for the call itself, since both are round trips to
+     * the same server under the same operation deadline.
+     */
+    #[Test]
+    public function aRunInTheContextMakesTheSendCancellable(): void
+    {
+        $client = new RecordingCancellableClient();
+
+        $this->toolFor($client, cancellations: $this->cancellations())
+            ->execute([], $this->contextForRun('7f6b2c10-0000-4000-8000-00000000000a'));
+
+        self::assertNotSame([], $client->calls);
+        self::assertSame(['sendCancellable'], array_values(array_unique($client->calls)));
+    }
+
+    /**
+     * Without a persisted run there is no row a signal could observe, so the
+     * call stays the blocking one. This is the Tool Playground's path and that
+     * of any bare ToolLoopServiceInterface consumer.
+     */
+    #[Test]
+    public function withoutARunTheSendStaysBlocking(): void
+    {
+        $client = new RecordingCancellableClient();
+
+        $this->toolFor($client, cancellations: $this->cancellations())
+            ->execute([], ToolExecutionContext::none());
+
+        self::assertNotSame([], $client->calls);
+        self::assertSame(['sendRequest'], array_values(array_unique($client->calls)));
+    }
+
+    /**
+     * And a tool built without the factory at all -- the shape every hand
+     * construction in this suite used before ADR-190 -- keeps working.
+     */
+    #[Test]
+    public function withoutTheFactoryTheSendStaysBlocking(): void
+    {
+        $client = new RecordingCancellableClient();
+
+        $this->toolFor($client)
+            ->execute([], $this->contextForRun('7f6b2c10-0000-4000-8000-00000000000b'));
+
+        self::assertSame(['sendRequest'], array_values(array_unique($client->calls)));
+    }
+
+    private function contextForRun(string $uuid): ToolExecutionContext
+    {
+        return new ToolExecutionContext(
+            AiActorContext::backendUser(1, isAdmin: true),
+            null,
+            new AgentRunReference(1, $uuid),
+        );
+    }
+
+    private function cancellations(): AgentRunCancellationSignalFactory
+    {
+        // A repository that knows no runs: every probe answers "not cancelled",
+        // which is what these cases want. Which SEND was chosen is decided by
+        // whether a signal exists at all, not by what it answers.
+        $repository = self::createStub(AgentRunRepositoryInterface::class);
+
+        return new AgentRunCancellationSignalFactory(
+            new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
+            new FakeMcpClock(),
+        );
     }
 }

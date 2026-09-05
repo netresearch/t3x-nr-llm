@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Service\Agent\AgentRunCancellationSignalFactory;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolProviderInterface;
 
@@ -36,6 +37,7 @@ final readonly class McpToolProvider implements ToolProviderInterface
         private McpServerRepository $servers,
         private McpToolRepository $tools,
         private McpClient $client,
+        private AgentRunCancellationSignalFactory $cancellations,
     ) {}
 
     /**
@@ -62,7 +64,7 @@ final readonly class McpToolProvider implements ToolProviderInterface
                 // loop already holds, rather than looked up later by the
                 // approval scan: the scan runs per tool call and adding a
                 // repository to it would put a query on that path.
-                yield new McpTool($server, $record, $schema, $dataClass, $server->approvalRequired(), $this->client);
+                yield new McpTool($server, $record, $schema, $dataClass, $server->approvalRequired(), $this->client, $this->cancellations);
             }
         }
     }

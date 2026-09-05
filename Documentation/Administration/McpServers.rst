@@ -122,7 +122,11 @@ and a note at the end would be the part that is cut. If you need the
 image itself, the tool is not usable from here yet.
 
 A call that fails does not fail the run. It comes back as a failed tool
-result naming the server, the model is told, and the run carries on.
+result naming the server, the model is told, and the run carries on. A
+cancelled call is the one exception, and it is not a failure: it comes back
+as a failed tool result too, but the run has already been cancelled, so the
+step is recorded and the run settles as cancelled without another model
+call — see below.
 This covers both ways a call fails: the server not answering usefully —
 it is down, it refuses the credential, it sends something that is not
 JSON-RPC — and the server answering that the tool itself failed, which
@@ -151,11 +155,19 @@ the operation stops with a message naming the number and the server, and
 saying plainly that nothing was asked of the server — that is this
 installation's budget, not a server that failed to answer.
 
+Cancelling a run stops the call it has on the wire. The run stops at the
+next step as it always did, and since :ref:`ADR-190 <adr-190>` an
+outstanding remote call is torn down too, about a second after the cancel is
+recorded, rather than running on until the server answers or the operation's
+budget is gone. What the remote server did with a call cut off mid-flight is
+not knowable from here: every imported MCP tool is treated as a
+non-idempotent write, so the run is not retried and nothing is undone. The
+run's own step records the cancelled call, and nr-vault's audit says whether
+the credential had gone out.
+
 See :ref:`ADR-116 <adr-116>` for the design rationale,
 :ref:`ADR-154 <adr-154>` for what liveness is measured on and why the
 connection test writes nothing, :ref:`ADR-170 <adr-170>` for the operation
-budget, and :ref:`ADR-161 <adr-161>` for the conformance suite every
-supported connection is held to — including the one thing it does **not**
-do: cancelling a call that is already in flight. Cancelling a run stops it
-at the next step, but an outstanding remote call still runs until the
-server answers or the operation's remaining budget is gone.
+budget, :ref:`ADR-190 <adr-190>` for cancellation, and
+:ref:`ADR-161 <adr-161>` for the conformance suite every supported connection
+is held to.
