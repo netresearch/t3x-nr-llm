@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -304,15 +305,21 @@ final class ConversationServiceTest extends TestCase
      * to {@see ConfigurationIdentifier}, which refuses it (#893). Treated as
      * "no default to bind to" -- the generic path, the same branch a missing
      * default takes.
+     *
+     * Whitespace counts. `'   '` is not equal to `''`, so an untrimmed check
+     * lets it through: it persists onto the row, and the very next line hands
+     * it to a value object that trims before it validates and rejects it. The
+     * normalization has to happen once, before the check and before the write.
      */
     #[Test]
-    public function aLegacyBindIsSkippedWhenTheDefaultConfigurationHasABlankIdentifier(): void
+    #[DataProvider('blankDefaultIdentifiers')]
+    public function aLegacyBindIsSkippedWhenTheDefaultConfigurationHasABlankIdentifier(string $identifier): void
     {
         $repository = new RecordingAiSessionRepository();
         $uid        = $repository->startSession('legacy-uuid', self::OWNER, '', 'opened before ADR-188');
 
         $malformed = new LlmConfiguration();
-        $malformed->setIdentifier('');
+        $malformed->setIdentifier($identifier);
         $malformed->setLlmModel(new Model());
         $malformed->setIsActive(true);
 
@@ -325,6 +332,16 @@ final class ConversationServiceTest extends TestCase
         self::assertSame('generic path', $service->send($this->owner(), 'legacy-uuid', 'continue')->content);
         self::assertSame([], $repository->bindCalls, 'A blank identifier must not be written onto the row.');
         self::assertSame('', $repository->sessions[$uid]['configId']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function blankDefaultIdentifiers(): iterable
+    {
+        yield 'empty'      => [''];
+        yield 'spaces'     => ['   '];
+        yield 'whitespace' => ["\t\n "];
     }
 
     /**

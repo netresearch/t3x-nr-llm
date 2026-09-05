@@ -280,23 +280,31 @@ final readonly class ConversationService implements ConversationServiceInterface
     private function bindLegacySession(AiSession $session, AiActorContext $actor): ?string
     {
         $configuration = $this->configurationResolver->resolveDefaultForActor($actor);
-        // A blank identifier is a malformed row -- the TCA marks the field
-        // required, so this arrives only through an import or a direct write.
-        // Binding it would write the very sentinel that means "unbound" onto
-        // the row, so the session would re-bind on every turn and the value
-        // would then be handed to ConfigurationIdentifier, which refuses it
-        // (#893). Treated as "no default to bind to", which is what it is.
-        if (!$configuration instanceof LlmConfiguration || $configuration->getIdentifier() === '') {
+        if (!$configuration instanceof LlmConfiguration) {
             return null;
         }
 
-        $this->sessions->bindConfiguration($session->uid, $configuration->getIdentifier());
+        // Normalized ONCE, and the normalized form is what gets bound.
+        // An identifier that is blank after trimming is a malformed row -- the
+        // TCA marks the field required, so it arrives through an import or a
+        // direct write. Binding it would write the very sentinel that means
+        // "unbound" onto the row, so the session would re-bind on every turn,
+        // and the value would then be handed to ConfigurationIdentifier, which
+        // refuses it (#893). Checking the untrimmed string would let `'   '`
+        // through, which is not blank, persists, and throws one line later.
+        // Treated as "no default to bind to", which is what it is.
+        $identifier = trim($configuration->getIdentifier());
+        if ($identifier === '') {
+            return null;
+        }
+
+        $this->sessions->bindConfiguration($session->uid, $identifier);
 
         $bound = $this->sessions->findByUuid($session->uuid);
 
-        return $bound instanceof AiSession && $bound->configurationIdentifier !== ''
+        return $bound instanceof AiSession && trim($bound->configurationIdentifier) !== ''
             ? $bound->configurationIdentifier
-            : $configuration->getIdentifier();
+            : $identifier;
     }
 
     /**
