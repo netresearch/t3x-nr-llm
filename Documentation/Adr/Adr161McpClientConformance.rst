@@ -8,7 +8,9 @@ ADR-161: One conformance suite for every MCP connection we support
     :ref:`ADR-170 <adr-170>`)
 :Date: 2026-08-11
 :Amended: 2026-08-13 by :ref:`ADR-170 <adr-170>`; 2026-08-20 by
-    :ref:`ADR-181 <adr-181>` (the "no SSE" edge is now "no live stream")
+    :ref:`ADR-181 <adr-181>` (the "no SSE" edge is now "no live stream");
+    2026-09-05 by :ref:`ADR-190 <adr-190>` (the cancellation gap is closed --
+    the row and decision 3 below are amended, not withdrawn)
 
 Context
 =======
@@ -101,8 +103,10 @@ Decision
           budget is spent across the legs, an exhausted budget is its own
           outcome, and no leg is ever granted a timeout that would mean none.
       * - cancellation
-        - **A gap. Pinned by its absence, not by a behavioural check.** See
-          decision 3.
+        - **Closed by** :ref:`ADR-190 <adr-190>`. Still pinned structurally
+          rather than behaviourally, for the reason decision 3 gives: the suite
+          now asserts the seam EXISTS, in exactly the three places it belongs,
+          so a fourth one still fails the check.
       * - server failure
         - Covered across eight shapes — 5xx, 3xx, 401, a JSON-RPC error object,
           a maintenance page, an event stream, a body with neither result nor
@@ -169,6 +173,17 @@ Decision
    decision about what a half-sent ``tools/call`` means for a non-idempotent
    remote write, and a bound on how long cancellation itself may take. That is
    its own record.
+
+   **Amended 2026-09-05.** That record is :ref:`ADR-190 <adr-190>`, and it
+   answers all three: nr-vault owns the poll loop and hands this extension a
+   signal rather than a promise; a cancelled run is terminal and its write fence
+   stays stamped, so a half-sent call is never retried; and the bound is about a
+   second. The check above is inverted rather than deleted --
+   :php:`McpClient::callTool()` and the two transport sends it drives,
+   :php:`McpHttpTransport::call()` and :php:`McpHttpTransport::notify()`, are now
+   the places a cancellation may enter, and the suite asserts that list exactly.
+   The property worth having is unchanged: a seam appearing anywhere else fails
+   it.
 
 4. **The run's audit IS the audit; the MCP client keeps none of its own.**
 

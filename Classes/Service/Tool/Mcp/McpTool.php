@@ -11,10 +11,12 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\AgentRunCancellationSignalFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
 use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
@@ -67,6 +69,7 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
         private ToolDataClass $dataClass,
         private bool $requiresApproval,
         private McpClient $client,
+        private ?AgentRunCancellationSignalFactory $cancellations = null,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -84,7 +87,21 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
         try {
-            $outcome = $this->client->callTool($this->server, $this->record->remoteName, $arguments);
+            // Null outside a persisted run -- the Tool Playground and any bare
+            // ToolLoopServiceInterface consumer -- and the call is then the
+            // blocking one it always was. There is no run row to ask about, so
+            // there is nothing a signal could observe (#774).
+            $cancellation = $this->cancellations instanceof AgentRunCancellationSignalFactory
+                && $context->run instanceof AgentRunReference
+                    ? $this->cancellations->forRun($context->run->uuid)
+                    : null;
+
+            $outcome = $this->client->callTool(
+                $this->server,
+                $this->record->remoteName,
+                $arguments,
+                $cancellation,
+            );
 
             // The two ways a remote call fails end the same way (ADR-161). The
             // server being unreachable is the loud one; `isError` on an

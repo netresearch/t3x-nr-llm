@@ -12,6 +12,9 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
 use JsonException;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrVault\Exception\RequestCancelledException;
+use Netresearch\NrVault\Http\CancellableHttpClientInterface;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -104,6 +107,7 @@ final class McpHttpTransport
         array $params,
         McpOperationDeadline $deadline,
         ?string $sessionId = null,
+        ?CancellationSignalInterface $cancellation = null,
     ): array {
         $startedAt = hrtime(true);
 
@@ -114,7 +118,7 @@ final class McpHttpTransport
             'id'      => 1,
             'method'  => $method,
             'params'  => $params === [] ? new stdClass() : $params,
-        ]), $deadline, $sessionId);
+        ]), $deadline, $sessionId, $cancellation);
 
         $durationMs = (int)round((hrtime(true) - $startedAt) / 1_000_000);
 
@@ -144,12 +148,13 @@ final class McpHttpTransport
         array $params,
         McpOperationDeadline $deadline,
         ?string $sessionId = null,
+        ?CancellationSignalInterface $cancellation = null,
     ): void {
         $this->send($server, $this->encode($server, [
             'jsonrpc' => '2.0',
             'method'  => $method,
             'params'  => $params === [] ? new stdClass() : $params,
-        ]), $deadline, $sessionId);
+        ]), $deadline, $sessionId, $cancellation);
     }
 
     /**
@@ -171,8 +176,13 @@ final class McpHttpTransport
      *
      * @return array{status: int, body: string, contentType: string, sessionId: string|null}
      */
-    private function send(McpServerRecord $server, string $body, McpOperationDeadline $deadline, ?string $sessionId): array
-    {
+    private function send(
+        McpServerRecord $server,
+        string $body,
+        McpOperationDeadline $deadline,
+        ?string $sessionId,
+        ?CancellationSignalInterface $cancellation = null,
+    ): array {
         // Checked before anything is built, and outside the catch below, so an
         // exhausted budget cannot be reported as a far side that failed. It is
         // also checked here rather than in `clientFor()` because the test seam
@@ -204,17 +214,41 @@ final class McpHttpTransport
 
         try {
             if ($this->configuredHttpClient instanceof ClientInterface) {
-                $response = $this->configuredHttpClient->sendRequest($request);
+                $client = $this->configuredHttpClient;
             } else {
-                // Anonymous host gate first — see the class docblock.
+                // Anonymous host gate first — see the class docblock. It stays
+                // inside this branch: the seam above bypasses `clientFor()` and
+                // has always bypassed the gate with it, so hoisting the check
+                // out would change what the seam exercises.
                 if (!$this->httpClientFactory->isHostAllowed($host)) {
                     throw McpTransportException::forRefusedHost($server->identifier, $host);
                 }
 
-                $response = $this->clientFor($server, $deadline->legTimeoutSeconds())->sendRequest($request);
+                $client = $this->clientFor($server, $deadline->legTimeoutSeconds());
             }
+
+            // Feature-detected rather than version-gated, which is the shape
+            // nr-vault's interface was made for (#774): it is additive, so a
+            // client that predates it — or a platform without `curl_multi` —
+            // simply takes the blocking send it always took. Cancellation is
+            // the only difference between the two branches; both run the same
+            // scheme allowlist, host allowlist, credential injection and audit
+            // write inside nr-vault.
+            $response = $cancellation instanceof CancellationSignalInterface
+                && $client instanceof CancellableHttpClientInterface
+                && $client->supportsCancellation()
+                    ? $client->sendCancellable($request, $cancellation)
+                    : $client->sendRequest($request);
         } catch (McpTransportException $e) {
             throw $e;
+        } catch (RequestCancelledException) {
+            // Before the generic branch below, which would otherwise report an
+            // operator's cancel as a server that could not be reached. Whether
+            // the credential went out is nr-vault's row to say -- it writes
+            // `http_call_cancelled` for a transfer in flight and
+            // `http_call_cancelled_before_send` when the signal was already
+            // true on entry -- so nothing is claimed about it here.
+            throw McpTransportException::forCancelledCall($server->identifier);
         } catch (Throwable $e) {
             throw McpTransportException::forTransportFailure($server->identifier, $e->getMessage());
         }

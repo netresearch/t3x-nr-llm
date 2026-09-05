@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\McpConnectionReport;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolsPage;
 use Netresearch\NrLlm\Service\Tool\Mcp\Exception\McpTransportException;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use stdClass;
 use Throwable;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
@@ -168,15 +169,22 @@ final readonly class McpClient
      *
      * @throws McpTransportException
      */
-    public function callTool(McpServerRecord $server, string $remoteName, array $arguments): McpCallOutcome
-    {
+    public function callTool(
+        McpServerRecord $server,
+        string $remoteName,
+        array $arguments,
+        ?CancellationSignalInterface $cancellation = null,
+    ): McpCallOutcome {
         $deadline = $this->deadlines->forOperation();
-        $session  = $this->openSession($server, $deadline)['sessionId'];
+        // The handshake carries the signal too. It is a full round trip to the
+        // same server under the same operation deadline, so leaving it out
+        // would keep the very stall this exists to end -- just one leg earlier.
+        $session = $this->openSession($server, $deadline, $cancellation)['sessionId'];
 
         $answer = $this->transport->call($server, 'tools/call', [
             'name'      => $remoteName,
             'arguments' => $arguments === [] ? new stdClass() : $arguments,
-        ], $deadline, $session);
+        ], $deadline, $session, $cancellation);
 
         // The server answered, so it is alive — including when the answer is a
         // tool-level `isError` below. That is the tool failing, not the server.
@@ -268,8 +276,11 @@ final readonly class McpClient
      *
      * @return array{result: array<string, mixed>, sessionId: string|null, durationMs: int}
      */
-    private function openSession(McpServerRecord $server, McpOperationDeadline $deadline): array
-    {
+    private function openSession(
+        McpServerRecord $server,
+        McpOperationDeadline $deadline,
+        ?CancellationSignalInterface $cancellation = null,
+    ): array {
         $handshake = $this->transport->call($server, 'initialize', [
             'protocolVersion' => self::PROTOCOL_VERSION,
             // No capabilities are declared because none are offered: this
@@ -281,11 +292,11 @@ final readonly class McpClient
                 'name'    => 'nr_llm',
                 'version' => '1',
             ],
-        ], $deadline);
+        ], $deadline, null, $cancellation);
 
         // The protocol requires the client to confirm it is ready before it
         // issues requests. A server may reject everything until it arrives.
-        $this->transport->notify($server, 'notifications/initialized', [], $deadline, $handshake['sessionId']);
+        $this->transport->notify($server, 'notifications/initialized', [], $deadline, $handshake['sessionId'], $cancellation);
 
         return $handshake;
     }
