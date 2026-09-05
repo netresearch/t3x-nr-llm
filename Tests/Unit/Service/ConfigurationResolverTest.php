@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
 use Netresearch\NrLlm\Exception\ConfigurationNotFoundException;
@@ -236,7 +237,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
 
         $subject = new ConfigurationResolver($repository);
 
-        self::assertSame($configuration, $subject->getActiveByIdentifier('blog-summarizer'));
+        self::assertSame($configuration, $subject->getActiveByIdentifier(new ConfigurationIdentifier('blog-summarizer')));
     }
 
     #[Test]
@@ -255,7 +256,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
 
         $subject = new ConfigurationResolver($repository);
 
-        self::assertSame($configuration, $subject->getActiveByIdentifier('criteria-mode'));
+        self::assertSame($configuration, $subject->getActiveByIdentifier(new ConfigurationIdentifier('criteria-mode')));
     }
 
     #[Test]
@@ -269,7 +270,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectException(ConfigurationNotFoundException::class);
         $this->expectExceptionCode(1784211001);
 
-        $subject->getActiveByIdentifier('missing');
+        $subject->getActiveByIdentifier(new ConfigurationIdentifier('missing'));
     }
 
     #[Test]
@@ -280,7 +281,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectException(ConfigurationNotFoundException::class);
         $this->expectExceptionCode(1784211001);
 
-        $subject->getActiveByIdentifier('anything');
+        $subject->getActiveByIdentifier(new ConfigurationIdentifier('anything'));
     }
 
     #[Test]
@@ -297,7 +298,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectException(ConfigurationInactiveException::class);
         $this->expectExceptionCode(1784211002);
 
-        $subject->getActiveByIdentifier('deactivated');
+        $subject->getActiveByIdentifier(new ConfigurationIdentifier('deactivated'));
     }
 
     #[Test]
@@ -315,7 +316,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectException(AccessDeniedException::class);
         $this->expectExceptionCode(1784211003);
 
-        $subject->getActiveByIdentifier('restricted');
+        $subject->getActiveByIdentifier(new ConfigurationIdentifier('restricted'));
     }
 
     // ---- getActiveByIdentifierForActor(): the actorMayUse() decision ----
@@ -361,7 +362,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $configuration = $this->restrictedConfiguration([]);
 
         $resolved = $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('open', AiActorContext::anonymous());
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('open'), AiActorContext::anonymous());
 
         self::assertSame($configuration, $resolved);
     }
@@ -372,7 +373,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $configuration = $this->restrictedConfiguration([7]);
 
         $resolved = $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('restricted', AiActorContext::backendUser(3, isAdmin: true));
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('restricted'), AiActorContext::backendUser(3, isAdmin: true));
 
         self::assertSame($configuration, $resolved);
     }
@@ -383,7 +384,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $configuration = $this->restrictedConfiguration([7, 9]);
 
         $resolved = $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('restricted', AiActorContext::backendUser(3, backendGroupIds: [2, 9]));
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('restricted'), AiActorContext::backendUser(3, backendGroupIds: [2, 9]));
 
         self::assertSame($configuration, $resolved);
     }
@@ -397,7 +398,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1784211004);
 
         $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('restricted', AiActorContext::backendUser(3, backendGroupIds: [2, 5]));
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('restricted'), AiActorContext::backendUser(3, backendGroupIds: [2, 5]));
     }
 
     #[Test]
@@ -409,7 +410,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1784211004);
 
         $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('restricted', AiActorContext::anonymous());
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('restricted'), AiActorContext::anonymous());
     }
 
     #[Test]
@@ -418,7 +419,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $configuration = $this->restrictedConfiguration([7]);
 
         $resolved = $this->resolverFor($configuration)->getActiveByIdentifierForActor(
-            'restricted',
+            new ConfigurationIdentifier('restricted'),
             AiActorContext::serviceAccount('nightly-report', [ServiceAccountScope::CONFIGURATION_USE]),
         );
 
@@ -434,7 +435,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1784211004);
 
         $this->resolverFor($configuration)->getActiveByIdentifierForActor(
-            'restricted',
+            new ConfigurationIdentifier('restricted'),
             AiActorContext::serviceAccount('nightly-report', [ServiceAccountScope::AGENT_READ]),
         );
     }
@@ -454,7 +455,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1784211004);
 
         $this->resolverFor($configuration)->getActiveByIdentifierForActor(
-            'restricted',
+            new ConfigurationIdentifier('restricted'),
             // fromArray() is the one public path that can carry both a
             // service-account name and group ids — the persisted-run shape.
             AiActorContext::fromArray([
@@ -478,7 +479,7 @@ class ConfigurationResolverTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1784211004);
 
         $this->resolverFor($configuration)
-            ->getActiveByIdentifierForActor('restricted', AiActorContext::backendUser(3, backendGroupIds: [2]));
+            ->getActiveByIdentifierForActor(new ConfigurationIdentifier('restricted'), AiActorContext::backendUser(3, backendGroupIds: [2]));
     }
 
     // ---- actorMayUse(): the same decision, without the throw (ADR-167) ----

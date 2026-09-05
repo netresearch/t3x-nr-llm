@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AiSession;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Exception\AccessDeniedException;
 use Netresearch\NrLlm\Exception\ConfigurationInactiveException;
@@ -283,13 +284,27 @@ final readonly class ConversationService implements ConversationServiceInterface
             return null;
         }
 
-        $this->sessions->bindConfiguration($session->uid, $configuration->getIdentifier());
+        // Normalized ONCE, and the normalized form is what gets bound.
+        // An identifier that is blank after trimming is a malformed row -- the
+        // TCA marks the field required, so it arrives through an import or a
+        // direct write. Binding it would write the very sentinel that means
+        // "unbound" onto the row, so the session would re-bind on every turn,
+        // and the value would then be handed to ConfigurationIdentifier, which
+        // refuses it (#893). Checking the untrimmed string would let `'   '`
+        // through, which is not blank, persists, and throws one line later.
+        // Treated as "no default to bind to", which is what it is.
+        $identifier = trim($configuration->getIdentifier());
+        if ($identifier === '') {
+            return null;
+        }
+
+        $this->sessions->bindConfiguration($session->uid, $identifier);
 
         $bound = $this->sessions->findByUuid($session->uuid);
 
-        return $bound instanceof AiSession && $bound->configurationIdentifier !== ''
+        return $bound instanceof AiSession && trim($bound->configurationIdentifier) !== ''
             ? $bound->configurationIdentifier
-            : $configuration->getIdentifier();
+            : $identifier;
     }
 
     /**
@@ -394,7 +409,10 @@ final readonly class ConversationService implements ConversationServiceInterface
         }
 
         try {
-            return $this->configurationResolver->getActiveByIdentifierForActor($identifier, $actor);
+            return $this->configurationResolver->getActiveByIdentifierForActor(
+                new ConfigurationIdentifier($identifier),
+                $actor,
+            );
         } catch (ConfigurationNotFoundException|ConfigurationInactiveException $unusable) {
             // Not found or deactivated: the conversation was opened against a
             // configuration that no longer exists or was switched off. Silently

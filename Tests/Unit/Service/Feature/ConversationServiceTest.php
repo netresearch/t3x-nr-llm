@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Tests\Unit\Service\Session\Fixtures\RecordingAiSessionRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -292,6 +293,55 @@ final class ConversationServiceTest extends TestCase
         // row and does not bind again.
         $service->send($actor, 'legacy-uuid', 'and again');
         self::assertCount(1, $repository->bindCalls);
+    }
+
+    /**
+     * The bind is only worth writing when the identifier can name something.
+     *
+     * The TCA marks `identifier` required, so a blank one arrives through an
+     * import or a direct write rather than the backend module. Binding it
+     * anyway would write the sentinel that MEANS unbound onto the row: the
+     * session would re-bind on every turn, and the value would then be handed
+     * to {@see ConfigurationIdentifier}, which refuses it (#893). Treated as
+     * "no default to bind to" -- the generic path, the same branch a missing
+     * default takes.
+     *
+     * Whitespace counts. `'   '` is not equal to `''`, so an untrimmed check
+     * lets it through: it persists onto the row, and the very next line hands
+     * it to a value object that trims before it validates and rejects it. The
+     * normalization has to happen once, before the check and before the write.
+     */
+    #[Test]
+    #[DataProvider('blankDefaultIdentifiers')]
+    public function aLegacyBindIsSkippedWhenTheDefaultConfigurationHasABlankIdentifier(string $identifier): void
+    {
+        $repository = new RecordingAiSessionRepository();
+        $uid        = $repository->startSession('legacy-uuid', self::OWNER, '', 'opened before ADR-188');
+
+        $malformed = new LlmConfiguration();
+        $malformed->setIdentifier($identifier);
+        $malformed->setLlmModel(new Model());
+        $malformed->setIsActive(true);
+
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->expects(self::never())->method('chatForConfiguration');
+        $llmManager->expects(self::once())->method('chat')->willReturn($this->response('generic path'));
+
+        $service = new ConversationService($llmManager, $repository, $this->resolverWithDefault($malformed));
+
+        self::assertSame('generic path', $service->send($this->owner(), 'legacy-uuid', 'continue')->content);
+        self::assertSame([], $repository->bindCalls, 'A blank identifier must not be written onto the row.');
+        self::assertSame('', $repository->sessions[$uid]['configId']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function blankDefaultIdentifiers(): iterable
+    {
+        yield 'empty'      => [''];
+        yield 'spaces'     => ['   '];
+        yield 'whitespace' => ["\t\n "];
     }
 
     /**
