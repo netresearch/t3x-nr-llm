@@ -145,6 +145,13 @@ Decision
           it applies first.
 
 3. **Cancellation is a gap, and the suite says so.**
+
+   *Superseded by* :ref:`ADR-190 <adr-190>` *on 2026-09-05. The four paragraphs
+   below record why this was left open and what the suite asserted while it was.
+   They describe the state up to that date and are kept because the amendment at
+   the end of this decision only reads against them; for what holds now, read
+   that amendment.*
+
    :php:`AgentRuntime::cancel()` flips persisted state and the loop stops at the
    next step boundary. The transport has no abort path, so a cancellation
    raised while a request is in flight changes nothing about that request: the

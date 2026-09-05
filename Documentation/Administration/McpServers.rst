@@ -122,7 +122,11 @@ and a note at the end would be the part that is cut. If you need the
 image itself, the tool is not usable from here yet.
 
 A call that fails does not fail the run. It comes back as a failed tool
-result naming the server, the model is told, and the run carries on.
+result naming the server, the model is told, and the run carries on. A
+cancelled call is the one exception, and it is not a failure: it comes back
+as a failed tool result too, but the run has already been cancelled, so the
+step is recorded and the run settles as cancelled without another model
+call — see below.
 This covers both ways a call fails: the server not answering usefully —
 it is down, it refuses the credential, it sends something that is not
 JSON-RPC — and the server answering that the tool itself failed, which

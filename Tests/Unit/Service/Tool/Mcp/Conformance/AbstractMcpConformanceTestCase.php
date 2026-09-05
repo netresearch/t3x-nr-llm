@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Tests\Fixtures\Mcp\McpTestServer;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\RecordedContacts;
 use Netresearch\NrLlm\Tests\Fixtures\Mcp\SlowVaultHttpClient;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
+use Netresearch\NrVault\Http\CancellationSignalInterface;
 use Netresearch\NrVault\Http\DnsResolverInterface;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
@@ -590,7 +591,7 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
      * the tool's execution context to the wire.
      */
     #[Test]
-    public function cancellationEntersThroughExactlyTheTwoSeamsAdr190Names(): void
+    public function cancellationEntersThroughExactlyTheThreeSeamsAdr190Names(): void
     {
         $seams = [];
 
@@ -600,27 +601,44 @@ abstract class AbstractMcpConformanceTestCase extends AbstractUnitTestCase
                     $seams[] = $class . '::' . $method->getName() . '()';
                 }
 
-                foreach ($method->getParameters() as $parameter) {
+                $parameters = $method->getParameters();
+
+                foreach ($parameters as $parameter) {
                     $type = $parameter->getType();
 
-                    if ($this->readsAsCancellation($parameter->getName() . ' ' . ($type?->__toString() ?? ''))) {
-                        $seams[] = $class . '::' . $method->getName() . '($' . $parameter->getName() . ')';
+                    if (!$this->readsAsCancellation($parameter->getName() . ' ' . ($type?->__toString() ?? ''))) {
+                        continue;
                     }
+
+                    // Recorded WITH its shape, so the assertion below pins more
+                    // than the fact that something cancellation-shaped is
+                    // there. A `mixed $cancellation`, or one moved out of last
+                    // place, is a different seam from the one ADR-190 names and
+                    // reads differently here.
+                    $seams[] = sprintf(
+                        '%s::%s(%s $%s%s)',
+                        $class,
+                        $method->getName(),
+                        $type?->__toString() ?? 'mixed',
+                        $parameter->getName(),
+                        $parameter->getPosition() === count($parameters) - 1 ? ', last' : ', NOT last',
+                    );
                 }
             }
         }
 
         self::assertSame(
             [
-                McpClient::class . '::callTool($cancellation)',
-                McpHttpTransport::class . '::call($cancellation)',
-                McpHttpTransport::class . '::notify($cancellation)',
+                McpClient::class . '::callTool(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+                McpHttpTransport::class . '::call(?' . CancellationSignalInterface::class . ' $cancellation, last)',
+                McpHttpTransport::class . '::notify(?' . CancellationSignalInterface::class . ' $cancellation, last)',
             ],
             $seams,
             'ADR-190 names the three places a cancellation may enter this path — the tool call and the '
-            . 'two transport sends it drives — and no others. A seam anywhere else is a second way in that '
-            . 'nothing decided, which is what this check has always been for; it merely asserted the '
-            . 'empty list while the gap was open',
+            . 'two transport sends it drives — and no others, each taking nr-vault\'s signal type, nullable, '
+            . 'last. A seam anywhere else is a second way in that nothing decided; a different shape in one '
+            . 'of these three is a different seam from the one the record names. This check has always been '
+            . 'for exactly that, and merely asserted the empty list while the gap was open',
         );
     }
 
