@@ -573,3 +573,4 @@ Tools
    Adr188EverySessionHasAConfiguration
    Adr189CapabilityVocabularyVersusData
    Adr190CancellationCrossesTheTransportBoundary
+   Adr191ToolLevelCancellationOutcome

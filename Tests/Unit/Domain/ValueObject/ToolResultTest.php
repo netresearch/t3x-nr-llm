@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
@@ -182,6 +183,70 @@ final class ToolResultTest extends TestCase
     }
 
     /**
+     * The decision the guard below asks for, for `outcome` (ADR-191): carried,
+     * on both branches.
+     *
+     * The error branch of `withBoundedChannels()` rebuilds from almost nothing
+     * -- no artifacts, no write target -- because a failed call may keep none of
+     * them. The outcome is the exception: it is the one member that says WHY the
+     * channels are empty, and every tool result in a run passes through this
+     * method, so rebuilding it as FAILED would relabel every cancelled call as a
+     * fault before it reached the audit row.
+     */
+    #[Test]
+    public function boundingCarriesTheOutcomeThroughBothBranches(): void
+    {
+        self::assertSame(
+            ToolOutcome::CANCELLED,
+            ToolResult::cancelled('the run was cancelled')->withBoundedChannels('bounded', [])->outcome,
+        );
+        self::assertSame(
+            ToolOutcome::FAILED,
+            ToolResult::error('the server refused')->withBoundedChannels('bounded', [])->outcome,
+        );
+        self::assertSame(
+            ToolOutcome::OK,
+            ToolResult::text('fine')->withBoundedChannels('bounded', [])->outcome,
+        );
+    }
+
+    /**
+     * `isError` keeps its meaning for every consumer that reads it, and the
+     * outcome says which of the two non-OK cases it is. Asserted together
+     * because the invariant is between them: a result whose boolean and enum
+     * disagree would make the audit row and the loop tell different stories.
+     */
+    #[Test]
+    public function theBooleanAndTheOutcomeAgree(): void
+    {
+        foreach ([
+            [ToolResult::text('fine'), ToolOutcome::OK, false],
+            [ToolResult::error('nope'), ToolOutcome::FAILED, true],
+            [ToolResult::cancelled('stopped'), ToolOutcome::CANCELLED, true],
+        ] as [$result, $outcome, $isError]) {
+            self::assertSame($outcome, $result->outcome);
+            self::assertSame($isError, $result->isError);
+            self::assertSame($isError, $result->outcome !== ToolOutcome::OK);
+        }
+    }
+
+    /**
+     * A cancelled result is fail-closed exactly like an error one: no artifacts
+     * ride it, and it cannot claim a written record.
+     */
+    #[Test]
+    public function aCancelledResultCarriesNoSideChannels(): void
+    {
+        $cancelled = ToolResult::cancelled('the run was cancelled');
+
+        self::assertSame([], $cancelled->artifacts);
+        self::assertNull($cancelled->writeTarget);
+        self::assertNull(
+            $cancelled->withWriteTarget(new RecordReference('pages', 42), WriteKind::CREATED)->writeTarget,
+        );
+    }
+
+    /**
      * Every property of the value object is either bounded or carried. A new one
      * added without a decision fails here rather than silently vanishing on the
      * way through the loop.
@@ -196,7 +261,7 @@ final class ToolResultTest extends TestCase
         sort($properties);
 
         self::assertSame(
-            ['artifacts', 'content', 'isError', 'writeKind', 'writeTarget'],
+            ['artifacts', 'content', 'isError', 'outcome', 'writeKind', 'writeTarget'],
             $properties,
             'ToolResult gained a property. Decide in withBoundedChannels() whether it is bounded or carried '
             . 'forward — ADR-182 names three values already lost to a rebuild that answered for neither.',

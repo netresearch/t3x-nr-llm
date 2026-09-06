@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
@@ -206,6 +207,7 @@ final class RunTrace
         string $result,
         bool $isError,
         array $artifacts = [],
+        ?ToolOutcome $outcome = null,
     ): void {
         $this->add(new RunStep(
             kind: RunStep::KIND_TOOL,
@@ -215,6 +217,10 @@ final class RunTrace
             toolArguments: $arguments,
             toolResult: $result,
             toolIsError: $isError,
+            // Derived when the caller passes nothing, so the sites that record
+            // a synthesised refusal keep saying exactly what they said before:
+            // an error is a failure unless someone names it otherwise.
+            toolOutcome: $outcome ?? ($isError ? ToolOutcome::FAILED : ToolOutcome::OK),
             toolArtifacts: $artifacts === [] ? null : $artifacts,
         ));
     }
@@ -233,7 +239,7 @@ final class RunTrace
      */
     public function recordToolResult(int $round, float $durationMs, string $name, array $arguments, ToolResult $result): void
     {
-        $this->recordToolExecution($round, $durationMs, $name, $arguments, $result->content, $result->isError, $result->artifacts);
+        $this->recordToolExecution($round, $durationMs, $name, $arguments, $result->content, $result->isError, $result->artifacts, $result->outcome);
 
         if (!$result->writeTarget instanceof RecordReference) {
             return;

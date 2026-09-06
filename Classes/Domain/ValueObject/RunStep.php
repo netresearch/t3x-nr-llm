@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+
 /**
  * One recorded step of an inspectable {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
  * run, as gathered by {@see \Netresearch\NrLlm\Service\Tool\RunTrace}.
@@ -128,6 +130,13 @@ final readonly class RunStep
         public ?array $toolArguments = null,
         public ?string $toolResult = null,
         public ?bool $toolIsError = null,
+        /**
+         * WHICH kind of non-OK a tool step was (ADR-191). Null on every other
+         * kind, and null on tool steps written before this field existed --
+         * `toolIsError` remains the flag, and this says whether the true it
+         * carries was a fault or an operator's cancel.
+         */
+        public ?ToolOutcome $toolOutcome = null,
         public ?array $toolArtifacts = null,
         public ?ContextBudgetBreakdown $contextBudget = null,
         /**
@@ -181,6 +190,7 @@ final readonly class RunStep
             'toolArguments'      => $this->toolArguments,
             'toolResult'         => $this->toolResult,
             'toolIsError'        => $this->toolIsError,
+            'toolOutcome'        => $this->toolOutcome?->value,
             'toolArtifacts'      => $this->toolArtifacts === null
                 ? null
                 : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),

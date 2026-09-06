@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent\Timeline;
 
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
@@ -53,6 +54,7 @@ final readonly class RunTimelineFactory
     private const STEP_FACTS = [
         'toolName',
         'toolIsError',
+        'toolOutcome',
         'finishReason',
         'promptTokens',
         'completionTokens',
@@ -270,8 +272,13 @@ final readonly class RunTimelineFactory
     }
 
     /**
-     * A step states an outcome only when it is a tool step: `toolIsError` is the
-     * one success/failure flag a step payload carries.
+     * A step states an outcome only when it is a tool step.
+     *
+     * `toolIsError` decides WHETHER there is an outcome to state, because it is
+     * the field every tool step has ever carried; `toolOutcome` decides WHICH,
+     * and is absent from every row written before ADR-191. Reading the boolean
+     * first is what makes those rows render as they always did instead of
+     * losing their outcome to a field they never had.
      *
      * @param array<string, mixed> $payload
      */
@@ -280,6 +287,11 @@ final readonly class RunTimelineFactory
         $isError = $payload['toolIsError'] ?? null;
         if (!is_bool($isError)) {
             return RunTimelineEntry::OUTCOME_NONE;
+        }
+
+        $outcome = $payload['toolOutcome'] ?? null;
+        if (is_string($outcome) && ToolOutcome::tryFrom($outcome) instanceof ToolOutcome) {
+            return $outcome;
         }
 
         return $isError ? RunTimelineEntry::OUTCOME_FAILED : RunTimelineEntry::OUTCOME_OK;

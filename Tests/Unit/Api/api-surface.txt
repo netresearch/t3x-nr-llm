@@ -320,6 +320,17 @@ Netresearch\NrLlm\Domain\Enum\ToolDenialReason (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\ToolOutcome (enum)
+  case CANCELLED = "cancelled"
+  case FAILED = "failed"
+  case OK = "ok"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  method static values(): array
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\TrustZone (enum)
   case EXTERNAL_EU = "externalEu"
   case EXTERNAL_GLOBAL = "externalGlobal"
@@ -948,6 +959,7 @@ Netresearch\NrLlm\Domain\ValueObject\ToolPolicyDecision (class)
   property readonly zone: Netresearch\NrLlm\Domain\Enum\TrustZone
 
 Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
+  method static cancelled(string $content): self
   method static error(string $content): self
   method static text(string $content, Netresearch\NrLlm\Domain\ValueObject\ToolArtifact ...$artifacts = …): self
   method withBoundedChannels(string $content, array $artifacts): self
@@ -955,6 +967,7 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   property readonly artifacts: array
   property readonly content: string
   property readonly isError: bool
+  property readonly outcome: Netresearch\NrLlm\Domain\Enum\ToolOutcome
   property readonly writeKind: ?Netresearch\NrLlm\Domain\Enum\WriteKind
   property readonly writeTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
@@ -1663,7 +1676,7 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordDroppedSources(array $dropped): void
   method recordLlmCall(int $round, float $durationMs, Netresearch\NrLlm\Domain\Model\CompletionResponse $response): void
   method recordRequest(int $round, array $messagesSent, array $toolSpecs): void
-  method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …): void
+  method recordToolExecution(int $round, float $durationMs, string $name, array $arguments, string $result, bool $isError, array $artifacts = …, ?Netresearch\NrLlm\Domain\Enum\ToolOutcome $outcome = …): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
 
 Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)

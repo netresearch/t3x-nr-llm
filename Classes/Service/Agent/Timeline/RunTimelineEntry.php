@@ -36,6 +36,18 @@ final readonly class RunTimelineEntry
 
     public const OUTCOME_FAILED = 'failed';
 
+    /**
+     * The run was cancelled while this step's call was open (ADR-191).
+     *
+     * Told apart from a failure because it says nothing about the tool or the
+     * server: an operator stopped the run. Kept equal to
+     * {@see \Netresearch\NrLlm\Domain\Enum\ToolOutcome::CANCELLED}'s value,
+     * which `RunTimelineOutcomeVocabularyTest` asserts -- one string travels
+     * from the tool result through the persisted payload to the template's
+     * translation key, and a rename on one side alone would render nothing.
+     */
+    public const OUTCOME_CANCELLED = 'cancelled';
+
     /** The row is not a granted approval, so there is nobody to attribute (ADR-173). */
     public const ATTRIBUTION_NONE = '';
 

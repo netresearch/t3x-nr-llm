@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Timeline;
 
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineEntry;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
 use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
+use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -126,6 +129,78 @@ final class RunTimelineFactoryTest extends TestCase
 
         self::assertSame(RunTimelineEntry::OUTCOME_FAILED, $timeline[0]->outcome);
         self::assertSame(RunTimelineEntry::OUTCOME_OK, $timeline[1]->outcome);
+    }
+
+    /**
+     * The chain ADR-191 exists for, from the value object to the rendered row:
+     * a cancelled call is not shown as a failure of a server that may have been
+     * perfectly healthy.
+     *
+     * Built through {@see RunTrace} and the step's own `toArray()` rather than
+     * from a hand-written payload, because a hand-written one would agree with
+     * whatever this test expected and prove nothing about what is persisted.
+     */
+    #[Test]
+    public function aCancelledToolStepIsMarkedCancelledRatherThanFailed(): void
+    {
+        $trace = new RunTrace();
+        $trace->recordToolResult(1, 4.0, 'get_page', [], ToolResult::cancelled('the run was cancelled'));
+
+        $steps = $trace->getSteps();
+        self::assertCount(1, $steps);
+
+        $factory  = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+        $timeline = $factory->build($this->agentRun(), [
+            new AgentRunEvent(
+                uid: 400,
+                run: 7,
+                sequence: 0,
+                kind: 'tool',
+                round: 1,
+                durationMs: 4.0,
+                payload: $steps[0]->toArray(),
+                crdate: 1_700_000_010,
+            ),
+        ]);
+
+        self::assertSame(RunTimelineEntry::OUTCOME_CANCELLED, $timeline[0]->outcome);
+
+        // And in the facts column beside it. `toolIsError` has always been
+        // rendered there; listing only the ambiguous half of the pair would
+        // show `toolIsError=1` on a call nothing failed on, with the field that
+        // says which kind of non-OK it was left out of the allow-list.
+        self::assertStringContainsString('toolOutcome=cancelled', $timeline[0]->detail);
+    }
+
+    /**
+     * A row written before ADR-191 carries no `toolOutcome` at all. It keeps the
+     * outcome it always had rather than losing it to a field it never held.
+     */
+    #[Test]
+    public function aToolStepWithoutAnOutcomeFieldStillReadsItsBoolean(): void
+    {
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
+
+        $timeline = $factory->build($this->agentRun(), [
+            $this->toolEvent(0, true, 1_700_000_010),
+            $this->toolEvent(1, false, 1_700_000_011),
+        ]);
+
+        self::assertSame(RunTimelineEntry::OUTCOME_FAILED, $timeline[0]->outcome);
+        self::assertSame(RunTimelineEntry::OUTCOME_OK, $timeline[1]->outcome);
+    }
+
+    /**
+     * One string travels from the enum through the persisted payload to the
+     * template's translation key `runs.detail.outcome.<value>`. Renaming one
+     * side alone renders an empty cell, which no other test here would notice.
+     */
+    #[Test]
+    public function theTimelineVocabularyIsTheToolOutcomeVocabulary(): void
+    {
+        self::assertSame(ToolOutcome::OK->value, RunTimelineEntry::OUTCOME_OK);
+        self::assertSame(ToolOutcome::FAILED->value, RunTimelineEntry::OUTCOME_FAILED);
+        self::assertSame(ToolOutcome::CANCELLED->value, RunTimelineEntry::OUTCOME_CANCELLED);
     }
 
     #[Test]

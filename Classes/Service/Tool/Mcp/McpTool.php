@@ -116,7 +116,14 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
             // about this call, not a fault in the run. The loop can carry on
             // and the model is told plainly what failed. The message is already
             // bounded and control-stripped by the exception itself.
-            return ToolResult::error($e->getMessage());
+            //
+            // A cancelled call takes the same route and is fail-closed the same
+            // way, but says so (ADR-191): the run inspector would otherwise
+            // show an operator's own cancel as a failure of a server that may
+            // have been perfectly healthy.
+            return $e->isCancellation()
+                ? ToolResult::cancelled($e->getMessage())
+                : ToolResult::error($e->getMessage());
         }
     }
 
