@@ -28,6 +28,8 @@ use RuntimeException;
  */
 final class McpTransportException extends RuntimeException
 {
+    private bool $cancellation = false;
+
     /**
      * How much of a remote party's text is worth keeping. Enough to identify
      * the fault, short enough that a hostile server cannot flood the log.
@@ -128,10 +130,26 @@ final class McpTransportException extends RuntimeException
      */
     public static function forCancelledCall(string $identifier): self
     {
-        return new self(
+        $exception = new self(
             sprintf('The call to MCP server "%s" was cancelled.', $identifier),
             1799990218,
         );
+        $exception->cancellation = true;
+
+        return $exception;
+    }
+
+    /**
+     * Whether this names a cancelled call rather than a fault (ADR-191).
+     *
+     * A flag rather than a subclass because the class is `final`, and rather
+     * than a code comparison at the call site because a code is a value someone
+     * can copy: the only thing that sets this is
+     * {@see self::forCancelledCall()}, so the two cannot drift apart.
+     */
+    public function isCancellation(): bool
+    {
+        return $this->cancellation;
     }
 
     public static function forMissingCredential(string $identifier): self

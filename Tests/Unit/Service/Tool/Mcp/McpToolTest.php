@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Mcp;
 
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\McpToolRecord;
@@ -271,16 +274,62 @@ final class McpToolTest extends AbstractUnitTestCase
         );
     }
 
-    private function cancellations(): AgentRunCancellationSignalFactory
+    private function cancellations(?AgentRun $run = null): AgentRunCancellationSignalFactory
     {
-        // A repository that knows no runs: every probe answers "not cancelled",
-        // which is what these cases want. Which SEND was chosen is decided by
-        // whether a signal exists at all, not by what it answers.
+        // By default a repository that knows no runs: every probe answers "not
+        // cancelled". Which SEND was chosen is decided by whether a signal
+        // exists at all, not by what it answers — only the case below cares
+        // about the answer.
         $repository = self::createStub(AgentRunRepositoryInterface::class);
+        $repository->method('findByUuid')->willReturn($run);
 
         return new AgentRunCancellationSignalFactory(
             new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL)),
             new FakeMcpClock(),
         );
+    }
+
+    /**
+     * The tool level's own cancellation outcome (ADR-191, #774), end to end:
+     * a run that is already cancelled, a client that tears the transfer down
+     * when the signal says so, and a result that says CANCELLED rather than
+     * FAILED. Without the distinction the run inspector shows an operator's own
+     * cancel as a failure of a server that may have been perfectly healthy.
+     */
+    #[Test]
+    public function aCancelledCallComesBackAsACancelledResultRatherThanAnError(): void
+    {
+        $uuid = '7f6b2c10-0000-4000-8000-00000000000c';
+        // The THIRD send, which is the `tools/call` itself: one MCP tool call is
+        // `initialize`, the `notifications/initialized` that confirms it, and
+        // then the call. Tearing the first one down would prove the handshake
+        // aborts, which is a different claim from the one this case makes.
+        $client = new RecordingCancellableClient(cancelOnCancellableSend: 3);
+        $run    = new AgentRun(1, $uuid, AgentRunStatus::CANCELLED->value, 0, '', 42, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0);
+
+        $result = $this->toolFor($client, cancellations: $this->cancellations($run))
+            ->execute([], $this->contextForRun($uuid));
+
+        self::assertCount(3, $client->calls, 'The handshake completed and the tool call is the send that was cancelled.');
+        self::assertSame(ToolOutcome::CANCELLED, $result->outcome);
+        // Fail-closed like any error result, and the boolean keeps its meaning
+        // for every consumer that only reads it.
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('cancelled', $result->content);
+    }
+
+    /**
+     * And an ordinary transport fault is still FAILED. Asserted beside the case
+     * above, because "everything became cancelled" would pass that one alone.
+     */
+    #[Test]
+    public function aServerThatCannotBeReachedIsStillAFailure(): void
+    {
+        $fake = (new McpTestServer())->willReturnRaw('', 500);
+
+        $result = $this->toolFor($fake)->execute([], ToolExecutionContext::none());
+
+        self::assertSame(ToolOutcome::FAILED, $result->outcome);
+        self::assertTrue($result->isError);
     }
 }

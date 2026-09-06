@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 
 /**
@@ -48,6 +49,7 @@ final readonly class ToolResult
         public string $content,
         public bool $isError,
         public array $artifacts,
+        public ToolOutcome $outcome,
         public ?RecordReference $writeTarget = null,
         public ?WriteKind $writeKind = null,
     ) {}
@@ -57,7 +59,7 @@ final readonly class ToolResult
      */
     public static function text(string $content, ToolArtifact ...$artifacts): self
     {
-        return new self($content, false, array_values($artifacts));
+        return new self($content, false, array_values($artifacts), ToolOutcome::OK);
     }
 
     /**
@@ -67,7 +69,22 @@ final readonly class ToolResult
      */
     public static function error(string $content): self
     {
-        return new self($content, true, []);
+        return new self($content, true, [], ToolOutcome::FAILED);
+    }
+
+    /**
+     * A result the run's cancellation ended, not the tool (ADR-191, #774).
+     *
+     * Fail-closed exactly like {@see self::error()} -- `isError` is true, no
+     * artifacts, no write target -- so every consumer that reads the boolean
+     * keeps the meaning it had. What it adds is that the run inspector, and
+     * anything counting failures per server, can tell an operator's cancel from
+     * a fault. The server may have been perfectly healthy, and whether a remote
+     * write landed is not knowable from here (ADR-190).
+     */
+    public static function cancelled(string $content): self
+    {
+        return new self($content, true, [], ToolOutcome::CANCELLED);
     }
 
     /**
@@ -90,7 +107,7 @@ final readonly class ToolResult
             return $this;
         }
 
-        return new self($this->content, false, $this->artifacts, $target, $kind);
+        return new self($this->content, false, $this->artifacts, $this->outcome, $target, $kind);
     }
 
     /**
@@ -119,9 +136,13 @@ final readonly class ToolResult
             // target either. Spelling the null out is redundant and Rector says
             // so; what matters is that the branch exists here rather than at
             // the call site.
-            return new self($content, true, []);
+            // The OUTCOME travels even here, where nothing else does: it is
+            // the one member that says WHY the channels are empty, and
+            // rebuilding it as FAILED would relabel an operator's cancel as a
+            // fault on the one path every tool result passes through.
+            return new self($content, true, [], $this->outcome);
         }
 
-        return new self($content, false, $artifacts, $this->writeTarget, $this->writeKind);
+        return new self($content, false, $artifacts, $this->outcome, $this->writeTarget, $this->writeKind);
     }
 }

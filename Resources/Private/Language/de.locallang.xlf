@@ -4125,6 +4125,10 @@
                 <source>failed</source>
                 <target>fehlgeschlagen</target>
             </trans-unit>
+            <trans-unit id="runs.detail.outcome.cancelled">
+                <source>cancelled</source>
+                <target>abgebrochen</target>
+            </trans-unit>
             <trans-unit id="runs.detail.facts">
                 <source>Details</source>
                 <target>Details</target>

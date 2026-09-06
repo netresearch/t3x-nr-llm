@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
+
 /**
  * One recorded step of an inspectable {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
  * run, as gathered by {@see \Netresearch\NrLlm\Service\Tool\RunTrace}.
@@ -128,6 +131,13 @@ final readonly class RunStep
         public ?array $toolArguments = null,
         public ?string $toolResult = null,
         public ?bool $toolIsError = null,
+        /**
+         * WHICH kind of non-OK a tool step was (ADR-191). Null on every other
+         * kind, and null on tool steps written before this field existed --
+         * `toolIsError` remains the flag, and this says whether the true it
+         * carries was a fault or an operator's cancel.
+         */
+        public ?ToolOutcome $toolOutcome = null,
         public ?array $toolArtifacts = null,
         public ?ContextBudgetBreakdown $contextBudget = null,
         /**
@@ -140,7 +150,32 @@ final readonly class RunStep
          *                           on every other kind (ADR-182)
          */
         public ?RecordReference $writeTarget = null,
-    ) {}
+    ) {
+        // The pair is one statement in two fields, and the timeline reads them
+        // in that order: `toolIsError` decides WHETHER a step states an outcome,
+        // `toolOutcome` decides WHICH. A step carrying `false` beside CANCELLED
+        // would render as cancelled while every consumer reading the boolean
+        // called it a success -- one row telling two stories. Refused here
+        // rather than at each writer, because this is the object that
+        // serialises the pair (ADR-191).
+        if ($toolOutcome instanceof ToolOutcome && $kind !== self::KIND_TOOL) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no tool outcome; only a tool step does.', $kind),
+                1788500002,
+            );
+        }
+
+        if ($toolOutcome instanceof ToolOutcome && $toolIsError !== ($toolOutcome !== ToolOutcome::OK)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'A run step cannot carry toolIsError=%s beside toolOutcome=%s.',
+                    var_export($toolIsError, true),
+                    $toolOutcome->value,
+                ),
+                1788500001,
+            );
+        }
+    }
 
     /**
      * Serialise for the playground JSON payload. Null fields are dropped so the
@@ -181,6 +216,7 @@ final readonly class RunStep
             'toolArguments'      => $this->toolArguments,
             'toolResult'         => $this->toolResult,
             'toolIsError'        => $this->toolIsError,
+            'toolOutcome'        => $this->toolOutcome?->value,
             'toolArtifacts'      => $this->toolArtifacts === null
                 ? null
                 : array_map(static fn(ToolArtifact $a): array => $a->toArray(), $this->toolArtifacts),
