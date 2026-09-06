@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
 use Netresearch\NrLlm\Service\TestPromptResolverInterface;
@@ -554,7 +555,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('empty-provider-test');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('empty-provider-test'));
         self::assertNotNull($addedProvider);
 
         $request = $this->createFormRequest(self::AJAX_MODEL_GETBYPROVIDER, ['providerUid' => $addedProvider->getUid()]);

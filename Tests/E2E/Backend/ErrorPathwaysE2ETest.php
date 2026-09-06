@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
 use Netresearch\NrLlm\Service\LlmServiceManager;
@@ -292,7 +293,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('invalid-key-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('invalid-key-provider'));
         self::assertNotNull($addedProvider);
 
         // User tests connection with invalid key
@@ -330,7 +331,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('invalid-key-provider-2');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('invalid-key-provider-2'));
         self::assertNotNull($addedProvider);
 
         // Create model for this provider
@@ -383,7 +384,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('invalid-key-provider-3');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('invalid-key-provider-3'));
         self::assertNotNull($addedProvider);
 
         // User runs quick test on dashboard
@@ -464,7 +465,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('timeout-test-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('timeout-test-provider'));
         self::assertNotNull($addedProvider);
 
         // Test connection (may timeout due to network or succeed quickly)
@@ -498,7 +499,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('unreachable-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('unreachable-provider'));
         self::assertNotNull($addedProvider);
 
         // Test connection to unreachable endpoint
@@ -743,7 +744,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('special-chars-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('special-chars-provider'));
         self::assertNotNull($addedProvider);
 
         // Verify name is stored correctly (not executed)
@@ -808,7 +809,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->clearState();
 
         // Verify provider was created (SQL injection didn't work)
-        $addedProvider = $this->providerRepository->findOneByIdentifier("'; DROP TABLE tx_nrllm_domain_model_provider; --");
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier("'; DROP TABLE tx_nrllm_domain_model_provider; --"));
         self::assertNotNull($addedProvider);
 
         // Verify other providers still exist (table wasn't dropped)
@@ -994,7 +995,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
 
         $request = $this->createFormRequest(self::AJAX_PROVIDER_TEST, ['uid' => $added->getUid()]);
@@ -1274,7 +1275,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
 
         // Should still create provider (timeout may be normalized to default value)
@@ -1297,7 +1298,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // Negative timeout is normalized (converted to positive or default)
         self::assertGreaterThanOrEqual(0, $added->getTimeout());
@@ -1461,7 +1462,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
 
         // Test connection - should fail gracefully with unknown adapter
@@ -1489,7 +1490,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('', $added->getAdapterType());
     }
@@ -1705,7 +1706,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // Name should be stored (TYPO3 handles sanitization on output)
         self::assertNotEmpty($added->getName());

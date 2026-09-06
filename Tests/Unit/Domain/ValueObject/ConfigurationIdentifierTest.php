@@ -10,15 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
-use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
-use Stringable;
 
+/**
+ * @see IdentifierSeparationTest for the cross-type property #893 asks for
+ */
 #[CoversClass(ConfigurationIdentifier::class)]
 final class ConfigurationIdentifierTest extends TestCase
 {
@@ -89,29 +89,5 @@ final class ConfigurationIdentifierTest extends TestCase
 
         self::assertTrue($summarizer->equals(new ConfigurationIdentifier('blog-summarizer')));
         self::assertFalse($summarizer->equals(new ConfigurationIdentifier('support-agent')));
-    }
-
-    /**
-     * The property #893 asks for, in the only form that can actually fail.
-     *
-     * Passing a {@see ProviderAdapterKey} where a configuration identifier is
-     * required is a `TypeError` -- asserting that would test PHP, not this
-     * code. What can be undone by a later edit is the SEPARATION: extract a
-     * shared abstract base or a common `IdentifierInterface` to spare the
-     * duplicated `trim()`, and every parameter typed against that base accepts
-     * both again, silently, exactly as `string` did before #893. So the durable
-     * guard is that the two types have no common ancestor and share nothing but
-     * `Stringable`, which carries no identity of its own.
-     */
-    #[Test]
-    public function anIdentifierFromAnotherNamespaceIsNotSubstitutable(): void
-    {
-        $configuration = new ReflectionClass(ConfigurationIdentifier::class);
-        $adapter       = new ReflectionClass(ProviderAdapterKey::class);
-
-        self::assertFalse($configuration->getParentClass(), 'A shared base class makes both identifiers assignable to it again.');
-        self::assertFalse($adapter->getParentClass(), 'A shared base class makes both identifiers assignable to it again.');
-        self::assertSame([Stringable::class], array_values($configuration->getInterfaceNames()));
-        self::assertSame([Stringable::class], array_values($adapter->getInterfaceNames()));
     }
 }

@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Controller\Backend\ProviderController;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -366,7 +367,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('test-delete-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('test-delete-provider'));
         self::assertNotNull($addedProvider);
         $providerUid = $addedProvider->getUid();
         self::assertNotNull($providerUid);
@@ -701,7 +702,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedProvider = $this->providerRepository->findOneByIdentifier('custom-endpoint-provider');
+        $addedProvider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('custom-endpoint-provider'));
         self::assertNotNull($addedProvider);
         self::assertSame('https://custom.api.example.com/v1', $addedProvider->getEndpointUrl());
     }
@@ -840,12 +841,12 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $found = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $found = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($found);
         self::assertSame($provider->getUid(), $found->getUid());
 
         // Non-existent identifier
-        $notFound = $this->providerRepository->findOneByIdentifier('non-existent-identifier-xyz');
+        $notFound = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier('non-existent-identifier-xyz'));
         self::assertNull($notFound);
     }
 
@@ -869,7 +870,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
 
         // Test connection should fail gracefully (no crash)
@@ -900,7 +901,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('Full Config Provider', $added->getName());
         self::assertSame('openai', $added->getAdapterType());
@@ -927,7 +928,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertFalse($added->isActive());
 
@@ -997,7 +998,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
 
         // Test connection on inactive provider should still work (API call is independent of status)
@@ -1017,7 +1018,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $provider = $this->providerRepository->findActive()->getFirst();
         self::assertNotNull($provider);
 
-        $found = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $found = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($found);
         self::assertSame($provider->getUid(), $found->getUid());
     }
@@ -1079,7 +1080,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         // Verify created
         self::assertSame($initialCount + 1, $this->providerRepository->countActive());
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         $addedUid = $added->getUid();
         self::assertNotNull($addedUid);
@@ -1144,7 +1145,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // API key is encrypted, so just verify it's not empty
         self::assertNotEmpty($added->getApiKey());
@@ -1167,7 +1168,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('', $added->getApiKey());
     }
@@ -1192,7 +1193,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(120, $added->getTimeout());
     }
@@ -1213,7 +1214,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // Default timeout should be set
         self::assertGreaterThanOrEqual(0, $added->getTimeout());
@@ -1240,7 +1241,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // Name should be stored (possibly truncated)
         self::assertNotEmpty($added->getName());
@@ -1263,7 +1264,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame($unicodeName, $added->getName());
     }
@@ -1285,7 +1286,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         // Name should be preserved (HTML entities may be stored differently)
         self::assertNotEmpty($added->getName());
@@ -1391,7 +1392,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(self::HTTPS_API_OPENAI_COM_V1, $added->getEndpointUrl());
     }
@@ -1411,7 +1412,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(self::HTTP_LOCALHOST_11434, $added->getEndpointUrl());
     }
@@ -1431,7 +1432,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('http://192.168.1.100:11434', $added->getEndpointUrl());
     }
@@ -1452,7 +1453,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('https://api.example.com/custom/path/v1', $added->getEndpointUrl());
     }
@@ -1473,7 +1474,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->providerRepository->findOneByIdentifier($provider->getIdentifier());
+        $added = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($provider->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('', $added->getEndpointUrl());
     }
