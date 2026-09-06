@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Command;
 use Closure;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -105,9 +106,19 @@ final class SetProviderApiKeyCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $providerIdentifier = $input->getArgument('provider');
-        $providerIdentifier = is_string($providerIdentifier) ? $providerIdentifier : '';
+        $providerIdentifier = is_string($providerIdentifier) ? trim($providerIdentifier) : '';
 
-        $provider = $this->providerRepository->findOneByIdentifier($providerIdentifier);
+        // Blank is answered here rather than by the value object. Console
+        // arguments come from a shell, so an unset variable expands to nothing
+        // and reaches this command as the empty string; that is a user error
+        // and belongs in the error line, not in a stack trace.
+        if ($providerIdentifier === '') {
+            $io->error('No provider identifier given. Pass the identifier of the provider record whose key you want to store.');
+
+            return Command::INVALID;
+        }
+
+        $provider = $this->providerRepository->findOneByIdentifier(new ProviderIdentifier($providerIdentifier));
         if (!$provider instanceof Provider) {
             $io->error(sprintf('No provider record has the identifier "%s".', $providerIdentifier));
 

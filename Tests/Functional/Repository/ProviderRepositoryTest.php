@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Repository;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -92,7 +93,21 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findOneByIdentifierReturnsProvider(): void
     {
-        $provider = $this->repository->findOneByIdentifier('openai-test');
+        $provider = $this->repository->findOneByIdentifier(new ProviderIdentifier('openai-test'));
+
+        self::assertInstanceOf(Provider::class, $provider);
+        self::assertSame('openai-test', $provider->getIdentifier());
+    }
+
+    /**
+     * The value object's normalisation has to reach the query, not stop at
+     * construction: `openai-test ` is not blank, so it passes the guard, and
+     * matches no row unless the padding was dropped before the comparison.
+     */
+    #[Test]
+    public function findOneByIdentifierFindsTheRecordThroughAPaddedIdentifier(): void
+    {
+        $provider = $this->repository->findOneByIdentifier(new ProviderIdentifier("  openai-test\t"));
 
         self::assertInstanceOf(Provider::class, $provider);
         self::assertSame('openai-test', $provider->getIdentifier());
@@ -101,7 +116,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findOneByIdentifierReturnsNullForNonExistent(): void
     {
-        $provider = $this->repository->findOneByIdentifier('non-existent-provider');
+        $provider = $this->repository->findOneByIdentifier(new ProviderIdentifier('non-existent-provider'));
 
         self::assertNull($provider);
     }
@@ -272,7 +287,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function isIdentifierUniqueExcludesOwnRecord(): void
     {
-        $provider = $this->repository->findOneByIdentifier('openai-test');
+        $provider = $this->repository->findOneByIdentifier(new ProviderIdentifier('openai-test'));
         self::assertNotNull($provider);
 
         $result = $this->repository->isIdentifierUnique('openai-test', $provider->getUid());
@@ -299,7 +314,7 @@ final class ProviderRepositoryTest extends AbstractFunctionalTestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $retrieved = $this->repository->findOneByIdentifier('new-test-provider');
+        $retrieved = $this->repository->findOneByIdentifier(new ProviderIdentifier('new-test-provider'));
         self::assertNotNull($retrieved);
         self::assertSame('New Test Provider', $retrieved->getName());
     }

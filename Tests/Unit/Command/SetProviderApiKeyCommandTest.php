@@ -112,6 +112,24 @@ final class SetProviderApiKeyCommandTest extends TestCase
         self::assertSame([], $vault->storeCalls);
     }
 
+    /**
+     * A shell that expands an unset variable hands this command the empty
+     * string. Since #893 the identifier reaches the repository as a value
+     * object that refuses to be blank, so the command answers before building
+     * one -- an unset variable is a user error, not a stack trace.
+     */
+    #[Test]
+    public function refusesABlankProviderArgument(): void
+    {
+        $vault = new InMemoryVaultService();
+
+        $exit = $this->runCommand($this->command(null, $vault), '   ', self::SECRET);
+
+        self::assertSame(Command::INVALID, $exit);
+        self::assertStringContainsString('No provider identifier given', $this->output->fetch());
+        self::assertSame([], $vault->storeCalls);
+    }
+
     #[Test]
     public function rejectsEmptyStdin(): void
     {

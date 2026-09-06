@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Repository;
 
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryResultInterface;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -41,13 +42,18 @@ class ProviderRepository extends Repository
     }
 
     /**
-     * Find provider by identifier string.
+     * Find the provider record an identifier names.
+     *
+     * Typed against {@see ProviderIdentifier} rather than `string` (#893): the
+     * adapter key `openai` and the record identifier `openai-dcbd8f` are both
+     * non-empty strings returned by a method called `getIdentifier()`, and the
+     * one that does not belong here used to arrive silently and leave as null.
      */
-    public function findOneByIdentifier(string $identifier): ?Provider
+    public function findOneByIdentifier(ProviderIdentifier $identifier): ?Provider
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('identifier', $identifier),
+            $query->equals('identifier', $identifier->value),
         );
 
         $result = $query->execute()->getFirst();
