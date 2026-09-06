@@ -117,6 +117,12 @@ final class RunTimelineFactoryTest extends TestCase
         self::assertStringNotContainsString('root:x', $detail);
     }
 
+    /**
+     * Also the pre-ADR-191 case: `toolEvent()` writes `toolIsError` and no
+     * `toolOutcome`, exactly as every row written before that record does, so
+     * these two assertions are what says such a row keeps the outcome it had
+     * rather than losing it to a field it never held.
+     */
     #[Test]
     public function aFailedToolStepIsMarkedFailedAndASuccessfulOneOk(): void
     {
@@ -170,24 +176,6 @@ final class RunTimelineFactoryTest extends TestCase
         // show `toolIsError=1` on a call nothing failed on, with the field that
         // says which kind of non-OK it was left out of the allow-list.
         self::assertStringContainsString('toolOutcome=cancelled', $timeline[0]->detail);
-    }
-
-    /**
-     * A row written before ADR-191 carries no `toolOutcome` at all. It keeps the
-     * outcome it always had rather than losing it to a field it never held.
-     */
-    #[Test]
-    public function aToolStepWithoutAnOutcomeFieldStillReadsItsBoolean(): void
-    {
-        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository());
-
-        $timeline = $factory->build($this->agentRun(), [
-            $this->toolEvent(0, true, 1_700_000_010),
-            $this->toolEvent(1, false, 1_700_000_011),
-        ]);
-
-        self::assertSame(RunTimelineEntry::OUTCOME_FAILED, $timeline[0]->outcome);
-        self::assertSame(RunTimelineEntry::OUTCOME_OK, $timeline[1]->outcome);
     }
 
     /**

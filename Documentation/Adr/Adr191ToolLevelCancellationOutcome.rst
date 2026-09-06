@@ -68,13 +68,19 @@ Decision
    renders an empty cell and nothing else would notice, so the equality is
    asserted rather than assumed.
 
-4. **A row written before this keeps the outcome it had.**
+4. **A step cannot disagree with itself.** :php:`RunStep` refuses a
+   ``toolIsError`` that contradicts its ``toolOutcome``, and refuses an outcome
+   on a step that is not a tool step. Refused in the value object rather than at
+   each writer, because that is the object which serialises the pair: one
+   definition of the invariant instead of one per entry point.
+
+5. **A row written before this keeps the outcome it had.**
    ``toolIsError`` decides WHETHER a step states an outcome — it is the field
    every tool step has ever carried — and ``toolOutcome`` decides WHICH. Reading
    the boolean first is what makes older rows render as they always did instead
    of losing their outcome to a field they never held.
 
-5. **The transport says which kind of exception it raised.**
+6. **The transport says which kind of exception it raised.**
    :php:`McpTransportException` is ``final``, so there is no subclass to catch;
    it carries a flag set only by :php:`self::forCancelledCall()`, and
    :php:`self::isCancellation()` reads it. A code comparison at the call site
@@ -86,9 +92,13 @@ Consequences
 
 - :php:`ToolOutcome` is ``@api`` and recorded on the frozen surface, as the
   closure rule requires for a type an ``@api`` signature mentions.
-  :php:`ToolResult` gains ``cancelled()`` and ``$outcome``;
-  :php:`RunTrace::recordToolExecution()` gains an optional last argument. All
-  three are additive: no existing caller changes.
+  :php:`ToolResult` gains ``cancelled()`` and ``$outcome``. Nothing on the
+  surface changes shape: :php:`RunTrace::recordToolExecution()` keeps its
+  signature and derives the outcome from the boolean it already took, and the
+  typed :php:`RunTrace::recordToolResult()` reads it off the result. Both build
+  the step through one private method, where ``toolIsError`` is DERIVED from the
+  outcome rather than passed beside it, so the pair cannot disagree there at
+  all.
 - The runs module shows *cancelled* as its own outcome, in English and German.
 - What is NOT decided here: anything about the remote write. Whether a torn-down
   call mutated something is not knowable from this side — see

@@ -158,6 +158,13 @@ final readonly class RunStep
         // called it a success -- one row telling two stories. Refused here
         // rather than at each writer, because this is the object that
         // serialises the pair (ADR-191).
+        if ($toolOutcome instanceof ToolOutcome && $kind !== self::KIND_TOOL) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no tool outcome; only a tool step does.', $kind),
+                1788500002,
+            );
+        }
+
         if ($toolOutcome instanceof ToolOutcome && $toolIsError !== ($toolOutcome !== ToolOutcome::OK)) {
             throw new InvalidArgumentException(
                 sprintf(

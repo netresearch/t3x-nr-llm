@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\Mcp;
 
+use InvalidArgumentException;
 use Netresearch\NrVault\Exception\RequestCancelledException;
 use Netresearch\NrVault\Http\CancellableHttpClientInterface;
 use Netresearch\NrVault\Http\CancellationSignalInterface;
@@ -50,7 +51,18 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
         private readonly bool $supportsCancellation = true,
         private readonly bool $cancelMidFlight = false,
         private readonly ?int $cancelOnCancellableSend = null,
-    ) {}
+    ) {
+        // Refused rather than resolved by precedence. The two say different
+        // things about which request is torn down, and a case configured with
+        // both would silently exercise one of them -- which is exactly the
+        // mistake the second option was added to fix.
+        if ($cancelMidFlight && $cancelOnCancellableSend !== null) {
+            throw new InvalidArgumentException(
+                'Cancel on ANY send or on one named send, not both.',
+                1788500003,
+            );
+        }
+    }
 
     public function sendRequest(RequestInterface $request): ResponseInterface
     {
@@ -66,10 +78,10 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
 
         // What nr-vault does between ticks of its event loop: ask, and tear the
         // transfer down when the answer is yes.
-        $selected = $this->cancelOnCancellableSend === null
+        $wanted = $this->cancelMidFlight
             || $this->cancelOnCancellableSend === $this->cancellableSends;
 
-        if (($this->cancelMidFlight || $this->cancelOnCancellableSend !== null) && $selected && $signal->isCancelled()) {
+        if ($wanted && $signal->isCancelled()) {
             throw new RequestCancelledException('the caller cancelled the request', 1788400001);
         }
 

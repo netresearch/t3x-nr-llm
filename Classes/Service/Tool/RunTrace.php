@@ -207,7 +207,38 @@ final class RunTrace
         string $result,
         bool $isError,
         array $artifacts = [],
-        ?ToolOutcome $outcome = null,
+    ): void {
+        // An error is a failure unless a caller with a typed result says
+        // otherwise, which only {@see self::recordToolResult()} can. The
+        // signature is unchanged, so no consumer of this @api method moves.
+        $this->addToolStep(
+            $round,
+            $durationMs,
+            $name,
+            $arguments,
+            $result,
+            $isError ? ToolOutcome::FAILED : ToolOutcome::OK,
+            $artifacts,
+        );
+    }
+
+    /**
+     * The one place a tool step is built, so `toolIsError` is DERIVED from the
+     * outcome rather than passed beside it (ADR-191). The pair cannot disagree
+     * here by construction; {@see RunStep} refuses a disagreeing pair for every
+     * other construction site.
+     *
+     * @param array<string, mixed> $arguments
+     * @param list<ToolArtifact>   $artifacts
+     */
+    private function addToolStep(
+        int $round,
+        float $durationMs,
+        string $name,
+        array $arguments,
+        string $result,
+        ToolOutcome $outcome,
+        array $artifacts,
     ): void {
         $this->add(new RunStep(
             kind: RunStep::KIND_TOOL,
@@ -216,11 +247,8 @@ final class RunTrace
             toolName: $name,
             toolArguments: $arguments,
             toolResult: $result,
-            toolIsError: $isError,
-            // Derived when the caller passes nothing, so the sites that record
-            // a synthesised refusal keep saying exactly what they said before:
-            // an error is a failure unless someone names it otherwise.
-            toolOutcome: $outcome ?? ($isError ? ToolOutcome::FAILED : ToolOutcome::OK),
+            toolIsError: $outcome !== ToolOutcome::OK,
+            toolOutcome: $outcome,
             toolArtifacts: $artifacts === [] ? null : $artifacts,
         ));
     }
@@ -239,7 +267,7 @@ final class RunTrace
      */
     public function recordToolResult(int $round, float $durationMs, string $name, array $arguments, ToolResult $result): void
     {
-        $this->recordToolExecution($round, $durationMs, $name, $arguments, $result->content, $result->isError, $result->artifacts, $result->outcome);
+        $this->addToolStep($round, $durationMs, $name, $arguments, $result->content, $result->outcome, $result->artifacts);
 
         if (!$result->writeTarget instanceof RecordReference) {
             return;
