@@ -10,9 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -86,5 +89,75 @@ final class RunStepTest extends TestCase
         self::assertSame(0, $array['promptTokens']);
         self::assertArrayHasKey('toolIsError', $array);
         self::assertArrayNotHasKey('thinking', $array);
+    }
+
+    /**
+     * The pair is one statement in two fields (ADR-191). A step carrying
+     * `false` beside CANCELLED would render as cancelled in the run inspector
+     * while every consumer reading the boolean called it a success -- one row
+     * telling two stories -- so it is refused where the pair is serialised
+     * rather than at each writer.
+     */
+    #[Test]
+    #[DataProvider('inconsistentPairs')]
+    public function aStepCannotDisagreeWithItselfAboutTheOutcome(?bool $isError, ToolOutcome $outcome): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1788500001);
+
+        new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: 1,
+            durationMs: 1.0,
+            toolIsError: $isError,
+            toolOutcome: $outcome,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{?bool, ToolOutcome}>
+     */
+    public static function inconsistentPairs(): iterable
+    {
+        yield 'no error, yet cancelled' => [false, ToolOutcome::CANCELLED];
+        yield 'no error, yet failed'    => [false, ToolOutcome::FAILED];
+        yield 'an error, yet ok'        => [true, ToolOutcome::OK];
+        yield 'an outcome without the flag every tool step carries' => [null, ToolOutcome::CANCELLED];
+    }
+
+    #[Test]
+    #[DataProvider('consistentPairs')]
+    public function aConsistentPairIsAccepted(bool $isError, ToolOutcome $outcome): void
+    {
+        $step = new RunStep(
+            kind: RunStep::KIND_TOOL,
+            round: 1,
+            durationMs: 1.0,
+            toolIsError: $isError,
+            toolOutcome: $outcome,
+        );
+
+        self::assertSame($outcome->value, $step->toArray()['toolOutcome']);
+    }
+
+    /**
+     * @return iterable<string, array{bool, ToolOutcome}>
+     */
+    public static function consistentPairs(): iterable
+    {
+        yield 'ok'        => [false, ToolOutcome::OK];
+        yield 'failed'    => [true, ToolOutcome::FAILED];
+        yield 'cancelled' => [true, ToolOutcome::CANCELLED];
+    }
+
+    /**
+     * A step written before ADR-191 carries no outcome at all, and every step
+     * that is not a tool step carries neither field. Both stay constructible.
+     */
+    #[Test]
+    public function aStepWithoutAnOutcomeIsUnaffected(): void
+    {
+        self::assertNull((new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 1.0, toolIsError: true))->toolOutcome);
+        self::assertNull((new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 1.0))->toolOutcome);
     }
 }

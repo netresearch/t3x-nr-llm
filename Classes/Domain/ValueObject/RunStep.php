@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
+use Netresearch\NrLlm\Exception\InvalidArgumentException;
 
 /**
  * One recorded step of an inspectable {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService}
@@ -149,7 +150,25 @@ final readonly class RunStep
          *                           on every other kind (ADR-182)
          */
         public ?RecordReference $writeTarget = null,
-    ) {}
+    ) {
+        // The pair is one statement in two fields, and the timeline reads them
+        // in that order: `toolIsError` decides WHETHER a step states an outcome,
+        // `toolOutcome` decides WHICH. A step carrying `false` beside CANCELLED
+        // would render as cancelled while every consumer reading the boolean
+        // called it a success -- one row telling two stories. Refused here
+        // rather than at each writer, because this is the object that
+        // serialises the pair (ADR-191).
+        if ($toolOutcome instanceof ToolOutcome && $toolIsError !== ($toolOutcome !== ToolOutcome::OK)) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'A run step cannot carry toolIsError=%s beside toolOutcome=%s.',
+                    var_export($toolIsError, true),
+                    $toolOutcome->value,
+                ),
+                1788500001,
+            );
+        }
+    }
 
     /**
      * Serialise for the playground JSON payload. Null fields are dropped so the

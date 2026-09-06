@@ -34,9 +34,22 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
     /** @var list<string> The sends this client was asked for, in order. */
     public array $calls = [];
 
+    /** How many cancellable sends have gone through, so a case can pick one. */
+    private int $cancellableSends = 0;
+
+    /**
+     * @param bool     $cancelMidFlight         tear the transfer down on ANY cancellable send whose signal says so
+     * @param int|null $cancelOnCancellableSend tear it down on exactly this cancellable send (1-based), and no other.
+     *                                          One MCP tool call is three round trips -- `initialize`, the
+     *                                          `notifications/initialized` that confirms it, then `tools/call` --
+     *                                          so a case that means "cancelled during the tool call" has to say 3.
+     *                                          Cancelling on the first proves the handshake aborts, which is a
+     *                                          different claim.
+     */
     public function __construct(
         private readonly bool $supportsCancellation = true,
         private readonly bool $cancelMidFlight = false,
+        private readonly ?int $cancelOnCancellableSend = null,
     ) {}
 
     public function sendRequest(RequestInterface $request): ResponseInterface
@@ -49,10 +62,14 @@ final class RecordingCancellableClient implements CancellableHttpClientInterface
     public function sendCancellable(RequestInterface $request, CancellationSignalInterface $signal): ResponseInterface
     {
         $this->calls[] = 'sendCancellable';
+        ++$this->cancellableSends;
 
         // What nr-vault does between ticks of its event loop: ask, and tear the
         // transfer down when the answer is yes.
-        if ($this->cancelMidFlight && $signal->isCancelled()) {
+        $selected = $this->cancelOnCancellableSend === null
+            || $this->cancelOnCancellableSend === $this->cancellableSends;
+
+        if (($this->cancelMidFlight || $this->cancelOnCancellableSend !== null) && $selected && $signal->isCancelled()) {
             throw new RequestCancelledException('the caller cancelled the request', 1788400001);
         }
 

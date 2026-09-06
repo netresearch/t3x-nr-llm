@@ -299,13 +299,18 @@ final class McpToolTest extends AbstractUnitTestCase
     #[Test]
     public function aCancelledCallComesBackAsACancelledResultRatherThanAnError(): void
     {
-        $uuid   = '7f6b2c10-0000-4000-8000-00000000000c';
-        $client = new RecordingCancellableClient(cancelMidFlight: true);
+        $uuid = '7f6b2c10-0000-4000-8000-00000000000c';
+        // The THIRD send, which is the `tools/call` itself: one MCP tool call is
+        // `initialize`, the `notifications/initialized` that confirms it, and
+        // then the call. Tearing the first one down would prove the handshake
+        // aborts, which is a different claim from the one this case makes.
+        $client = new RecordingCancellableClient(cancelOnCancellableSend: 3);
         $run    = new AgentRun(1, $uuid, AgentRunStatus::CANCELLED->value, 0, '', 42, 0, false, 0, 0, 0, 0.0, '', '', 0, 0, 0);
 
         $result = $this->toolFor($client, cancellations: $this->cancellations($run))
             ->execute([], $this->contextForRun($uuid));
 
+        self::assertCount(3, $client->calls, 'The handshake completed and the tool call is the send that was cancelled.');
         self::assertSame(ToolOutcome::CANCELLED, $result->outcome);
         // Fail-closed like any error result, and the boolean keeps its meaning
         // for every consumer that only reads it.
