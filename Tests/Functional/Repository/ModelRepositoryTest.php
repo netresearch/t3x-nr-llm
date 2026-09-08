@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Tests\Functional\Repository;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -82,16 +84,50 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function findOneByIdentifierReturnsModel(): void
     {
-        $model = $this->repository->findOneByIdentifier('gpt-5');
+        $model = $this->repository->findOneByIdentifier(new ModelIdentifier('gpt-5'));
 
         self::assertInstanceOf(Model::class, $model);
         self::assertSame('gpt-5', $model->getIdentifier());
     }
 
+    /**
+     * The two lookups answer for different columns, and neither answers for
+     * the other's value.
+     *
+     * The shared fixtures give most model rows the same string in `identifier`
+     * and `model_id`, so a swapped lookup passes there by coincidence -- which
+     * is how #932 stayed invisible. This row carries the shape a wizard
+     * creates: `gpt-image-2-a3f7c2` in `identifier`, `gpt-image-2` in
+     * `model_id`. Each value must find the row through its own lookup and
+     * nothing through the other one.
+     */
+    #[Test]
+    public function theTwoLookupsDoNotAnswerForEachOthersColumn(): void
+    {
+        $this->importFixture('ModelIdentifierSeparation.csv');
+
+        $byRowIdentifier = $this->repository->findOneByIdentifier(new ModelIdentifier('gpt-image-2-a3f7c2'));
+        $byModelName     = $this->repository->findOneByModelId(new ProviderModelName('gpt-image-2'));
+
+        self::assertInstanceOf(Model::class, $byRowIdentifier);
+        self::assertInstanceOf(Model::class, $byModelName);
+        self::assertSame(701, $byRowIdentifier->getUid());
+        self::assertSame(701, $byModelName->getUid());
+
+        self::assertNull(
+            $this->repository->findOneByIdentifier(new ModelIdentifier('gpt-image-2')),
+            'The provider-side model name must not resolve as a row identifier.',
+        );
+        self::assertNull(
+            $this->repository->findOneByModelId(new ProviderModelName('gpt-image-2-a3f7c2')),
+            'The row identifier must not resolve as a provider-side model name.',
+        );
+    }
+
     #[Test]
     public function findOneByIdentifierReturnsNullForNonExistent(): void
     {
-        $model = $this->repository->findOneByIdentifier('non-existent-model');
+        $model = $this->repository->findOneByIdentifier(new ModelIdentifier('non-existent-model'));
 
         self::assertNull($model);
     }
@@ -350,7 +386,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
     #[Test]
     public function isIdentifierUniqueExcludesOwnRecord(): void
     {
-        $model = $this->repository->findOneByIdentifier('gpt-5');
+        $model = $this->repository->findOneByIdentifier(new ModelIdentifier('gpt-5'));
         self::assertNotNull($model);
 
         $result = $this->repository->isIdentifierUnique('gpt-5', $model->getUid());
@@ -380,7 +416,7 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $retrieved = $this->repository->findOneByIdentifier('new-test-model');
+        $retrieved = $this->repository->findOneByIdentifier(new ModelIdentifier('new-test-model'));
         self::assertNotNull($retrieved);
         self::assertSame('New Test Model', $retrieved->getName());
     }

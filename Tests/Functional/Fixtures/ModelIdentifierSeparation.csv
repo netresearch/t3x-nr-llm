@@ -1,0 +1,3 @@
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
+,701,0,"gpt-image-2-a3f7c2","GPT Image 2","Row identifier and provider-side model name differ, as on any wizard-created row",1,"gpt-image-2",4096,4096,"vision",120,1000,4000,1,0,701,0,0

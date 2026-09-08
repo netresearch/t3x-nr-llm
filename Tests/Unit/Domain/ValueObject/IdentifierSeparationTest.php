@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\ValueObject\ConfigurationIdentifier;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,8 +37,10 @@ use Stringable;
  * whole property.
  */
 #[CoversClass(ConfigurationIdentifier::class)]
+#[CoversClass(ModelIdentifier::class)]
 #[CoversClass(ProviderAdapterKey::class)]
 #[CoversClass(ProviderIdentifier::class)]
+#[CoversClass(ProviderModelName::class)]
 final class IdentifierSeparationTest extends TestCase
 {
     /**
@@ -49,6 +53,8 @@ final class IdentifierSeparationTest extends TestCase
         yield 'configuration' => [ConfigurationIdentifier::class];
         yield 'adapter key'   => [ProviderAdapterKey::class];
         yield 'provider'      => [ProviderIdentifier::class];
+        yield 'model'         => [ModelIdentifier::class];
+        yield 'model name'    => [ProviderModelName::class];
     }
 
     /**

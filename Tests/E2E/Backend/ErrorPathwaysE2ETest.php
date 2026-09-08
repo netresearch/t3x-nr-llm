@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -347,7 +348,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedModel = $this->modelRepository->findOneByIdentifier('invalid-key-model');
+        $addedModel = $this->modelRepository->findOneByIdentifier(new ModelIdentifier('invalid-key-model'));
         self::assertNotNull($addedModel);
 
         // User tests model
@@ -566,7 +567,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedModel = $this->modelRepository->findOneByIdentifier('orphaned-model');
+        $addedModel = $this->modelRepository->findOneByIdentifier(new ModelIdentifier('orphaned-model'));
         self::assertNotNull($addedModel);
 
         // User tries to test orphaned model
@@ -779,7 +780,7 @@ final class ErrorPathwaysE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedModel = $this->modelRepository->findOneByIdentifier('unicode-model');
+        $addedModel = $this->modelRepository->findOneByIdentifier(new ModelIdentifier('unicode-model'));
         self::assertNotNull($addedModel);
 
         // Verify unicode is preserved

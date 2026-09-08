@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Pricing;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -71,7 +72,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $repository = self::createStub(ModelRepository::class);
         $repository->method('findOneByIdentifier')->willReturn(null);
         $repository->method('findOneByModelId')->willReturnCallback(
-            static fn(string $modelId): ?Model => $modelId === 'gpt-image-2' ? $model : null,
+            static fn(ProviderModelName $modelName): ?Model => $modelName->value === 'gpt-image-2' ? $model : null,
         );
 
         $calculator = new SpecializedCostCalculator($repository);
@@ -79,6 +80,25 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
+    }
+
+    /**
+     * A blank model name never reaches the repository.
+     *
+     * Since #893 the lookup takes a value object that refuses a blank name;
+     * built inside the `try`, its error would be caught and reported as the
+     * persistence failure the catch is for. The guard answers first, so the
+     * repository is not asked at all.
+     */
+    #[Test]
+    public function imageCostDoesNotQueryForABlankModelName(): void
+    {
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::never())->method('findOneByModelId');
+
+        $calculator = new SpecializedCostCalculator($repository);
+
+        self::assertSame(0.0, $calculator->estimateImageCost('   ', '', '1024x1024', 1, 1_000, 1_000));
     }
 
     #[Test]

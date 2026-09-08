@@ -872,6 +872,26 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertSame(0, $subject->callResolveModelUid(''));
     }
 
+    /**
+     * A padded-to-blank name is answered by the fail-soft guard, not by the
+     * catch.
+     *
+     * Since #893 the repository takes a value object that refuses a blank
+     * name, so `'  '` would throw inside the `try` and be reported as the
+     * persistence failure the catch exists for. The guard trims first, and
+     * the repository is never asked.
+     */
+    #[Test]
+    public function resolveModelUidReturnsZeroForAPaddedBlankModelIdWithoutQuerying(): void
+    {
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::never())->method('findOneByModelId');
+
+        $subject = $this->createSubject(modelRepository: $repository);
+
+        self::assertSame(0, $subject->callResolveModelUid("  \t"));
+    }
+
     #[Test]
     public function resolveModelUidReturnsZeroWhenNoRecordMatches(): void
     {

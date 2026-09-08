@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -559,12 +560,18 @@ abstract class AbstractSpecializedService
      */
     protected function resolveModelUid(string $modelId): int
     {
-        if (!$this->modelRepository instanceof ModelRepository || $modelId === '') {
+        // trim() rather than a bare `=== ''` since #893: the value object
+        // refuses a padded-to-blank name, and that must be answered by the
+        // fail-soft guard rather than by the catch below, which exists for
+        // persistence failures.
+        if (!$this->modelRepository instanceof ModelRepository || trim($modelId) === '') {
             return 0;
         }
 
+        $modelName = new ProviderModelName($modelId);
+
         try {
-            return $this->modelRepository->findOneByModelId($modelId)?->getUid() ?? 0;
+            return $this->modelRepository->findOneByModelId($modelName)?->getUid() ?? 0;
         } catch (Throwable) {
             return 0;
         }
