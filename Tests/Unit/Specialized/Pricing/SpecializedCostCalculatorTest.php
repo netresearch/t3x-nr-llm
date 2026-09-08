@@ -23,7 +23,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
     private function calculatorWithoutModelRows(): SpecializedCostCalculator
     {
         $repository = self::createStub(ModelRepository::class);
-        $repository->method('findOneByIdentifier')->willReturn(null);
+        $repository->method('findOneByModelId')->willReturn(null);
 
         return new SpecializedCostCalculator($repository);
     }
@@ -38,11 +38,44 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $model->setCostOutputDollars(60.00);  // $60 / 1M output tokens
 
         $repository = self::createStub(ModelRepository::class);
-        $repository->method('findOneByIdentifier')->willReturn($model);
+        $repository->method('findOneByModelId')->willReturn($model);
 
         $calculator = new SpecializedCostCalculator($repository);
 
         // 1M input + 1M output at the row's pricing = $70, not the catalog's $35.
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
+
+        self::assertEqualsWithDelta(70.0, $cost, 1e-9);
+    }
+
+    /**
+     * The row is found by its provider-side model name, not by its own
+     * identifier.
+     *
+     * On a wizard-created row those differ: the identifier is `<slug>-<6 hex>`
+     * while `model_id` carries the API string the caller passes. Looking up by
+     * the identifier therefore matched nothing and curated pricing was
+     * silently replaced by the catalog. The stub answers only the correct
+     * lookup, so a call against the other one falls through to the catalog's
+     * $35 instead of the row's $70.
+     */
+    #[Test]
+    public function imageCostFindsTheRowByItsProviderSideModelName(): void
+    {
+        $model = new Model();
+        $model->setIdentifier('gpt-image-2-a3f7c2');
+        $model->setModelId('gpt-image-2');
+        $model->setCostInputDollars(10.00);
+        $model->setCostOutputDollars(60.00);
+
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findOneByIdentifier')->willReturn(null);
+        $repository->method('findOneByModelId')->willReturnCallback(
+            static fn(string $modelId): ?Model => $modelId === 'gpt-image-2' ? $model : null,
+        );
+
+        $calculator = new SpecializedCostCalculator($repository);
+
         $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
@@ -54,7 +87,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $model = new Model(); // costInput = costOutput = 0 → hasPricing() false
 
         $repository = self::createStub(ModelRepository::class);
-        $repository->method('findOneByIdentifier')->willReturn($model);
+        $repository->method('findOneByModelId')->willReturn($model);
 
         $calculator = new SpecializedCostCalculator($repository);
 
@@ -99,7 +132,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         // Cost estimation must never break the generation call: persistence
         // failures fall back to the static catalog.
         $repository = self::createStub(ModelRepository::class);
-        $repository->method('findOneByIdentifier')->willThrowException(new RuntimeException('no extbase'));
+        $repository->method('findOneByModelId')->willThrowException(new RuntimeException('no extbase'));
 
         $calculator = new SpecializedCostCalculator($repository);
 

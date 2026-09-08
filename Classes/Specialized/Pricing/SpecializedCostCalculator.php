@@ -69,13 +69,21 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
 
     /**
      * Token-based cost from an admin-curated model row, when one exists
-     * for this identifier and carries pricing. Fail-soft on persistence
+     * for this model and carries pricing. Fail-soft on persistence
      * errors — cost estimation must never break the service call.
+     *
+     * Looked up by the provider-side model name (`model_id`), not by the row
+     * identifier: the value arriving here is the API model string, the same
+     * one the static catalog is keyed by. The wizard mints a row identifier
+     * as `<slug>-<6 hex>` ({@see \Netresearch\NrLlm\Controller\Backend\SetupWizardController}),
+     * so on a wizard-created row the two never match and the lookup found
+     * nothing -- curated pricing was silently ignored in favour of the
+     * catalog, and a model the catalog does not know priced at zero.
      */
     private function estimateFromModelRow(string $model, int $inputTokens, int $outputTokens): ?float
     {
         try {
-            $modelRow = $this->modelRepository->findOneByIdentifier($model);
+            $modelRow = $this->modelRepository->findOneByModelId($model);
             if ($modelRow instanceof Model && $modelRow->hasPricing()) {
                 return $modelRow->estimateCost($inputTokens, $outputTokens);
             }
