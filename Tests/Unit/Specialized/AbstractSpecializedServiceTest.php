@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -845,7 +846,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $repository = $this->createMock(ModelRepository::class);
         $repository->expects(self::once())
             ->method('findOneByModelId')
-            ->with('gpt-image-2')
+            ->with(new ProviderModelName('gpt-image-2'))
             ->willReturn($record);
 
         $subject = $this->createSubject(modelRepository: $repository);
