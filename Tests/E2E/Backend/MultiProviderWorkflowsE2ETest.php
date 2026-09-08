@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\Repository\TaskRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\LlmConfigurationService;
@@ -818,7 +819,7 @@ final class MultiProviderWorkflowsE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $addedModel = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $addedModel = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($addedModel);
         $addedModelProvider = $addedModel->getProvider();
         self::assertNotNull($addedModelProvider);

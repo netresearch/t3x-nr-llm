@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistry;
 use Netresearch\NrLlm\Service\SetupWizard\ModelDiscoveryInterface;
@@ -620,7 +621,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $retrieved = $this->modelRepository->findOneByIdentifier('new-e2e-test-model');
+        $retrieved = $this->modelRepository->findOneByIdentifier(new ModelIdentifier('new-e2e-test-model'));
         self::assertNotNull($retrieved);
         self::assertSame('E2E Test Model', $retrieved->getName());
         self::assertSame($provider->getUid(), $retrieved->getProvider()?->getUid());
@@ -636,7 +637,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         self::assertTrue($this->modelRepository->isIdentifierUnique('completely-new-identifier'));
 
         // Own identifier should be considered unique when excluding self
-        $model = $this->modelRepository->findOneByIdentifier('gpt-5');
+        $model = $this->modelRepository->findOneByIdentifier(new ModelIdentifier('gpt-5'));
         self::assertNotNull($model);
         self::assertTrue($this->modelRepository->isIdentifierUnique('gpt-5', $model->getUid()));
     }
@@ -969,7 +970,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(128000, $added->getContextLength());
         self::assertSame(4096, $added->getMaxOutputTokens());
@@ -1023,7 +1024,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $model = $this->modelRepository->findActive()->getFirst();
         self::assertNotNull($model);
 
-        $found = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $found = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($found);
         self::assertSame($model->getUid(), $found->getUid());
     }
@@ -1077,7 +1078,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         // Verify created
         self::assertSame($initialCount + 1, $this->modelRepository->countActive());
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         $addedUid = $added->getUid();
         self::assertNotNull($addedUid);
@@ -1168,7 +1169,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertNotEmpty($added->getName());
     }
@@ -1193,7 +1194,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame($unicodeName, $added->getName());
     }
@@ -1218,7 +1219,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertNotEmpty($added->getName());
     }
@@ -1313,7 +1314,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('gpt-4-turbo-preview', $added->getModelId());
     }
@@ -1336,7 +1337,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('claude-3-5-sonnet-20241022', $added->getModelId());
     }
@@ -1359,7 +1360,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('models/gemini-2.0-flash-exp', $added->getModelId());
     }
@@ -1382,7 +1383,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame('llama3.2:latest', $added->getModelId());
     }
@@ -1410,7 +1411,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(0, $added->getContextLength());
     }
@@ -1435,7 +1436,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(2000000, $added->getContextLength());
         self::assertSame(128000, $added->getMaxOutputTokens());
@@ -1461,7 +1462,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame(1, $added->getMaxOutputTokens());
     }
@@ -1486,7 +1487,7 @@ final class ModelManagementE2ETest extends AbstractBackendE2ETestCase
         $this->persistenceManager->persistAll();
         $this->persistenceManager->clearState();
 
-        $added = $this->modelRepository->findOneByIdentifier($model->getIdentifier());
+        $added = $this->modelRepository->findOneByIdentifier(new ModelIdentifier($model->getIdentifier()));
         self::assertNotNull($added);
         self::assertSame($added->getContextLength(), $added->getMaxOutputTokens());
     }

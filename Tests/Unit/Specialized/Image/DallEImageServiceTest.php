@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -606,7 +607,8 @@ class DallEImageServiceTest extends AbstractUnitTestCase
         $record->_setProperty('uid', 42);
 
         $modelRepository = $this->createMock(ModelRepository::class);
-        $modelRepository->expects(self::once())->method('findOneByModelId')->with('dall-e-3')->willReturn($record);
+        $modelRepository->expects(self::once())->method('findOneByModelId')
+            ->with(new ProviderModelName('dall-e-3'))->willReturn($record);
 
         $usageTrackerMock = $this->createMock(UsageTrackerServiceInterface::class);
         $usageTrackerMock

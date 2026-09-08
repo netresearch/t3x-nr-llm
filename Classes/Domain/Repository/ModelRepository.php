@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Domain\Repository;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\ValueObject\ModelIdentifier;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
@@ -53,13 +55,18 @@ class ModelRepository extends Repository
     }
 
     /**
-     * Find model by identifier string.
+     * Find the model record an identifier names.
+     *
+     * Typed against {@see ModelIdentifier} rather than `string` (#893): a row
+     * identifier and the provider-side model name are both non-empty strings
+     * on the same record, and #932 was the defect of passing the second one
+     * here.
      */
-    public function findOneByIdentifier(string $identifier): ?Model
+    public function findOneByIdentifier(ModelIdentifier $identifier): ?Model
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('identifier', $identifier),
+            $query->equals('identifier', $identifier->value),
         );
         $result = $query->execute()->getFirst();
 
@@ -67,16 +74,17 @@ class ModelRepository extends Repository
     }
 
     /**
-     * Find a model by its provider model id (the API model string,
-     * e.g. "gpt-image-2"). Multiple records may share a model id when
+     * Find a model by the name its provider's API knows it by
+     * (e.g. "gpt-image-2"). Multiple records may share that name when
      * the same model is offered through several providers; the default
-     * ordering (sorting, name) decides which one wins.
+     * ordering (sorting, name) decides which one wins, without regard to
+     * the provider -- see #935.
      */
-    public function findOneByModelId(string $modelId): ?Model
+    public function findOneByModelId(ProviderModelName $modelName): ?Model
     {
         $query = $this->createQuery();
         $query->matching(
-            $query->equals('modelId', $modelId),
+            $query->equals('modelId', $modelName->value),
         );
         $result = $query->execute()->getFirst();
 

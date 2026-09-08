@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Specialized\Pricing;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Throwable;
 
 /**
@@ -82,8 +83,18 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
      */
     private function estimateFromModelRow(string $model, int $inputTokens, int $outputTokens): ?float
     {
+        // Built before the try, and blank answered here rather than by the
+        // value object. Inside, `catch (Throwable)` would absorb the blank
+        // error and report it as the persistence failure the comment below
+        // describes -- a name nobody can price is not an Extbase problem.
+        if (trim($model) === '') {
+            return null;
+        }
+
+        $modelName = new ProviderModelName($model);
+
         try {
-            $modelRow = $this->modelRepository->findOneByModelId($model);
+            $modelRow = $this->modelRepository->findOneByModelId($modelName);
             if ($modelRow instanceof Model && $modelRow->hasPricing()) {
                 return $modelRow->estimateCost($inputTokens, $outputTokens);
             }
