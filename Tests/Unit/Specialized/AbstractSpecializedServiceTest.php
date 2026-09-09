@@ -979,6 +979,34 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertSame(0, $subject->callResolveModelUid('gpt-image-2', 'image-preset'));
     }
 
+    /**
+     * An inactive model pins nothing either -- an inactive record is treated
+     * as nonexistent across the whole resolution layer.
+     */
+    #[Test]
+    public function resolveModelUidIgnoresAPinnedRowThatIsInactive(): void
+    {
+        $pinned = new Model();
+        $pinned->setModelId('gpt-image-2');
+        $pinned->setIsActive(false);
+        $pinned->_setProperty('uid', 77);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($pinned);
+        $configuration->setIsActive(true);
+        $configuration->setModelSelectionMode(ModelSelectionMode::FIXED->value);
+
+        $configurations = self::createStub(LlmConfigurationRepository::class);
+        $configurations->method('findOneByIdentifier')->willReturn($configuration);
+
+        $models = self::createStub(ModelRepository::class);
+        $models->method('findOneByModelId')->willReturn(null);
+
+        $subject = $this->createSubject(modelRepository: $models, configurationRepository: $configurations);
+
+        self::assertSame(0, $subject->callResolveModelUid('gpt-image-2', 'image-preset'));
+    }
+
     #[Test]
     public function resolveModelUidReturnsZeroWhenNoRecordMatches(): void
     {

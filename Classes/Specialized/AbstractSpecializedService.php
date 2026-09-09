@@ -577,18 +577,21 @@ abstract class AbstractSpecializedService
             // equality guard is what makes it safe: a caller may pass an
             // explicit model that overrides the configuration, and then the
             // pinned row is not the row in play (#935).
-            $pinned = $this->pinnedModelFor($configurationIdentifier);
-            if ($pinned instanceof Model && $pinned->getModelId() === $modelName->value) {
-                return $pinned->getUid() ?? 0;
-            }
-
-            // No pinned row: the name alone must identify exactly one record.
+            //
+            // Otherwise the name alone must identify exactly one record.
             // Where it does not, this call cannot be attributed, and 0 says
             // so -- see ModelRepository::findOneByModelId().
-            return $this->modelRepository->findOneByModelId($modelName)?->getUid() ?? 0;
+            $pinned = $this->pinnedModelFor($configurationIdentifier);
+            $record = $pinned instanceof Model && $pinned->getModelId() === $modelName->value
+                ? $pinned
+                : $this->modelRepository->findOneByModelId($modelName);
+
+            $uid = $record?->getUid() ?? 0;
         } catch (Throwable) {
-            return 0;
+            $uid = 0;
         }
+
+        return $uid;
     }
 
     /**
@@ -606,11 +609,9 @@ abstract class AbstractSpecializedService
         }
 
         $configuration = $this->findActiveConfiguration($configurationIdentifier);
-        if (!$configuration instanceof LlmConfiguration) {
-            return null;
-        }
-
-        if ($configuration->getModelSelectionModeEnum() !== ModelSelectionMode::FIXED) {
+        if (!$configuration instanceof LlmConfiguration
+            || $configuration->getModelSelectionModeEnum() !== ModelSelectionMode::FIXED
+        ) {
             return null;
         }
 

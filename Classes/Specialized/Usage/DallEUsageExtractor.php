@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Specialized\Usage;
 
+use Netresearch\NrLlm\Domain\ValueObject\ImageTokenUsage;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord;
@@ -88,9 +89,7 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
             $intent->quality ?? 'standard',
             $intent->size ?? '',
             $imageCount,
-            $input,
-            $output,
-            $imageInput,
+            new ImageTokenUsage($input, $output, $imageInput),
             $intent->modelUid,
         );
 

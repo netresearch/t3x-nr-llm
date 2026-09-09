@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Specialized\Usage;
 
+use Netresearch\NrLlm\Domain\ValueObject\ImageTokenUsage;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord;
@@ -92,7 +93,7 @@ final class UsageExtractorExtractTest extends TestCase
         $cost = self::createMock(SpecializedCostCalculatorInterface::class);
         $cost->expects(self::once())
             ->method('estimateImageCost')
-            ->with('dall-e-3', 'hd', '1024x1024', 2, 0, 0, 0)
+            ->with('dall-e-3', 'hd', '1024x1024', 2, new ImageTokenUsage(0, 0, 0), 4)
             ->willReturn(0.16);
 
         $intent = new SpecializedUsageIntent(
@@ -125,7 +126,7 @@ final class UsageExtractorExtractTest extends TestCase
         $cost = self::createMock(SpecializedCostCalculatorInterface::class);
         $cost->expects(self::once())
             ->method('estimateImageCost')
-            ->with('gpt-image-1', 'standard', '', 1, 120, 800, 90)
+            ->with('gpt-image-1', 'standard', '', 1, new ImageTokenUsage(120, 800, 90), 0)
             ->willReturn(0.05);
 
         $intent = new SpecializedUsageIntent(modelId: 'gpt-image-1');

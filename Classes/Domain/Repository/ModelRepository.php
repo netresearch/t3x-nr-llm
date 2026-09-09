@@ -115,10 +115,7 @@ class ModelRepository extends Repository
             $query->equals('modelId', $modelName->value),
         );
 
-        /** @var QueryResultInterface<int, Model> $result */
-        $result = $query->execute();
-
-        return $result;
+        return $query->execute();
     }
 
     /**

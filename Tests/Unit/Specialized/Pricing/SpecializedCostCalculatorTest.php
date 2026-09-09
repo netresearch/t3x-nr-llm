@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Pricing;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ImageTokenUsage;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -44,7 +45,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $calculator = new SpecializedCostCalculator($repository);
 
         // 1M input + 1M output at the row's pricing = $70, not the catalog's $35.
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000));
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
     }
@@ -77,7 +78,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000));
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
     }
@@ -113,7 +114,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000, 0, 701);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000), 701);
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
     }
@@ -131,7 +132,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
 
         self::assertEqualsWithDelta(30.0, $cost, 1e-9);
     }
@@ -144,7 +145,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        self::assertSame(0.0, $calculator->estimateImageCost('   ', '', '1024x1024', 1, 1_000, 1_000));
+        self::assertSame(0.0, $calculator->estimateImageCost('   ', '', '1024x1024', 1, new ImageTokenUsage(1_000, 1_000)));
     }
 
     #[Test]
@@ -158,7 +159,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $calculator = new SpecializedCostCalculator($repository);
 
         // Falls through to the catalog token prices: 1M out × $30/1M.
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
 
         self::assertEqualsWithDelta(30.0, $cost, 1e-9);
     }
@@ -167,7 +168,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
     public function imageCostUsesCatalogTokenPricesWhenNoModelRowExists(): void
     {
         $cost = $this->calculatorWithoutModelRows()
-            ->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 50, 1000, 10);
+            ->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(50, 1000, 10));
 
         self::assertEqualsWithDelta(0.03028, $cost, 1e-9);
     }
@@ -202,7 +203,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
 
         self::assertEqualsWithDelta(30.0, $cost, 1e-9);
     }
