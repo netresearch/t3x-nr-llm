@@ -503,7 +503,7 @@ final class DallEImageService extends AbstractSpecializedService implements Imag
         return ProviderCallContext::forService($operation, $this->getServiceProvider(), $model)
             ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
                 modelId: $model,
-                modelUid: $this->resolveModelUid($model),
+                modelUid: $this->resolveModelUid($model, $configuration),
                 configurationUid: $this->resolveConfigurationUid($configuration),
                 beUserUid: $beUserUid,
                 size: $size,

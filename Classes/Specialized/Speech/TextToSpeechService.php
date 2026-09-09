@@ -117,7 +117,7 @@ final class TextToSpeechService extends AbstractSpecializedService
         $context = ProviderCallContext::forService(ProviderOperation::SpeechSynthesis, $this->getServiceProvider(), $model)
             ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
                 modelId: $model,
-                modelUid: $this->resolveModelUid($model),
+                modelUid: $this->resolveModelUid($model, $options->configuration),
                 configurationUid: $this->resolveConfigurationUid($options->configuration),
                 beUserUid: $options->getBeUserUid(),
                 characters: mb_strlen($text),

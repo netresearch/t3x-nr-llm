@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized\Pricing;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ImageTokenUsage;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculator;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -44,7 +45,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $calculator = new SpecializedCostCalculator($repository);
 
         // 1M input + 1M output at the row's pricing = $70, not the catalog's $35.
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000));
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
     }
@@ -77,7 +78,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000));
 
         self::assertEqualsWithDelta(70.0, $cost, 1e-9);
     }
@@ -90,6 +91,52 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
      * persistence failure the catch is for. The guard answers first, so the
      * repository is not asked at all.
      */
+    /**
+     * With a uid in hand the calculator prices the record the call was
+     * attributed to, and never asks by name (#935).
+     *
+     * The name lookup cannot tell two providers' rows apart, so pricing from
+     * it could charge one provider's negotiated rate to a call served by the
+     * other. The usage intent already carries the record; using it makes
+     * pricing and attribution the same decision rather than two.
+     */
+    #[Test]
+    public function imageCostPricesTheRecordTheCallWasAttributedTo(): void
+    {
+        $attributed = new Model();
+        $attributed->setModelId('gpt-image-2');
+        $attributed->setCostInputDollars(10.00);
+        $attributed->setCostOutputDollars(60.00);
+
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::never())->method('findOneByModelId');
+        $repository->expects(self::once())->method('findOneByUid')->with(701)->willReturn($attributed);
+
+        $calculator = new SpecializedCostCalculator($repository);
+
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(1_000_000, 1_000_000), 701);
+
+        self::assertEqualsWithDelta(70.0, $cost, 1e-9);
+    }
+
+    /**
+     * Without a uid the name must identify exactly one row. Where it does
+     * not, the repository answers null and the catalog prices the call --
+     * an approximate number beats another provider's exact one.
+     */
+    #[Test]
+    public function imageCostFallsBackToTheCatalogWhenTheNameIdentifiesNoSingleRow(): void
+    {
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findOneByModelId')->willReturn(null);
+
+        $calculator = new SpecializedCostCalculator($repository);
+
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
+
+        self::assertEqualsWithDelta(30.0, $cost, 1e-9);
+    }
+
     #[Test]
     public function imageCostDoesNotQueryForABlankModelName(): void
     {
@@ -98,7 +145,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        self::assertSame(0.0, $calculator->estimateImageCost('   ', '', '1024x1024', 1, 1_000, 1_000));
+        self::assertSame(0.0, $calculator->estimateImageCost('   ', '', '1024x1024', 1, new ImageTokenUsage(1_000, 1_000)));
     }
 
     #[Test]
@@ -112,7 +159,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
         $calculator = new SpecializedCostCalculator($repository);
 
         // Falls through to the catalog token prices: 1M out × $30/1M.
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
 
         self::assertEqualsWithDelta(30.0, $cost, 1e-9);
     }
@@ -121,7 +168,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
     public function imageCostUsesCatalogTokenPricesWhenNoModelRowExists(): void
     {
         $cost = $this->calculatorWithoutModelRows()
-            ->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 50, 1000, 10);
+            ->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(50, 1000, 10));
 
         self::assertEqualsWithDelta(0.03028, $cost, 1e-9);
     }
@@ -156,7 +203,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $calculator = new SpecializedCostCalculator($repository);
 
-        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, new ImageTokenUsage(0, 1_000_000));
 
         self::assertEqualsWithDelta(30.0, $cost, 1e-9);
     }

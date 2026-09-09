@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Specialized\Pricing;
 
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\ModelRepository;
+use Netresearch\NrLlm\Domain\ValueObject\ImageTokenUsage;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderModelName;
 use Throwable;
 
@@ -38,14 +39,18 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
         string $quality,
         string $size,
         int $imageCount,
-        int $inputTokens = 0,
-        int $outputTokens = 0,
-        int $imageInputTokens = 0,
+        ?ImageTokenUsage $tokens = null,
+        int $modelUid = 0,
     ): float {
         $tokenBased = null;
-        if ($inputTokens > 0 || $outputTokens > 0) {
-            $tokenBased = $this->estimateFromModelRow($model, $inputTokens, $outputTokens)
-                ?? OpenAiPriceCatalog::imageTokenCost($model, $inputTokens, $outputTokens, $imageInputTokens);
+        if ($tokens instanceof ImageTokenUsage && !$tokens->isEmpty()) {
+            $tokenBased = $this->estimateFromModelRow($model, $tokens, $modelUid)
+                ?? OpenAiPriceCatalog::imageTokenCost(
+                    $model,
+                    $tokens->inputTokens,
+                    $tokens->outputTokens,
+                    $tokens->imageInputTokens,
+                );
         }
 
         $perImage = OpenAiPriceCatalog::imagePrice($model, $quality, $size);
@@ -81,22 +86,26 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
      * nothing -- curated pricing was silently ignored in favour of the
      * catalog, and a model the catalog does not know priced at zero.
      */
-    private function estimateFromModelRow(string $model, int $inputTokens, int $outputTokens): ?float
+    private function estimateFromModelRow(string $model, ImageTokenUsage $tokens, int $modelUid): ?float
     {
         // Built before the try, and blank answered here rather than by the
         // value object. Inside, `catch (Throwable)` would absorb the blank
         // error and report it as the persistence failure the comment below
         // describes -- a name nobody can price is not an Extbase problem.
-        if (trim($model) === '') {
+        if ($modelUid <= 0 && trim($model) === '') {
             return null;
         }
 
-        $modelName = new ProviderModelName($model);
-
         try {
-            $modelRow = $this->modelRepository->findOneByModelId($modelName);
+            // The uid the usage intent carries names the record this call is
+            // attributed to, so pricing and attribution cannot disagree (#935).
+            // Falling back to the name is for callers that have no uid; it
+            // yields a row only when the name identifies exactly one.
+            $modelRow = $modelUid > 0
+                ? $this->modelRepository->findOneByUid($modelUid)
+                : $this->modelRepository->findOneByModelId(new ProviderModelName($model));
             if ($modelRow instanceof Model && $modelRow->hasPricing()) {
-                return $modelRow->estimateCost($inputTokens, $outputTokens);
+                return $modelRow->estimateCost($tokens->inputTokens, $tokens->outputTokens);
             }
         } catch (Throwable) {
             // Extbase persistence may be unavailable in edge contexts

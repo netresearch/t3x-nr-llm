@@ -124,6 +124,81 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         );
     }
 
+    /**
+     * A provider-side model name that two providers carry identifies no
+     * single row, and the lookup says so instead of guessing (#935).
+     *
+     * `model_id` has no `unique` eval, so the same model offered through two
+     * providers is two rows with their own prices. Answering with the first
+     * by `sorting, name` charged one provider's rate to a call served by the
+     * other; both callers -- usage attribution and cost estimation -- have a
+     * correct behaviour for "no row" and none for "some row".
+     */
+    #[Test]
+    public function findOneByModelIdRefusesANameTwoProvidersShare(): void
+    {
+        $this->importFixture('AmbiguousModelName.csv');
+
+        self::assertNull($this->repository->findOneByModelId(new ProviderModelName('gpt-image-2')));
+
+        $all = $this->repository->findByModelId(new ProviderModelName('gpt-image-2'));
+
+        self::assertCount(2, $all);
+        self::assertSame(
+            [801, 802],
+            array_map(static fn(Model $model): ?int => $model->getUid(), array_values(iterator_to_array($all))),
+        );
+    }
+
+    #[Test]
+    public function findOneByModelIdAnswersWhenTheNameIsUnambiguous(): void
+    {
+        $this->importFixture('ModelIdentifierSeparation.csv');
+
+        $model = $this->repository->findOneByModelId(new ProviderModelName('gpt-image-2'));
+
+        self::assertInstanceOf(Model::class, $model);
+        self::assertSame(701, $model->getUid());
+    }
+
+    /**
+     * Extbase's own `findByUid()` does not carry this repository's query
+     * settings, so it cannot see a hidden row -- this one can.
+     *
+     * `initializeObject()` sets `ignoreEnableFields` for every query this
+     * repository builds, and the name lookups therefore return hidden rows.
+     * `Repository::findByUid()` goes through
+     * `Backend::getObjectByIdentifier()`, which builds a FRESH query and
+     * only turns off the storage-page restriction. A row that usage
+     * attribution resolved by name would then have no price when looked up
+     * by its uid, and the call would be priced from the static catalog with
+     * the curated row sitting right there.
+     */
+    #[Test]
+    public function findOneByUidSeesARowThatExtbasesOwnLookupHides(): void
+    {
+        $this->importFixture('AmbiguousModelName.csv');
+
+        // Extbase first: once any lookup has loaded the row, its identity map
+        // answers findByUid() from the session and the difference disappears.
+        // Asking it second would measure the test's own ordering.
+        self::assertNull(
+            $this->repository->findByUid(803),
+            "Extbase's own lookup is what this method exists to replace.",
+        );
+
+        $found = $this->repository->findOneByUid(803);
+
+        self::assertInstanceOf(Model::class, $found);
+        self::assertSame('gpt-image-2-only-hidden', $found->getModelId());
+    }
+
+    #[Test]
+    public function findOneByUidReturnsNullForAnUnknownUid(): void
+    {
+        self::assertNull($this->repository->findOneByUid(999999));
+    }
+
     #[Test]
     public function findOneByIdentifierReturnsNullForNonExistent(): void
     {
