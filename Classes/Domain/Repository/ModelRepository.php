@@ -99,6 +99,31 @@ class ModelRepository extends Repository
     }
 
     /**
+     * Find the model record with the given uid, under this repository's own
+     * query settings.
+     *
+     * Extbase's `findByUid()` does not use them: it goes through
+     * `Backend::getObjectByIdentifier()`, which builds a fresh query and
+     * turns off only the storage-page restriction, leaving enable fields
+     * respected. This repository ignores enable fields everywhere else
+     * ({@see self::initializeObject()}), so a hidden row that the name
+     * lookups return would be invisible through its own uid -- and a caller
+     * holding that uid would price the call from the static catalog with the
+     * curated row sitting right there.
+     */
+    public function findOneByUid(int $uid): ?Model
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->equals('uid', $uid),
+        );
+
+        $result = $query->execute()->getFirst();
+
+        return $result instanceof Model ? $result : null;
+    }
+
+    /**
      * Every model record carrying the given provider-side name.
      *
      * More than one is normal: the same model offered through two providers

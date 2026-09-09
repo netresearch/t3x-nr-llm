@@ -102,7 +102,7 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
             // Falling back to the name is for callers that have no uid; it
             // yields a row only when the name identifies exactly one.
             $modelRow = $modelUid > 0
-                ? $this->modelRepository->findByUid($modelUid)
+                ? $this->modelRepository->findOneByUid($modelUid)
                 : $this->modelRepository->findOneByModelId(new ProviderModelName($model));
             if ($modelRow instanceof Model && $modelRow->hasPricing()) {
                 return $modelRow->estimateCost($tokens->inputTokens, $tokens->outputTokens);

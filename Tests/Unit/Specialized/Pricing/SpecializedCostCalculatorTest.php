@@ -110,7 +110,7 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
 
         $repository = $this->createMock(ModelRepository::class);
         $repository->expects(self::never())->method('findOneByModelId');
-        $repository->expects(self::once())->method('findByUid')->with(701)->willReturn($attributed);
+        $repository->expects(self::once())->method('findOneByUid')->with(701)->willReturn($attributed);
 
         $calculator = new SpecializedCostCalculator($repository);
 

@@ -6,3 +6,4 @@
 ,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
 ,801,0,"gpt-image-2-direct","GPT Image 2 (direct)","Sorted first, so the old lookup returned this one",801,"gpt-image-2",4096,4096,"vision",120,1000,6000,1,0,801,0,0
 ,802,0,"gpt-image-2-hosted","GPT Image 2 (hosted)","Same model_id, other provider, other price",802,"gpt-image-2",4096,4096,"vision",120,5000,20000,1,0,802,0,0
+,803,0,"gpt-image-2-hidden","GPT Image 2 (hidden)","Curated pricing on a hidden row",801,"gpt-image-2-only-hidden",4096,4096,"vision",120,9000,30000,1,0,803,0,1
