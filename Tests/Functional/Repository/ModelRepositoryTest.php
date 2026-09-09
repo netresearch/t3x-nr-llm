@@ -124,6 +124,43 @@ final class ModelRepositoryTest extends AbstractFunctionalTestCase
         );
     }
 
+    /**
+     * A provider-side model name that two providers carry identifies no
+     * single row, and the lookup says so instead of guessing (#935).
+     *
+     * `model_id` has no `unique` eval, so the same model offered through two
+     * providers is two rows with their own prices. Answering with the first
+     * by `sorting, name` charged one provider's rate to a call served by the
+     * other; both callers -- usage attribution and cost estimation -- have a
+     * correct behaviour for "no row" and none for "some row".
+     */
+    #[Test]
+    public function findOneByModelIdRefusesANameTwoProvidersShare(): void
+    {
+        $this->importFixture('AmbiguousModelName.csv');
+
+        self::assertNull($this->repository->findOneByModelId(new ProviderModelName('gpt-image-2')));
+
+        $all = $this->repository->findByModelId(new ProviderModelName('gpt-image-2'));
+
+        self::assertCount(2, $all);
+        self::assertSame(
+            [801, 802],
+            array_map(static fn(Model $model): ?int => $model->getUid(), array_values(iterator_to_array($all))),
+        );
+    }
+
+    #[Test]
+    public function findOneByModelIdAnswersWhenTheNameIsUnambiguous(): void
+    {
+        $this->importFixture('ModelIdentifierSeparation.csv');
+
+        $model = $this->repository->findOneByModelId(new ProviderModelName('gpt-image-2'));
+
+        self::assertInstanceOf(Model::class, $model);
+        self::assertSame(701, $model->getUid());
+    }
+
     #[Test]
     public function findOneByIdentifierReturnsNullForNonExistent(): void
     {

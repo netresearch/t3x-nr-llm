@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Specialized;
 use JsonException;
 use LogicException;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -558,7 +559,7 @@ abstract class AbstractSpecializedService
      * no repository is in context, no record matches, or the lookup
      * fails — usage tracking must never break the service call.
      */
-    protected function resolveModelUid(string $modelId): int
+    protected function resolveModelUid(string $modelId, ?string $configurationIdentifier = null): int
     {
         // trim() rather than a bare `=== ''` since #893: the value object
         // refuses a padded-to-blank name, and that must be answered by the
@@ -571,10 +572,51 @@ abstract class AbstractSpecializedService
         $modelName = new ProviderModelName($modelId);
 
         try {
+            // The configuration pinned a row, and the name being called is
+            // that row's -- so this IS the record, no lookup needed. The
+            // equality guard is what makes it safe: a caller may pass an
+            // explicit model that overrides the configuration, and then the
+            // pinned row is not the row in play (#935).
+            $pinned = $this->pinnedModelFor($configurationIdentifier);
+            if ($pinned instanceof Model && $pinned->getModelId() === $modelName->value) {
+                return $pinned->getUid() ?? 0;
+            }
+
+            // No pinned row: the name alone must identify exactly one record.
+            // Where it does not, this call cannot be attributed, and 0 says
+            // so -- see ModelRepository::findOneByModelId().
             return $this->modelRepository->findOneByModelId($modelName)?->getUid() ?? 0;
         } catch (Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * The model record an active configuration pins, or null.
+     *
+     * Null covers every case in which no single record is pinned: no
+     * identifier given, no repository in context, an unknown or inactive
+     * configuration, an inactive model, and a configuration whose model is
+     * chosen per call rather than fixed.
+     */
+    private function pinnedModelFor(?string $configurationIdentifier): ?Model
+    {
+        if ($configurationIdentifier === null || $configurationIdentifier === '') {
+            return null;
+        }
+
+        $configuration = $this->findActiveConfiguration($configurationIdentifier);
+        if (!$configuration instanceof LlmConfiguration) {
+            return null;
+        }
+
+        if ($configuration->getModelSelectionModeEnum() !== ModelSelectionMode::FIXED) {
+            return null;
+        }
+
+        $model = $configuration->getLlmModel();
+
+        return $model instanceof Model && $model->isActive() ? $model : null;
     }
 
     /**

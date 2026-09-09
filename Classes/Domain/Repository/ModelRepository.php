@@ -74,21 +74,51 @@ class ModelRepository extends Repository
     }
 
     /**
-     * Find a model by the name its provider's API knows it by
-     * (e.g. "gpt-image-2"). Multiple records may share that name when
-     * the same model is offered through several providers; the default
-     * ordering (sorting, name) decides which one wins, without regard to
-     * the provider -- see #935.
+     * Find the one model the given provider-side name identifies
+     * (e.g. "gpt-image-2"), or null when it identifies none -- or more
+     * than one.
+     *
+     * The name is not unique: `model_id` carries no `unique` eval, and the
+     * same model offered through two providers is two rows with their own
+     * prices. This used to answer with the first row by `sorting, name`,
+     * which is an arbitrary provider (#935). It now answers null instead,
+     * because the callers -- usage attribution and cost estimation -- both
+     * have a correct behaviour for "no row" and none for "some row". Use
+     * {@see self::findByModelId()} where the whole set is wanted.
      */
     public function findOneByModelId(ProviderModelName $modelName): ?Model
+    {
+        $matches = $this->findByModelId($modelName);
+        if (count($matches) !== 1) {
+            return null;
+        }
+
+        $result = $matches->getFirst();
+
+        return $result instanceof Model ? $result : null;
+    }
+
+    /**
+     * Every model record carrying the given provider-side name.
+     *
+     * More than one is normal: the same model offered through two providers
+     * is two rows. Callers that need a single record must decide which one
+     * on evidence of their own -- {@see self::findOneByModelId()} refuses to
+     * guess for them.
+     *
+     * @return QueryResultInterface<int, Model>
+     */
+    public function findByModelId(ProviderModelName $modelName): QueryResultInterface
     {
         $query = $this->createQuery();
         $query->matching(
             $query->equals('modelId', $modelName->value),
         );
-        $result = $query->execute()->getFirst();
 
-        return $result instanceof Model ? $result : null;
+        /** @var QueryResultInterface<int, Model> $result */
+        $result = $query->execute();
+
+        return $result;
     }
 
     /**

@@ -24,19 +24,23 @@ interface SpecializedCostCalculatorInterface
      * Estimate the cost of an image generation call.
      *
      * Resolution order:
-     *  1. token-based via an admin-curated tx_nrllm_model row matching
-     *     `$model` (when usage tokens are present and the row has pricing);
+     *  1. token-based via the admin-curated tx_nrllm_model row `$modelUid`
+     *     names, or -- with no uid -- the one row `$model` identifies (when
+     *     usage tokens are present and the row has pricing);
      *  2. token-based via the static OpenAI catalog (gpt-image-*);
      *  3. per-image via the static catalog (model, quality, size);
      *  4. 0.0.
      *
-     * @param string $model            Model identifier (e.g. "gpt-image-2", "dall-e-3")
+     * @param string $model            Provider-side model name (e.g. "gpt-image-2", "dall-e-3")
      * @param string $quality          Requested quality tier ('' when not applicable)
      * @param string $size             Requested size, e.g. "1024x1024"
      * @param int    $imageCount       Number of images produced
      * @param int    $inputTokens      `usage.input_tokens` from the response, 0 when absent
      * @param int    $outputTokens     `usage.output_tokens` from the response, 0 when absent
      * @param int    $imageInputTokens `usage.input_tokens_details.image_tokens`, 0 when absent
+     * @param int    $modelUid         The record the call was attributed to, 0 when none;
+     *                                 the model name alone cannot identify a row when two
+     *                                 providers offer the same model (#935)
      */
     public function estimateImageCost(
         string $model,
@@ -46,6 +50,7 @@ interface SpecializedCostCalculatorInterface
         int $inputTokens = 0,
         int $outputTokens = 0,
         int $imageInputTokens = 0,
+        int $modelUid = 0,
     ): float;
 
     /**

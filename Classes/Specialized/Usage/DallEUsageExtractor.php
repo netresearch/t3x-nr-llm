@@ -91,6 +91,7 @@ final readonly class DallEUsageExtractor implements UsageMetricsExtractorInterfa
             $input,
             $output,
             $imageInput,
+            $intent->modelUid,
         );
 
         return new ProviderUsageRecord(

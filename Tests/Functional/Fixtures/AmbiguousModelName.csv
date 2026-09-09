@@ -1,0 +1,8 @@
+"tx_nrllm_provider"
+,"uid","pid","identifier","name","description","adapter_type","endpoint_url","api_key","organization_id","api_timeout","max_retries","options","is_active","sorting","deleted","hidden"
+,801,0,"openai-direct","OpenAI Direct","OpenAI, billed at list price","openai","https://api.openai.com/v1","","",30,3,"",1,1,0,0
+,802,0,"openai-hosted","OpenAI Hosted","The same model through a hosted deployment, billed differently","openai","https://hosted.example.com/v1","","",30,3,"",1,2,0,0
+"tx_nrllm_model"
+,"uid","pid","identifier","name","description","provider_uid","model_id","context_length","max_output_tokens","capabilities","default_timeout","cost_input","cost_output","is_active","is_default","sorting","deleted","hidden"
+,801,0,"gpt-image-2-direct","GPT Image 2 (direct)","Sorted first, so the old lookup returned this one",801,"gpt-image-2",4096,4096,"vision",120,1000,6000,1,0,801,0,0
+,802,0,"gpt-image-2-hosted","GPT Image 2 (hosted)","Same model_id, other provider, other price",802,"gpt-image-2",4096,4096,"vision",120,5000,20000,1,0,802,0,0

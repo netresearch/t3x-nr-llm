@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Specialized;
 use LogicException;
 use Netresearch\NrLlm\Domain\DTO\BudgetCheckResult;
 use Netresearch\NrLlm\Domain\Enum\ModelCapability;
+use Netresearch\NrLlm\Domain\Enum\ModelSelectionMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -893,6 +894,91 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         self::assertSame(0, $subject->callResolveModelUid("  \t"));
     }
 
+    /**
+     * A configuration that pins a model names the record outright; the
+     * ambiguous lookup by name is not reached at all (#935).
+     */
+    #[Test]
+    public function resolveModelUidPrefersTheRowTheConfigurationPins(): void
+    {
+        $pinned = new Model();
+        $pinned->setModelId('gpt-image-2');
+        $pinned->_setProperty('uid', 77);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($pinned);
+        $configuration->setIsActive(true);
+        $configuration->setModelSelectionMode(ModelSelectionMode::FIXED->value);
+
+        $configurations = self::createStub(LlmConfigurationRepository::class);
+        $configurations->method('findOneByIdentifier')->willReturn($configuration);
+
+        $models = $this->createMock(ModelRepository::class);
+        $models->expects(self::never())->method('findOneByModelId');
+
+        $subject = $this->createSubject(modelRepository: $models, configurationRepository: $configurations);
+
+        self::assertSame(77, $subject->callResolveModelUid('gpt-image-2', 'image-preset'));
+    }
+
+    /**
+     * An explicit model argument overrides the configuration, and then the
+     * pinned row is not the row being called -- so it must not be attributed.
+     */
+    #[Test]
+    public function resolveModelUidIgnoresThePinnedRowWhenAnotherModelIsCalled(): void
+    {
+        $pinned = new Model();
+        $pinned->setModelId('gpt-image-2');
+        $pinned->_setProperty('uid', 77);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($pinned);
+        $configuration->setIsActive(true);
+        $configuration->setModelSelectionMode(ModelSelectionMode::FIXED->value);
+
+        $configurations = self::createStub(LlmConfigurationRepository::class);
+        $configurations->method('findOneByIdentifier')->willReturn($configuration);
+
+        $called = new Model();
+        $called->setModelId('dall-e-3');
+        $called->_setProperty('uid', 88);
+
+        $models = self::createStub(ModelRepository::class);
+        $models->method('findOneByModelId')->willReturn($called);
+
+        $subject = $this->createSubject(modelRepository: $models, configurationRepository: $configurations);
+
+        self::assertSame(88, $subject->callResolveModelUid('dall-e-3', 'image-preset'));
+    }
+
+    /**
+     * A configuration that selects its model by criteria pins nothing, so the
+     * name lookup decides -- and answers null where the name is ambiguous.
+     */
+    #[Test]
+    public function resolveModelUidIgnoresAConfigurationThatDoesNotFixItsModel(): void
+    {
+        $pinned = new Model();
+        $pinned->setModelId('gpt-image-2');
+        $pinned->_setProperty('uid', 77);
+
+        $configuration = new LlmConfiguration();
+        $configuration->setLlmModel($pinned);
+        $configuration->setIsActive(true);
+        $configuration->setModelSelectionMode(ModelSelectionMode::CRITERIA->value);
+
+        $configurations = self::createStub(LlmConfigurationRepository::class);
+        $configurations->method('findOneByIdentifier')->willReturn($configuration);
+
+        $models = self::createStub(ModelRepository::class);
+        $models->method('findOneByModelId')->willReturn(null);
+
+        $subject = $this->createSubject(modelRepository: $models, configurationRepository: $configurations);
+
+        self::assertSame(0, $subject->callResolveModelUid('gpt-image-2', 'image-preset'));
+    }
+
     #[Test]
     public function resolveModelUidReturnsZeroWhenNoRecordMatches(): void
     {
@@ -1406,9 +1492,9 @@ final class TestableSpecializedService extends AbstractSpecializedService
         return $this->resolveDefaultModelFor($capability, $fallback);
     }
 
-    public function callResolveModelUid(string $modelId): int
+    public function callResolveModelUid(string $modelId, ?string $configurationIdentifier = null): int
     {
-        return $this->resolveModelUid($modelId);
+        return $this->resolveModelUid($modelId, $configurationIdentifier);
     }
 
     public function callResolveConfiguredModelFor(

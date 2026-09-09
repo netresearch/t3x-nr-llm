@@ -41,10 +41,11 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
         int $inputTokens = 0,
         int $outputTokens = 0,
         int $imageInputTokens = 0,
+        int $modelUid = 0,
     ): float {
         $tokenBased = null;
         if ($inputTokens > 0 || $outputTokens > 0) {
-            $tokenBased = $this->estimateFromModelRow($model, $inputTokens, $outputTokens)
+            $tokenBased = $this->estimateFromModelRow($model, $inputTokens, $outputTokens, $modelUid)
                 ?? OpenAiPriceCatalog::imageTokenCost($model, $inputTokens, $outputTokens, $imageInputTokens);
         }
 
@@ -81,20 +82,24 @@ final readonly class SpecializedCostCalculator implements SpecializedCostCalcula
      * nothing -- curated pricing was silently ignored in favour of the
      * catalog, and a model the catalog does not know priced at zero.
      */
-    private function estimateFromModelRow(string $model, int $inputTokens, int $outputTokens): ?float
+    private function estimateFromModelRow(string $model, int $inputTokens, int $outputTokens, int $modelUid): ?float
     {
         // Built before the try, and blank answered here rather than by the
         // value object. Inside, `catch (Throwable)` would absorb the blank
         // error and report it as the persistence failure the comment below
         // describes -- a name nobody can price is not an Extbase problem.
-        if (trim($model) === '') {
+        if ($modelUid <= 0 && trim($model) === '') {
             return null;
         }
 
-        $modelName = new ProviderModelName($model);
-
         try {
-            $modelRow = $this->modelRepository->findOneByModelId($modelName);
+            // The uid the usage intent carries names the record this call is
+            // attributed to, so pricing and attribution cannot disagree (#935).
+            // Falling back to the name is for callers that have no uid; it
+            // yields a row only when the name identifies exactly one.
+            $modelRow = $modelUid > 0
+                ? $this->modelRepository->findByUid($modelUid)
+                : $this->modelRepository->findOneByModelId(new ProviderModelName($model));
             if ($modelRow instanceof Model && $modelRow->hasPricing()) {
                 return $modelRow->estimateCost($inputTokens, $outputTokens);
             }

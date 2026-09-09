@@ -90,6 +90,52 @@ class SpecializedCostCalculatorTest extends AbstractUnitTestCase
      * persistence failure the catch is for. The guard answers first, so the
      * repository is not asked at all.
      */
+    /**
+     * With a uid in hand the calculator prices the record the call was
+     * attributed to, and never asks by name (#935).
+     *
+     * The name lookup cannot tell two providers' rows apart, so pricing from
+     * it could charge one provider's negotiated rate to a call served by the
+     * other. The usage intent already carries the record; using it makes
+     * pricing and attribution the same decision rather than two.
+     */
+    #[Test]
+    public function imageCostPricesTheRecordTheCallWasAttributedTo(): void
+    {
+        $attributed = new Model();
+        $attributed->setModelId('gpt-image-2');
+        $attributed->setCostInputDollars(10.00);
+        $attributed->setCostOutputDollars(60.00);
+
+        $repository = $this->createMock(ModelRepository::class);
+        $repository->expects(self::never())->method('findOneByModelId');
+        $repository->expects(self::once())->method('findByUid')->with(701)->willReturn($attributed);
+
+        $calculator = new SpecializedCostCalculator($repository);
+
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 1_000_000, 1_000_000, 0, 701);
+
+        self::assertEqualsWithDelta(70.0, $cost, 1e-9);
+    }
+
+    /**
+     * Without a uid the name must identify exactly one row. Where it does
+     * not, the repository answers null and the catalog prices the call --
+     * an approximate number beats another provider's exact one.
+     */
+    #[Test]
+    public function imageCostFallsBackToTheCatalogWhenTheNameIdentifiesNoSingleRow(): void
+    {
+        $repository = self::createStub(ModelRepository::class);
+        $repository->method('findOneByModelId')->willReturn(null);
+
+        $calculator = new SpecializedCostCalculator($repository);
+
+        $cost = $calculator->estimateImageCost('gpt-image-2', '', '1024x1024', 1, 0, 1_000_000);
+
+        self::assertEqualsWithDelta(30.0, $cost, 1e-9);
+    }
+
     #[Test]
     public function imageCostDoesNotQueryForABlankModelName(): void
     {

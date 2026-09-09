@@ -474,7 +474,7 @@ final class WhisperTranscriptionService extends AbstractSpecializedService
         return ProviderCallContext::forService(ProviderOperation::Transcription, $this->getServiceProvider(), $model)
             ->withMetadata([SpecializedUsageIntent::METADATA_KEY => new SpecializedUsageIntent(
                 modelId: $model,
-                modelUid: $this->resolveModelUid($model),
+                modelUid: $this->resolveModelUid($model, $options->configuration),
                 configurationUid: $this->resolveConfigurationUid($options->configuration),
                 beUserUid: $options->getBeUserUid(),
             )] + $this->callerSourceMetadata($options));
