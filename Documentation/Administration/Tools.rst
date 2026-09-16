@@ -38,17 +38,17 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and six writing tools. Each is a
+nr-llm ships forty-one read-only tools and eight writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all seven writing tools
+``get_php_info_raw`` and ``list_be_users_raw``) and all eight writing tools
 (``update_page_metadata``, ``set_file_alternative_text``,
-``move_content_element``, ``create_content_element_draft``,
-``create_page_draft``, ``create_translation_draft``,
-``attach_file_to_content_element``) ship **disabled** and
-must be enabled deliberately.
+``update_fal_asset_meta``, ``move_content_element``,
+``create_content_element_draft``, ``create_page_draft``,
+``create_translation_draft``, ``attach_file_to_content_element``) ship
+**disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
@@ -284,10 +284,11 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Seven tools change anything at all: ``update_page_metadata``,
-``set_file_alternative_text``, ``move_content_element``,
-``create_content_element_draft``, ``create_page_draft``,
-``create_translation_draft`` and ``attach_file_to_content_element``. All seven
+Eight tools change anything at all: ``update_page_metadata``,
+``set_file_alternative_text``, ``update_fal_asset_meta``,
+``move_content_element``, ``create_content_element_draft``,
+``create_page_draft``, ``create_translation_draft`` and
+``attach_file_to_content_element``. All eight
 write through the TYPO3 DataHandler, as
 the acting backend user, in the live workspace only, on exactly **one** record
 per call (:ref:`ADR-135 <adr-135>`, :ref:`ADR-146 <adr-146>`,
@@ -345,6 +346,39 @@ What holds for all of them:
 
    An empty string is accepted and is the correct value for a decorative
    image.
+
+``update_fal_asset_meta``
+   Sets the **title** and the **description** (``sys_file_metadata.title``,
+   ``sys_file_metadata.description``) of one managed file, identified by its
+   ``sys_file`` uid. Either field may be given, or both; at least one is
+   required.
+
+   It is a second tool rather than a wider ``set_file_alternative_text``
+   because the two are deliberately **field-disjoint**: this one does not
+   write the alternative text and that one does not write these two, so no
+   file field has two writers and an approver never has to work out which of
+   two cards won.
+
+   It shares the alternative-text tool's whole permission surface — the same
+   storage allow-list and file mounts, core's writable-mount check inside the
+   DataHandler, the same neutral refusal, no metadata record ever created, and
+   the live default-language record only.
+
+   Two behaviours worth knowing before enabling it:
+
+   - A field the call **leaves out keeps its stored value**; an **empty
+     string** clears the field it names. The two are not the same, and a call
+     that sets the title never touches a description somebody wrote by hand.
+   - Core marks ``title`` as an **exclude field** and ``description`` not, so
+     a non-admin editor needs the field-level grant
+     ``sys_file_metadata:title`` for the title. Without it the whole call is
+     refused **before** anything is written, rather than the DataHandler
+     dropping the title in silence and applying the description — which would
+     leave the asset described by half of an approved call.
+
+   The title is bounded in **bytes**, not characters: the column is
+   ``tinytext`` and holds 255 bytes, so accented and non-Latin characters
+   count for more than one.
 
 ``attach_file_to_content_element``
    References an **existing** managed file from one content element, appended
@@ -517,7 +551,7 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. All six writing tools declare one, and the wire name stays
+language model. All eight writing tools declare one, and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 

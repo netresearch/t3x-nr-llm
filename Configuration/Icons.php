@@ -96,6 +96,10 @@ return [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-file-alt-text.svg',
     ],
+    'nrllm-editor-action-file-meta' => [
+        'provider' => SvgIconProvider::class,
+        'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-file-meta.svg',
+    ],
     'nrllm-editor-action-attach-file' => [
         'provider' => SvgIconProvider::class,
         'source' => 'EXT:nr_llm/Resources/Public/Icons/editor-action-attach-file.svg',

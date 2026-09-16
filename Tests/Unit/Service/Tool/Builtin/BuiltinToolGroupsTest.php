@@ -56,6 +56,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\SearchRecordsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteFetchSourceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SiteRagQueryTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\UpdateFalAssetMetaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ValidateTcaTool;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -121,6 +122,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'find_missing_files' => [FindMissingFilesTool::class, 'files'],
             'update_page_metadata' => [UpdatePageMetadataTool::class, 'editing'],
             'set_file_alternative_text' => [SetFileAlternativeTextTool::class, 'editing'],
+            'update_fal_asset_meta' => [UpdateFalAssetMetaTool::class, 'editing'],
             'attach_file_to_content_element' => [AttachFileToContentElementTool::class, 'editing'],
             'move_content_element' => [MoveContentElementTool::class, 'editing'],
             'create_content_element_draft' => [CreateContentElementDraftTool::class, 'editing'],
