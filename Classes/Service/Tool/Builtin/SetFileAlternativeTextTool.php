@@ -25,7 +25,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -120,6 +119,10 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     // bounded DataHandler complaints, the TCA narrowing and the preview
     // formatting. Everything this tool DECIDES stays below (ADR-135).
     use WritesThroughDataHandlerTrait;
+    // The resolution both sys_file_metadata writers perform. Extracted when the
+    // second one measured 93 duplicated lines against this file; the shared
+    // part is the lookup and its three pins, not any decision this tool makes.
+    use ResolvesOneFalAssetTrait;
 
     /**
      * One string for "no such file", "not in a permitted storage", "outside your
@@ -135,12 +138,6 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
 
     /** The one field this tool writes. */
     private const FIELD = 'alternative';
-
-    /** The only language this tool addresses; see the class docblock. */
-    private const DEFAULT_LANGUAGE = 0;
-
-    /** The only workspace this tool addresses; see {@see self::fetchMetadata()}. */
-    private const LIVE_WORKSPACE = 0;
 
     /**
      * Upper bound for the value. The DB column is `text` and the TCA declares no
@@ -203,7 +200,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             return ToolResult::error($value);
         }
 
-        $target = $this->resolveTarget($user, $uid);
+        $target = $this->resolveFalAsset($user, $uid, self::FIELD);
         if ($target === null) {
             return ToolResult::error(self::NOT_PERMITTED);
         }
@@ -281,7 +278,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
             return [$value];
         }
 
-        $target = $this->resolveTarget($user, $uid);
+        $target = $this->resolveFalAsset($user, $uid, self::FIELD);
         if ($target === null) {
             return [self::NOT_PERMITTED];
         }
@@ -352,7 +349,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
      * current alternative text (ADR-136).
      *
      * Deliberately the same resolution the write uses, run against the VIEWER
-     * instead of the acting user: {@see self::resolveTarget()} already applies
+     * instead of the acting user: {@see self::resolveFalAsset()} already applies
      * the storage allow-list, the file-mount boundary and the default-language
      * access, and a second authorisation path here would be a second answer to
      * the same question — the shape this repository keeps removing.
@@ -367,42 +364,7 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
     {
         $uid = self::toInt($arguments['uid'] ?? 0);
 
-        return $uid >= 1 && $this->resolveTarget($viewer, $uid) !== null;
-    }
-
-    /**
-     * The file row and its default-language metadata row, or null when the
-     * acting user may not reach the file, no file carries the uid, or the file
-     * carries no metadata record — all four collapse into one answer on purpose.
-     *
-     * @return array{array<string, mixed>, array<string, mixed>}|null
-     */
-    private function resolveTarget(BackendUserAuthentication $user, int $uid): ?array
-    {
-        $file = $this->fetchFile($uid);
-        if ($file === null) {
-            return null;
-        }
-
-        // nr_llm's own barrier, and it has to run here: the allow-list is this
-        // extension's configuration and the DataHandler cannot consult it.
-        if (!$this->storageGate->isFileAccessible($user, self::toInt($file['storage'] ?? 0), self::toStr($file['identifier'] ?? ''))) {
-            return null;
-        }
-
-        // The tool writes the default-language record, so the acting user needs
-        // access to the default language — a user restricted to other languages
-        // may not write it (checked against the explicit user, ADR-083).
-        if (!$user->checkLanguageAccess(self::DEFAULT_LANGUAGE)) {
-            return null;
-        }
-
-        $metadata = $this->fetchMetadata($uid);
-        if ($metadata === null) {
-            return null;
-        }
-
-        return [$file, $metadata];
+        return $uid >= 1 && $this->resolveFalAsset($viewer, $uid, self::FIELD) !== null;
     }
 
     /**
@@ -469,83 +431,6 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
         $max    = is_array($config) ? ($config['max'] ?? null) : null;
 
         return is_int($max) && $max > 0 ? $max : self::MAX_VALUE_LENGTH;
-    }
-
-    /**
-     * The `sys_file` row, or null when no file carries that uid.
-     *
-     * `sys_file` has no enable columns (no `deleted`, no `hidden`), so there is
-     * no restriction to keep — the storage gate is the access decision.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchFile(int $uid): ?array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::FILE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('uid', 'storage', 'identifier', 'name')
-            ->from(self::FILE_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
-    }
-
-    /**
-     * The LIVE, DEFAULT-language metadata row of a file, or null when it has
-     * none.
-     *
-     * A file is looked up by `file`, not by uid, so more than one row can match
-     * and every pin below decides WHICH row this tool writes:
-     *
-     * - the LANGUAGE, because `sys_file_metadata` is language-aware and
-     *   `removeAll()` drops the language restriction — an arbitrary translation
-     *   could otherwise be picked up and written instead of the original;
-     * - the WORKSPACE, because the table is workspace-aware
-     *   (`ctrl.versioningWS`) and a draft version carries the same `file` and
-     *   the same `sys_language_uid = 0` as the live row it versions. Without the
-     *   restriction the tool could write a stranger's unpublished draft from the
-     *   live workspace, leave the live value untouched and still report success:
-     *   {@see self::valueTook()} re-reads by the uid it wrote, so it confirms the
-     *   wrong row rather than catching it;
-     * - the ORDER, because two candidate rows and no `ORDER BY` leave the choice
-     *   to the database.
-     *
-     * Core's own {@see \TYPO3\CMS\Core\Resource\Index\MetaDataRepository::findByFileUid()}
-     * pins the same three for the same query.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchMetadata(int $fileUid): ?array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        // Live only. The tool refuses outside the live workspace anyway, and the
-        // preview must resolve the same row the write would target.
-        $queryBuilder->getRestrictions()
-            ->removeAll()
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
-
-        $row = $queryBuilder
-            ->select('uid', self::FIELD)
-            ->from(self::METADATA_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('file', $queryBuilder->createNamedParameter($fileUid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq(
-                    'sys_language_uid',
-                    $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT),
-                ),
-            )
-            ->orderBy('uid', 'ASC')
-            ->setMaxResults(1)
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
     }
 
     /**

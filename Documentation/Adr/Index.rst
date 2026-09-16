@@ -574,3 +574,4 @@ Tools
    Adr189CapabilityVocabularyVersusData
    Adr190CancellationCrossesTheTransportBoundary
    Adr191ToolLevelCancellationOutcome
+   Adr192TheEighthWriterDescribesAnAsset

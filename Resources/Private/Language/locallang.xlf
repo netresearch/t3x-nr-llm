@@ -1340,6 +1340,12 @@
             <trans-unit id="editorAction.set_file_alternative_text.description">
                 <source>Sets the alternative text of one file that already carries a metadata record.</source>
             </trans-unit>
+            <trans-unit id="editorAction.update_fal_asset_meta.label">
+                <source>Set title and description</source>
+            </trans-unit>
+            <trans-unit id="editorAction.update_fal_asset_meta.description">
+                <source>Sets the title and the description of one file that already carries a metadata record. Leaves the alternative text alone.</source>
+            </trans-unit>
             <trans-unit id="editorAction.attach_file_to_content_element.label">
                 <source>Attach a file</source>
             </trans-unit>

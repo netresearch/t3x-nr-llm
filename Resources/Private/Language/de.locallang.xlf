@@ -1780,6 +1780,14 @@
                 <source>Sets the alternative text of one file that already carries a metadata record.</source>
                 <target>Setzt den Alternativtext einer Datei, die bereits einen Metadatensatz hat.</target>
             </trans-unit>
+            <trans-unit id="editorAction.update_fal_asset_meta.label">
+                <source>Set title and description</source>
+                <target>Titel und Beschreibung setzen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.update_fal_asset_meta.description">
+                <source>Sets the title and the description of one file that already carries a metadata record. Leaves the alternative text alone.</source>
+                <target>Setzt Titel und Beschreibung einer Datei, die bereits einen Metadatensatz hat. Der Alternativtext bleibt unverändert.</target>
+            </trans-unit>
             <trans-unit id="editorAction.attach_file_to_content_element.label">
                 <source>Attach a file</source>
                 <target>Datei anhängen</target>
