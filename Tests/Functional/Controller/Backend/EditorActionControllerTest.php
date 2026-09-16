@@ -159,10 +159,15 @@ final class EditorActionControllerTest extends AbstractFunctionalTestCase
         $body = (string)$controller->catalogueAction()->getBody();
 
         // The action is listed — an editor can see what exists — but an action
-        // needs a subject, and this module has no record picker.
+        // needs a subject, and this module has no record picker. The hint has to
+        // name the way in, not only the absence: the old wording said a record
+        // was needed and left the reader to find out where records are picked.
         self::assertStringContainsString('Update page metadata', $body);
         self::assertStringNotContainsString('name="instruction"', $body);
-        self::assertStringContainsString('Select a record to start this action.', $body);
+        self::assertStringContainsString(
+            'right-click a page or content element',
+            $body,
+        );
     }
 
     #[Test]
