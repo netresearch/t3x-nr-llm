@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
@@ -263,6 +264,42 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         self::assertSame(
             $this->localizedFlashMessages(),
             ['The pending action changed since you viewed it — please re-review.'],
+        );
+    }
+
+    /**
+     * A run that is no longer waiting was, in the ordinary case, decided
+     * successfully somewhere else a moment earlier — a second surface, such as
+     * the backend chat in nr_mcp_agent, offers the decision on its own card and
+     * consumes the run when it is used. Reporting that as "The run could not be
+     * resumed" describes the first decision's success as the second one's
+     * failure, and reads as "the write did not happen" to the person who made
+     * both. That is what led to the same page being created twice: the operator
+     * decided again. The message has to state the fact, and it is information,
+     * not a warning.
+     */
+    #[Test]
+    public function aRunThatIsNoLongerWaitingIsNotReportedAsAFailedResume(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function () use ($uuid): AgentRunResult {
+                throw RunNotAwaitingApprovalException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve');
+
+        $response = $controller->approveAction($uuid, true, 'a-digest');
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame(
+            ['This run is not waiting for an approval any more. It has already been decided, or it has ended.'],
+            $this->localizedFlashMessages(),
         );
     }
 

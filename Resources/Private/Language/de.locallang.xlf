@@ -4001,6 +4001,14 @@
                 <source>The run could not be resumed.</source>
                 <target>Der Lauf konnte nicht fortgesetzt werden.</target>
             </trans-unit>
+            <trans-unit id="runs.flash.notAwaitingApproval">
+                <source>This run is not waiting for an approval any more. It has already been decided, or it has ended.</source>
+                <target>Dieser Lauf wartet nicht mehr auf eine Freigabe. Die Entscheidung ist bereits gefallen, oder der Lauf ist beendet.</target>
+            </trans-unit>
+            <trans-unit id="runs.flash.notAwaitingInput">
+                <source>This run is not waiting for input any more. The input has already been supplied, or the run has ended.</source>
+                <target>Dieser Lauf wartet nicht mehr auf eine Eingabe. Sie wurde bereits übermittelt, oder der Lauf ist beendet.</target>
+            </trans-unit>
             <trans-unit id="runs.terminal.config">
                 <source>Configuration</source>
                 <target>Konfiguration</target>

@@ -3009,6 +3009,12 @@
             <trans-unit id="runs.flash.error">
                 <source>The run could not be resumed.</source>
             </trans-unit>
+            <trans-unit id="runs.flash.notAwaitingApproval">
+                <source>This run is not waiting for an approval any more. It has already been decided, or it has ended.</source>
+            </trans-unit>
+            <trans-unit id="runs.flash.notAwaitingInput">
+                <source>This run is not waiting for input any more. The input has already been supplied, or the run has ended.</source>
+            </trans-unit>
             <trans-unit id="runs.terminal.config">
                 <source>Configuration</source>
             </trans-unit>
