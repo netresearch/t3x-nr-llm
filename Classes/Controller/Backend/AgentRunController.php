@@ -174,7 +174,15 @@ final class AgentRunController extends ActionController
                 new ApprovalDecision($approve, $this->currentBackendUserUid(), $turnDigest),
             );
         } catch (RunNotAwaitingApprovalException) {
-            return $this->flashRedirect('runs.flash.error', ContextualFeedbackSeverity::WARNING);
+            // NOT "could not be resumed": the commonest way to arrive here is a
+            // run that was resumed perfectly well a moment ago, somewhere else.
+            // A second surface deciding the same run — the backend chat in
+            // nr_mcp_agent offers the decision on its own card — consumes it,
+            // and this one then reported the success of the first decision as a
+            // failure of the second. Read as "the write did not happen", it
+            // invites deciding again, which is how the same page came to be
+            // created twice (nr_mcp_agent NEXT-156).
+            return $this->flashRedirect('runs.flash.notAwaitingApproval', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunAlreadyResumingException) {
@@ -243,7 +251,10 @@ final class AgentRunController extends ActionController
             return $this->renderList($runUuid, $input, $this->localize(self::LL . 'runs.error.schemaMismatch', 'The submitted input did not match the required schema.'))
                 ->withStatus(422);
         } catch (RunNotAwaitingInputException) {
-            return $this->flashRedirect('runs.flash.error', ContextualFeedbackSeverity::WARNING);
+            // Same fact as the approval path above, about the other pause: the
+            // input was supplied elsewhere, or the run has ended. Neither is a
+            // resume that failed.
+            return $this->flashRedirect('runs.flash.notAwaitingInput', ContextualFeedbackSeverity::INFO);
         } catch (RunConfigurationGoneException) {
             return $this->flashRedirect('runs.flash.configGone', ContextualFeedbackSeverity::ERROR);
         } catch (RunAlreadyResumingException) {

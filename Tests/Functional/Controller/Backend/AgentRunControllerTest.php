@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
@@ -57,6 +59,7 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -266,6 +269,76 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         );
     }
 
+    /**
+     * A run that is no longer waiting was, in the ordinary case, decided
+     * successfully somewhere else a moment earlier — a second surface, such as
+     * the backend chat in nr_mcp_agent, offers the decision on its own card and
+     * consumes the run when it is used. Reporting that as "The run could not be
+     * resumed" describes the first decision's success as the second one's
+     * failure, and reads as "the write did not happen" to the person who made
+     * both. That is what led to the same page being created twice: the operator
+     * decided again. The message has to state the fact, and it is information,
+     * not a warning.
+     */
+    #[Test]
+    public function aRunThatIsNoLongerWaitingIsNotReportedAsAFailedResume(): void
+    {
+        $this->suspendApproval('delete_thing', ['uid' => 42]);
+        $uuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('approve')->willReturnCallback(
+            static function () use ($uuid): AgentRunResult {
+                throw RunNotAwaitingApprovalException::forRun($uuid);
+            },
+        );
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('delete_thing')]), $runtime);
+        $this->setRequest($controller, 'approve');
+
+        $response = $controller->approveAction($uuid, true, 'a-digest');
+
+        self::assertSame(303, $response->getStatusCode());
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(
+            'This run is not waiting for an approval any more. It has already been decided, or it has ended.',
+            $messages[0]->getMessage(),
+        );
+        // INFO, not WARNING: the severity is half the message. A warning over a
+        // decision that succeeded elsewhere is what invited the second one.
+        self::assertSame(ContextualFeedbackSeverity::INFO, $messages[0]->getSeverity());
+    }
+
+    /**
+     * The input pause has the same two states and had the same generic message,
+     * so it needs its own case: covering only the approval path would let the
+     * input path regress to a warning unnoticed.
+     */
+    #[Test]
+    public function aRunThatIsNoLongerWaitingForInputIsNotReportedAsAFailedResume(): void
+    {
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willThrowException(RunNotAwaitingInputException::forRun($uuid));
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+
+        $response = $controller->submitInputAction($uuid, ['reason' => 'because']);
+
+        self::assertSame(303, $response->getStatusCode());
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(
+            'This run is not waiting for input any more. The input has already been supplied, or the run has ended.',
+            $messages[0]->getMessage(),
+        );
+        self::assertSame(ContextualFeedbackSeverity::INFO, $messages[0]->getSeverity());
+    }
+
     #[Test]
     public function theDigestTheCardRendersIsTheOneTheRuntimeWillRecompute(): void
     {
@@ -299,6 +372,21 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
      */
     private function localizedFlashMessages(): array
     {
+        return array_values(array_map(
+            static fn(FlashMessage $message): string => $message->getMessage(),
+            $this->queuedFlashMessages(),
+        ));
+    }
+
+    /**
+     * The flash messages themselves, so a case can assert the severity as well
+     * as the text. Reading the queue FLUSHES it, so a test asserts both from one
+     * call rather than asking twice.
+     *
+     * @return list<FlashMessage>
+     */
+    private function queuedFlashMessages(): array
+    {
         $flashMessageService = $this->get(FlashMessageService::class);
         self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
         $extensionService = $this->get(ExtensionService::class);
@@ -309,10 +397,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
             'extbase.flashmessages.' . $extensionService->getPluginNamespace('NrLlm', null),
         );
 
-        return array_values(array_map(
-            static fn(FlashMessage $message): string => $message->getMessage(),
-            $queue->getAllMessagesAndFlush(),
-        ));
+        return array_values($queue->getAllMessagesAndFlush());
     }
 
     private ?string $lastUuid = null;
