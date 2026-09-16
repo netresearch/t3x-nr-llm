@@ -1849,8 +1849,8 @@
                 <target>Starten und zur Freigabe geben</target>
             </trans-unit>
             <trans-unit id="editorActions.needsRecord">
-                <source>Select a record to start this action.</source>
-                <target>Wählen Sie einen Datensatz, um diese Aktion zu starten.</target>
+                <source>To start this: right-click a page or content element and choose "AI actions".</source>
+                <target>Zum Starten: Rechtsklick auf eine Seite oder ein Inhaltselement, dann „KI-Aktionen“.</target>
             </trans-unit>
             <trans-unit id="editorActions.empty">
                 <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>
