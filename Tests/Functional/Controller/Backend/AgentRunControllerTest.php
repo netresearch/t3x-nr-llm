@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingApprovalException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunNotAwaitingInputException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleApprovalTurnException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\Inbox\WaitingRunViewFactory;
@@ -58,6 +59,7 @@ use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Messaging\FlashMessage;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\ExtbaseRequestParameters;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
@@ -297,10 +299,44 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
         $response = $controller->approveAction($uuid, true, 'a-digest');
 
         self::assertSame(303, $response->getStatusCode());
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(1, $messages);
         self::assertSame(
-            ['This run is not waiting for an approval any more. It has already been decided, or it has ended.'],
-            $this->localizedFlashMessages(),
+            'This run is not waiting for an approval any more. It has already been decided, or it has ended.',
+            $messages[0]->getMessage(),
         );
+        // INFO, not WARNING: the severity is half the message. A warning over a
+        // decision that succeeded elsewhere is what invited the second one.
+        self::assertSame(ContextualFeedbackSeverity::INFO, $messages[0]->getSeverity());
+    }
+
+    /**
+     * The input pause has the same two states and had the same generic message,
+     * so it needs its own case: covering only the approval path would let the
+     * input path regress to a warning unnoticed.
+     */
+    #[Test]
+    public function aRunThatIsNoLongerWaitingForInputIsNotReportedAsAFailedResume(): void
+    {
+        $this->suspendInput('ask', ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']], 'required' => ['reason']]);
+        $uuid = $this->lastUuid();
+
+        $runtime = $this->createMock(AgentRuntimeInterface::class);
+        $runtime->method('submitInput')->willThrowException(RunNotAwaitingInputException::forRun($uuid));
+
+        $controller = $this->makeController(new ToolRegistry([new FakeTool('ask')]), $runtime);
+        $this->setRequest($controller, 'submitInput');
+
+        $response = $controller->submitInputAction($uuid, ['reason' => 'because']);
+
+        self::assertSame(303, $response->getStatusCode());
+        $messages = $this->queuedFlashMessages();
+        self::assertCount(1, $messages);
+        self::assertSame(
+            'This run is not waiting for input any more. The input has already been supplied, or the run has ended.',
+            $messages[0]->getMessage(),
+        );
+        self::assertSame(ContextualFeedbackSeverity::INFO, $messages[0]->getSeverity());
     }
 
     #[Test]
@@ -336,6 +372,21 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
      */
     private function localizedFlashMessages(): array
     {
+        return array_values(array_map(
+            static fn(FlashMessage $message): string => $message->getMessage(),
+            $this->queuedFlashMessages(),
+        ));
+    }
+
+    /**
+     * The flash messages themselves, so a case can assert the severity as well
+     * as the text. Reading the queue FLUSHES it, so a test asserts both from one
+     * call rather than asking twice.
+     *
+     * @return list<FlashMessage>
+     */
+    private function queuedFlashMessages(): array
+    {
         $flashMessageService = $this->get(FlashMessageService::class);
         self::assertInstanceOf(FlashMessageService::class, $flashMessageService);
         $extensionService = $this->get(ExtensionService::class);
@@ -346,10 +397,7 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
             'extbase.flashmessages.' . $extensionService->getPluginNamespace('NrLlm', null),
         );
 
-        return array_values(array_map(
-            static fn(FlashMessage $message): string => $message->getMessage(),
-            $queue->getAllMessagesAndFlush(),
-        ));
+        return array_values($queue->getAllMessagesAndFlush());
     }
 
     private ?string $lastUuid = null;
