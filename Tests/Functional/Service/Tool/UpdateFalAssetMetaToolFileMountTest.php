@@ -334,17 +334,22 @@ final class UpdateFalAssetMetaToolFileMountTest extends AbstractFunctionalTestCa
 
     private function indexFile(Connection $connection, int $uid, string $identifier, string $name): void
     {
-        // identifier_hash / folder_hash use TYPO3's own sha1 identifier-hash
-        // algorithm so getFile() resolves the index row exactly as core does.
-        // This is a test fixture, not a security context (SonarCloud's
-        // "weak hashing" flag here is a false positive).
+        // The two hash columns carry a unique placeholder rather than TYPO3's
+        // own sha1 identifier hash. Nothing this tool touches resolves a file
+        // by them — the storage gate and the tool both work from `identifier`
+        // and `uid` — and the columns only have to be filled. Measured rather
+        // than assumed: with a real sha1 in place all eight cases pass, and
+        // with these placeholders all eight still pass, the happy path
+        // included, which is the one that would fail first if a lookup went
+        // through the hash. It also keeps a weak hash out of the file, which
+        // the sibling fixtures answer for with a comment instead.
         $connection->insert('sys_file', [
             'uid'             => $uid,
             'pid'             => 0,
             'storage'         => 1,
             'identifier'      => $identifier,
-            'identifier_hash' => sha1($identifier),
-            'folder_hash'     => sha1(dirname($identifier)),
+            'identifier_hash' => 'fixture-' . $uid,
+            'folder_hash'     => 'fixture-folder-' . $uid,
             'name'            => $name,
             'extension'       => 'txt',
             'mime_type'       => 'text/plain',

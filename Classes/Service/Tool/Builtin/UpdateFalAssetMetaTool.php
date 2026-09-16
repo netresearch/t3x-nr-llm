@@ -25,7 +25,6 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Restriction\WorkspaceRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -131,6 +130,9 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
     // refusal and the acting-user guard. `createRecord()` is not used — this
     // writer updates.
     use PlansOneEditorialWriteTrait;
+    // The resolution both sys_file_metadata writers perform, and the three
+    // pins that decide which row a write lands on.
+    use ResolvesOneFalAssetTrait;
 
     /**
      * One string for "no such file", "not in a permitted storage", "outside
@@ -150,12 +152,6 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
 
     /** The fields this tool writes; `alternative` is another tool's. */
     private const FIELDS = [self::TITLE, self::DESCRIPTION];
-
-    /** The only language this tool addresses; see the class docblock. */
-    private const DEFAULT_LANGUAGE = 0;
-
-    /** The only workspace this tool addresses; see {@see self::fetchMetadata()}. */
-    private const LIVE_WORKSPACE = 0;
 
     /**
      * The `title` column is `tinytext`, which holds 255 BYTES. Checked against
@@ -407,7 +403,7 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
             );
         }
 
-        $target = $this->resolveTarget($user, $uid);
+        $target = $this->resolveFalAsset($user, $uid, self::TITLE, self::DESCRIPTION);
         if ($target === null) {
             return self::NOT_PERMITTED;
         }
@@ -530,116 +526,6 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
         $max    = is_array($config) ? ($config['max'] ?? null) : null;
 
         return is_int($max) && $max > 0 ? $max : null;
-    }
-
-    /**
-     * The file row and its default-language metadata row, or null when the
-     * acting user may not reach the file, no file carries the uid, or the file
-     * carries no metadata record — all four collapse into one answer on purpose.
-     *
-     * @return array{array<string, mixed>, array<string, mixed>}|null
-     */
-    private function resolveTarget(BackendUserAuthentication $user, int $uid): ?array
-    {
-        $file = $this->fetchFile($uid);
-        if ($file === null) {
-            return null;
-        }
-
-        // nr_llm's own barrier, and it has to run here: the allow-list is this
-        // extension's configuration and the DataHandler cannot consult it.
-        if (!$this->storageGate->isFileAccessible($user, self::toInt($file['storage'] ?? 0), self::toStr($file['identifier'] ?? ''))) {
-            return null;
-        }
-
-        // The tool writes the default-language record, so the acting user needs
-        // access to the default language (checked against the explicit user,
-        // ADR-083).
-        if (!$user->checkLanguageAccess(self::DEFAULT_LANGUAGE)) {
-            return null;
-        }
-
-        $metadata = $this->fetchMetadata($uid);
-
-        return $metadata === null ? null : [$file, $metadata];
-    }
-
-    /**
-     * The `sys_file` row, or null when no file carries that uid.
-     *
-     * `sys_file` has no enable columns (no `deleted`, no `hidden`), so there is
-     * no restriction to keep — the storage gate is the access decision. It does
-     * NOT go through {@see PlansOneEditorialWriteTrait::fetchRowByUid()} for
-     * exactly that reason: that helper adds the deleted restriction, which this
-     * table has no column for.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchFile(int $uid): ?array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::FILE_TABLE);
-        $queryBuilder->getRestrictions()->removeAll();
-
-        $row = $queryBuilder
-            ->select('uid', 'storage', 'identifier', 'name')
-            ->from(self::FILE_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)),
-            )
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
-    }
-
-    /**
-     * The LIVE, DEFAULT-language metadata row of a file, or null when it has
-     * none.
-     *
-     * A file is looked up by `file`, not by uid, so more than one row can match
-     * and every pin below decides WHICH row this tool writes — the same three
-     * {@see SetFileAlternativeTextTool::fetchMetadata()} pins, and core's own
-     * {@see \TYPO3\CMS\Core\Resource\Index\MetaDataRepository::findByFileUid()}:
-     *
-     * - the LANGUAGE, because `sys_file_metadata` is language-aware and
-     *   `removeAll()` drops the language restriction — an arbitrary translation
-     *   could otherwise be written instead of the original;
-     * - the WORKSPACE, because the table is workspace-aware and a draft version
-     *   carries the same `file` and the same `sys_language_uid = 0` as the live
-     *   row it versions. Without the restriction the tool could write a
-     *   stranger's unpublished draft, leave the live values untouched and still
-     *   report success: {@see self::fieldsThatDidNotTake()} re-reads by the uid
-     *   it wrote, so it would confirm the wrong row rather than catch it;
-     * - the ORDER, because two candidate rows and no `ORDER BY` leave the choice
-     *   to the database.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function fetchMetadata(int $fileUid): ?array
-    {
-        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::METADATA_TABLE);
-        // Live only. The tool refuses outside the live workspace anyway, and the
-        // preview must resolve the same row the write would target.
-        $queryBuilder->getRestrictions()
-            ->removeAll()
-            ->add(GeneralUtility::makeInstance(WorkspaceRestriction::class, self::LIVE_WORKSPACE));
-
-        $row = $queryBuilder
-            ->select('uid', self::TITLE, self::DESCRIPTION)
-            ->from(self::METADATA_TABLE)
-            ->where(
-                $queryBuilder->expr()->eq('file', $queryBuilder->createNamedParameter($fileUid, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq(
-                    'sys_language_uid',
-                    $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT),
-                ),
-            )
-            ->orderBy('uid', 'ASC')
-            ->setMaxResults(1)
-            ->executeQuery()
-            ->fetchAssociative();
-
-        return is_array($row) ? $row : null;
     }
 
     /**

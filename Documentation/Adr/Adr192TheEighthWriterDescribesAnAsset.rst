@@ -82,11 +82,36 @@ The four ``plan()`` writers before it all **create** a record, and
 (:ref:`ADR-180 <adr-180>`). This one updates, so that helper does not apply and
 the datamap and the read-back are its own.
 
-Nothing is extracted for that yet, deliberately. One implementation is not a
-shape — that is the same test :ref:`ADR-146 <adr-146>` applied when it declined
-to grow :php:`WritesThroughDataHandlerTrait`, and the same reason the two
-pre-ADR-146 writers, which also update, stay unretrofitted. A **second**
-updating ``plan()`` writer is the trigger to look again.
+Nothing is extracted for *that*. One implementation is not a shape — the same
+test :ref:`ADR-146 <adr-146>` applied when it declined to grow
+:php:`WritesThroughDataHandlerTrait`. A **second** updating ``plan()`` writer is
+the trigger to look again.
+
+.. _adr-192-resolution:
+
+What WAS extracted, because it was measured
+===========================================
+
+This record first said the same about the FAL lookup, and the duplication
+detector disagreed with a number: 93 lines of the new tool against
+``set_file_alternative_text``, 5.9 % new duplicated lines on a 3 % gate. That is
+the same instrument, and the same answer, ADR-146 reached for the three writers
+it added — two copies made in one sitting are copy-paste, not two decisions — so
+:php:`ResolvesOneFalAssetTrait` now carries the resolution both metadata writers
+perform: the ``sys_file`` row, the storage gate, the default-language access
+check, and the live default-language ``sys_file_metadata`` row with the three
+pins that decide *which* row a write lands on.
+
+``set_file_alternative_text`` **is** retrofitted to it, which ADR-135 and
+ADR-146 both declined to do, and that is not a reversal of those records. They
+declined to route working code through a trait answering a DIFFERENT question,
+for a commonality that was argued rather than measured. Here the two files held
+the same query verbatim and one of the copies was days old. Its own functional
+test — the file mounts, the workspace-draft row, the neutral refusals — passes
+unchanged, which is what makes the retrofit a refactor rather than a rewrite.
+
+What stays per tool is everything the tools differ in: the refusal vocabulary,
+the fields, the read-back and the preview.
 
 .. _adr-192-measured:
 
@@ -144,8 +169,10 @@ shows the before value, which is the channel that matters for a non-admin — th
 reader is admin-only and in the ``structure`` group — but the asymmetry is real
 and is left rather than widened here.
 
-✕ The updating datamap and read-back exist twice on ``sys_file_metadata``, once
-in each of the two writers that touch it.
+✕ The updating datamap and read-back still exist twice on
+``sys_file_metadata``, once in each of the two writers that touch it. Only the
+lookup is shared; the duplication detector did not object to the rest, and
+neither does this record until a third writer makes it a shape.
 
 .. _adr-192-revisit:
 
