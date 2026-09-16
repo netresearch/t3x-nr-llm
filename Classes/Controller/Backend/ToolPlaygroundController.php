@@ -82,11 +82,12 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ToolPlaygroundController extends ActionController implements LoggerAwareInterface
 {
-    use RequiresBackendAdminTrait;
-    use LoggerAwareTrait;
-    use ErrorMessageSanitizerTrait;
-    use DefensiveLocalizationTrait;
     use BackendUserUidTrait;
+    use DefensiveLocalizationTrait;
+    use ErrorMessageSanitizerTrait;
+    use LoggerAwareTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     /**
      * Minimum byte length of each streamed NDJSON line. A TYPO3 backend AJAX
@@ -125,7 +126,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
         $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Playground.css');
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
             'configurations' => $this->configurationRepository->findAll(),
             'toolStates' => $this->toolAvailability->states(),

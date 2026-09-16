@@ -37,8 +37,9 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class SkillSourceController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -64,7 +65,7 @@ final class SkillSourceController extends ActionController
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/SkillList.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         // "Add source" button in the docheader → FormEngine new-record form for
         // tx_nrllm_skill_source, returning to this module after save/close.

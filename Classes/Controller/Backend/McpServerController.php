@@ -47,6 +47,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 final class McpServerController extends ActionController
 {
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
 
     public function __construct(
@@ -62,7 +63,7 @@ final class McpServerController extends ActionController
     {
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/McpImport.js');
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $servers = [];
         foreach ($this->servers->findAll() as $server) {

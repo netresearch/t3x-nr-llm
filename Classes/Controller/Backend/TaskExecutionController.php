@@ -72,9 +72,10 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 final class TaskExecutionController extends ActionController
 {
     use BackendUserUidTrait;
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use ProviderMisconfigurationTrait;
+    use RequiresBackendAdminTrait;
 
     private const TABLE_NAME = 'tx_nrllm_task';
 
@@ -97,7 +98,7 @@ final class TaskExecutionController extends ActionController
     public function executeFormAction(int $uid): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $task = $this->taskRepository->findByUid($uid);
         if ($task === null) {

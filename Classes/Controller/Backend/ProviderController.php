@@ -49,9 +49,10 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class ProviderController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use ProviderMisconfigurationTrait;
+    use RequiresBackendAdminTrait;
 
     private const TABLE_NAME = 'tx_nrllm_provider';
 
@@ -75,7 +76,7 @@ final class ProviderController extends ActionController
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
-        $this->moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($this->moduleTemplate, $this->request);
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [

@@ -46,6 +46,7 @@ final class AiTaskController extends ActionController
 {
     use BackendUserUidTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
 
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
@@ -79,6 +80,7 @@ final class AiTaskController extends ActionController
         }
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         $moduleTemplate->assignMultiple([
@@ -100,6 +102,7 @@ final class AiTaskController extends ActionController
         }
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         $task = $this->taskRepository->findByUid($uid);

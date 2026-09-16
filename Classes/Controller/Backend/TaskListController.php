@@ -39,6 +39,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class TaskListController extends ActionController
 {
+    use ModuleChromeTrait;
+
     private const TABLE_NAME = 'tx_nrllm_task';
 
     public function __construct(
@@ -55,7 +57,7 @@ final class TaskListController extends ActionController
     public function listAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         /** @var QueryResultInterface<int, Task>&Countable $tasks */
         $tasks = $this->taskRepository->findAll();

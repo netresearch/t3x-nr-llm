@@ -83,8 +83,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class AgentRunController extends ActionController
 {
-    use DefensiveLocalizationTrait;
     use BackendUserUidTrait;
+    use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
 
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
@@ -104,7 +105,7 @@ final class AgentRunController extends ActionController
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
-        $this->moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($this->moduleTemplate, $this->request);
         // Progressive enhancement only: the page is fully operable without it.
         // The module moves focus to a 422 error summary reliably and confirms a
         // Deny before it submits.

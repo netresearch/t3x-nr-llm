@@ -58,8 +58,9 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class SetupWizardController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     private const ERROR_ENDPOINT_REQUIRED = 'Endpoint URL is required';
 
@@ -85,7 +86,7 @@ final class SetupWizardController extends ActionController
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
-        $this->moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($this->moduleTemplate, $this->request);
 
         // Register AJAX URLs for wizard JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [

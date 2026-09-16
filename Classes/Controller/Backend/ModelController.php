@@ -50,8 +50,9 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class ModelController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     private const TABLE_NAME = 'tx_nrllm_model';
 
@@ -82,7 +83,7 @@ final class ModelController extends ActionController
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
-        $this->moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($this->moduleTemplate, $this->request);
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [

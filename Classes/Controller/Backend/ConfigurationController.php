@@ -62,8 +62,9 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class ConfigurationController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     private const TABLE_NAME = 'tx_nrllm_configuration';
 
@@ -98,7 +99,7 @@ final class ConfigurationController extends ActionController
         $this->moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
-        $this->moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($this->moduleTemplate, $this->request);
 
         // Register AJAX URLs for JavaScript
         $this->pageRenderer->addInlineSettingArray('ajaxUrls', [

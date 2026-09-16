@@ -33,6 +33,8 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 #[AsController]
 final class AnalyticsController extends ActionController
 {
+    use ModuleChromeTrait;
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly UsageAnalyticsServiceInterface $analytics,
@@ -45,7 +47,7 @@ final class AnalyticsController extends ActionController
     public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $this->pageRenderer->addCssFile('EXT:nr_llm/Resources/Public/Css/Backend/Analytics.css');
         $this->pageRenderer->addJsFile('EXT:nr_llm/Resources/Public/JavaScript/Vendor/chart.umd.js');
