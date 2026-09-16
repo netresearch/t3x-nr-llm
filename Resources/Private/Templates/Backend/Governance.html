@@ -82,6 +82,21 @@
     </p>
 
     <f:form action="governance" method="get" class="row g-2 align-items-end mb-3">
+        <!-- The module route's token, carried by hand.
+
+             A GET form replaces the query string of the action URI with its own
+             fields when the browser submits it, and the token lives in that
+             query string: ExtbaseUriBuilder::buildBackendUri() unsets the
+             inherited one and lets the backend UriBuilder mint a fresh one into
+             the action URI, where the submit then drops it. TYPO3 answers a
+             module route without a token by bouncing it through the backend
+             shell - /typo3/main?redirect=<route>&redirectParams=<the fields> -
+             and the shell renders inside the module frame, which is the backend
+             appearing inside the backend that was reported from the demo.
+
+             The controller reads these filters from getQueryParams(), so the
+             form stays GET and the token travels as a field instead. -->
+        <f:form.hidden name="token" value="{moduleToken}" />
         <div class="col-auto">
             <label class="form-label" for="simulateConfiguration"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:governance.simulator.configuration" default="Configuration" /></label>
             <f:form.select id="simulateConfiguration" name="simulateConfiguration" class="form-select form-select-sm"
@@ -321,6 +336,21 @@
     </p>
 
     <f:form action="governance" method="get" class="row g-2 align-items-end mb-3">
+        <!-- The module route's token, carried by hand.
+
+             A GET form replaces the query string of the action URI with its own
+             fields when the browser submits it, and the token lives in that
+             query string: ExtbaseUriBuilder::buildBackendUri() unsets the
+             inherited one and lets the backend UriBuilder mint a fresh one into
+             the action URI, where the submit then drops it. TYPO3 answers a
+             module route without a token by bouncing it through the backend
+             shell - /typo3/main?redirect=<route>&redirectParams=<the fields> -
+             and the shell renders inside the module frame, which is the backend
+             appearing inside the backend that was reported from the demo.
+
+             The controller reads these filters from getQueryParams(), so the
+             form stays GET and the token travels as a field instead. -->
+        <f:form.hidden name="token" value="{moduleToken}" />
         <div class="col-auto">
             <label class="form-label" for="routeConfiguration"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:routing.configuration" default="Configuration" /></label>
             <f:form.select id="routeConfiguration" name="routeConfiguration" class="form-select form-select-sm"

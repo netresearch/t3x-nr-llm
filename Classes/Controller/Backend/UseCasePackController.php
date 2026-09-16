@@ -56,6 +56,7 @@ use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 final class UseCasePackController extends ActionController
 {
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
 
     private const LANG = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
 
@@ -74,7 +75,7 @@ final class UseCasePackController extends ActionController
     public function indexAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $groups = [];
         foreach (UseCase::cases() as $useCase) {
@@ -108,7 +109,7 @@ final class UseCasePackController extends ActionController
         }
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $moduleTemplate->assignMultiple([
             'pack' => $useCasePack,

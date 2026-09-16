@@ -35,6 +35,8 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class PromptSnippetController extends ActionController
 {
+    use ModuleChromeTrait;
+
     private const TABLE_NAME = 'tx_nrllm_promptsnippet';
 
     private const MODULE_ROUTE = 'nrllm_snippets';
@@ -52,7 +54,7 @@ final class PromptSnippetController extends ActionController
     public function listAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         /** @var QueryResultInterface<int, PromptSnippet>&Countable $snippets */
         $snippets = $this->promptSnippetRepository->findAll();

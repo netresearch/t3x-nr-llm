@@ -1392,7 +1392,7 @@
                 <source>Start and send for approval</source>
             </trans-unit>
             <trans-unit id="editorActions.needsRecord">
-                <source>Select a record to start this action.</source>
+                <source>To start this: right-click a page or content element and choose "AI actions".</source>
             </trans-unit>
             <trans-unit id="editorActions.empty">
                 <source>No AI actions are available to you here. Your administrator enables the writing tools and the LLM configuration they run under.</source>

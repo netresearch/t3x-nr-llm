@@ -55,9 +55,10 @@ use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 #[AsController]
 final class TaskWizardController extends ActionController
 {
-    use SafeCastTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use ProviderMisconfigurationTrait;
+    use SafeCastTrait;
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -75,7 +76,7 @@ final class TaskWizardController extends ActionController
     public function wizardFormAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $this->pageRenderer->loadJavaScriptModule('@netresearch/nr-llm/Backend/WizardFormLoading.js');
 
@@ -101,7 +102,7 @@ final class TaskWizardController extends ActionController
     public function wizardGenerateAction(string $description = '', int $configurationUid = 0): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $description = trim($description);
         if ($description === '') {
@@ -150,7 +151,7 @@ final class TaskWizardController extends ActionController
     public function wizardGenerateChainAction(string $description = '', int $configurationUid = 0): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         $description = trim($description);
         if ($description === '') {

@@ -53,6 +53,7 @@ final class EditorActionController extends ActionController
 {
     use BackendUserUidTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
 
     private const LL = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:';
@@ -83,7 +84,7 @@ final class EditorActionController extends ActionController
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
             'groups'      => $this->catalogue->groupsFor($this->viewer(), $hasSubject ? $recordTable : ''),
             // A uid of 0 is falsy in Fluid and would take the else branch of a
@@ -175,7 +176,7 @@ final class EditorActionController extends ActionController
 
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $moduleTemplate->setFlashMessageQueue($this->getFlashMessageQueue());
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $moduleTemplate->assignMultiple([
             'plan'        => $plan,
             'toolName'    => $toolName,

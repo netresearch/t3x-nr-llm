@@ -58,8 +58,9 @@ use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 #[AsController]
 final class LlmModuleController extends ActionController
 {
-    use RequiresBackendAdminTrait;
     use DefensiveLocalizationTrait;
+    use ModuleChromeTrait;
+    use RequiresBackendAdminTrait;
 
     /** How far back the routed-call readout looks (ADR-156). */
     private const ROUTED_CALL_WINDOW_DAYS = 7;
@@ -98,7 +99,7 @@ final class LlmModuleController extends ActionController
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $this->buildDocHeaderTabMenu($moduleTemplate, 'dashboard');
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -215,7 +216,7 @@ final class LlmModuleController extends ActionController
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
 
         // Add module menu dropdown to docheader (shows all LLM sub-modules)
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
             $moduleTemplate->getDocHeaderComponent()->setShortcutContext(
@@ -300,7 +301,7 @@ final class LlmModuleController extends ActionController
     public function governanceAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $this->buildDocHeaderTabMenu($moduleTemplate, 'governance');
 
         if (method_exists($moduleTemplate->getDocHeaderComponent(), 'setShortcutContext')) {
@@ -346,6 +347,12 @@ final class LlmModuleController extends ActionController
             'simulateTool'          => $this->queryParam('simulateTool'),
             'simulateConfiguration' => $this->queryParam('simulateConfiguration'),
             'simulateActor'         => $this->queryParam('simulateActor'),
+            // The route token, for the two GET filter forms on this page. See
+            // the comment beside the hidden field in Governance.html: a GET
+            // submit replaces the action URI's query string, the token lives
+            // there, and a module route without one is bounced through the
+            // backend shell.
+            'moduleToken'           => $this->queryParam('token'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
@@ -573,7 +580,7 @@ final class LlmModuleController extends ActionController
     public function helpAction(): ResponseInterface
     {
         $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $moduleTemplate->makeDocHeaderModuleMenu();
+        $this->applyModuleChrome($moduleTemplate, $this->request);
         $this->buildDocHeaderTabMenu($moduleTemplate, 'help');
 
         $moduleTemplate->assignMultiple([
