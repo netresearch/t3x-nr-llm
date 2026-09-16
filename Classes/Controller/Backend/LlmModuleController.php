@@ -347,6 +347,12 @@ final class LlmModuleController extends ActionController
             'simulateTool'          => $this->queryParam('simulateTool'),
             'simulateConfiguration' => $this->queryParam('simulateConfiguration'),
             'simulateActor'         => $this->queryParam('simulateActor'),
+            // The route token, for the two GET filter forms on this page. See
+            // the comment beside the hidden field in Governance.html: a GET
+            // submit replaces the action URI's query string, the token lives
+            // there, and a module route without one is bounced through the
+            // backend shell.
+            'moduleToken'           => $this->queryParam('token'),
             'policyRows'     => $policyRows,
             'profiles'       => GovernanceProfile::cases(),
             'profile'        => $profile,
