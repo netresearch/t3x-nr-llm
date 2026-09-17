@@ -209,9 +209,10 @@ available models, and generates a ready-to-use configuration. Paste your API key
 - **No vendor lock-in** — Switch from OpenAI to Anthropic (or a local model) without code changes
 - **Compliance-friendly** — Encrypted keys, grant-based access control, SBOM and SLSA provenance on every release
 - **Local-first option** — Ollama support means AI features work without sending data to external APIs
-- **Production-proven** — Six extensions build on it today, from the CKEditor 5 writing
-  assistant [t3x-cowriter](https://github.com/netresearch/t3x-cowriter) to the backend AI chat
-  [t3x-nr-mcp-agent](https://github.com/netresearch/t3x-nr-mcp-agent); the full list is below
+- **Production-proven** — Powers [t3x-cowriter](https://github.com/netresearch/t3x-cowriter),
+  the CKEditor 5 AI writing assistant for TYPO3
+- **Six extensions build on it today** — from that writing assistant to a backend AI chat and a
+  landing-page generator; the full list, and how far each one has got, is below
 
 ---
 
@@ -220,7 +221,7 @@ available models, and generates a ready-to-use configuration. Paste your API key
 | Extension | What it does | nr-llm services used |
 |---|---|---|
 | [t3x-cowriter](https://github.com/netresearch/t3x-cowriter) | AI writing assistant in CKEditor 5 | `TranslationServiceInterface`, `VisionServiceInterface`, tools, chat options |
-| [t3x-nr-mcp-agent](https://github.com/netresearch/t3x-nr-mcp-agent) | AI chat in the TYPO3 backend, with tool use and human approval | `AgentRuntimeInterface`, `AgentRunRequest`/`AgentRunResult`, `ApprovalDecision`, the approval inbox |
+| [t3x-nr-mcp-agent](https://github.com/netresearch/t3x-nr-mcp-agent) | AI chat in the TYPO3 backend, with tool use and human approval — a proof of concept, by its own README | `AgentRuntimeInterface`, `AgentRunRequest`/`AgentRunResult`, `ApprovalDecision`, the approval inbox |
 | [t3x-nr-repurpose](https://github.com/netresearch/t3x-nr-repurpose) | Turns one piece of content into briefs, podcasts, diagrams and story slides | `CompletionServiceInterface`, `VisionServiceInterface`, image and speech services, configuration presets |
 | [nr-landingpage](https://github.com/netresearch/nr-landingpage) | Generates landing pages from a template and a briefing | `CompletionServiceInterface`, image service, `LlmServiceManagerInterface` |
 | [t3x-nr-llm-compat](https://github.com/netresearch/t3x-nr-llm-compat) | Routes third-party AI extensions through nr-llm instead of their own provider calls | `CompletionServiceInterface`, `VisionServiceInterface` |
