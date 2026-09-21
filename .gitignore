@@ -3,6 +3,10 @@
 vendor/
 node_modules/
 
+# Generated Python bytecode (keep the reviewable .py sources)
+__pycache__/
+*.py[cod]
+
 # Composer
 composer.lock
 
