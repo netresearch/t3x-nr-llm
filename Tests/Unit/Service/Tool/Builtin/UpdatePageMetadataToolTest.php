@@ -274,7 +274,7 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         self::assertStringContainsString('"", "summary", "summary_large_image"', $description);
         // A plain text field carries no such list.
         self::assertIsArray($properties['title'] ?? null);
-        self::assertStringNotContainsString('one of', self::toStringValue($properties['title']['description'] ?? null));
+        self::assertStringNotContainsString('one of', $this->toStringValue($properties['title']['description'] ?? null));
     }
 
     #[Test]
@@ -355,7 +355,7 @@ final class UpdatePageMetadataToolTest extends AbstractUnitTestCase
         ];
     }
 
-    private static function toStringValue(mixed $value): string
+    private function toStringValue(mixed $value): string
     {
         return is_string($value) ? $value : '';
     }
