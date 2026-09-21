@@ -318,7 +318,9 @@ What holds for all of them:
    Sets a fixed set of descriptive fields on one page. Editable: ``title``,
    ``subtitle``, ``nav_title``, ``abstract``, ``description``, ``keywords``
    and — when EXT:seo is installed — ``seo_title``, ``og_title``,
-   ``og_description``, ``twitter_title``, ``twitter_description``. Anything
+   ``og_description``, ``twitter_title``, ``twitter_description`` and
+   ``twitter_card``. The last one is a select: its value must be one of the
+   items the TCA declares, and the refusal names them. Anything
    else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
    ``no_index``, the image relations …) is refused. Authorised by the acting
    user's page-edit right; the DataHandler then enforces ``tables_modify`` and
@@ -350,7 +352,8 @@ What holds for all of them:
 ``update_fal_asset_meta``
    Sets the **title** and the **description** (``sys_file_metadata.title``,
    ``sys_file_metadata.description``) of one managed file, identified by its
-   ``sys_file`` uid. Either field may be given, or both; at least one is
+   ``sys_file`` uid, and the **copyright** notice where EXT:filemetadata
+   provides the column. Any of the fields may be given; at least one is
    required.
 
    It is a second tool rather than a wider ``set_file_alternative_text``

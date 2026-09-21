@@ -9,6 +9,7 @@ ADR-192: The eighth writer describes an asset, and stays out of the seventh's fi
 :Status: Accepted
 :Date: 2026-09-16
 :Amends: :ref:`ADR-135 <adr-135>` (a second writer on ``sys_file_metadata``)
+:Amended: 2026-09-21 by :ref:`ADR-194 <adr-194>`
 :Authors: Netresearch DTT GmbH
 
 .. _adr-192-context:
@@ -46,6 +47,8 @@ writers after it to.
 
 It writes ``title`` and ``description``, either or both, on one file's live
 default-language metadata record. It does **not** write ``alternative``.
+:ref:`ADR-194 <adr-194>` added ``copyright`` where EXT:filemetadata declares
+the column.
 
 .. _adr-192-disjoint:
 

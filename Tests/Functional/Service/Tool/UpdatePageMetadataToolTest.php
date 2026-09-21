@@ -281,6 +281,31 @@ final class UpdatePageMetadataToolTest extends AbstractFunctionalTestCase
         self::assertSame('/', $row['slug'] ?? null);
     }
 
+    /**
+     * EXT:seo is not loaded in this test case, so `pages.twitter_card` exists in
+     * neither the TCA nor the database: the field is not offered and a call
+     * naming it is refused like any other unknown field (ADR-194).
+     * {@see UpdatePageMetadataToolTwitterCardTest} holds the other direction.
+     */
+    #[Test]
+    public function withoutExtSeoTheCardTypeIsNeitherOfferedNorAccepted(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        self::assertArrayNotHasKey('twitter_card', $properties);
+
+        $result = $this->tool->execute(
+            ['uid' => self::PAGE_ADMIN_ONLY, 'title' => 'New title', 'twitter_card' => 'summary'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"twitter_card" is not an editable page metadata field', $result->content);
+        self::assertSame('Home', $this->pageRow(self::PAGE_ADMIN_ONLY)['title'] ?? null);
+    }
+
     #[Test]
     public function aWorkspaceOtherThanLiveIsRefused(): void
     {
