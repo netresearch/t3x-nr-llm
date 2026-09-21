@@ -433,12 +433,25 @@ What holds for all of them:
    - It is **always hidden**. There is no argument to switch that off:
      publishing is a separate act with a separate audience, and the approval
      that let the tool run approved a draft.
-   - The content type is an allow-list (``header``, ``text``, ``textmedia``,
-     ``bullets``) intersected with what the installation's TCA actually
-     declares. Types whose payload is configuration rather than prose — ``list``
-     (a plugin), ``html``, ``shortcut`` — are out of reach.
-   - The field set is fixed: headline, body text, column, language, position.
-     This is not a generic record API.
+   - The content types are read from the installation's TCA at call time,
+     under an exclusion rule (:ref:`ADR-196 <adr-196>`). A type is offered
+     unless it is denied by name — ``list`` (a plugin), ``html``, ``shortcut``,
+     ``div``, every ``menu_*`` — or its form holds a column whose payload is
+     not prose: a FlexForm, inline children, a group or folder reference, a
+     slug, a password. File, category and link relations do not exclude a
+     type; the draft leaves them empty, so ``textmedia`` is offered and gets
+     its media through ``attach_file_to_content_element``. The tool
+     description lists what the installation offers.
+   - The field set is the type's own scalar columns: headline, body text,
+     column, language and position as arguments, and every further ``input``,
+     ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,
+     ``radio``, ``color`` or ``email`` column of the chosen type through
+     ``fields``, validated against its TCA type. Identity, position,
+     visibility, publication, audience and translation columns are refused by
+     name; a wrong key or value refuses the whole call and names the columns
+     the type offers. The acting user's exclude-field grants are checked per
+     column before the write. This is still not a generic record API: the
+     table is fixed and a relation is never an argument.
 
    ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
    editor's input does. It is bounded in length and not otherwise filtered — an

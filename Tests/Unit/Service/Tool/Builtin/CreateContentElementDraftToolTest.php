@@ -50,9 +50,13 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
             'BE_USER' => $GLOBALS['BE_USER'] ?? null,
         ];
 
-        // `textmedia` and `bullets` come from fluid_styled_content and are
-        // deliberately ABSENT, so the allow-list ∩ live-TCA intersection is
-        // genuinely exercised. `html` is present and must still be unreachable.
+        // Five declared types, of which two pass the exclusion rule
+        // (ADR-196): `header` and `text` hold scalar columns only; `html` is
+        // on the deny-list although its form is scalar; `plugin_like` carries
+        // a FlexForm column; `record_like` a select backed by a foreign table.
+        // `textmedia` and `bullets` are deliberately ABSENT, so the list is
+        // genuinely read from this TCA. `header` narrows `subheader` through
+        // `columnsOverrides`, the way core narrows `bodytext` per type.
         $GLOBALS['TCA'] = ['tt_content' => [
             'ctrl'    => ['enablecolumns' => ['disabled' => 'hidden']],
             'columns' => [
@@ -60,10 +64,33 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     ['label' => 'Header only', 'value' => 'header'],
                     ['label' => 'Text', 'value' => 'text'],
                     ['label' => 'Raw HTML', 'value' => 'html'],
+                    ['label' => 'Plugin-like', 'value' => 'plugin_like'],
+                    ['label' => 'Record-like', 'value' => 'record_like'],
                 ]]],
-                'header'   => ['config' => ['type' => 'input']],
-                'bodytext' => ['config' => ['type' => 'text']],
-                'hidden'   => ['config' => ['type' => 'check']],
+                'header'       => ['config' => ['type' => 'input']],
+                'subheader'    => ['config' => ['type' => 'input', 'max' => 40]],
+                'bodytext'     => ['config' => ['type' => 'text']],
+                'layout'       => ['config' => ['type' => 'select', 'items' => [
+                    ['label' => 'Default', 'value' => '0'],
+                    ['label' => 'Layout 1', 'value' => '1'],
+                ]]],
+                'sectionIndex' => ['config' => ['type' => 'check']],
+                'hidden'       => ['config' => ['type' => 'check']],
+                'pi_flexform'  => ['config' => ['type' => 'flex']],
+                'records'      => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
+            ],
+            'palettes' => [
+                'headers' => ['showitem' => 'header, --linebreak--, subheader'],
+            ],
+            'types' => [
+                'header'      => [
+                    'showitem'         => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden',
+                    'columnsOverrides' => ['subheader' => ['config' => ['max' => 10]]],
+                ],
+                'text'        => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
+                'html'        => ['showitem' => 'header, bodytext, hidden'],
+                'plugin_like' => ['showitem' => 'header, pi_flexform, hidden'],
+                'record_like' => ['showitem' => 'header, records, hidden'],
             ],
         ]];
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
@@ -183,12 +210,23 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'zero page'  => [['page' => 0, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
         yield 'negative page' => [['page' => -1, 'type' => 'text', 'header' => 'x'], 'exactly one page'];
         yield 'no type'    => [['page' => 1, 'header' => 'x'], 'not a content type this tool creates'];
-        // Present in the fixture TCA and still unreachable: the allow-list is
-        // the bar, the TCA only narrows it further.
+        // Declared in the fixture TCA with a scalar form and still unreachable:
+        // the deny-list is asked before the form is read.
         yield 'html type'  => [['page' => 1, 'type' => 'html', 'header' => 'x'], 'not a content type this tool creates'];
         yield 'plugin type' => [['page' => 1, 'type' => 'list', 'header' => 'x'], 'not a content type this tool creates'];
-        // Allow-listed but absent from the fixture TCA, so this installation
-        // cannot render it and the tool must not offer it.
+        // Declared, not denied, and excluded by the FlexForm column in its form.
+        yield 'type with a flexform column' => [
+            ['page' => 1, 'type' => 'plugin_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // Declared, not denied, and excluded by the record-backed select in its
+        // form: a `select` counts as scalar only with static items.
+        yield 'type with a foreign_table select' => [
+            ['page' => 1, 'type' => 'record_like', 'header' => 'x'],
+            'not a content type this tool creates',
+        ];
+        // Absent from the fixture TCA, so this installation cannot render it
+        // and the tool must not offer it.
         yield 'type not in this tca' => [
             ['page' => 1, 'type' => 'textmedia', 'header' => 'x'],
             'not a content type this tool creates',
@@ -210,6 +248,31 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'unknown argument'  => [$valid + ['hidden' => 0], 'not an argument of this tool'];
         // The one that would defeat the tool's single guarantee.
         yield 'pid smuggled in'   => [$valid + ['pid' => 5], 'not an argument of this tool'];
+        // The same guarantee, through the new argument: the visibility column
+        // is refused by name, before the type's form is consulted.
+        yield 'fields not an object' => [$valid + ['fields' => 'layout=1'], '"fields" must be an object'];
+        yield 'hidden via fields'    => [$valid + ['fields' => ['hidden' => 0]], '"hidden" cannot be set through "fields"'];
+        yield 'pid via fields'       => [$valid + ['fields' => ['pid' => 5]], '"pid" cannot be set through "fields"'];
+        yield 'header via fields'    => [$valid + ['fields' => ['header' => 'y']], 'pass it as the "header" argument'];
+        yield 'column not in the form' => [
+            $valid + ['fields' => ['nope' => 1]],
+            '"nope" is not a scalar column of content type "text". Columns this tool sets for it: subheader, layout, sectionIndex.',
+        ];
+        // A real column of the table, absent from this type's form and not
+        // scalar either: the membership test is the type's form, not the table.
+        yield 'table column outside the form' => [
+            $valid + ['fields' => ['pi_flexform' => '<T3FlexForms/>']],
+            '"pi_flexform" is not a scalar column of content type "text"',
+        ];
+        yield 'select outside its items' => [$valid + ['fields' => ['layout' => '9']], 'must be one of: "0", "1"'];
+        yield 'check that is not a boolean' => [$valid + ['fields' => ['sectionIndex' => 'yes']], 'must be true, false, 0 or 1'];
+        yield 'input over the tca max' => [$valid + ['fields' => ['subheader' => str_repeat('a', 41)]], 'exceeds 40 characters'];
+        // The same column, narrowed by the type's `columnsOverrides`: the bound
+        // is the one the DataHandler will apply for THIS type, not the column's own.
+        yield 'input over the type-overridden max' => [
+            ['page' => 1, 'type' => 'header', 'header' => 'x', 'fields' => ['subheader' => str_repeat('a', 11)]],
+            'exceeds 10 characters',
+        ];
     }
 
     /**
@@ -239,17 +302,83 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function theOfferedTypesAreTheAllowListNarrowedByTheLiveTca(): void
+    public function theOfferedTypesAreReadFromTheLiveTcaUnderTheExclusionRule(): void
     {
-        $description = $this->tool->getSpec()->parameters['properties']['type']['description'] ?? '';
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $type = $properties['type'] ?? null;
+        self::assertIsArray($type);
+        $description = $type['description'] ?? '';
         self::assertIsString($description);
 
-        // The description names the full allow-list — it is what a model should
-        // choose from across installations — while the refusal above names only
-        // what THIS installation can render.
-        self::assertStringContainsString('textmedia', $description);
+        // Exactly what THIS installation declares and the rule lets through:
+        // not the denied `html`, not the FlexForm-carrying `plugin_like`, and
+        // not a type the TCA does not declare.
+        self::assertStringContainsString('One of: header, text.', $description);
         self::assertStringNotContainsString('html', $description);
-        self::assertStringNotContainsString('list', $description);
+        self::assertStringNotContainsString('plugin_like', $description);
+        self::assertStringNotContainsString('record_like', $description);
+        self::assertStringNotContainsString('textmedia', $description);
+    }
+
+    #[Test]
+    public function theSpecDeclaresFieldsAsAnObjectWithFreeScalarKeys(): void
+    {
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $fields = $properties['fields'] ?? null;
+        self::assertIsArray($fields);
+
+        self::assertSame('object', $fields['type'] ?? null);
+        // Free keys — the allowed ones come from the chosen type's TCA and are
+        // not enumerated here — with scalar values only.
+        self::assertSame(['type' => ['string', 'boolean', 'number']], $fields['additionalProperties'] ?? null);
+        $description = $fields['description'] ?? '';
+        self::assertIsString($description);
+        self::assertStringContainsString('TCA', $description);
+
+        $required = $this->tool->getSpec()->parameters['required'] ?? null;
+        self::assertIsArray($required);
+        self::assertNotContains('fields', $required);
+    }
+
+    #[Test]
+    public function withoutATcaNoTypeIsOfferedAndTheSpecSaysSo(): void
+    {
+        unset($GLOBALS['TCA']);
+
+        $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        $type = $properties['type'] ?? null;
+        self::assertIsArray($type);
+
+        self::assertSame('The content type (CType). One of: none in this process.', $type['description'] ?? null);
+    }
+
+    /**
+     * The tool reads the disabled column's name from `ctrl.enablecolumns` for
+     * its own write, so an installation that renamed it must find that name
+     * refused as a `fields` key too — under the standard name alone, `fields`
+     * could unhide the draft in the same write that hides it.
+     */
+    #[Test]
+    public function theRenamedVisibilityColumnIsRefusedThroughFieldsUnderTheInstallationsName(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => [
+            'ctrl'    => ['enablecolumns' => ['disabled' => 'invisible']],
+            'columns' => ['invisible' => ['config' => ['type' => 'check']]],
+            'types'   => ['text' => ['showitem' => '--palette--;;headers, bodytext, invisible']],
+        ]]);
+
+        $result = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['invisible' => 0]],
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"invisible" cannot be set through "fields"', $result->content);
     }
 
     #[Test]
