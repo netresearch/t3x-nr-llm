@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -42,6 +43,12 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     private const PAGE_OPEN = 2;
 
     private const EXISTING_ELEMENT = 20;
+
+    /** Defined by {@see self::defineSiteLanguages()}. */
+    private const GERMAN = 1;
+
+    /** Defined by {@see self::defineSiteLanguages()}. */
+    private const FRENCH = 2;
 
     private CreateContentElementDraftTool $tool;
 
@@ -304,11 +311,298 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The incident ADR-193 records: a free element in a language the page
+     * already holds CONNECTED translations in makes the page module report
+     * "Inconsistent content detected". Refused before anything is written.
+     */
+    #[Test]
+    public function aFreeElementIsRefusedOnAPageHoldingAConnectedTranslationInThatLanguage(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringStartsWith('Refused: page [2] already holds connected translations in language 1', $result->content);
+        self::assertStringContainsString('default language (0)', $result->content);
+        self::assertStringContainsString('create_translation_draft', $result->content);
+        self::assertSame(2, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
+     * Core counts hidden rows when it judges a page's translation mode, and
+     * every draft this extension writes is hidden.
+     */
+    #[Test]
+    public function aHiddenConnectedTranslationRefusesTheFreeElementToo(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT, ['hidden' => 1]);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('already holds connected translations in language 1', $result->content);
+        self::assertSame(2, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
+     * A connected translation that so far exists only as another workspace's
+     * draft counts as well: publishing that workspace would mix the page.
+     */
+    #[Test]
+    public function aConnectedTranslationDraftedInAWorkspaceRefusesTheFreeElementToo(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT, ['t3ver_wsid' => 1, 't3ver_state' => 1]);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('already holds connected translations in language 1', $result->content);
+        self::assertSame(2, $this->elementCount(), 'nothing may have been created');
+    }
+
+    #[Test]
+    public function thePreviewShowsTheRefusalAndTheViewerGateFollowsIt(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT);
+
+        $arguments = ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN];
+
+        $lines = $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertCount(1, $lines);
+        self::assertStringStartsWith('Refused: page [2] already holds connected translations in language 1', $lines[0]);
+        self::assertFalse($this->tool->mayViewerReadPreview($arguments, $admin));
+    }
+
+    /**
+     * The refusal names the page, so it must come after the neutral one: a user
+     * who may not edit the page learns nothing about what is on it.
+     */
+    #[Test]
+    public function theRefusalDoesNotDescribeAPageTheUserMayNotEdit(): void
+    {
+        $editor = $this->setUpBackendUser(2);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, 0, ['pid' => self::PAGE_CLOSED]);
+        $this->insertElement(22, self::GERMAN, 21, ['pid' => self::PAGE_CLOSED]);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_CLOSED, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
+    }
+
+    /**
+     * Free mode stays legitimate: a page without any element in the language
+     * takes a standalone one, in the language asked for.
+     */
+    #[Test]
+    public function aLanguageThePageHoldsNothingInIsStillAllowed(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+
+        $row = $this->createdElement();
+        self::assertSame(self::GERMAN, (int)($row['sys_language_uid'] ?? -1));
+        self::assertSame(0, (int)($row['l18n_parent'] ?? -1));
+    }
+
+    /**
+     * A page that only ever holds free elements in a language is consistent,
+     * so one more of them is not refused.
+     */
+    #[Test]
+    public function aPageHoldingOnlyFreeElementsInThatLanguageTakesAnotherOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, 0);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Noch eines', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+    }
+
+    /**
+     * The integrator's opt-in, the same switch that silences core's warning.
+     */
+    #[Test]
+    public function allowInconsistentLanguageHandlingInPageTsConfigLiftsTheRefusal(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT);
+        $this->connectionPool->getConnectionForTable('pages')->update(
+            'pages',
+            ['TSconfig' => 'mod.web_layout.allowInconsistentLanguageHandling = 1'],
+            ['uid' => self::PAGE_OPEN],
+        );
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+    }
+
+    /**
+     * Core never judges the default language — `getTranslationData()` returns
+     * early for it — so not even a malformed default-language row carrying a
+     * translation parent refuses an element there.
+     */
+    #[Test]
+    public function theDefaultLanguageIsUnaffectedOnThePageThatRefusesAnotherLanguage(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT);
+        $this->insertElement(22, 0, self::EXISTING_ELEMENT);
+
+        $refused = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+        self::assertTrue($refused->isError, 'the fixture must be a page that refuses language 1');
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Default language'],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(0, (int)($this->createdElement(21, 22)['sys_language_uid'] ?? -1));
+    }
+
+    #[Test]
+    public function aConnectedTranslationInAnotherLanguageDoesNotRefuseThisOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::FRENCH, self::EXISTING_ELEMENT);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+    }
+
+    #[Test]
+    public function aConnectedTranslationOnAnotherPageDoesNotRefuseThisOne(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, 0, 0, ['pid' => self::PAGE_CLOSED]);
+        $this->insertElement(22, self::GERMAN, 21, ['pid' => self::PAGE_CLOSED]);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::PAGE_OPEN, (int)($this->createdElement(21, 22)['pid'] ?? 0));
+    }
+
+    /**
+     * Core excludes deleted rows when it judges the mode, so a translation
+     * somebody removed no longer makes the page a connected one.
+     */
+    #[Test]
+    public function aDeletedConnectedTranslationDoesNotRefuse(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        $this->defineSiteLanguages();
+        $this->insertElement(21, self::GERMAN, self::EXISTING_ELEMENT, ['deleted' => 1]);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'type' => 'text', 'header' => 'Frei', 'language' => self::GERMAN],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(self::GERMAN, (int)($this->createdElement(21)['sys_language_uid'] ?? -1));
+    }
+
+    /**
+     * A site with two translation languages on the open page. The DataHandler
+     * resolves a record's language through the site, so the tests that create
+     * an element in language 1 need one.
+     */
+    private function defineSiteLanguages(): void
+    {
+        $siteWriter = $this->get(SiteWriter::class);
+        self::assertInstanceOf(SiteWriter::class, $siteWriter);
+        $siteWriter->write('testing', [
+            'rootPageId' => self::PAGE_OPEN,
+            'base'       => 'https://example.com/',
+            'languages'  => [
+                ['languageId' => 0, 'title' => 'English', 'base' => '/', 'locale' => 'en_US.UTF-8', 'flag' => 'us'],
+                ['languageId' => self::GERMAN, 'title' => 'German', 'base' => '/de/', 'locale' => 'de_DE.UTF-8', 'flag' => 'de'],
+                ['languageId' => self::FRENCH, 'title' => 'French', 'base' => '/fr/', 'locale' => 'fr_FR.UTF-8', 'flag' => 'fr'],
+            ],
+        ]);
+    }
+
+    /**
+     * One more content element on the open page, written past the DataHandler.
+     *
+     * @param int                  $parent the l18n_parent: zero for a free element, a uid for a connected translation
+     * @param array<string, mixed> $fields columns that differ from the defaults
+     */
+    private function insertElement(int $uid, int $language, int $parent, array $fields = []): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', $fields + [
+            'uid' => $uid, 'pid' => self::PAGE_OPEN, 'colPos' => 0, 'sorting' => $uid,
+            'CType' => 'text', 'header' => 'Fixture ' . $uid,
+            'sys_language_uid' => $language, 'l18n_parent' => $parent, 'l10n_source' => $parent,
+        ]);
+    }
+
+    /**
      * The one element this tool created, asserting there is exactly one.
+     *
+     * @param int ...$fixtureUids elements a test inserted itself, besides the one from setUp()
      *
      * @return array<string, mixed>
      */
-    private function createdElement(): array
+    private function createdElement(int ...$fixtureUids): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tt_content');
         $queryBuilder->getRestrictions()->removeAll();
@@ -316,7 +610,10 @@ final class CreateContentElementDraftToolTest extends AbstractFunctionalTestCase
         $rows = $queryBuilder
             ->select('*')
             ->from('tt_content')
-            ->where($queryBuilder->expr()->neq('uid', $queryBuilder->createNamedParameter(self::EXISTING_ELEMENT, Connection::PARAM_INT)))
+            ->where($queryBuilder->expr()->notIn(
+                'uid',
+                $queryBuilder->createNamedParameter([self::EXISTING_ELEMENT, ...$fixtureUids], Connection::PARAM_INT_ARRAY),
+            ))
             ->executeQuery()
             ->fetchAllAssociative();
 
