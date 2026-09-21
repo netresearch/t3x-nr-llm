@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BEHAVIOUR: `create_content_element_draft` refuses a free element on a page that translates in connected mode (ADR-193).** The tool creates the element in the language it is asked for and never sets a translation parent, which ADR-146 recorded as deliberate. On the Netresearch demo a model created language-1 elements that way on a page that also holds connected language-1 translations, and the page module reports *Inconsistent content detected* there. Core's condition (`ContentFetcher::getTranslationData()`, read in `typo3/cms-backend` 14.3.7) is that the rows of one language on one page hold both a translation parent and none — deleted rows excluded, hidden rows included. The tool only ever adds the second kind, so a call with `language` greater than zero is now refused when the page already holds a `tt_content` row in that language with `l18n_parent > 0`. The refusal is resolved in `plan()`, before anything is written; it shows on the approval card like every other refusal of the tool, comes after the neutral *Page not found or not permitted.* because it names the page, and tells the model what to do instead: create the element in the default language and translate it with `create_translation_draft` or the translation tools of the CMS. The tool description and the `language` argument description say so as well. Unchanged: the default language, a page holding nothing or only standalone elements in that language, and a page whose TSconfig sets `mod.web_layout.allowInconsistentLanguageHandling` — the switch that silences the same warning in core, read the same way. A connected translation that exists only as another workspace's draft counts too, because publishing it would mix the page. Not prevented: the opposite order — free elements first, a connected translation later through `create_translation_draft`, the backend or an auto-translation extension.
+
 ## [0.35.0] - 2026-09-16
 
 ### Added

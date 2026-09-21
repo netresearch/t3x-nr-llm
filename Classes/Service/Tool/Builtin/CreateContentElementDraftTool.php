@@ -21,8 +21,11 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -51,6 +54,14 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * is a legitimate but different thing from a translation of an existing one —
  * {@see CreateTranslationDraftTool} is the tool for that, and the description
  * says so on the wire so a model can choose.
+ *
+ * One page is closed to it (ADR-193): a page that already holds CONNECTED
+ * translations in that language. A standalone element beside them is what the
+ * page module reports as "Inconsistent content detected", so the call is
+ * refused and the model is sent to the default language and the translation
+ * tool — unless the page's TSconfig sets
+ * `mod.web_layout.allowInconsistentLanguageHandling`, the switch that silences
+ * the same warning in core.
  *
  * `bodytext` reaches the DataHandler and its RTE transformation exactly as any
  * editor's input does, so it is bounded in length here and nowhere else
@@ -105,7 +116,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             . 'human must review and unhide it in the page module before it is visible. Writes through the TYPO3 '
             . 'DataHandler as the acting backend user, in the live workspace. Only prose content types are '
             . 'available (' . implode(', ', self::ALLOWED_TYPES) . '). To translate an EXISTING element, use '
-            . 'create_translation_draft instead — this tool creates a standalone element in the language given.',
+            . 'create_translation_draft instead — this tool creates a standalone element in the language given, '
+            . 'and refuses a non-default language on a page that already holds connected translations in it.',
             [
                 'type'       => 'object',
                 'properties' => [
@@ -131,7 +143,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                     ],
                     'language' => [
                         'type'        => 'integer',
-                        'description' => 'The sys_language_uid to create the element in. Defaults to 0 (default language).',
+                        'description' => 'The sys_language_uid to create the element in. Defaults to 0 (default language). '
+                            . 'Refused on a page that already holds connected translations in that language: create '
+                            . 'the element in 0 there and translate it with create_translation_draft.',
                     ],
                     'after_content_uid' => [
                         'type'        => 'integer',
@@ -393,6 +407,21 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return self::NOT_PERMITTED;
         }
 
+        // After the neutral refusal, because this one names the page.
+        if ($language > 0
+            && $this->holdsConnectedTranslations($pageUid, $language)
+            && !$this->allowsInconsistentLanguageHandling($pageUid)
+        ) {
+            return sprintf(
+                'Refused: page [%d] already holds connected translations in language %d, and a standalone element '
+                . 'beside them makes the page module report "Inconsistent content detected". Create the element in '
+                . 'the default language (0) and translate it with create_translation_draft or the translation tools '
+                . 'of the CMS; tell the editor that the translation is a separate step.',
+                $pageUid,
+                $language,
+            );
+        }
+
         $afterUid    = self::toInt($arguments['after_content_uid'] ?? 0);
         $afterHeader = '';
         if ($afterUid > 0) {
@@ -422,6 +451,59 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             // negative one is "directly after the record with that uid".
             'destination' => $afterUid > 0 ? -$afterUid : $pageUid,
         ];
+    }
+
+    /**
+     * Whether the page holds at least one connected translation — a content
+     * element with a translation parent — in the language (ADR-193).
+     *
+     * The half of core's mixed-mode condition this tool cannot produce itself:
+     * {@see \TYPO3\CMS\Backend\View\BackendLayout\ContentFetcher::getTranslationData()}
+     * reports a language as inconsistent when its rows on the page hold both a
+     * translation parent and none, and this tool only ever adds the second
+     * kind. Counted as core counts them: deleted rows are out, hidden rows are
+     * in, and the two column names are the ones core's own loop reads.
+     *
+     * No workspace restriction, unlike core: the write is refused outside the
+     * live workspace anyway, and a connected translation that exists only as
+     * another workspace's draft mixes the page the moment it is published.
+     */
+    private function holdsConnectedTranslations(int $pageUid, int $language): bool
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $queryBuilder->getRestrictions()->removeAll()->add(GeneralUtility::makeInstance(DeletedRestriction::class));
+
+        $count = $queryBuilder
+            ->count('uid')
+            ->from(self::TABLE)
+            ->where(
+                $queryBuilder->expr()->eq('pid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq(
+                    'sys_language_uid',
+                    $queryBuilder->createNamedParameter($language, Connection::PARAM_INT),
+                ),
+                $queryBuilder->expr()->gt('l18n_parent', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return self::toInt($count) > 0;
+    }
+
+    /**
+     * Whether the page's TSconfig opts in to mixed translation modes.
+     *
+     * Read the way {@see \TYPO3\CMS\Backend\View\Drawing\DrawingConfiguration::create()}
+     * reads it for the page module — rootline-merged, cast to bool — so the
+     * tool refuses exactly where core would warn.
+     */
+    private function allowsInconsistentLanguageHandling(int $pageUid): bool
+    {
+        $tsConfig  = BackendUtility::getPagesTSconfig($pageUid);
+        $mod       = is_array($tsConfig['mod.'] ?? null) ? $tsConfig['mod.'] : [];
+        $webLayout = is_array($mod['web_layout.'] ?? null) ? $mod['web_layout.'] : [];
+
+        return (bool)($webLayout['allowInconsistentLanguageHandling'] ?? false);
     }
 
     /**

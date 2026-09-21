@@ -440,6 +440,16 @@ What holds for all of them:
    - The field set is fixed: headline, body text, column, language, position.
      This is not a generic record API.
 
+   In a language other than the default one the element is created
+   **standalone**, without a translation parent. That is refused on a page
+   which already holds connected translations in that language
+   (:ref:`ADR-193 <adr-193>`): a standalone element beside them is what the
+   page module reports as *Inconsistent content detected*. The refusal sends
+   the model to the default language and to ``create_translation_draft``. A
+   page whose TSconfig sets
+   ``mod.web_layout.allowInconsistentLanguageHandling`` is exempt, as it is
+   from core's warning.
+
    ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
    editor's input does. It is bounded in length and not otherwise filtered — an
    editor may write the same markup by hand, and a tool enforcing a stricter
