@@ -495,7 +495,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * Read the way {@see \TYPO3\CMS\Backend\View\Drawing\DrawingConfiguration::create()}
      * reads it for the page module — rootline-merged, cast to bool — so the
-     * tool refuses exactly where core would warn.
+     * tool honours the same opt-out as core. The connected-row check above is
+     * deliberately wider than core's: it counts every workspace and dispatches
+     * no content-query listener (ADR-193).
      */
     private function allowsInconsistentLanguageHandling(int $pageUid): bool
     {

@@ -91,7 +91,8 @@ without a translation parent still holds there.
 ``mod.web_layout.allowInconsistentLanguageHandling``, the tool does not refuse.
 It is the switch that silences the same warning in core, read the same way
 (rootline-merged through :php:`BackendUtility::getPagesTSconfig()`, cast to
-bool), so the tool refuses where core would warn and nowhere else. The TSconfig
+bool), so the same switch lifts the refusal. The row check itself is wider
+than core's, as the two sections below state. The TSconfig
 is only read once a connected row was found.
 
 .. _adr-193-workspaces:
