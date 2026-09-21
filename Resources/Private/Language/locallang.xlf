@@ -1352,6 +1352,12 @@
             <trans-unit id="editorAction.attach_file_to_content_element.description">
                 <source>References an existing file from this content element, appended to one of its file fields.</source>
             </trans-unit>
+            <trans-unit id="editorAction.set_page_social_image.label">
+                <source>Set social preview image</source>
+            </trans-unit>
+            <trans-unit id="editorAction.set_page_social_image.description">
+                <source>Sets the Open Graph or Twitter image of this page to an existing file. An image that is already there is replaced only when asked to.</source>
+            </trans-unit>
             <trans-unit id="editorAction.move_content_element.label">
                 <source>Move content element</source>
             </trans-unit>

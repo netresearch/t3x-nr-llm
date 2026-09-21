@@ -38,16 +38,17 @@ non-admin users.
 The built-in tools
 ==================
 
-nr-llm ships forty-one read-only tools and eight writing tools. Each is a
+nr-llm ships forty-one read-only tools and nine writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Thirty-eight ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
-``get_php_info_raw`` and ``list_be_users_raw``) and all eight writing tools
-(``update_page_metadata``, ``set_file_alternative_text``,
-``update_fal_asset_meta``, ``move_content_element``,
-``create_content_element_draft``, ``create_page_draft``,
-``create_translation_draft``, ``attach_file_to_content_element``) ship
+``get_php_info_raw`` and ``list_be_users_raw``) and all nine writing tools
+(``update_page_metadata``, ``set_page_social_image``,
+``set_file_alternative_text``, ``update_fal_asset_meta``,
+``move_content_element``, ``create_content_element_draft``,
+``create_page_draft``, ``create_translation_draft``,
+``attach_file_to_content_element``) ship
 **disabled** and must be enabled deliberately.
 Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
@@ -284,11 +285,11 @@ The remaining tools follow the same pattern:
 The writing tools
 =================
 
-Eight tools change anything at all: ``update_page_metadata``,
-``set_file_alternative_text``, ``update_fal_asset_meta``,
-``move_content_element``, ``create_content_element_draft``,
-``create_page_draft``, ``create_translation_draft`` and
-``attach_file_to_content_element``. All eight
+Nine tools change anything at all: ``update_page_metadata``,
+``set_page_social_image``, ``set_file_alternative_text``,
+``update_fal_asset_meta``, ``move_content_element``,
+``create_content_element_draft``, ``create_page_draft``,
+``create_translation_draft`` and ``attach_file_to_content_element``. All nine
 write through the TYPO3 DataHandler, as
 the acting backend user, in the live workspace only, on exactly **one** record
 per call (:ref:`ADR-135 <adr-135>`, :ref:`ADR-146 <adr-146>`,
@@ -322,7 +323,42 @@ What holds for all of them:
    else (``slug``, ``hidden``, ``doktype``, ``fe_group``, ``perms_*``,
    ``no_index``, the image relations …) is refused. Authorised by the acting
    user's page-edit right; the DataHandler then enforces ``tables_modify`` and
-   the field-level grants.
+   the field-level grants. The two social images have a writer of their own,
+   ``set_page_social_image``.
+
+``set_page_social_image``
+   Sets the social preview image of one page — ``og_image`` (Open Graph) or
+   ``twitter_image`` — to an **existing** managed file, identified by its
+   ``sys_file`` uid. Both columns come with EXT:seo; without the extension the
+   call is refused and says so. It creates exactly one ``sys_file_reference``
+   and never uploads, moves or renames a file (:ref:`ADR-195 <adr-195>`).
+
+   Authorised on both ends: the acting user needs page-edit rights on the
+   page, and the file has to lie in a permitted storage inside that user's own
+   file mounts. Either failure is refused in the same words as a page or file
+   that does not exist. Both columns are exclude fields, so a non-admin editor
+   also needs the field-level grants ``pages:og_image`` /
+   ``pages:twitter_image`` — without them the whole call is refused **before**
+   anything is written, because the DataHandler would otherwise create the
+   reference and drop the page's side of it in silence.
+
+   Three things worth knowing before enabling it:
+
+   - **The field must accept the file.** Both columns accept the image
+     extensions the installation configures (``common-image-types``); a
+     ``.txt`` is refused rather than written.
+   - **An image that is already there stops the call.** The refusal names the
+     file referenced now; ``replace`` is the only way past it and it
+     **deletes** that reference first — recoverably (``deleted = 1``) and in
+     ``sys_log`` — and the approval card says so on its own line.
+   - **Default-language pages only.** A translated page is refused and the
+     default-language page named; whether a translation follows its parent or
+     carries its own image is a page-properties decision
+     (``allowLanguageSynchronization``) the tool leaves to the editor.
+
+   The page's own reference count is re-read afterwards, because EXT:seo reads
+   it before it looks for the file: a reference the page does not count is one
+   nothing renders.
 
 ``set_file_alternative_text``
    Sets the alternative text (``sys_file_metadata.alternative``) of one managed
@@ -551,7 +587,7 @@ A tool that carries an **editor action** declaration
 (:ref:`ADR-152 <adr-152>`) reads differently in that list: it shows an icon,
 its translated name, one sentence written for a human, and the record types it
 addresses — instead of the wire name and the description written for the
-language model. All eight writing tools declare one, and the wire name stays
+language model. All nine writing tools declare one, and the wire name stays
 visible as the technical detail the toggle acts on. A read-only tool is
 unchanged.
 
@@ -574,7 +610,7 @@ opens the catalogue narrowed to the actions that address that record.
 An editor is offered an action only when all of the following hold, and every
 one of them is an administrator's decision:
 
-* the writing tool is enabled in this module (all five ship **disabled**);
+* the writing tool is enabled in this module (all nine ship **disabled**);
 * its group — ``editing`` — is enabled, and where the default LLM
   configuration restricts tool groups, ``editing`` is among them;
 * the tool's data class is within the configured provider's trust-zone ceiling;
@@ -674,7 +710,9 @@ Group              Tools
                    ``search_fal_files``, ``get_fal_references``,
                    ``find_missing_files``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
-``editing``        ``update_page_metadata``, ``set_file_alternative_text``,
+``editing``        ``update_page_metadata``, ``set_page_social_image``,
+                   ``set_file_alternative_text``, ``update_fal_asset_meta``,
+                   ``attach_file_to_content_element``,
                    ``move_content_element``,
                    ``create_content_element_draft``, ``create_page_draft``,
                    ``create_translation_draft`` — the only WRITING group

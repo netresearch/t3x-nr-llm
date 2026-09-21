@@ -1,0 +1,558 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
+
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Http\ServerRequest;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+
+/**
+ * The social-image writer against the real DataHandler, a real storage and the
+ * `pages` columns EXT:seo declares (ADR-195).
+ *
+ * Functional rather than unit because what matters is what ends up in
+ * `sys_file_reference` AND in the page's own counter, and what happens to the
+ * reference that was there before. {@see SetPageSocialImageToolWithoutSeoTest}
+ * holds the other direction: without EXT:seo the fields do not exist and the
+ * call is refused.
+ */
+#[CoversClass(SetPageSocialImageTool::class)]
+final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
+{
+    protected array $coreExtensionsToLoad = [
+        'extbase',
+        'fluid',
+        'seo',
+    ];
+
+    private const STORAGE_CONFIGURATION = '<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<T3FlexForms><data><sheet index="sDEF"><language index="lDEF">
+<field index="basePath"><value index="vDEF">fileadmin/</value></field>
+<field index="pathType"><value index="vDEF">relative</value></field>
+<field index="caseSensitive"><value index="vDEF">1</value></field>
+</language></sheet></data></T3FlexForms>';
+
+    private const NOT_PERMITTED = 'Page or file not found, or not permitted.';
+
+    /** A page the editors' group may edit. */
+    private const PAGE_OPEN = 1;
+
+    /** A page only the admin may edit; everybody else may merely see it. */
+    private const PAGE_CLOSED = 2;
+
+    /** The translation of the open page. */
+    private const PAGE_TRANSLATED = 3;
+
+    private const PAGE_MISSING = 999;
+
+    private const FILE_ONE = 1;
+
+    private const FILE_TWO = 2;
+
+    private const FILE_TEXT = 3;
+
+    private const FILE_OUTSIDE_MOUNT = 4;
+
+    private const FILE_MISSING = 999;
+
+    private const EDITOR_GROUP = 9;
+
+    private ConnectionPool $connectionPool;
+
+    private SetPageSocialImageTool $tool;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->importFixture('BeUsers.csv');
+
+        $connectionPool = $this->get(ConnectionPool::class);
+        self::assertInstanceOf(ConnectionPool::class, $connectionPool);
+        $this->connectionPool = $connectionPool;
+
+        GeneralUtility::mkdir_deep($this->instancePath . '/fileadmin/docs');
+        file_put_contents($this->instancePath . '/fileadmin/outside.jpg', 'root image');
+        file_put_contents($this->instancePath . '/fileadmin/docs/one.jpg', 'first');
+        file_put_contents($this->instancePath . '/fileadmin/docs/two.jpg', 'second');
+        file_put_contents($this->instancePath . '/fileadmin/docs/notes.txt', 'not an image');
+
+        $storage = $this->connectionPool->getConnectionForTable('sys_file_storage');
+        $storage->insert('sys_file_storage', [
+            'uid' => 1, 'pid' => 0, 'name' => 'Main storage', 'driver' => 'Local',
+            'configuration' => self::STORAGE_CONFIGURATION,
+            'is_online' => 1, 'is_browsable' => 1, 'is_public' => 1, 'is_writable' => 1,
+        ]);
+        $storage->insert('sys_filemounts', [
+            'uid' => 1, 'pid' => 0, 'title' => 'Docs mount', 'identifier' => '1:/docs/', 'read_only' => 0,
+        ]);
+        // `og_image` and `twitter_image` are exclude fields, so the editor
+        // needs the field-level grant besides the table grants; the open page
+        // sits inside the DB mount, the closed one too, so its denial comes
+        // from the permission bits and not from an unreachable mount.
+        $storage->insert('be_groups', [
+            'uid' => self::EDITOR_GROUP, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '1',
+            'file_permissions' => 'readFolder,readFile',
+            'tables_modify' => 'pages,sys_file_reference',
+            'non_exclude_fields' => 'pages:og_image,pages:twitter_image',
+            'db_mountpoints' => '1,2',
+        ]);
+        // options = 3: inherit DB and file mounts from the groups.
+        $storage->update('be_users', ['usergroup' => (string)self::EDITOR_GROUP, 'options' => 3], ['uid' => 2]);
+
+        $files = $this->connectionPool->getConnectionForTable('sys_file');
+        foreach ([
+            [self::FILE_ONE, '/docs/one.jpg', 'one.jpg', 'jpg', 'image/jpeg'],
+            [self::FILE_TWO, '/docs/two.jpg', 'two.jpg', 'jpg', 'image/jpeg'],
+            [self::FILE_TEXT, '/docs/notes.txt', 'notes.txt', 'txt', 'text/plain'],
+            [self::FILE_OUTSIDE_MOUNT, '/outside.jpg', 'outside.jpg', 'jpg', 'image/jpeg'],
+        ] as [$uid, $identifier, $name, $extension, $mime]) {
+            $files->insert('sys_file', [
+                'uid' => $uid, 'storage' => 1, 'identifier' => $identifier, 'name' => $name,
+                'extension' => $extension, 'mime_type' => $mime, 'size' => 8,
+                'sha1' => str_repeat((string)$uid, 40),
+            ]);
+        }
+
+        // The editors hold PAGE_EDIT on the open page and NOT CONTENT_EDIT: the
+        // right the tool authorises against, and the one the DataHandler asks
+        // for a reference row written beside its page (`hasPermissionToInsert()`,
+        // `hasPermissionToUpdate()`, `deleteRecord()`). A reference row written
+        // WITHOUT the page in the datamap needs CONTENT_EDIT instead, so any
+        // step the tool performs that way fails here rather than passing on a
+        // grant an editor of page properties does not necessarily hold.
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        $pages->insert('pages', [
+            'uid' => self::PAGE_OPEN, 'pid' => 0, 'title' => 'Open page', 'doktype' => 1, 'slug' => '/open',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => self::EDITOR_GROUP, 'perms_group' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+            'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $pages->insert('pages', [
+            'uid' => self::PAGE_CLOSED, 'pid' => 0, 'title' => 'Closed page', 'doktype' => 1, 'slug' => '/closed',
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::PAGE_SHOW,
+        ]);
+        $pages->insert('pages', [
+            'uid' => self::PAGE_TRANSLATED, 'pid' => 0, 'title' => 'Offene Seite', 'doktype' => 1, 'slug' => '/open',
+            'sys_language_uid' => 1, 'l10n_parent' => self::PAGE_OPEN,
+            'perms_userid' => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => self::EDITOR_GROUP, 'perms_group' => Permission::ALL,
+            'perms_everybody' => Permission::ALL,
+        ]);
+
+        // The DataHandler declares $GLOBALS['LANG'] as a prerequisite, and the
+        // write guard refuses without it rather than crashing halfway through.
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('default');
+
+        $gate = $this->get(FalStorageGate::class);
+        self::assertInstanceOf(FalStorageGate::class, $gate);
+        $this->tool = new SetPageSocialImageTool($this->connectionPool, $gate);
+    }
+
+    protected function tearDown(): void
+    {
+        unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
+        parent::tearDown();
+    }
+
+    private function actor(int $uid): BackendUserAuthentication
+    {
+        $user = $this->setUpBackendUser($uid);
+        // The core StoragePermissionsAspect only attaches mounts and
+        // permissions when the storage object is built inside a BACKEND request.
+        $GLOBALS['TYPO3_REQUEST'] = (new ServerRequest('https://typo3-testing.local/typo3/'))
+            ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE);
+
+        return $user;
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    private function set(array $arguments, int $userUid = 1): ToolResult
+    {
+        return $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($this->actor($userUid)));
+    }
+
+    /**
+     * Every reference row on the page's field, deleted ones included, so a test
+     * can tell a soft-deleted reference from one that never existed.
+     *
+     * @return list<array{uid: int, uid_local: int, deleted: int}>
+     */
+    private function references(string $field, int $pageUid = self::PAGE_OPEN): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
+        $queryBuilder->getRestrictions()->removeAll();
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $queryBuilder
+            ->select('uid', 'uid_local', 'deleted')
+            ->from('sys_file_reference')
+            ->where(
+                $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter('pages')),
+                $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
+            )
+            ->orderBy('uid', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map(
+            static fn(array $row): array => [
+                'uid'       => (int)$row['uid'],
+                'uid_local' => (int)$row['uid_local'],
+                'deleted'   => (int)$row['deleted'],
+            ],
+            $rows,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function referenceRow(int $uid): array
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('sys_file_reference');
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $row = $queryBuilder
+            ->select('*')
+            ->from('sys_file_reference')
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+
+        self::assertIsArray($row);
+
+        return $row;
+    }
+
+    private function counter(string $field, int $pageUid = self::PAGE_OPEN): int
+    {
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
+        $queryBuilder->getRestrictions()->removeAll();
+
+        $row = $queryBuilder
+            ->select($field)
+            ->from('pages')
+            ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return is_array($row) ? (int)$row[$field] : -1;
+    }
+
+    #[Test]
+    public function itSetsTheOpenGraphImage(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('og_image', $result->content);
+        self::assertStringContainsString('one.jpg', $result->content);
+
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+
+        $row = $this->referenceRow(1);
+        self::assertSame('pages', $row['tablenames']);
+        self::assertSame('og_image', $row['fieldname']);
+        self::assertSame(self::PAGE_OPEN, (int)$row['uid_foreign']);
+        self::assertSame(self::FILE_ONE, (int)$row['uid_local']);
+        self::assertSame(self::PAGE_OPEN, (int)$row['pid']);
+        self::assertSame(0, (int)$row['sys_language_uid']);
+
+        // The page has to count the reference, or EXT:seo renders nothing.
+        self::assertSame(1, $this->counter('og_image'));
+        self::assertSame(0, $this->counter('twitter_image'));
+    }
+
+    #[Test]
+    public function itSetsTheTwitterImageAndLeavesTheOpenGraphImageAlone(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_TWO, 'deleted' => 0]], $this->references('twitter_image'));
+        self::assertSame('twitter_image', $this->referenceRow(1)['fieldname']);
+        self::assertSame(1, $this->counter('twitter_image'));
+
+        self::assertSame([], $this->references('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * The permitted direction of every permission check: an editor inside the
+     * mounts, with the table and field grants, writes what the backend lets
+     * them write.
+     */
+    #[Test]
+    public function aNonAdminEditorWithTheGrantsSetsTheImage(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * The delete of the old reference travels in the same DataHandler run as
+     * the page row, so it is checked against PAGE_EDIT — the only page right the
+     * editors hold here. Issued in a run of its own it would need CONTENT_EDIT
+     * and fail, leaving two live references.
+     */
+    #[Test]
+    public function aNonAdminEditorReplacesUnderPageEditAlone(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2)->isError);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true], userUid: 2);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertNotNull($result->writeTarget);
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+                ['uid' => $result->writeTarget->uid, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
+            ],
+            $this->references('og_image'),
+        );
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function aFieldOutsideTheTwoIsRefused(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'media', 'file' => self::FILE_ONE]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"media" is not a page field this tool sets', $result->content);
+        self::assertStringContainsString('og_image, twitter_image', $result->content);
+        self::assertSame([], $this->references('media'));
+    }
+
+    #[Test]
+    public function aFileOutsideTheActingUsersMountsIsRefused(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_OUTSIDE_MOUNT], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertSame(self::NOT_PERMITTED, $result->content);
+        self::assertSame([], $this->references('og_image'));
+    }
+
+    /**
+     * A page or file that does not exist and one the user may not reach are
+     * refused in the same words, so a refusal never confirms that a uid exists.
+     */
+    #[Test]
+    public function anAbsentAndAnUnreachablePageOrFileRefuseIdentically(): void
+    {
+        $closedPage  = $this->set(['page' => self::PAGE_CLOSED, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+        $missingPage = $this->set(['page' => self::PAGE_MISSING, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+        $outsideFile = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_OUTSIDE_MOUNT], userUid: 2);
+        $missingFile = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_MISSING], userUid: 2);
+
+        foreach ([$closedPage, $missingPage, $outsideFile, $missingFile] as $refusal) {
+            self::assertTrue($refusal->isError);
+            self::assertSame(self::NOT_PERMITTED, $refusal->content);
+        }
+
+        self::assertSame([], $this->references('og_image', self::PAGE_CLOSED));
+        self::assertSame([], $this->references('og_image'));
+    }
+
+    #[Test]
+    public function aFileTypeTheFieldDoesNotAcceptIsRefused(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TEXT]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('does not accept a .txt file', $result->content);
+        self::assertSame([], $this->references('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function aTranslatedPageIsRefusedAndTheDefaultLanguagePageIsNamed(): void
+    {
+        $result = $this->set(['page' => self::PAGE_TRANSLATED, 'field' => 'og_image', 'file' => self::FILE_ONE]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('is a translation', $result->content);
+        self::assertStringContainsString('[' . self::PAGE_OPEN . ']', $result->content);
+        self::assertSame([], $this->references('og_image', self::PAGE_TRANSLATED));
+    }
+
+    #[Test]
+    public function anExistingReferenceIsRefusedWithoutReplaceAndNothingChanges(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE])->isError);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('already', $result->content);
+        self::assertStringContainsString('one.jpg', $result->content, 'the refusal names the file referenced now');
+        self::assertStringContainsString('"replace": true', $result->content);
+
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function withReplaceTheOldReferenceIsSoftDeletedAndTheNewOneExists(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE])->isError);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertStringContainsString('two.jpg', $result->content);
+        self::assertStringContainsString('one.jpg', $result->content, 'the success line names what was replaced');
+        self::assertNotNull($result->writeTarget);
+        self::assertSame('sys_file_reference', $result->writeTarget->table);
+
+        // Soft-deleted through the DataHandler: the old row is still there,
+        // flagged, and recoverable — not gone from the table. The new row's uid
+        // is read off the result rather than assumed: the translated page
+        // follows its parent (`allowLanguageSynchronization`), and core's
+        // synchronisation mints reference rows of its own in between.
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+                ['uid' => $result->writeTarget->uid, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
+            ],
+            $this->references('og_image'),
+        );
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function replaceWithoutAnExistingReferenceSimplySets(): void
+    {
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function thePreviewShowsTheCurrentAndTheFutureFile(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE])->isError);
+
+        $lines = $this->tool->previewCall(
+            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true],
+            ToolExecutionContext::fromBackendUser($this->actor(1)),
+        );
+
+        self::assertStringContainsString('Open page', $lines[0]);
+        self::assertStringContainsString('og_image', $lines[0]);
+        self::assertStringContainsString('one.jpg', $lines[1], 'the file referenced now');
+        self::assertStringContainsString('two.jpg', $lines[2], 'the file that would be referenced');
+        self::assertStringContainsString('REPLACES', implode("\n", $lines));
+
+        // A pure function of the arguments and the current state: nothing was
+        // written by asking.
+        self::assertSame([['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]], $this->references('og_image'));
+    }
+
+    #[Test]
+    public function thePreviewOfAnEmptyFieldSaysSo(): void
+    {
+        $lines = $this->tool->previewCall(
+            ['page' => self::PAGE_OPEN, 'field' => 'twitter_image', 'file' => self::FILE_TWO],
+            ToolExecutionContext::fromBackendUser($this->actor(1)),
+        );
+
+        self::assertStringContainsString('(none)', $lines[1]);
+        self::assertStringContainsString('two.jpg', $lines[2]);
+        self::assertStringNotContainsString('REPLACES', implode("\n", $lines));
+    }
+
+    #[Test]
+    public function aViewerWhoMayNotReachTheFileGetsNoPreview(): void
+    {
+        $arguments = ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_OUTSIDE_MOUNT];
+
+        self::assertTrue($this->tool->mayViewerReadPreview($arguments, $this->actor(1)));
+        self::assertFalse($this->tool->mayViewerReadPreview($arguments, $this->actor(2)));
+    }
+
+    /**
+     * `og_image` is an exclude field. The DataHandler would create the
+     * reference row and drop the page's counter in silence, leaving a reference
+     * EXT:seo never renders — so the grant is asked before anything is written.
+     */
+    #[Test]
+    public function anEditorWithoutTheExcludeFieldGrantIsRefusedBeforeAnythingIsWritten(): void
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['non_exclude_fields' => ''], ['uid' => self::EDITOR_GROUP]);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('exclude field', $result->content);
+        self::assertStringContainsString('pages:og_image', $result->content);
+        self::assertSame([], $this->references('og_image'));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * The DataHandler refuses the page row for a user without the `pages`
+     * table grant — and would still create the reference row, whose grant the
+     * user holds. The tool takes that orphan back.
+     */
+    #[Test]
+    public function aDataHandlerRefusalLeavesNoOrphanReference(): void
+    {
+        $this->connectionPool->getConnectionForTable('be_groups')
+            ->update('be_groups', ['tables_modify' => 'sys_file_reference'], ['uid' => self::EDITOR_GROUP]);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('refused by TYPO3', $result->content);
+        self::assertSame([], array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0));
+        self::assertSame(0, $this->counter('og_image'));
+    }
+
+    #[Test]
+    public function itRefusesOutsideTheLiveWorkspace(): void
+    {
+        $admin            = $this->actor(1);
+        $admin->workspace = 1;
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('live workspace', $result->content);
+        self::assertSame([], $this->references('og_image'));
+    }
+}
