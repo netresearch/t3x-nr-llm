@@ -289,6 +289,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'invalid email'          => [$call($valid + ['contact' => 'nobody']), 'not a valid e-mail address'];
         yield 'invalid colour'         => [$call($valid + ['colour' => 'teal']), 'hexadecimal colour'];
         yield 'unparseable datetime'   => [$call($valid + ['published_at' => 'soonish']), 'UNIX timestamp or an ISO 8601'];
+        yield 'nonexistent date'       => [$call($valid + ['published_at' => '2026-02-30T10:00:00+00:00']), 'UNIX timestamp or an ISO 8601'];
+        yield 'nonexistent time'       => [$call($valid + ['published_at' => '2026-02-10T25:00:00+00:00']), 'UNIX timestamp or an ISO 8601'];
         yield 'negative timestamp'     => [$call($valid + ['published_at' => -5]), 'UNIX timestamp or an ISO 8601'];
         yield 'title not a string'     => [$call(['title' => ['x']]), 'must be a string'];
         yield 'title over max'         => [$call(['title' => str_repeat('a', 101)]), 'exceeds 100 characters'];

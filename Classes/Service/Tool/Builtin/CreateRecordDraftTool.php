@@ -1114,10 +1114,21 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $timestamp = (int)$text;
         } elseif ($text !== null && preg_match(self::ISO_DATETIME, $text) === 1) {
             try {
-                $timestamp = (new DateTimeImmutable($text))->getTimestamp();
+                $moment = new DateTimeImmutable($text);
             } catch (Exception) {
                 return $refusal;
             }
+
+            // PHP rolls a date that does not exist over into the next month
+            // (2026-02-30 becomes 2026-03-02) and only records a warning. The
+            // DataHandler would store the rolled-over moment and the read-back
+            // would find exactly that, so the refusal has to happen here.
+            $problems = DateTimeImmutable::getLastErrors();
+            if (is_array($problems) && ($problems['warning_count'] > 0 || $problems['error_count'] > 0)) {
+                return $refusal;
+            }
+
+            $timestamp = $moment->getTimestamp();
         } else {
             return $refusal;
         }
