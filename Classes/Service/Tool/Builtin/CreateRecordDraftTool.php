@@ -1214,8 +1214,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
             $number = (float)$value;
             // Compared with a tolerance far below a hundredth, so the binary
-            // form of a two-place value (0.1 + 0.2) is not mistaken for more.
-            if (abs($number - round($number, 2)) > 1e-9 * max(1.0, abs($number))) {
+            // form of a two-place value (1.1 + 2.2) is not mistaken for more;
+            // relative to the value, and small enough that it stays below a
+            // half hundredth up to 5e9, beyond what a double(11,2) column holds.
+            if (abs($number - round($number, 2)) > 1e-12 * max(1.0, abs($number))) {
                 return sprintf(
                     'Refused: the value for "%s" has more than two decimal places; TYPO3 stores a decimal rounded to '
                     . 'two, so the record would not carry the value the approver read.',

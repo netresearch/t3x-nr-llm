@@ -341,6 +341,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a decimal TYPO3 rounds down' => [$call($valid + ['rating' => 1.234]), 'more than two decimal places'];
         yield 'a decimal TYPO3 rounds up' => [$call($valid + ['rating' => 0.125]), 'more than two decimal places'];
         yield 'a decimal string with three places' => [$call($valid + ['rating' => '2.675']), 'more than two decimal places'];
+        // Where a tolerance relative to the value would already reach a half hundredth.
+        yield 'a large decimal with three places' => [$call($valid + ['rating' => 6000000.005]), 'more than two decimal places'];
         yield 'required missing'       => [$call(['teaser' => 'x']), '"title" is required'];
         yield 'required empty'         => [$call(['title' => '  ']), '"title" is required'];
     }
@@ -387,6 +389,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a decimal at the lower bound'    => [['rating' => 1]];
         yield 'a decimal with two places'       => [['rating' => 2.25]];
         yield 'a decimal string with a trailing zero' => [['rating' => '2.50']];
+        // 1.1 + 2.2: two places, off by one unit in the last binary digit.
+        yield 'a two-place decimal with binary noise' => [['rating' => 3.3000000000000003]];
         yield 'a legacy required in an override eval' => [['byline' => 'By the desk']];
         yield 'an unregistered eval on a text'  => [['motto' => 'Onwards']];
         yield 'an input-only eval on a text'    => [['remark' => 'As written']];
