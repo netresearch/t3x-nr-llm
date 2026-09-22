@@ -107,7 +107,9 @@ publication and audience (``starttime``, ``endtime``, ``fe_group``,
 ``editlock``) and translation topology (``sys_language_uid``,
 ``l18n_parent``, ``l10n_source``, ``l18n_diffsource``) — the exclusions
 ADR-135 made for pages, by analogy — plus ``header`` and ``bodytext``, which
-are arguments of their own. A value is validated against the column's TCA
+are arguments of their own. The ``bodytext`` argument follows the same rule
+as a key: it is refused for a type whose form does not show the column, where
+the DataHandler would still write it under the column's base config. A value is validated against the column's TCA
 type: a select against its static items, a check as a boolean, a number as a
 whole number (or a decimal where the column says so) within the TCA range, a
 datetime as anything PHP reads, an input or text within the TCA ``max`` or

@@ -204,7 +204,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                     ],
                     'bodytext' => [
                         'type'        => 'string',
-                        'description' => 'The body text. Omit for a "header" element.',
+                        'description' => 'The body text. Omit for a type whose form shows none, such as "header"; it is '
+                            . 'refused there.',
                     ],
                     'column' => [
                         'type'        => 'integer',
@@ -543,6 +544,17 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         $bodytext = null;
         if (array_key_exists('bodytext', $arguments)) {
+            // Refused where the type's form does not show it, as a `fields`
+            // key is: the DataHandler would still write it, under the
+            // column's base config, and the read-back compares it under the
+            // type's — an RTE base would take a correct element back again.
+            if (!array_key_exists('bodytext', $this->columnsOfType($type))) {
+                return sprintf(
+                    'Refused: content type "%s" shows no "bodytext" in its form; omit "bodytext" for it.',
+                    $type,
+                );
+            }
+
             $body = $this->text($arguments, 'bodytext', self::MAX_BODY_LENGTH);
             if (is_string($body)) {
                 return $body;

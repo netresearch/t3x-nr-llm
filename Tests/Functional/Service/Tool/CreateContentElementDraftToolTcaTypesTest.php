@@ -678,6 +678,44 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * `header`'s form shows no body. The DataHandler would still write one,
+     * under the column's base config — through the RTE where the base
+     * enables it — and the read-back, comparing under the type's config,
+     * would delete a correct element and blame a grant. The body is refused
+     * where the form does not show it, as a `fields` key is.
+     */
+    #[Test]
+    public function aBodyIsRefusedForATypeWhoseFormDoesNotShowIt(): void
+    {
+        $this->overrideTca(['columns' => ['bodytext' => ['config' => ['enableRichtext' => true]]]]);
+
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::PAGE, 'type' => 'header', 'header' => 'x', 'bodytext' => "Line one\nLine two"],
+            'content type "header" shows no "bodytext"',
+        );
+    }
+
+    /**
+     * `text` enables the RTE on its body, which rewrites plain lines on
+     * purpose; the read-back checks the body for presence and keeps the
+     * element.
+     */
+    #[Test]
+    public function aPlainMultiLineBodyOnAnRteTextIsCreatedAndKept(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'text', 'header' => 'x', 'bodytext' => "Line one\nLine two"],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedElementCount(), 'the element must not have been taken back');
+        self::assertStringContainsString('Line two', (string)($this->createdElement()['bodytext'] ?? ''));
+    }
+
+    /**
      * `TCEFORM.tt_content.CType.keepItems` and `.removeItems` narrow the type
      * selector per page. FormEngine applies them; the DataHandler does not,
      * so the tool asks them itself, after the page is authorised.

@@ -476,8 +476,9 @@ What holds for all of them:
    ``mod.web_layout.allowInconsistentLanguageHandling`` is exempt, as it is
    from core's warning.
 
-   ``bodytext`` reaches the DataHandler and its RTE transformation exactly as an
-   editor's input does. It is bounded in length and not otherwise filtered — an
+   ``bodytext`` is refused for a type whose form does not show it, such as
+   ``header``. Otherwise it reaches the DataHandler and its RTE transformation
+   exactly as an editor's input does. It is bounded in length and not otherwise filtered — an
    editor may write the same markup by hand, and a tool enforcing a stricter
    rule than the CMS would be enforcing a rule that does not exist.
 
