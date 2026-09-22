@@ -1796,6 +1796,14 @@
                 <source>References an existing file from this content element, appended to one of its file fields.</source>
                 <target>Verweist aus diesem Inhaltselement auf eine vorhandene Datei und hängt sie an eines seiner Dateifelder an.</target>
             </trans-unit>
+            <trans-unit id="editorAction.set_page_social_image.label">
+                <source>Set social preview image</source>
+                <target>Vorschaubild für soziale Netzwerke setzen</target>
+            </trans-unit>
+            <trans-unit id="editorAction.set_page_social_image.description">
+                <source>Sets the Open Graph or Twitter image of this page to an existing file. An image that is already there is replaced only when asked to.</source>
+                <target>Setzt das Open-Graph- oder Twitter-Bild dieser Seite auf eine vorhandene Datei. Ein bereits gesetztes Bild wird nur auf ausdrückliche Anweisung ersetzt.</target>
+            </trans-unit>
             <trans-unit id="editorAction.move_content_element.label">
                 <source>Move content element</source>
                 <target>Inhaltselement verschieben</target>
