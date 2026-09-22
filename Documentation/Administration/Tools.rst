@@ -576,7 +576,8 @@ What holds for all of them:
    Only **scalar** columns can be set — ``input``, ``text``, ``number``,
    ``email``, ``color``, ``datetime`` (as a timestamp), ``check``, ``radio``
    and ``select`` with static items — and only those the record type's form
-   shows. Relations, files, FlexForms, links and slugs are not arguments;
+   shows as writable — a column the TCA declares ``readOnly`` is refused.
+   Relations, files, FlexForms, links and slugs are not arguments;
    ``hidden``, ``uid``, ``pid``, the language, timing, ownership and
    versioning columns are refused by name. Values are checked against the
    record type's TCA — its ``columnsOverrides`` included — before anything is
@@ -590,7 +591,8 @@ What holds for all of them:
    column without ``opacity``, a text shorter than its ``min``, a decimal the
    range check would clamp. So is what the page's TSconfig takes out of the
    backend form: a column ``TCEFORM.<table>.<column>.disabled`` hides, a
-   select value ``keepItems`` or ``removeItems`` filters out, and a record
+   select value ``keepItems`` or ``removeItems`` filters out, a column
+   ``TCEFORM.<table>.<column>.config.readOnly`` makes read-only, and a record
    type its type field does not offer on that page — the refusal names the
    rule.
 

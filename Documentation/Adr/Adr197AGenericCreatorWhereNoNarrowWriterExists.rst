@@ -120,7 +120,9 @@ decision. Removing one reopens ADR-135's argument.
    ``json``, ``passthrough``, ``user``, ``none`` — is not an argument. A
    ``slug`` the TCA generates from other fields is left to the DataHandler. A
    column not in the record type's ``showitem``, palettes expanded, is
-   refused; the record type is the value the call gives for the
+   refused, and so is a column its merged configuration declares
+   ``readOnly``, which FormEngine renders read-only and the DataHandler
+   stores all the same; the record type is the value the call gives for the
    ``ctrl.type`` column, else that column's default, else core's own fallback
    (``0``, then ``1``), and a table whose record type lives in a related
    record (a ``ctrl.type`` of the form ``field:field``) is refused. Values
@@ -203,12 +205,15 @@ decision. Removing one reopens ADR-135's argument.
    column ``TCEFORM.<table>.<column>.disabled`` hides — any truthy value,
    ``true`` as well as ``1``, as :php:`SingleFieldContainer` reads it — a
    select value outside
-   its ``keepItems`` or inside its ``removeItems``, and a record type the
+   its ``keepItems`` or inside its ``removeItems``, a record type the
    type field does not offer there, whether the call names it or it is the
-   column's default. A ``types.<type>.`` block overrides the column's own
-   rule for that record type, as :php:`PageTsConfigMerged` merges it. The
-   refusal names the rule. Radio items are not filtered, because FormEngine
-   applies neither rule to them.
+   column's default, and a column ``TCEFORM.<table>.<column>.config.readOnly``
+   renders read-only (:php:`FormEngineUtility::overrideFieldConf()`), which
+   the DataHandler stores all the same. A ``types.<type>.`` block overrides
+   the column's own rule for that record type, as :php:`PageTsConfigMerged`
+   merges it. The refusal names the rule. Radio items are not filtered, and a
+   radio is not made read-only, because FormEngine applies neither rule to
+   one — its override matrix has no entry for ``radio``.
 
 What the fallback does not do, and why: it does not update or delete (the
 safety line of ADR-135 and ADR-180 stands for those; a wrong CREATE leaves a

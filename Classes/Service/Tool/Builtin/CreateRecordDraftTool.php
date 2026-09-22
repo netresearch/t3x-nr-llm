@@ -55,8 +55,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   a file, a FlexForm, a link, a slug: not an argument. Values are checked by
  *   type, against the record type's own configuration (`columnsOverrides`),
  *   before anything is written; a value the DataHandler would rewrite (an
- *   `eval`, a `min`, a clamp) is refused, and so is what the page's TSconfig
- *   (TCEFORM) takes out of the backend form.
+ *   `eval`, a `min`, a clamp) is refused, and so is what the backend form
+ *   shows read-only or the page's TSconfig (TCEFORM) takes out of it.
  * - **Always hidden, always the default language, one record.** `hidden` is
  *   forced to 1 and cannot be an argument; the language columns are refused; a
  *   table without a "disabled" enable column is refused outright.
@@ -130,6 +130,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         'delete', 'tstamp', 'crdate', 'cruser_id', 'sortby', 'origUid', 'editlock',
         'languageField', 'transOrigPointerField', 'transOrigDiffSourceField', 'translationSource',
     ];
+
+    /**
+     * The scalar types whose `readOnly` page TSconfig may override in the
+     * backend form (`FormEngineUtility::$allowOverrideMatrix`); `radio` has
+     * no entry there.
+     */
+    private const PAGE_READ_ONLY_TYPES = ['input', 'text', 'number', 'email', 'color', 'datetime', 'check', 'select'];
 
     /** The `eval` tokens {@see DataHandler::checkValue_input_Eval()} acts on, `trim` aside. */
     private const INPUT_EVALUATIONS = ['md5', 'upper', 'lower', 'is_in', 'nospace', 'alpha', 'num', 'alphanum', 'alphanum_x', 'domainname'];
@@ -500,7 +507,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * the DataHandler writes either without a word. So a column the form hides
      * on this page is refused, a select value it does not offer is refused, and
      * so is a record type its type field does not offer, whether the call names
-     * it or it is the column's default. A `types.<type>.` block of the same
+     * it or it is the column's default. So is a column `config.readOnly` makes
+     * read-only in the form (`FormEngineUtility::overrideFieldConf()`),
+     * for the types whose `readOnly` the form lets page TSconfig override —
+     * every scalar type but `radio`. A `types.<type>.` block of the same
      * rule overrides it for that record type, as
      * {@see \TYPO3\CMS\Backend\Form\FormDataProvider\PageTsConfigMerged} merges it.
      * Radio items are not filtered: FormEngine applies neither rule to them.
@@ -548,7 +558,23 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             }
 
             $config = $this->columnConfig($table, $column, $recordType) ?? [];
-            if (self::toStr($config['type'] ?? '') !== 'select') {
+            $kind   = self::toStr($config['type'] ?? '');
+
+            $readOnly = in_array($kind, self::PAGE_READ_ONLY_TYPES, true)
+                ? $this->pageConfigRule($rules, $column, 'readOnly', $recordType)
+                : null;
+            if ($readOnly !== null && (bool)$readOnly[0]) {
+                return sprintf(
+                    'Refused: "%s" is read-only on page [%d] — page TSconfig TCEFORM.%s.%s%s makes it read-only in the backend form.',
+                    $column,
+                    $pid,
+                    $table,
+                    $column,
+                    $readOnly[1],
+                );
+            }
+
+            if ($kind !== 'select') {
                 continue;
             }
 
@@ -616,6 +642,36 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         return array_key_exists($property, $field) ? [$field[$property], '.' . $property] : null;
+    }
+
+    /**
+     * One `config.` property page TSconfig overrides for a column in the
+     * backend form — the record type's `types.<type>.config.` block first, the
+     * column's own `config.` next, as `PageTsConfigMerged` merges them — with
+     * the path it was read from (`.types.story.config.readOnly`), or null
+     * where neither sets it.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.<table>.` block
+     *
+     * @return list{mixed, string}|null
+     */
+    private function pageConfigRule(array $rules, string $column, string $property, string $recordType): ?array
+    {
+        $field = $rules[$column . '.'] ?? null;
+        if (!is_array($field)) {
+            return null;
+        }
+
+        $types    = $field['types.'] ?? null;
+        $specific = is_array($types) ? ($types[$recordType . '.'] ?? null) : null;
+        $config   = is_array($specific) ? ($specific['config.'] ?? null) : null;
+        if (is_array($config) && array_key_exists($property, $config)) {
+            return [$config[$property], '.types.' . $recordType . '.config.' . $property];
+        }
+
+        $config = $field['config.'] ?? null;
+
+        return is_array($config) && array_key_exists($property, $config) ? [$config[$property], '.config.' . $property] : null;
     }
 
     /**
@@ -904,6 +960,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                     $column,
                     $kind !== '' ? $kind : 'untyped',
                     implode(', ', self::SCALAR_TYPES),
+                );
+            }
+
+            // Any truthy value, as the FormEngine elements read it. The
+            // DataHandler stores a read-only column all the same.
+            if ((bool)($config['readOnly'] ?? false)) {
+                return sprintf(
+                    'Refused: "%s" is read-only in the TCA of record type "%s" of %s, so the backend form could not set it either.',
+                    $column,
+                    $type['name'],
+                    $table,
                 );
             }
 

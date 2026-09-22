@@ -80,6 +80,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     /** Rules written the way TypoScript allows and FormEngine reads: any truthy value. */
     private const FOLDER_TRUTHY = 6;
 
+    /** Columns page TSconfig makes read-only in the backend form (`config.readOnly`). */
+    private const FOLDER_READ_ONLY = 7;
+
     private const PUBLISHED_AT = 1789034400;
 
     private CreateRecordDraftTool $tool;
@@ -115,6 +118,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             self::FOLDER_NO_NOTES => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
             self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n}",
             self::FOLDER_TRUTHY   => "TCEFORM.tx_writerfixture_item {\n  contact.disabled = true\n  featured.disabled = 0\n}",
+            self::FOLDER_READ_ONLY => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n}",
         ];
         foreach ($tceform as $uid => $tsConfig) {
             $pages->insert('pages', [
@@ -539,6 +543,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'a column disabled for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'story', 'priority' => 2], 'TCEFORM.tx_writerfixture_item.priority.types.story.disabled'];
         // FormEngine drops the field on any truthy value (SingleFieldContainer), not only on 1.
         yield 'a column disabled with the word true' => [self::FOLDER_TRUTHY, ['title' => 'x', 'contact' => 'editor@example.com'], 'TCEFORM.tx_writerfixture_item.contact.disabled'];
+        // FormEngine renders it read-only (FormEngineUtility::overrideFieldConf()); the DataHandler stores it.
+        yield 'a column read-only by page TSconfig' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'tone' => 'calm'], 'TCEFORM.tx_writerfixture_item.tone.config.readOnly'];
+        yield 'a column read-only for that type' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'kind' => 'story', 'priority' => 2], 'TCEFORM.tx_writerfixture_item.priority.types.story.config.readOnly'];
     }
 
     /**
@@ -570,6 +577,10 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'another record type than the removed one' => [self::FOLDER_NO_NOTES, ['title' => 'x', 'kind' => 'story']];
         yield 'a column disabled only for another type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'note', 'priority' => 2]];
         yield 'a column whose disabled rule is 0' => [self::FOLDER_TRUTHY, ['title' => 'x', 'featured' => 1]];
+        yield 'a column read-only only for another type' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'kind' => 'note', 'priority' => 2]];
+        yield 'a column whose readOnly rule is 0' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'featured' => 1]];
+        // FormEngine takes no `config.` override for a radio, so the rule does nothing there.
+        yield 'a radio a readOnly rule cannot reach' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'mood' => 'dark']];
     }
 
     /**

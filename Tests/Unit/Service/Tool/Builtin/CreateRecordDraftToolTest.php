@@ -90,11 +90,15 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                 ],
                 'types' => [
                     'note'  => [
-                        'showitem'         => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating, serial, byline, motto, remark, cc',
+                        'showitem'         => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating, serial, byline, motto, remark, cc, locked, stamp',
                         // A legacy `required` left in an override's eval:
                         // TcaMigration moves it out of the base column only,
                         // and the DataHandler ignores a token it does not know.
-                        'columnsOverrides' => ['byline' => ['config' => ['eval' => 'trim,required']]],
+                        // `stamp` is read-only for this type only.
+                        'columnsOverrides' => [
+                            'byline' => ['config' => ['eval' => 'trim,required']],
+                            'stamp'  => ['config' => ['readOnly' => true]],
+                        ],
                     ],
                     'story' => ['showitem' => 'title, kind, --palette--;;timing'],
                 ],
@@ -147,6 +151,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'remark'           => ['label' => 'Remark', 'config' => ['type' => 'text', 'eval' => 'upper']],
                     // An email runs only the uniqueness tokens, never a registered class.
                     'cc'               => ['label' => 'Cc', 'config' => ['type' => 'email', 'eval' => 'tx_demo_evaluation']],
+                    // Rendered read-only by FormEngine, stored by the DataHandler.
+                    'locked'           => ['label' => 'Locked', 'config' => ['type' => 'input', 'readOnly' => true]],
+                    'stamp'            => ['label' => 'Stamp', 'config' => ['type' => 'input']],
                 ],
             ],
         ];
@@ -324,6 +331,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a text eval of an extension' => [$call($valid + ['alias' => 'abc']), 'eval "tx_demo_evaluation"'];
         yield 'an email eval that uniquifies' => [$call($valid + ['reply_to' => 'a@example.com']), 'eval "unique"'];
         yield 'an input eval of an extension' => [$call($valid + ['serial' => 'abc']), 'eval "tx_demo_evaluation"'];
+        yield 'a read-only column'     => [$call($valid + ['locked' => 'x']), '"locked" is read-only'];
+        yield 'read-only for the record type' => [$call($valid + ['stamp' => 'x']), '"stamp" is read-only'];
         yield 'an 8-digit colour without opacity' => [$call($valid + ['colour' => '#2f99a4cc']), 'hexadecimal colour such as #2f99a4'];
         yield 'an input below min'     => [$call($valid + ['summary' => 'abcd']), 'at least 5 characters'];
         yield 'a text below min'       => [$call($valid + ['lede' => 'short']), 'at least 8 characters'];

@@ -11,7 +11,7 @@ declare(strict_types=1);
  * A table with one column of every scalar type create_record_draft may set,
  * one relation it may not, record types with their own showitem lists and one
  * with `columnsOverrides`, a palette, a required column, an exclude column, an
- * authMode select and a text column with a `min` (ADR-197).
+ * authMode select, a text column with a `min`, a decimal and a radio (ADR-197).
  */
 return [
     'ctrl' => [
@@ -31,7 +31,7 @@ return [
         ],
     ],
     'types' => [
-        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, rating, related'],
+        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, rating, mood, related'],
         'story' => ['showitem' => 'title, kind, --palette--;;timing, featured'],
         // Per-type configuration the DataHandler validates against
         // (`columnsOverrides`): `teaser` is required and `body` is rich text
@@ -144,6 +144,18 @@ return [
             // The DataHandler stores two decimals and clamps by ceil/floor
             // against the range, so 4.2 would come out as 4.5.
             'config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 0, 'upper' => 4.5], 'default' => 0],
+        ],
+        'mood' => [
+            'label'  => 'Mood',
+            // A radio: FormEngine's TCEFORM `config.` override matrix has no
+            // entry for it, so page TSconfig cannot make it read-only.
+            'config' => [
+                'type'  => 'radio',
+                'items' => [
+                    ['label' => 'Bright', 'value' => 'bright'],
+                    ['label' => 'Dark', 'value' => 'dark'],
+                ],
+            ],
         ],
         'related' => [
             'label'  => 'Related',
