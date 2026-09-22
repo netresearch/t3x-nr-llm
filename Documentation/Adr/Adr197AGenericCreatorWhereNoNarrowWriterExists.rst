@@ -151,9 +151,13 @@ decision. Removing one reopens ADR-135's argument.
    :php:`TcaMigration` moves out of the base column only, is not a refusal; an
    eight-digit colour on a column without ``opacity``, which is cut to seven
    characters; a non-empty ``input`` or ``text`` below its ``min``, which is
-   stored empty (rich text is exempt, as in core); a number the range check
-   would clamp, which compares the value rounded up against ``upper`` and
-   rounded down against ``lower`` — 4.2 in 0.5..4.5 becomes 4.5.
+   stored empty (rich text is exempt, as in core); a decimal with more than
+   two decimal places, which the DataHandler stores through
+   ``number_format($value, 2)`` whatever the column — 1.234 would become 1.23
+   — so the read-back compares a decimal as that two-place string, exactly; a
+   number the range check would clamp, which compares the value as stored
+   rounded up against ``upper`` and rounded down against ``lower`` — 4.2 in
+   0.5..4.5 becomes 4.5.
 
 4. **Column deny-list regardless of type.** ``uid``, ``pid`` (an argument of
    its own, never a field), the ``ctrl`` columns for delete, versioning,

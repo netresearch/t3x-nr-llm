@@ -338,6 +338,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'a text below min'       => [$call($valid + ['lede' => 'short']), 'at least 8 characters'];
         yield 'a decimal TYPO3 clamps up' => [$call($valid + ['rating' => 4.2]), 'outside the range 0.5..4.5'];
         yield 'a decimal TYPO3 clamps down' => [$call($valid + ['rating' => 0.8]), 'outside the range 0.5..4.5'];
+        yield 'a decimal TYPO3 rounds down' => [$call($valid + ['rating' => 1.234]), 'more than two decimal places'];
+        yield 'a decimal TYPO3 rounds up' => [$call($valid + ['rating' => 0.125]), 'more than two decimal places'];
+        yield 'a decimal string with three places' => [$call($valid + ['rating' => '2.675']), 'more than two decimal places'];
         yield 'required missing'       => [$call(['teaser' => 'x']), '"title" is required'];
         yield 'required empty'         => [$call(['title' => '  ']), '"title" is required'];
     }
@@ -382,6 +385,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'rich text below min'             => [['story' => 'Hi']];
         yield 'a decimal that stays in range'   => [['rating' => 4.0]];
         yield 'a decimal at the lower bound'    => [['rating' => 1]];
+        yield 'a decimal with two places'       => [['rating' => 2.25]];
+        yield 'a decimal string with a trailing zero' => [['rating' => '2.50']];
         yield 'a legacy required in an override eval' => [['byline' => 'By the desk']];
         yield 'an unregistered eval on a text'  => [['motto' => 'Onwards']];
         yield 'an input-only eval on a text'    => [['remark' => 'As written']];

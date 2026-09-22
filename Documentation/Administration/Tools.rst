@@ -588,8 +588,9 @@ What holds for all of them:
    (``upper``, ``alphanum``, ``unique``, ``uniqueInPid``, an extension's
    registered evaluation …; a token it ignores is ignored here too), an
    eight-digit colour on a
-   column without ``opacity``, a text shorter than its ``min``, a decimal the
-   range check would clamp. So is what the page's TSconfig takes out of the
+   column without ``opacity``, a text shorter than its ``min``, a decimal
+   with more than two decimal places (TYPO3 stores two), a decimal the range
+   check would clamp. So is what the page's TSconfig takes out of the
    backend form: a column ``TCEFORM.<table>.<column>.disabled`` hides, a
    select value ``keepItems`` or ``removeItems`` filters out, a column
    ``TCEFORM.<table>.<column>.config.readOnly`` makes read-only, and a record

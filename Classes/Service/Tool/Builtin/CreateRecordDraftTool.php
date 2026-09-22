@@ -1144,48 +1144,69 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * refuses it, so the approver never reads a value the record will not
      * carry.
      *
+     * A decimal is stored through `number_format($value, 2)` whatever the
+     * column (DataHandler::checkValueForNumber()), so one with a third decimal
+     * place is refused rather than rounded — 1.234 would be stored as 1.23. A
+     * valid one is handed on and shown in that same two-place form, which the
+     * DataHandler parses back unchanged.
+     *
      * @param array<array-key, mixed> $config
      *
-     * @return list{int|float, string}|string
+     * @return list{int|string, string}|string
      */
     private function checkNumber(string $column, array $config, mixed $value): array|string
     {
-        if (self::toStr($config['format'] ?? 'integer') === 'decimal') {
+        $decimal = self::toStr($config['format'] ?? 'integer') === 'decimal';
+        if ($decimal) {
             if (!is_int($value) && !is_float($value) && (!is_string($value) || !is_numeric($value))) {
                 return sprintf('Refused: the value for "%s" must be a number.', $column);
             }
 
             $number = (float)$value;
+            // Compared with a tolerance far below a hundredth, so the binary
+            // form of a two-place value (0.1 + 0.2) is not mistaken for more.
+            if (abs($number - round($number, 2)) > 1e-9 * max(1.0, abs($number))) {
+                return sprintf(
+                    'Refused: the value for "%s" has more than two decimal places; TYPO3 stores a decimal rounded to '
+                    . 'two, so the record would not carry the value the approver read.',
+                    $column,
+                );
+            }
+
+            $stored  = number_format($number, 2, '.', '');
+            $checked = (float)$stored;
         } else {
-            $number = match (true) {
+            $checked = match (true) {
                 is_int($value)                                                  => $value,
                 is_float($value) && floor($value) === $value                    => (int)$value,
-                is_string($value) && preg_match('/^-?\d+$/', $value) === 1      => (int)$value,
+                is_string($value) && preg_match('/^-?\d+$/', $value) === 1     => (int)$value,
                 default                                                         => null,
             };
-            if ($number === null) {
+            if ($checked === null) {
                 return sprintf('Refused: the value for "%s" must be an integer.', $column);
             }
+
+            $stored = $checked;
         }
 
-        // As the DataHandler compares it (checkValueForNumber()): rounded up
-        // against the upper bound and down against the lower one, so a decimal
-        // inside the range can still be clamped to a bound. For an integer the
-        // rounding changes nothing.
+        // As the DataHandler compares it (checkValueForNumber()): the value it
+        // stores, rounded up against the upper bound and down against the
+        // lower one, so a decimal inside the range can still be clamped to a
+        // bound. For an integer the rounding changes nothing.
         $range = is_array($config['range'] ?? null) ? $config['range'] : [];
         $lower = is_numeric($range['lower'] ?? null) ? (float)$range['lower'] : null;
         $upper = is_numeric($range['upper'] ?? null) ? (float)$range['upper'] : null;
-        if (($lower !== null && floor($number) < $lower) || ($upper !== null && ceil($number) > $upper)) {
+        if (($lower !== null && floor($checked) < $lower) || ($upper !== null && ceil($checked) > $upper)) {
             return sprintf(
                 'Refused: the value for "%s" is outside the range %s..%s%s.',
                 $column,
                 self::toStr($range['lower'] ?? ''),
                 self::toStr($range['upper'] ?? ''),
-                is_float($number) ? ' as TYPO3 checks a decimal — rounded up against the upper bound, down against the lower one' : '',
+                $decimal ? ' as TYPO3 checks a decimal — rounded up against the upper bound, down against the lower one' : '',
             );
         }
 
-        return [$number, self::toStr($number)];
+        return [$stored, self::toStr($stored)];
     }
 
     /**
@@ -1429,8 +1450,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     /**
      * The columns whose stored value is NOT the requested one after the write.
      *
-     * Compared by type: numbers and timestamps as numbers, everything else as
-     * the string the DataHandler stores. A rich-text column is the exception —
+     * Compared by type: integers and timestamps as numbers, a decimal as its
+     * two-place string on both sides — exact, since a third decimal place is
+     * refused before the write, and independent of whether the database hands
+     * back 4.20, 4.2 or a float — everything else as the string the
+     * DataHandler stores. A rich-text column is the exception —
      * the RTE rewrites its markup on the way in, so only its presence can be
      * checked there.
      *
@@ -1452,7 +1476,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                     || ($kind === 'number' && self::toStr($config['format'] ?? 'integer') !== 'decimal')
                     => self::toInt($storedValue) === self::toInt($requested),
                 $kind === 'number'
-                    => abs(self::toFloat($storedValue) - self::toFloat($requested)) < 0.005,
+                    => number_format(self::toFloat($storedValue), 2, '.', '') === number_format(self::toFloat($requested), 2, '.', ''),
                 $kind === 'text' && $this->flag($config['enableRichtext'] ?? false)
                     => trim(self::toStr($requested)) === '' || trim(self::toStr($storedValue)) !== '',
                 default

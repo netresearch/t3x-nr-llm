@@ -416,23 +416,65 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The DataHandler stores a decimal with two places; the read-back compares
-     * it as a number, so 1.234 stored as 1.23 is the record that was asked for.
+     * The DataHandler stores every decimal through number_format($value, 2)
+     * (checkValueForNumber()): 1.234 would become 1.23, a record the approver
+     * never read, and 0.125 or 2.675 would round up to a value the read-back
+     * then calls wrong. A third decimal place is refused before the write.
+     *
+     * @return iterable<string, array{float}>
      */
+    public static function decimalsTypo3WouldRound(): iterable
+    {
+        yield 'rounded down' => [1.234];
+        yield 'rounded up at the half' => [0.125];
+        yield 'a half that is below it in binary' => [2.675];
+    }
+
     #[Test]
-    public function aDecimalIsStoredWithTwoPlacesAndKept(): void
+    #[DataProvider('decimalsTypo3WouldRound')]
+    public function aDecimalWithMoreThanTwoPlacesIsRefusedAndNothingIsCreated(float $rating): void
     {
         $admin = $this->setUpBackendUser(1);
 
         $result = $this->tool->execute(
-            $this->call(['title' => 'x', 'rating' => 1.234]),
+            $this->call(['title' => 'x', 'rating' => $rating]),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('more than two decimal places', $result->content);
+        self::assertSame(0, $this->recordCount());
+    }
+
+    /**
+     * What TYPO3 stores unchanged is created and kept — a whole number and a
+     * trailing zero included, which a database may hand back as 4 or 3.1.
+     *
+     * @return iterable<string, array{float|int|string, float}>
+     */
+    public static function decimalsTypo3StoresUnchanged(): iterable
+    {
+        yield 'two places'       => [3.25, 3.25];
+        yield 'a whole number'   => [4, 4.0];
+        yield 'a trailing zero'  => ['3.10', 3.1];
+    }
+
+    #[Test]
+    #[DataProvider('decimalsTypo3StoresUnchanged')]
+    public function aDecimalWithAtMostTwoPlacesIsStoredAndKept(float|int|string $rating, float $stored): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'rating' => $rating]),
             ToolExecutionContext::fromBackendUser($admin),
         );
 
         self::assertFalse($result->isError, $result->content);
-        $rating = $this->createdRecord()['rating'] ?? null;
-        self::assertIsNumeric($rating);
-        self::assertEqualsWithDelta(1.23, (float)$rating, 0.0001);
+        self::assertSame(1, $this->undeletedRecordCount());
+        $value = $this->createdRecord()['rating'] ?? null;
+        self::assertIsNumeric($value);
+        self::assertEqualsWithDelta($stored, (float)$value, 0.0001);
     }
 
     /**
