@@ -30,6 +30,7 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -138,8 +139,14 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     private const PAGE_READ_ONLY_TYPES = ['input', 'text', 'number', 'email', 'color', 'datetime', 'check', 'select'];
 
-    /** The `eval` tokens {@see DataHandler::checkValue_input_Eval()} acts on, `trim` aside. */
+    /** The `eval` tokens {@see DataHandler::checkValue_input_Eval()} acts on in every supported core, `trim` aside. */
     private const INPUT_EVALUATIONS = ['md5', 'upper', 'lower', 'is_in', 'nospace', 'alpha', 'num', 'alphanum', 'alphanum_x', 'domainname'];
+
+    /**
+     * The `eval` token only TYPO3 13's checkValue_input_Eval() acts on — it
+     * casts the value to an integer; 14 no longer knows it.
+     */
+    private const INPUT_EVALUATION_BEFORE_14 = 'year';
 
     /** The `eval` tokens that make an `input` or `email` value unique. */
     private const UNIQUE_EVALUATIONS = ['unique', 'uniqueInPid'];
@@ -167,6 +174,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         private iterable $tools = [],
         private ?ExtensionConfiguration $extensionConfiguration = null,
         private ?LanguageServiceFactory $languageServiceFactory = null,
+        private ?Typo3Version $typo3Version = null,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -1097,7 +1105,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * Exactly the tokens the DataHandler acts on, per column type: an `input`
      * the ones {@see DataHandler::checkValue_input_Eval()} names, which rewrite
      * the value (`upper`, `lower`, `nospace`, `alpha`, `num`, `alphanum`,
-     * `alphanum_x`, `is_in`, `domainname`) or drop it (`md5`), and the two
+     * `alphanum_x`, `is_in`, `domainname`, and on TYPO3 13 `year`) or drop it
+     * (`md5`), and the two
      * uniqueness tokens of {@see DataHandler::checkValueForInput()}; a `text`
      * none of its own ({@see DataHandler::checkValue_text_Eval()}); an `email`
      * only the uniqueness tokens. `input` and `text` also hand a token
@@ -1114,7 +1123,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     private function rewritingEvaluation(string $kind, array $config): ?string
     {
         $acted = match ($kind) {
-            'input' => [...self::INPUT_EVALUATIONS, ...self::UNIQUE_EVALUATIONS],
+            'input' => [...$this->inputEvaluations(), ...self::UNIQUE_EVALUATIONS],
             'email' => self::UNIQUE_EVALUATIONS,
             'text'  => [],
             default => null,
@@ -1130,6 +1139,22 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         return null;
+    }
+
+    /**
+     * The `eval` tokens the running core's
+     * {@see DataHandler::checkValue_input_Eval()} acts on, `trim` aside:
+     * `year` only before TYPO3 14.
+     *
+     * @return list<string>
+     */
+    private function inputEvaluations(): array
+    {
+        $version = $this->typo3Version ?? new Typo3Version();
+
+        return $version->getMajorVersion() < 14
+            ? [...self::INPUT_EVALUATIONS, self::INPUT_EVALUATION_BEFORE_14]
+            : self::INPUT_EVALUATIONS;
     }
 
     /**

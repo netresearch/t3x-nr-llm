@@ -28,6 +28,7 @@ use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
@@ -90,7 +91,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                 ],
                 'types' => [
                     'note'  => [
-                        'showitem'         => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating, serial, byline, motto, remark, cc, locked, stamp',
+                        'showitem'         => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating, serial, byline, motto, remark, cc, locked, stamp, founded',
                         // A legacy `required` left in an override's eval:
                         // TcaMigration moves it out of the base column only,
                         // and the DataHandler ignores a token it does not know.
@@ -154,6 +155,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     // Rendered read-only by FormEngine, stored by the DataHandler.
                     'locked'           => ['label' => 'Locked', 'config' => ['type' => 'input', 'readOnly' => true]],
                     'stamp'            => ['label' => 'Stamp', 'config' => ['type' => 'input']],
+                    // `year`: 13.4's checkValue_input_Eval() casts the value to
+                    // an integer, 14.3's no longer knows the token.
+                    'founded'          => ['label' => 'Founded', 'config' => ['type' => 'input', 'eval' => 'trim,year']],
                 ],
             ],
         ];
@@ -427,6 +431,36 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('00:00 of the next day', $result->content);
     }
 
+    /**
+     * `year` is refused where the running core rewrites it on the way in —
+     * 13.4 casts the value to an integer — and passes the rule on 14, whose
+     * DataHandler ignores the token; there the call is stopped only by the
+     * invalid `kind` behind it.
+     *
+     * @return iterable<string, array{int, string}>
+     */
+    public static function yearEvaluationsByCoreVersion(): iterable
+    {
+        yield 'TYPO3 13 acts on it' => [13, 'eval "year"'];
+        yield 'TYPO3 14 ignores it' => [14, 'must be one of'];
+    }
+
+    #[Test]
+    #[DataProvider('yearEvaluationsByCoreVersion')]
+    public function aYearEvaluationIsRefusedOnlyWhereTheCoreActsOnIt(int $majorVersion, string $expectedFragment): void
+    {
+        $version = self::createStub(Typo3Version::class);
+        $version->method('getMajorVersion')->willReturn($majorVersion);
+
+        $result = $this->toolWith(deniedTables: '', typo3Version: $version)->execute(
+            $this->call(['title' => 'x', 'founded' => '1999', 'kind' => 'novel']),
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString($expectedFragment, $result->content);
+    }
+
     #[Test]
     public function aTableNameIsEchoedBackOnlyWhenItIsAnIdentifier(): void
     {
@@ -653,7 +687,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     /**
      * @param list<ToolInterface> $writers
      */
-    private function toolWith(string $deniedTables, array $writers = []): CreateRecordDraftTool
+    private function toolWith(string $deniedTables, array $writers = [], ?Typo3Version $typo3Version = null): CreateRecordDraftTool
     {
         // Where ExtensionConfiguration::get() reads it; the global is untyped,
         // so it is narrowed step by step.
@@ -682,6 +716,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
             new TableReadAccessService(),
             $writers,
             new ExtensionConfiguration(),
+            null,
+            $typo3Version,
         );
     }
 

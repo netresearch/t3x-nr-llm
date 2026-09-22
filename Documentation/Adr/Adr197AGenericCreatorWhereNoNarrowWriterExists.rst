@@ -147,7 +147,9 @@ decision. Removing one reopens ADR-135's argument.
    refused before the write for the same reason: a column whose ``eval``
    holds a token the DataHandler acts on (an ``input``'s ``upper``,
    ``lower``, ``nospace``, ``alpha``, ``num``, ``alphanum``, ``alphanum_x``,
-   ``is_in``, ``domainname``, ``md5``, ``unique`` or ``uniqueInPid``; an
+   ``is_in``, ``domainname``, ``md5``, ``unique`` or ``uniqueInPid``, and on
+   TYPO3 13 ``year``, which its DataHandler casts to an integer and 14's no
+   longer knows; an
    ``email``'s ``unique`` or ``uniqueInPid``; for an ``input`` or a ``text``,
    a token an extension registered in ``SC_OPTIONS.tce.formevals``). A token
    the DataHandler does not know it ignores, and so does the tool — a legacy
