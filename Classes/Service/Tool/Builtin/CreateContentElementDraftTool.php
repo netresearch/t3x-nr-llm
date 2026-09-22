@@ -221,10 +221,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                     'fields' => [
                         'type'                 => 'object',
                         'description'          => 'Further columns of the chosen type, as {column: value}. A key must be a '
-                            . 'scalar column of that type\'s form in the TCA (input, text, select with static items, '
+                            . "scalar column of that type's form in the TCA (input, text, select with static items, "
                             . 'check, number, datetime, radio, color, email); relations, FlexForms and the identity, '
                             . 'position, visibility, publication, audience and translation columns are refused. A '
-                            . 'value is validated against the column\'s TCA type; a refusal names the columns the type '
+                            . "value is validated against the column's TCA type; a refusal names the columns the type "
                             . 'offers. Omit for header and body text only.',
                         // The boolean form ReadRecordsTool ships. A type ARRAY
                         // is a union type, which Gemini's schema dialect does
@@ -882,7 +882,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         foreach (explode(',', self::toStr($typeConf['showitem'] ?? '')) as $part) {
             $pieces = explode(';', trim($part));
             $name   = trim($pieces[0]);
-            if ($name === '' || $name === '--div--' || $name === '--linebreak--') {
+            if (in_array($name, ['', '--div--', '--linebreak--'], true)) {
                 continue;
             }
 
@@ -1255,7 +1255,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     private function numberValue(string $column, mixed $value, array $config): array|string
     {
-        if (!is_int($value) && !is_float($value) && !(is_string($value) && is_numeric(trim($value)))) {
+        if (!is_int($value) && !is_float($value) && (!is_string($value) || !is_numeric(trim($value)))) {
             return sprintf('Refused: the value for "%s" must be a number.', $column);
         }
 
@@ -1419,7 +1419,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         if ($tcaType === 'input') {
-            $evals = array_filter(array_map('trim', explode(',', self::toStr($config['eval'] ?? ''))));
+            $evals = array_filter(array_map(trim(...), explode(',', self::toStr($config['eval'] ?? ''))));
 
             return array_diff($evals, ['trim']) !== [];
         }
