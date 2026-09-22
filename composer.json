@@ -55,7 +55,8 @@
         "poppler-utils": "System package (not a Composer package) providing pdftoppm/pdfimages — enables DocumentAnalysisService's rasterization fallback for providers without native PDF ingestion",
         "tpwd/ke_search": "Site-search RAG tools retrieve evidence from the ke_search index when installed",
         "typo3/cms-dashboard": "Adds AI usage / cost widgets to the TYPO3 dashboard",
-        "typo3/cms-indexed-search": "Site-search RAG tools retrieve evidence from the indexed_search index when installed"
+        "typo3/cms-indexed-search": "Site-search RAG tools retrieve evidence from the indexed_search index when installed",
+        "typo3/cms-seo": "Provides the page fields og_image and twitter_image that set_page_social_image writes, and the SEO text fields of update_page_metadata"
     },
     "autoload": {
         "psr-4": {

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreatePageDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\MoveContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetFileAlternativeTextTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdatePageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -72,6 +73,7 @@ final class EditorActionDeclarationTest extends TestCase
             'create_content_element_draft' => [CreateContentElementDraftTool::class, ['pages']],
             'create_page_draft'            => [CreatePageDraftTool::class, ['pages']],
             'create_translation_draft'     => [CreateTranslationDraftTool::class, ['pages', 'tt_content']],
+            'set_page_social_image'        => [SetPageSocialImageTool::class, ['pages']],
         ];
     }
 
