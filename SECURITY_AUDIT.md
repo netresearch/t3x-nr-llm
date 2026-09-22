@@ -34,7 +34,7 @@ required list.
 | PHP SAST | `security / SAST (Opengrep)` | yes — via the gate |
 | SAST, non-PHP | `codeql / Analyze (actions)` and `codeql / Analyze (javascript-typescript)`. CodeQL has no PHP analysis here — Opengrep is the PHP SAST | yes — via the gate |
 | Code quality | `SonarCloud Code Analysis` (GitHub App, driven by `.sonarcloud.properties`) | no — the only check that reports without blocking |
-| Secret scanning, CI | `gitleaks / Secret Scanning` | yes — via the gate |
+| Secret scanning, CI | `betterleaks / Secret Scanning` | yes — via the gate |
 | Secret scanning, push | GitHub native secret scanning with push protection `enabled` | yes — it rejects the push, before CI |
 | Dependency vulnerabilities | `security / Composer Audit`, `dependency-review / Dependency Review` | yes — via the gate |
 | Workflow hardening | `zizmor / zizmor analysis`, `step-security/harden-runner` | yes — via the gate |
@@ -46,7 +46,7 @@ required list.
 This is what `checks.yml`'s header comment always intended — "the gate is the
 only context a ruleset requires" — and until 2026-08-10 this repository did the
 opposite: it required `security / …`, `fuzz / …` and `license-check / …`
-individually and the gate not at all, so gitleaks, zizmor, dependency-review,
+individually and the gate not at all, so betterleaks, zizmor, dependency-review,
 scorecard and pr-quality ran without being able to block anything.
 
 Requiring the gate instead of the individual contexts also removed a
