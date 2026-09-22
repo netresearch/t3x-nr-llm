@@ -674,6 +674,8 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertTrue($result->isError, $result->content);
         self::assertStringContainsString('imagewidth did not carry the value asked for', $result->content);
         self::assertStringContainsString('was deleted again', $result->content);
+        // Not only a grant: here TYPO3 itself dropped the value by a rule.
+        self::assertStringContainsString('rewritten by TYPO3', $result->content);
         self::assertSame(0, $this->undeletedElementCount(), 'nothing undeleted may be left behind');
     }
 

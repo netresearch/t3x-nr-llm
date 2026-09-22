@@ -109,14 +109,31 @@ publication and audience (``starttime``, ``endtime``, ``fe_group``,
 ADR-135 made for pages, by analogy — plus ``header`` and ``bodytext``, which
 are arguments of their own. The ``bodytext`` argument follows the same rule
 as a key: it is refused for a type whose form does not show the column, where
-the DataHandler would still write it under the column's base config. A value is validated against the column's TCA
-type: a select against its static items, a check as a boolean, a number as a
-whole number (or a decimal where the column says so) within the TCA range, a
-datetime as anything PHP reads, an input or text within the TCA ``max`` or
-the tool's own bound and not below the TCA ``min``, a colour with an alpha
-pair only where the column declares ``opacity``, an email as a valid address.
-The first wrong key or value refuses the whole call before anything is
-written, and the refusal names the columns the type does offer.
+the DataHandler would still write it under the column's base config.
+
+Three kinds of fillable column stay in the form and are still refused as keys,
+because the DataHandler bends them by a rule the draft cannot vouch for: a
+``check`` with several items is a bitmask, and ``1`` would set only its first
+bit; a ``check`` with ``eval`` ``maximumRecordsChecked`` or
+``maximumRecordsCheckedInPid`` is unchecked again once enough other records
+carry it; an ``input`` or ``email`` with ``eval`` ``unique`` or
+``uniqueInPid`` is rewritten to a value no other record holds. They do not
+exclude the type; the draft leaves them at their default.
+
+A value is validated against the column's TCA type, the way the DataHandler
+reads it: a select against its static items, and against the acting user's
+``explicit_allowdeny`` where the column declares ``authMode`` — for any
+select, not only ``CType``; a check as a boolean; a number as a whole number
+(or a decimal where the column says so) within the TCA range, compared as the
+DataHandler compares it, rounded up against the upper bound and rounded down
+against the lower, so a decimal inside a fractional bound that the
+DataHandler would clamp is refused; a datetime as anything PHP reads; an
+input or text within the TCA ``max`` or the tool's own bound, and an input or
+a text without the RTE not below the TCA ``min``, a bound given as a numeric
+string counting as the integer; a colour with an alpha pair only where the
+column declares ``opacity``; an email as a valid address. The first wrong key
+or value refuses the whole call before anything is written, and the refusal
+names the columns the type does offer.
 
 **Page TSconfig narrows the form per page, and the tool honours it.**
 ``TCEFORM.tt_content`` is applied by FormEngine only — the DataHandler stores
@@ -159,7 +176,9 @@ chosen type is checked against the acting user's ``explicit_allowdeny`` where
 silence and creates the element as the default type. The read-back then
 checks every column the call set, position and language included; a column
 that still did not take is reported and the element is deleted again, exactly
-as a visible element is. Three kinds are checked for presence rather than
+as a visible element is. The report names both causes it cannot tell apart: a
+value rewritten by TYPO3 under a rule this tool does not check, and a missing
+grant. Three kinds are checked for presence rather than
 equality, because the DataHandler rewrites them on purpose — a ``datetime`` is
 normalised to its ``format`` and clamped to its ``range``, a ``text`` column
 with ``enableRichtext`` passes through the RTE transformation, and an
@@ -185,11 +204,11 @@ ADR-135's argument was never that the list had to be short; it was that what
 the tool can do wrong must be readable in the diff and reviewed once. A rule
 satisfies that when its exclusions are explicit and finite, and here they are:
 four type names, one prefix, two item groups and the Extbase plugin
-registration; twelve column types, the
-record-backed
-``select`` and every type the tool does not know; seventeen column names and
-one prefix, the disabled column under whatever name ``ctrl.enablecolumns``
-gives it, plus the two arguments of their own. Everything a model can reach
+registration; twelve column types, the record-backed ``select`` and every
+type the tool does not know; three fillable kinds refused as keys; seventeen
+column names and one prefix, the disabled column under whatever name
+``ctrl.enablecolumns`` gives it, plus the two arguments of their own; and the
+page's TCEFORM rules. Everything a model can reach
 is a scalar column of a prose element on one table, with the element hidden.
 The blast radius is bounded by the exclusions, and the exclusions are what a
 reviewer reads.
@@ -267,8 +286,8 @@ may not transfer.
 ✕ A ``select`` with an ``itemsProcFunc`` is validated against its static
 items only; a value the processor would have added is refused.
 
-✕ A ``check`` with several items is a bitmask the tool does not offer; it
-accepts ``0`` and ``1`` only.
+✕ A ``check`` with several items is a bitmask the tool does not set; it is
+refused as a key, and the draft leaves it at its default.
 
 ✕ A ``datetime``, an RTE-enabled ``text`` column and an ``input`` with an
 ``eval`` beyond ``trim`` are verified for presence, not for value. A column

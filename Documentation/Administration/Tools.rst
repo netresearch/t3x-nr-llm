@@ -452,7 +452,11 @@ What holds for all of them:
      column, language and position as arguments, and every further ``input``,
      ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,
      ``radio``, ``color`` or ``email`` column of the chosen type through
-     ``fields``, validated against its TCA type. Identity, position,
+     ``fields``, validated against its TCA type as the DataHandler reads it.
+     A ``check`` with several items, a ``check`` limited by
+     ``maximumRecordsChecked`` and an ``input`` or ``email`` with ``eval``
+     ``unique`` stay in the form and are refused as keys, because TYPO3 would
+     change them in silence. Identity, position,
      visibility, publication, audience and translation columns are refused by
      name; a wrong key or value refuses the whole call and names the columns
      the type offers. The chosen type is checked against the acting user's

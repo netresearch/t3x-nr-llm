@@ -329,8 +329,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
             return ToolResult::error(sprintf(
                 'Content element [%d] was created but %s did not carry the value asked for, so it %s. The '
-                . 'DataHandler dropped the value without complaint; the acting backend user is most likely '
-                . 'missing the field-level ("exclude field") grant for %s.',
+                . 'DataHandler dropped or changed the value without complaint: either it was rewritten by TYPO3 '
+                . 'under a rule of the column this tool does not check, or the acting backend user is missing the '
+                . 'field-level ("exclude field") grant for %s.',
                 $newUid,
                 implode(', ', $notTaken),
                 $removed
@@ -515,7 +516,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             );
         }
 
-        $fields = $this->collectFields($arguments, $type);
+        $fields = $this->collectFields($arguments, $type, $user);
         if (is_string($fields)) {
             return $fields;
         }
@@ -1142,10 +1143,50 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         if (in_array($type, self::FILLABLE_COLUMN_TYPES, true)) {
-            return 'fillable';
+            // A scalar the DataHandler would bend by rule — see
+            // keyRefusal() — stays in the form and is never filled.
+            return $this->keyRefusal($config) === null ? 'fillable' : 'unfilled';
         }
 
         return in_array($type, self::UNFILLED_COLUMN_TYPES, true) ? 'unfilled' : 'excluding';
+    }
+
+    /**
+     * Why a column of a fillable TCA type is still never a `fields` key, or
+     * null when it may be one.
+     *
+     * Each case is one the DataHandler bends in silence by a rule the draft
+     * cannot vouch for: a `check` with several items is a bitmask, and `1`
+     * would set its first bit only; a `check` with `eval`
+     * `maximumRecordsChecked` or `maximumRecordsCheckedInPid` is unchecked
+     * again once enough other records carry it; an `input` or `email` with
+     * `eval` `unique` or `uniqueInPid` is rewritten to a value no other
+     * record holds. The column does not exclude its type — the draft leaves
+     * it at its default.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function keyRefusal(array $config): ?string
+    {
+        $type  = self::toStr($config['type'] ?? '');
+        $evals = GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true);
+
+        if ($type === 'check') {
+            $items = is_array($config['items'] ?? null) ? $config['items'] : [];
+            if (count($items) > 1) {
+                return 'a check with several items is a bitmask, and this tool sets 0 or 1 only';
+            }
+
+            if (array_intersect($evals, ['maximumRecordsChecked', 'maximumRecordsCheckedInPid']) !== []) {
+                return 'TYPO3 unchecks it in silence once enough other records carry it (eval maximumRecordsChecked)';
+            }
+        }
+
+        if (in_array($type, ['input', 'email'], true) && array_intersect($evals, ['unique', 'uniqueInPid']) !== []) {
+            return 'TYPO3 rewrites a value another record already holds (eval unique)';
+        }
+
+        return null;
     }
 
     /**
@@ -1198,7 +1239,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * @return array<non-empty-string, string|int>|string
      */
-    private function collectFields(array $arguments, string $type): array|string
+    private function collectFields(array $arguments, string $type, BackendUserAuthentication $user): array|string
     {
         if (!array_key_exists('fields', $arguments)) {
             return [];
@@ -1230,6 +1271,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 );
             }
 
+            $refusal = array_key_exists($column, $columns) ? $this->keyRefusal($columns[$column]) : null;
+            if ($column === $key && $refusal !== null) {
+                return sprintf('Refused: "%s" cannot be set through "fields": %s.', $column, $refusal);
+            }
+
             if ($column !== $key || !in_array($column, $fillable, true)) {
                 return sprintf(
                     'Refused: "%s" is not a scalar column of content type "%s". Columns this tool sets for it: %s.',
@@ -1242,6 +1288,24 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $checked = $this->fieldValue($column, $value, $columns[$column]);
             if (is_string($checked)) {
                 return $checked;
+            }
+
+            // The DataHandler asks `authMode` for every `select` declaring
+            // it, not for `CType` alone, and drops a value the user is not
+            // allowed in silence.
+            if (self::toStr($columns[$column]['type'] ?? '') === 'select'
+                && (bool)($columns[$column]['authMode'] ?? false)
+                && !$user->checkAuthMode(self::TABLE, $column, (string)$checked[0])
+            ) {
+                return sprintf(
+                    'Refused: the acting backend user is not allowed the value "%s" for "%s" (no explicit allow for '
+                    . '%s:%s:%s). Nothing was written.',
+                    (string)$checked[0],
+                    $column,
+                    self::TABLE,
+                    $column,
+                    (string)$checked[0],
+                );
             }
 
             $fields[$column] = $checked[0];
@@ -1258,8 +1322,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Mirrors what the DataHandler checks, and refuses where it would silently
      * bend the value: a `select` value outside the static items would be
      * stored and shown as invalid; a `number` outside `range` would be clamped;
-     * an invalid `email` would be emptied; an `input` below `min` would be
-     * stored as ''; a nine-digit `color` would be cut to seven unless the
+     * an invalid `email` would be emptied; an `input`, or a `text` without
+     * the RTE, below `min` would be stored as ''; a nine-digit `color` would be cut to seven unless the
      * column declares `opacity`. A `datetime` is anything PHP reads — an
      * integer timestamp (seconds of the day on a `time` column) or an ISO 8601
      * date — and is handed over in the shape both cores store
@@ -1348,14 +1412,17 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             }
         }
 
-        // Below `min` the DataHandler stores '' instead of the value.
-        $min = self::toInt($config['min'] ?? 0);
-        if ($type === 'input' && $min > 0 && $text !== '' && mb_strlen($text) < $min) {
+        // Below `min` the DataHandler stores '' instead of the value — for an
+        // `input`, and for a `text` unless its RTE is enabled. A bound given
+        // as a string is a bound to it, which casts.
+        $min      = MathUtility::canBeInterpretedAsInteger($config['min'] ?? null) ? (int)$config['min'] : 0;
+        $minHolds = $type === 'input' || ($type === 'text' && !(bool)($config['enableRichtext'] ?? false));
+        if ($minHolds && $min > 0 && $text !== '' && mb_strlen($text) < $min) {
             return sprintf('Refused: the value for "%s" must be at least %d characters.', $column, $min);
         }
 
-        $max = $config['max'] ?? null;
-        $max = is_int($max) && $max > 0 ? $max : ($type === 'text' ? self::MAX_BODY_LENGTH : self::MAX_INPUT_LENGTH);
+        $max = MathUtility::canBeInterpretedAsInteger($config['max'] ?? null) ? (int)$config['max'] : 0;
+        $max = $max > 0 ? $max : ($type === 'text' ? self::MAX_BODY_LENGTH : self::MAX_INPUT_LENGTH);
         if (mb_strlen($text) > $max) {
             return sprintf('Refused: the value for "%s" exceeds %d characters.', $column, $max);
         }
@@ -1465,15 +1532,30 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return sprintf('Refused: the value for "%s" must be a whole number.', $column);
         }
 
+        // The DataHandler's own comparison (typo3/cms-core 14.3.7,
+        // checkValueForNumber()): the value rounded up against the upper
+        // bound and rounded down against the lower, the bounds cast to an
+        // integer for a whole-number column — and a value outside is clamped.
+        // A decimal inside a fractional bound can still be clamped that way.
         $range = is_array($config['range'] ?? null) ? $config['range'] : [];
         $lower = $range['lower'] ?? null;
-        if (is_numeric($lower) && $number < (float)$lower) {
-            return sprintf('Refused: the value for "%s" must be at least %s.', $column, self::toStr($lower));
+        if (is_numeric($lower) && floor($number) < ($decimal ? (float)$lower : (float)(int)$lower)) {
+            return sprintf(
+                'Refused: the value for "%s" must be at least %s%s.',
+                $column,
+                self::toStr($lower),
+                $decimal ? '; the CMS compares it rounded down' : '',
+            );
         }
 
         $upper = $range['upper'] ?? null;
-        if (is_numeric($upper) && $number > (float)$upper) {
-            return sprintf('Refused: the value for "%s" must be at most %s.', $column, self::toStr($upper));
+        if (is_numeric($upper) && ceil($number) > ($decimal ? (float)$upper : (float)(int)$upper)) {
+            return sprintf(
+                'Refused: the value for "%s" must be at most %s%s.',
+                $column,
+                self::toStr($upper),
+                $decimal ? '; the CMS compares it rounded up' : '',
+            );
         }
 
         // Two decimals is what the DataHandler stores for a decimal column, so
@@ -1551,7 +1633,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * rewrites them on purpose: a `datetime` is normalised to its `format` and
      * clamped to its `range`; a `text` column with `enableRichtext` passes
      * through the RTE transformation; an `input` column with an `eval` beyond
-     * `trim` (`upper`, `lower`, `nospace`, `alphanum`, `unique`, …) is
+     * `trim` (`upper`, `lower`, `nospace`, `alphanum`, …) is
      * transformed by it. For those, a dropped column reads back as the
      * column's empty value, and that is what is tested.
      *

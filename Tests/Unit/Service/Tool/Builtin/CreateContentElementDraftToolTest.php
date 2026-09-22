@@ -102,6 +102,30 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'price'        => ['config' => ['type' => 'number', 'format' => 'decimal']],
                 'width'        => ['config' => ['type' => 'number', 'range' => ['lower' => 1, 'upper' => 4000]]],
                 'code'         => ['config' => ['type' => 'input', 'min' => 3, 'max' => 40]],
+                // Where the DataHandler rewrites in silence: `min` on a plain
+                // text, bounds given as strings, fractional decimal bounds.
+                'note'         => ['config' => ['type' => 'text', 'min' => 5]],
+                'note_rich'    => ['config' => ['type' => 'text', 'min' => 5, 'enableRichtext' => true]],
+                'label'        => ['config' => ['type' => 'input', 'min' => '3', 'max' => '8']],
+                'ratio'        => ['config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 1.5, 'upper' => 10.5]]],
+                'tier'         => ['config' => ['type' => 'select', 'authMode' => 'explicitAllow', 'items' => [
+                    ['label' => 'Basic', 'value' => 'basic'],
+                    ['label' => 'Premium', 'value' => 'premium'],
+                ]]],
+                // Kept in the form, refused as keys: the DataHandler unsets
+                // or rewrites them depending on other records, and a check
+                // with several items is a bitmask.
+                'featured'     => ['config' => [
+                    'type'       => 'check',
+                    'eval'       => 'maximumRecordsChecked',
+                    'validation' => ['maximumRecordsChecked' => 1],
+                ]],
+                'owner'        => ['config' => ['type' => 'email', 'eval' => 'unique']],
+                'handle'       => ['config' => ['type' => 'input', 'eval' => 'trim,uniqueInPid']],
+                'flags'        => ['config' => ['type' => 'check', 'items' => [
+                    ['label' => 'A', 'value' => ''],
+                    ['label' => 'B', 'value' => ''],
+                ]]],
             ],
             'palettes' => [
                 'headers' => ['showitem' => 'header, --linebreak--, subheader'],
@@ -112,7 +136,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     'columnsOverrides' => ['subheader' => ['config' => ['max' => 10]]],
                 ],
                 'text'        => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
-                'options'     => ['showitem' => 'header, contact, tint, tint_alpha, align, date, starts, price, width, code, hidden'],
+                'options'     => [
+                    'showitem' => 'header, contact, tint, tint_alpha, align, date, starts, price, width, code, note, note_rich,'
+                        . ' label, ratio, tier, featured, owner, handle, flags, hidden',
+                ],
                 'html'        => ['showitem' => 'header, bodytext, hidden'],
                 'plugin_like' => ['showitem' => 'header, pi_flexform, hidden'],
                 'record_like' => ['showitem' => 'header, records, hidden'],
@@ -343,6 +370,37 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'fraction on a whole-number column' => [$options + ['fields' => ['width' => 12.5]], 'must be a whole number'];
         yield 'number below the range' => [$options + ['fields' => ['width' => 0]], 'must be at least 1'];
         yield 'number above the range' => [$options + ['fields' => ['width' => 4001]], 'must be at most 4000'];
+        // Below `min` the DataHandler empties a plain text as it empties an input.
+        yield 'text below the tca min' => [$options + ['fields' => ['note' => 'abc']], 'must be at least 5 characters'];
+        // A bound given as a string is a bound to the DataHandler, which casts it.
+        yield 'input over a max given as a string' => [$options + ['fields' => ['label' => 'abcdefghi']], 'exceeds 8 characters'];
+        yield 'input below a min given as a string' => [$options + ['fields' => ['label' => 'ab']], 'must be at least 3 characters'];
+        // The DataHandler compares a decimal rounded up against the upper
+        // bound and rounded down against the lower, and clamps.
+        yield 'decimal the cms rounds above a fractional upper bound' => [
+            $options + ['fields' => ['ratio' => 10.2]],
+            'must be at most 10.5; the CMS compares it rounded up',
+        ];
+        yield 'decimal the cms rounds below a fractional lower bound' => [
+            $options + ['fields' => ['ratio' => 1.7]],
+            'must be at least 1.5; the CMS compares it rounded down',
+        ];
+        yield 'check the cms unchecks when enough records carry it' => [
+            $options + ['fields' => ['featured' => true]],
+            '"featured" cannot be set through "fields": TYPO3 unchecks it in silence once enough other records carry it',
+        ];
+        yield 'email the cms rewrites when another record holds it' => [
+            $options + ['fields' => ['owner' => 'editor@example.com']],
+            '"owner" cannot be set through "fields": TYPO3 rewrites a value another record already holds',
+        ];
+        yield 'input the cms rewrites when another record on the page holds it' => [
+            $options + ['fields' => ['handle' => 'intro']],
+            '"handle" cannot be set through "fields": TYPO3 rewrites a value another record already holds',
+        ];
+        yield 'check with several items' => [
+            $options + ['fields' => ['flags' => 1]],
+            '"flags" cannot be set through "fields": a check with several items is a bitmask',
+        ];
     }
 
     /**
@@ -364,6 +422,11 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'decimal'               => [['price' => 12.5]];
         yield 'decimal as a string'   => [['price' => '12.50']];
         yield 'whole number in range' => [['width' => 320]];
+        // The RTE skips `min` in the DataHandler, so the tool does too.
+        yield 'rich text below the min' => [['note_rich' => 'abc']];
+        yield 'text at the min'        => [['note' => 'abcde']];
+        yield 'input within string bounds' => [['label' => 'abcdefgh']];
+        yield 'decimal the cms keeps' => [['ratio' => 5.25]];
     }
 
     /**
@@ -485,6 +548,40 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         // The refusal AFTER the allow-list: the type passed it.
         self::assertTrue($result->isError);
         self::assertStringContainsString('may not edit content in language 2', $result->content);
+    }
+
+    /**
+     * `authMode` is not CType's alone: the DataHandler asks every `select`
+     * that declares it and drops a value the acting user is not allowed, in
+     * silence. The tool asks the same question for a `fields` value.
+     */
+    #[Test]
+    public function aSelectValueOutsideTheActingUsersAllowListIsRefusedBeforeTheWrite(): void
+    {
+        $restricted       = $this->liveUser();
+        $restricted->user = ['uid' => 5, 'admin' => 0];
+        $restricted->groupData['explicit_allowdeny'] = 'tt_content:tier:basic';
+        $restricted->groupData['allowed_languages']  = '0';
+
+        $refused = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'fields' => ['tier' => 'premium']],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString(
+            'not allowed the value "premium" for "tier" (no explicit allow for tt_content:tier:premium)',
+            $refused->content,
+        );
+
+        // The allowed value passes on to the next refusal.
+        $passed = $this->tool->execute(
+            ['page' => 1, 'type' => 'options', 'header' => 'x', 'language' => 2, 'fields' => ['tier' => 'basic']],
+            $this->contextFor($restricted),
+        );
+
+        self::assertTrue($passed->isError);
+        self::assertStringContainsString('may not edit content in language 2', $passed->content);
     }
 
     private function declareCTypeAuthMode(): void
