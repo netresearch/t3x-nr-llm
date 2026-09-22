@@ -1695,8 +1695,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     /**
      * The column's label for the record type in English, or '' where none is
      * declared: the showitem's `field;Label` first, the label of the column
-     * with the type's `columnsOverrides` merged over it next — the label the
-     * backend form shows, as core builds it (TcaSchemaBuilder).
+     * with the type's `columnsOverrides` merged over it next — the record
+     * type's TCA label, as core builds it (TcaSchemaBuilder). A page TSconfig
+     * label override (`TCEFORM.<table>.<column>.label`), which the backend
+     * form shows, is not applied: the preview must not depend on the page or
+     * on the viewer's language.
      *
      * @param array{name:string, value:string|null, shown:list<string>, labels:array<string, string>} $type
      */

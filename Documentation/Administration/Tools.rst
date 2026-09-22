@@ -615,10 +615,14 @@ What holds for all of them:
    that does not carry what was approved is deleted again and the columns are
    named.
 
-   The approval card names each column with the label the record type's form
-   shows (a showitem ``field;Label`` or a ``columnsOverrides`` label before
-   the column's own) in English, never in the viewer's language, because the card is compared byte for byte when
-   the run resumes: ``published_at (Published at): "2026-09-10T10:00:00+00:00"``.
+   The approval card names each column with the record type's TCA label — a
+   showitem ``field;Label``, else a ``columnsOverrides`` label, else the
+   column's own — in English, never in the viewer's language, because the
+   card is compared byte for byte when the run resumes:
+   ``published_at (Published at): "2026-09-10T10:00:00+00:00"``. A page
+   TSconfig label override (``TCEFORM.<table>.<column>.label``) is not
+   applied, although the backend form shows it: the card must not depend on
+   the page or on the viewer's language.
 
    It declares no editor action — it has no record an editor would select —
    so it is reached through the assistant only, never from a record's
