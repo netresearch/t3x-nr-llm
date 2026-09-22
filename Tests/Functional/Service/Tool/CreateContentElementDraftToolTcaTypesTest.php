@@ -402,6 +402,35 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * The other columns the tool writes itself go through the same question
+     * where an installation marks them `exclude` — core does not, so the flag
+     * is set here. Position is asked because it differs from the `0` the
+     * silence would leave; the hidden column is granted and not named.
+     */
+    #[Test]
+    public function aMissingGrantForAColumnTheToolWritesItselfRefusesTheWholeCall(): void
+    {
+        $this->overrideTca(['columns' => [
+            'header'   => ['exclude' => true],
+            'bodytext' => ['exclude' => true],
+            'colPos'   => ['exclude' => true],
+        ]]);
+        $editor = $this->editorFor(self::SCALAR_TYPE);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => self::SCALAR_TYPE, 'header' => 'x', 'bodytext' => 'y', 'column' => 1],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString(
+            'no field-level ("exclude field") grant for tt_content:header, tt_content:bodytext, tt_content:colPos.',
+            $result->content,
+        );
+        self::assertSame(0, $this->elementCount(), 'nothing may have been created');
+    }
+
+    /**
      * The read-back behind that check. The DataHandler also drops, silently,
      * a column whose `displayCond` is `HIDE_FOR_NON_ADMINS` — a silence the
      * grant check cannot see. The element then carries the default position
