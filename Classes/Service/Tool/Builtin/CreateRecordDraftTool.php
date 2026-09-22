@@ -1125,9 +1125,13 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             // (2026-02-30 becomes 2026-03-02) and only records a warning. The
             // DataHandler would store the rolled-over moment and the read-back
             // would find exactly that, so the refusal has to happen here.
+            // ISO 8601's end-of-day `24:00` is refused the same way ("The
+            // parsed time was invalid"); the refusal says how to write it.
             $problems = DateTimeImmutable::getLastErrors();
             if (is_array($problems) && ($problems['warning_count'] > 0 || $problems['error_count'] > 0)) {
-                return $refusal;
+                return preg_match('/[T ]24:00/', $text) === 1
+                    ? rtrim($refusal, '.') . ' — write midnight at the end of a day as 00:00 of the next day.'
+                    : $refusal;
             }
 
             $timestamp = $moment->getTimestamp();

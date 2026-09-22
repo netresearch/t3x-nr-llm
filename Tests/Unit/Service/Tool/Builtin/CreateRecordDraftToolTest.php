@@ -291,6 +291,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'unparseable datetime'   => [$call($valid + ['published_at' => 'soonish']), 'UNIX timestamp or an ISO 8601'];
         yield 'nonexistent date'       => [$call($valid + ['published_at' => '2026-02-30T10:00:00+00:00']), 'UNIX timestamp or an ISO 8601'];
         yield 'nonexistent time'       => [$call($valid + ['published_at' => '2026-02-10T25:00:00+00:00']), 'UNIX timestamp or an ISO 8601'];
+        yield 'ISO end-of-day midnight' => [$call($valid + ['published_at' => '2026-02-28T24:00:00+00:00']), 'write midnight at the end of a day as 00:00 of the next day'];
         yield 'negative timestamp'     => [$call($valid + ['published_at' => -5]), 'UNIX timestamp or an ISO 8601'];
         yield 'title not a string'     => [$call(['title' => ['x']]), 'must be a string'];
         yield 'title over max'         => [$call(['title' => str_repeat('a', 101)]), 'exceeds 100 characters'];
@@ -361,6 +362,23 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('must be one of', $result->content);
+    }
+
+    /**
+     * The midnight hint belongs to an hour of 24, not to any "24:00" in the
+     * text: a nonexistent date at 12:24 is refused without it.
+     */
+    #[Test]
+    public function aNonexistentDateAtTwentyFourMinutesPastIsRefusedWithoutTheMidnightHint(): void
+    {
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'published_at' => '2026-02-30T12:24:00+00:00']),
+            $this->contextFor($this->liveUser()),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('UNIX timestamp or an ISO 8601', $result->content);
+        self::assertStringNotContainsString('00:00 of the next day', $result->content);
     }
 
     #[Test]
