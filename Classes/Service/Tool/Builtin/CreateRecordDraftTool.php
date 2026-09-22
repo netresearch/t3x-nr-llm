@@ -131,6 +131,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         'languageField', 'transOrigPointerField', 'transOrigDiffSourceField', 'translationSource',
     ];
 
+    /** The `eval` tokens {@see DataHandler::checkValue_input_Eval()} acts on, `trim` aside. */
+    private const INPUT_EVALUATIONS = ['md5', 'upper', 'lower', 'is_in', 'nospace', 'alpha', 'num', 'alphanum', 'alphanum_x', 'domainname'];
+
+    /** The `eval` tokens that make an `input` or `email` value unique. */
+    private const UNIQUE_EVALUATIONS = ['unique', 'uniqueInPid'];
+
     /** The tool's own bound for an `input` or `email` column without a TCA `max`; core's default column is `varchar(255)`. */
     private const MAX_INPUT_LENGTH = 255;
 
@@ -968,38 +974,59 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The first `eval` token the DataHandler would apply to a value of this
-     * column other than `trim`, or null where there is none.
+     * The first `eval` token the DataHandler would act on for a value of this
+     * column, or null where there is none.
      *
-     * `trim` is the one evaluation the tool applies itself. Every other token
-     * of an `input` rewrites the value (`upper`, `lower`, `nospace`, `alpha`,
-     * `num`, `alphanum`, `alphanum_x`, `is_in`, `domainname`), drops it
-     * (`md5`), makes it unique (`unique`, `uniqueInPid`) or hands it to an
-     * extension's evaluation class ({@see DataHandler::checkValue_input_Eval()});
-     * a `text` knows only `trim` and such classes; an `email` only the two
-     * uniqueness tokens. The read-back would find the stored value differs and
-     * delete a record the DataHandler merely normalised, so the column is
-     * refused before the write.
+     * Exactly the tokens the DataHandler acts on, per column type: an `input`
+     * the ones {@see DataHandler::checkValue_input_Eval()} names, which rewrite
+     * the value (`upper`, `lower`, `nospace`, `alpha`, `num`, `alphanum`,
+     * `alphanum_x`, `is_in`, `domainname`) or drop it (`md5`), and the two
+     * uniqueness tokens of {@see DataHandler::checkValueForInput()}; a `text`
+     * none of its own ({@see DataHandler::checkValue_text_Eval()}); an `email`
+     * only the uniqueness tokens. `input` and `text` also hand a token
+     * registered in `SC_OPTIONS.tce.formevals` to an extension's class. `trim`
+     * is the one evaluation the tool applies itself. Every other token is
+     * ignored by the DataHandler and therefore here — a legacy `required` or
+     * `null` left in a `columnsOverrides` eval, which TcaMigration moves out
+     * of the base column only, included. The read-back would find a
+     * normalised value differs and delete a record the DataHandler merely
+     * normalised, so the column is refused before the write.
      *
      * @param array<array-key, mixed> $config
      */
     private function rewritingEvaluation(string $kind, array $config): ?string
     {
-        if (!in_array($kind, ['input', 'text', 'email'], true)) {
+        $acted = match ($kind) {
+            'input' => [...self::INPUT_EVALUATIONS, ...self::UNIQUE_EVALUATIONS],
+            'email' => self::UNIQUE_EVALUATIONS,
+            'text'  => [],
+            default => null,
+        };
+        if ($acted === null) {
             return null;
         }
 
         foreach (GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true) as $token) {
-            if ($token === 'trim') {
-                continue;
-            }
-
-            if ($kind !== 'email' || in_array($token, ['unique', 'uniqueInPid'], true)) {
+            if (in_array($token, $acted, true) || ($kind !== 'email' && $this->isRegisteredEvaluation($token))) {
                 return $token;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Whether an extension registered `$token` as an evaluation class, where
+     * the DataHandler looks it up.
+     */
+    private function isRegisteredEvaluation(string $token): bool
+    {
+        $confVars  = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
+        $scOptions = is_array($confVars) ? ($confVars['SC_OPTIONS'] ?? null) : null;
+        $tce       = is_array($scOptions) ? ($scOptions['tce'] ?? null) : null;
+        $formevals = is_array($tce) ? ($tce['formevals'] ?? null) : null;
+
+        return is_array($formevals) && array_key_exists($token, $formevals);
     }
 
     /**

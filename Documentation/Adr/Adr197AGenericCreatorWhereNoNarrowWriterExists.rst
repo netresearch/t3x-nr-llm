@@ -139,10 +139,14 @@ decision. Removing one reopens ADR-135's argument.
    items or ``enableRichtext`` of one type only are honoured. A value the
    DataHandler would normalise, which the read-back would then call wrong, is
    refused before the write for the same reason: a column whose ``eval``
-   holds a token other than ``trim`` (an ``input``'s ``upper``, ``lower``,
-   ``nospace``, ``alpha``, ``num``, ``alphanum``, ``alphanum_x``, ``is_in``,
-   ``domainname``, ``md5``, ``unique``, ``uniqueInPid`` or an extension's
-   evaluation class; an ``email``'s ``unique`` or ``uniqueInPid``); an
+   holds a token the DataHandler acts on (an ``input``'s ``upper``,
+   ``lower``, ``nospace``, ``alpha``, ``num``, ``alphanum``, ``alphanum_x``,
+   ``is_in``, ``domainname``, ``md5``, ``unique`` or ``uniqueInPid``; an
+   ``email``'s ``unique`` or ``uniqueInPid``; for an ``input`` or a ``text``,
+   a token an extension registered in ``SC_OPTIONS.tce.formevals``). A token
+   the DataHandler does not know it ignores, and so does the tool — a legacy
+   ``required`` left in a ``columnsOverrides`` eval, which
+   :php:`TcaMigration` moves out of the base column only, is not a refusal; an
    eight-digit colour on a column without ``opacity``, which is cut to seven
    characters; a non-empty ``input`` or ``text`` below its ``min``, which is
    stored empty (rich text is exempt, as in core); a number the range check

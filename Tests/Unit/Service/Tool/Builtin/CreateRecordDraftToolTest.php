@@ -33,8 +33,9 @@ use TYPO3\CMS\Core\Localization\LanguageService;
 /**
  * Argument validation of the generic record creator (ADR-197).
  *
- * Every assertion here stops the call BEFORE the database is touched, so a stub
- * {@see ConnectionPool} is enough: the table and column rules read the TCA, the
+ * Every assertion here stops the call BEFORE the database is touched, and the
+ * {@see ConnectionPool} is a mock that fails the test if it is: the table and
+ * column rules read the TCA, the
  * deny-list reads the extension configuration, and the writer lookup reads the
  * tagged tool set. The creation itself — the page permission, the grants, the
  * read-back — is exercised against a real database in
@@ -88,7 +89,13 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'enablecolumns'         => ['disabled' => 'hidden', 'starttime' => 'starttime', 'fe_group' => 'fe_group'],
                 ],
                 'types' => [
-                    'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating'],
+                    'note'  => [
+                        'showitem'         => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related, colour, rank, topic, section, code, handle, alias, reply_to, shade, summary, lede, story, rating, serial, byline, motto, remark, cc',
+                        // A legacy `required` left in an override's eval:
+                        // TcaMigration moves it out of the base column only,
+                        // and the DataHandler ignores a token it does not know.
+                        'columnsOverrides' => ['byline' => ['config' => ['eval' => 'trim,required']]],
+                    ],
                     'story' => ['showitem' => 'title, kind, --palette--;;timing'],
                 ],
                 'palettes' => [
@@ -130,6 +137,16 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
                     'story'            => ['label' => 'Story', 'config' => ['type' => 'text', 'min' => 8, 'enableRichtext' => true]],
                     'rating'           => ['label' => 'Rating', 'config' => ['type' => 'number', 'format' => 'decimal', 'range' => ['lower' => 0.5, 'upper' => 4.5]]],
                     'section'          => ['label' => 'Section', 'config' => ['type' => 'select', 'renderType' => 'selectSingle', 'items' => [['label' => 'Group', 'value' => '--div--'], ['label' => 'A', 'value' => 'a']]]],
+                    // An extension's evaluation on an input; the class is
+                    // registered in setUp(), where the DataHandler looks it up.
+                    'serial'           => ['label' => 'Serial', 'config' => ['type' => 'input', 'eval' => 'trim,tx_demo_evaluation']],
+                    'byline'           => ['label' => 'Byline', 'config' => ['type' => 'input']],
+                    // Tokens the DataHandler does not act on for a text: an
+                    // unregistered class and an input-only token.
+                    'motto'            => ['label' => 'Motto', 'config' => ['type' => 'text', 'eval' => 'trim,tx_unregistered_evaluation']],
+                    'remark'           => ['label' => 'Remark', 'config' => ['type' => 'text', 'eval' => 'upper']],
+                    // An email runs only the uniqueness tokens, never a registered class.
+                    'cc'               => ['label' => 'Cc', 'config' => ['type' => 'email', 'eval' => 'tx_demo_evaluation']],
                 ],
             ],
         ];
@@ -137,6 +154,12 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $GLOBALS['BE_USER'] = $this->liveUser();
 
         $this->tool = $this->toolWith(deniedTables: '');
+
+        // An extension's evaluation class, registered where the DataHandler
+        // looks it up (checkValue_input_Eval(), checkValue_text_Eval()).
+        $confVars                   = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $confVars['SC_OPTIONS']     = ['tce' => ['formevals' => ['tx_demo_evaluation' => '']]];
+        $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
     }
 
     protected function tearDown(): void
@@ -300,6 +323,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'an input eval that uniquifies' => [$call($valid + ['handle' => 'abc']), 'eval "uniqueInPid"'];
         yield 'a text eval of an extension' => [$call($valid + ['alias' => 'abc']), 'eval "tx_demo_evaluation"'];
         yield 'an email eval that uniquifies' => [$call($valid + ['reply_to' => 'a@example.com']), 'eval "unique"'];
+        yield 'an input eval of an extension' => [$call($valid + ['serial' => 'abc']), 'eval "tx_demo_evaluation"'];
         yield 'an 8-digit colour without opacity' => [$call($valid + ['colour' => '#2f99a4cc']), 'hexadecimal colour such as #2f99a4'];
         yield 'an input below min'     => [$call($valid + ['summary' => 'abcd']), 'at least 5 characters'];
         yield 'a text below min'       => [$call($valid + ['lede' => 'short']), 'at least 8 characters'];
@@ -349,6 +373,10 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         yield 'rich text below min'             => [['story' => 'Hi']];
         yield 'a decimal that stays in range'   => [['rating' => 4.0]];
         yield 'a decimal at the lower bound'    => [['rating' => 1]];
+        yield 'a legacy required in an override eval' => [['byline' => 'By the desk']];
+        yield 'an unregistered eval on a text'  => [['motto' => 'Onwards']];
+        yield 'an input-only eval on a text'    => [['remark' => 'As written']];
+        yield 'a registered eval on an email'   => [['cc' => 'desk@example.com']];
     }
 
     /**
@@ -625,8 +653,14 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $confVars['EXTENSIONS']     = $extensions;
         $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
 
+        // Every call in this class must stop before the database: a rule that
+        // lets a value through would otherwise die on an unconfigured stub, a
+        // PHP error rather than the failed expectation it is.
+        $connectionPool = $this->createMock(ConnectionPool::class);
+        $connectionPool->expects(self::never())->method('getQueryBuilderForTable');
+
         return new CreateRecordDraftTool(
-            self::createStub(ConnectionPool::class),
+            $connectionPool,
             new TableReadAccessService(),
             $writers,
             new ExtensionConfiguration(),

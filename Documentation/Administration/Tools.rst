@@ -583,8 +583,10 @@ What holds for all of them:
    written: the items of a select, ``max`` and ``range``, 0/1 for a check, a
    valid address for an email. Every column the record type marks required
    must be given. A value the DataHandler would rewrite is refused rather
-   than written: a column with an ``eval`` other than ``trim`` (``upper``,
-   ``alphanum``, ``unique``, ``uniqueInPid`` …), an eight-digit colour on a
+   than written: a column with an ``eval`` the DataHandler acts on
+   (``upper``, ``alphanum``, ``unique``, ``uniqueInPid``, an extension's
+   registered evaluation …; a token it ignores is ignored here too), an
+   eight-digit colour on a
    column without ``opacity``, a text shorter than its ``min``, a decimal the
    range check would clamp. So is what the page's TSconfig takes out of the
    backend form: a column ``TCEFORM.<table>.<column>.disabled`` hides, a
