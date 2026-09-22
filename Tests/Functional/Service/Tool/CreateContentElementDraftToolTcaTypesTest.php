@@ -137,8 +137,14 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
         // The plugin type has `header`'s scalar form and is excluded by its item group.
         // indexed_search registers its plugin into the `forms` group, without
-        // a FlexForm, so its form is `header`'s as well.
-        foreach (['shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', 'indexedsearch_pi2', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE] as $excluded) {
+        // a FlexForm, so its form is `header`'s as well. `menu_sitemap` and
+        // `menu_categorized_content` carry no `pages` column: only the
+        // `menu_` prefix keeps them out.
+        $excludedTypes = [
+            'shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', 'menu_sitemap', 'menu_categorized_content',
+            'indexedsearch_pi2', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE,
+        ];
+        foreach ($excludedTypes as $excluded) {
             self::assertDoesNotMatchRegularExpression('/\b' . $excluded . '\b/', $description, $excluded . ' must not be offered');
         }
 

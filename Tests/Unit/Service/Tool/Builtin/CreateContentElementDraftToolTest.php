@@ -78,6 +78,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     ['label' => 'Plugin with a scalar form', 'value' => 'plugin_scalar', 'group' => 'plugins'],
                     ['label' => 'Search form', 'value' => 'form_like', 'group' => 'forms'],
                     ['label' => 'Listing', 'value' => 'myext_listing', 'group' => 'default'],
+                    ['label' => 'JSON-like', 'value' => 'json_like'],
+                    ['label' => 'Without a form', 'value' => 'formless'],
                 ]]],
                 'header'       => ['config' => ['type' => 'input']],
                 'subheader'    => ['config' => ['type' => 'input', 'max' => 40]],
@@ -89,6 +91,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'sectionIndex' => ['config' => ['type' => 'check']],
                 'hidden'       => ['config' => ['type' => 'check']],
                 'pi_flexform'  => ['config' => ['type' => 'flex']],
+                // A TCA type the tool does not list either way: it fails closed.
+                'payload'      => ['config' => ['type' => 'json']],
                 'records'      => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
                 'contact'      => ['config' => ['type' => 'email']],
                 'tint'         => ['config' => ['type' => 'color']],
@@ -147,6 +151,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'plugin_scalar' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
                 'form_like'     => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
                 'myext_listing' => ['showitem' => '--palette--;;headers, --div--;Appearance, layout, sectionIndex, hidden'],
+                'json_like'     => ['showitem' => 'header, payload, hidden'],
+                // `formless` has no entry: nothing says what it holds.
             ],
         ]];
         // What ExtensionUtility::configurePlugin('Myext', 'Listing', …) leaves
@@ -500,6 +506,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('plugin_scalar', $description);
         self::assertStringNotContainsString('form_like', $description);
         self::assertStringNotContainsString('myext_listing', $description);
+        self::assertStringNotContainsString('json_like', $description);
+        self::assertStringNotContainsString('formless', $description);
         self::assertStringNotContainsString('record_like', $description);
         self::assertStringNotContainsString('textmedia', $description);
     }
