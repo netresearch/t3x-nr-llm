@@ -14,6 +14,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **OpenSSF assessment answers can be loaded from the repository.** `.bestpractices.json` provides reviewed status and evidence for 64 Baseline controls and 26 Metal criteria. The badge service imports these as form proposals; saving them and correcting existing answers remains a separate step. Unknown answers stay explicit.
+
 - **Two more metadata fields can be written (ADR-194).** `update_page_metadata` accepts `twitter_card` where EXT:seo is installed. It is the first `select` on the allow-list, so the writer now checks a value against the items the live TCA declares and names them in the refusal; a length bound says nothing about a select, and the DataHandler does not compare a static select's value with its items. `update_fal_asset_meta` accepts `copyright` where EXT:filemetadata declares the column; elsewhere the field is neither offered nor accepted. Both gaps were found in a live editorial run on the demo installation (NEXT-158).
 
 ## [0.35.0] - 2026-09-16
