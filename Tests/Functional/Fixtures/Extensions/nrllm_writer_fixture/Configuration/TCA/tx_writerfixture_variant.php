@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 /*
  * A table whose type column declares no default: the record type comes from
- * core's own fallback ("0", then "1"), while the DataHandler stores the
- * column's database default. create_record_draft must not read that back as
- * a changed record type (ADR-197).
+ * core's own fallback ("0", then "1"). create_record_draft writes that type,
+ * so the record carries it instead of the column's database default ('') and
+ * the read-back finds what was checked (ADR-197).
  */
 return [
     'ctrl' => [

@@ -102,10 +102,10 @@ decision. Removing one reopens ADR-135's argument.
    through :php:`WritesThroughDataHandlerTrait`. What TYPO3 still rewrites or
    drops in silence — a hook of the installation, a grant the pre-check does
    not model — is read back column by column, and so are the two values the
-   tool decides without an argument: the default language it forces and the
-   record type it resolved from the type column's default (not where the type
-   is core's ``0``/``1`` fallback, for which the DataHandler stores the
-   column's own default); on a mismatch the record is
+   tool writes without an argument naming them: the default language it
+   forces and the record type it resolved (condition 3), which it writes
+   explicitly for the same reason, so the record carries the type its fields
+   were checked against in every branch; on a mismatch the record is
    deleted again, the columns are named and the refusal says the value was
    dropped or rewritten by TYPO3, as the creating sibling writers do with a
    record they cannot vouch for. A rich-text column, whose stored form the
@@ -124,12 +124,27 @@ decision. Removing one reopens ADR-135's argument.
    ``json``, ``passthrough``, ``user``, ``none`` — is not an argument. A
    ``slug`` the TCA generates from other fields is left to the DataHandler. A
    column not in the record type's ``showitem``, palettes expanded, is
-   refused, and so is a column its merged configuration declares
-   ``readOnly``, which FormEngine renders read-only and the DataHandler
-   stores all the same; the record type is the value the call gives for the
-   ``ctrl.type`` column, else that column's default, else core's own fallback
-   (``0``, then ``1``), and a table whose record type lives in a related
-   record (a ``ctrl.type`` of the form ``field:field``) is refused. Values
+   refused, and so is a column FormEngine renders read-only on the page,
+   which the DataHandler stores all the same. That is one flag per column,
+   resolved as FormEngine resolves it: the page TSconfig
+   ``TCEFORM.<table>.<column>.config.readOnly`` (or its
+   ``types.<type>.config.`` form) where it is set and the column's type is one
+   whose ``readOnly`` the form lets page TSconfig override — every scalar type
+   but ``radio`` (:php:`FormEngineUtility::overrideFieldConf()`) — else the
+   record type's merged TCA ``readOnly``. A page rule of ``0`` therefore lifts
+   a TCA ``readOnly``; it is read once the ``pid`` is authorised. The record
+   type is resolved the way the DataHandler gives a new record its type
+   (:php:`DataHandler::applyDefaultsForFieldArray()`): the value the call
+   gives for the ``ctrl.type`` column; else ``TCAdefaults.<table>.<column>``
+   from the page TSconfig of the ``pid``, which the DataHandler merges over the
+   acting user's; else the user TSconfig's; else the column's TCA default;
+   else core's own fallback (``0``, then ``1``). A ``TCAdefaults`` value that
+   names no declared record type is refused, since the DataHandler would store
+   it as it is and the form show the fallback type. Because the page's
+   TSconfig can decide the type, every check that depends on it runs after the
+   page is authorised, so a user without access learns nothing of what the
+   page configures. A table whose record type lives in a related record (a
+   ``ctrl.type`` of the form ``field:field``) is refused. Values
    are checked by type the way :ref:`ADR-194 <adr-194>` checks a select:
    against the items; within the TCA ``max``, or 255 characters for an
    ``input`` or ``email`` and 20000 for a ``text`` where none is declared; a
@@ -219,14 +234,16 @@ decision. Removing one reopens ADR-135's argument.
    ``true`` as well as ``1``, as :php:`SingleFieldContainer` reads it — a
    select value outside
    its ``keepItems`` or inside its ``removeItems``, a record type the
-   type field does not offer there, whether the call names it or it is the
-   column's default, and a column ``TCEFORM.<table>.<column>.config.readOnly``
+   type field does not offer there, whether the call names it or it is
+   resolved (condition 3), and a column ``TCEFORM.<table>.<column>.config.readOnly``
    renders read-only (:php:`FormEngineUtility::overrideFieldConf()`), which
-   the DataHandler stores all the same. A ``types.<type>.`` block overrides
-   the column's own rule for that record type, as :php:`PageTsConfigMerged`
-   merges it. The refusal names the rule. Radio items are not filtered, and a
-   radio is not made read-only, because FormEngine applies neither rule to
-   one — its override matrix has no entry for ``radio``.
+   the DataHandler stores all the same; the same rule set to ``0`` lifts a
+   TCA ``readOnly``, so such a column is accepted, as the form accepts it. A
+   ``types.<type>.`` block overrides the column's own rule for that record
+   type, as :php:`PageTsConfigMerged` merges it. The refusal names the rule.
+   Radio items are not filtered, and a radio's ``readOnly`` is the TCA's
+   alone, because FormEngine applies neither rule to one — its override
+   matrix has no entry for ``radio``.
 
 What the fallback does not do, and why: it does not update or delete (the
 safety line of ADR-135 and ADR-180 stands for those; a wrong CREATE leaves a

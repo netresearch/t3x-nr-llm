@@ -83,6 +83,12 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     /** Columns page TSconfig makes read-only in the backend form (`config.readOnly`). */
     private const FOLDER_READ_ONLY = 7;
 
+    /** A folder whose page TSconfig gives new records a record type (`TCAdefaults`). */
+    private const FOLDER_TCA_DEFAULTS = 8;
+
+    /** A folder whose `TCAdefaults` names a value that is no record type of the table. */
+    private const FOLDER_UNDECLARED_DEFAULT = 9;
+
     private const PUBLISHED_AT = 1789034400;
 
     private CreateRecordDraftTool $tool;
@@ -116,9 +122,11 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         $tceform = [
             self::FOLDER_TCEFORM  => "TCEFORM.tx_writerfixture_item {\n  featured.disabled = 1\n  tone.removeItems = loud\n  kind.keepItems = note, event\n}",
             self::FOLDER_NO_NOTES => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
-            self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n}",
+            self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n  locked.types.note.config.readOnly = 0\n}",
             self::FOLDER_TRUTHY   => "TCEFORM.tx_writerfixture_item {\n  contact.disabled = true\n  featured.disabled = 0\n}",
-            self::FOLDER_READ_ONLY => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n}",
+            self::FOLDER_READ_ONLY => "TCEFORM.tx_writerfixture_item {\n  tone.config.readOnly = 1\n  priority.types.story.config.readOnly = 1\n  featured.config.readOnly = 0\n  mood.config.readOnly = 1\n  locked.config.readOnly = 0\n}",
+            self::FOLDER_TCA_DEFAULTS       => 'TCAdefaults.tx_writerfixture_item.kind = story',
+            self::FOLDER_UNDECLARED_DEFAULT => 'TCAdefaults.tx_writerfixture_item.kind = novel',
         ];
         foreach ($tceform as $uid => $tsConfig) {
             $pages->insert('pages', [
@@ -588,6 +596,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         // FormEngine renders it read-only (FormEngineUtility::overrideFieldConf()); the DataHandler stores it.
         yield 'a column read-only by page TSconfig' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'tone' => 'calm'], 'TCEFORM.tx_writerfixture_item.tone.config.readOnly'];
         yield 'a column read-only for that type' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'kind' => 'story', 'priority' => 2], 'TCEFORM.tx_writerfixture_item.priority.types.story.config.readOnly'];
+        // No page rule: the TCA's own `readOnly` decides.
+        yield 'a column read-only in the TCA' => [self::FOLDER_OPEN, ['title' => 'x', 'locked' => 'Set'], '"locked" is read-only in the TCA'];
     }
 
     /**
@@ -623,6 +633,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'a column whose readOnly rule is 0' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'featured' => 1]];
         // FormEngine takes no `config.` override for a radio, so the rule does nothing there.
         yield 'a radio a readOnly rule cannot reach' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'mood' => 'dark']];
+        // FormEngine merges the page rule over the TCA (FormEngineUtility::overrideFieldConf()), so 0 lifts it.
+        yield 'a TCA read-only column page TSconfig lifts' => [self::FOLDER_READ_ONLY, ['title' => 'x', 'locked' => 'Set']];
+        yield 'a TCA read-only column lifted for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'note', 'locked' => 'Set']];
     }
 
     /**
@@ -677,8 +690,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'the hidden flag' => [['title' => 'rewrite:hidden'], 'it is not hidden'];
         yield 'the page'        => [['title' => 'rewrite:pid'], 'the page differs'];
         yield 'a field'         => [['title' => 'rewrite:teaser', 'teaser' => 'A teaser long enough'], 'these fields did not take: teaser'];
-        // Neither is an argument: the tool sets the language and resolves the
-        // record type from the column's default, and verifies both.
+        // Neither is an argument: the tool writes the default language and the
+        // record type it resolved, and verifies both.
         yield 'the language'    => [['title' => 'rewrite:language'], 'the language differs (sys_language_uid)'];
         yield 'the record type' => [['title' => 'rewrite:type'], 'the record type differs (kind)'];
     }
@@ -713,13 +726,14 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The other direction: where the record type is core's fallback rather
-     * than the type column's default, the DataHandler stores the column's
-     * database default ('') for a type named "1". That is not a rewrite, and
-     * the record stays.
+     * The other direction: where the type column declares no default, the
+     * record type is core's fallback ("1" here, as no "0" is declared). The
+     * tool writes that type rather than leaving the column to its database
+     * default (''), so the record carries the type its fields were checked
+     * against, the read-back finds it, and the record stays.
      */
     #[Test]
-    public function aRecordTypeFromCoresFallbackIsNotReadBackAsChanged(): void
+    public function aRecordTypeFromCoresFallbackIsWrittenAndKept(): void
     {
         $admin = $this->setUpBackendUser(1);
 
@@ -739,6 +753,128 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             ->executeQuery()
             ->fetchOne();
         self::assertSame(1, $count, 'the record is kept');
+
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_writerfixture_variant');
+        $queryBuilder->getRestrictions()->removeAll();
+        $variant = $queryBuilder
+            ->select('variant')
+            ->from('tx_writerfixture_variant')
+            ->executeQuery()
+            ->fetchOne();
+        self::assertSame('1', $variant, 'the record carries the record type it was checked against');
+    }
+
+    /**
+     * Page TSconfig `TCAdefaults` gives a new record its type where the call
+     * does not (DataHandler::applyDefaultsForFieldArray()). The tool resolves
+     * the same type and writes it, so the read-back finds it and the record
+     * stays.
+     */
+    #[Test]
+    public function aRecordTypeFromThePagesTcaDefaultsIsWrittenAndKept(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => self::TABLE, 'pid' => self::FOLDER_TCA_DEFAULTS, 'fields' => ['title' => 'x', 'featured' => 1]],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedRecordCount());
+        self::assertSame('story', $this->createdRecord()['kind'] ?? null);
+    }
+
+    /**
+     * And the fields are checked against that type: `teaser` is shown for the
+     * column's default type "note" but not for "story".
+     */
+    #[Test]
+    public function theFieldsAreCheckedAgainstTheRecordTypeThePagesTcaDefaultsGive(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $arguments = ['table' => self::TABLE, 'pid' => self::FOLDER_TCA_DEFAULTS, 'fields' => ['title' => 'x', 'teaser' => 'A teaser long enough']];
+        $result    = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('not shown for record type "story"', $result->content);
+        self::assertSame(0, $this->recordCount());
+        self::assertSame([$result->content], $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin)));
+    }
+
+    /**
+     * The page's TSconfig is read only once the page is authorised: a user
+     * outside the folder's web mount gets the neutral words, not a refusal
+     * that names the record type the folder's `TCAdefaults` give.
+     */
+    #[Test]
+    public function aUserWithoutAccessToThePageLearnsNothingOfItsTcaDefaults(): void
+    {
+        $editor = $this->editorWithEveryGrant();
+
+        $result = $this->tool->execute(
+            ['table' => self::TABLE, 'pid' => self::FOLDER_TCA_DEFAULTS, 'fields' => ['title' => 'x', 'teaser' => 'A teaser long enough']],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertSame('Page not found or not permitted.', $result->content);
+        self::assertSame(0, $this->recordCount());
+    }
+
+    /**
+     * The acting user's TSconfig `TCAdefaults` gives the type where the page
+     * sets none; where both do, the page's wins — the DataHandler merges the
+     * page's defaults over the user's.
+     *
+     * @return iterable<string, array{int, array<string, mixed>, string}>
+     */
+    public static function recordTypesFromTheUsersTcaDefaults(): iterable
+    {
+        yield "the user's where the page sets none" => [self::FOLDER_OPEN, ['title' => 'x', 'teaser' => 'An event teaser'], 'event'];
+        yield "the page's over the user's"          => [self::FOLDER_TCA_DEFAULTS, ['title' => 'x'], 'story'];
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    #[Test]
+    #[DataProvider('recordTypesFromTheUsersTcaDefaults')]
+    public function theUsersTcaDefaultsGiveTheRecordTypeUnlessThePageSetsOne(int $pid, array $fields, string $kind): void
+    {
+        $this->connectionPool->getConnectionForTable('be_users')
+            ->update('be_users', ['TSconfig' => 'TCAdefaults.tx_writerfixture_item.kind = event'], ['uid' => 1]);
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => self::TABLE, 'pid' => $pid, 'fields' => $fields],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedRecordCount());
+        self::assertSame($kind, $this->createdRecord()['kind'] ?? null);
+    }
+
+    /**
+     * A `TCAdefaults` value that names no record type of the table would be
+     * stored as it is and shown as core's fallback type; the tool refuses it
+     * and names the rule rather than guessing which type was meant.
+     */
+    #[Test]
+    public function aTcaDefaultThatNamesNoRecordTypeIsRefusedAndNamed(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => self::TABLE, 'pid' => self::FOLDER_UNDECLARED_DEFAULT, 'fields' => ['title' => 'x']],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('TCAdefaults.tx_writerfixture_item.kind', $result->content);
+        self::assertSame(0, $this->recordCount());
     }
 
     #[Test]

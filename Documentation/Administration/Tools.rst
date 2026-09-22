@@ -576,14 +576,22 @@ What holds for all of them:
    Only **scalar** columns can be set — ``input``, ``text``, ``number``,
    ``email``, ``color``, ``datetime`` (as a timestamp), ``check``, ``radio``
    and ``select`` with static items — and only those the record type's form
-   shows as writable — a column the TCA declares ``readOnly`` is refused.
+   shows as writable on that page: a column the TCA declares ``readOnly`` is
+   refused unless page TSconfig
+   ``TCEFORM.<table>.<column>.config.readOnly = 0`` lifts it, as it does in
+   the form (a ``radio`` excepted, whose ``readOnly`` the form does not let
+   page TSconfig change).
    Relations, files, FlexForms, links and slugs are not arguments;
    ``hidden``, ``uid``, ``pid``, the language, timing, ownership and
    versioning columns are refused by name. Values are checked against the
    record type's TCA — its ``columnsOverrides`` included — before anything is
    written: the items of a select, ``max`` and ``range``, 0/1 for a check, a
-   valid address for an email. Every column the record type marks required
-   must be given. A value the DataHandler would rewrite is refused rather
+   valid address for an email. The record type is the one the DataHandler
+   gives the record — the call's value for the type column, else
+   ``TCAdefaults`` from the page's TSconfig, then from the acting user's, else
+   the column's default — and the tool writes it explicitly; a ``TCAdefaults``
+   value that names no record type of the table is refused. Every column the
+   record type marks required must be given. A value the DataHandler would rewrite is refused rather
    than written: a column with an ``eval`` the DataHandler acts on
    (``upper``, ``alphanum``, ``unique``, ``uniqueInPid``, an extension's
    registered evaluation …; a token it ignores is ignored here too), an

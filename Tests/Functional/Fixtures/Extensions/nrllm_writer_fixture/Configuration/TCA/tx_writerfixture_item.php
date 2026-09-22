@@ -11,7 +11,8 @@ declare(strict_types=1);
  * A table with one column of every scalar type create_record_draft may set,
  * one relation it may not, record types with their own showitem lists and one
  * with `columnsOverrides`, a palette, a required column, an exclude column, an
- * authMode select, a text column with a `min`, a decimal and a radio (ADR-197).
+ * authMode select, a text column with a `min`, a decimal, a radio and a column
+ * the TCA declares read-only (ADR-197).
  */
 return [
     'ctrl' => [
@@ -31,7 +32,7 @@ return [
         ],
     ],
     'types' => [
-        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, rating, mood, related'],
+        'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, rating, mood, locked, related'],
         'story' => ['showitem' => 'title, kind, --palette--;;timing, featured'],
         // Per-type configuration the DataHandler validates against
         // (`columnsOverrides`): `teaser` is required and `body` is rich text
@@ -159,6 +160,13 @@ return [
                     ['label' => 'Dark', 'value' => 'dark'],
                 ],
             ],
+        ],
+        'locked' => [
+            'label'  => 'Locked',
+            // Read-only in the TCA: FormEngine renders it read-only unless page
+            // TSconfig `config.readOnly = 0` lifts it; the DataHandler stores it
+            // either way.
+            'config' => ['type' => 'input', 'readOnly' => true],
         ],
         'related' => [
             'label'  => 'Related',

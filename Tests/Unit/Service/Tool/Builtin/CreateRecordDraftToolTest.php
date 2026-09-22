@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Doctrine\DBAL\Result;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
@@ -26,19 +27,32 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\Backend\TransientMemoryBackend;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
+use TYPO3\CMS\Core\Database\Query\Restriction\QueryRestrictionContainerInterface;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
+use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
+use TYPO3\CMS\Core\TypoScript\PageTsConfig;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Argument validation of the generic record creator (ADR-197).
  *
- * Every assertion here stops the call BEFORE the database is touched, and the
- * {@see ConnectionPool} is a mock that fails the test if it is: the table and
- * column rules read the TCA, the
- * deny-list reads the extension configuration, and the writer lookup reads the
- * tagged tool set. The creation itself — the page permission, the grants, the
+ * Every assertion here stops the call BEFORE the write. The one row it reads
+ * is the page the call addresses, which the {@see ConnectionPool} stub hands
+ * out — to an admin, who may edit content on every page — with no TSconfig,
+ * seeded in the runtime cache; a query for any other table fails the test.
+ * The table and column rules read the TCA, the deny-list reads the extension
+ * configuration, and the writer lookup reads the tagged tool set. The creation
+ * itself — the page permission, the grants, the page's TSconfig, the
  * read-back — is exercised against a real database in
  * {@see \Netresearch\NrLlm\Tests\Functional\Service\Tool\CreateRecordDraftToolTest}.
  */
@@ -51,6 +65,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
 
     /** @var array<string, mixed> */
     private array $globalsBackup = [];
+
+    private CacheManager $cacheManager;
 
     protected function setUp(): void
     {
@@ -164,6 +180,28 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $GLOBALS['LANG']    = self::createStub(LanguageService::class);
         $GLOBALS['BE_USER'] = $this->liveUser();
 
+        // The page every call addresses has no TSconfig. getPagesTSconfig()
+        // answers from the runtime cache before it builds a rootline, which
+        // would need a database; the two keys are the same in TYPO3 13.4 and
+        // 14.3 (BackendUtility::getPagesTSconfig()).
+        $this->cacheManager = new CacheManager();
+        $this->cacheManager->setCacheConfigurations([
+            'runtime' => ['frontend' => VariableFrontend::class, 'backend' => TransientMemoryBackend::class, 'options' => [], 'groups' => []],
+        ]);
+        GeneralUtility::setSingletonInstance(CacheManager::class, $this->cacheManager);
+        $runtimeCache = $this->cacheManager->getCache('runtime');
+        $runtimeCache->set('pageTsConfig-pid-to-hash-7', 'nrllm-unit-page-7');
+        $runtimeCache->set('pageTsConfig-hash-to-object-nrllm-unit-page-7', new PageTsConfig(new RootNode(), []));
+
+        // Every call must stop before the write. One that passes every rule
+        // meets this DataHandler and fails the test, rather than dying on the
+        // container a unit test does not have.
+        $dataHandler = self::createStub(DataHandler::class);
+        $dataHandler->method('start')->willReturnCallback(
+            static fn(): never => self::fail('The call reached the DataHandler, past every rule.'),
+        );
+        GeneralUtility::addInstance(DataHandler::class, $dataHandler);
+
         $this->tool = $this->toolWith(deniedTables: '');
 
         // An extension's evaluation class, registered where the DataHandler
@@ -175,6 +213,9 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
 
     protected function tearDown(): void
     {
+        GeneralUtility::removeSingletonInstance(CacheManager::class, $this->cacheManager);
+        GeneralUtility::purgeInstances();
+
         foreach ($this->globalsBackup as $key => $value) {
             if ($value === null) {
                 unset($GLOBALS[$key]);
@@ -477,7 +518,11 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     #[Test]
     public function aColumnMarkedExcludeWithATruthyValueNeedsTheFieldGrant(): void
     {
-        $editor                                  = $this->liveUser();
+        // The page check of a non-admin walks the rootline, which needs a
+        // database; the grant this test is about is asked after it.
+        $editor = $this->getMockBuilder(BackendUserAuthentication::class)->onlyMethods(['doesUserHaveAccess'])->getMock();
+        $editor->expects(self::once())->method('doesUserHaveAccess')->willReturn(true);
+        $editor->workspace                       = 0;
         $editor->user                            = ['uid' => 5, 'admin' => 0];
         $editor->groupData['allowed_languages']  = '0';
         $editor->groupData['tables_modify']      = self::TABLE;
@@ -705,14 +750,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $confVars['EXTENSIONS']     = $extensions;
         $GLOBALS['TYPO3_CONF_VARS'] = $confVars;
 
-        // Every call in this class must stop before the database: a rule that
-        // lets a value through would otherwise die on an unconfigured stub, a
-        // PHP error rather than the failed expectation it is.
-        $connectionPool = $this->createMock(ConnectionPool::class);
-        $connectionPool->expects(self::never())->method('getQueryBuilderForTable');
-
         return new CreateRecordDraftTool(
-            $connectionPool,
+            $this->connectionPoolWithThePage(),
             new TableReadAccessService(),
             $writers,
             new ExtensionConfiguration(),
@@ -727,11 +766,55 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
         $extensionConfiguration->method('get')->willReturn($configuration);
 
         return new CreateRecordDraftTool(
-            self::createStub(ConnectionPool::class),
+            $this->connectionPoolWithThePage(),
             new TableReadAccessService(),
             [],
             $extensionConfiguration,
         );
+    }
+
+    /**
+     * A connection pool that answers one query: the page every call addresses.
+     *
+     * Every call in this class must stop before the write, so any other table
+     * fails the test — a rule that lets a value through would otherwise die on
+     * an unconfigured stub, a PHP error rather than the failed expectation it
+     * is.
+     */
+    private function connectionPoolWithThePage(): ConnectionPool
+    {
+        $result = self::createStub(Result::class);
+        $result->method('fetchAssociative')->willReturn(['uid' => 7, 'pid' => 0, 'title' => 'Demo folder', 'deleted' => 0]);
+
+        $restrictions = self::createStub(QueryRestrictionContainerInterface::class);
+        $restrictions->method('removeAll')->willReturnSelf();
+        $restrictions->method('add')->willReturnSelf();
+
+        $queryBuilder = self::createStub(QueryBuilder::class);
+        $queryBuilder->method('getRestrictions')->willReturn($restrictions);
+        $queryBuilder->method('select')->willReturnSelf();
+        $queryBuilder->method('from')->willReturnSelf();
+        $queryBuilder->method('where')->willReturnSelf();
+        $queryBuilder->method('expr')->willReturn(self::createStub(ExpressionBuilder::class));
+        $queryBuilder->method('createNamedParameter')->willReturn(':uid');
+        $queryBuilder->method('executeQuery')->willReturn($result);
+
+        $connectionPool = self::createStub(ConnectionPool::class);
+        $connectionPool->method('getQueryBuilderForTable')->willReturnCallback(
+            static function (string $table) use ($queryBuilder): QueryBuilder {
+                if ($table !== 'pages') {
+                    self::fail(sprintf('The call reached the database for %s, past every rule.', $table));
+                }
+
+                // The DeletedRestriction the page query adds asks the container
+                // for the TcaSchemaFactory; one stub for exactly that query.
+                GeneralUtility::addInstance(TcaSchemaFactory::class, self::createStub(TcaSchemaFactory::class));
+
+                return $queryBuilder;
+            },
+        );
+
+        return $connectionPool;
     }
 
     private function liveUser(): BackendUserAuthentication

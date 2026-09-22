@@ -57,7 +57,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   type, against the record type's own configuration (`columnsOverrides`),
  *   before anything is written; a value the DataHandler would rewrite (an
  *   `eval`, a `min`, a clamp) is refused, and so is what the backend form
- *   shows read-only or the page's TSconfig (TCEFORM) takes out of it.
+ *   shows read-only on the page or the page's TSconfig (TCEFORM) takes out
+ *   of it. The record type is resolved the way the DataHandler resolves it,
+ *   `TCAdefaults` included, and written.
  * - **Always hidden, always the default language, one record.** `hidden` is
  *   forced to 1 and cannot be an argument; the language columns are refused; a
  *   table without a "disabled" enable column is refused outright.
@@ -238,6 +240,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $record[$plan['languageField']] = 0;
         }
 
+        if ($plan['typeField'] !== null && !array_key_exists($plan['typeField'], $record)) {
+            // Stated explicitly as well: the record carries the type its
+            // fields were checked against, whichever default resolved it.
+            $record[$plan['typeField']] = $plan['typeValue'];
+        }
+
         $newUid = $this->createRecord(
             $plan['table'],
             $record,
@@ -270,14 +278,14 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $wrong[] = 'it is not hidden';
         }
 
-        // What the tool decided without an argument naming it: the default
-        // language it forces, and the record type it resolved from the type
-        // column's default — the one every value above was checked against.
+        // What the tool wrote without an argument naming it: the default
+        // language it forces, and the record type it resolved — the one every
+        // value above was checked against.
         if ($stored !== null && $plan['languageField'] !== null && self::toInt($stored[$plan['languageField']] ?? 0) !== 0) {
             $wrong[] = sprintf('the language differs (%s)', $plan['languageField']);
         }
 
-        if ($stored !== null && $plan['typeField'] !== null && self::toStr($stored[$plan['typeField']] ?? '') !== $plan['recordType']) {
+        if ($stored !== null && $plan['typeField'] !== null && self::toStr($stored[$plan['typeField']] ?? '') !== $plan['typeValue']) {
             $wrong[] = sprintf('the record type differs (%s)', $plan['typeField']);
         }
 
@@ -404,13 +412,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * One method for both {@see self::execute()} and {@see self::previewCall()}:
      * the approver must read the record the write will actually produce. The
-     * rules that read only the TCA and the configuration come first, the rights
-     * of the acting user next, and the page — the one instance datum — last,
-     * so the neutral refusal is the only thing a user without access learns.
+     * rules that read only the TCA and the configuration come first, the
+     * table-level rights of the acting user next, then the page — the one
+     * instance datum — so the neutral refusal is the only thing a user without
+     * access learns. Everything that depends on the record type comes after
+     * the page, because the page's TSconfig (`TCAdefaults`) can decide the
+     * type, and a refusal naming the type would otherwise tell a user without
+     * access what that page configures.
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null}|string
+     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null, typeValue:string}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -444,7 +456,28 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return 'Refused: "fields" must be an object with at least one column to set.';
         }
 
-        $type = $this->recordType($table, $fields);
+        // Always the default language; a user without the right to edit it may
+        // not draft in it either.
+        if (!$user->checkLanguageAccess(0)) {
+            return 'Refused: you may not edit records in the default language.';
+        }
+
+        if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
+            return sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table);
+        }
+
+        // After every rule that reads only the TCA, the configuration and the
+        // user, because this one names instance data. The content-edit
+        // permission is what the DataHandler asks for every table but `pages`
+        // ({@see DataHandler::hasPermissionToInsert()}); asked here so a user
+        // without it gets the neutral words rather than the DataHandler's,
+        // which name the page.
+        $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
+        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
+            return self::NOT_PERMITTED;
+        }
+
+        $type = $this->recordType($table, $fields, $pid, $user);
         if (is_string($type)) {
             return $type;
         }
@@ -465,16 +498,6 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             );
         }
 
-        // Always the default language; a user without the right to edit it may
-        // not draft in it either.
-        if (!$user->checkLanguageAccess(0)) {
-            return 'Refused: you may not edit records in the default language.';
-        }
-
-        if (!$user->isAdmin() && !$user->check('tables_modify', $table)) {
-            return sprintf('Refused: the acting backend user may not modify %s (no tables_modify grant).', $table);
-        }
-
         $hiddenField = $this->hiddenFieldOf($table) ?? 'hidden';
         $ungranted   = $this->columnsTheUserMayNotWrite($user, $table, [...array_keys($collected['values']), $hiddenField]);
         if ($ungranted !== []) {
@@ -485,17 +508,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             );
         }
 
-        // After every TCA rule, because this one names instance data. The
-        // content-edit permission is what the DataHandler asks for every table
-        // but `pages` ({@see DataHandler::hasPermissionToInsert()}); asked here
-        // so a user without it gets the neutral words rather than the
-        // DataHandler's, which name the page.
-        $page = $this->fetchRowByUid(self::PAGES_TABLE, $pid);
-        if ($page === null || !$user->doesUserHaveAccess($page, Permission::CONTENT_EDIT)) {
-            return self::NOT_PERMITTED;
-        }
-
-        // After the page, because the rules are the page's.
+        // The rules are the page's.
         $pageRule = $this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values']);
         if ($pageRule !== null) {
             return $pageRule;
@@ -513,34 +526,9 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'notes'         => $collected['notes'],
             'hiddenField'   => $hiddenField,
             'languageField' => $this->languageFieldOf($table),
-            'typeField'     => $this->typeFieldToVerify($table, $type['name'], $collected['values']),
+            'typeField'     => $type['value'] !== null ? $this->typeFieldOf($table) : null,
+            'typeValue'     => $type['value'] ?? '',
         ];
-    }
-
-    /**
-     * The `ctrl.type` column whose stored value the read-back compares with
-     * the resolved record type, or null where there is nothing to compare.
-     *
-     * Only where the record type is that column's default and the call does
-     * not set the column: a value the call sets is read back with the other
-     * fields, and where the type came from core's own fallback ("0", then
-     * "1") the DataHandler stores whatever the column's default is, which
-     * need not be the type's name.
-     *
-     * @param array<string, int|float|string> $values
-     */
-    private function typeFieldToVerify(string $table, string $recordType, array $values): ?string
-    {
-        $typeField = ($this->tcaCtrlFor($table) ?? [])['type'] ?? null;
-        if (!is_string($typeField) || $typeField === '' || array_key_exists($typeField, $values)) {
-            return null;
-        }
-
-        $column  = $this->tcaColumnsFor($table)[$typeField] ?? null;
-        $config  = is_array($column) ? ($column['config'] ?? null) : null;
-        $default = is_array($config) && array_key_exists('default', $config) ? self::toStr($config['default']) : null;
-
-        return $default === $recordType ? $typeField : null;
     }
 
     /**
@@ -554,12 +542,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * the DataHandler writes either without a word. So a column the form hides
      * on this page is refused, a select value it does not offer is refused, and
      * so is a record type its type field does not offer, whether the call names
-     * it or it is the column's default. So is a column `config.readOnly` makes
-     * read-only in the form (`FormEngineUtility::overrideFieldConf()`),
-     * for the types whose `readOnly` the form lets page TSconfig override —
-     * every scalar type but `radio`. A `types.<type>.` block of the same
-     * rule overrides it for that record type, as
+     * it or it is the column's default. So is a column the form renders
+     * read-only on this page — one flag per column, as FormEngine resolves it:
+     * the page's `config.readOnly` where it sets one and the column's type is
+     * one whose `readOnly` the form lets page TSconfig override
+     * (`FormEngineUtility::overrideFieldConf()`, every scalar type but
+     * `radio`), the record type's merged TCA `readOnly` otherwise. A page rule
+     * of 0 therefore lifts a TCA `readOnly` of 1. A `types.<type>.` block of
+     * the same rule overrides it for that record type, as
      * {@see \TYPO3\CMS\Backend\Form\FormDataProvider\PageTsConfigMerged} merges it.
+     * The DataHandler stores a read-only column all the same, so the tool
+     * refuses what the form would not let an editor set.
      * Radio items are not filtered: FormEngine applies neither rule to them.
      *
      * @param array<string, int|float|string> $values
@@ -569,9 +562,6 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $tsConfig = BackendUtility::getPagesTSconfig($pid);
         $tceform  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
         $rules    = is_array($tceform[$table . '.'] ?? null) ? $tceform[$table . '.'] : [];
-        if ($rules === []) {
-            return null;
-        }
 
         $typeField = $this->tcaCtrlFor($table)['type'] ?? null;
         if (is_string($typeField) && $typeField !== ''
@@ -607,17 +597,29 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             $config = $this->columnConfig($table, $column, $recordType) ?? [];
             $kind   = self::toStr($config['type'] ?? '');
 
-            $readOnly = in_array($kind, self::PAGE_READ_ONLY_TYPES, true)
+            // Any truthy value, as the FormEngine elements read it: TypoScript
+            // carries strings, so a page rule of "0" is false and lifts the
+            // TCA flag.
+            $pageReadOnly = in_array($kind, self::PAGE_READ_ONLY_TYPES, true)
                 ? $this->pageConfigRule($rules, $column, 'readOnly', $recordType)
                 : null;
-            if ($readOnly !== null && (bool)$readOnly[0]) {
+            if ($pageReadOnly !== null && (bool)$pageReadOnly[0]) {
                 return sprintf(
                     'Refused: "%s" is read-only on page [%d] — page TSconfig TCEFORM.%s.%s%s makes it read-only in the backend form.',
                     $column,
                     $pid,
                     $table,
                     $column,
-                    $readOnly[1],
+                    $pageReadOnly[1],
+                );
+            }
+
+            if ($pageReadOnly === null && (bool)($config['readOnly'] ?? false)) {
+                return sprintf(
+                    'Refused: "%s" is read-only in the TCA of record type "%s" of %s, so the backend form could not set it either.',
+                    $column,
+                    $recordType,
+                    $table,
                 );
             }
 
@@ -876,37 +878,73 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The record type the call addresses and the columns its showitem lists,
-     * palettes expanded — or the refusal when the table declares none.
+     * The record type the call addresses, the value the tool writes into the
+     * `ctrl.type` column for it, and the columns its showitem lists, palettes
+     * expanded — or the refusal.
      *
-     * The type value comes from the call where it names the `ctrl.type`
-     * column, from that column's default otherwise. A value that names no
-     * declared type is left to the value check, which refuses it against the
-     * items; the showitem then comes from the default type, or from core's own
-     * fallback ({@see \TYPO3\CMS\Backend\Utility\BackendUtility::getTCAtypeValue()}):
-     * "0", or "1" where no "0" is declared.
+     * Resolved the way the DataHandler gives a NEW record its type
+     * ({@see DataHandler::applyDefaultsForFieldArray()},
+     * {@see DataHandler::newFieldArray()}): the value the call gives for the
+     * type column; else `TCAdefaults.<table>.<column>` from the page TSconfig
+     * of the pid, which the DataHandler merges over the acting user's; else the
+     * user TSconfig's; else the column's TCA default. A value that names no
+     * declared type falls through to the next source, and in the end to core's
+     * own fallback ({@see BackendUtility::getTCAtypeValue()}): "0", or "1"
+     * where no "0" is declared. A call value outside the items is left to the
+     * value check, which refuses it; a `TCAdefaults` value that names no
+     * declared type is refused here, because the DataHandler would store it as
+     * it is and the form show core's fallback type.
+     *
+     * The value written is the call's where it gives one, the resolved type
+     * otherwise — so the record carries the type its fields were checked
+     * against, and the read-back compares it in every branch. Null where the
+     * table has no plain type column.
      *
      * @param array<array-key, mixed> $fields
      *
-     * @return array{name:string, shown:list<string>, labels:array<string, string>}|string
+     * @return array{name:string, value:string|null, shown:list<string>, labels:array<string, string>}|string
      */
-    private function recordType(string $table, array $fields): array|string
+    private function recordType(string $table, array $fields, int $pid, BackendUserAuthentication $user): array|string
     {
         $tca   = $this->tcaFor($table) ?? [];
         $types = is_array($tca['types'] ?? null) ? $tca['types'] : [];
-        $ctrl  = $this->tcaCtrlFor($table) ?? [];
 
         $candidates = [];
-        $typeField  = $ctrl['type'] ?? null;
-        if (is_string($typeField) && $typeField !== '') {
-            $column  = $this->tcaColumnsFor($table)[$typeField] ?? null;
-            $config  = is_array($column) ? ($column['config'] ?? null) : null;
-            $default = is_array($config) ? self::toStr($config['default'] ?? '') : '';
-            if (array_key_exists($typeField, $fields)) {
-                $candidates[] = self::toStr($fields[$typeField]);
+        $typeField  = $this->typeFieldOf($table);
+        $given      = $typeField !== null && array_key_exists($typeField, $fields) ? self::toStr($fields[$typeField]) : null;
+        if ($typeField !== null) {
+            if ($given !== null) {
+                $candidates[] = $given;
+            } else {
+                $default = $this->tcaDefaultOf(BackendUtility::getPagesTSconfig($pid), $table, $typeField);
+                $source  = sprintf('page TSconfig of page [%d]', $pid);
+                if ($default === null) {
+                    $default = $this->tcaDefaultOf($user->getTSConfig(), $table, $typeField);
+                    $source  = "the acting backend user's TSconfig";
+                }
+
+                if ($default !== null && !is_array($types[$default] ?? null)) {
+                    return sprintf(
+                        'Refused: %s sets TCAdefaults.%s.%s to "%s", which is no record type of %s; give "%s" in the call.',
+                        $source,
+                        $table,
+                        $typeField,
+                        $default,
+                        $table,
+                        $typeField,
+                    );
+                }
+
+                if ($default !== null) {
+                    $candidates[] = $default;
+                }
             }
 
-            $candidates[] = $default;
+            $column = $this->tcaColumnsFor($table)[$typeField] ?? null;
+            $config = is_array($column) ? ($column['config'] ?? null) : null;
+            if (is_array($config) && array_key_exists('default', $config)) {
+                $candidates[] = self::toStr($config['default']);
+            }
         }
 
         $candidates[] = '0';
@@ -915,11 +953,45 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         foreach ($candidates as $name) {
             $type = $types[$name] ?? null;
             if (is_array($type)) {
-                return ['name' => $name] + $this->columnsShown($table, self::toStr($type['showitem'] ?? ''));
+                return [
+                    'name'  => $name,
+                    'value' => $typeField === null ? null : ($given ?? $name),
+                ] + $this->columnsShown($table, self::toStr($type['showitem'] ?? ''));
             }
         }
 
         return sprintf('Refused: %s declares no record type this tool can read.', $table);
+    }
+
+    /**
+     * The table's `ctrl.type` column where it is a column of the table itself,
+     * or null — a table without one, or with a type in a related record, which
+     * {@see self::refuseTable()} refuses.
+     */
+    private function typeFieldOf(string $table): ?string
+    {
+        $typeField = ($this->tcaCtrlFor($table) ?? [])['type'] ?? null;
+        if (!is_string($typeField) || $typeField === '' || str_contains($typeField, ':')) {
+            return null;
+        }
+
+        return is_array($this->tcaColumnsFor($table)[$typeField] ?? null) ? $typeField : null;
+    }
+
+    /**
+     * `TCAdefaults.<table>.<column>` of a TSconfig array as a string, or null
+     * where it sets none — the field-level default the DataHandler applies
+     * ({@see DataHandler::setDefaultsFromUserTS()}).
+     *
+     * @param array<array-key, mixed> $tsConfig
+     */
+    private function tcaDefaultOf(array $tsConfig, string $table, string $column): ?string
+    {
+        $defaults = $tsConfig['TCAdefaults.'] ?? null;
+        $forTable = is_array($defaults) ? ($defaults[$table . '.'] ?? null) : null;
+        $value    = is_array($forTable) ? ($forTable[$column] ?? null) : null;
+
+        return is_scalar($value) ? self::toStr($value) : null;
     }
 
     /**
@@ -978,8 +1050,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * `labels` the column labels in English, `notes` the English label of the
      * item a select or radio value names.
      *
-     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
-     * @param array<array-key, mixed>                                              $fields
+     * @param array{name:string, value:string|null, shown:list<string>, labels:array<string, string>} $type
+     * @param array<array-key, mixed>                                                                 $fields
      *
      * @return array{values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>}|string
      */
@@ -1018,17 +1090,6 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                     $column,
                     $kind !== '' ? $kind : 'untyped',
                     implode(', ', self::SCALAR_TYPES),
-                );
-            }
-
-            // Any truthy value, as the FormEngine elements read it. The
-            // DataHandler stores a read-only column all the same.
-            if ((bool)($config['readOnly'] ?? false)) {
-                return sprintf(
-                    'Refused: "%s" is read-only in the TCA of record type "%s" of %s, so the backend form could not set it either.',
-                    $column,
-                    $type['name'],
-                    $table,
                 );
             }
 
@@ -1465,8 +1526,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * leaves empty — the DataHandler drops an empty required value in silence
      * ({@see UpdatePageMetadataTool}), so the refusal names it first.
      *
-     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
-     * @param array<string, int|float|string>                                      $values
+     * @param array{name:string, value:string|null, shown:list<string>, labels:array<string, string>} $type
+     * @param array<string, int|float|string>                                                         $values
      *
      * @return list<string>
      */
@@ -1637,7 +1698,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * with the type's `columnsOverrides` merged over it next — the label the
      * backend form shows, as core builds it (TcaSchemaBuilder).
      *
-     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
+     * @param array{name:string, value:string|null, shown:list<string>, labels:array<string, string>} $type
      */
     private function labelOf(string $table, string $column, array $type): string
     {
