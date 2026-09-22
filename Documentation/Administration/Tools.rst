@@ -603,8 +603,9 @@ What holds for all of them:
    column the call sets — asked before the write, because the DataHandler
    drops such a column in silence. What TYPO3 still rewrites — a hook of the
    installation, a grant the pre-check does not model — is read back
-   afterwards; a record that does not carry what was approved is deleted
-   again and the columns are named.
+   afterwards, the default language and the record type included; a record
+   that does not carry what was approved is deleted again and the columns are
+   named.
 
    The approval card names each column with the label the record type's form
    shows (a showitem ``field;Label`` or a ``columnsOverrides`` label before

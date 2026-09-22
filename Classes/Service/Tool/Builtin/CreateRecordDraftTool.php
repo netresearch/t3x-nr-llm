@@ -250,7 +250,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         // it does not accept for the acting user — an exclude field without the
         // grant, a select item outside an authMode grant — silently and without
         // logging. For `hidden` that is a safety problem, for every other field
-        // a record nobody approved in that shape; both are taken back.
+        // a record nobody approved in that shape; both are taken back. A hook
+        // can rewrite anything, the language and the record type included.
         $stored = $this->fetchRowByUid($plan['table'], $newUid);
         $wrong  = [];
         if ($stored === null || self::toInt($stored['pid'] ?? 0) !== $plan['pid']) {
@@ -259,6 +260,17 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         if ($stored === null || self::toInt($stored[$plan['hiddenField']] ?? 0) !== 1) {
             $wrong[] = 'it is not hidden';
+        }
+
+        // What the tool decided without an argument naming it: the default
+        // language it forces, and the record type it resolved from the type
+        // column's default — the one every value above was checked against.
+        if ($stored !== null && $plan['languageField'] !== null && self::toInt($stored[$plan['languageField']] ?? 0) !== 0) {
+            $wrong[] = sprintf('the language differs (%s)', $plan['languageField']);
+        }
+
+        if ($stored !== null && $plan['typeField'] !== null && self::toStr($stored[$plan['typeField']] ?? '') !== $plan['recordType']) {
+            $wrong[] = sprintf('the record type differs (%s)', $plan['typeField']);
         }
 
         $missed = $stored === null
@@ -390,7 +402,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null}|string
+     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>, hiddenField:string, languageField:string|null, typeField:string|null}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -493,7 +505,34 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'notes'         => $collected['notes'],
             'hiddenField'   => $hiddenField,
             'languageField' => $this->languageFieldOf($table),
+            'typeField'     => $this->typeFieldToVerify($table, $type['name'], $collected['values']),
         ];
+    }
+
+    /**
+     * The `ctrl.type` column whose stored value the read-back compares with
+     * the resolved record type, or null where there is nothing to compare.
+     *
+     * Only where the record type is that column's default and the call does
+     * not set the column: a value the call sets is read back with the other
+     * fields, and where the type came from core's own fallback ("0", then
+     * "1") the DataHandler stores whatever the column's default is, which
+     * need not be the type's name.
+     *
+     * @param array<string, int|float|string> $values
+     */
+    private function typeFieldToVerify(string $table, string $recordType, array $values): ?string
+    {
+        $typeField = ($this->tcaCtrlFor($table) ?? [])['type'] ?? null;
+        if (!is_string($typeField) || $typeField === '' || array_key_exists($typeField, $values)) {
+            return null;
+        }
+
+        $column  = $this->tcaColumnsFor($table)[$typeField] ?? null;
+        $config  = is_array($column) ? ($column['config'] ?? null) : null;
+        $default = is_array($config) && array_key_exists('default', $config) ? self::toStr($config['default']) : null;
+
+        return $default === $recordType ? $typeField : null;
     }
 
     /**

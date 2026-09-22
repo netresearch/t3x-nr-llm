@@ -19,3 +19,8 @@ CREATE TABLE tx_writerfixture_item (
 CREATE TABLE tx_writerfixture_plain (
 	title varchar(255) DEFAULT '' NOT NULL
 );
+
+CREATE TABLE tx_writerfixture_variant (
+	title varchar(255) DEFAULT '' NOT NULL,
+	variant varchar(32) DEFAULT '' NOT NULL
+);

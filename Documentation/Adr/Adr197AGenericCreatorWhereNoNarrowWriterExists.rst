@@ -101,7 +101,11 @@ decision. Removing one reopens ADR-135's argument.
    ``checkLanguageAccess`` for the default language; the live workspace only,
    through :php:`WritesThroughDataHandlerTrait`. What TYPO3 still rewrites or
    drops in silence — a hook of the installation, a grant the pre-check does
-   not model — is read back column by column; on a mismatch the record is
+   not model — is read back column by column, and so are the two values the
+   tool decides without an argument: the default language it forces and the
+   record type it resolved from the type column's default (not where the type
+   is core's ``0``/``1`` fallback, for which the DataHandler stores the
+   column's own default); on a mismatch the record is
    deleted again, the columns are named and the refusal says the value was
    dropped or rewritten by TYPO3, as the creating sibling writers do with a
    record they cannot vouch for. A rich-text column, whose stored form the

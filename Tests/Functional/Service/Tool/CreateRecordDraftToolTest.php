@@ -677,6 +677,10 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'the hidden flag' => [['title' => 'rewrite:hidden'], 'it is not hidden'];
         yield 'the page'        => [['title' => 'rewrite:pid'], 'the page differs'];
         yield 'a field'         => [['title' => 'rewrite:teaser', 'teaser' => 'A teaser long enough'], 'these fields did not take: teaser'];
+        // Neither is an argument: the tool sets the language and resolves the
+        // record type from the column's default, and verifies both.
+        yield 'the language'    => [['title' => 'rewrite:language'], 'the language differs (sys_language_uid)'];
+        yield 'the record type' => [['title' => 'rewrite:type'], 'the record type differs (kind)'];
     }
 
     /**
@@ -706,6 +710,35 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('was deleted again', $result->content);
         self::assertSame(1, $this->recordCount(), 'the row exists, flagged deleted');
         self::assertSame(0, $this->undeletedRecordCount());
+    }
+
+    /**
+     * The other direction: where the record type is core's fallback rather
+     * than the type column's default, the DataHandler stores the column's
+     * database default ('') for a type named "1". That is not a rewrite, and
+     * the record stays.
+     */
+    #[Test]
+    public function aRecordTypeFromCoresFallbackIsNotReadBackAsChanged(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            ['table' => 'tx_writerfixture_variant', 'pid' => self::FOLDER_OPEN, 'fields' => ['title' => 'x']],
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        // Restrictions removed: the record is hidden, which the default ones filter out.
+        $queryBuilder = $this->connectionPool->getQueryBuilderForTable('tx_writerfixture_variant');
+        $queryBuilder->getRestrictions()->removeAll();
+        $count = (int)$queryBuilder
+            ->count('uid')
+            ->from('tx_writerfixture_variant')
+            ->where($queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+        self::assertSame(1, $count, 'the record is kept');
     }
 
     #[Test]

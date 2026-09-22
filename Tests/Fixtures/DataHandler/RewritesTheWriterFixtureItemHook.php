@@ -23,7 +23,9 @@ use TYPO3\CMS\Core\DataHandling\DataHandler;
  *
  * - title `rewrite:hidden` sets the hidden flag to 0,
  * - title `rewrite:pid` moves the row to page 1,
- * - title `rewrite:teaser` replaces the teaser.
+ * - title `rewrite:teaser` replaces the teaser,
+ * - title `rewrite:language` moves the row to language 1,
+ * - title `rewrite:type` changes the record type to `story`.
  *
  * Every other row, and the delete that takes a failed write back, is left
  * alone. Stateless, so no test leaks into the next; registered per test under
@@ -44,10 +46,12 @@ final class RewritesTheWriterFixtureItemHook
         }
 
         match ($fieldArray['title'] ?? null) {
-            'rewrite:hidden' => $fieldArray['hidden'] = 0,
-            'rewrite:pid'    => $fieldArray['pid'] = 1,
-            'rewrite:teaser' => $fieldArray['teaser'] = 'Rewritten by a hook',
-            default          => null,
+            'rewrite:hidden'   => $fieldArray['hidden'] = 0,
+            'rewrite:pid'      => $fieldArray['pid'] = 1,
+            'rewrite:teaser'   => $fieldArray['teaser'] = 'Rewritten by a hook',
+            'rewrite:language' => $fieldArray['sys_language_uid'] = 1,
+            'rewrite:type'     => $fieldArray['kind'] = 'story',
+            default            => null,
         };
     }
 }
