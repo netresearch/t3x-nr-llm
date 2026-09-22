@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use TYPO3\CMS\Backend\Form\Utility\FormEngineUtility;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -120,6 +121,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * ({@see self::registeredPluginSignatures()}).
      */
     private const DENIED_ITEM_GROUPS = ['plugins', 'forms'];
+
+    /**
+     * The fillable TCA types for which FormEngine lets page TSconfig set
+     * `config.readOnly` — its override matrix in typo3/cms-backend 14.3.7
+     * ({@see FormEngineUtility}) lists no `radio`.
+     */
+    private const READ_ONLY_OVERRIDABLE_TYPES = ['input', 'text', 'select', 'check', 'number', 'datetime', 'color', 'email'];
 
     /**
      * TCA column types a model may fill through `fields`. A `select` counts
@@ -565,6 +573,20 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $bodytext = $body[0];
         }
 
+        // The two text arguments are refused where the type's TCA makes them
+        // read-only, as a `fields` key is in keyRefusal().
+        $typeColumns = $this->columnsOfType($type);
+        foreach ($bodytext === null ? ['header'] : ['header', 'bodytext'] as $own) {
+            if ((bool)($typeColumns[$own]['readOnly'] ?? false)) {
+                return sprintf(
+                    'Refused: "%s" is read-only in the form of content type "%s" (TCA readOnly).%s Nothing was written.',
+                    $own,
+                    $type,
+                    $own === 'header' ? $this->headerRequiredNote($type) : '',
+                );
+            }
+        }
+
         $language = self::toInt($arguments['language'] ?? 0);
         if ($language < 0) {
             return 'Refused: "language" must be zero or a positive sys_language_uid.';
@@ -718,11 +740,23 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $shown[] = 'bodytext';
         }
 
+        $columns = $this->columnsOfType($type);
         foreach ($shown as $column) {
             $rule = $this->tceFormDisabling($rules, $column, $type);
             if ($rule !== null) {
                 return sprintf(
                     'Refused: "%s" is not shown on page [%d] by its page TSconfig (%s).%s Nothing was written.',
+                    $column,
+                    $pageUid,
+                    $rule,
+                    $column === 'header' ? $this->headerRequiredNote($type) : '',
+                );
+            }
+
+            $rule = $this->tceFormReadOnly($rules, $column, $type, self::toStr($columns[$column]['type'] ?? ''));
+            if ($rule !== null) {
+                return sprintf(
+                    'Refused: "%s" is read-only on page [%d] by its page TSconfig (%s).%s Nothing was written.',
                     $column,
                     $pageUid,
                     $rule,
@@ -747,7 +781,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             }
         }
 
-        $columns = $this->columnsOfType($type);
         foreach ($fields as $column => $value) {
             if (self::toStr($columns[$column]['type'] ?? '') !== 'select') {
                 continue;
@@ -825,6 +858,32 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return 'TCEFORM.' . self::TABLE . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'disabled';
+    }
+
+    /**
+     * The path of the `config.readOnly` rule that makes the column read-only
+     * for the type, or null when it is editable. FormEngine takes the key
+     * only for the TCA types its override matrix lists
+     * ({@see FormEngineUtility::overrideFieldConf()}),
+     * and so does this — a `radio` is not among them.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
+     */
+    private function tceFormReadOnly(array $rules, string $column, string $type, string $tcaType): ?string
+    {
+        if (!in_array($tcaType, self::READ_ONLY_OVERRIDABLE_TYPES, true)) {
+            return null;
+        }
+
+        [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
+        $columnConfig              = is_array($columnRules['config.'] ?? null) ? $columnRules['config.'] : [];
+        $typeConfig                = is_array($typeRules['config.'] ?? null) ? $typeRules['config.'] : [];
+        $fromType                  = array_key_exists('readOnly', $typeConfig);
+        if (!(bool)($fromType ? $typeConfig['readOnly'] : ($columnConfig['readOnly'] ?? false))) {
+            return null;
+        }
+
+        return 'TCEFORM.' . self::TABLE . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'config.readOnly';
     }
 
     /**
@@ -1173,7 +1232,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 return 'excluding';
             }
 
-            return $this->staticItemValues($config) === [] ? 'unfilled' : 'fillable';
+            return $this->staticItemValues($config) === [] || $this->keyRefusal($config) !== null ? 'unfilled' : 'fillable';
         }
 
         if (in_array($type, self::FILLABLE_COLUMN_TYPES, true)) {
@@ -1189,7 +1248,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * Why a column of a fillable TCA type is still never a `fields` key, or
      * null when it may be one.
      *
-     * Each case is one the DataHandler bends in silence by a rule the draft
+     * A column the TCA declares `readOnly` is refused first: the backend form
+     * shows it without letting an editor change it, and the DataHandler does
+     * not read the flag, so a draft would set what no editor can.
+     *
+     * Each further case is one the DataHandler bends in silence by a rule the draft
      * cannot vouch for: a `check` with several items is a bitmask, and `1`
      * would set its first bit only; a `check` with `eval`
      * `maximumRecordsChecked` or `maximumRecordsCheckedInPid` is unchecked
@@ -1204,6 +1267,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     {
         $type  = self::toStr($config['type'] ?? '');
         $evals = GeneralUtility::trimExplode(',', self::toStr($config['eval'] ?? ''), true);
+
+        if ((bool)($config['readOnly'] ?? false)) {
+            return 'the backend form shows it read-only (TCA readOnly)';
+        }
 
         if ($type === 'check') {
             $items = is_array($config['items'] ?? null) ? $config['items'] : [];

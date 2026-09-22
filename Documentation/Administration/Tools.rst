@@ -505,7 +505,9 @@ What holds for all of them:
      A ``check`` with several items, a ``check`` limited by
      ``maximumRecordsChecked`` and an ``input`` or ``email`` with ``eval``
      ``unique`` stay in the form and are refused as keys, because TYPO3 would
-     change them in silence. Identity, position,
+     change them in silence; so is a column the type's TCA declares
+     ``readOnly``, and a read-only ``header`` or ``bodytext`` refuses the
+     call. Identity, position,
      visibility, publication, audience and translation columns are refused by
      name; a wrong key or value refuses the whole call and names the columns
      the type offers. The chosen type is checked against the acting user's
@@ -514,8 +516,10 @@ What holds for all of them:
      over as the integer both supported cores store. The page's TSconfig
      narrows all of this per page, as it narrows the backend form:
      ``TCEFORM.tt_content.CType.keepItems`` and ``removeItems``; ``disabled``
-     on a ``fields`` column, on ``bodytext`` and on ``header`` — a hidden
-     header refuses the call, since the header is required; and
+     and ``config.readOnly`` on a ``fields`` column, on ``bodytext`` and on
+     ``header`` — a hidden or read-only header refuses the call, since the
+     header is required, and like the backend form the tool does not read
+     ``config.readOnly`` for a ``radio`` column; and
      ``keepItems`` and ``removeItems`` on a select column in ``fields``, on
      ``colPos`` for the ``column`` argument and on ``sys_language_uid`` for
      the ``language`` argument — each also under ``types.<CType>`` — are

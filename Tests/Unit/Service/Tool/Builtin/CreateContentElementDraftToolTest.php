@@ -127,6 +127,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                     'validation' => ['maximumRecordsChecked' => 1],
                 ]],
                 'owner'        => ['config' => ['type' => 'email', 'eval' => 'unique']],
+                // FormEngine renders it read-only; the DataHandler stores it anyway.
+                'frozen'       => ['config' => ['type' => 'input', 'readOnly' => true]],
                 'handle'       => ['config' => ['type' => 'input', 'eval' => 'trim,uniqueInPid']],
                 'flags'        => ['config' => ['type' => 'check', 'items' => [
                     ['label' => 'A', 'value' => ''],
@@ -144,7 +146,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'text'        => ['showitem' => '--palette--;;headers, bodytext, --div--;Appearance, layout, sectionIndex, hidden'],
                 'options'     => [
                     'showitem' => 'header, contact, tint, tint_alpha, align, date, starts, price, width, code, note, note_rich,'
-                        . ' label, ratio, tier, featured, owner, handle, flags, hidden',
+                        . ' label, ratio, tier, featured, owner, handle, flags, frozen, hidden',
                 ],
                 'html'        => ['showitem' => 'header, bodytext, hidden'],
                 'plugin_like' => ['showitem' => 'header, pi_flexform, hidden'],
@@ -425,6 +427,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         yield 'input the cms rewrites when another record on the page holds it' => [
             $options + ['fields' => ['handle' => 'intro']],
             '"handle" cannot be set through "fields": TYPO3 rewrites a value another record already holds',
+        ];
+        yield 'column the form shows read-only' => [
+            $options + ['fields' => ['frozen' => 'x']],
+            '"frozen" cannot be set through "fields": the backend form shows it read-only (TCA readOnly)',
         ];
         yield 'check with several items' => [
             $options + ['fields' => ['flags' => 1]],
@@ -721,6 +727,59 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
 
         self::assertTrue($result->isError);
         self::assertStringContainsString('"invisible" cannot be set through "fields"', $result->content);
+    }
+
+    /**
+     * A column the type's TCA declares `readOnly` is shown but not editable
+     * in the backend form, and the DataHandler stores it all the same — so
+     * the tool refuses it as it refuses a hidden one: as a `fields` key, and
+     * for the two text arguments. The header is required, so its refusal
+     * says there is no call that avoids it.
+     */
+    #[Test]
+    public function aColumnTheTypeDeclaresReadOnlyIsRefused(): void
+    {
+        $tca = $GLOBALS['TCA'];
+        self::assertIsArray($tca);
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['types' => ['text' => ['columnsOverrides' => [
+            'header'   => ['config' => ['readOnly' => true]],
+            'bodytext' => ['config' => ['readOnly' => true]],
+            'layout'   => ['config' => ['readOnly' => true]],
+        ]]]]]);
+
+        $header = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x'],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($header->isError);
+        self::assertStringContainsString('"header" is read-only in the form of content type "text" (TCA readOnly)', $header->content);
+        self::assertStringContainsString('"header" is a required argument', $header->content);
+
+        $GLOBALS['TCA'] = array_replace_recursive($tca, ['tt_content' => ['types' => ['text' => ['columnsOverrides' => [
+            'bodytext' => ['config' => ['readOnly' => true]],
+            'layout'   => ['config' => ['readOnly' => true]],
+        ]]]]]);
+
+        $body = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'bodytext' => 'y'],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($body->isError);
+        self::assertStringContainsString('"bodytext" is read-only in the form of content type "text" (TCA readOnly)', $body->content);
+
+        $select = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['layout' => '1']],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertTrue($select->isError);
+        self::assertStringContainsString('"layout" cannot be set through "fields": the backend form shows it read-only', $select->content);
+
+        // Nor is it offered: the refusal of an unknown key lists what is.
+        $offered = $this->tool->execute(
+            ['page' => 1, 'type' => 'text', 'header' => 'x', 'fields' => ['nope' => 1]],
+            $this->contextFor($this->liveUser()),
+        );
+        self::assertStringContainsString('Columns this tool sets for it: subheader, sectionIndex.', $offered->content);
     }
 
     /**

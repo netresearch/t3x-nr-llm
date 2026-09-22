@@ -118,7 +118,10 @@ bit; a ``check`` with ``eval`` ``maximumRecordsChecked`` or
 ``maximumRecordsCheckedInPid`` is unchecked again once enough other records
 carry it; an ``input`` or ``email`` with ``eval`` ``unique`` or
 ``uniqueInPid`` is rewritten to a value no other record holds. They do not
-exclude the type; the draft leaves them at their default.
+exclude the type; the draft leaves them at their default. A column the type's
+TCA declares ``readOnly`` is refused the same way: the backend form shows it
+without letting an editor change it, and the DataHandler does not read the
+flag. A read-only ``header`` or ``bodytext`` refuses the call.
 
 A value is validated against the column's TCA type, the way the DataHandler
 reads it: a select against its static items, and against the acting user's
@@ -144,9 +147,11 @@ authorised, and so after the neutral refusal, the tool reads the page's
 TSconfig as FormEngine reads it (``BackendUtility::getPagesTSconfig()``, with
 ``<column>.types.<CType>.`` merged over ``<column>.``) and refuses a type that
 ``CType.keepItems`` or ``CType.removeItems`` takes out of the selector, a
-``fields`` key, a body or a header whose column ``disabled`` hides — the
-header is written on every call, so a hidden header refuses every call of
-that type on that page — and a ``select`` value, a ``column`` or a
+``fields`` key, a body or a header whose column ``disabled`` hides or
+``config.readOnly`` makes read-only (not for a ``radio``, where FormEngine's
+override matrix does not take the key) — the header is written on every
+call, so a hidden or read-only header refuses every call of that type on
+that page — and a ``select`` value, a ``column`` or a
 ``language`` that the ``keepItems`` or ``removeItems`` of its column (for the
 last two ``colPos`` and ``sys_language_uid``, which FormEngine filters in
 ``TcaSelectItems`` and ``TcaLanguage``) removes; the refusal names the rule.

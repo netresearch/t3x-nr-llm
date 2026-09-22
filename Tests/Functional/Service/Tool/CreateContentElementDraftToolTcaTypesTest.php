@@ -809,6 +809,35 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     }
 
     /**
+     * `config.readOnly` is one of the keys FormEngine lets page TSconfig
+     * override (FormEngineUtility::overrideFieldConf()); the form then shows
+     * the column without letting an editor change it, and the DataHandler
+     * stores whatever it is given. The tool refuses it as it refuses a
+     * hidden column.
+     */
+    #[Test]
+    public function aColumnThePagesTsConfigMakesReadOnlyIsRefused(): void
+    {
+        $this->pageWithTsConfig('TCEFORM.tt_content.subheader.config.readOnly = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'fields' => ['subheader' => 'Sub']],
+            '"subheader" is read-only on page [3] by its page TSconfig (TCEFORM.tt_content.subheader.config.readOnly)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.bodytext.types.table.config.readOnly = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x', 'bodytext' => 'a|b'],
+            '(TCEFORM.tt_content.bodytext.types.table.config.readOnly)',
+        );
+
+        $this->pageWithTsConfig('TCEFORM.tt_content.header.config.readOnly = 1');
+        $this->assertRefusedAndNothingCreated(
+            ['page' => self::TSCONFIG_PAGE, 'type' => 'table', 'header' => 'x'],
+            '"header" is a required argument',
+        );
+    }
+
+    /**
      * `colPos` is a static select, and FormEngine filters its items by the
      * page's `keepItems` and `removeItems` like any other select's. The
      * `column` argument is that value.
