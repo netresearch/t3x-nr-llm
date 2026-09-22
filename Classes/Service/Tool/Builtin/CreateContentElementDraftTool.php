@@ -212,7 +212,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                             . 'position, visibility, publication, audience and translation columns are refused. A '
                             . 'value is validated against the column\'s TCA type; a refusal names the columns the type '
                             . 'offers. Omit for header and body text only.',
-                        'additionalProperties' => ['type' => ['string', 'boolean', 'number']],
+                        // The boolean form ReadRecordsTool ships. A type ARRAY
+                        // is a union type, which Gemini's schema dialect does
+                        // not express and GeminiProvider hands over verbatim;
+                        // the value is validated against the TCA anyway.
+                        'additionalProperties' => true,
                     ],
                 ],
                 'required' => ['page', 'type', 'header'],

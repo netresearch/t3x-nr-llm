@@ -140,10 +140,13 @@ compared as a number, because the database renders ``12.00`` as it likes.
 
 **The wire shape stays small.** The description lists the offered types, as
 before, and says that ``fields`` takes further scalar columns of the type.
-The JSON schema declares ``fields`` as an object with free keys and scalar
-values, and its description names where the allowed keys come from. It does
-not enumerate the columns of every type: a model that wants them reads the
-TCA through the structure tools, or sends a wrong key once and is told.
+The JSON schema declares ``fields`` as an object with free keys, in the
+boolean ``additionalProperties`` form ``read_records`` ships — a type array
+is a union type, which Gemini's schema dialect does not express — and its
+description names the scalar kinds a value may take and where the allowed
+keys come from. It does not enumerate the columns of every type: a model
+that wants them reads the TCA through the structure tools, or sends a wrong
+key once and is told.
 
 .. _adr-196-bound:
 

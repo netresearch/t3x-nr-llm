@@ -138,7 +138,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $fields = $properties['fields'] ?? null;
         self::assertIsArray($fields);
         self::assertSame('object', $fields['type'] ?? null);
-        self::assertSame(['type' => ['string', 'boolean', 'number']], $fields['additionalProperties'] ?? null);
+        self::assertTrue($fields['additionalProperties'] ?? null);
         $fieldsDescription = $fields['description'] ?? null;
         self::assertIsString($fieldsDescription);
         self::assertStringContainsString('TCA', $fieldsDescription);

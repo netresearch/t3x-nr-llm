@@ -471,7 +471,7 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function theSpecDeclaresFieldsAsAnObjectWithFreeScalarKeys(): void
+    public function theSpecDeclaresFieldsAsAnObjectWithFreeKeys(): void
     {
         $properties = $this->tool->getSpec()->parameters['properties'] ?? null;
         self::assertIsArray($properties);
@@ -480,8 +480,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
 
         self::assertSame('object', $fields['type'] ?? null);
         // Free keys — the allowed ones come from the chosen type's TCA and are
-        // not enumerated here — with scalar values only.
-        self::assertSame(['type' => ['string', 'boolean', 'number']], $fields['additionalProperties'] ?? null);
+        // not enumerated here — in the boolean form ReadRecordsTool ships:
+        // a type ARRAY is a union no Gemini schema expresses, and the value
+        // is validated against the TCA anyway.
+        self::assertTrue($fields['additionalProperties'] ?? null);
         $description = $fields['description'] ?? '';
         self::assertIsString($description);
         self::assertStringContainsString('TCA', $description);
