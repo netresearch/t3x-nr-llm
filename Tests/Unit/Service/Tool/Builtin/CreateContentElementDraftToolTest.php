@@ -508,6 +508,13 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         self::assertStringNotContainsString('myext_listing', $description);
         self::assertStringNotContainsString('json_like', $description);
         self::assertStringNotContainsString('formless', $description);
+
+        // The tool description says what the list is — the rule's outcome,
+        // not every type with scalar columns — and that a page may narrow it.
+        $toolDescription = $this->tool->getSpec()->description;
+        self::assertStringContainsString('Only content types that pass the exclusion rule', $toolDescription);
+        self::assertStringContainsString("page's TSconfig", $toolDescription);
+        self::assertStringNotContainsString('whose form holds scalar columns', $toolDescription);
         self::assertStringNotContainsString('record_like', $description);
         self::assertStringNotContainsString('textmedia', $description);
     }

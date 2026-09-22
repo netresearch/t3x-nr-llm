@@ -182,9 +182,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'create_content_element_draft',
             'Create ONE new content element (tt_content) on a page. The element is always created HIDDEN, so a '
             . 'human must review and unhide it in the page module before it is visible. Writes through the TYPO3 '
-            . 'DataHandler as the acting backend user, in the live workspace. Only content types whose form holds '
-            . 'scalar columns are available (' . $listed . '); "fields" takes further scalar columns of the '
-            . 'chosen type. To translate an EXISTING element, use '
+            . 'DataHandler as the acting backend user, in the live workspace. Only content types that pass the '
+            . 'exclusion rule are available (' . $listed . "), and the page's TSconfig may narrow them and their "
+            . 'options further; "fields" takes further scalar columns of the chosen type. To translate an EXISTING '
+            . 'element, use '
             . 'create_translation_draft instead — this tool creates a standalone element in the language given, '
             . 'and refuses a non-default language on a page that already holds connected translations in it.',
             [

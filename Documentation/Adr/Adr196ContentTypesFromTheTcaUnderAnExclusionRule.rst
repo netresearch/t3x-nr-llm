@@ -185,8 +185,10 @@ with ``enableRichtext`` passes through the RTE transformation, and an
 ``input`` with an ``eval`` beyond ``trim`` is transformed by it; a decimal is
 compared as a number, because the database renders ``12.00`` as it likes.
 
-**The wire shape stays small.** The description lists the offered types, as
-before, and says that ``fields`` takes further scalar columns of the type.
+**The wire shape stays small.** The description lists the types that pass
+the exclusion rule, as before, says that the page's TSconfig may narrow them
+and their options, and that ``fields`` takes further scalar columns of the
+type.
 The JSON schema declares ``fields`` as an object with free keys, in the
 boolean ``additionalProperties`` form ``read_records`` ships — a type array
 is a union type, which Gemini's schema dialect does not express — and its
