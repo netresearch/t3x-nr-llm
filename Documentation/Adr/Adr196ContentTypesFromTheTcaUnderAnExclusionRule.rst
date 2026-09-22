@@ -90,7 +90,7 @@ Three kinds of column, and the kind decides:
    new type fails closed rather than open. One excluding column excludes the
    type. A type without a form is excluded too.
 
-**The argument set keeps its five arguments and gains ``fields``**, an object
+**The argument set keeps its seven arguments and gains ``fields``**, an object
 of column names to values. A key is accepted when it is a fillable column of
 the chosen type's form and not one of the columns the tool refuses by name:
 identity (``uid``, ``pid``, ``CType``, ``sorting``, ``tstamp``, ``crdate``,
