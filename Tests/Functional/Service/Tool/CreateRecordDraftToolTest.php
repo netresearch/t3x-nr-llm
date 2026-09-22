@@ -77,6 +77,9 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
 
     private const FOLDER_BY_TYPE = 5;
 
+    /** Rules written the way TypoScript allows and FormEngine reads: any truthy value. */
+    private const FOLDER_TRUTHY = 6;
+
     private const PUBLISHED_AT = 1789034400;
 
     private CreateRecordDraftTool $tool;
@@ -111,6 +114,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             self::FOLDER_TCEFORM  => "TCEFORM.tx_writerfixture_item {\n  featured.disabled = 1\n  tone.removeItems = loud\n  kind.keepItems = note, event\n}",
             self::FOLDER_NO_NOTES => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
             self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n}",
+            self::FOLDER_TRUTHY   => "TCEFORM.tx_writerfixture_item {\n  contact.disabled = true\n  featured.disabled = 0\n}",
         ];
         foreach ($tceform as $uid => $tsConfig) {
             $pages->insert('pages', [
@@ -533,6 +537,8 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'the default record type inside removeItems' => [self::FOLDER_NO_NOTES, ['title' => 'x'], 'TCEFORM.tx_writerfixture_item.kind.removeItems'];
         yield 'a record type removed for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'event', 'teaser' => 'An event teaser'], 'TCEFORM.tx_writerfixture_item.kind.types.event.removeItems'];
         yield 'a column disabled for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'story', 'priority' => 2], 'TCEFORM.tx_writerfixture_item.priority.types.story.disabled'];
+        // FormEngine drops the field on any truthy value (SingleFieldContainer), not only on 1.
+        yield 'a column disabled with the word true' => [self::FOLDER_TRUTHY, ['title' => 'x', 'contact' => 'editor@example.com'], 'TCEFORM.tx_writerfixture_item.contact.disabled'];
     }
 
     /**
@@ -563,6 +569,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         yield 'a kept item and a kept record type' => [self::FOLDER_TCEFORM, ['title' => 'x', 'kind' => 'note', 'tone' => 'calm']];
         yield 'another record type than the removed one' => [self::FOLDER_NO_NOTES, ['title' => 'x', 'kind' => 'story']];
         yield 'a column disabled only for another type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'note', 'priority' => 2]];
+        yield 'a column whose disabled rule is 0' => [self::FOLDER_TRUTHY, ['title' => 'x', 'featured' => 1]];
     }
 
     /**

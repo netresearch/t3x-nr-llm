@@ -527,8 +527,10 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         }
 
         foreach ($values as $column => $value) {
+            // Any truthy value, as FormEngine reads it (SingleFieldContainer):
+            // TypoScript carries strings, so `disabled = true` is "true".
             $disabled = $this->pageRule($rules, $column, 'disabled', $recordType);
-            if ($disabled !== null && $this->flag($disabled[0])) {
+            if ($disabled !== null && (bool)$disabled[0]) {
                 return sprintf(
                     'Refused: "%s" is disabled on page [%d] — page TSconfig TCEFORM.%s.%s%s takes it out of the backend form.',
                     $column,

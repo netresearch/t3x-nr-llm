@@ -196,7 +196,9 @@ decision. Removing one reopens ADR-135's argument.
    column the form hides and a value it does not list without a word. After
    the ``pid`` is authorised the tool reads the page's TSconfig the way
    FormEngine does (:php:`BackendUtility::getPagesTSconfig()`) and refuses a
-   column ``TCEFORM.<table>.<column>.disabled`` hides, a select value outside
+   column ``TCEFORM.<table>.<column>.disabled`` hides — any truthy value,
+   ``true`` as well as ``1``, as :php:`SingleFieldContainer` reads it — a
+   select value outside
    its ``keepItems`` or inside its ``removeItems``, and a record type the
    type field does not offer there, whether the call names it or it is the
    column's default. A ``types.<type>.`` block overrides the column's own
