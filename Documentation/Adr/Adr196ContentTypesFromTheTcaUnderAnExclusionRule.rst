@@ -115,7 +115,10 @@ wall time and subtracts the server's offset, so a day given as ``2026-09-21``
 would land on the evening before on any server outside UTC, while 14.3 reads
 an offset correctly. A column with a native ``dbType`` takes unqualified local
 wall time, which both cores store in the column's own format — the date, the
-time, or both — without shifting it.
+time, or both — without shifting it. The approval card is the human gate of
+:ref:`ADR-136 <adr-136>`, and a timestamp is not readable, so the card shows
+the moment the integer stands for in the server's zone — ``2026-09-21
+00:00:00``, or ``14:30:00`` for seconds of the day — not the integer.
 
 **The exclude-field grant is asked before the write**, per column, the way
 :ref:`ADR-192 <adr-192>` asks it: the DataHandler drops an ``exclude`` column
@@ -248,9 +251,6 @@ the DataHandler clamped to its range reads back as present.
 of the type selector: ``registerPlugin()`` takes a group of its own, and a
 plugin registered into another group is judged by its form alone — excluded
 when it carries a FlexForm, offered when it does not.
-
-✕ The approval card shows a ``datetime`` as the integer handed to the
-DataHandler, not as the date the model wrote.
 
 ✕ ``category`` and ``link`` columns were meant to exclude a type and cannot:
 core's own TCA puts ``categories`` on every content type and ``header_link``

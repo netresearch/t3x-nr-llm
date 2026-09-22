@@ -377,8 +377,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         ];
         // One line per further column, so the card shows the whole of what
         // would come into being — the point made above.
+        $columns = $this->columnsOfType($plan['type']);
         foreach ($plan['fields'] as $column => $value) {
-            $lines[] = sprintf('%s: %s', $column, $this->quoted(self::toStr($value)));
+            $lines[] = sprintf('%s: %s', $column, $this->quoted($this->shownValue($value, $columns[$column] ?? [])));
         }
 
         $lines[] = sprintf(
@@ -1107,6 +1108,27 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return $moment->getTimestamp();
+    }
+
+    /**
+     * A `fields` value as the approver reads it on the card.
+     *
+     * A `datetime` is handed to the DataHandler as an integer
+     * ({@see self::datetimeForDataHandler()}), and a timestamp is not
+     * readable; the card is the human gate (ADR-136), so it shows the moment
+     * the integer stands for, in the server's zone — a time of day for
+     * seconds of the day, a date and time for a timestamp. Every other value
+     * is shown as it is handed over.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function shownValue(string|int $value, array $config): string
+    {
+        if (!is_int($value) || self::toStr($config['type'] ?? '') !== 'datetime') {
+            return self::toStr($value);
+        }
+
+        return $this->isTimeOfDay($config) ? gmdate('H:i:s', $value) : date('Y-m-d H:i:s', $value);
     }
 
     /**

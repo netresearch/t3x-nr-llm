@@ -468,9 +468,10 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
      * the server's offset, so a day would land on the evening before. The
      * container runs in UTC, where the two agree, so the zone is set here.
      *
-     * 14.3 reads an offset string correctly, so on this core only the card —
-     * which shows the value as it is handed over — tells the two shapes
-     * apart; the row tells them apart on the 13.4 matrix cell.
+     * 14.3 reads an offset string correctly, so on this core the row tells
+     * the two shapes apart only on the 13.4 matrix cell. The card is the
+     * human gate (ADR-136), so it shows the day the integer stands for, in
+     * the server's zone, and not the integer.
      */
     #[Test]
     public function aDateLandsOnTheDayAskedForInTheServersTimezone(): void
@@ -489,7 +490,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         }
 
         $midnight = (new DateTimeImmutable('2026-09-21', new DateTimeZone('Europe/Berlin')))->getTimestamp();
-        self::assertContains('date: "' . $midnight . '"', $lines, 'the card shows the integer handed over');
+        self::assertContains('date: "2026-09-21 00:00:00"', $lines, 'the card shows the day, not the timestamp');
         self::assertFalse($result->isError, $result->content);
         self::assertSame($midnight, (int)($this->createdElement()['date'] ?? 0), 'the day must not shift');
     }
@@ -497,24 +498,26 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     /**
      * An integer on a `time` column is seconds of the day to both cores, not
      * a Unix timestamp, and is handed over as it is. Read as a timestamp it
-     * would shift by the server's offset, so the zone is set here.
+     * would shift by the server's offset, so the zone is set here. The card
+     * shows the time of day the seconds stand for.
      */
     #[Test]
     public function aTimeGivenAsSecondsOfTheDayIsStoredAsItIs(): void
     {
-        $admin = $this->setUpBackendUser(1);
-        $zone  = date_default_timezone_get();
+        $admin     = $this->setUpBackendUser(1);
+        $context   = ToolExecutionContext::fromBackendUser($admin);
+        $arguments = ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['date' => 14 * 3600 + 30 * 60]];
+        $zone      = date_default_timezone_get();
         date_default_timezone_set('Europe/Berlin');
 
         try {
-            $result = $this->tool->execute(
-                ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['date' => 14 * 3600 + 30 * 60]],
-                ToolExecutionContext::fromBackendUser($admin),
-            );
+            $lines  = $this->tool->previewCall($arguments, $context);
+            $result = $this->tool->execute($arguments, $context);
         } finally {
             date_default_timezone_set($zone);
         }
 
+        self::assertContains('date: "14:30:00"', $lines, 'the card shows the time of day, not the seconds');
         self::assertFalse($result->isError, $result->content);
         self::assertSame(14 * 3600 + 30 * 60, (int)($this->createdElement()['date'] ?? 0), 'the time must not shift');
     }
