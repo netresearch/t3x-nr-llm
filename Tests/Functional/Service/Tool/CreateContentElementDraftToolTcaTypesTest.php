@@ -720,7 +720,9 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
 
         self::assertFalse($result->isError, $result->content);
         self::assertSame(1, $this->undeletedElementCount(), 'the element must not have been taken back');
-        self::assertStringContainsString('Line two', (string)($this->createdElement()['bodytext'] ?? ''));
+        $body = $this->createdElement()['bodytext'] ?? null;
+        self::assertIsString($body);
+        self::assertStringContainsString('Line two', $body);
     }
 
     /**
