@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -457,6 +458,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return self::NOT_PERMITTED;
         }
 
+        // After the page, because the rules are the page's.
+        $pageRule = $this->refuseByPageTsConfig($table, $pid, $type['name'], $collected['values']);
+        if ($pageRule !== null) {
+            return $pageRule;
+        }
+
         return [
             'table'         => $table,
             'tableLabel'    => $this->tableLabelOf($table),
@@ -470,6 +477,133 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             'hiddenField'   => $hiddenField,
             'languageField' => $this->languageFieldOf($table),
         ];
+    }
+
+    /**
+     * The refusal for what the page's TSconfig takes out of the backend form,
+     * or null.
+     *
+     * `TCEFORM.<table>.<column>` is enforced by FormEngine only — `disabled`
+     * drops the field from the form ({@see \TYPO3\CMS\Backend\Form\Container\SingleFieldContainer}),
+     * `keepItems` and `removeItems` filter a select's items
+     * ({@see \TYPO3\CMS\Backend\Form\FormDataProvider\AbstractItemProvider}) — and
+     * the DataHandler writes either without a word. So a column the form hides
+     * on this page is refused, a select value it does not offer is refused, and
+     * so is a record type its type field does not offer, whether the call names
+     * it or it is the column's default. A `types.<type>.` block of the same
+     * rule overrides it for that record type, as
+     * {@see \TYPO3\CMS\Backend\Form\FormDataProvider\PageTsConfigMerged} merges it.
+     * Radio items are not filtered: FormEngine applies neither rule to them.
+     *
+     * @param array<string, int|float|string> $values
+     */
+    private function refuseByPageTsConfig(string $table, int $pid, string $recordType, array $values): ?string
+    {
+        $tsConfig = BackendUtility::getPagesTSconfig($pid);
+        $tceform  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
+        $rules    = is_array($tceform[$table . '.'] ?? null) ? $tceform[$table . '.'] : [];
+        if ($rules === []) {
+            return null;
+        }
+
+        $typeField = $this->tcaCtrlFor($table)['type'] ?? null;
+        if (is_string($typeField) && $typeField !== ''
+            && self::toStr(($this->columnConfig($table, $typeField, $recordType) ?? [])['type'] ?? '') === 'select'
+        ) {
+            $excluding = $this->pageRuleExcludingItem($rules, $table, $typeField, $recordType, $recordType);
+            if ($excluding !== null) {
+                return sprintf(
+                    'Refused: record type "%s" of %s is not offered on page [%d] — page TSconfig %s takes it out of the backend form.',
+                    $recordType,
+                    $table,
+                    $pid,
+                    $excluding,
+                );
+            }
+        }
+
+        foreach ($values as $column => $value) {
+            $disabled = $this->pageRule($rules, $column, 'disabled', $recordType);
+            if ($disabled !== null && $this->flag($disabled[0])) {
+                return sprintf(
+                    'Refused: "%s" is disabled on page [%d] — page TSconfig TCEFORM.%s.%s%s takes it out of the backend form.',
+                    $column,
+                    $pid,
+                    $table,
+                    $column,
+                    $disabled[1],
+                );
+            }
+
+            $config = $this->columnConfig($table, $column, $recordType) ?? [];
+            if (self::toStr($config['type'] ?? '') !== 'select') {
+                continue;
+            }
+
+            $excluding = $this->pageRuleExcludingItem($rules, $table, $column, $recordType, self::toStr($value));
+            if ($excluding !== null) {
+                return sprintf(
+                    'Refused: the value for "%s" is not offered on page [%d] — page TSconfig %s takes it out of the backend form.',
+                    $column,
+                    $pid,
+                    $excluding,
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The full name of the `keepItems` or `removeItems` rule that takes
+     * `$value` out of a select, or null — the single-value form of
+     * `removeItemsByKeepItemsPageTsConfig()` and
+     * `removeItemsByRemoveItemsPageTsConfig()`, applied in that order.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.<table>.` block
+     */
+    private function pageRuleExcludingItem(array $rules, string $table, string $column, string $recordType, string $value): ?string
+    {
+        $keep = $this->pageRule($rules, $column, 'keepItems', $recordType);
+        if ($keep !== null && is_string($keep[0])
+            && ($keep[0] === '' || !in_array($value, GeneralUtility::trimExplode(',', $keep[0], true), true))
+        ) {
+            return sprintf('TCEFORM.%s.%s%s', $table, $column, $keep[1]);
+        }
+
+        $remove = $this->pageRule($rules, $column, 'removeItems', $recordType);
+        if ($remove !== null && is_string($remove[0])
+            && in_array($value, GeneralUtility::trimExplode(',', $remove[0], true), true)
+        ) {
+            return sprintf('TCEFORM.%s.%s%s', $table, $column, $remove[1]);
+        }
+
+        return null;
+    }
+
+    /**
+     * One page TSconfig property of a column — the record type's
+     * `types.<type>.` block first, the column's own next — with the path it
+     * was read from (`.types.story.disabled`), or null where neither sets it.
+     *
+     * @param array<array-key, mixed> $rules the page's `TCEFORM.<table>.` block
+     *
+     * @return list{mixed, string}|null
+     */
+    private function pageRule(array $rules, string $column, string $property, string $recordType): ?array
+    {
+        $field = $rules[$column . '.'] ?? null;
+        if (!is_array($field)) {
+            return null;
+        }
+
+        $types    = $field['types.'] ?? null;
+        $specific = is_array($types) ? ($types[$recordType . '.'] ?? null) : null;
+        if (is_array($specific) && array_key_exists($property, $specific)) {
+            return [$specific[$property], '.types.' . $recordType . '.' . $property];
+        }
+
+        return array_key_exists($property, $field) ? [$field[$property], '.' . $property] : null;
     }
 
     /**

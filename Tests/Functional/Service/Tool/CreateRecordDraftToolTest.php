@@ -67,6 +67,16 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     /** A folder every backend user may edit content in. */
     private const FOLDER_OPEN = 2;
 
+    /**
+     * Folders every backend user may edit content in, each with page TSconfig
+     * the backend form enforces and the DataHandler does not (TCEFORM).
+     */
+    private const FOLDER_TCEFORM = 3;
+
+    private const FOLDER_NO_NOTES = 4;
+
+    private const FOLDER_BY_TYPE = 5;
+
     private const PUBLISHED_AT = 1789034400;
 
     private CreateRecordDraftTool $tool;
@@ -96,6 +106,20 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
             'perms_userid' => 1, 'perms_user' => Permission::ALL,
             'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
         ]);
+
+        $tceform = [
+            self::FOLDER_TCEFORM  => "TCEFORM.tx_writerfixture_item {\n  featured.disabled = 1\n  tone.removeItems = loud\n  kind.keepItems = note, event\n}",
+            self::FOLDER_NO_NOTES => 'TCEFORM.tx_writerfixture_item.kind.removeItems = note',
+            self::FOLDER_BY_TYPE  => "TCEFORM.tx_writerfixture_item {\n  kind.types.event.removeItems = event\n  priority.types.story.disabled = 1\n}",
+        ];
+        foreach ($tceform as $uid => $tsConfig) {
+            $pages->insert('pages', [
+                'uid' => $uid, 'pid' => 0, 'title' => 'TCEFORM ' . $uid, 'doktype' => 254, 'slug' => '/tceform-' . $uid,
+                'sorting' => 2 + $uid, 'TSconfig' => $tsConfig,
+                'perms_userid' => 1, 'perms_user' => Permission::ALL,
+                'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+            ]);
+        }
 
         $groups = $this->connectionPool->getConnectionForTable('be_groups');
         $groups->insert('be_groups', [
@@ -491,6 +515,69 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertSame('Page not found or not permitted.', $result->content);
         self::assertSame(0, $this->recordCount());
+    }
+
+    /**
+     * Page TSconfig TCEFORM is enforced by the backend form only; the
+     * DataHandler writes a disabled column or a removed item without a word.
+     * The tool refuses what the form would not offer on that page, and names
+     * the rule.
+     *
+     * @return iterable<string, array{int, array<string, mixed>, string}>
+     */
+    public static function valuesPageTsConfigRemoves(): iterable
+    {
+        yield 'a disabled column' => [self::FOLDER_TCEFORM, ['title' => 'x', 'featured' => 1], 'TCEFORM.tx_writerfixture_item.featured.disabled'];
+        yield 'a removed item'    => [self::FOLDER_TCEFORM, ['title' => 'x', 'tone' => 'loud'], 'TCEFORM.tx_writerfixture_item.tone.removeItems'];
+        yield 'a record type outside keepItems' => [self::FOLDER_TCEFORM, ['title' => 'x', 'kind' => 'story'], 'TCEFORM.tx_writerfixture_item.kind.keepItems'];
+        yield 'the default record type inside removeItems' => [self::FOLDER_NO_NOTES, ['title' => 'x'], 'TCEFORM.tx_writerfixture_item.kind.removeItems'];
+        yield 'a record type removed for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'event', 'teaser' => 'An event teaser'], 'TCEFORM.tx_writerfixture_item.kind.types.event.removeItems'];
+        yield 'a column disabled for that type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'story', 'priority' => 2], 'TCEFORM.tx_writerfixture_item.priority.types.story.disabled'];
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    #[Test]
+    #[DataProvider('valuesPageTsConfigRemoves')]
+    public function aValueThePageTsConfigRemovesIsRefusedAndTheRuleNamed(int $pid, array $fields, string $rule): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $arguments = ['table' => self::TABLE, 'pid' => $pid, 'fields' => $fields];
+        $result    = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString($rule, $result->content);
+        self::assertSame(0, $this->recordCount());
+        self::assertSame([$result->content], $this->tool->previewCall($arguments, ToolExecutionContext::fromBackendUser($admin)));
+    }
+
+    /**
+     * The other direction: what the rules leave on the page is written.
+     *
+     * @return iterable<string, array{int, array<string, mixed>}>
+     */
+    public static function valuesPageTsConfigLeaves(): iterable
+    {
+        yield 'a kept item and a kept record type' => [self::FOLDER_TCEFORM, ['title' => 'x', 'kind' => 'note', 'tone' => 'calm']];
+        yield 'another record type than the removed one' => [self::FOLDER_NO_NOTES, ['title' => 'x', 'kind' => 'story']];
+        yield 'a column disabled only for another type' => [self::FOLDER_BY_TYPE, ['title' => 'x', 'kind' => 'note', 'priority' => 2]];
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    #[Test]
+    #[DataProvider('valuesPageTsConfigLeaves')]
+    public function aValueThePageTsConfigLeavesIsCreated(int $pid, array $fields): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(['table' => self::TABLE, 'pid' => $pid, 'fields' => $fields], ToolExecutionContext::fromBackendUser($admin));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedRecordCount());
     }
 
     /**
