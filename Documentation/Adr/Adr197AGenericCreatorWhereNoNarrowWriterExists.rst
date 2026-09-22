@@ -173,7 +173,10 @@ decision. Removing one reopens ADR-135's argument.
    one is refused, because nothing this extension writes is visible before a
    human unhides it (:ref:`ADR-135 <adr-135>`). The tool declares
    ``NON_IDEMPOTENT_WRITE`` so the pause applies. The preview names each
-   field by its column and the column's TCA label resolved in English, one
+   field by its column and the label the record type's form shows — a
+   showitem ``field;Label`` first, else the ``columnsOverrides`` label, else
+   the column's own, as :php:`TcaSchemaBuilder` builds it — resolved in
+   English, one
    line per field, with a timestamp as an ISO 8601 date-time in UTC and a
    select or radio value with its item's English label — the approver reads
    ``published_at (Published at): "2026-09-21T08:00:00+00:00"`` rather than a

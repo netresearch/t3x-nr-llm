@@ -841,7 +841,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<array-key, mixed> $fields
      *
-     * @return array{name:string, shown:list<string>}|string
+     * @return array{name:string, shown:list<string>, labels:array<string, string>}|string
      */
     private function recordType(string $table, array $fields): array|string
     {
@@ -868,7 +868,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         foreach ($candidates as $name) {
             $type = $types[$name] ?? null;
             if (is_array($type)) {
-                return ['name' => $name, 'shown' => $this->columnsShown($table, self::toStr($type['showitem'] ?? ''))];
+                return ['name' => $name] + $this->columnsShown($table, self::toStr($type['showitem'] ?? ''));
             }
         }
 
@@ -877,16 +877,21 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
     /**
      * The column names a showitem string lists, `--palette--` entries expanded
-     * through the table's palettes and `--div--` / `--linebreak--` skipped.
+     * through the table's palettes and `--div--` / `--linebreak--` skipped —
+     * with the label a `field;Label` entry gives a column there, where one
+     * does. As core builds a sub-schema (TcaSchemaBuilder), a column's last
+     * entry decides, and the label of a `--palette--;Label;name` entry is the
+     * palette's, not a column's.
      *
-     * @return list<string>
+     * @return array{shown:list<string>, labels:array<string, string>}
      */
     private function columnsShown(string $table, string $showitem): array
     {
         $tca      = $this->tcaFor($table) ?? [];
         $palettes = is_array($tca['palettes'] ?? null) ? $tca['palettes'] : [];
 
-        $shown = [];
+        $shown  = [];
+        $labels = [];
         foreach (GeneralUtility::trimExplode(',', $showitem, true) as $item) {
             $parts = GeneralUtility::trimExplode(';', $item);
             $name  = $parts[0] ?? '';
@@ -894,9 +899,11 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 $palette = $palettes[$parts[2] ?? ''] ?? null;
                 $inner   = is_array($palette) ? self::toStr($palette['showitem'] ?? '') : '';
                 foreach (GeneralUtility::trimExplode(',', $inner, true) as $paletteItem) {
-                    $field = GeneralUtility::trimExplode(';', $paletteItem)[0] ?? '';
+                    $paletteParts = GeneralUtility::trimExplode(';', $paletteItem);
+                    $field        = $paletteParts[0] ?? '';
                     if ($field !== '' && !str_starts_with($field, '--')) {
-                        $shown[] = $field;
+                        $shown[]        = $field;
+                        $labels[$field] = $paletteParts[1] ?? '';
                     }
                 }
 
@@ -904,11 +911,15 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             }
 
             if ($name !== '' && !str_starts_with($name, '--')) {
-                $shown[] = $name;
+                $shown[]       = $name;
+                $labels[$name] = $parts[1] ?? '';
             }
         }
 
-        return array_values(array_unique($shown));
+        return [
+            'shown'  => array_values(array_unique($shown)),
+            'labels' => array_filter($labels, static fn(string $label): bool => $label !== ''),
+        ];
     }
 
     /**
@@ -920,8 +931,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * `labels` the column labels in English, `notes` the English label of the
      * item a select or radio value names.
      *
-     * @param array{name:string, shown:list<string>} $type
-     * @param array<array-key, mixed>                $fields
+     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
+     * @param array<array-key, mixed>                                              $fields
      *
      * @return array{values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, notes:array<string, string>}|string
      */
@@ -1000,7 +1011,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
             $values[$column]  = $checked[0];
             $display[$column] = $checked[1];
-            $labels[$column]  = $this->labelOf($table, $column);
+            $labels[$column]  = $this->labelOf($table, $column, $type);
             if ($kind === 'select' || $kind === 'radio') {
                 $notes[$column] = $this->itemLabelOf($config, $checked[1]);
             }
@@ -1388,8 +1399,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * leaves empty — the DataHandler drops an empty required value in silence
      * ({@see UpdatePageMetadataTool}), so the refusal names it first.
      *
-     * @param array{name:string, shown:list<string>} $type
-     * @param array<string, int|float|string>        $values
+     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
+     * @param array<string, int|float|string>                                      $values
      *
      * @return list<string>
      */
@@ -1555,14 +1566,22 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     }
 
     /**
-     * The column's TCA label in English, or '' where the TCA declares none.
+     * The column's label for the record type in English, or '' where none is
+     * declared: the showitem's `field;Label` first, the label of the column
+     * with the type's `columnsOverrides` merged over it next — the label the
+     * backend form shows, as core builds it (TcaSchemaBuilder).
+     *
+     * @param array{name:string, shown:list<string>, labels:array<string, string>} $type
      */
-    private function labelOf(string $table, string $column): string
+    private function labelOf(string $table, string $column, array $type): string
     {
-        $definition = $this->tcaColumnsFor($table)[$column] ?? null;
-        $label      = is_array($definition) ? $this->englishLabel(self::toStr($definition['label'] ?? '')) : '';
+        $label = $type['labels'][$column] ?? '';
+        if ($label === '') {
+            $definition = $this->columnDefinition($table, $column, $type['name']) ?? [];
+            $label      = self::toStr($definition['label'] ?? '');
+        }
 
-        return rtrim($label, ':');
+        return rtrim($this->englishLabel($label), ':');
     }
 
     private function tableLabelOf(string $table): string
@@ -1614,10 +1633,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * A column's TCA `config` for the given record type, or null where the
      * table has no such column.
      *
-     * The base configuration with the type's `columnsOverrides` merged over
-     * it, the way core builds the field of a record type's sub-schema
-     * ({@see \TYPO3\CMS\Core\Schema\TcaSchemaBuilder}, `array_replace_recursive`) —
-     * the configuration the DataHandler validates a value against
+     * The configuration the DataHandler validates a value against
      * (`DataHandler::resolveFieldConfigurationAndRespectColumnsOverrides()`).
      * A `required`, a `max`, the items of a select or `enableRichtext` may
      * exist only for one type.
@@ -1625,6 +1641,22 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * @return array<array-key, mixed>|null
      */
     private function columnConfig(string $table, string $column, string $recordType): ?array
+    {
+        $config = ($this->columnDefinition($table, $column, $recordType) ?? [])['config'] ?? null;
+
+        return is_array($config) ? $config : null;
+    }
+
+    /**
+     * A column's TCA definition for the given record type, or null where the
+     * table has no such column: the base definition with the type's
+     * `columnsOverrides` merged over it, the way core builds the field of a
+     * record type's sub-schema ({@see \TYPO3\CMS\Core\Schema\TcaSchemaBuilder},
+     * `array_replace_recursive`) — its `config` and its `label` alike.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function columnDefinition(string $table, string $column, string $recordType): ?array
     {
         $definition = $this->tcaColumnsFor($table)[$column] ?? null;
         if (!is_array($definition)) {
@@ -1635,13 +1667,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $type      = is_array($types) ? ($types[$recordType] ?? null) : null;
         $overrides = is_array($type) ? ($type['columnsOverrides'] ?? null) : null;
         $override  = is_array($overrides) ? ($overrides[$column] ?? null) : null;
-        if (is_array($override)) {
-            $definition = array_replace_recursive($definition, $override);
-        }
 
-        $config = $definition['config'] ?? null;
-
-        return is_array($config) ? $config : null;
+        return is_array($override) ? array_replace_recursive($definition, $override) : $definition;
     }
 
     /**

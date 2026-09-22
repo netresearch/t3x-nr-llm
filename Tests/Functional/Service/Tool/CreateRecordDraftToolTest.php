@@ -735,6 +735,30 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The label the backend form shows for the record type: `columnsOverrides`
+     * replaces the column's own, a showitem `field;Label` replaces both.
+     */
+    #[Test]
+    public function thePreviewNamesTheColumnsWithTheLabelsOfTheRecordType(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $lines = $this->tool->previewCall(
+            $this->call(['title' => 'Proposed', 'kind' => 'event', 'teaser' => 'An event teaser']),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertSame([
+            'New "Fixture item" record (' . self::TABLE . ') on page [2] "Open":',
+            'title (Event title): "Proposed"',
+            'kind (Kind): "event" (Event)',
+            'teaser (Event teaser): "An event teaser"',
+            'language: default',
+            'visibility: hidden — a human must unhide it before anyone sees it',
+        ], $lines);
+    }
+
+    /**
      * ADR-184 compares the preview lines byte for byte on resume, and a resume
      * can run in another request, another worker, for another viewer. The
      * labels must therefore not come from the ambient language service.

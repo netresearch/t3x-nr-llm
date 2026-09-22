@@ -35,11 +35,14 @@ return [
         'story' => ['showitem' => 'title, kind, --palette--;;timing, featured'],
         // Per-type configuration the DataHandler validates against
         // (`columnsOverrides`): `teaser` is required and `body` is rich text
-        // only for this type.
+        // only for this type. The labels differ as well, the way core builds
+        // them (TcaSchemaBuilder): an override's label, and a showitem
+        // `field;Label` that takes precedence over it.
         'event' => [
-            'showitem'        => 'title, kind, teaser, body, --palette--;;timing',
+            'showitem'        => 'title;Event title, kind, teaser, body, --palette--;;timing',
             'columnsOverrides' => [
-                'teaser' => ['config' => ['required' => true]],
+                'title'  => ['label' => 'Overridden title'],
+                'teaser' => ['label' => 'Event teaser', 'config' => ['required' => true]],
                 'body'   => ['config' => ['enableRichtext' => true]],
             ],
         ],

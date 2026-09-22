@@ -606,8 +606,9 @@ What holds for all of them:
    afterwards; a record that does not carry what was approved is deleted
    again and the columns are named.
 
-   The approval card names each column with its TCA label in English, never
-   in the viewer's language, because the card is compared byte for byte when
+   The approval card names each column with the label the record type's form
+   shows (a showitem ``field;Label`` or a ``columnsOverrides`` label before
+   the column's own) in English, never in the viewer's language, because the card is compared byte for byte when
    the run resumes: ``published_at (Published at): "2026-09-10T10:00:00+00:00"``.
 
    It declares no editor action — it has no record an editor would select —
