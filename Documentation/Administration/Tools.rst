@@ -361,7 +361,8 @@ What holds for all of them:
 
    The page's own reference count is re-read afterwards, because EXT:seo reads
    it before it looks for the file: a reference the page does not count is one
-   nothing renders.
+   nothing renders. When that check fails, the new reference is deleted again
+   and the page is left as the call found it.
 
 ``set_file_alternative_text``
    Sets the alternative text (``sys_file_metadata.alternative``) of one managed

@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\Builtin\SetPageSocialImageTool;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsThePageImageFieldsHook;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\DropsTheReferenceDeleteCommandHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -171,8 +173,111 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->stopDroppingThePageImageFields();
+        $this->stopDroppingTheReferenceDeleteCommand();
         unset($GLOBALS['TYPO3_REQUEST'], $GLOBALS['LANG']);
         parent::tearDown();
+    }
+
+    /**
+     * Make the DataHandler run that creates the reference drop the page's
+     * image fields in silence — the state the read-back exists to catch; see
+     * the hook.
+     */
+    private function dropThePageImageFields(): void
+    {
+        $this->registerDataHandlerHook('processDatamapClass', DropsThePageImageFieldsHook::class);
+    }
+
+    private function stopDroppingThePageImageFields(): void
+    {
+        $this->unregisterDataHandlerHook('processDatamapClass', DropsThePageImageFieldsHook::class);
+    }
+
+    /**
+     * Make the DataHandler run that creates the reference skip the delete of
+     * the first replaced one in silence — the state the check after the
+     * cmdmap exists to catch; see the hook.
+     */
+    private function dropTheReferenceDeleteCommand(): void
+    {
+        $this->registerDataHandlerHook('processCmdmapClass', DropsTheReferenceDeleteCommandHook::class);
+    }
+
+    private function stopDroppingTheReferenceDeleteCommand(): void
+    {
+        $this->unregisterDataHandlerHook('processCmdmapClass', DropsTheReferenceDeleteCommandHook::class);
+    }
+
+    private function registerDataHandlerHook(string $list, string $className): void
+    {
+        $hooks   = $this->dataHandlerHooks($list);
+        $hooks[] = $className;
+        $this->storeDataHandlerHooks($list, $hooks);
+    }
+
+    private function unregisterDataHandlerHook(string $list, string $className): void
+    {
+        $this->storeDataHandlerHooks($list, array_filter(
+            $this->dataHandlerHooks($list),
+            static fn(mixed $registeredClassName): bool => $registeredClassName !== $className,
+        ));
+    }
+
+    /**
+     * One DataHandler hook list, narrowed step by step — `$GLOBALS` is `mixed`.
+     *
+     * @return array<array-key, mixed>
+     */
+    private function dataHandlerHooks(string $list): array
+    {
+        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
+        $options  = is_array($confVars) ? ($confVars['SC_OPTIONS'] ?? []) : [];
+        $tcemain  = is_array($options) ? ($options['t3lib/class.t3lib_tcemain.php'] ?? []) : [];
+        $hooks    = is_array($tcemain) ? ($tcemain[$list] ?? []) : [];
+
+        return is_array($hooks) ? $hooks : [];
+    }
+
+    /**
+     * @param array<array-key, mixed> $hooks
+     */
+    private function storeDataHandlerHooks(string $list, array $hooks): void
+    {
+        $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
+        if (!is_array($confVars)) {
+            $confVars = [];
+        }
+
+        $options = $confVars['SC_OPTIONS'] ?? [];
+        if (!is_array($options)) {
+            $options = [];
+        }
+
+        $tcemain = $options['t3lib/class.t3lib_tcemain.php'] ?? [];
+        if (!is_array($tcemain)) {
+            $tcemain = [];
+        }
+
+        $tcemain[$list]                           = $hooks;
+        $options['t3lib/class.t3lib_tcemain.php'] = $tcemain;
+        $confVars['SC_OPTIONS']                   = $options;
+        $GLOBALS['TYPO3_CONF_VARS']               = $confVars;
+    }
+
+    /**
+     * A reference row written past the tool, the way FormEngine or an earlier
+     * run leaves one: `sys_file_reference` and, when asked, the page's counter.
+     *
+     * @param array<string, int> $fields column overrides for the reference row
+     */
+    private function seedReference(int $uid, int $fileUid, string $field, array $fields = []): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', $fields + [
+            'uid' => $uid, 'pid' => self::PAGE_OPEN, 'uid_local' => $fileUid, 'uid_foreign' => self::PAGE_OPEN,
+            'tablenames' => 'pages', 'fieldname' => $field, 'sorting_foreign' => $uid,
+            'sys_language_uid' => 0, 'l10n_parent' => 0, 'deleted' => 0,
+        ]);
     }
 
     private function actor(int $uid): BackendUserAuthentication
@@ -624,6 +729,175 @@ final class SetPageSocialImageToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('refused by TYPO3', $result->content);
         self::assertSame([], array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0));
         self::assertSame(0, $this->counter('og_image'));
+    }
+
+    /**
+     * The read-back is the backstop for whatever the pre-check cannot see. When
+     * it fires, the page goes back to what it was: the new reference — and the
+     * copy core minted for the translation — is deleted, the counter is 0, and
+     * the message names the counter rather than a grant the editor holds or
+     * "previous references" that never existed. The next call is not refused
+     * as "already has"; once the cause is gone it succeeds.
+     */
+    #[Test]
+    public function aFailedReadBackTakesTheReferenceBackAndLeavesAWayOut(): void
+    {
+        $this->dropThePageImageFields();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('counts 0 reference(s)', $result->content);
+        self::assertStringNotContainsString('exclude field', $result->content, 'the editor holds the grant; that is not the cause');
+        self::assertStringNotContainsString('previous reference', $result->content, 'there was none');
+        self::assertSame(
+            [],
+            array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0),
+            'no live reference in any language is left on the page',
+        );
+        self::assertSame(0, $this->counter('og_image'));
+
+        $this->stopDroppingThePageImageFields();
+
+        $retry = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2);
+
+        self::assertFalse($retry->isError, $retry->content);
+        self::assertNotNull($retry->writeTarget);
+        self::assertSame(
+            [['uid' => $retry->writeTarget->uid, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
+            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+        );
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * In a replace call the previous references are deleted only AFTER the
+     * read-back has accepted the new one, so a failed read-back can put them
+     * back as they were: live, and counted by the page. Two references — the
+     * TCA permits them, FormEngine writes them — so the stale counter cannot
+     * pass for the expected one by coincidence.
+     *
+     * Without the translated page: putting pre-existing children back makes
+     * core's `DataMapProcessor` localise them for a parent-following
+     * translation, and `localize` needs a site language this fixture does not
+     * declare. In an installation those copies exist from the save that wrote
+     * the children; the claim here is about the default-language page alone.
+     */
+    #[Test]
+    public function aFailedReadBackInAReplaceCallKeepsThePreviousReferences(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->delete('pages', ['uid' => self::PAGE_TRANSLATED]);
+        $this->seedReference(1, self::FILE_ONE, 'og_image');
+        $this->seedReference(2, self::FILE_TWO, 'og_image');
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_OPEN]);
+        $this->dropThePageImageFields();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('counts 2 reference(s)', $result->content);
+        self::assertStringNotContainsString('previous reference', $result->content);
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
+                ['uid' => 2, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
+                ['uid' => 3, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+            ],
+            $this->references('og_image'),
+        );
+        self::assertSame(2, $this->counter('og_image'));
+    }
+
+    /**
+     * The state the first version of the tool left behind when the page's side
+     * was dropped: a default-language reference and the copy core minted for
+     * the translation, both live on the DEFAULT-LANGUAGE page, counter 0. The
+     * tool counts default-language references only, so the refusal names the
+     * file once, and `replace` deletes the pair — core deletes a localization
+     * with its parent — and sets the page right.
+     */
+    #[Test]
+    public function aBrokenPairLeftByAnEarlierRunIsNamedOnceAndReplacedCleanly(): void
+    {
+        $this->seedReference(1, self::FILE_ONE, 'og_image');
+        $this->seedReference(2, self::FILE_ONE, 'og_image', ['sys_language_uid' => 1, 'l10n_parent' => 1]);
+
+        $refusal = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO]);
+
+        self::assertTrue($refusal->isError);
+        self::assertSame(1, substr_count($refusal->content, 'one.jpg'), $refusal->content);
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true]);
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertNotNull($result->writeTarget);
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+                ['uid' => 2, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+                ['uid' => $result->writeTarget->uid, 'uid_local' => self::FILE_TWO, 'deleted' => 0],
+            ],
+            $this->references('og_image'),
+        );
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * The other half of the read-back, asked after the cmdmap: a replaced
+     * reference the delete did not remove is still live beside the new one.
+     * The new one is taken back, the previous one stays counted, and the
+     * message names what is still there — which is true when it fires,
+     * because the check comes after the delete had its chance.
+     */
+    #[Test]
+    public function aPreviousReferenceTheCmdmapDidNotRemoveIsReportedAndTheNewOneTakenBack(): void
+    {
+        self::assertFalse($this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE], userUid: 2)->isError);
+        $this->dropTheReferenceDeleteCommand();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_TWO, 'replace' => true], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('still carries 1 other live reference(s)', $result->content);
+        self::assertStringContainsString('taken back', $result->content);
+        self::assertSame(
+            [['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0]],
+            array_values(array_filter($this->references('og_image'), static fn(array $row): bool => $row['deleted'] === 0)),
+            'the replaced reference is the only live one; the new one was taken back',
+        );
+        self::assertSame(1, $this->counter('og_image'));
+    }
+
+    /**
+     * When the cmdmap removed some of several previous references and not the
+     * rest, the list the call found goes back into the page's field, and the
+     * page ends up counting what is still live: the DataHandler relates only
+     * the live rows of that list. Two references written past the tool, as
+     * FormEngine leaves them; without the translated page, for the reason the
+     * replace case gives.
+     */
+    #[Test]
+    public function aPartlyRemovedListLeavesThePageCountingWhatIsStillLive(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->delete('pages', ['uid' => self::PAGE_TRANSLATED]);
+        $this->seedReference(1, self::FILE_ONE, 'og_image');
+        $this->seedReference(2, self::FILE_TWO, 'og_image');
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['og_image' => 2], ['uid' => self::PAGE_OPEN]);
+        $this->dropTheReferenceDeleteCommand();
+
+        $result = $this->set(['page' => self::PAGE_OPEN, 'field' => 'og_image', 'file' => self::FILE_ONE, 'replace' => true], userUid: 2);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('still carries 1 other live reference(s)', $result->content);
+        self::assertSame(
+            [
+                ['uid' => 1, 'uid_local' => self::FILE_ONE, 'deleted' => 0],
+                ['uid' => 2, 'uid_local' => self::FILE_TWO, 'deleted' => 1],
+                ['uid' => 3, 'uid_local' => self::FILE_ONE, 'deleted' => 1],
+            ],
+            $this->references('og_image'),
+        );
+        self::assertSame(1, $this->counter('og_image'), 'the page counts the one reference that is still live');
     }
 
     #[Test]

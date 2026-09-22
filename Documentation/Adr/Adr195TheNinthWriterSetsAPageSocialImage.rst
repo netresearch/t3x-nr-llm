@@ -159,9 +159,23 @@ renders, because :php:`MetaTagGenerator` reads the page's counter before it
 looks for rows. The grant is asked through the same method the DataHandler
 asks it with (:php:`BackendUserAuthentication::check('non_exclude_fields', …)`,
 as :ref:`ADR-192 <adr-192>` does), and the whole call is refused before
-anything is written. The read-back stays as the backstop: it requires the row
-on the named page, field and file, exactly one live default-language reference
-on that field, and a page counter of one.
+anything is written. The read-back stays as the backstop, and when it fails
+it **takes the write back**. The row on the named page, field and file and a
+page counter of one are checked before the replaced references are deleted,
+so the page can be put back exactly as the call found it: the new reference
+is deleted and the previous ones, still live, are written back into the
+page's field. That the field holds exactly one live default-language reference
+is checked after the cmdmap, where whatever else is live is a previous
+reference the delete did not remove; the new one is taken back the same way,
+and of the list written back the DataHandler relates only the rows still
+live (measured on the fixture with a partly removed list). The first version
+reported the mismatch and left the new row in place, arguing that a repair
+would have to guess which of two rows to keep — it does not, because the plan
+names the rows that were there. One limit is stated rather than closed: a
+replaced field whose previous count was exactly one still reads 1 after a
+dropped page side, and the read-back cannot tell that stale count from the new
+one; the run then ends with the new row as the single live, counted reference,
+which is the state asked for.
 
 Whether a column is subject to that grant, and whether it is dropped for a
 different reason, is decided with the DataHandler's own predicates

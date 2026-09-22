@@ -241,20 +241,42 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return ToolResult::error('The reference was not created, and the DataHandler reported no error.');
         }
 
+        // Read back BEFORE the replaced references are deleted. The row must
+        // sit on the named page, field and file, and the page must count it —
+        // EXT:seo reads the counter before it looks for rows, so a reference
+        // the page does not count is one nothing renders. A page whose side
+        // was dropped goes back to what it was, and its previous references
+        // are still live to be put back, because the cmdmap has not run yet.
+        $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
+        if ($mismatch !== null) {
+            $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user);
+
+            return ToolResult::error($mismatch . ' The reference was taken back and the page left as it was.');
+        }
+
         if ($cmdmap !== []) {
             $dataHandler->process_cmdmap();
         }
 
-        // Read back before reporting success. The row must sit on the named
-        // page and field, it must be the only live reference there, and the
-        // page must count it — EXT:seo reads the counter before it looks for
-        // rows, so a reference the page does not count is one nothing renders.
-        $mismatch = $this->readBack($plan['page'], $plan['field'], $newUid, $plan['file']);
-        if ($mismatch !== null) {
-            return ToolResult::error(
-                $mismatch
-                . ($dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog)),
-            );
+        // Only now can the field be required to hold exactly this reference in
+        // the default language: whatever else is still live there is a
+        // previous reference the cmdmap did not remove. The list the call
+        // found goes back into the page's field; where the cmdmap removed
+        // some of it, the DataHandler relates only the rows still live and
+        // the page counts those (measured, not read).
+        $live = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($plan['page'], $plan['field']));
+        if ($live !== [$newUid]) {
+            $this->discard($newUid, $plan['page'], $plan['field'], $survivors, $user);
+
+            return ToolResult::error(sprintf(
+                'Reference [%d] was created, but page [%d] still carries %d other live reference(s) in "%s": the previous '
+                . 'reference(s) were not removed. The new reference was taken back and the page left as it was.%s',
+                $newUid,
+                $plan['page'],
+                count(array_diff($live, [$newUid])),
+                $plan['field'],
+                $dataHandler->errorLog === [] ? '' : ' TYPO3 reported: ' . $this->summariseErrors($dataHandler->errorLog),
+            ));
         }
 
         return ToolResult::text(sprintf(
@@ -508,12 +530,24 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * What the write got wrong, or null when it landed as planned.
+     * What the datamap got wrong, or null when it landed as planned: the row
+     * on the named page, field and file, and a page that counts exactly it.
      *
-     * Reported rather than repaired: the two states this can find — the old
-     * reference still live beside the new one, or a page that does not count
-     * the row it now carries — both need a human to look at the page, and an
-     * automatic repair would have to guess which of two rows to keep.
+     * Asked before the cmdmap deletes the replaced references, so the caller
+     * can put the page back as it was — {@see self::discard()} knows the rows
+     * that were there. The counter is compared with 1 because the page's field
+     * was set to the new reference alone. A page whose side the DataHandler
+     * dropped without an error still counts what it counted before: 0 for a
+     * fresh field, the previous count for a replaced one. That count is 1 when
+     * exactly one reference was there, and this check cannot tell it from the
+     * new one — the run then ends with the new row as the single live, counted
+     * reference, which is the state asked for. The limit is stated rather than
+     * closed: the only stricter signal would be the DataHandler's own history
+     * of the page row (`historyRecords`), which the tool does not read.
+     *
+     * The grant is NOT named here: both silent-drop shapes the DataHandler has
+     * are refused by {@see self::plan()} before the write, so when this fires
+     * the grant was present and the cause is something the tool cannot see.
      */
     private function readBack(int $pageUid, string $field, int $referenceUid, int $fileUid): ?string
     {
@@ -527,29 +561,14 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
             return 'The reference was not stored against the named page, field and file.';
         }
 
-        $live = array_map(static fn(array $reference): int => $reference['uid'], $this->existingReferences($pageUid, $field));
-        if ($live !== [$referenceUid]) {
-            return sprintf(
-                'Reference [%d] was created, but page [%d] now carries %d live reference(s) in "%s" where exactly one '
-                . 'was expected: the previous reference(s) were not removed. Review the page.',
-                $referenceUid,
-                $pageUid,
-                count($live),
-                $field,
-            );
-        }
-
         $counter = self::toInt($this->fetchRowByUid(self::PAGES_TABLE, $pageUid)[$field] ?? 0);
         if ($counter !== 1) {
             return sprintf(
                 'Reference [%d] was created, but page [%d] counts %d reference(s) in "%s" where 1 was expected, so '
-                . 'nothing renders it. The acting backend user is most likely missing the field-level ("exclude '
-                . 'field") grant for %s:%s.',
+                . "nothing would render it: the page's side of the relation was not written.",
                 $referenceUid,
                 $pageUid,
                 $counter,
-                $field,
-                self::PAGES_TABLE,
                 $field,
             );
         }
@@ -584,9 +603,16 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The live references on this page's field, in their stored order, each
-     * with the file it points at — what the card shows as "now" and what
-     * `replace` deletes.
+     * The live DEFAULT-LANGUAGE references on this page's field, in their
+     * stored order, each with the file it points at — what the card shows as
+     * "now" and what `replace` deletes.
+     *
+     * Default language only, because that is what the tool writes and what it
+     * requires exactly one of. A translated copy core minted for a
+     * parent-following translation belongs to that translation; where one sits
+     * on the default-language page — the state a dropped page side leaves — it
+     * is deleted with its parent (`deleteL10nOverlayRecords`), not named on the
+     * card as a second image.
      *
      * @return list<array{uid:int, file:int, name:string}>
      */
@@ -603,6 +629,7 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
                 $queryBuilder->expr()->eq('uid_foreign', $queryBuilder->createNamedParameter($pageUid, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('tablenames', $queryBuilder->createNamedParameter(self::PAGES_TABLE)),
                 $queryBuilder->expr()->eq('fieldname', $queryBuilder->createNamedParameter($field)),
+                $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(self::DEFAULT_LANGUAGE, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(self::LIVE_WORKSPACE, Connection::PARAM_INT)),
             )
