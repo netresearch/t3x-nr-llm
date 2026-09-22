@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 /*
  * A table with one column of every scalar type create_record_draft may set,
- * one relation it may not, a record type with two showitem lists, a palette,
- * a required column, an exclude column, an authMode select and a text column
- * with a `min` (ADR-197).
+ * one relation it may not, record types with their own showitem lists and one
+ * with `columnsOverrides`, a palette, a required column, an exclude column, an
+ * authMode select and a text column with a `min` (ADR-197).
  */
 return [
     'ctrl' => [
@@ -33,6 +33,16 @@ return [
     'types' => [
         'note'  => ['showitem' => 'title, teaser, kind, --palette--;;timing, --div--;More, featured, contact, tone, related'],
         'story' => ['showitem' => 'title, kind, --palette--;;timing, featured'],
+        // Per-type configuration the DataHandler validates against
+        // (`columnsOverrides`): `teaser` is required and `body` is rich text
+        // only for this type.
+        'event' => [
+            'showitem'        => 'title, kind, teaser, body, --palette--;;timing',
+            'columnsOverrides' => [
+                'teaser' => ['config' => ['required' => true]],
+                'body'   => ['config' => ['enableRichtext' => true]],
+            ],
+        ],
     ],
     'palettes' => [
         'timing' => ['showitem' => 'published_at, --linebreak--, priority'],
@@ -90,9 +100,14 @@ return [
                 'items'      => [
                     ['label' => 'Note', 'value' => 'note'],
                     ['label' => 'Story', 'value' => 'story'],
+                    ['label' => 'Event', 'value' => 'event'],
                 ],
                 'default' => 'note',
             ],
+        ],
+        'body' => [
+            'label'  => 'Body',
+            'config' => ['type' => 'text', 'rows' => 5],
         ],
         'published_at' => [
             'label'  => 'Published at',

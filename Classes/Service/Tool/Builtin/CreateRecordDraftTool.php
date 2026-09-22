@@ -244,7 +244,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
 
         $missed = $stored === null
             ? array_keys($plan['values'])
-            : $this->fieldsThatDidNotTake($plan['table'], $plan['values'], $stored);
+            : $this->fieldsThatDidNotTake($plan['table'], $plan['recordType'], $plan['values'], $stored);
         if ($missed !== []) {
             $wrong[] = 'these fields did not take: ' . implode(', ', $missed);
         }
@@ -359,7 +359,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{table:non-empty-string, tableLabel:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, hiddenField:string, languageField:string|null}|string
+     * @return array{table:non-empty-string, tableLabel:string, recordType:string, pid:int, pageTitle:string, values:array<string, int|float|string>, display:array<string, string>, labels:array<string, string>, hiddenField:string, languageField:string|null}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -403,7 +403,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return $collected;
         }
 
-        $missing = $this->missingRequiredColumns($table, $type['shown'], $collected['values']);
+        $missing = $this->missingRequiredColumns($table, $type, $collected['values']);
         if ($missing !== []) {
             return sprintf(
                 'Refused: %s %s required for record type "%s" of %s and must be given; the tool does not invent values.',
@@ -447,6 +447,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         return [
             'table'         => $table,
             'tableLabel'    => $this->tableLabelOf($table),
+            'recordType'    => $type['name'],
             'pid'           => $pid,
             'pageTitle'     => self::toStr($page['title'] ?? ''),
             'values'        => $collected['values'],
@@ -697,8 +698,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     private function collectValues(string $table, array $type, array $fields): array|string
     {
-        $columns = $this->tcaColumnsFor($table) ?? [];
-        $denied  = $this->deniedColumnsOf($table);
+        $denied = $this->deniedColumnsOf($table);
 
         $values  = [];
         $display = [];
@@ -717,9 +717,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
                 );
             }
 
-            $definition = $columns[$column] ?? null;
-            $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
-            if (!is_array($definition) || !is_array($config)) {
+            $config = $this->columnConfig($table, $column, $type['name']);
+            if ($config === null) {
                 return sprintf('Refused: "%s" is not a column of %s.', $column, $table);
             }
 
@@ -1023,25 +1022,23 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * leaves empty — the DataHandler drops an empty required value in silence
      * ({@see UpdatePageMetadataTool}), so the refusal names it first.
      *
-     * @param list<string>                    $shown
-     * @param array<string, int|float|string> $values
+     * @param array{name:string, shown:list<string>} $type
+     * @param array<string, int|float|string>        $values
      *
      * @return list<string>
      */
-    private function missingRequiredColumns(string $table, array $shown, array $values): array
+    private function missingRequiredColumns(string $table, array $type, array $values): array
     {
-        $columns = $this->tcaColumnsFor($table) ?? [];
-        $denied  = $this->deniedColumnsOf($table);
+        $denied = $this->deniedColumnsOf($table);
 
         $missing = [];
-        foreach ($shown as $column) {
+        foreach ($type['shown'] as $column) {
             if ($this->isDeniedColumn($column, $denied)) {
                 continue;
             }
 
-            $definition = $columns[$column] ?? null;
-            $config     = is_array($definition) ? ($definition['config'] ?? null) : null;
-            if (!is_array($config) || !$this->flag($config['required'] ?? false)) {
+            $config = $this->columnConfig($table, $column, $type['name']);
+            if ($config === null || !$this->flag($config['required'] ?? false)) {
                 continue;
             }
 
@@ -1096,15 +1093,12 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      *
      * @return list<string>
      */
-    private function fieldsThatDidNotTake(string $table, array $values, array $stored): array
+    private function fieldsThatDidNotTake(string $table, string $recordType, array $values, array $stored): array
     {
-        $columns = $this->tcaColumnsFor($table) ?? [];
-
         $missed = [];
         foreach ($values as $column => $requested) {
-            $definition = $columns[$column] ?? null;
-            $config     = is_array($definition) && is_array($definition['config'] ?? null) ? $definition['config'] : [];
-            $kind       = self::toStr($config['type'] ?? '');
+            $config      = $this->columnConfig($table, $column, $recordType) ?? [];
+            $kind        = self::toStr($config['type'] ?? '');
             $storedValue = $stored[$column] ?? null;
 
             $took = match (true) {
@@ -1208,6 +1202,40 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $label = $this->resolveLabel(self::toStr($ctrl['title'] ?? ''));
 
         return $label !== '' ? $label : $table;
+    }
+
+    /**
+     * A column's TCA `config` for the given record type, or null where the
+     * table has no such column.
+     *
+     * The base configuration with the type's `columnsOverrides` merged over
+     * it, the way core builds the field of a record type's sub-schema
+     * ({@see \TYPO3\CMS\Core\Schema\TcaSchemaBuilder}, `array_replace_recursive`) —
+     * the configuration the DataHandler validates a value against
+     * (`DataHandler::resolveFieldConfigurationAndRespectColumnsOverrides()`).
+     * A `required`, a `max`, the items of a select or `enableRichtext` may
+     * exist only for one type.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function columnConfig(string $table, string $column, string $recordType): ?array
+    {
+        $definition = $this->tcaColumnsFor($table)[$column] ?? null;
+        if (!is_array($definition)) {
+            return null;
+        }
+
+        $types     = $this->tcaFor($table)['types'] ?? null;
+        $type      = is_array($types) ? ($types[$recordType] ?? null) : null;
+        $overrides = is_array($type) ? ($type['columnsOverrides'] ?? null) : null;
+        $override  = is_array($overrides) ? ($overrides[$column] ?? null) : null;
+        if (is_array($override)) {
+            $definition = array_replace_recursive($definition, $override);
+        }
+
+        $config = $definition['config'] ?? null;
+
+        return is_array($config) ? $config : null;
     }
 
     /**

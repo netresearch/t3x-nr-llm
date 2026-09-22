@@ -4,6 +4,7 @@
 CREATE TABLE tx_writerfixture_item (
 	title varchar(255) DEFAULT '' NOT NULL,
 	teaser text,
+	body text,
 	kind varchar(32) DEFAULT 'note' NOT NULL,
 	published_at int(11) unsigned DEFAULT '0' NOT NULL,
 	priority int(11) DEFAULT '0' NOT NULL,

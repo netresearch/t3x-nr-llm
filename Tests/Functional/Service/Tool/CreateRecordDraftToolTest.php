@@ -364,6 +364,49 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
         self::assertSame(2, (int)($this->createdRecord()['priority'] ?? 0));
     }
 
+    /**
+     * `teaser` is required only through the `event` type's columnsOverrides.
+     * The DataHandler validates against that per-type configuration and drops
+     * the empty value in silence, so the tool must refuse first.
+     */
+    #[Test]
+    public function aColumnRequiredOnlyByTheRecordTypeIsRefusedWhenMissing(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'kind' => 'event']),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('"teaser" is required for record type "event"', $result->content);
+        self::assertSame(0, $this->recordCount());
+    }
+
+    /**
+     * `body` is rich text only through the `event` type's columnsOverrides.
+     * The RTE transformation rewrites its markup on the way in, so a
+     * column-by-column read-back against the base configuration would call the
+     * correct record wrong and delete it.
+     */
+    #[Test]
+    public function aColumnThatIsRichTextOnlyByTheRecordTypeIsCreatedAndKept(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+
+        $result = $this->tool->execute(
+            $this->call(['title' => 'x', 'kind' => 'event', 'teaser' => 'An event teaser', 'body' => '<p>One</p><p>Two</p>']),
+            ToolExecutionContext::fromBackendUser($admin),
+        );
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame(1, $this->undeletedRecordCount());
+        $row = $this->createdRecord();
+        self::assertStringContainsString('One', (string)($row['body'] ?? ''));
+        self::assertStringContainsString('Two', (string)($row['body'] ?? ''));
+    }
+
     #[Test]
     public function anEditorWithoutTablesModifyIsRefused(): void
     {
