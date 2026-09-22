@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\EditorAction;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
@@ -239,7 +240,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     public function theContainerBuiltToolHonoursTheDenyList(): void
     {
         $admin = $this->setUpBackendUser(1);
-        self::setDeniedTables(self::TABLE);
+        $this->setDeniedTables(self::TABLE);
 
         $registry = $this->get(ToolRegistry::class);
         self::assertInstanceOf(ToolRegistry::class, $registry);
@@ -454,11 +455,11 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * @param list<\Netresearch\NrLlm\Service\Tool\ToolInterface> $writers
+     * @param list<ToolInterface> $writers
      */
     private function toolWith(string $deniedTables, array $writers = []): CreateRecordDraftTool
     {
-        self::setDeniedTables($deniedTables);
+        $this->setDeniedTables($deniedTables);
 
         return new CreateRecordDraftTool(
             $this->connectionPool,
@@ -473,7 +474,7 @@ final class CreateRecordDraftToolTest extends AbstractFunctionalTestCase
      * {@see ExtensionConfiguration::get()} reads it, narrowing the untyped
      * global step by step.
      */
-    private static function setDeniedTables(string $deniedTables): void
+    private function setDeniedTables(string $deniedTables): void
     {
         $confVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
         if (!is_array($confVars)) {

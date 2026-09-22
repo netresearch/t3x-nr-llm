@@ -359,8 +359,8 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     public function itRefusesATableAnotherRegisteredWriterDeclaresAndNamesIt(): void
     {
         $tool = $this->toolWith(deniedTables: '', writers: [
-            self::writerDeclaring('other_writer', ['tx_other']),
-            self::writerDeclaring('demo_item_writer', ['tx_other', self::TABLE]),
+            $this->writerDeclaring('other_writer', ['tx_other']),
+            $this->writerDeclaring('demo_item_writer', ['tx_other', self::TABLE]),
         ]);
 
         $result = $tool->execute($this->call(['title' => 'x']), $this->contextFor($this->liveUser()));
@@ -373,7 +373,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
     #[Test]
     public function aWriterDeclaringOtherTablesDoesNotStandInTheWay(): void
     {
-        $tool = $this->toolWith(deniedTables: '', writers: [self::writerDeclaring('other_writer', ['tx_other'])]);
+        $tool = $this->toolWith(deniedTables: '', writers: [$this->writerDeclaring('other_writer', ['tx_other'])]);
 
         $result = $tool->execute($this->call(['title' => 'x', 'kind' => 'novel']), $this->contextFor($this->liveUser()));
 
@@ -440,7 +440,7 @@ final class CreateRecordDraftToolTest extends AbstractUnitTestCase
      *
      * @param list<string> $tables
      */
-    private static function writerDeclaring(string $name, array $tables): FakeEditorActionTool
+    private function writerDeclaring(string $name, array $tables): FakeEditorActionTool
     {
         return new FakeEditorActionTool($name, 'editing', new EditorAction('LLL:fake.label', 'LLL:fake.description', 'fake-icon', $tables));
     }

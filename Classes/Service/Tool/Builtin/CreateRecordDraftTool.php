@@ -159,7 +159,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             . 'create_content_element_draft), system and sensitive tables, tables another writing tool owns, and '
             . 'tables the installation excludes. Only scalar columns the record type shows can be set — input, '
             . 'text, number, email, color, datetime, check, radio and select with static items; relations, files, '
-            . 'links, FlexForms and slugs cannot, and every required column must be given. Read the table\'s TCA '
+            . "links, FlexForms and slugs cannot, and every required column must be given. Read the table's TCA "
             . 'with get_tca first to learn its columns.',
             [
                 'type'       => 'object',
@@ -486,7 +486,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
         $denied = $this->deniedTables();
         if ($denied === null) {
             return sprintf(
-                'Refused: the installation\'s deny-list for this tool (%s) could not be read, so no table is written.',
+                "Refused: the installation's deny-list for this tool (%s) could not be read, so no table is written.",
                 self::CONFIGURATION_KEY,
             );
         }
@@ -816,7 +816,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
     private function checkNumber(string $column, array $config, mixed $value): array|string
     {
         if (self::toStr($config['format'] ?? 'integer') === 'decimal') {
-            if (!is_int($value) && !is_float($value) && !(is_string($value) && is_numeric($value))) {
+            if (!is_int($value) && !is_float($value) && (!is_string($value) || !is_numeric($value))) {
                 return sprintf('Refused: the value for "%s" must be a number.', $column);
             }
 
@@ -1236,7 +1236,7 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      */
     private function flag(mixed $value): bool
     {
-        return $value === true || $value === 1 || $value === '1';
+        return in_array($value, [true, 1, '1'], true);
     }
 
     /**
